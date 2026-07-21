@@ -1245,27 +1245,17 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
   gap: 26px;
 }
 
-/* Filas de la tabla de colaboradores: seleccionables
-   (neutraliza los estilos de la .persona-row de lista) */
-.tabla-meca tr.persona-row {
-  display: table-row;
-  cursor: pointer;
-  padding: 0;
-  border: 0; border-radius: 0;
-  background: transparent;
-  box-shadow: none;
-}
-.tabla-meca tr.persona-row:hover { transform: none; box-shadow: none; }
-.tabla-meca tr.persona-row.active td {
-  background: color-mix(in srgb, var(--av-c1, var(--c-secondary)) 8%, transparent);
-}
-.tabla-meca tr.persona-row.active td:first-child {
+/* Filas de la tabla de equipo: clic navega a la ficha */
+.tabla-equipo tr.fila-colab { cursor: pointer; }
+.tabla-equipo tr.fila-colab:hover td:first-child {
   box-shadow: inset 3.5px 0 0 var(--av-c1, var(--c-secondary));
 }
+.tabla-equipo thead th i { margin-right: 5px; color: var(--c-text-soft); }
 
 /* Chip copiable (git / correo) */
 .chip-copiar { display: inline-flex; align-items: center; gap: 7px; }
 .chip-copiar code {
+  display: inline-flex; align-items: center; gap: 7px;
   padding: 5px 11px;
   border-radius: 9px;
   background: var(--n-bg);
@@ -1275,8 +1265,72 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
   color: var(--c-text);
   white-space: nowrap;
 }
+.chip-copiar code i { color: var(--av-c1, var(--c-text-soft)); font-size: .82rem; }
 html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .btn-copiar { padding: 6px 9px; }
+.btn-copiar.mini { padding: 5px 8px; font-size: .72rem; }
+
+/* =========================================================
+   Ficha de colaborador (pantalla propia)
+   ========================================================= */
+.colab-hero {
+  --card-c: var(--av-c1);
+  padding: 20px 28px 26px;
+  margin-bottom: 24px;
+}
+.colab-hero:hover { transform: none; }
+.colab-back {
+  display: inline-flex; align-items: center; gap: 8px;
+  color: var(--c-text-soft); text-decoration: none;
+  font-size: .84rem; font-weight: 700;
+  transition: color .2s ease, transform .2s ease;
+}
+.colab-back:hover { color: var(--av-c1); transform: translateX(-2px); }
+.colab-hero-main {
+  display: flex; align-items: center; gap: 26px;
+  margin-top: 18px; flex-wrap: wrap;
+}
+.colab-id { flex: 1; min-width: 220px; }
+.colab-id h1 { margin: 0; font-size: 1.7rem; font-weight: 800; color: var(--c-text); }
+.colab-id .mc-rol { margin: 8px 0 0; }
+.colab-cuentas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+.cuenta-chip {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px 6px 4px 14px;
+  border-radius: 999px;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--av-c1) 25%, var(--n-bg));
+  box-shadow: var(--sh-mini);
+}
+.cuenta-chip a {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--c-text); text-decoration: none;
+  font-size: .82rem; font-weight: 700;
+}
+.cuenta-chip a i { color: var(--av-c1); }
+.cuenta-chip a:hover { color: var(--av-c1); }
+.cuenta-chip.cuenta-off {
+  padding: 7px 15px;
+  color: var(--c-text-soft); font-size: .82rem; font-weight: 600;
+  border-style: dashed;
+}
+.cuenta-chip.cuenta-off i { margin-right: 6px; }
+.colab-acciones { display: flex; align-items: center; gap: 10px; }
+.colab-acciones form { margin: 0; }
+
+/* Chip de proyecto en la tabla de tareas de la ficha */
+.chip-proyecto {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 12%, var(--n-bg));
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 25%, var(--n-bg));
+  color: color-mix(in srgb, var(--pc, var(--c-secondary)) 75%, var(--c-text));
+  font-size: .8rem; font-weight: 700;
+  text-decoration: none;
+  transition: transform .2s ease;
+}
+.chip-proyecto:hover { transform: translateY(-1px); }
 
 /* Lista compacta */
 .equipo-lista {

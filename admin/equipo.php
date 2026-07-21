@@ -50,7 +50,6 @@ UI::cabecera(
 <?php if (empty($equipo)): ?>
   <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', 'Agrega al primer colaborador con el botón de arriba.') ?>
 <?php else: ?>
-<section class="equipo-master-detail" data-equipo="<?= e($eq) ?>">
 
   <!-- Tabla de colaboradores: vision general con git/correo copiables -->
   <div class="card-base tabla-card">
@@ -58,26 +57,27 @@ UI::cabecera(
       <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
         <span class="tabla-count"><?= count($equipo) ?></span>
       </h2>
-      <span class="ajuste-ayuda">Clic en una fila para ver su detalle abajo · <i class="fa-regular fa-copy"></i> copia el usuario o correo.</span>
+      <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo · <i class="fa-solid fa-eye"></i> abre su ficha.</span>
     </div>
     <div class="tabla-scroll">
-      <table class="tabla-meca">
+      <table class="tabla-meca tabla-equipo">
         <thead>
           <tr>
             <th>Colaborador</th>
-            <th>Usuario de Git</th>
-            <th>Correo</th>
+            <th><i class="fa-brands fa-github"></i> Usuario de Git</th>
+            <th><i class="fa-solid fa-envelope"></i> Correo</th>
             <th>Abiertas</th>
             <th></th>
           </tr>
         </thead>
         <tbody>
-          <?php foreach ($equipo as $idx => $m):
+          <?php foreach ($equipo as $m):
               $c1 = Catalogo::colorDe($m['color'] ?? 0);
               $mid = (int)$m['id'];
               $pendientes = $abiertas[$mid] ?? 0;
+              $ficha = 'colaborador.php?id=' . $mid;
           ?>
-          <tr class="persona-row <?= $idx === 0 ? 'active' : '' ?>" data-persona="<?= $mid ?>" style="--av-c1:<?= $c1 ?>">
+          <tr class="fila-colab" style="--av-c1:<?= $c1 ?>" onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'">
             <td>
               <div class="celda-persona">
                 <?= UI::avatar($m, 38) ?>
@@ -90,7 +90,7 @@ UI::cabecera(
             <td>
               <?php if (!empty($m['git_user'])): ?>
               <span class="chip-copiar">
-                <code>@<?= e($m['git_user']) ?></code>
+                <code><i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git">
                   <i class="fa-regular fa-copy"></i>
                 </button>
@@ -100,7 +100,7 @@ UI::cabecera(
             <td>
               <?php if (!empty($m['email'])): ?>
               <span class="chip-copiar">
-                <code><?= e($m['email']) ?></code>
+                <code><i class="fa-solid fa-envelope"></i> <?= e($m['email']) ?></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['email']) ?>" title="Copiar correo">
                   <i class="fa-regular fa-copy"></i>
                 </button>
@@ -109,7 +109,7 @@ UI::cabecera(
             </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
             <td class="celda-acciones">
-              <button type="button" class="accion-btn" title="Ver detalle"><i class="fa-solid fa-eye"></i></button>
+              <a class="accion-btn" href="<?= $ficha ?>" title="Ver ficha"><i class="fa-solid fa-eye"></i></a>
             </td>
           </tr>
           <?php endforeach; ?>
@@ -117,165 +117,9 @@ UI::cabecera(
       </table>
     </div>
   </div>
-
-  <!-- Detalle: la card del colaborador seleccionado -->
-  <div class="equipo-detalle">
-    <?php foreach ($equipo as $idx => $m):
-        $c1 = Catalogo::colorDe($m['color'] ?? 0);
-        $mid        = (int)$m['id'];
-        $pendientes = $abiertas[$mid] ?? 0;
-        $totales    = $asignadas[$mid] ?? 0;
-        $misTareas  = $tareasDe[$mid] ?? [];
-    ?>
-    <article class="persona-card card-base" data-persona-card="<?= $mid ?>"
-             style="--av-c1:<?= $c1 ?>" <?= $idx === 0 ? '' : 'hidden' ?>>
-      <div class="pc-head">
-        <div class="mc-avatar-zone">
-          <span class="mc-ring-anim"></span>
-          <div class="mc-avatar-ring"><?= UI::avatar($m, 92) ?></div>
-        </div>
-        <div class="pc-id">
-          <h2 class="font-display"><?= e($m['nombre']) ?></h2>
-          <p class="mc-rol"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($m['rol']) ?></p>
-          <span class="pc-chips">
-            <a class="mc-git" href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener">
-              <i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?: 'sin-usuario' ?>
-            </a>
-            <?php if (!empty($m['email'])): ?>
-            <a class="mc-git" href="mailto:<?= e($m['email']) ?>" title="Enviar correo">
-              <i class="fa-solid fa-envelope"></i> <?= e($m['email']) ?>
-            </a>
-            <?php else: ?>
-            <span class="mc-git mc-git-off" title="Sin correo: no recibirá notificaciones">
-              <i class="fa-solid fa-envelope-circle-check"></i> sin correo
-            </span>
-            <?php endif; ?>
-          </span>
-        </div>
-        <div class="pc-stats">
-          <span class="mc-stat">
-            <b class="font-display"><?= $pendientes ?></b>
-            <small>abierta<?= $pendientes === 1 ? '' : 's' ?></small>
-          </span>
-          <span class="mc-stat">
-            <b class="font-display"><?= $totales ?></b>
-            <small>asignada<?= $totales === 1 ? '' : 's' ?></small>
-          </span>
-        </div>
-      </div>
-
-      <div class="pc-tareas">
-        <h3><i class="fa-solid fa-list-check"></i> Tareas abiertas</h3>
-        <?php if (empty($misTareas)): ?>
-          <p class="pc-sin-tareas"><i class="fa-solid fa-mug-hot"></i> Sin tareas abiertas. ¡Todo al día!</p>
-        <?php else: ?>
-        <ul>
-          <?php foreach (array_slice($misTareas, 0, 4) as $t): ?>
-          <li>
-            <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
-            <a href="proyecto.php?id=<?= (int)$t['proyecto_id'] ?>" class="pc-tarea-titulo"><?= e($t['titulo']) ?></a>
-            <?= UI::badgeEstadoTarea($t['estado'] ?? '') ?>
-            <small class="pc-tarea-proyecto"><i class="fa-regular fa-folder"></i> <?= e($nombresProyecto[(int)$t['proyecto_id']] ?? '—') ?></small>
-          </li>
-          <?php endforeach; ?>
-        </ul>
-        <?php if (count($misTareas) > 4): ?>
-          <small class="pc-mas-tareas">+ <?= count($misTareas) - 4 ?> más en sus proyectos</small>
-        <?php endif; ?>
-        <?php endif; ?>
-      </div>
-
-      <footer class="pc-acciones">
-        <button class="accion-btn" title="Editar"
-          data-editar-miembro='<?= e(json_encode([
-              'id' => $mid,
-              'nombre' => $m['nombre'],
-              'rol' => $m['rol'],
-              'git_user' => $m['git_user'],
-              'email' => $m['email'] ?? '',
-              'color' => $m['color'] ?? 0,
-              'foto' => $m['foto'] ?? '',
-              'equipo' => MiembroRepo::equipoDe($m),
-          ], JSON_UNESCAPED_UNICODE)) ?>'>
-          <i class="fa-solid fa-pen"></i> Editar
-        </button>
-        <form method="post" action="actions.php" class="inline-form"
-              data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
-              data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
-          <input type="hidden" name="accion" value="miembro_eliminar">
-          <input type="hidden" name="id" value="<?= $mid ?>">
-          <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-user-minus"></i> Retirar</button>
-        </form>
-      </footer>
-    </article>
-    <?php endforeach; ?>
-  </div>
-</section>
 <?php endif; ?>
 
-<?php
-/**
- * Campos compartidos del formulario de persona (crear/editar) con
- * vista previa en vivo estilo card: avatar clickeable para la foto,
- * nombre, rol y chip de GitHub que se actualizan al escribir.
- */
-function camposPersona(bool $esEdicion, string $eqActual, array $equipos): void
-{
-    $opcionesEquipo = array_map(fn($v) => $v[0], $equipos);
-    ?>
-    <div class="persona-preview">
-      <label class="pp-avatar" title="<?= $esEdicion ? 'Cambiar foto' : 'Subir foto' ?>">
-        <input type="file" name="foto" class="pp-file" accept="image/png,image/jpeg,image/webp,image/gif">
-        <span class="avatar pp-avatar-circle" style="--sz:104px;--av-c1:<?= Catalogo::COLORES[0] ?>">
-          <img class="pp-img" alt="" hidden>
-          <span class="pp-iniciales">?</span>
-        </span>
-        <span class="pp-cam"><i class="fa-solid fa-camera"></i></span>
-      </label>
-      <div class="pp-info">
-        <b class="pp-nombre font-display"><?= $esEdicion ? '—' : 'Nuevo colaborador' ?></b>
-        <span class="pp-rol"><i class="fa-solid fa-code"></i> <span class="pp-rol-texto">Rol del equipo</span></span>
-        <span class="pp-git"><i class="fa-brands fa-github"></i> @<span class="pp-git-user">usuario</span></span>
-        <small class="campo-ayuda pp-ayuda"><i class="fa-solid fa-camera"></i> Toca el avatar para <?= $esEdicion ? 'cambiar la foto' : 'subir una foto' ?></small>
-      </div>
-    </div>
-
-    <div class="campo-doble">
-      <label class="campo"><span>Nombre *</span>
-        <input class="input-meca" name="nombre" required maxlength="60" placeholder="Nombre y apellido">
-      </label>
-      <label class="campo"><span>Rol</span>
-        <input class="input-meca" name="rol" maxlength="40" list="lista-roles" placeholder="Frontend Dev, Backend Dev...">
-      </label>
-    </div>
-    <div class="campo-doble">
-      <label class="campo">
-        <span>Usuario de Git</span>
-        <div class="input-prefijo">
-          <i class="fa-brands fa-github"></i>
-          <input class="input-meca" name="git_user" maxlength="40" placeholder="usuario-github">
-        </div>
-      </label>
-      <label class="campo">
-        <span>Equipo</span>
-        <?= UI::select('equipo', $opcionesEquipo, $eqActual) ?>
-      </label>
-    </div>
-    <label class="campo">
-      <span>Correo (para notificarle sus tareas)</span>
-      <div class="input-prefijo">
-        <i class="fa-solid fa-envelope"></i>
-        <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@mecapacito.com">
-      </div>
-    </label>
-    <div class="campo">
-      <span>Color del avatar</span>
-      <?= UI::colorPicker($esEdicion ? null : 0) ?>
-      <small class="campo-ayuda">El círculo punteado <i class="fa-solid fa-palette"></i> permite elegir cualquier color.</small>
-    </div>
-    <?php
-}
-?>
+<?php require_once __DIR__ . '/lib/campos_persona.php'; ?>
 
 <!-- Modal: nuevo colaborador -->
 <dialog id="dlg-nuevo-miembro" class="dlg-meca dlg-persona">
