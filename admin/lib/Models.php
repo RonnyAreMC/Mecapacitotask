@@ -177,6 +177,15 @@ final class Config
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],
+            'correo' => [
+                'activo'    => false,
+                'host'      => 'smtp.gmail.com',
+                'puerto'    => 587,
+                'usuario'   => '',
+                'clave'     => '',
+                'remitente' => 'Panel Mecapacito',
+                'url_panel' => '',
+            ],
         ];
     }
 
@@ -337,6 +346,7 @@ class MiembroRepo
             'nombre'   => trim($datos['nombre'] ?? ''),
             'rol'      => trim($datos['rol'] ?? 'Developer'),
             'git_user' => ltrim(trim($datos['git_user'] ?? ''), '@'),
+            'email'    => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'foto'     => $datos['foto'] ?? '',
             'color'    => Catalogo::colorEntrada($datos),
             'equipo'   => self::equipoValido($datos['equipo'] ?? ''),

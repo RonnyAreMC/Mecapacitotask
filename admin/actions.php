@@ -24,6 +24,30 @@ $proyectos = new ProyectoRepo();
 $miembros  = new MiembroRepo();
 $tareas    = new TareaRepo();
 
+/**
+ * Si la tarea quedo asignada a alguien nuevo, le envia el correo.
+ * Devuelve [sufijo para el mensaje flash, tipo de toast].
+ */
+function notificarSiAsignada(array $tarea, int $asignadoNuevo, int $asignadoAntes, ProyectoRepo $proyectos, MiembroRepo $miembros): array
+{
+    if ($asignadoNuevo === 0 || $asignadoNuevo === $asignadoAntes) {
+        return ['', 'success'];
+    }
+    $m = $miembros->buscar($asignadoNuevo);
+    $p = $proyectos->buscar((int)($tarea['proyecto_id'] ?? 0));
+    if (!$m || !$p) {
+        return ['', 'success'];
+    }
+    $resultado = Mailer::notificarAsignacion($tarea, $m, $p);
+    if ($resultado === true) {
+        return [' 📧 ' . $m['nombre'] . ' fue notificado por correo.', 'success'];
+    }
+    if (is_string($resultado)) {
+        return [' Pero el correo a ' . $m['nombre'] . ' falló: ' . $resultado, 'error'];
+    }
+    return ['', 'success']; // sin correo registrado o notificaciones apagadas
+}
+
 switch ($accion) {
 
     /* ---------- Proyectos ---------- */
@@ -68,8 +92,9 @@ switch ($accion) {
         if (trim($_POST['titulo'] ?? '') === '') {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
         }
-        $tareas->crear($_POST);
-        redirigir('proyecto.php?id=' . $pid, 'Tarea creada.');
+        $t = $tareas->crear($_POST);
+        [$msg, $tipo] = notificarSiAsignada($t, (int)$t['asignado_id'], 0, $proyectos, $miembros);
+        redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
     case 'tarea_estado':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
@@ -84,6 +109,7 @@ switch ($accion) {
         if (!$t) {
             redirigir('index.php', 'Tarea no encontrada.', 'error');
         }
+        $asignadoAntes = (int)($t['asignado_id'] ?? 0);
         $tareas->actualizar((int)$t['id'], [
             'titulo'       => trim($_POST['titulo'] ?? ''),
             'descripcion'  => trim($_POST['descripcion'] ?? ''),
@@ -92,7 +118,9 @@ switch ($accion) {
             'asignado_id'  => (int)($_POST['asignado_id'] ?? 0),
             'fecha_limite' => $_POST['fecha_limite'] ?? '',
         ]);
-        redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.');
+        $tActual = $tareas->buscar((int)$t['id']);
+        [$msg, $tipo] = notificarSiAsignada($tActual, (int)$tActual['asignado_id'], $asignadoAntes, $proyectos, $miembros);
+        redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tarea_eliminar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
@@ -123,6 +151,7 @@ switch ($accion) {
             'nombre'   => trim($_POST['nombre'] ?? ''),
             'rol'      => trim($_POST['rol'] ?? ''),
             'git_user' => ltrim(trim($_POST['git_user'] ?? ''), '@'),
+            'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
         ];
@@ -189,6 +218,17 @@ switch ($accion) {
         $lineas = fn(string $texto) => array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $texto))));
         $iconos = array_values(array_filter($lineas($_POST['iconos'] ?? ''), fn($i) => preg_match('/^fa-[a-z0-9-]+$/', $i)));
 
+        $correoPost = (array)($_POST['correo'] ?? []);
+        $correo = [
+            'activo'    => !empty($correoPost['activo']),
+            'host'      => trim($correoPost['host'] ?? '') ?: $def['correo']['host'],
+            'puerto'    => (int)($correoPost['puerto'] ?? 0) ?: $def['correo']['puerto'],
+            'usuario'   => trim($correoPost['usuario'] ?? ''),
+            'clave'     => trim($correoPost['clave'] ?? ''),
+            'remitente' => trim($correoPost['remitente'] ?? '') ?: $def['correo']['remitente'],
+            'url_panel' => trim($correoPost['url_panel'] ?? ''),
+        ];
+
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
@@ -200,6 +240,7 @@ switch ($accion) {
             'equipos'          => $equiposCat,
             'iconos'           => $iconos ?: $def['iconos'],
             'roles'            => $lineas($_POST['roles'] ?? '') ?: $def['roles'],
+            'correo'           => $correo,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -232,6 +273,21 @@ switch ($accion) {
     case 'config_reset':
         Config::restaurar();
         redirigir('ajustes.php', 'Ajustes restaurados a los valores por defecto.');
+
+    case 'correo_prueba':
+        $para = filter_var(trim($_POST['para'] ?? ''), FILTER_VALIDATE_EMAIL);
+        if (!$para) {
+            redirigir('ajustes.php', 'Escribe un correo de destino válido para la prueba.', 'error');
+        }
+        if (!Mailer::listo()) {
+            redirigir('ajustes.php', 'Primero guarda la configuración de correo (activo, usuario y contraseña).', 'error');
+        }
+        $r = Mailer::enviar($para, '✅ Prueba de correo — Panel Mecapacito',
+            '<p style="font-family:Arial;font-size:15px;">¡Funciona! 🎉 El panel Mecapacito ya puede enviar notificaciones por correo.</p>');
+        if ($r === true) {
+            redirigir('ajustes.php', 'Correo de prueba enviado a ' . $para . '. ¡Revisa la bandeja!');
+        }
+        redirigir('ajustes.php', 'El envío falló: ' . $r, 'error');
 
     default:
         redirigir('index.php', 'Acción no reconocida.', 'error');

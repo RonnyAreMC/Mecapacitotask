@@ -95,9 +95,20 @@ UI::cabecera(
         <div class="pc-id">
           <h2 class="font-display"><?= e($m['nombre']) ?></h2>
           <p class="mc-rol"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($m['rol']) ?></p>
-          <a class="mc-git" href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener">
-            <i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?: 'sin-usuario' ?>
-          </a>
+          <span class="pc-chips">
+            <a class="mc-git" href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener">
+              <i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?: 'sin-usuario' ?>
+            </a>
+            <?php if (!empty($m['email'])): ?>
+            <a class="mc-git" href="mailto:<?= e($m['email']) ?>" title="Enviar correo">
+              <i class="fa-solid fa-envelope"></i> <?= e($m['email']) ?>
+            </a>
+            <?php else: ?>
+            <span class="mc-git mc-git-off" title="Sin correo: no recibirá notificaciones">
+              <i class="fa-solid fa-envelope-circle-check"></i> sin correo
+            </span>
+            <?php endif; ?>
+          </span>
         </div>
         <div class="pc-stats">
           <span class="mc-stat">
@@ -139,6 +150,7 @@ UI::cabecera(
               'nombre' => $m['nombre'],
               'rol' => $m['rol'],
               'git_user' => $m['git_user'],
+              'email' => $m['email'] ?? '',
               'color' => $m['color'] ?? 0,
               'foto' => $m['foto'] ?? '',
               'equipo' => MiembroRepo::equipoDe($m),
@@ -206,6 +218,13 @@ function camposPersona(bool $esEdicion, string $eqActual, array $equipos): void
         <?= UI::select('equipo', $opcionesEquipo, $eqActual) ?>
       </label>
     </div>
+    <label class="campo">
+      <span>Correo (para notificarle sus tareas)</span>
+      <div class="input-prefijo">
+        <i class="fa-solid fa-envelope"></i>
+        <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@mecapacito.com">
+      </div>
+    </label>
     <div class="campo">
       <span>Color del avatar</span>
       <?= UI::colorPicker($esEdicion ? null : 0) ?>

@@ -8,6 +8,7 @@ session_start();
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
 require_once __DIR__ . '/UI.php';
+require_once __DIR__ . '/Mailer.php';
 
 /* ---------- Helpers ---------- */
 

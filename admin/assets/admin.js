@@ -129,6 +129,7 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="nombre"]').value = m.nombre;
     form.querySelector('[name="rol"]').value = m.rol;
     form.querySelector('[name="git_user"]').value = m.git_user;
+    form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) selEquipo.value = m.equipo;
     form.querySelector('.pp-file').value = '';

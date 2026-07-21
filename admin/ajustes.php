@@ -154,10 +154,63 @@ UI::cabecera(
     <textarea class="input-meca" name="roles" rows="6"><?= e(implode("\n", $cfg['roles'])) ?></textarea>
   </section>
 
+  <!-- Notificaciones por correo -->
+  <?php $co = $cfg['correo']; ?>
+  <section class="card-base ajuste-card">
+    <h2 class="font-display"><i class="fa-solid fa-envelope text-secondary"></i> Notificaciones por correo</h2>
+    <p class="ajuste-ayuda">
+      Cuando se asigne una tarea a alguien con correo registrado, le llegará un aviso automático.
+      Con Gmail usa una <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a>
+      (requiere verificación en 2 pasos), no la contraseña normal.
+    </p>
+
+    <label class="chk-linea">
+      <input type="checkbox" name="correo[activo]" <?= !empty($co['activo']) ? 'checked' : '' ?>>
+      <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+      Activar envío de correos
+    </label>
+
+    <div class="campo-doble">
+      <label class="campo"><span>Servidor SMTP</span>
+        <input class="input-meca" name="correo[host]" value="<?= e($co['host']) ?>" placeholder="smtp.gmail.com">
+      </label>
+      <label class="campo"><span>Puerto (587 o 465)</span>
+        <input class="input-meca" type="number" name="correo[puerto]" value="<?= (int)$co['puerto'] ?>">
+      </label>
+    </div>
+    <label class="campo"><span>Correo remitente (usuario SMTP)</span>
+      <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
+    </label>
+    <div class="campo-doble">
+      <label class="campo"><span>Contraseña de aplicación</span>
+        <input class="input-meca" type="password" name="correo[clave]" value="<?= e($co['clave']) ?>" placeholder="xxxx xxxx xxxx xxxx">
+      </label>
+      <label class="campo"><span>Nombre del remitente</span>
+        <input class="input-meca" name="correo[remitente]" value="<?= e($co['remitente']) ?>">
+      </label>
+    </div>
+    <label class="campo"><span>URL del panel (para el botón "Ver tablero" del correo)</span>
+      <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mecapacito.com/admin">
+    </label>
+
+    <div class="correo-prueba">
+      <input class="input-meca" type="email" name="para" form="frm-correo-prueba" placeholder="tucorreo@gmail.com" required>
+      <button class="btn-outline btn-meca btn-sm" form="frm-correo-prueba">
+        <i class="fa-solid fa-paper-plane"></i> Probar envío
+      </button>
+    </div>
+    <small class="campo-ayuda">Guarda los ajustes primero y luego usa "Probar envío".</small>
+  </section>
+
   <footer class="ajustes-guardar">
     <span class="ajuste-ayuda">Si quitas un estado o prioridad en uso, las tareas afectadas pasan automáticamente al primero de la lista.</span>
     <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
   </footer>
+</form>
+
+<!-- Form auxiliar para el correo de prueba (asociado via atributo form) -->
+<form id="frm-correo-prueba" method="post" action="actions.php">
+  <input type="hidden" name="accion" value="correo_prueba">
 </form>
 
 <!-- Plantillas para filas nuevas -->

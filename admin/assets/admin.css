@@ -1282,6 +1282,37 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
   color: var(--c-verde-esmeralda);
 }
 .btn-agregar-fila { align-self: flex-start; }
+
+/* Checkbox estilizado (activar correos) */
+.chk-linea {
+  display: inline-flex; align-items: center; gap: 11px;
+  font-size: .88rem; font-weight: 700; color: var(--c-text);
+  cursor: pointer;
+}
+.chk-linea input { display: none; }
+.chk-caja {
+  width: 30px; height: 30px;
+  border-radius: 10px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini);
+  display: inline-flex; align-items: center; justify-content: center;
+  color: transparent;
+  transition: color .2s ease;
+}
+.chk-linea input:checked + .chk-caja { color: var(--c-verde-esmeralda); }
+
+/* Fila de correo de prueba */
+.correo-prueba {
+  display: flex; gap: 10px; align-items: center;
+  padding-top: 6px;
+  border-top: 1px dashed var(--c-border);
+}
+.correo-prueba .input-meca { flex: 1; }
+
+/* Chips en la card de persona */
+.pc-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.pc-chips .mc-git { margin-top: 0; }
+.mc-git-off { opacity: .55; border-style: dashed !important; }
 .ajustes-guardar {
   grid-column: 1 / -1;
   display: flex; justify-content: space-between; align-items: center; gap: 16px; flex-wrap: wrap;
