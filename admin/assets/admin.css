@@ -1736,9 +1736,10 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
 /* =========================================================
    Ajustes (parametrizacion del panel)
    ========================================================= */
+/* Todas las cards de Ajustes: rectangulares, uniformes y a lo ancho */
 .ajustes-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(420px, 100%), 1fr));
+  grid-template-columns: 1fr;
   gap: 24px;
 }
 .ajuste-card {
@@ -1752,8 +1753,6 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
   padding-bottom: 13px;
   border-bottom: 1px dashed var(--c-border-soft);
 }
-/* Tabs con una sola card (Identidad, Roles): ancho contenido, no pantalla completa */
-.ajustes-grid > .ajuste-card:only-child:not(.ajuste-card-ancha) { max-width: 720px; }
 .ajuste-ayuda { margin: -4px 0 2px; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
 .ajuste-ayuda a { color: var(--c-secondary); }
 .ajuste-ayuda code {
@@ -2078,11 +2077,40 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 .mc-fila.editando .mc-fila-dato { color: var(--c-secondary); }
 .mc-fila-dato::placeholder { color: var(--c-text-soft); font-weight: 600; }
 
-/* Tablas de catalogo: cards mas anchas y comodas */
-.ajuste-card-tabla { max-width: 980px !important; }
-.tab-panel[data-panel="catalogos"] .ajustes-grid {
-  grid-template-columns: repeat(auto-fit, minmax(min(560px, 100%), 1fr));
+/* Tarjetas de colores de marca (identidad) */
+.tarjetas-color {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(260px, 100%), 1fr));
+  gap: 18px;
 }
+.tarjeta-color {
+  position: relative;
+  height: 130px;
+  border-radius: 20px;
+  background: var(--tc, var(--c-secondary));
+  box-shadow: var(--sh-soft), var(--clay-pop);
+  border: 3px solid var(--n-bg);
+  cursor: pointer;
+  display: flex; flex-direction: column; justify-content: flex-end;
+  padding: 16px 20px;
+  overflow: hidden;
+  transition: transform .25s ease, box-shadow .25s ease;
+  color: #fff;
+  text-shadow: 0 1px 6px rgba(0, 0, 0, .35);
+}
+.tarjeta-color:hover { transform: translateY(-3px) scale(1.01); }
+.tarjeta-color.claro { color: #22304a; text-shadow: 0 1px 4px rgba(255, 255, 255, .35); }
+.tarjeta-color input[type="color"] {
+  position: absolute; inset: 0;
+  opacity: 0; cursor: pointer;
+  width: 100%; height: 100%;
+}
+.tc-icono {
+  position: absolute; top: 14px; right: 16px;
+  font-size: 1.3rem; opacity: .85;
+}
+.tc-nombre { font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .9; }
+.tc-hex { font-size: 1.35rem; font-weight: 800; font-family: ui-monospace, Menlo, monospace; letter-spacing: .02em; }
 
 /* =========================================================
    Responsive

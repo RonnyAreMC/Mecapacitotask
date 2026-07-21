@@ -62,6 +62,25 @@ UI::cabecera(
   <div class="tab-panel" data-panel="identidad">
     <div class="ajustes-grid">
       <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-solid fa-palette text-secondary"></i> Colores de marca</h2>
+        <p class="ajuste-ayuda">Toca una tarjeta para elegir el color. Se aplican a botones, enlaces y acentos de todo el panel.</p>
+        <div class="tarjetas-color">
+          <label class="tarjeta-color" style="--tc:<?= e($cfg['color_secundario']) ?>">
+            <input type="color" name="color_secundario" value="<?= e($cfg['color_secundario']) ?>">
+            <i class="fa-solid fa-wand-magic-sparkles tc-icono"></i>
+            <span class="tc-nombre">Color principal</span>
+            <b class="tc-hex"><?= e(strtoupper($cfg['color_secundario'])) ?></b>
+          </label>
+          <label class="tarjeta-color" style="--tc:<?= e($cfg['color_acento']) ?>">
+            <input type="color" name="color_acento" value="<?= e($cfg['color_acento']) ?>">
+            <i class="fa-solid fa-star tc-icono"></i>
+            <span class="tc-nombre">Color de acento</span>
+            <b class="tc-hex"><?= e(strtoupper($cfg['color_acento'])) ?></b>
+          </label>
+        </div>
+      </section>
+
+      <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-id-badge text-secondary"></i> Identidad del panel</h2>
         <div class="campo-doble">
           <label class="campo">
@@ -73,16 +92,10 @@ UI::cabecera(
             <input class="input-meca" name="subtitulo" maxlength="30" value="<?= e($cfg['subtitulo']) ?>">
           </label>
         </div>
-        <div class="campo-doble">
-          <label class="campo">
-            <span>Color principal (botones, enlaces)</span>
-            <input class="input-meca input-color-linea" type="color" name="color_secundario" value="<?= e($cfg['color_secundario']) ?>">
-          </label>
-          <label class="campo">
-            <span>Color de acento</span>
-            <input class="input-meca input-color-linea" type="color" name="color_acento" value="<?= e($cfg['color_acento']) ?>">
-          </label>
-        </div>
+      </section>
+
+      <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Integración con GitHub</h2>
         <label class="campo">
           <span>Token de GitHub (opcional)</span>
           <input class="input-meca" type="password" name="github_token" value="<?= e($cfg['github_token'] ?? '') ?>" placeholder="ghp_...">

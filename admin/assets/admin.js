@@ -493,6 +493,21 @@ if (galeriaIconos) {
   }
 }
 
+// Tarjetas de colores de marca: vista previa en vivo y contraste del texto
+document.querySelectorAll('.tarjeta-color').forEach((card) => {
+  const inp = card.querySelector('input[type="color"]');
+  const hex = card.querySelector('.tc-hex');
+  const aplicar = () => {
+    const c = inp.value;
+    card.style.setProperty('--tc', c);
+    hex.textContent = c.toUpperCase();
+    const r = parseInt(c.slice(1, 3), 16), g = parseInt(c.slice(3, 5), 16), b = parseInt(c.slice(5, 7), 16);
+    card.classList.toggle('claro', (0.299 * r + 0.587 * g + 0.114 * b) / 255 > 0.62);
+  };
+  inp.addEventListener('input', aplicar);
+  aplicar();
+});
+
 // Ajustes: agregar y quitar filas de catalogos (estados, prioridades...)
 let filaContador = 1000;
 document.querySelectorAll('.btn-agregar-fila').forEach((btn) => {
