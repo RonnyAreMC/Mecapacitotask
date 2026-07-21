@@ -179,12 +179,16 @@ final class Config
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],
             'correo' => [
                 'activo'    => false,
+                'modo'      => 'smtp',
                 'host'      => 'smtp.gmail.com',
                 'puerto'    => 587,
                 'usuario'   => '',
                 'clave'     => '',
                 'remitente' => 'Panel Mecapacito',
                 'url_panel' => '',
+                'client_id'     => '',
+                'client_secret' => '',
+                'refresh_token' => '',
             ],
         ];
     }

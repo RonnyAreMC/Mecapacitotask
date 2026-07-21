@@ -171,6 +171,19 @@ UI::cabecera(
     </label>
 
     <div class="campo-doble">
+      <label class="campo"><span>Método de envío</span>
+        <?= UI::select('correo[modo]', ['smtp' => 'SMTP (contraseña de aplicación)', 'gmail_api' => 'API de Gmail (OAuth de Google Cloud)'], $co['modo'] ?? 'smtp') ?>
+      </label>
+      <label class="campo"><span>Nombre del remitente</span>
+        <input class="input-meca" name="correo[remitente]" value="<?= e($co['remitente']) ?>">
+      </label>
+    </div>
+    <label class="campo"><span>Correo remitente (cuenta que envía)</span>
+      <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
+    </label>
+
+    <p class="ajuste-ayuda" style="margin-top:4px"><b>Solo para SMTP:</b></p>
+    <div class="campo-doble">
       <label class="campo"><span>Servidor SMTP</span>
         <input class="input-meca" name="correo[host]" value="<?= e($co['host']) ?>" placeholder="smtp.gmail.com">
       </label>
@@ -178,15 +191,20 @@ UI::cabecera(
         <input class="input-meca" type="number" name="correo[puerto]" value="<?= (int)$co['puerto'] ?>">
       </label>
     </div>
-    <label class="campo"><span>Correo remitente (usuario SMTP)</span>
-      <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
+    <label class="campo"><span>Contraseña de aplicación</span>
+      <input class="input-meca" type="password" name="correo[clave]" value="<?= e($co['clave']) ?>" placeholder="xxxx xxxx xxxx xxxx">
+    </label>
+
+    <p class="ajuste-ayuda" style="margin-top:4px"><b>Solo para API de Gmail</b> (proyecto de Google Cloud con scope <code>gmail.send</code>):</p>
+    <label class="campo"><span>Client ID</span>
+      <input class="input-meca" name="correo[client_id]" value="<?= e($co['client_id'] ?? '') ?>" placeholder="xxxx.apps.googleusercontent.com">
     </label>
     <div class="campo-doble">
-      <label class="campo"><span>Contraseña de aplicación</span>
-        <input class="input-meca" type="password" name="correo[clave]" value="<?= e($co['clave']) ?>" placeholder="xxxx xxxx xxxx xxxx">
+      <label class="campo"><span>Client Secret</span>
+        <input class="input-meca" type="password" name="correo[client_secret]" value="<?= e($co['client_secret'] ?? '') ?>">
       </label>
-      <label class="campo"><span>Nombre del remitente</span>
-        <input class="input-meca" name="correo[remitente]" value="<?= e($co['remitente']) ?>">
+      <label class="campo"><span>Refresh Token</span>
+        <input class="input-meca" type="password" name="correo[refresh_token]" value="<?= e($co['refresh_token'] ?? '') ?>">
       </label>
     </div>
     <label class="campo"><span>URL del panel (para el botón "Ver tablero" del correo)</span>

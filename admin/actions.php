@@ -221,12 +221,16 @@ switch ($accion) {
         $correoPost = (array)($_POST['correo'] ?? []);
         $correo = [
             'activo'    => !empty($correoPost['activo']),
+            'modo'      => in_array($correoPost['modo'] ?? '', ['smtp', 'gmail_api'], true) ? $correoPost['modo'] : 'smtp',
             'host'      => trim($correoPost['host'] ?? '') ?: $def['correo']['host'],
             'puerto'    => (int)($correoPost['puerto'] ?? 0) ?: $def['correo']['puerto'],
             'usuario'   => trim($correoPost['usuario'] ?? ''),
             'clave'     => trim($correoPost['clave'] ?? ''),
             'remitente' => trim($correoPost['remitente'] ?? '') ?: $def['correo']['remitente'],
             'url_panel' => trim($correoPost['url_panel'] ?? ''),
+            'client_id'     => trim($correoPost['client_id'] ?? ''),
+            'client_secret' => trim($correoPost['client_secret'] ?? ''),
+            'refresh_token' => trim($correoPost['refresh_token'] ?? ''),
         ];
 
         Config::guardar([

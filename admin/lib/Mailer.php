@@ -13,12 +13,17 @@ class Mailer
     {
         return array_merge([
             'activo'    => false,
+            'modo'      => 'smtp',            // 'smtp' | 'gmail_api'
             'host'      => 'smtp.gmail.com',
             'puerto'    => 587,
             'usuario'   => '',
             'clave'     => '',
             'remitente' => 'Panel Mecapacito',
             'url_panel' => '',
+            // Modo gmail_api (OAuth de un proyecto de Google Cloud)
+            'client_id'     => '',
+            'client_secret' => '',
+            'refresh_token' => '',
         ], (array)Config::get('correo'));
     }
 
@@ -26,7 +31,13 @@ class Mailer
     public static function listo(): bool
     {
         $c = self::conf();
-        return !empty($c['activo']) && $c['usuario'] !== '' && $c['clave'] !== '';
+        if (empty($c['activo']) || $c['usuario'] === '') {
+            return false;
+        }
+        if ($c['modo'] === 'gmail_api') {
+            return $c['client_id'] !== '' && $c['client_secret'] !== '' && $c['refresh_token'] !== '';
+        }
+        return $c['clave'] !== '';
     }
 
     /**
@@ -34,6 +45,87 @@ class Mailer
      * o un string con el motivo del fallo (para mostrarlo en un toast).
      */
     public static function enviar(string $para, string $asunto, string $html): true|string
+    {
+        if (self::conf()['modo'] === 'gmail_api') {
+            return self::enviarGmailApi($para, $asunto, $html);
+        }
+        return self::enviarSmtp($para, $asunto, $html);
+    }
+
+    /* ---------- Modo Gmail API (OAuth de Google Cloud) ---------- */
+
+    /** POST JSON/form simple con streams; devuelve [codigoHttp, cuerpo]. */
+    private static function httpPost(string $url, array|string $datos, array $cabeceras = []): array
+    {
+        $esJson = is_string($datos);
+        $cabeceras[] = $esJson ? 'Content-Type: application/json' : 'Content-Type: application/x-www-form-urlencoded';
+        $ctx = stream_context_create(['http' => [
+            'method'        => 'POST',
+            'header'        => implode("\r\n", $cabeceras),
+            'content'       => $esJson ? $datos : http_build_query($datos),
+            'timeout'       => 20,
+            'ignore_errors' => true,   // queremos leer el cuerpo aunque sea 4xx
+        ]]);
+        $cuerpo = @file_get_contents($url, false, $ctx);
+        $codigo = 0;
+        foreach ($http_response_header ?? [] as $h) {
+            if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $codigo = (int)$m[1];
+        }
+        return [$codigo, (string)$cuerpo];
+    }
+
+    /** Cambia el refresh token por un access token vigente. */
+    private static function accessToken(array $c): string|array
+    {
+        [$codigo, $cuerpo] = self::httpPost('https://oauth2.googleapis.com/token', [
+            'client_id'     => $c['client_id'],
+            'client_secret' => $c['client_secret'],
+            'refresh_token' => $c['refresh_token'],
+            'grant_type'    => 'refresh_token',
+        ]);
+        $json = json_decode($cuerpo, true) ?: [];
+        if ($codigo !== 200 || empty($json['access_token'])) {
+            $motivo = $json['error_description'] ?? $json['error'] ?? ('HTTP ' . $codigo);
+            return ['error' => 'No se pudo renovar el token de Google: ' . $motivo];
+        }
+        return $json['access_token'];
+    }
+
+    private static function enviarGmailApi(string $para, string $asunto, string $html): true|string
+    {
+        $c = self::conf();
+        $token = self::accessToken($c);
+        if (is_array($token)) {
+            return $token['error'];
+        }
+
+        $mime = implode("\r\n", [
+            'From: =?UTF-8?B?' . base64_encode($c['remitente']) . '?= <' . $c['usuario'] . '>',
+            'To: <' . $para . '>',
+            'Subject: =?UTF-8?B?' . base64_encode($asunto) . '?=',
+            'MIME-Version: 1.0',
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: base64',
+            '',
+            rtrim(chunk_split(base64_encode($html), 76, "\r\n")),
+        ]);
+        $raw = rtrim(strtr(base64_encode($mime), '+/', '-_'), '=');
+
+        [$codigo, $cuerpo] = self::httpPost(
+            'https://gmail.googleapis.com/gmail/v1/users/me/messages/send',
+            json_encode(['raw' => $raw]),
+            ['Authorization: Bearer ' . $token]
+        );
+        if ($codigo === 200) {
+            return true;
+        }
+        $json = json_decode($cuerpo, true) ?: [];
+        return 'Gmail API rechazó el envío: ' . ($json['error']['message'] ?? ('HTTP ' . $codigo));
+    }
+
+    /* ---------- Modo SMTP clasico ---------- */
+
+    private static function enviarSmtp(string $para, string $asunto, string $html): true|string
     {
         $c = self::conf();
         $host = $c['host'];
