@@ -94,82 +94,101 @@ UI::cabecera(
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-list-check text-secondary"></i> Estados de tarea</h2>
         <p class="ajuste-ayuda">
-          Agrega los estados que necesites (ej. "Bloqueada", "En pruebas").
           La bandera <i class="fa-solid fa-flag-checkered"></i> marca los que cuentan como <b>completada</b> para el % de avance.
         </p>
-        <div class="ajuste-lista" id="lista-et">
-          <?php $i = 0; foreach ($cfg['estados_tarea'] as $k => $v): ?>
-          <div class="ajuste-fila fila-cat">
-            <input type="hidden" name="et[<?= $i ?>][key]" value="<?= e($k) ?>">
-            <input class="input-meca input-icono" name="et[<?= $i ?>][icono]" value="<?= e($v['icono'] ?? 'fa-circle-dot') ?>" title="Ícono (clase Font Awesome)">
-            <input class="input-meca" name="et[<?= $i ?>][label]" maxlength="24" value="<?= e($v['label']) ?>" placeholder="Nombre del estado">
-            <input type="color" name="et[<?= $i ?>][color]" value="<?= e($v['color']) ?>" title="Color">
-            <label class="chk-final" title="Cuenta como completada">
-              <input type="checkbox" name="et[<?= $i ?>][final]" <?= !empty($v['final']) ? 'checked' : '' ?>>
-              <i class="fa-solid fa-flag-checkered"></i>
-            </label>
-            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+        <div class="mc-tabla">
+          <div class="mc-tabla-head mc-head-azul">
+            <span><i class="fa-solid fa-list-check"></i> Estado</span>
+            <button type="button" class="mc-tabla-add btn-agregar-fila" data-lista="cuerpo-et" data-plantilla="tpl-et" data-insertar="inicio">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
           </div>
-          <?php $i++; endforeach; ?>
+          <div class="mc-tabla-cuerpo ajuste-lista" id="cuerpo-et">
+            <?php $i = 0; foreach ($cfg['estados_tarea'] as $k => $v): ?>
+            <div class="mc-fila mf-estado">
+              <input type="hidden" name="et[<?= $i ?>][key]" value="<?= e($k) ?>">
+              <input class="input-meca input-icono" name="et[<?= $i ?>][icono]" value="<?= e($v['icono'] ?? 'fa-circle-dot') ?>" title="Ícono (clase Font Awesome)">
+              <input class="mc-fila-dato" name="et[<?= $i ?>][label]" maxlength="24" value="<?= e($v['label']) ?>" placeholder="Nombre del estado">
+              <input type="color" name="et[<?= $i ?>][color]" value="<?= e($v['color']) ?>" title="Color">
+              <label class="chk-final" title="Cuenta como completada">
+                <input type="checkbox" name="et[<?= $i ?>][final]" <?= !empty($v['final']) ? 'checked' : '' ?>>
+                <i class="fa-solid fa-flag-checkered"></i>
+              </label>
+              <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <?php $i++; endforeach; ?>
+          </div>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-et" data-plantilla="tpl-et">
-          <i class="fa-solid fa-plus"></i> Agregar estado
-        </button>
       </section>
 
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-angles-up text-secondary"></i> Prioridades</h2>
         <p class="ajuste-ayuda">El orden aquí define el orden en la tabla (la última es la más urgente).</p>
-        <div class="ajuste-lista" id="lista-pr">
-          <?php $i = 0; foreach ($cfg['prioridades'] as $k => $v): ?>
-          <div class="ajuste-fila fila-cat fila-cat-4">
-            <input type="hidden" name="pr[<?= $i ?>][key]" value="<?= e($k) ?>">
-            <input class="input-meca input-icono" name="pr[<?= $i ?>][icono]" value="<?= e($v['icono'] ?? 'fa-equals') ?>" title="Ícono (clase Font Awesome)">
-            <input class="input-meca" name="pr[<?= $i ?>][label]" maxlength="24" value="<?= e($v['label']) ?>" placeholder="Nombre de la prioridad">
-            <input type="color" name="pr[<?= $i ?>][color]" value="<?= e($v['color']) ?>" title="Color">
-            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+        <div class="mc-tabla">
+          <div class="mc-tabla-head mc-head-naranja">
+            <span><i class="fa-solid fa-angles-up"></i> Prioridad</span>
+            <button type="button" class="mc-tabla-add btn-agregar-fila" data-lista="cuerpo-pr" data-plantilla="tpl-pr" data-insertar="inicio">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
           </div>
-          <?php $i++; endforeach; ?>
+          <div class="mc-tabla-cuerpo ajuste-lista" id="cuerpo-pr">
+            <?php $i = 0; foreach ($cfg['prioridades'] as $k => $v): ?>
+            <div class="mc-fila mf-prio">
+              <input type="hidden" name="pr[<?= $i ?>][key]" value="<?= e($k) ?>">
+              <input class="input-meca input-icono" name="pr[<?= $i ?>][icono]" value="<?= e($v['icono'] ?? 'fa-equals') ?>" title="Ícono (clase Font Awesome)">
+              <input class="mc-fila-dato" name="pr[<?= $i ?>][label]" maxlength="24" value="<?= e($v['label']) ?>" placeholder="Nombre de la prioridad">
+              <input type="color" name="pr[<?= $i ?>][color]" value="<?= e($v['color']) ?>" title="Color">
+              <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <?php $i++; endforeach; ?>
+          </div>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-pr" data-plantilla="tpl-pr">
-          <i class="fa-solid fa-plus"></i> Agregar prioridad
-        </button>
       </section>
 
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-folder-open text-secondary"></i> Estados de proyecto</h2>
         <p class="ajuste-ayuda">Ej. "En propuesta", "Mantenimiento".</p>
-        <div class="ajuste-lista" id="lista-ep">
-          <?php $i = 0; foreach (Catalogo::estadosProyecto() as $k => [$label, $icono]): ?>
-          <div class="ajuste-fila fila-cat fila-cat-3">
-            <input type="hidden" name="ep[<?= $i ?>][key]" value="<?= e($k) ?>">
-            <input class="input-meca input-icono" name="ep[<?= $i ?>][icono]" value="<?= e($icono) ?>" title="Ícono (clase Font Awesome)">
-            <input class="input-meca" name="ep[<?= $i ?>][label]" maxlength="24" value="<?= e($label) ?>" placeholder="Nombre del estado">
-            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+        <div class="mc-tabla">
+          <div class="mc-tabla-head mc-head-morado">
+            <span><i class="fa-solid fa-folder-open"></i> Estado</span>
+            <button type="button" class="mc-tabla-add btn-agregar-fila" data-lista="cuerpo-ep" data-plantilla="tpl-ep" data-insertar="inicio">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
           </div>
-          <?php $i++; endforeach; ?>
+          <div class="mc-tabla-cuerpo ajuste-lista" id="cuerpo-ep">
+            <?php $i = 0; foreach (Catalogo::estadosProyecto() as $k => [$label, $icono]): ?>
+            <div class="mc-fila mf-simple">
+              <input type="hidden" name="ep[<?= $i ?>][key]" value="<?= e($k) ?>">
+              <input class="input-meca input-icono" name="ep[<?= $i ?>][icono]" value="<?= e($icono) ?>" title="Ícono (clase Font Awesome)">
+              <input class="mc-fila-dato" name="ep[<?= $i ?>][label]" maxlength="24" value="<?= e($label) ?>" placeholder="Nombre del estado">
+              <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <?php $i++; endforeach; ?>
+          </div>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-ep" data-plantilla="tpl-ep">
-          <i class="fa-solid fa-plus"></i> Agregar estado
-        </button>
       </section>
 
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-people-group text-secondary"></i> Equipos</h2>
         <p class="ajuste-ayuda">Cada equipo tiene su página propia en el menú (ej. "Programadores", "Analistas", "Diseño").</p>
-        <div class="ajuste-lista" id="lista-eqs">
-          <?php $i = 0; foreach (Catalogo::equipos() as $k => [$label, $icono]): ?>
-          <div class="ajuste-fila fila-cat fila-cat-3">
-            <input type="hidden" name="eqs[<?= $i ?>][key]" value="<?= e($k) ?>">
-            <input class="input-meca input-icono" name="eqs[<?= $i ?>][icono]" value="<?= e($icono) ?>" title="Ícono (clase Font Awesome)">
-            <input class="input-meca" name="eqs[<?= $i ?>][label]" maxlength="24" value="<?= e($label) ?>" placeholder="Nombre del equipo">
-            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+        <div class="mc-tabla">
+          <div class="mc-tabla-head mc-head-verde">
+            <span><i class="fa-solid fa-people-group"></i> Equipo</span>
+            <button type="button" class="mc-tabla-add btn-agregar-fila" data-lista="cuerpo-eqs" data-plantilla="tpl-eqs" data-insertar="inicio">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
           </div>
-          <?php $i++; endforeach; ?>
+          <div class="mc-tabla-cuerpo ajuste-lista" id="cuerpo-eqs">
+            <?php $i = 0; foreach (Catalogo::equipos() as $k => [$label, $icono]): ?>
+            <div class="mc-fila mf-simple">
+              <input type="hidden" name="eqs[<?= $i ?>][key]" value="<?= e($k) ?>">
+              <input class="input-meca input-icono" name="eqs[<?= $i ?>][icono]" value="<?= e($icono) ?>" title="Ícono (clase Font Awesome)">
+              <input class="mc-fila-dato" name="eqs[<?= $i ?>][label]" maxlength="24" value="<?= e($label) ?>" placeholder="Nombre del equipo">
+              <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <?php $i++; endforeach; ?>
+          </div>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-eqs" data-plantilla="tpl-eqs">
-          <i class="fa-solid fa-plus"></i> Agregar equipo
-        </button>
       </section>
 
     </div>
@@ -212,7 +231,7 @@ UI::cabecera(
   <!-- ================= TAB: Roles ================= -->
   <div class="tab-panel" data-panel="roles" hidden>
     <div class="ajustes-grid">
-      <section class="card-base ajuste-card">
+      <section class="card-base ajuste-card ajuste-card-tabla">
         <h2 class="font-display"><i class="fa-solid fa-user-tag text-secondary"></i> Roles sugeridos</h2>
         <p class="ajuste-ayuda">Se sugieren al escribir el rol de un colaborador. Edita en línea y guarda con "Guardar ajustes".</p>
         <div class="mc-tabla">
@@ -318,33 +337,33 @@ UI::cabecera(
 
 <!-- Plantillas para filas nuevas -->
 <template id="tpl-et">
-  <div class="ajuste-fila fila-cat">
+  <div class="mc-fila mf-estado editando">
     <input type="hidden" name="et[__i__][key]" value="">
     <input class="input-meca input-icono" name="et[__i__][icono]" value="fa-circle-dot" title="Ícono (clase Font Awesome)">
-    <input class="input-meca" name="et[__i__][label]" maxlength="24" value="" placeholder="Nuevo estado">
+    <input class="mc-fila-dato" name="et[__i__][label]" maxlength="24" value="" placeholder="Nuevo estado...">
     <input type="color" name="et[__i__][color]" value="#2B76F7" title="Color">
     <label class="chk-final" title="Cuenta como completada">
       <input type="checkbox" name="et[__i__][final]">
       <i class="fa-solid fa-flag-checkered"></i>
     </label>
-    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
 <template id="tpl-pr">
-  <div class="ajuste-fila fila-cat fila-cat-4">
+  <div class="mc-fila mf-prio editando">
     <input type="hidden" name="pr[__i__][key]" value="">
     <input class="input-meca input-icono" name="pr[__i__][icono]" value="fa-equals" title="Ícono (clase Font Awesome)">
-    <input class="input-meca" name="pr[__i__][label]" maxlength="24" value="" placeholder="Nueva prioridad">
+    <input class="mc-fila-dato" name="pr[__i__][label]" maxlength="24" value="" placeholder="Nueva prioridad...">
     <input type="color" name="pr[__i__][color]" value="#F7931E" title="Color">
-    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
 <template id="tpl-eqs">
-  <div class="ajuste-fila fila-cat fila-cat-3">
+  <div class="mc-fila mf-simple editando">
     <input type="hidden" name="eqs[__i__][key]" value="">
     <input class="input-meca input-icono" name="eqs[__i__][icono]" value="fa-users" title="Ícono (clase Font Awesome)">
-    <input class="input-meca" name="eqs[__i__][label]" maxlength="24" value="" placeholder="Nuevo equipo">
-    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+    <input class="mc-fila-dato" name="eqs[__i__][label]" maxlength="24" value="" placeholder="Nuevo equipo...">
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
 <template id="tpl-rl">
@@ -355,11 +374,11 @@ UI::cabecera(
   </div>
 </template>
 <template id="tpl-ep">
-  <div class="ajuste-fila fila-cat fila-cat-3">
+  <div class="mc-fila mf-simple editando">
     <input type="hidden" name="ep[__i__][key]" value="">
     <input class="input-meca input-icono" name="ep[__i__][icono]" value="fa-flag" title="Ícono (clase Font Awesome)">
-    <input class="input-meca" name="ep[__i__][label]" maxlength="24" value="" placeholder="Nuevo estado">
-    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+    <input class="mc-fila-dato" name="ep[__i__][label]" maxlength="24" value="" placeholder="Nuevo estado...">
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
 
