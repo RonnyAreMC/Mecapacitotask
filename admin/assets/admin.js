@@ -293,13 +293,15 @@ if (vistaToggle) {
   if (vGuardada && vistaToggle.querySelector('[data-vista="' + vGuardada + '"]')) activarVista(vGuardada);
 }
 
-// Compositor de observaciones: pegar imágenes (Ctrl+V), arrastrar y adjuntar
-const obsComposer = document.getElementById('obs-composer');
-if (obsComposer) {
-  const fileInput = obsComposer.querySelector('.oc-file');
-  const previews  = obsComposer.querySelector('#oc-previews');
-  const textarea  = obsComposer.querySelector('.oc-texto');
-  const bolsa = new DataTransfer();   // fuente de verdad de los adjuntos
+// Compositor de observaciones: pegar (Ctrl+V), arrastrar, adjuntar y enviar por AJAX.
+// Soporta varios compositores en paralelo (botón "+ Otra nota").
+function initComposer(form) {
+  if (form.dataset.init === '1') return;
+  form.dataset.init = '1';
+  const fileInput = form.querySelector('.oc-file');
+  const previews  = form.querySelector('.oc-previews');
+  const textarea  = form.querySelector('.oc-texto');
+  const bolsa = new DataTransfer();
 
   const pintar = () => {
     previews.innerHTML = '';
@@ -318,12 +320,8 @@ if (obsComposer) {
     });
     fileInput.files = bolsa.files;
   };
-  const agregar = (files) => {
-    [...files].forEach((f) => bolsa.items.add(f));
-    pintar();
-  };
+  const agregar = (files) => { [...files].forEach((f) => bolsa.items.add(f)); pintar(); };
 
-  // Pegar imágenes desde el portapapeles (capturas de pantalla)
   textarea.addEventListener('paste', (e) => {
     const imgs = [...(e.clipboardData?.items || [])].filter((it) => it.type.startsWith('image/'));
     if (!imgs.length) return;
@@ -334,15 +332,12 @@ if (obsComposer) {
     pintar();
     MC.toast(imgs.length + ' imagen' + (imgs.length === 1 ? '' : 'es') + ' pegada' + (imgs.length === 1 ? '' : 's'), 'success', 2000);
   });
-
-  // Arrastrar archivos sobre el compositor
-  obsComposer.addEventListener('dragover', (e) => { e.preventDefault(); obsComposer.classList.add('oc-drag'); });
-  obsComposer.addEventListener('dragleave', () => obsComposer.classList.remove('oc-drag'));
-  obsComposer.addEventListener('drop', (e) => {
-    e.preventDefault(); obsComposer.classList.remove('oc-drag');
+  form.addEventListener('dragover', (e) => { e.preventDefault(); form.classList.add('oc-drag'); });
+  form.addEventListener('dragleave', () => form.classList.remove('oc-drag'));
+  form.addEventListener('drop', (e) => {
+    e.preventDefault(); form.classList.remove('oc-drag');
     if (e.dataTransfer.files.length) agregar(e.dataTransfer.files);
   });
-
   fileInput.addEventListener('change', () => agregar(fileInput.files));
   previews.addEventListener('click', (e) => {
     const b = e.target.closest('button[data-i]');
@@ -351,19 +346,23 @@ if (obsComposer) {
     pintar();
   });
   textarea.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); obsComposer.requestSubmit(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
+  });
+  // Botón × para quitar el compositor (deja al menos uno)
+  form.querySelector('.oc-cerrar')?.addEventListener('click', () => {
+    const cont = document.getElementById('obs-composers');
+    if (cont.querySelectorAll('.obs-composer').length > 1) { form.remove(); actualizarAddNota(); }
   });
 
-  // Enviar por AJAX: anota N observaciones seguidas sin recargar
-  obsComposer.addEventListener('submit', async (e) => {
+  form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!textarea.value.trim() && !bolsa.files.length) {
       MC.toast('Escribe la observación o adjunta un archivo.', 'error');
       return;
     }
-    const btn = obsComposer.querySelector('button[type="submit"]');
+    const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
-    const fd = new FormData(obsComposer);
+    const fd = new FormData(form);
     fd.set('ajax', '1');
     try {
       const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
@@ -372,11 +371,9 @@ if (obsComposer) {
       const lista = document.getElementById('obs-lista');
       lista.querySelector('.empty-state')?.remove();
       data.items.reverse().forEach((html) => lista.insertAdjacentHTML('afterbegin', html));
-      // Limpiar para la siguiente anotación (conserva autor y tareas elegidas)
       textarea.value = '';
       while (bolsa.items.length) bolsa.items.remove(0);
       pintar();
-      // Actualizar contadores visibles
       const total = document.querySelector('.obs-card .tabla-count');
       if (total) total.textContent = data.total;
       const chipPend = document.querySelector('#obs-filtros [data-filtro="pendiente"]');
@@ -392,6 +389,37 @@ if (obsComposer) {
     }
   });
 }
+
+// Habilita/deshabilita el botón "+ Otra nota" según el máximo permitido
+function actualizarAddNota() {
+  const cont = document.getElementById('obs-composers');
+  const btn = document.getElementById('obs-add-nota');
+  if (!cont || !btn) return;
+  const n = cont.querySelectorAll('.obs-composer').length;
+  const max = parseInt(cont.dataset.max || '3', 10);
+  cont.classList.toggle('oc-solo', n <= 1);   // oculta la × cuando solo hay uno
+  btn.disabled = n >= max;
+  btn.title = n >= max ? 'Máximo ' + max + ' notas a la vez' : 'Abrir otro cuadro para anotar en paralelo';
+}
+
+// Inicializa los compositores existentes y el botón de agregar
+document.querySelectorAll('.obs-composer').forEach(initComposer);
+(() => {
+  const btn = document.getElementById('obs-add-nota');
+  const cont = document.getElementById('obs-composers');
+  const tpl = document.getElementById('tpl-composer');
+  if (!btn || !cont || !tpl) return;
+  actualizarAddNota();
+  btn.addEventListener('click', () => {
+    if (cont.querySelectorAll('.obs-composer').length >= parseInt(cont.dataset.max || '3', 10)) return;
+    const nodo = tpl.content.firstElementChild.cloneNode(true);
+    cont.appendChild(nodo);
+    MecaSelect.init(nodo);
+    initComposer(nodo);
+    actualizarAddNota();
+    nodo.querySelector('.oc-texto')?.focus();
+  });
+})();
 
 // Filtro de observaciones (todas / pendientes / resueltas)
 const obsFiltros = document.getElementById('obs-filtros');

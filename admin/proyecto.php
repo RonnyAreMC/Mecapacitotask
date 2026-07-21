@@ -397,11 +397,17 @@ foreach ($tareas as $t) {
           <button type="button" class="chip-filtro" data-filtro="pendiente">Pendientes <?php if ($obsPendientes): ?>· <?= $obsPendientes ?><?php endif; ?></button>
           <button type="button" class="chip-filtro" data-filtro="resuelta">Resueltas</button>
         </div>
+        <button type="button" class="btn-outline btn-meca btn-sm" id="obs-add-nota" title="Abrir otro cuadro para anotar en paralelo">
+          <i class="fa-solid fa-plus"></i> Otra nota
+        </button>
       </div>
     </div>
 
-    <!-- Compositor rápido: para anotar durante las reuniones (pega imágenes con Ctrl+V) -->
-    <form class="obs-composer" id="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
+    <?php
+    /** Compositor rápido de observación (reutilizable: inicial + template). */
+    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia): void { ?>
+    <form class="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
+      <button type="button" class="oc-cerrar" title="Quitar esta nota"><i class="fa-solid fa-xmark"></i></button>
       <input type="hidden" name="accion" value="obs_crear">
       <input type="hidden" name="proyecto_id" value="<?= $id ?>">
       <div class="oc-top">
@@ -415,7 +421,7 @@ foreach ($tareas as $t) {
       <div class="oc-campo">
         <textarea name="texto" class="oc-texto" rows="2"
           placeholder="Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí."></textarea>
-        <div class="oc-previews" id="oc-previews"></div>
+        <div class="oc-previews"></div>
       </div>
       <div class="oc-pie">
         <label class="oc-adjuntar" title="Adjuntar imágenes, PDF o Word">
@@ -427,6 +433,13 @@ foreach ($tareas as $t) {
         <button type="submit" class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
       </div>
     </form>
+    <?php } ?>
+
+    <!-- Compositores (hasta 3 en paralelo para anotar en reuniones) -->
+    <div class="obs-composers" id="obs-composers" data-max="3">
+      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia); ?>
+    </div>
+    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia); ?></template>
 
     <?php require_once __DIR__ . '/lib/obs_item.php'; ?>
     <div class="obs-lista" id="obs-lista">
