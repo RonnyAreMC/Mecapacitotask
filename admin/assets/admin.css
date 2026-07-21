@@ -1055,6 +1055,58 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 }
 
 /* =========================================================
+   Reuniones (Zoom)
+   ========================================================= */
+.tab-badge-zoom { background: #2D8CFF; }
+.btn-zoom {
+  background: #2D8CFF; color: #fff !important; font-weight: 700; border: 0;
+  box-shadow: 5px 5px 12px color-mix(in srgb, #2D8CFF 28%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  transition: background .2s ease, transform .2s ease;
+}
+.btn-zoom:hover { background: #1f7ae8; transform: translateY(-1px); }
+
+.reu-lista { display: flex; flex-direction: column; gap: 12px; padding: 0 24px 24px; }
+.reu-item {
+  display: flex; align-items: center; gap: 16px;
+  padding: 15px 18px;
+  border-radius: 16px;
+  background: var(--n-bg);
+  border: 1.5px solid var(--c-border-soft);
+  box-shadow: var(--sh-mini);
+  flex-wrap: wrap;
+}
+.reu-icono {
+  width: 48px; height: 48px; flex-shrink: 0;
+  border-radius: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 1.2rem;
+  box-shadow: var(--sh-mini), var(--clay-pop);
+}
+.reu-proxima { background: #2D8CFF; }
+.reu-pasada  { background: var(--c-text-soft); }
+.reu-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
+.reu-info b { font-size: 1rem; font-weight: 800; color: var(--c-text); }
+.reu-meta { font-size: .78rem; color: var(--c-text-soft); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.reu-estado { padding: 2px 10px; border-radius: 999px; font-size: .68rem; font-weight: 800; }
+.reu-estado.e-proxima { background: rgba(45,140,255,.15); color: #2D8CFF; }
+.reu-estado.e-pasada  { background: rgba(100,116,139,.16); color: var(--c-text-soft); }
+.reu-invitados { display: inline-flex; align-items: center; gap: 9px; margin-top: 4px; }
+.reu-invitados small { font-size: .74rem; color: var(--c-text-soft); font-weight: 600; }
+.reu-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.accion-grab { color: #c26f0e !important; }
+html.dark .accion-grab { color: #ffb35c !important; }
+
+.obs-reunion {
+  display: inline-flex; align-items: center; gap: 7px;
+  margin-top: 12px;
+  padding: 4px 12px; border-radius: 999px;
+  background: rgba(45,140,255,.12);
+  color: #2D8CFF; text-decoration: none;
+  font-size: .74rem; font-weight: 700;
+}
+.obs-reunion:hover { text-decoration: underline; }
+
+/* =========================================================
    Observaciones (revisión / QA)
    ========================================================= */
 /* Sello de entrega en el hero */

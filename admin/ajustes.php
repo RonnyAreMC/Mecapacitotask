@@ -53,6 +53,7 @@ UI::cabecera(
   <button type="button" class="tab-btn" data-tab="iconos"><i class="fa-solid fa-icons"></i> Íconos</button>
   <button type="button" class="tab-btn" data-tab="roles"><i class="fa-solid fa-user-tag"></i> Roles</button>
   <button type="button" class="tab-btn" data-tab="correo"><i class="fa-solid fa-envelope"></i> Correo</button>
+  <button type="button" class="tab-btn" data-tab="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
 </div>
 
 <form method="post" action="actions.php" class="ajustes-form">
@@ -395,6 +396,53 @@ UI::cabecera(
     </div>
   </div>
 
+  <!-- ================= TAB: Zoom ================= -->
+  <?php $zc = $cfg['zoom']; ?>
+  <div class="tab-panel" data-panel="zoom" hidden>
+    <div class="ajustes-grid">
+      <section class="card-base ajuste-card ajuste-card-ancha">
+        <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones con Zoom</h2>
+        <p class="ajuste-ayuda">
+          Crea reuniones de Zoom desde cada proyecto, con enlace para entrar y acceso a la grabación.
+          Necesitas una app <b>Server-to-Server OAuth</b> en
+          <a href="https://marketplace.zoom.us/develop/create" target="_blank" rel="noopener">Zoom Marketplace</a>
+          con scopes <code>meeting:write</code>, <code>meeting:read</code> y <code>recording:read</code>.
+          <br>La grabación en la nube requiere un plan Zoom de pago (Pro o superior).
+        </p>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="zoom[activo]" <?= !empty($zc['activo']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Activar reuniones de Zoom
+        </label>
+
+        <div class="campo-doble">
+          <label class="campo"><span>Account ID</span>
+            <input class="input-meca" name="zoom[account_id]" value="<?= e($zc['account_id']) ?>" placeholder="de la app S2S OAuth">
+          </label>
+          <label class="campo"><span>Zona horaria</span>
+            <input class="input-meca" name="zoom[zona]" value="<?= e($zc['zona']) ?>" placeholder="America/Guayaquil">
+          </label>
+        </div>
+        <div class="campo-doble">
+          <label class="campo"><span>Client ID</span>
+            <input class="input-meca" name="zoom[client_id]" value="<?= e($zc['client_id']) ?>">
+          </label>
+          <label class="campo"><span>Client Secret</span>
+            <input class="input-meca" type="password" name="zoom[client_secret]" value="<?= e($zc['client_secret']) ?>">
+          </label>
+        </div>
+
+        <div class="correo-prueba">
+          <span class="ajuste-ayuda" style="flex:1">Guarda primero; luego prueba la conexión con Zoom.</span>
+          <button class="btn-outline btn-meca btn-sm" form="frm-zoom-prueba">
+            <i class="fa-solid fa-plug-circle-check"></i> Probar conexión
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <footer class="ajustes-guardar">
     <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
   </footer>
@@ -403,6 +451,9 @@ UI::cabecera(
 <!-- Form auxiliar para el correo de prueba (asociado via atributo form) -->
 <form id="frm-correo-prueba" method="post" action="actions.php">
   <input type="hidden" name="accion" value="correo_prueba">
+</form>
+<form id="frm-zoom-prueba" method="post" action="actions.php">
+  <input type="hidden" name="accion" value="zoom_prueba">
 </form>
 
 <!-- Plantillas para filas nuevas -->

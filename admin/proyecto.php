@@ -35,9 +35,11 @@ $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
 
 $opcionesMiembros = [0 => '— Sin asignar —'];
 $opcionesFiltro   = [0 => 'Todo el equipo'];
+$opcionesInvitados = [];
 foreach ($miembros as $m) {
-    $opcionesMiembros[$m['id']] = $m['nombre'] . ' (@' . $m['git_user'] . ')';
-    $opcionesFiltro[$m['id']]   = $m['nombre'];
+    $opcionesMiembros[$m['id']]  = $m['nombre'] . ' (@' . $m['git_user'] . ')';
+    $opcionesFiltro[$m['id']]    = $m['nombre'];
+    $opcionesInvitados[$m['id']] = $m['nombre'] . (!empty($m['email']) ? ' · ' . $m['email'] : '');
 }
 
 // Dependencias: opciones (todas las tareas del proyecto) y mapa por id
@@ -61,6 +63,11 @@ $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
+
+// Reuniones (Zoom)
+$reunionesRepo = new ReunionRepo();
+$reuniones     = $reunionesRepo->delProyecto($id);
+$zoomListo     = Zoom::listo();
 
 UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 ?>
@@ -149,6 +156,9 @@ foreach ($tareas as $t) {
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
     <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
+    </button>
+    <button type="button" class="tab-btn" data-vista="reuniones"><i class="fa-solid fa-video"></i> Reuniones
+      <?php if (count($reuniones)): ?><span class="tab-badge tab-badge-zoom"><?= count($reuniones) ?></span><?php endif; ?>
     </button>
     <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
   </div>
@@ -384,6 +394,80 @@ foreach ($tareas as $t) {
   </section>
 </div>
 
+<!-- Vista Reuniones (Zoom) -->
+<div data-vista-panel="reuniones" hidden>
+  <section class="card-base tabla-card" style="--pc:<?= $color ?>">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones
+        <span class="tabla-count"><?= count($reuniones) ?></span>
+      </h2>
+      <?php if ($zoomListo): ?>
+      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
+        <i class="fa-solid fa-plus"></i> Nueva reunión
+      </button>
+      <?php else: ?>
+      <a class="btn-outline btn-meca btn-sm" href="ajustes.php#tab-zoom"><i class="fa-solid fa-gear"></i> Configurar Zoom</a>
+      <?php endif; ?>
+    </div>
+
+    <?php if (!$zoomListo): ?>
+      <div class="obs-intro"><i class="fa-solid fa-video"></i>
+        <span>Conecta tu cuenta de Zoom en <a href="ajustes.php#tab-zoom">Ajustes → Zoom</a> para crear reuniones,
+        registrar a las personas y acceder a las grabaciones desde aquí.</span>
+      </div>
+    <?php endif; ?>
+    <?php if (empty($reuniones)): ?>
+      <?php if ($zoomListo): ?><?= UI::vacio('fa-video', 'Sin reuniones', 'Crea la primera reunión de Zoom para este proyecto con el botón de arriba.') ?><?php endif; ?>
+    <?php else: ?>
+    <div class="reu-lista">
+      <?php foreach ($reuniones as $r):
+          $pasada = strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60) < time();
+          $invita = array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $r['invitados'] ?? []));
+      ?>
+      <article class="reu-item">
+        <div class="reu-icono <?= $pasada ? 'reu-pasada' : 'reu-proxima' ?>"><i class="fa-solid fa-video"></i></div>
+        <div class="reu-info">
+          <b><?= e($r['topic']) ?></b>
+          <span class="reu-meta">
+            <i class="fa-regular fa-calendar"></i> <?= e($r['inicio']) ?> · <?= (int)$r['duracion'] ?> min
+            <span class="reu-estado <?= $pasada ? 'e-pasada' : 'e-proxima' ?>"><?= $pasada ? 'Finalizada' : 'Próxima' ?></span>
+          </span>
+          <?php if ($invita): ?>
+          <span class="reu-invitados"><?= UI::avatarStack(array_values($invita), 6, 26) ?>
+            <small><?= count($invita) ?> invitado<?= count($invita) === 1 ? '' : 's' ?></small></span>
+          <?php endif; ?>
+        </div>
+        <div class="reu-acciones">
+          <a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a>
+          <?php if (!empty($r['start_url'])): ?>
+          <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
+          <?php endif; ?>
+          <?php if (!empty($r['grabaciones'])): ?>
+            <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
+            <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><i class="fa-solid fa-circle-play"></i> Grabación</a>
+            <?php break; endif; endforeach; ?>
+          <?php elseif ($pasada): ?>
+          <form method="post" action="actions.php" class="inline-form">
+            <input type="hidden" name="accion" value="reunion_grabaciones">
+            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+            <button class="accion-btn" title="Buscar grabación en Zoom"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
+          </form>
+          <?php endif; ?>
+          <form method="post" action="actions.php" class="inline-form"
+                data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de Zoom."
+                data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
+            <input type="hidden" name="accion" value="reunion_eliminar">
+            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+            <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+          </form>
+        </div>
+      </article>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </section>
+</div>
+
 <!-- Vista Observaciones: revisión (analistas / programadores) -->
 <div data-vista-panel="observaciones" hidden>
   <section class="card-base tabla-card obs-card" style="--pc:<?= $color ?>">
@@ -405,7 +489,7 @@ foreach ($tareas as $t) {
 
     <?php
     /** Compositor rápido de observación (reutilizable: inicial + template). */
-    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia): void { ?>
+    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia, array $opcionesReunion): void { ?>
     <form class="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
       <button type="button" class="oc-cerrar" title="Quitar esta nota"><i class="fa-solid fa-xmark"></i></button>
       <input type="hidden" name="accion" value="obs_crear">
@@ -417,6 +501,9 @@ foreach ($tareas as $t) {
           <option value="<?= (int)$tid ?>"><?= e($lbl) ?></option>
           <?php endforeach; ?>
         </select>
+        <?php if ($opcionesReunion): ?>
+        <?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0', false, 'oc-select') ?>
+        <?php endif; ?>
       </div>
       <div class="oc-campo">
         <textarea name="texto" class="oc-texto" rows="2"
@@ -436,10 +523,11 @@ foreach ($tareas as $t) {
     <?php } ?>
 
     <!-- Compositores (hasta 3 en paralelo para anotar en reuniones) -->
+    <?php $opcionesReunion = $reunionesRepo->opciones($id); ?>
     <div class="obs-composers" id="obs-composers" data-max="3">
-      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia); ?>
+      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion); ?>
     </div>
-    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia); ?></template>
+    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion); ?></template>
 
     <?php require_once __DIR__ . '/lib/obs_item.php'; ?>
     <div class="obs-lista" id="obs-lista">
@@ -546,6 +634,39 @@ foreach ($tareas as $t) {
 <?php endif; ?>
 
 </div><!-- /metricas -->
+
+<?php if ($zoomListo): ?>
+<!-- Modal: nueva reunión de Zoom -->
+<dialog id="dlg-nueva-reunion" class="dlg-meca">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="reunion_crear">
+    <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Nueva reunión</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <label class="campo"><span>Tema de la reunión *</span>
+      <input class="input-meca" name="topic" required maxlength="120" placeholder="Ej. Revisión de avances — <?= e($proyecto['nombre']) ?>">
+    </label>
+    <div class="campo-doble">
+      <label class="campo"><span>Fecha y hora *</span>
+        <input class="input-meca" type="datetime-local" name="inicio" required value="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>">
+      </label>
+      <label class="campo"><span>Duración (min)</span>
+        <?= UI::select('duracion', [30 => '30 min', 45 => '45 min', 60 => '1 hora', 90 => '1h 30m', 120 => '2 horas'], '60') ?>
+      </label>
+    </div>
+    <label class="campo"><span>Invitar (registra a las personas del equipo)</span>
+      <?= UI::select('invitados', $opcionesInvitados, [], false, '', true) ?>
+      <small class="campo-ayuda">Se les enviará el enlace por correo si tienen uno registrado.</small>
+    </label>
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear en Zoom</button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <!-- Modal: nueva tarea -->
 <dialog id="dlg-nueva-tarea" class="dlg-meca">

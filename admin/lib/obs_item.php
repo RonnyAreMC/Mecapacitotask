@@ -7,10 +7,11 @@ require_once __DIR__ . '/Models.php';
 
 function obsItemHtml(array $o): string
 {
-    static $miembros = null, $equipos = null, $tareas = null;
-    if ($miembros === null) $miembros = (new MiembroRepo())->mapa();
-    if ($equipos === null)  $equipos  = Catalogo::equipos();
-    if ($tareas === null)   $tareas   = new TareaRepo();
+    static $miembros = null, $equipos = null, $tareas = null, $reuniones = null;
+    if ($miembros === null)  $miembros  = (new MiembroRepo())->mapa();
+    if ($equipos === null)   $equipos   = Catalogo::equipos();
+    if ($tareas === null)    $tareas    = new TareaRepo();
+    if ($reuniones === null) $reuniones = new ReunionRepo();
 
     $autor   = $miembros[(int)($o['autor_id'] ?? 0)] ?? null;
     $c1      = $autor ? Catalogo::colorDe($autor['color'] ?? 0) : '#64748b';
@@ -18,6 +19,7 @@ function obsItemHtml(array $o): string
     $eqIcono = $equipos[$o['equipo'] ?? '']['1'] ?? 'fa-user';
     $pend    = ($o['estado'] ?? 'pendiente') === 'pendiente';
     $tRef    = (int)($o['tarea_id'] ?? 0) ? $tareas->buscar((int)$o['tarea_id']) : null;
+    $rRef    = (int)($o['reunion_id'] ?? 0) ? $reuniones->buscar((int)$o['reunion_id']) : null;
 
     ob_start();
     ?>
@@ -43,6 +45,12 @@ function obsItemHtml(array $o): string
           <?= $pend ? 'Pendiente' : 'Resuelta' ?>
         </span>
       </div>
+
+      <?php if ($rRef): ?>
+      <a class="obs-reunion" href="proyecto.php?id=<?= (int)$rRef['proyecto_id'] ?>#vista-reuniones" title="De la reunión">
+        <i class="fa-solid fa-video"></i> <?= e(mb_strimwidth($rRef['topic'], 0, 40, '…')) ?>
+      </a>
+      <?php endif; ?>
 
       <?php if (!empty($o['texto'])): ?><p class="obs-texto"><?= nl2br(e($o['texto'])) ?></p><?php endif; ?>
 

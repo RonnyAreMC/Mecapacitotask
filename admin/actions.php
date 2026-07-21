@@ -170,6 +170,7 @@ switch ($accion) {
             $creadas[] = $obsRepo->crear([
                 'proyecto_id' => $pid,
                 'tarea_id'    => $tid,
+                'reunion_id'  => (int)($_POST['reunion_id'] ?? 0),
                 'autor_id'    => (int)($_POST['autor_id'] ?? 0),
                 'equipo'      => $equipo,
                 'texto'       => $_POST['texto'] ?? '',
@@ -302,6 +303,15 @@ switch ($accion) {
         $lineas = fn(string $texto) => array_values(array_filter(array_map('trim', preg_split('/[\r\n,]+/', $texto))));
         $iconos = array_values(array_filter($lineas($_POST['iconos'] ?? ''), fn($i) => preg_match('/^fa-[a-z0-9-]+$/', $i)));
 
+        $zoomPost = (array)($_POST['zoom'] ?? []);
+        $zoom = [
+            'activo'        => !empty($zoomPost['activo']),
+            'account_id'    => trim($zoomPost['account_id'] ?? ''),
+            'client_id'     => trim($zoomPost['client_id'] ?? ''),
+            'client_secret' => trim($zoomPost['client_secret'] ?? ''),
+            'zona'          => trim($zoomPost['zona'] ?? '') ?: 'America/Guayaquil',
+        ];
+
         $correoPost = (array)($_POST['correo'] ?? []);
         $correo = [
             'activo'    => !empty($correoPost['activo']),
@@ -336,6 +346,7 @@ switch ($accion) {
             'iconos'           => $iconos ?: $def['iconos'],
             'roles'            => $roles ?: $def['roles'],
             'correo'           => $correo,
+            'zoom'             => $zoom,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -383,6 +394,90 @@ switch ($accion) {
             redirigir('ajustes.php', 'Correo de prueba enviado a ' . $para . '. ¡Revisa la bandeja!');
         }
         redirigir('ajustes.php', 'El envío falló: ' . $r, 'error');
+
+    case 'zoom_prueba':
+        if (!Zoom::listo()) {
+            redirigir('ajustes.php', 'Primero activa Zoom y guarda Account ID, Client ID y Client Secret.', 'error');
+        }
+        $r = Zoom::probar();
+        redirigir('ajustes.php', $r === true ? '¡Conexión con Zoom exitosa! Ya puedes crear reuniones.' : 'Zoom: ' . $r, $r === true ? 'success' : 'error');
+
+    /* ---------- Reuniones (Zoom) ---------- */
+
+    case 'reunion_crear':
+        $reuniones = new ReunionRepo();
+        $pid = (int)($_POST['proyecto_id'] ?? 0);
+        if (!$proyectos->buscar($pid)) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
+        if (!Zoom::listo()) {
+            redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom.', 'error');
+        }
+        $topic = trim($_POST['topic'] ?? '');
+        $inicio = trim($_POST['inicio'] ?? '');   // datetime-local: Y-m-dTH:i
+        $inicio = str_replace('T', ' ', $inicio);
+        if ($topic === '' || $inicio === '') {
+            redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
+        }
+        $creada = Zoom::crearReunion([
+            'topic'    => $topic,
+            'inicio'   => $inicio,
+            'duracion' => (int)($_POST['duracion'] ?? 60),
+        ]);
+        if (isset($creada['error'])) {
+            redirigir($volver, $creada['error'], 'error');
+        }
+        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
+        $reu = $reuniones->crear([
+            'proyecto_id' => $pid,
+            'zoom_id'     => (string)($creada['id'] ?? ''),
+            'topic'       => $topic,
+            'inicio'      => $inicio,
+            'duracion'    => (int)($_POST['duracion'] ?? 60),
+            'join_url'    => $creada['join_url'] ?? '',
+            'start_url'   => $creada['start_url'] ?? '',
+            'password'    => $creada['password'] ?? '',
+            'invitados'   => $invitados,
+        ]);
+        // Notifica por correo a los invitados con correo registrado
+        $avisados = 0;
+        if (Mailer::listo()) {
+            foreach ($invitados as $mid) {
+                $m = $miembros->buscar($mid);
+                if ($m && !empty($m['email'])) {
+                    $html = '<p style="font-family:Arial;font-size:15px">Hola <b>' . e($m['nombre']) . '</b>, te invitaron a una reunión:</p>'
+                        . '<p style="font-family:Arial;font-size:15px"><b>' . e($topic) . '</b><br>' . e($inicio) . '</p>'
+                        . '<p><a href="' . e($reu['join_url']) . '" style="background:#2D8CFF;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-family:Arial">Entrar a la reunión</a></p>';
+                    if (Mailer::enviar($m['email'], '📹 Reunión: ' . $topic, $html) === true) $avisados++;
+                }
+            }
+        }
+        redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' 📧 ' . $avisados . ' invitado(s) notificado(s).' : ''));
+
+    case 'reunion_grabaciones':
+        $reuniones = new ReunionRepo();
+        $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
+        if (!$reu) {
+            redirigir('index.php', 'Reunión no encontrada.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
+        $g = Zoom::grabaciones($reu['zoom_id']);
+        if ($g['estado'] === 'ok') {
+            $reuniones->actualizar((int)$reu['id'], ['grabaciones' => $g['archivos'], 'share_url' => $g['share_url'] ?? '']);
+            redirigir($volver, count($g['archivos']) . ' archivo(s) de grabación disponibles.');
+        }
+        redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
+
+    case 'reunion_eliminar':
+        $reuniones = new ReunionRepo();
+        $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
+        if ($reu) {
+            if (!empty($reu['zoom_id']) && Zoom::listo()) Zoom::eliminarReunion($reu['zoom_id']);
+            $reuniones->eliminar((int)$reu['id']);
+            redirigir('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones', 'Reunión eliminada.');
+        }
+        redirigir('index.php', 'Reunión no encontrada.', 'error');
 
     default:
         redirigir('index.php', 'Acción no reconocida.', 'error');

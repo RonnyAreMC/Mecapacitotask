@@ -178,6 +178,13 @@ final class Config
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],
+            'zoom' => [
+                'activo'        => false,
+                'account_id'    => '',
+                'client_id'     => '',
+                'client_secret' => '',
+                'zona'          => 'America/Guayaquil',
+            ],
             'correo' => [
                 'activo'    => false,
                 'modo'      => 'smtp',
@@ -595,6 +602,7 @@ class ObservacionRepo
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
+            'reunion_id'  => (int)($datos['reunion_id'] ?? 0),
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),
@@ -663,5 +671,67 @@ class ObservacionRepo
             $r['porEquipo'][$eq][$pend ? 'pendientes' : 'resueltas']++;
         }
         return $r;
+    }
+}
+
+/* =========================================================
+   Reuniones - videollamadas de Zoom vinculadas a un proyecto.
+   ========================================================= */
+class ReunionRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('reuniones');
+    }
+
+    /** Reuniones de un proyecto, de la más reciente a la más antigua. */
+    public function delProyecto(int $proyectoId): array
+    {
+        $items = $this->store->where('proyecto_id', $proyectoId);
+        usort($items, fn($a, $b) => strcmp($b['inicio'] ?? '', $a['inicio'] ?? ''));
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
+            'zoom_id'     => (string)($datos['zoom_id'] ?? ''),
+            'topic'       => trim($datos['topic'] ?? ''),
+            'inicio'      => (string)($datos['inicio'] ?? ''),
+            'duracion'    => (int)($datos['duracion'] ?? 60),
+            'join_url'    => (string)($datos['join_url'] ?? ''),
+            'start_url'   => (string)($datos['start_url'] ?? ''),
+            'password'    => (string)($datos['password'] ?? ''),
+            'invitados'   => array_values(array_map('intval', $datos['invitados'] ?? [])),
+            'grabaciones' => [],
+        ]);
+    }
+
+    public function actualizar(int $id, array $cambios): bool
+    {
+        return $this->store->update($id, $cambios);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
+    }
+
+    /** Opciones para selects: id => "topic (fecha)". */
+    public function opciones(int $proyectoId): array
+    {
+        $out = [];
+        foreach ($this->delProyecto($proyectoId) as $r) {
+            $out[(int)$r['id']] = mb_strimwidth($r['topic'], 0, 40, '…') . ' · ' . ($r['inicio'] ?? '');
+        }
+        return $out;
     }
 }
