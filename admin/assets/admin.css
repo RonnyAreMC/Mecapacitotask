@@ -42,15 +42,55 @@ html.dark {
 
   /* Neutrales de mecapacito.css re-mapeados */
   --c-bg: var(--n-bg);
-  --c-bg-soft: #2b3241;
-  --c-text: #e7ecf5;
-  --c-text-muted: #aeb8c9;
-  --c-text-soft: #8994a8;
-  --c-border: rgba(255, 255, 255, .08);
+  --c-bg-soft: #2b3343;
+  --c-text: #e9edf6;
+  --c-text-muted: #b6c0d2;
+  --c-text-soft: #8e99ae;
+  --c-border: rgba(255, 255, 255, .09);
   --c-border-soft: rgba(255, 255, 255, .06);
 
-  --clay-hi: rgba(255, 255, 255, .07);
-  --clay-lo: rgba(0, 0, 0, .28);
+  --clay-hi: rgba(255, 255, 255, .06);
+  --clay-lo: rgba(0, 0, 0, .25);
+
+  /* Sombras recalibradas: menos "agujero negro", relieve mas fino */
+  --sh-card:  9px 9px 22px rgba(0, 0, 0, .38), -6px -6px 16px rgba(255, 255, 255, .035);
+  --sh-soft:  5px 5px 12px rgba(0, 0, 0, .32), -4px -4px 10px rgba(255, 255, 255, .035);
+  --sh-mini:  3px 3px 7px  rgba(0, 0, 0, .28), -2px -2px 6px  rgba(255, 255, 255, .035);
+  --sh-inset:      inset 4px 4px 9px rgba(0, 0, 0, .32), inset -3px -3px 8px rgba(255, 255, 255, .045);
+  --sh-inset-mini: inset 2px 2px 5px rgba(0, 0, 0, .26), inset -2px -2px 5px rgba(255, 255, 255, .045);
+}
+
+/* En oscuro los bordes tintados brillaban demasiado: tinte minimo y neutro */
+html.dark .card-base {
+  border-color: color-mix(in srgb, var(--card-c) 10%, rgba(255, 255, 255, .07));
+}
+html.dark .card-base:hover {
+  border-color: color-mix(in srgb, var(--card-c) 24%, rgba(255, 255, 255, .08));
+}
+html.dark .proyecto-hero {
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, rgba(255, 255, 255, .07));
+}
+html.dark .dlg-meca {
+  border-color: rgba(255, 255, 255, .09);
+}
+html.dark .estado-tile {
+  border-color: color-mix(in srgb, currentColor 16%, rgba(255, 255, 255, .06));
+}
+
+/* Inputs y selects en oscuro: superficie propia, no un hueco negro */
+html.dark .input-meca,
+html.dark .select-meca {
+  background-color: var(--c-bg-soft);
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), 0 0 0 1px rgba(255, 255, 255, .05);
+}
+html.dark .input-meca:focus,
+html.dark .select-meca:focus {
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .45);
+}
+html.dark .persona-preview,
+html.dark .icon-galeria,
+html.dark .ajuste-iconos-preview {
+  background: rgba(0, 0, 0, .12);
 }
 
 * { box-sizing: border-box; }
@@ -1295,14 +1335,18 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
   gap: 24px;
 }
 .ajuste-card {
-  padding: 24px;
-  display: flex; flex-direction: column; gap: 13px;
+  padding: 26px;
+  display: flex; flex-direction: column; gap: 14px;
 }
 .ajuste-card:hover { transform: none; }
 .ajuste-card h2 {
-  margin: 0; font-size: 1.05rem; font-weight: 800; color: var(--c-text);
+  margin: 0 0 2px; font-size: 1.02rem; font-weight: 800; color: var(--c-text);
   display: flex; align-items: center; gap: 10px;
+  padding-bottom: 13px;
+  border-bottom: 1px dashed var(--c-border-soft);
 }
+/* Tabs con una sola card (Identidad, Roles): ancho contenido, no pantalla completa */
+.ajustes-grid > .ajuste-card:only-child:not(.ajuste-card-ancha) { max-width: 720px; }
 .ajuste-ayuda { margin: -4px 0 2px; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
 .ajuste-ayuda a { color: var(--c-secondary); }
 .ajuste-ayuda code {
@@ -1322,14 +1366,16 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
 
 /* Filas de catalogo ampliable: icono | nombre | color | (final) | quitar */
 .ajuste-lista { display: flex; flex-direction: column; gap: 10px; }
-.fila-cat { grid-template-columns: 108px minmax(110px, 1fr) auto auto auto; }
-.fila-cat.fila-cat-4 { grid-template-columns: 108px minmax(110px, 1fr) auto auto; }
-.fila-cat.fila-cat-3 { grid-template-columns: 108px minmax(110px, 1fr) auto; }
+.fila-cat { grid-template-columns: 122px minmax(100px, 1fr) auto auto auto; }
+.fila-cat.fila-cat-4 { grid-template-columns: 122px minmax(100px, 1fr) auto auto; }
+.fila-cat.fila-cat-3 { grid-template-columns: 122px minmax(100px, 1fr) auto; }
 .fila-cat .input-meca { min-width: 0; }
 .input-icono {
-  font-size: .72rem !important;
-  padding: 10px 8px !important;
-  font-family: monospace;
+  font-size: .68rem !important;
+  padding: 11px 9px !important;
+  font-family: ui-monospace, Menlo, monospace;
+  letter-spacing: -.01em;
+  color: var(--c-text-soft) !important;
 }
 .chk-final {
   display: inline-flex; align-items: center; justify-content: center;
@@ -1385,18 +1431,22 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
 }
 .ajuste-fila input[type="color"],
 .input-color-linea {
-  width: 46px; height: 42px;
-  border: 0; border-radius: 12px;
-  padding: 4px;
+  width: 44px; height: 44px;
+  border: 0; border-radius: 13px;
+  padding: 5px;
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
   cursor: pointer;
+  transition: transform .18s ease;
 }
+.ajuste-fila input[type="color"]:hover { transform: scale(1.06); }
 .ajuste-fila input[type="color"]::-webkit-color-swatch,
-.input-color-linea::-webkit-color-swatch { border: none; border-radius: 8px; }
+.input-color-linea::-webkit-color-swatch { border: none; border-radius: 9px; }
 .ajuste-fila input[type="color"]::-webkit-color-swatch-wrapper,
 .input-color-linea::-webkit-color-swatch-wrapper { padding: 0; }
-.input-color-linea { width: 100%; }
+.input-color-linea { width: 100%; height: 42px; }
+html.dark .ajuste-fila input[type="color"],
+html.dark .input-color-linea { background: var(--c-bg-soft); }
 
 .ajuste-iconos-preview {
   display: flex; flex-wrap: wrap; gap: 10px;
