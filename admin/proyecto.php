@@ -134,14 +134,6 @@ foreach ($tareas as $t) {
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
     <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
   </div>
-  <button type="button" class="tab-btn btn-quien <?= $verComo ? 'active' : '' ?>"
-          onclick="document.getElementById('dlg-ver-como').showModal()">
-    <?php if ($verComo): ?>
-      <?= UI::avatar($verComo, 22) ?> Viendo a <?= e(explode(' ', $verComo['nombre'])[0]) ?>
-    <?php else: ?>
-      <i class="fa-regular fa-eye"></i> Ver como...
-    <?php endif; ?>
-  </button>
 </div>
 
 <div data-vista-panel="tabla">
