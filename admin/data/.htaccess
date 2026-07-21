@@ -1,0 +1,9 @@
+# Bloquea TODO acceso web a la carpeta de datos.
+# Aquí vive config.json con credenciales (Gmail, Zoom) y los datos del panel.
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

@@ -1,0 +1,16 @@
+# Raíz del subdominio Mecapacito Panel.
+
+# 1) Bloquea el acceso web a .git y archivos ocultos/sensibles
+RedirectMatch 404 /\.git
+<FilesMatch "^\.(git|gitignore|env)|\.md$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>
+
+# 2) El index.php de la raíz redirige a /admin/
+DirectoryIndex index.php
