@@ -159,8 +159,8 @@ if (vistaToggle) {
       sessionStorage.setItem(claveVista, btn.dataset.vista);
     });
   });
-  const vGuardada = location.hash === '#vista-flujo' ? 'flujo' : sessionStorage.getItem(claveVista);
-  if (vGuardada === 'flujo') activarVista('flujo');
+  const vGuardada = location.hash === '#vista-flujo' ? 'flujo' : location.hash === '#vista-kanban' ? 'kanban' : sessionStorage.getItem(claveVista);
+  if (vGuardada === 'flujo' || vGuardada === 'kanban') activarVista(vGuardada);
 }
 
 // Conectores SVG entre tareas dependientes (vista Flujo)
@@ -168,12 +168,24 @@ function dibujarFlujo() {
   const wrap = document.getElementById('flujo-wrap');
   const svg = document.getElementById('flujo-lineas');
   if (!wrap || !svg) return;
+
+  // Alinear cada nodo a la altura de su dependencia (flechas casi rectas)
+  wrap.querySelectorAll('.flujo-nodo').forEach((n) => { n.style.marginTop = ''; });
+  wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
+    const depId = nodo.dataset.dep;
+    if (!depId || depId === '0') return;
+    const origen = document.getElementById('fn-' + depId);
+    if (!origen) return;
+    const delta = origen.getBoundingClientRect().top - nodo.getBoundingClientRect().top;
+    if (delta > 0) nodo.style.marginTop = delta + 'px';
+  });
+
   const caja = wrap.getBoundingClientRect();
   svg.setAttribute('width', wrap.scrollWidth);
   svg.setAttribute('height', wrap.scrollHeight);
   const color = getComputedStyle(wrap).getPropertyValue('--pc').trim() || '#2B76F7';
-  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
-               '<path d="M 0 1 L 9 5 L 0 9 z" fill="' + color + '"/></marker></defs>';
+  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">' +
+               '<path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="' + color + '"/></marker></defs>';
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
     const depId = nodo.dataset.dep;
     if (!depId || depId === '0') return;
@@ -181,13 +193,14 @@ function dibujarFlujo() {
     if (!origen) return;
     const a = origen.getBoundingClientRect();
     const b = nodo.getBoundingClientRect();
-    const x1 = a.right - caja.left + wrap.scrollLeft;
+    const x1 = a.right - caja.left + wrap.scrollLeft + 2;
     const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
-    const x2 = b.left - caja.left + wrap.scrollLeft - 7;
+    const x2 = b.left - caja.left + wrap.scrollLeft - 8;
     const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
-    const cx = (x2 - x1) / 2;
-    trazos += '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
-              ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".55" marker-end="url(#flecha)"/>';
+    const cx = Math.max(34, (x2 - x1) * 0.55);
+    trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="4" fill="' + color + '"/>' +
+              '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
+              ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".8" stroke-linecap="round" marker-end="url(#flecha)"/>';
   });
   svg.innerHTML = trazos;
 }
@@ -195,6 +208,70 @@ window.addEventListener('resize', () => {
   const panelFlujo = document.querySelector('[data-vista-panel="flujo"]');
   if (panelFlujo && !panelFlujo.hidden) dibujarFlujo();
 });
+
+// Kanban: arrastrar tarjetas entre columnas cambia el estado
+const kanban = document.querySelector('.kanban');
+if (kanban) {
+  let arrastrando = null;
+  kanban.addEventListener('dragstart', (e) => {
+    const card = e.target.closest('.kb-card');
+    if (!card) return;
+    arrastrando = card;
+    card.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+  });
+  kanban.addEventListener('dragend', () => {
+    arrastrando?.classList.remove('dragging');
+    kanban.querySelectorAll('.kb-cards').forEach((c) => c.classList.remove('drag-over'));
+  });
+  kanban.querySelectorAll('.kb-cards').forEach((zona) => {
+    zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('drag-over'); });
+    zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
+    zona.addEventListener('drop', (e) => {
+      e.preventDefault();
+      if (!arrastrando) return;
+      const nuevoEstado = zona.dataset.estadoDrop;
+      zona.appendChild(arrastrando);
+      document.getElementById('kb-id').value = arrastrando.dataset.tarea;
+      document.getElementById('kb-estado').value = nuevoEstado;
+      document.getElementById('frm-kanban').submit();
+    });
+  });
+}
+
+// Paginador de la tabla de tareas (8 por página)
+const cuerpoTabla = document.querySelector('[data-vista-panel="tabla"] .tabla-meca tbody');
+if (cuerpoTabla) {
+  const filas = [...cuerpoTabla.rows];
+  const porPagina = 8;
+  if (filas.length > porPagina) {
+    const totalPaginas = Math.ceil(filas.length / porPagina);
+    const cont = document.createElement('div');
+    cont.className = 'paginador';
+    document.querySelector('[data-vista-panel="tabla"] .tabla-scroll').after(cont);
+    let pagina = 1;
+    const pintar = () => {
+      filas.forEach((f, i) => {
+        f.style.display = (i >= (pagina - 1) * porPagina && i < pagina * porPagina) ? '' : 'none';
+      });
+      let html = '<button type="button" class="pg-btn" data-pg="prev" ' + (pagina === 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
+      for (let p = 1; p <= totalPaginas; p++) {
+        html += '<button type="button" class="pg-btn ' + (p === pagina ? 'active' : '') + '" data-pg="' + p + '">' + p + '</button>';
+      }
+      html += '<button type="button" class="pg-btn" data-pg="next" ' + (pagina === totalPaginas ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+      cont.innerHTML = html;
+    };
+    cont.addEventListener('click', (e) => {
+      const btn = e.target.closest('.pg-btn');
+      if (!btn || btn.disabled) return;
+      if (btn.dataset.pg === 'prev') pagina--;
+      else if (btn.dataset.pg === 'next') pagina++;
+      else pagina = parseInt(btn.dataset.pg, 10);
+      pintar();
+    });
+    pintar();
+  }
+}
 
 // Abrir modales por hash (ej. equipo.php#nuevo-colaborador)
 if (location.hash === '#nuevo-colaborador') {

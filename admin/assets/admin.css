@@ -96,6 +96,18 @@ html.dark .ajuste-iconos-preview {
 * { box-sizing: border-box; }
 body { margin: 0; }
 
+/* ----- Scrollbars del design system ----- */
+* { scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--c-text-soft) 35%, var(--n-bg)) transparent; }
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-text-soft) 32%, var(--n-bg));
+  border-radius: 999px;
+  border: 3px solid var(--n-bg);
+}
+*::-webkit-scrollbar-thumb:hover { background: var(--c-secondary); }
+*::-webkit-scrollbar-corner { background: transparent; }
+
 .admin-body {
   background: var(--n-bg);
   min-height: 100vh;
@@ -626,6 +638,31 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-avance-num { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--pc, var(--c-secondary)); }
 .ph-avance small { color: var(--c-text-soft); font-size: .76rem; font-weight: 600; }
 
+/* Barra de carga estilo clay: pista hundida + relleno con relieve y rayas */
+.barra-carga {
+  height: 22px;
+  border-radius: 999px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini);
+  padding: 4px;
+  margin-top: 4px;
+}
+.bc-fill {
+  display: block;
+  height: 100%;
+  min-width: 14px;
+  border-radius: 999px;
+  background:
+    repeating-linear-gradient(-55deg, rgba(255, 255, 255, .22) 0 8px, transparent 8px 16px),
+    var(--pc, var(--c-secondary));
+  background-size: 45px 100%, 100% 100%;
+  box-shadow: var(--clay-pop);
+  transition: width .6s ease;
+  animation: bc-rayas 1.4s linear infinite;
+}
+.bc-fill[style*="width:0%"] { min-width: 0; background: transparent; box-shadow: none; animation: none; }
+@keyframes bc-rayas { to { background-position: 45px 0, 0 0; } }
+
 /* Boton GitHub (morado marca) */
 .btn-github {
   background: #6e5494;
@@ -764,6 +801,88 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 .fn-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .fn-meta .badge-estado { padding: 3px 9px; font-size: .66rem; }
 .fn-meta .prio-dot { margin-top: 0; }
+
+/* Kanban */
+.kanban {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(235px, 1fr);
+  gap: 16px;
+  padding: 20px 22px 24px;
+  overflow-x: auto;
+}
+.kb-col { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
+.kb-head {
+  display: flex; align-items: center; gap: 9px;
+  padding: 11px 14px;
+  border-radius: 13px;
+  box-shadow: var(--sh-inset-mini);
+  font-size: .78rem; font-weight: 800;
+  letter-spacing: .04em; text-transform: uppercase;
+}
+.kb-count {
+  margin-left: auto;
+  min-width: 24px; height: 24px; padding: 0 7px;
+  border-radius: 999px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .72rem; color: var(--c-text);
+}
+.kb-cards {
+  display: flex; flex-direction: column; gap: 10px;
+  min-height: 70px;
+  padding: 5px;
+  border-radius: 14px;
+  border: 1.5px dashed transparent;
+  transition: border-color .2s ease, background .2s ease;
+}
+.kb-cards.drag-over {
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 45%, var(--n-bg));
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
+}
+.kb-card {
+  background: var(--n-bg);
+  border: 1.5px solid var(--c-border-soft);
+  border-radius: 13px;
+  padding: 12px 14px;
+  box-shadow: var(--sh-mini);
+  display: flex; flex-direction: column; gap: 9px;
+  cursor: grab;
+  transition: transform .2s ease, border-color .2s ease;
+}
+.kb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 35%, var(--n-bg)); }
+.kb-card:active { cursor: grabbing; }
+.kb-card.dragging { opacity: .45; transform: rotate(2deg); }
+.kb-card b { font-size: .85rem; font-weight: 700; color: var(--c-text); line-height: 1.35; }
+.kb-meta { display: flex; align-items: center; gap: 8px; }
+.kb-meta .prio-dot { margin-top: 0; }
+.kb-meta small { color: var(--c-text-soft); font-size: .7rem; display: inline-flex; gap: 4px; align-items: center; }
+
+/* Paginador */
+.paginador {
+  display: flex; justify-content: flex-end; align-items: center; gap: 7px;
+  padding: 14px 20px 18px;
+  border-top: 1px solid var(--c-border-soft);
+}
+.pg-btn {
+  min-width: 34px; height: 34px; padding: 0 10px;
+  border: 1.5px solid transparent; border-radius: 10px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  color: var(--c-text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: .8rem; font-weight: 700;
+  cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease, border-color .2s ease;
+}
+.pg-btn:hover:not(:disabled) { color: var(--c-secondary); }
+.pg-btn:disabled { opacity: .4; cursor: default; }
+.pg-btn.active {
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-secondary);
+  border-color: color-mix(in srgb, var(--c-secondary) 30%, var(--n-bg));
+}
 
 /* Mapa de actividad del repositorio (heatmap) */
 .actividad-card { margin-top: 22px; }

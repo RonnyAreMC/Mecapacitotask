@@ -93,7 +93,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <div class="ph-avance">
       <div class="ph-avance-num font-display"><?= $avance ?>%</div>
       <small><?= $completadas ?> de <?= array_sum($resumen) ?> tareas</small>
-      <div class="progress-wrap"><div class="progress-bar" style="width:<?= $avance ?>%;background:var(--pc)"></div></div>
+      <div class="barra-carga"><span class="bc-fill" style="width:<?= $avance ?>%"></span></div>
     </div>
   </div>
 </header>
@@ -112,9 +112,10 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <?php endforeach; ?>
 </section>
 
-<!-- Cambio de vista: tabla / flujo de dependencias -->
+<!-- Cambio de vista: tabla / kanban / flujo de dependencias -->
 <div class="vista-toggle">
   <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
+  <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
   <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
 </div>
 
@@ -238,6 +239,50 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 </section>
 </div>
 
+<!-- Vista Kanban: columnas por estado, arrastra para cambiar -->
+<div data-vista-panel="kanban" hidden>
+  <section class="card-base tabla-card">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban</h2>
+      <span class="ajuste-ayuda"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</span>
+    </div>
+    <div class="kanban" style="--pc:<?= $color ?>">
+      <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
+      <div class="kb-col">
+        <div class="kb-head estado-<?= $k ?>">
+          <i class="fa-solid <?= $icono ?>"></i> <?= e($label) ?>
+          <span class="kb-count"><?= (int)$resumen[$k] ?></span>
+        </div>
+        <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
+          <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue;
+              $m = $miembros[(int)$t['asignado_id']] ?? null;
+          ?>
+          <div class="kb-card" draggable="true" data-tarea="<?= (int)$t['id'] ?>">
+            <b><?= e($t['titulo']) ?></b>
+            <div class="kb-meta">
+              <?= UI::avatar($m, 22) ?>
+              <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
+              <?php if (!empty($t['fecha_limite'])): ?>
+              <small><i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?></small>
+              <?php endif; ?>
+              <?php if ((int)($t['depende_de'] ?? 0)): ?>
+              <small title="Tiene dependencia"><i class="fa-solid fa-link"></i></small>
+              <?php endif; ?>
+            </div>
+          </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+  </section>
+  <form id="frm-kanban" method="post" action="actions.php" hidden>
+    <input type="hidden" name="accion" value="tarea_estado">
+    <input type="hidden" name="id" id="kb-id">
+    <input type="hidden" name="estado" id="kb-estado">
+  </form>
+</div>
+
 <!-- Vista de flujo: tareas conectadas por dependencias -->
 <div data-vista-panel="flujo" hidden>
   <section class="card-base tabla-card flujo-card">
@@ -259,6 +304,19 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
             $columnas[$nivelesFlujo[(int)$t['id']] ?? 0][] = $t;
         }
         ksort($columnas);
+        // Alinear cada tarea cerca de su dependencia (lineas mas rectas)
+        $posAnterior = [];
+        foreach ($columnas as $nivel => $lista) {
+            if ($nivel > 0 && $posAnterior) {
+                usort($lista, fn($a, $b) =>
+                    ($posAnterior[(int)($a['depende_de'] ?? 0)] ?? 99) <=> ($posAnterior[(int)($b['depende_de'] ?? 0)] ?? 99));
+                $columnas[$nivel] = $lista;
+            }
+            $posAnterior = [];
+            foreach ($lista as $i => $t) {
+                $posAnterior[(int)$t['id']] = $i;
+            }
+        }
         foreach ($columnas as $nivel => $lista): ?>
         <div class="flujo-col">
           <h4><?= $nivel === 0 ? 'Inicio' : 'Fase ' . ($nivel + 1) ?></h4>
