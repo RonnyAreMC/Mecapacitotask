@@ -24,8 +24,16 @@ class Mailer
             'client_id'     => '',
             'client_secret' => '',
             'refresh_token' => '',
+            // Qué notificar
+            'avisar_asignacion'   => true,
+            'avisar_recordatorio' => false,
+            'dias_recordatorio'   => 3,
+            'avisar_completado'   => false,
+            'admin_email'         => '',
         ], (array)Config::get('correo'));
     }
+
+    public static function config(): array { return self::conf(); }
 
     /** true si las notificaciones estan activas y configuradas. */
     public static function listo(): bool
@@ -197,53 +205,91 @@ class Mailer
         }
     }
 
-    /**
-     * Notifica por correo la asignacion de una tarea.
-     * Devuelve true (enviado), string (error) o null (sin correo / desactivado).
-     */
-    public static function notificarAsignacion(array $tarea, array $miembro, array $proyecto): true|string|null
+    /** URL absoluta a un proyecto (o '' si no hay url_panel). */
+    private static function urlProyecto(int $pid): string
     {
-        if (!self::listo() || empty($miembro['email'])) {
-            return null;
-        }
-        $c = self::conf();
-        $prioridades = Catalogo::prioridades();
-        $prioridad = $prioridades[$tarea['prioridad'] ?? '']['0'] ?? ($tarea['prioridad'] ?? '');
-        $colorProyecto = ProyectoRepo::colorBase($proyecto);
-        $urlTablero = rtrim($c['url_panel'], '/');
-        $urlTablero = $urlTablero !== '' ? $urlTablero . '/proyecto.php?id=' . (int)$proyecto['id'] : '';
+        $base = rtrim(self::conf()['url_panel'], '/');
+        return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
+    }
 
-        $html = '
+    /** Envoltura HTML con el branding del panel (título/subtítulo/color de Ajustes). */
+    private static function plantilla(string $cuerpo, string $urlBoton = '', string $textoBoton = ''): string
+    {
+        $m = Config::all();
+        $titulo = e($m['titulo'] ?? 'Panel');
+        $sub    = strtoupper(e($m['subtitulo'] ?? ''));
+        $acento = e($m['color_secundario'] ?? '#2B76F7');
+        $boton  = $urlBoton !== ''
+            ? '<div style="margin-top:20px"><a href="' . e($urlBoton) . '" style="display:inline-block;background:' . $acento . ';color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:bold;">' . e($textoBoton) . '</a></div>'
+            : '';
+        return '
 <div style="margin:0;padding:24px;background:#eef1f7;font-family:Arial,Helvetica,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;background:#ffffff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
+  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
     <div style="background:#2D3E50;padding:18px 26px;">
-      <span style="color:#ffffff;font-size:18px;font-weight:bold;">Mecapacito</span>
-      <span style="color:#40CFFF;font-size:12px;letter-spacing:2px;"> · PANEL DEV</span>
+      <span style="color:#fff;font-size:19px;font-weight:bold;">' . $titulo . '</span>'
+      . ($sub ? '<span style="color:' . $acento . ';font-size:12px;letter-spacing:2px;"> · ' . $sub . '</span>' : '') . '
     </div>
-    <div style="padding:26px;">
-      <p style="margin:0 0 6px;color:#0f172a;font-size:16px;">¡Hola <b>' . e($miembro['nombre']) . '</b>! 👋</p>
-      <p style="margin:0 0 18px;color:#475569;font-size:14px;">Te asignaron una nueva tarea:</p>
-      <div style="border:1px solid #e2e8f0;border-left:5px solid ' . e($colorProyecto) . ';border-radius:12px;padding:16px 18px;margin-bottom:18px;">
-        <p style="margin:0 0 6px;color:#0f172a;font-size:16px;font-weight:bold;">' . e($tarea['titulo']) . '</p>'
-        . (!empty($tarea['descripcion'])
-            ? '<p style="margin:0 0 12px;color:#475569;font-size:13px;line-height:1.5;">' . e($tarea['descripcion']) . '</p>'
-            : '') . '
-        <p style="margin:0;color:#64748b;font-size:12px;">
-          📁 <b>' . e($proyecto['nombre']) . '</b>
-          &nbsp;·&nbsp; Prioridad: <b>' . e($prioridad) . '</b>'
-        . (!empty($tarea['fecha_limite']) ? ' &nbsp;·&nbsp; 📅 Límite: <b>' . e($tarea['fecha_limite']) . '</b>' : '') . '
-        </p>
-      </div>'
-      . ($urlTablero !== ''
-          ? '<a href="' . e($urlTablero) . '" style="display:inline-block;background:#2B76F7;color:#ffffff;text-decoration:none;padding:11px 22px;border-radius:10px;font-size:14px;font-weight:bold;">Ver el tablero →</a>'
-          : '') . '
-    </div>
-    <div style="padding:14px 26px;background:#f6f8fb;color:#94a3b8;font-size:11px;">
-      Correo automático del panel Mecapacito — no es necesario responder.
-    </div>
+    <div style="padding:26px;">' . $cuerpo . $boton . '</div>
+    <div style="padding:14px 26px;background:#f6f8fb;color:#94a3b8;font-size:11px;">Correo automático del panel ' . $titulo . ' — no es necesario responder.</div>
   </div>
 </div>';
+    }
 
-        return self::enviar($miembro['email'], '📋 Nueva tarea asignada: ' . $tarea['titulo'], $html);
+    /** Tarjeta HTML de una tarea (reutilizada en asignación y recordatorio). */
+    private static function cardTarea(array $tarea, array $proyecto): string
+    {
+        $prioridades = Catalogo::prioridades();
+        $prioridad = $prioridades[$tarea['prioridad'] ?? '']['0'] ?? ($tarea['prioridad'] ?? '');
+        $color = ProyectoRepo::colorBase($proyecto);
+        return '<div style="border:1px solid #e2e8f0;border-left:5px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
+            . '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;font-weight:bold;">' . e($tarea['titulo']) . '</p>'
+            . (!empty($tarea['descripcion']) ? '<p style="margin:0 0 12px;color:#475569;font-size:13px;line-height:1.5;">' . e($tarea['descripcion']) . '</p>' : '')
+            . '<p style="margin:0;color:#64748b;font-size:12px;">📁 <b>' . e($proyecto['nombre']) . '</b> &nbsp;·&nbsp; Prioridad: <b>' . e($prioridad) . '</b>'
+            . (!empty($tarea['fecha_limite']) ? ' &nbsp;·&nbsp; 📅 Límite: <b>' . e($tarea['fecha_limite']) . '</b>' : '') . '</p></div>';
+    }
+
+    /** Aviso de asignación de tarea (al asignado). */
+    public static function notificarAsignacion(array $tarea, array $miembro, array $proyecto): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_asignacion']) || empty($miembro['email'])) {
+            return null;
+        }
+        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;">¡Hola <b>' . e($miembro['nombre']) . '</b>! 👋</p>'
+            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">Te asignaron una nueva tarea:</p>'
+            . self::cardTarea($tarea, $proyecto);
+        return self::enviar($miembro['email'], '📋 Nueva tarea asignada: ' . $tarea['titulo'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero →'));
+    }
+
+    /** Recordatorio de una tarea próxima a vencer (al asignado). */
+    public static function recordatorioTarea(array $tarea, array $miembro, array $proyecto, int $dias): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_recordatorio']) || empty($miembro['email'])) {
+            return null;
+        }
+        $cuando = $dias <= 0 ? 'vence <b>hoy</b>' : ('vence en <b>' . $dias . ' día' . ($dias === 1 ? '' : 's') . '</b>');
+        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;">Hola <b>' . e($miembro['nombre']) . '</b> ⏰</p>'
+            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">Recordatorio: tu tarea ' . $cuando . '.</p>'
+            . self::cardTarea($tarea, $proyecto);
+        return self::enviar($miembro['email'], '⏰ Recordatorio: ' . $tarea['titulo'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero →'));
+    }
+
+    /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
+    public static function notificarProyectoCompleto(array $proyecto, int $total): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_completado']) || empty($c['admin_email'])) {
+            return null;
+        }
+        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:18px;">🎉 ¡Fase concluida!</p>'
+            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">El proyecto <b>' . e($proyecto['nombre']) . '</b> completó <b>' . $total . ' de ' . $total . '</b> tareas. ¡Todo entregado!</p>'
+            . '<div style="border:1px solid #e2e8f0;border-left:5px solid ' . e(ProyectoRepo::colorBase($proyecto)) . ';border-radius:12px;padding:16px 18px;">'
+            . '<p style="margin:0;color:#0f172a;font-size:15px;font-weight:bold;">' . e($proyecto['nombre']) . '</p>'
+            . '<p style="margin:6px 0 0;color:#64748b;font-size:12px;">✅ ' . $total . '/' . $total . ' tareas completadas</p></div>';
+        return self::enviar($c['admin_email'], '✅ ' . $proyecto['nombre'] . ': fase concluida (' . $total . '/' . $total . ')',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto →'));
     }
 }

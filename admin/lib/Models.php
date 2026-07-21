@@ -197,6 +197,11 @@ final class Config
                 'client_id'     => '',
                 'client_secret' => '',
                 'refresh_token' => '',
+                'avisar_asignacion'   => true,
+                'avisar_recordatorio' => false,
+                'dias_recordatorio'   => 3,
+                'avisar_completado'   => false,
+                'admin_email'         => '',
             ],
         ];
     }

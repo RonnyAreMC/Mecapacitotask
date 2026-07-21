@@ -354,9 +354,34 @@ UI::cabecera(
             <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
           </label>
           <label class="campo"><span>URL del panel (botón "Ver tablero" del correo)</span>
-            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mecapacito.com/admin">
+            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mchub.mecapacito.com/admin">
           </label>
         </div>
+
+        <h3 class="correo-sub"><i class="fa-solid fa-bell text-secondary"></i> ¿Qué avisar?</h3>
+        <label class="chk-linea">
+          <input type="checkbox" name="correo[avisar_asignacion]" <?= !empty($co['avisar_asignacion']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisar a la persona cuando se le asigna una tarea
+        </label>
+        <div class="chk-con-campo">
+          <label class="chk-linea">
+            <input type="checkbox" name="correo[avisar_recordatorio]" <?= !empty($co['avisar_recordatorio']) ? 'checked' : '' ?>>
+            <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+            Recordar tareas próximas a vencer
+          </label>
+          <label class="campo campo-inline"><span>días antes</span>
+            <input class="input-meca" type="number" min="0" max="30" name="correo[dias_recordatorio]" value="<?= (int)($co['dias_recordatorio'] ?? 3) ?>" style="width:90px">
+          </label>
+        </div>
+        <label class="chk-linea">
+          <input type="checkbox" name="correo[avisar_completado]" <?= !empty($co['avisar_completado']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisarme cuando un proyecto se completa (todas sus tareas entregadas)
+        </label>
+        <label class="campo"><span>Correo del administrador (recibe los avisos de proyecto completado)</span>
+          <input class="input-meca" type="email" name="correo[admin_email]" value="<?= e($co['admin_email'] ?? '') ?>" placeholder="tucorreo@gmail.com">
+        </label>
 
         <p class="ajuste-ayuda"><b>Solo para SMTP</b> — con Gmail usa una
           <a href="https://myaccount.google.com/apppasswords" target="_blank" rel="noopener">contraseña de aplicación</a>:</p>

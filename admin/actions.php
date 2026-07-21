@@ -25,6 +25,26 @@ $miembros  = new MiembroRepo();
 $tareas    = new TareaRepo();
 
 /**
+ * Revisa si el proyecto acaba de completarse (100% y con tareas) y, si es
+ * la primera vez, avisa al administrador. Si baja de 100%, reinicia el flag.
+ */
+function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
+{
+    $p = $proyectos->buscar($proyectoId);
+    if (!$p) return;
+    $total = array_sum($tareas->resumen($proyectoId));
+    $completo = $total > 0 && $tareas->avance($proyectoId) === 100;
+    $yaAvisado = !empty($p['entrega_notificada']);
+
+    if ($completo && !$yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 1]);
+        Mailer::notificarProyectoCompleto($p, $total);
+    } elseif (!$completo && $yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 0]);
+    }
+}
+
+/**
  * Si la tarea quedo asignada a alguien nuevo, le envia el correo.
  * Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
@@ -99,12 +119,14 @@ switch ($accion) {
             $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
         }
         [$msg, $tipo] = notificarSiAsignada($t, (int)$t['asignado_id'], 0, $proyectos, $miembros);
+        chequearEntrega($pid, $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
     case 'tarea_estado':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if ($t) {
             $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
+            chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
             redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Estado actualizado.');
         }
         redirigir('index.php', 'Tarea no encontrada.', 'error');
@@ -126,12 +148,14 @@ switch ($accion) {
         ]);
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, (int)$tActual['asignado_id'], $asignadoAntes, $proyectos, $miembros);
+        chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tarea_eliminar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if ($t) {
             $tareas->eliminar((int)$t['id']);
+            chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
             redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea eliminada.');
         }
         redirigir('index.php', 'Tarea no encontrada.', 'error');
@@ -204,6 +228,7 @@ switch ($accion) {
             'estado'      => $nuevo,
             'resuelto_en' => $nuevo === 'resuelta' ? date('Y-m-d H:i') : '',
         ]);
+        chequearEntrega((int)$o['proyecto_id'], $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $o['proyecto_id'] . '#vista-observaciones',
                   $nuevo === 'resuelta' ? 'Observación marcada como resuelta.' : 'Observación reabierta.');
 
@@ -326,6 +351,11 @@ switch ($accion) {
             'client_id'     => trim($correoPost['client_id'] ?? ''),
             'client_secret' => trim($correoPost['client_secret'] ?? ''),
             'refresh_token' => trim($correoPost['refresh_token'] ?? ''),
+            'avisar_asignacion'   => !empty($correoPost['avisar_asignacion']),
+            'avisar_recordatorio' => !empty($correoPost['avisar_recordatorio']),
+            'dias_recordatorio'   => max(0, min(30, (int)($correoPost['dias_recordatorio'] ?? 3))),
+            'avisar_completado'   => !empty($correoPost['avisar_completado']),
+            'admin_email'         => filter_var(trim($correoPost['admin_email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
         ];
 
         // Roles: filas del catalogo (rl[]) o, por compatibilidad, textarea 'roles'

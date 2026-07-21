@@ -2479,6 +2479,16 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 }
 .chk-linea input:checked + .chk-caja { color: var(--c-verde-esmeralda); }
 
+/* Subtítulo dentro de la card de correo */
+.correo-sub {
+  margin: 8px 0 2px; font-size: .95rem; font-weight: 800; color: var(--c-text);
+  display: flex; align-items: center; gap: 9px;
+  padding-top: 14px; border-top: 1px dashed var(--c-border-soft);
+}
+.chk-con-campo { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+.campo-inline { flex-direction: row; align-items: center; gap: 10px; }
+.campo-inline > span { font-size: .78rem; color: var(--c-text-soft); white-space: nowrap; }
+
 /* Fila de correo de prueba */
 .correo-prueba {
   display: flex; gap: 10px; align-items: center;
