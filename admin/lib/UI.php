@@ -20,7 +20,7 @@ class UI
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($titulo) ?> · Mecapacito Admin</title>
-<link rel="icon" type="image/png" href="../mecapacito-logo.png">
+<link rel="icon" type="image/png" href="../assets/mecapacito-logo.png">
 <script>
 (function () {
   var params = new URLSearchParams(location.search);
@@ -35,7 +35,7 @@ class UI
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="../mecapacito.css">
+<link rel="stylesheet" href="../assets/mecapacito.css">
 <link rel="stylesheet" href="assets/admin.css">
 <?php self::estilosConfig(); ?>
 </head>
@@ -43,7 +43,7 @@ class UI
 <aside class="sidebar">
   <div class="sidebar-top">
     <a href="index.php" class="sidebar-brand">
-      <img src="../mecapacito-logo.png" alt="<?= e($marca['titulo']) ?>">
+      <img src="../assets/mecapacito-logo.png" alt="<?= e($marca['titulo']) ?>">
       <div>
         <strong><?= e($marca['titulo']) ?></strong>
         <span><?= e($marca['subtitulo']) ?></span>
