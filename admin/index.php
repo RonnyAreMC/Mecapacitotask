@@ -89,11 +89,11 @@ UI::cabecera(
       <div class="pac-foot">
         <?= UI::avatarStack(array_values($equipo)) ?>
         <div class="pac-links">
-          <?php if (!empty($p['repo'])): ?>
-          <a href="<?= e($p['repo']) ?>" target="_blank" rel="noopener" class="pac-repo" title="Repositorio">
-            <i class="fa-brands fa-github"></i>
+          <?php foreach (ProyectoRepo::repos($p) as $repo): ?>
+          <a href="<?= e($repo['url']) ?>" target="_blank" rel="noopener" class="pac-repo" title="Repositorio <?= e($repo['label']) ?>">
+            <i class="fa-solid <?= e($repo['icono']) ?>"></i>
           </a>
-          <?php endif; ?>
+          <?php endforeach; ?>
           <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-sm">
             Ver tablero <i class="fa-solid fa-arrow-right"></i>
           </a>
@@ -124,10 +124,16 @@ UI::cabecera(
       <textarea class="input-meca" name="descripcion" rows="2" placeholder="¿De qué trata el proyecto?"></textarea>
     </label>
 
-    <label class="campo">
-      <span>Repositorio (URL)</span>
-      <input class="input-meca" name="repo" type="url" placeholder="https://github.com/mecapacito/...">
-    </label>
+    <div class="campo-doble">
+      <label class="campo">
+        <span><i class="fa-solid fa-server"></i> Repositorio backend</span>
+        <input class="input-meca" name="repo" type="url" placeholder="https://github.com/…/backend">
+      </label>
+      <label class="campo">
+        <span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span>
+        <input class="input-meca" name="repo_frontend" type="url" placeholder="https://github.com/…/frontend">
+      </label>
+    </div>
 
     <div class="campo-doble">
       <label class="campo">

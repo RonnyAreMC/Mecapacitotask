@@ -65,12 +65,13 @@ switch ($accion) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
         $proyectos->actualizar($id, [
-            'nombre'      => trim($_POST['nombre'] ?? ''),
-            'descripcion' => trim($_POST['descripcion'] ?? ''),
-            'repo'        => trim($_POST['repo'] ?? ''),
-            'estado'      => $_POST['estado'] ?? 'activo',
-            'icono'       => $_POST['icono'] ?? 'fa-rocket',
-            'color'       => Catalogo::colorEntrada($_POST),
+            'nombre'        => trim($_POST['nombre'] ?? ''),
+            'descripcion'   => trim($_POST['descripcion'] ?? ''),
+            'repo'          => trim($_POST['repo'] ?? ''),
+            'repo_frontend' => trim($_POST['repo_frontend'] ?? ''),
+            'estado'        => $_POST['estado'] ?? 'activo',
+            'icono'         => $_POST['icono'] ?? 'fa-rocket',
+            'color'         => Catalogo::colorEntrada($_POST),
         ]);
         redirigir('proyecto.php?id=' . $id, 'Proyecto actualizado.');
 

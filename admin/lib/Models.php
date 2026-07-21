@@ -290,12 +290,13 @@ class ProyectoRepo
     public function crear(array $datos): array
     {
         return $this->store->insert([
-            'nombre'      => trim($datos['nombre'] ?? ''),
-            'descripcion' => trim($datos['descripcion'] ?? ''),
-            'repo'        => trim($datos['repo'] ?? ''),
-            'estado'      => $datos['estado'] ?? 'activo',
-            'icono'       => $datos['icono'] ?? 'fa-rocket',
-            'color'       => Catalogo::colorEntrada($datos),
+            'nombre'        => trim($datos['nombre'] ?? ''),
+            'descripcion'   => trim($datos['descripcion'] ?? ''),
+            'repo'          => trim($datos['repo'] ?? ''),
+            'repo_frontend' => trim($datos['repo_frontend'] ?? ''),
+            'estado'        => $datos['estado'] ?? 'activo',
+            'icono'         => $datos['icono'] ?? 'fa-rocket',
+            'color'         => Catalogo::colorEntrada($datos),
         ]);
     }
 
@@ -315,6 +316,22 @@ class ProyectoRepo
     public static function colorBase(array $p): string
     {
         return Catalogo::colorDe($p['color'] ?? 0);
+    }
+
+    /**
+     * Repositorios del proyecto (backend y frontend), solo los que tienen URL.
+     * @return array<int,array{label:string,icono:string,url:string}>
+     */
+    public static function repos(array $p): array
+    {
+        $out = [];
+        if (!empty($p['repo'])) {
+            $out[] = ['label' => 'Backend', 'icono' => 'fa-server', 'url' => $p['repo']];
+        }
+        if (!empty($p['repo_frontend'])) {
+            $out[] = ['label' => 'Frontend', 'icono' => 'fa-desktop', 'url' => $p['repo_frontend']];
+        }
+        return $out;
     }
 }
 

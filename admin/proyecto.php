@@ -52,8 +52,12 @@ foreach ($tareas as $t) {
 $nivelesFlujo = $tareasRepo->niveles($tareas);
 $hayDependencias = (bool)array_filter($tareas, fn($t) => (int)($t['depende_de'] ?? 0) > 0);
 
-// Actividad del repositorio en GitHub (con cache)
-$actividadRepo = GitHub::actividad($proyecto['repo'] ?? '');
+// Actividad de GitHub por cada repositorio del proyecto (backend/frontend)
+$reposProyecto = ProyectoRepo::repos($proyecto);
+$actividades = [];
+foreach ($reposProyecto as $r) {
+    $actividades[] = ['label' => $r['label'], 'icono' => $r['icono'], 'act' => GitHub::actividad($r['url'])];
+}
 
 // Observaciones (revision / QA)
 $obsRepo         = new ObservacionRepo();
@@ -79,11 +83,11 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
     <div class="ph-actions">
-      <?php if (!empty($proyecto['repo'])): ?>
-      <a class="btn-meca btn-sm btn-github" href="<?= e($proyecto['repo']) ?>" target="_blank" rel="noopener">
-        <i class="fa-brands fa-github"></i> Repositorio
+      <?php foreach (ProyectoRepo::repos($proyecto) as $repo): ?>
+      <a class="btn-meca btn-sm btn-github" href="<?= e($repo['url']) ?>" target="_blank" rel="noopener" title="Repositorio <?= e($repo['label']) ?>">
+        <i class="fa-brands fa-github"></i> <i class="fa-solid <?= e($repo['icono']) ?>"></i> <?= e($repo['label']) ?>
       </a>
-      <?php endif; ?>
+      <?php endforeach; ?>
       <button class="btn-ghost btn-meca btn-sm" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
@@ -591,11 +595,11 @@ foreach ($tareas as $t) {
   </div>
 </section>
 
-<?php if ($actividadRepo['estado'] !== 'sin_repo'): ?>
+<?php foreach ($actividades as $rep): $actividadRepo = $rep['act']; if ($actividadRepo['estado'] === 'sin_repo') continue; ?>
 <!-- Actividad del repositorio (GitHub) -->
 <section class="card-base tabla-card actividad-card" style="--pc:<?= $color ?>">
   <div class="tabla-toolbar">
-    <h2 class="font-display"><i class="fa-brands fa-github"></i> Actividad del repositorio</h2>
+    <h2 class="font-display"><i class="fa-brands fa-github"></i> Actividad · <span class="text-secondary"><i class="fa-solid <?= e($rep['icono']) ?>"></i> <?= e($rep['label']) ?></span></h2>
     <div class="tabla-filtros">
       <?php if ($actividadRepo['estado'] === 'ok'): ?>
       <span class="ajuste-ayuda"><b><?= (int)$actividadRepo['total'] ?></b> commits en el último año</span>
@@ -631,7 +635,7 @@ foreach ($tareas as $t) {
     <?php endif; ?>
   </div>
 </section>
-<?php endif; ?>
+<?php endforeach; ?>
 
 </div><!-- /metricas -->
 
@@ -747,7 +751,10 @@ foreach ($tareas as $t) {
     </header>
     <label class="campo"><span>Nombre *</span><input class="input-meca" name="nombre" required value="<?= e($proyecto['nombre']) ?>"></label>
     <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" rows="2"><?= e($proyecto['descripcion']) ?></textarea></label>
-    <label class="campo"><span>Repositorio</span><input class="input-meca" type="url" name="repo" value="<?= e($proyecto['repo'] ?? '') ?>"></label>
+    <div class="campo-doble">
+      <label class="campo"><span><i class="fa-solid fa-server"></i> Repositorio backend</span><input class="input-meca" type="url" name="repo" value="<?= e($proyecto['repo'] ?? '') ?>" placeholder="https://github.com/…/backend"></label>
+      <label class="campo"><span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span><input class="input-meca" type="url" name="repo_frontend" value="<?= e($proyecto['repo_frontend'] ?? '') ?>" placeholder="https://github.com/…/frontend"></label>
+    </div>
     <div class="campo-doble">
       <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>
       <div class="campo">
