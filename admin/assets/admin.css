@@ -256,9 +256,23 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
 .sidebar-link i { width: 18px; text-align: center; font-size: .95rem; }
 .sidebar-link:hover { box-shadow: var(--sh-mini); color: var(--c-text); }
 .sidebar-link.active {
-  box-shadow: var(--sh-inset-mini);
+  position: relative;
+  box-shadow: var(--sh-inset-mini),
+    0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent),
+    0 0 18px -3px color-mix(in srgb, var(--c-secondary) 75%, transparent);
   color: var(--c-secondary);
 }
+/* Barra de neón a un lado del ítem activo */
+.sidebar-link.active::before {
+  content: "";
+  position: absolute; left: 6px; top: 22%; bottom: 22%;
+  width: 3px; border-radius: 999px;
+  background: var(--c-secondary);
+  box-shadow: 0 0 8px 1px var(--c-secondary), 0 0 16px 2px color-mix(in srgb, var(--c-secondary) 65%, transparent);
+  animation: neon-pulse 2.2s ease-in-out infinite;
+}
+@keyframes neon-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
+html.sb-collapsed .sidebar-link.active::before { left: 3px; top: 28%; bottom: 28%; }
 .sidebar-link.active i { color: var(--c-secondary) !important; }
 .sidebar-link .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
@@ -1053,6 +1067,69 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   color: var(--c-secondary);
   border-color: color-mix(in srgb, var(--c-secondary) 30%, var(--n-bg));
 }
+
+/* =========================================================
+   Calendario del proyecto
+   ========================================================= */
+.cal-head {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; flex-wrap: wrap;
+  padding: 18px 24px 12px;
+}
+.cal-head h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); }
+.cal-nav { display: flex; align-items: center; gap: 8px; }
+.cal-nav .accion-btn { text-decoration: none; }
+.cal-scroll { overflow-x: auto; padding: 0 24px; }
+.cal-dows, .cal-grid {
+  display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 8px; min-width: 680px;
+}
+.cal-dow {
+  text-align: center; padding: 6px 0;
+  font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.cal-grid { padding-bottom: 4px; }
+.cal-cell {
+  min-height: 96px;
+  border-radius: 12px;
+  box-shadow: var(--sh-inset-mini);
+  padding: 7px 8px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.cal-cell.vacia { box-shadow: none; }
+.cal-cell.hoy { box-shadow: var(--sh-inset-mini), 0 0 0 1.5px var(--c-secondary); }
+.cal-num { font-size: .78rem; font-weight: 800; color: var(--c-text-muted); }
+.cal-cell.hoy .cal-num {
+  align-self: flex-start;
+  background: var(--c-secondary); color: #fff;
+  min-width: 22px; height: 22px; padding: 0 5px;
+  border-radius: 999px; display: inline-flex; align-items: center; justify-content: center;
+}
+.cal-ev {
+  display: flex; align-items: center; gap: 5px;
+  padding: 3px 8px; border: 0; border-radius: 8px;
+  font-family: 'Inter', sans-serif; font-size: .68rem; font-weight: 700;
+  cursor: pointer; text-decoration: none;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  box-shadow: var(--sh-mini);
+  transition: transform .15s ease;
+}
+.cal-ev:hover { transform: translateX(2px); }
+.cal-ev .prio-dot { margin-top: 0; }
+.cal-ev-tarea { background: var(--n-bg); color: var(--c-text); }
+.cal-ev-tarea.cal-venc { color: var(--c-terracota); box-shadow: var(--sh-mini), inset 0 0 0 1.5px color-mix(in srgb, var(--c-terracota) 40%, transparent); }
+html.dark .cal-ev-tarea.cal-venc { color: #ff9d5c; }
+.cal-ev-reunion { background: rgba(45,140,255,.14); color: #2D8CFF; }
+.cal-leyenda {
+  display: flex; gap: 18px; flex-wrap: wrap;
+  padding: 14px 24px 20px;
+  font-size: .74rem; font-weight: 600; color: var(--c-text-soft);
+}
+.cal-leyenda span { display: inline-flex; align-items: center; gap: 6px; }
+.cal-leyenda .prio-dot { margin-top: 0; }
+.cal-venc-ley { color: var(--c-terracota); }
+html.dark .cal-venc-ley { color: #ff9d5c; }
 
 /* =========================================================
    Reuniones (Zoom)
@@ -2011,6 +2088,17 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 }
 
 .dlg-form { display: flex; flex-direction: column; gap: 15px; padding: 26px 28px 24px; }
+
+/* Modales de tarea más amplios y cómodos */
+.dlg-tarea { width: min(680px, calc(100vw - 40px)); }
+.dlg-tarea .dlg-form { gap: 18px; padding: 30px 34px 28px; }
+.dlg-tarea .dlg-form header h3 { font-size: 1.3rem; }
+.dlg-tarea .campo > span { font-size: .82rem; }
+.dlg-tarea .input-meca,
+.dlg-tarea .ms-trigger,
+.dlg-tarea .select-meca { padding: 13px 15px; font-size: .92rem; }
+.dlg-tarea textarea.input-meca { min-height: 90px; }
+.dlg-tarea .campo-doble { gap: 18px; }
 .dlg-form header {
   display: flex; align-items: center; justify-content: space-between;
   margin: -4px 0 2px;

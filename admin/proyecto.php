@@ -73,6 +73,29 @@ $reunionesRepo = new ReunionRepo();
 $reuniones     = $reunionesRepo->delProyecto($id);
 $zoomListo     = Zoom::listo();
 
+// Calendario del proyecto (fechas límite de tareas + reuniones)
+$mesCal = $_GET['mes'] ?? date('Y-m');
+if (!preg_match('/^\d{4}-\d{2}$/', $mesCal)) $mesCal = date('Y-m');
+$calIni    = strtotime($mesCal . '-01');
+$calDias   = (int)date('t', $calIni);
+$calOffset = (int)date('w', $calIni);   // 0 = domingo
+$calPrev   = date('Y-m', strtotime($mesCal . '-01 -1 month'));
+$calNext   = date('Y-m', strtotime($mesCal . '-01 +1 month'));
+$mesesEs   = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio',7=>'Julio',8=>'Agosto',9=>'Septiembre',10=>'Octubre',11=>'Noviembre',12=>'Diciembre'];
+$calTitulo = $mesesEs[(int)date('n', $calIni)] . ' ' . date('Y', $calIni);
+$hoyIso    = date('Y-m-d');
+
+$eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>..., ...], ... ]
+foreach ($tareas as $t) {
+    if (!empty($t['fecha_limite'])) {
+        $eventosCal[$t['fecha_limite']][] = ['tipo' => 'tarea', 'dato' => $t];
+    }
+}
+foreach ($reuniones as $r) {
+    $dia = substr($r['inicio'] ?? '', 0, 10);
+    if ($dia) $eventosCal[$dia][] = ['tipo' => 'reunion', 'dato' => $r];
+}
+
 UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 ?>
 
@@ -157,6 +180,7 @@ foreach ($tareas as $t) {
   <div class="vista-toggle">
     <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
     <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
+    <button type="button" class="tab-btn" data-vista="calendario"><i class="fa-solid fa-calendar-days"></i> Calendario</button>
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
     <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
@@ -395,6 +419,60 @@ foreach ($tareas as $t) {
       </div>
     </div>
     <?php endif; ?>
+  </section>
+</div>
+
+<!-- Vista Calendario: fechas límite de tareas + reuniones -->
+<div data-vista-panel="calendario" hidden>
+  <section class="card-base tabla-card" style="--pc:<?= $color ?>">
+    <div class="cal-head">
+      <h2 class="font-display"><i class="fa-solid fa-calendar-days text-secondary"></i> <?= e($calTitulo) ?></h2>
+      <div class="cal-nav">
+        <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= $calPrev ?>#vista-calendario" title="Mes anterior"><i class="fa-solid fa-chevron-left"></i></a>
+        <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= date('Y-m') ?>#vista-calendario">Hoy</a>
+        <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= $calNext ?>#vista-calendario" title="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></a>
+      </div>
+    </div>
+    <div class="cal-scroll">
+      <div class="cal-dows">
+        <?php foreach (['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'] as $d): ?><span class="cal-dow"><?= $d ?></span><?php endforeach; ?>
+      </div>
+      <div class="cal-grid">
+        <?php
+        // Celdas vacías antes del día 1
+        for ($i = 0; $i < $calOffset; $i++) echo '<div class="cal-cell vacia"></div>';
+        for ($d = 1; $d <= $calDias; $d++):
+            $iso = sprintf('%s-%02d', $mesCal, $d);
+            $evs = $eventosCal[$iso] ?? [];
+        ?>
+        <div class="cal-cell <?= $iso === $hoyIso ? 'hoy' : '' ?>">
+          <span class="cal-num"><?= $d ?></span>
+          <?php foreach ($evs as $ev): if ($ev['tipo'] === 'tarea'):
+              $t = $ev['dato'];
+              $venc = $iso < $hoyIso && !in_array($t['estado'] ?? '', $finales, true);
+          ?>
+          <button type="button" class="cal-ev cal-ev-tarea <?= $venc ? 'cal-venc' : '' ?>" title="<?= e($t['titulo']) ?>"
+            data-editar-tarea='<?= e(json_encode([
+                'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
+                'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignado_id' => (int)$t['asignado_id'],
+                'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
+            ], JSON_UNESCAPED_UNICODE)) ?>'>
+            <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
+          </button>
+          <?php else: $r = $ev['dato']; ?>
+          <a class="cal-ev cal-ev-reunion" href="?id=<?= $id ?>#vista-reuniones" title="<?= e($r['topic']) ?>">
+            <i class="fa-solid fa-video"></i> <?= e(substr($r['inicio'], 11, 5)) ?> <?= e(mb_strimwidth($r['topic'], 0, 16, '…')) ?>
+          </a>
+          <?php endif; endforeach; ?>
+        </div>
+        <?php endfor; ?>
+      </div>
+    </div>
+    <div class="cal-leyenda">
+      <span><span class="prio-dot prio-alta"></span> Fecha límite de tarea</span>
+      <span><i class="fa-solid fa-video" style="color:#2D8CFF"></i> Reunión</span>
+      <span class="cal-venc-ley"><i class="fa-solid fa-triangle-exclamation"></i> Vencida</span>
+    </div>
   </section>
 </div>
 
@@ -673,7 +751,7 @@ foreach ($tareas as $t) {
 <?php endif; ?>
 
 <!-- Modal: nueva tarea -->
-<dialog id="dlg-nueva-tarea" class="dlg-meca">
+<dialog id="dlg-nueva-tarea" class="dlg-meca dlg-tarea">
   <form method="post" action="actions.php" class="dlg-form">
     <input type="hidden" name="accion" value="tarea_crear">
     <input type="hidden" name="proyecto_id" value="<?= $id ?>">
@@ -710,7 +788,7 @@ foreach ($tareas as $t) {
 </dialog>
 
 <!-- Modal: editar tarea (se rellena por JS) -->
-<dialog id="dlg-editar-tarea" class="dlg-meca">
+<dialog id="dlg-editar-tarea" class="dlg-meca dlg-tarea">
   <form method="post" action="actions.php" class="dlg-form">
     <input type="hidden" name="accion" value="tarea_editar">
     <input type="hidden" name="id" id="et-id">
