@@ -159,8 +159,9 @@ if (vistaToggle) {
       sessionStorage.setItem(claveVista, btn.dataset.vista);
     });
   });
-  const vGuardada = location.hash === '#vista-flujo' ? 'flujo' : location.hash === '#vista-kanban' ? 'kanban' : sessionStorage.getItem(claveVista);
-  if (vGuardada === 'flujo' || vGuardada === 'kanban') activarVista(vGuardada);
+  const porHashVista = location.hash.startsWith('#vista-') ? location.hash.slice(7) : null;
+  const vGuardada = porHashVista || sessionStorage.getItem(claveVista);
+  if (vGuardada && vistaToggle.querySelector('[data-vista="' + vGuardada + '"]')) activarVista(vGuardada);
 }
 
 // Conectores SVG entre tareas dependientes (vista Flujo)

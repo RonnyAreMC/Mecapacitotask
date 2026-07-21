@@ -90,9 +90,13 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
     </div>
-    <div class="ph-avance">
-      <div class="ph-avance-num font-display"><?= $avance ?>%</div>
-      <small><?= $completadas ?> de <?= array_sum($resumen) ?> tareas</small>
+  </div>
+
+  <!-- Avance a lo ancho -->
+  <div class="ph-avance-linea">
+    <div class="ph-avance-num font-display"><?= $avance ?>%</div>
+    <div class="ph-avance-detalle">
+      <small><?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas</small>
       <div class="barra-carga"><span class="bc-fill" style="width:<?= $avance ?>%"></span></div>
     </div>
   </div>
@@ -112,11 +116,33 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <?php endforeach; ?>
 </section>
 
-<!-- Cambio de vista: tabla / kanban / flujo de dependencias -->
-<div class="vista-toggle">
-  <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
-  <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
-  <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+<!-- Cambio de vista + selector de persona -->
+<?php
+// Tareas abiertas por miembro dentro de este proyecto (para el selector y metricas)
+$abiertasProyecto = [];
+foreach ($tareas as $t) {
+    if (!in_array($t['estado'] ?? '', $finales, true)) {
+        $mid = (int)($t['asignado_id'] ?? 0);
+        if ($mid) $abiertasProyecto[$mid] = ($abiertasProyecto[$mid] ?? 0) + 1;
+    }
+}
+$quienActual = $fAsignado && isset($miembros[$fAsignado]) ? $miembros[$fAsignado] : null;
+?>
+<div class="vista-fila">
+  <div class="vista-toggle">
+    <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
+    <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
+    <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+    <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
+  </div>
+  <button type="button" class="tab-btn btn-quien <?= $quienActual ? 'active' : '' ?>"
+          onclick="document.getElementById('dlg-mis-tareas').showModal()">
+    <?php if ($quienActual): ?>
+      <?= UI::avatar($quienActual, 22) ?> Tareas de <?= e(explode(' ', $quienActual['nombre'])[0]) ?>
+    <?php else: ?>
+      <i class="fa-solid fa-user-check"></i> Ver tareas de...
+    <?php endif; ?>
+  </button>
 </div>
 
 <div data-vista-panel="tabla">
@@ -324,8 +350,8 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
               $m = $miembros[(int)$t['asignado_id']] ?? null;
               $esFinalF = in_array($t['estado'] ?? '', $finales, true);
           ?>
-          <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?>" id="fn-<?= (int)$t['id'] ?>"
-               data-dep="<?= (int)($t['depende_de'] ?? 0) ?>">
+          <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && (int)$t['asignado_id'] !== $fAsignado ? 'nodo-ajeno' : '' ?>"
+               id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>">
             <b><?= e($t['titulo']) ?></b>
             <div class="fn-meta">
               <?= UI::avatar($m, 24) ?>
@@ -341,6 +367,34 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <?php endif; ?>
   </section>
 </div>
+
+<!-- Vista Métricas: actividad del repo + carga por persona -->
+<div data-vista-panel="metricas" hidden>
+
+<section class="card-base tabla-card" style="--pc:<?= $color ?>">
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-solid fa-chart-simple text-secondary"></i> Carga del equipo</h2>
+    <span class="ajuste-ayuda">Tareas abiertas por persona en este proyecto.</span>
+  </div>
+  <div class="metricas-cuerpo">
+    <?php
+    $maxCarga = max(1, ...array_values($abiertasProyecto ?: [0]));
+    $conCarga = array_filter($miembros, fn($m) => isset($abiertasProyecto[(int)$m['id']]));
+    ?>
+    <?php if (empty($conCarga)): ?>
+      <p class="actividad-msj"><i class="fa-solid fa-mug-hot"></i> Nadie tiene tareas abiertas en este proyecto.</p>
+    <?php else: foreach ($conCarga as $m):
+        $n = $abiertasProyecto[(int)$m['id']];
+    ?>
+    <div class="carga-fila">
+      <?= UI::avatar($m, 34) ?>
+      <span class="carga-nombre"><?= e($m['nombre']) ?></span>
+      <div class="carga-barra"><span style="width:<?= (int)($n * 100 / $maxCarga) ?>%"></span></div>
+      <b class="carga-num"><?= $n ?></b>
+    </div>
+    <?php endforeach; endif; ?>
+  </div>
+</section>
 
 <?php if ($actividadRepo['estado'] !== 'sin_repo'): ?>
 <!-- Actividad del repositorio (GitHub) -->
@@ -383,6 +437,36 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   </div>
 </section>
 <?php endif; ?>
+
+</div><!-- /metricas -->
+
+<!-- Modal: ver tareas de una persona -->
+<dialog id="dlg-mis-tareas" class="dlg-meca">
+  <div class="dlg-form">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-user-check text-secondary"></i> ¿De quién quieres ver las tareas?</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="mt-lista">
+      <a class="persona-row <?= !$fAsignado ? 'active' : '' ?>" href="?id=<?= $id ?><?= $fEstado ? '&estado=' . e($fEstado) : '' ?>">
+        <span class="avatar avatar-empty" style="--sz:42px"><i class="fa-solid fa-users"></i></span>
+        <span class="pr-info"><b>Todo el equipo</b><small>Sin filtro</small></span>
+        <span class="pr-chip"><?= count($tareas) ?></span>
+      </a>
+      <?php foreach ($miembros as $m):
+          $mid = (int)$m['id'];
+          $c1 = Catalogo::colorDe($m['color'] ?? 0);
+      ?>
+      <a class="persona-row <?= $fAsignado === $mid ? 'active' : '' ?>" style="--av-c1:<?= $c1 ?>"
+         href="?id=<?= $id ?>&asignado=<?= $mid ?><?= $fEstado ? '&estado=' . e($fEstado) : '' ?>">
+        <?= UI::avatar($m, 42) ?>
+        <span class="pr-info"><b><?= e($m['nombre']) ?></b><small><?= e($m['rol']) ?></small></span>
+        <span class="pr-chip" title="Tareas abiertas aquí"><?= $abiertasProyecto[$mid] ?? 0 ?></span>
+      </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</dialog>
 
 <!-- Modal: nueva tarea -->
 <dialog id="dlg-nueva-tarea" class="dlg-meca">
