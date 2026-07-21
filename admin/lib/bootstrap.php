@@ -163,27 +163,31 @@ function sembrarDatos(): void
 
     if (count($miembros->todos()) > 0 || count($proyectos->todos()) > 0) return;
 
-    $m1 = $miembros->crear(['nombre' => 'Ronny Zapata', 'rol' => 'Tech Lead',        'git_user' => 'ronnyzapata', 'color' => 0]);
-    $m2 = $miembros->crear(['nombre' => 'María Torres', 'rol' => 'Frontend Dev',     'git_user' => 'mtorres-dev', 'color' => 3]);
-    $m3 = $miembros->crear(['nombre' => 'Carlos Vega',  'rol' => 'Backend Dev',      'git_user' => 'cvega',       'color' => 2]);
+    // Equipo de programadores
+    $miembros->crear(['nombre' => 'Kevin',           'rol' => 'Frontend Dev',        'git_user' => 'kevin',          'color' => 1,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',           'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Dulce Villacis',  'rol' => 'Backend Dev',         'git_user' => 'dulcevillacis', 'color' => 12, 'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer','git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Jordy Pincay',    'rol' => 'Backend Dev',         'git_user' => 'jordypincay',    'color' => 2,  'equipo' => 'programacion']);
 
-    $p1 = $proyectos->crear([
-        'nombre' => 'Sitio Mecapacito', 'icono' => 'fa-globe', 'color' => 0, 'estado' => 'activo',
-        'descripcion' => 'Sitio corporativo con landing, servicios y portafolio de proyectos.',
-        'repo' => 'https://github.com/mecapacito/mecapasite',
-    ]);
-    $p2 = $proyectos->crear([
-        'nombre' => 'POS Tiendas', 'icono' => 'fa-store', 'color' => 3, 'estado' => 'activo',
-        'descripcion' => 'Punto de venta parametrizable para tiendas y minimarkets.',
-        'repo' => 'https://github.com/mecapacito/pos-tiendas',
-    ]);
+    // Equipo de analistas
+    $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas']);
+    $miembros->crear(['nombre' => 'Erick Pastrano',  'rol' => 'Analista de Datos',   'git_user' => 'erickpastrano',  'color' => 7,  'equipo' => 'analistas']);
+    $miembros->crear(['nombre' => 'Ronald',          'rol' => 'Analista Funcional',  'git_user' => 'ronald',         'color' => 5,  'equipo' => 'analistas']);
 
-    $tareas->crear(['proyecto_id' => $p1['id'], 'titulo' => 'Hero con carrusel animado', 'estado' => 'hecho',     'prioridad' => 'alta',  'asignado_id' => $m2['id'], 'descripcion' => 'Slides de servicios con blobs y gradientes.']);
-    $tareas->crear(['proyecto_id' => $p1['id'], 'titulo' => 'Sección equipo con avatares', 'estado' => 'progreso', 'prioridad' => 'media', 'asignado_id' => $m2['id'], 'descripcion' => 'CEO destacado + grid de developers.']);
-    $tareas->crear(['proyecto_id' => $p1['id'], 'titulo' => 'Formulario de contacto con validación', 'estado' => 'pendiente', 'prioridad' => 'media', 'asignado_id' => $m1['id'], 'descripcion' => '']);
-    $tareas->crear(['proyecto_id' => $p2['id'], 'titulo' => 'Módulo de inventario', 'estado' => 'progreso', 'prioridad' => 'alta', 'asignado_id' => $m3['id'], 'descripcion' => 'CRUD de productos con categorías y stock mínimo.']);
-    $tareas->crear(['proyecto_id' => $p2['id'], 'titulo' => 'Facturación electrónica SRI', 'estado' => 'revision', 'prioridad' => 'alta', 'asignado_id' => $m1['id'], 'descripcion' => 'Firma y envío de comprobantes.']);
-    $tareas->crear(['proyecto_id' => $p2['id'], 'titulo' => 'Reporte de ventas diarias', 'estado' => 'pendiente', 'prioridad' => 'baja', 'asignado_id' => $m3['id'], 'descripcion' => '']);
+    // Proyectos
+    $proyectos->crear([
+        'nombre' => 'SIGE', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
+        'descripcion' => 'Sistema integrado de gestión educativa.',
+    ]);
+    $proyectos->crear([
+        'nombre' => 'TPV', 'icono' => 'fa-store', 'color' => 3, 'estado' => 'activo',
+        'descripcion' => 'Terminal punto de venta.',
+    ]);
+    $proyectos->crear([
+        'nombre' => 'CONTABILIDAD', 'icono' => 'fa-money-bill-wave', 'color' => 2, 'estado' => 'activo',
+        'descripcion' => 'Módulo de contabilidad y finanzas.',
+    ]);
 }
 
 sembrarDatos();
