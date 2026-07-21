@@ -52,28 +52,70 @@ UI::cabecera(
 <?php else: ?>
 <section class="equipo-master-detail" data-equipo="<?= e($eq) ?>">
 
-  <!-- Lista compacta: selecciona a alguien para ver su card -->
-  <div class="equipo-lista card-base">
-    <div class="el-head">
-      <i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i>
-      <span><?= count($equipo) ?> colaborador<?= count($equipo) === 1 ? '' : 'es' ?></span>
+  <!-- Tabla de colaboradores: vision general con git/correo copiables -->
+  <div class="card-base tabla-card">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
+        <span class="tabla-count"><?= count($equipo) ?></span>
+      </h2>
+      <span class="ajuste-ayuda">Clic en una fila para ver su detalle abajo · <i class="fa-regular fa-copy"></i> copia el usuario o correo.</span>
     </div>
-    <?php foreach ($equipo as $idx => $m):
-        $c1 = Catalogo::colorDe($m['color'] ?? 0);
-        $mid = (int)$m['id'];
-        $pendientes = $abiertas[$mid] ?? 0;
-    ?>
-    <button type="button" class="persona-row <?= $idx === 0 ? 'active' : '' ?>"
-            data-persona="<?= $mid ?>" style="--av-c1:<?= $c1 ?>">
-      <?= UI::avatar($m, 42) ?>
-      <span class="pr-info">
-        <b><?= e($m['nombre']) ?></b>
-        <small><?= e($m['rol']) ?></small>
-      </span>
-      <span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span>
-      <i class="fa-solid fa-chevron-right pr-flecha"></i>
-    </button>
-    <?php endforeach; ?>
+    <div class="tabla-scroll">
+      <table class="tabla-meca">
+        <thead>
+          <tr>
+            <th>Colaborador</th>
+            <th>Usuario de Git</th>
+            <th>Correo</th>
+            <th>Abiertas</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          <?php foreach ($equipo as $idx => $m):
+              $c1 = Catalogo::colorDe($m['color'] ?? 0);
+              $mid = (int)$m['id'];
+              $pendientes = $abiertas[$mid] ?? 0;
+          ?>
+          <tr class="persona-row <?= $idx === 0 ? 'active' : '' ?>" data-persona="<?= $mid ?>" style="--av-c1:<?= $c1 ?>">
+            <td>
+              <div class="celda-persona">
+                <?= UI::avatar($m, 38) ?>
+                <div class="cp-info">
+                  <span><?= e($m['nombre']) ?></span>
+                  <small><?= e($m['rol']) ?></small>
+                </div>
+              </div>
+            </td>
+            <td>
+              <?php if (!empty($m['git_user'])): ?>
+              <span class="chip-copiar">
+                <code>@<?= e($m['git_user']) ?></code>
+                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </span>
+              <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
+            </td>
+            <td>
+              <?php if (!empty($m['email'])): ?>
+              <span class="chip-copiar">
+                <code><?= e($m['email']) ?></code>
+                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['email']) ?>" title="Copiar correo">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </span>
+              <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
+            </td>
+            <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
+            <td class="celda-acciones">
+              <button type="button" class="accion-btn" title="Ver detalle"><i class="fa-solid fa-eye"></i></button>
+            </td>
+          </tr>
+          <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
   </div>
 
   <!-- Detalle: la card del colaborador seleccionado -->

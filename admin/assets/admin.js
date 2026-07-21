@@ -135,14 +135,28 @@ if (masterDetail) {
     return true;
   };
   masterDetail.querySelectorAll('.persona-row').forEach((row) => {
-    row.addEventListener('click', () => {
+    row.addEventListener('click', (e) => {
+      if (e.target.closest('.btn-copiar')) return;   // copiar no cambia la seleccion
       seleccionar(row.dataset.persona);
       sessionStorage.setItem(claveSel, row.dataset.persona);
+      document.querySelector('.equipo-detalle')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
     });
   });
   const guardada = sessionStorage.getItem(claveSel);
   if (guardada) seleccionar(guardada);
 }
+
+// Copiar al portapapeles (usuarios de git, correos...)
+document.addEventListener('click', async (e) => {
+  const btn = e.target.closest('.btn-copiar');
+  if (!btn) return;
+  try {
+    await navigator.clipboard.writeText(btn.dataset.copiar);
+    MC.toast('Copiado: ' + btn.dataset.copiar, 'success', 2500);
+  } catch {
+    MC.toast('No se pudo copiar al portapapeles.', 'error');
+  }
+});
 
 // Vista Tabla / Flujo en la pagina de proyecto (con memoria por URL)
 const vistaToggle = document.querySelector('.vista-toggle');
