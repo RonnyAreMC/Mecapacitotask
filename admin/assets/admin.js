@@ -74,23 +74,138 @@ const MC = {
 // Activar los toasts que ya vienen renderizados por PHP (mensajes flash)
 document.querySelectorAll('#mc-toasts .mc-toast').forEach((t) => MC._activarToast(t));
 
-// Formularios con confirmacion propia: <form data-confirmar="mensaje">
-document.querySelectorAll('form[data-confirmar]').forEach((form) => {
-  form.addEventListener('submit', (e) => {
-    if (form.dataset.confirmado === '1') return;
-    e.preventDefault();
-    MC.confirm({
-      titulo: form.dataset.confirmarTitulo || '¿Estás seguro?',
-      mensaje: form.dataset.confirmar,
-      ok: form.dataset.confirmarOk || 'Sí, continuar',
-    }).then((si) => {
-      if (si) {
-        form.dataset.confirmado = '1';
-        form.requestSubmit ? form.requestSubmit() : form.submit();
+/* =========================================================
+   MecaSelect — realza los <select> con buscador y multi-selección.
+   Mantiene el <select> nativo oculto y sincronizado (los forms
+   envían igual). Reutilizable en todo .select-meca (no .select-pill).
+   ========================================================= */
+const MecaSelect = {
+  init(scope) {
+    (scope || document).querySelectorAll('select.select-meca:not(.select-pill):not([data-ms])')
+      .forEach((sel) => this.enhance(sel));
+  },
+  enhance(sel) {
+    sel.dataset.ms = '1';
+    const multi = sel.multiple;
+    const wrap = document.createElement('div');
+    wrap.className = 'ms' + (sel.classList.contains('select-sm') ? ' ms-sm' : '') + (multi ? ' ms-multi' : '');
+    sel.parentNode.insertBefore(wrap, sel);
+    wrap.appendChild(sel);
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'ms-trigger';
+    trigger.innerHTML = '<span class="ms-label"></span><i class="fa-solid fa-chevron-down ms-caret"></i>';
+    wrap.appendChild(trigger);
+
+    const panel = document.createElement('div');
+    panel.className = 'ms-panel';
+    panel.innerHTML = '<div class="ms-search"><i class="fa-solid fa-magnifying-glass"></i>' +
+                      '<input type="text" placeholder="Buscar…"></div><div class="ms-opts"></div>';
+    const opts = panel.querySelector('.ms-opts');
+    const search = panel.querySelector('input');
+    const host = sel.closest('dialog') || document.body;
+    let abierto = false;
+
+    const buildOpts = () => {
+      opts.innerHTML = '';
+      [...sel.options].forEach((o) => {
+        const el = document.createElement('div');
+        el.className = 'ms-opt' + (o.selected ? ' sel' : '') + (o.disabled ? ' dis' : '');
+        el.innerHTML = '<span>' + o.textContent + '</span><i class="fa-solid fa-check"></i>';
+        el.addEventListener('click', () => {
+          if (o.disabled) return;
+          if (multi) {
+            o.selected = !o.selected;
+            el.classList.toggle('sel', o.selected);
+          } else {
+            [...sel.options].forEach((x) => (x.selected = false));
+            o.selected = true;
+          }
+          sel.dispatchEvent(new Event('change', { bubbles: true }));
+          renderLabel();
+          if (!multi) cerrar();
+        });
+        opts.appendChild(el);
+      });
+    };
+    const renderLabel = () => {
+      const label = trigger.querySelector('.ms-label');
+      const elegidas = [...sel.selectedOptions];
+      if (multi) {
+        label.innerHTML = elegidas.length
+          ? elegidas.map((o) => '<span class="ms-chip">' + o.textContent +
+              '<i class="fa-solid fa-xmark" data-val="' + o.value.replace(/"/g, '&quot;') + '"></i></span>').join('')
+          : '<span class="ms-ph">' + (sel.dataset.ph || 'Selecciona…') + '</span>';
+      } else {
+        label.textContent = elegidas[0] ? elegidas[0].textContent : (sel.dataset.ph || '');
       }
+    };
+    const posicionar = () => {
+      const r = trigger.getBoundingClientRect();
+      panel.style.left = r.left + 'px';
+      panel.style.width = r.width + 'px';
+      panel.style.top = (r.bottom + 6) + 'px';
+      const h = panel.offsetHeight;
+      if (r.bottom + 6 + h > innerHeight && r.top - 6 - h > 0) panel.style.top = (r.top - 6 - h) + 'px';
+    };
+    const abrir = () => {
+      buildOpts(); host.appendChild(panel);
+      abierto = true; wrap.classList.add('ms-open');
+      posicionar(); search.value = ''; filtrar(''); search.focus();
+    };
+    const cerrar = () => { if (!abierto) return; abierto = false; wrap.classList.remove('ms-open'); panel.remove(); };
+    const filtrar = (q) => {
+      q = q.toLowerCase();
+      opts.querySelectorAll('.ms-opt').forEach((el) => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+    };
+
+    trigger.addEventListener('click', (e) => {
+      const x = e.target.closest('.ms-chip i');
+      if (x) {
+        e.stopPropagation();
+        const o = [...sel.options].find((op) => op.value === x.dataset.val);
+        if (o) { o.selected = false; sel.dispatchEvent(new Event('change', { bubbles: true })); renderLabel(); }
+        return;
+      }
+      abierto ? cerrar() : abrir();
     });
+    search.addEventListener('input', () => filtrar(search.value));
+    search.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+    document.addEventListener('click', (e) => { if (abierto && !panel.contains(e.target) && !wrap.contains(e.target)) cerrar(); });
+    addEventListener('scroll', () => cerrar(), true);
+    addEventListener('resize', () => cerrar());
+    // Sincroniza si el valor cambia por JS (p. ej. al editar en un modal)
+    sel.addEventListener('ms-sync', () => { renderLabel(); });
+    renderLabel();
+  },
+};
+MecaSelect.init();
+
+// Fija el valor de un <select> y refresca su MecaSelect
+function setSelect(el, valor) {
+  if (!el) return;
+  el.value = String(valor);
+  el.dispatchEvent(new Event('ms-sync'));
+}
+
+// Formularios con confirmacion propia: <form data-confirmar="mensaje">
+// (delegado: funciona también con formularios agregados dinámicamente)
+document.addEventListener('submit', (e) => {
+  const form = e.target.closest('form[data-confirmar]');
+  if (!form || form.dataset.confirmado === '1') return;
+  e.preventDefault();
+  MC.confirm({
+    titulo: form.dataset.confirmarTitulo || '¿Estás seguro?',
+    mensaje: form.dataset.confirmar,
+    ok: form.dataset.confirmarOk || 'Sí, continuar',
+  }).then((si) => {
+    if (si) {
+      form.dataset.confirmado = '1';
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    }
   });
-});
+}, true);
 
 // Colapsar / expandir la barra lateral (persistido en localStorage)
 const sidebarToggle = document.getElementById('sidebar-toggle');
@@ -238,6 +353,44 @@ if (obsComposer) {
   textarea.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); obsComposer.requestSubmit(); }
   });
+
+  // Enviar por AJAX: anota N observaciones seguidas sin recargar
+  obsComposer.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    if (!textarea.value.trim() && !bolsa.files.length) {
+      MC.toast('Escribe la observación o adjunta un archivo.', 'error');
+      return;
+    }
+    const btn = obsComposer.querySelector('button[type="submit"]');
+    btn.disabled = true;
+    const fd = new FormData(obsComposer);
+    fd.set('ajax', '1');
+    try {
+      const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
+      const data = await res.json();
+      if (!data.ok) { MC.toast(data.error || 'No se pudo guardar.', 'error'); return; }
+      const lista = document.getElementById('obs-lista');
+      lista.querySelector('.empty-state')?.remove();
+      data.items.reverse().forEach((html) => lista.insertAdjacentHTML('afterbegin', html));
+      // Limpiar para la siguiente anotación (conserva autor y tareas elegidas)
+      textarea.value = '';
+      while (bolsa.items.length) bolsa.items.remove(0);
+      pintar();
+      // Actualizar contadores visibles
+      const total = document.querySelector('.obs-card .tabla-count');
+      if (total) total.textContent = data.total;
+      const chipPend = document.querySelector('#obs-filtros [data-filtro="pendiente"]');
+      if (chipPend) chipPend.textContent = 'Pendientes' + (data.pendientes ? ' · ' + data.pendientes : '');
+      const tabBadge = document.querySelector('.vista-toggle [data-vista="observaciones"] .tab-badge');
+      if (tabBadge) tabBadge.textContent = data.pendientes;
+      MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
+      textarea.focus();
+    } catch {
+      MC.toast('Error de red al guardar la observación.', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
 }
 
 // Filtro de observaciones (todas / pendientes / resueltas)
@@ -378,14 +531,14 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     dlg.querySelector('#et-titulo').value = t.titulo;
     dlg.querySelector('#et-descripcion').value = t.descripcion;
     dlg.querySelector('#et-fecha').value = t.fecha_limite;
-    dlg.querySelector('.js-et-asignado').value = t.asignado_id;
-    dlg.querySelector('.js-et-prioridad').value = t.prioridad;
-    dlg.querySelector('.js-et-estado').value = t.estado;
+    setSelect(dlg.querySelector('.js-et-asignado'), t.asignado_id);
+    setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
+    setSelect(dlg.querySelector('.js-et-estado'), t.estado);
     const dep = dlg.querySelector('.js-et-depende');
     if (dep) {
-      dep.value = String(t.depende_de || 0);
       // Una tarea no puede depender de si misma
       [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
+      setSelect(dep, t.depende_de || 0);
     }
     dlg.showModal();
   });
@@ -448,7 +601,7 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="git_user"]').value = m.git_user;
     form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
-    if (selEquipo && m.equipo) selEquipo.value = m.equipo;
+    if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
     form.querySelector('.pp-file').value = '';
     if (String(m.color).startsWith('#')) {
       form.querySelector('.color-picker input[value="custom"]').checked = true;

@@ -140,29 +140,56 @@ switch ($accion) {
     case 'obs_crear':
         $obsRepo = new ObservacionRepo();
         $pid = (int)($_POST['proyecto_id'] ?? 0);
-        if (!$proyectos->buscar($pid)) {
-            redirigir('index.php', 'Proyecto no encontrado.', 'error');
-        }
+        $esAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
         $volver = 'proyecto.php?id=' . $pid . '#vista-observaciones';
+        $fallar = function (string $msg) use ($esAjax, $volver) {
+            if ($esAjax) { header('Content-Type: application/json'); echo json_encode(['ok' => false, 'error' => $msg]); exit; }
+            redirigir($volver, $msg, 'error');
+        };
+
+        if (!$proyectos->buscar($pid)) $fallar('Proyecto no encontrado.');
         $adjuntos = guardarAdjuntos('adjuntos');
         if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
-            redirigir($volver, 'Escribe la observación o adjunta un archivo.', 'error');
+            $fallar('Escribe la observación o adjunta un archivo.');
         }
-        $autor = $miembros->buscar((int)($_POST['autor_id'] ?? 0));
-        // La tarea (si se indica) debe pertenecer al proyecto
-        $tareaId = (int)($_POST['tarea_id'] ?? 0);
-        $tRef = $tareaId ? $tareas->buscar($tareaId) : null;
-        if ($tRef && (int)$tRef['proyecto_id'] !== $pid) $tareaId = 0;
+        $autor  = $miembros->buscar((int)($_POST['autor_id'] ?? 0));
+        $equipo = $autor ? MiembroRepo::equipoDe($autor) : '';
 
-        $obsRepo->crear([
-            'proyecto_id' => $pid,
-            'tarea_id'    => $tareaId,
-            'autor_id'    => (int)($_POST['autor_id'] ?? 0),
-            'equipo'      => $autor ? MiembroRepo::equipoDe($autor) : '',
-            'texto'       => $_POST['texto'] ?? '',
-            'adjuntos'    => $adjuntos,
-        ]);
-        redirigir($volver, 'Observación registrada.');
+        // Tareas destino (n a la vez): solo las del proyecto; ninguna = general
+        $destinos = array_values(array_filter(
+            array_map('intval', (array)($_POST['tarea_id'] ?? [])),
+            function ($tid) use ($tareas, $pid) {
+                $t = $tareas->buscar($tid);
+                return $t && (int)$t['proyecto_id'] === $pid;
+            }
+        ));
+        if (empty($destinos)) $destinos = [0];   // general
+
+        $creadas = [];
+        foreach ($destinos as $tid) {
+            $creadas[] = $obsRepo->crear([
+                'proyecto_id' => $pid,
+                'tarea_id'    => $tid,
+                'autor_id'    => (int)($_POST['autor_id'] ?? 0),
+                'equipo'      => $equipo,
+                'texto'       => $_POST['texto'] ?? '',
+                'adjuntos'    => $adjuntos,
+            ]);
+        }
+
+        if ($esAjax) {
+            require_once __DIR__ . '/lib/obs_item.php';
+            $res = $obsRepo->resumen($pid);
+            header('Content-Type: application/json');
+            echo json_encode([
+                'ok'         => true,
+                'items'      => array_map('obsItemHtml', $creadas),
+                'total'      => $res['total'],
+                'pendientes' => $res['pendientes'],
+            ]);
+            exit;
+        }
+        redirigir($volver, count($creadas) > 1 ? count($creadas) . ' observaciones registradas.' : 'Observación registrada.');
 
     case 'obs_estado':
         $obsRepo = new ObservacionRepo();

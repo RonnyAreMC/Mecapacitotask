@@ -1125,7 +1125,7 @@ html.dark .obs-tag { color: #ffb35c !important; }
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--pc, var(--c-secondary)) 15%, transparent);
 }
 .oc-top { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 10px; }
-.oc-top .oc-select { flex: 1; min-width: 160px; }
+.oc-top .ms, .oc-top .oc-select { flex: 1; min-width: 180px; }
 .oc-campo { position: relative; }
 .oc-texto {
   width: 100%;
@@ -1432,6 +1432,83 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
 }
 .select-sm { padding: 9px 32px 9px 13px; font-size: .8rem; }
+
+/* =========================================================
+   MecaSelect (buscador + multi) — realza los .select-meca
+   ========================================================= */
+.ms { position: relative; display: block; width: 100%; }
+.ms.ms-sm { display: inline-block; width: auto; }
+.ms > select.select-meca { display: none !important; }
+
+.ms-trigger {
+  width: 100%;
+  display: flex; align-items: center; gap: 8px;
+  padding: 11px 14px;
+  border: 0; border-radius: 12px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-text);
+  font-family: 'Inter', sans-serif; font-size: .86rem; font-weight: 600;
+  cursor: pointer; text-align: left;
+  transition: box-shadow .2s ease;
+}
+html.dark .ms-trigger { background: var(--c-bg-soft); }
+.ms-sm .ms-trigger { padding: 9px 12px; font-size: .8rem; }
+.ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+.ms-label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; overflow: hidden; }
+.ms-multi .ms-label { padding: 1px 0; }
+.ms-label > :not(.ms-chip):not(.ms-ph) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-ph { color: var(--c-text-soft); font-weight: 500; }
+.ms-caret { color: var(--c-text-soft); font-size: .72rem; transition: transform .2s ease; flex-shrink: 0; }
+.ms-open .ms-caret { transform: rotate(180deg); }
+
+.ms-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 3px 6px 3px 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 14%, var(--n-bg));
+  color: color-mix(in srgb, var(--c-secondary) 80%, var(--c-text));
+  font-size: .76rem; font-weight: 700;
+  max-width: 100%;
+}
+.ms-chip i { cursor: pointer; font-size: .68rem; opacity: .7; }
+.ms-chip i:hover { opacity: 1; color: var(--c-terracota); }
+
+/* Panel flotante (se posiciona con JS, fixed) */
+.ms-panel {
+  position: fixed; z-index: 300;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--c-secondary) 20%, var(--n-bg));
+  border-radius: 14px;
+  box-shadow: 0 26px 54px -22px rgba(0, 0, 0, .5);
+  padding: 8px;
+  animation: ms-in .16s ease;
+}
+@keyframes ms-in { from { opacity: 0; transform: translateY(-6px); } to { opacity: 1; transform: none; } }
+.ms-search { position: relative; margin-bottom: 6px; }
+.ms-search i { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--c-text-soft); font-size: .78rem; }
+.ms-search input {
+  width: 100%;
+  border: 0; border-radius: 10px;
+  padding: 9px 12px 9px 32px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text); font-family: 'Inter', sans-serif; font-size: .82rem;
+}
+html.dark .ms-search input { background: var(--c-bg-soft); }
+.ms-search input:focus { outline: none; box-shadow: var(--sh-inset-mini), 0 0 0 2px rgba(var(--c-secondary-rgb), .3); }
+.ms-opts { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
+.ms-opt {
+  display: flex; align-items: center; gap: 8px;
+  padding: 9px 12px; border-radius: 9px;
+  font-size: .85rem; font-weight: 600; color: var(--c-text-muted);
+  cursor: pointer;
+}
+.ms-opt span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ms-opt i { opacity: 0; color: var(--c-secondary); font-size: .8rem; }
+.ms-opt:hover { background: rgba(var(--c-secondary-rgb), .08); color: var(--c-text); }
+.ms-opt.sel { color: var(--c-secondary); background: rgba(var(--c-secondary-rgb), .1); }
+.ms-opt.sel i { opacity: 1; }
+.ms-opt.dis { opacity: .4; cursor: default; }
 
 /* Select tipo pildora (estado en tabla): hundido + texto de color */
 .select-pill {

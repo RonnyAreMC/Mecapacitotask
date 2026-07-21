@@ -334,13 +334,16 @@ class UI
      * Select estilizado. $opciones: clave => etiqueta (o [etiqueta, icono]).
      * $auto: true => envia el formulario al cambiar (edicion en linea).
      */
-    public static function select(string $name, array $opciones, string $valor = '', bool $auto = false, string $clase = ''): string
+    public static function select(string $name, array $opciones, string $valor = '', bool $auto = false, string $clase = '', bool $multiple = false): string
     {
         $attrs = $auto ? ' onchange="this.form.submit()"' : '';
-        $html = '<select name="' . e($name) . '" class="select-meca ' . e($clase) . '"' . $attrs . '>';
+        $seleccion = $multiple ? array_map('strval', (array)$valor) : [(string)$valor];
+        $nombre = $multiple ? $name . '[]' : $name;
+        $html = '<select name="' . e($nombre) . '" class="select-meca ' . e($clase) . '"'
+              . ($multiple ? ' multiple' : '') . $attrs . '>';
         foreach ($opciones as $k => $v) {
             $label = is_array($v) ? $v[0] : $v;
-            $sel = (string)$k === (string)$valor ? ' selected' : '';
+            $sel = in_array((string)$k, $seleccion, true) ? ' selected' : '';
             $html .= '<option value="' . e((string)$k) . '"' . $sel . '>' . e($label) . '</option>';
         }
         return $html . '</select>';
