@@ -13,6 +13,17 @@ class UI
     {
         $proyectos = (new ProyectoRepo())->todos();
         $marca = Config::all();
+        $verComo = verComo();
+
+        // Con "ver como" activo, el sidebar solo lista sus proyectos
+        if ($verComo) {
+            $vcId = (int)$verComo['id'];
+            $pids = [];
+            foreach ((new TareaRepo())->todas() as $t) {
+                if ((int)($t['asignado_id'] ?? 0) === $vcId) $pids[(int)$t['proyecto_id']] = true;
+            }
+            $proyectos = array_values(array_filter($proyectos, fn($p) => isset($pids[(int)$p['id']])));
+        }
         ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -52,6 +63,22 @@ class UI
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
       <i class="fa-solid fa-angles-left"></i>
     </button>
+  </div>
+
+  <!-- Filtro global "Ver como" -->
+  <div class="ver-como <?= $verComo ? 'activo' : '' ?>">
+    <button type="button" class="vc-abrir" onclick="document.getElementById('dlg-ver-como').showModal()"
+            title="<?= $verComo ? 'Viendo solo lo de ' . e($verComo['nombre']) : 'Filtrar todo el panel por una persona' ?>">
+      <?php if ($verComo): ?>
+        <?= self::avatar($verComo, 26) ?>
+        <span class="truncate">Viendo a <b><?= e(explode(' ', $verComo['nombre'])[0]) ?></b></span>
+      <?php else: ?>
+        <i class="fa-regular fa-eye"></i> <span class="truncate">Ver como...</span>
+      <?php endif; ?>
+    </button>
+    <?php if ($verComo): ?>
+    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><i class="fa-solid fa-xmark"></i></a>
+    <?php endif; ?>
   </div>
 
   <nav class="sidebar-nav">
@@ -103,11 +130,58 @@ class UI
 
     public static function fin(): void
     {
+        self::dialogVerComo();
         ?>
 </main>
 <script src="assets/admin.js"></script>
 </body>
 </html>
+        <?php
+    }
+
+    /** Modal global para elegir "ver como" (disponible en todas las paginas). */
+    private static function dialogVerComo(): void
+    {
+        $miembros = (new MiembroRepo())->todos();
+        $equipos  = Catalogo::equipos();
+        $finales  = Catalogo::estadosFinales();
+        $actual   = verComo();
+
+        $abiertas = [];
+        foreach ((new TareaRepo())->todas() as $t) {
+            if (!in_array($t['estado'] ?? '', $finales, true)) {
+                $mid = (int)($t['asignado_id'] ?? 0);
+                if ($mid) $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
+            }
+        }
+        ?>
+<dialog id="dlg-ver-como" class="dlg-meca">
+  <div class="dlg-form">
+    <header>
+      <h3 class="font-display"><i class="fa-regular fa-eye text-secondary"></i> ¿Como quién quieres ver el panel?</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <p class="ajuste-ayuda">Todo el panel se filtra a los proyectos y tareas de esa persona. Puedes cambiar o salir cuando quieras.</p>
+    <div class="mt-lista">
+      <a class="persona-row <?= !$actual ? 'active' : '' ?>" href="<?= e(urlConVerComo(0)) ?>">
+        <span class="avatar avatar-empty" style="--sz:42px"><i class="fa-solid fa-users"></i></span>
+        <span class="pr-info"><b>Todo el equipo</b><small>Sin filtro</small></span>
+      </a>
+      <?php foreach ($miembros as $m):
+          $mid = (int)$m['id'];
+          $c1 = Catalogo::colorDe($m['color'] ?? 0);
+          $eqLabel = $equipos[MiembroRepo::equipoDe($m)][0] ?? '';
+      ?>
+      <a class="persona-row <?= $actual && (int)$actual['id'] === $mid ? 'active' : '' ?>"
+         style="--av-c1:<?= $c1 ?>" href="<?= e(urlConVerComo($mid)) ?>">
+        <?= self::avatar($m, 42) ?>
+        <span class="pr-info"><b><?= e($m['nombre']) ?></b><small><?= e($m['rol']) ?> · <?= e($eqLabel) ?></small></span>
+        <span class="pr-chip" title="Tareas abiertas"><?= $abiertas[$mid] ?? 0 ?></span>
+      </a>
+      <?php endforeach; ?>
+    </div>
+  </div>
+</dialog>
         <?php
     }
 

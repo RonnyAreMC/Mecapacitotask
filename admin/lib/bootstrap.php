@@ -78,6 +78,33 @@ function guardarFoto(string $campo): string
     return $nombre;
 }
 
+/* ---------- "Ver como": filtro global por persona (transversal) ---------- */
+
+/** Miembro seleccionado en "Ver como", o null si se ve todo el equipo. */
+function verComo(): ?array
+{
+    static $cache = false;
+    if ($cache !== false) return $cache;
+    $id = (int)($_SESSION['ver_como'] ?? 0);
+    return $cache = ($id > 0 ? (new MiembroRepo())->buscar($id) : null);
+}
+
+/** URL actual con el parametro ver_como (para los enlaces del selector). */
+function urlConVerComo(int $id): string
+{
+    $qs = $_GET;
+    $qs['ver_como'] = $id;
+    return '?' . http_build_query($qs);
+}
+
+// ?ver_como=N en cualquier pagina: fija la sesion y limpia la URL
+if (isset($_GET['ver_como'])) {
+    $_SESSION['ver_como'] = max(0, (int)$_GET['ver_como']);
+    $qs = $_GET;
+    unset($qs['ver_como']);
+    redirigir(strtok($_SERVER['REQUEST_URI'], '?') . ($qs ? '?' . http_build_query($qs) : ''));
+}
+
 /* ---------- Datos de ejemplo (solo primera vez) ---------- */
 
 function sembrarDatos(): void

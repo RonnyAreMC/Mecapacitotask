@@ -12,6 +12,15 @@ $proyectos = $proyectosRepo->todos();
 $miembros  = $miembrosRepo->mapa();
 $todasTareas = $tareasRepo->todas();
 
+// "Ver como": solo los proyectos y tareas de esa persona
+$verComo = verComo();
+if ($verComo) {
+    $vcId = (int)$verComo['id'];
+    $todasTareas = array_values(array_filter($todasTareas, fn($t) => (int)($t['asignado_id'] ?? 0) === $vcId));
+    $pidsVc = array_flip(array_map(fn($t) => (int)$t['proyecto_id'], $todasTareas));
+    $proyectos = array_values(array_filter($proyectos, fn($p) => isset($pidsVc[(int)$p['id']])));
+}
+
 $finales     = Catalogo::estadosFinales();
 $primerEstadoProyecto = array_key_first(Catalogo::estadosProyecto());
 $activos    = count(array_filter($proyectos, fn($p) => ($p['estado'] ?? '') === $primerEstadoProyecto));
@@ -21,7 +30,9 @@ $hechas     = count($todasTareas) - $abiertas;
 UI::inicio('Dashboard', 'dashboard');
 UI::cabecera(
     'Proyectos <span class="text-secondary">Mecapacito</span>',
-    'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.',
+    $verComo
+        ? 'Viendo solo los proyectos y tareas de <b>' . e($verComo['nombre']) . '</b>.'
+        : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.',
     '<button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
@@ -36,7 +47,9 @@ UI::cabecera(
 </section>
 
 <?php if (empty($proyectos)): ?>
-  <?= UI::vacio('fa-folder-plus', 'Aún no hay proyectos', 'Crea el primer proyecto del equipo con el botón "Nuevo proyecto".') ?>
+  <?= $verComo
+      ? UI::vacio('fa-mug-hot', 'Sin proyectos para ' . $verComo['nombre'], 'No tiene tareas asignadas en ningún proyecto. Quita el filtro "Ver como" para ver todo.')
+      : UI::vacio('fa-folder-plus', 'Aún no hay proyectos', 'Crea el primer proyecto del equipo con el botón "Nuevo proyecto".') ?>
 <?php else: ?>
 <section class="proyectos-admin-grid">
   <?php foreach ($proyectos as $p):

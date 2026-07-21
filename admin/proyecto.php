@@ -23,9 +23,10 @@ $completadas = $tareasRepo->completadas($id);
 $finales  = Catalogo::estadosFinales();
 $color    = ProyectoRepo::colorBase($proyecto);
 
-// Filtros
+// Filtros ("ver como" global manda sobre el filtro de la pagina)
+$verComo   = verComo();
 $fEstado   = $_GET['estado'] ?? '';
-$fAsignado = (int)($_GET['asignado'] ?? 0);
+$fAsignado = $verComo ? (int)$verComo['id'] : (int)($_GET['asignado'] ?? 0);
 $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     if ($fEstado !== '' && $t['estado'] !== $fEstado) return false;
     if ($fAsignado && (int)$t['asignado_id'] !== $fAsignado) return false;
@@ -122,7 +123,6 @@ foreach ($tareas as $t) {
         if ($mid) $abiertasProyecto[$mid] = ($abiertasProyecto[$mid] ?? 0) + 1;
     }
 }
-$quienActual = $fAsignado && isset($miembros[$fAsignado]) ? $miembros[$fAsignado] : null;
 ?>
 <div class="vista-fila">
   <div class="vista-toggle">
@@ -131,12 +131,12 @@ $quienActual = $fAsignado && isset($miembros[$fAsignado]) ? $miembros[$fAsignado
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
     <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
   </div>
-  <button type="button" class="tab-btn btn-quien <?= $quienActual ? 'active' : '' ?>"
-          onclick="document.getElementById('dlg-mis-tareas').showModal()">
-    <?php if ($quienActual): ?>
-      <?= UI::avatar($quienActual, 22) ?> Tareas de <?= e(explode(' ', $quienActual['nombre'])[0]) ?>
+  <button type="button" class="tab-btn btn-quien <?= $verComo ? 'active' : '' ?>"
+          onclick="document.getElementById('dlg-ver-como').showModal()">
+    <?php if ($verComo): ?>
+      <?= UI::avatar($verComo, 22) ?> Viendo a <?= e(explode(' ', $verComo['nombre'])[0]) ?>
     <?php else: ?>
-      <i class="fa-solid fa-user-check"></i> Ver tareas de...
+      <i class="fa-regular fa-eye"></i> Ver como...
     <?php endif; ?>
   </button>
 </div>
@@ -149,12 +149,14 @@ $quienActual = $fAsignado && isset($miembros[$fAsignado]) ? $miembros[$fAsignado
       <span class="tabla-count"><?= count($visibles) ?></span>
     </h2>
     <div class="tabla-filtros">
+      <?php if (!$verComo): ?>
       <form method="get" class="inline-form">
         <input type="hidden" name="id" value="<?= $id ?>">
         <?php if ($fEstado): ?><input type="hidden" name="estado" value="<?= e($fEstado) ?>"><?php endif; ?>
         <?= UI::select('asignado', $opcionesFiltro, (string)$fAsignado, true, 'select-sm') ?>
       </form>
-      <?php if ($fEstado || $fAsignado): ?>
+      <?php endif; ?>
+      <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
@@ -435,34 +437,6 @@ $quienActual = $fAsignado && isset($miembros[$fAsignado]) ? $miembros[$fAsignado
 <?php endif; ?>
 
 </div><!-- /metricas -->
-
-<!-- Modal: ver tareas de una persona -->
-<dialog id="dlg-mis-tareas" class="dlg-meca">
-  <div class="dlg-form">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-user-check text-secondary"></i> ¿De quién quieres ver las tareas?</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <div class="mt-lista">
-      <a class="persona-row <?= !$fAsignado ? 'active' : '' ?>" href="?id=<?= $id ?><?= $fEstado ? '&estado=' . e($fEstado) : '' ?>">
-        <span class="avatar avatar-empty" style="--sz:42px"><i class="fa-solid fa-users"></i></span>
-        <span class="pr-info"><b>Todo el equipo</b><small>Sin filtro</small></span>
-        <span class="pr-chip"><?= count($tareas) ?></span>
-      </a>
-      <?php foreach ($miembros as $m):
-          $mid = (int)$m['id'];
-          $c1 = Catalogo::colorDe($m['color'] ?? 0);
-      ?>
-      <a class="persona-row <?= $fAsignado === $mid ? 'active' : '' ?>" style="--av-c1:<?= $c1 ?>"
-         href="?id=<?= $id ?>&asignado=<?= $mid ?><?= $fEstado ? '&estado=' . e($fEstado) : '' ?>">
-        <?= UI::avatar($m, 42) ?>
-        <span class="pr-info"><b><?= e($m['nombre']) ?></b><small><?= e($m['rol']) ?></small></span>
-        <span class="pr-chip" title="Tareas abiertas aquí"><?= $abiertasProyecto[$mid] ?? 0 ?></span>
-      </a>
-      <?php endforeach; ?>
-    </div>
-  </div>
-</dialog>
 
 <!-- Modal: nueva tarea -->
 <dialog id="dlg-nueva-tarea" class="dlg-meca">

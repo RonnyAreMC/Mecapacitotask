@@ -177,6 +177,49 @@ body { margin: 0; }
   color: var(--c-secondary);
 }
 
+/* Chip global "Ver como" en el sidebar */
+.ver-como {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 14px;
+}
+.vc-abrir {
+  flex: 1; min-width: 0;
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 9px 13px;
+  border: 1.5px dashed var(--c-text-soft);
+  border-radius: 12px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: .82rem; font-weight: 600;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, box-shadow .2s ease;
+}
+.vc-abrir:hover { border-color: var(--c-secondary); color: var(--c-secondary); }
+.ver-como.activo .vc-abrir {
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--c-secondary) 40%, var(--n-bg));
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-text);
+}
+.vc-abrir .avatar { box-shadow: none; flex-shrink: 0; }
+.vc-abrir .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.vc-quitar {
+  width: 32px; height: 32px; flex-shrink: 0;
+  border-radius: 10px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  color: var(--c-text-soft);
+  font-size: .78rem;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.vc-quitar:hover { color: var(--c-terracota); }
+.vc-quitar:active { box-shadow: var(--sh-inset-mini); }
+html.sb-collapsed .ver-como { flex-direction: column; }
+html.sb-collapsed .ver-como .truncate { display: none; }
+html.sb-collapsed .vc-abrir { justify-content: center; padding: 9px 0; }
+
 .sidebar-nav { display: flex; flex-direction: column; gap: 6px; padding-top: 20px; flex: 1; }
 .sidebar-label {
   padding: 14px 12px 6px;
