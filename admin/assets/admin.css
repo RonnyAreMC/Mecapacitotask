@@ -323,13 +323,27 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
 
 /* Ghost (se usa en el hero del proyecto): ahora tambien neumorfico */
 .btn-ghost.btn-meca {
-  border: 0;
+  border: 1px solid var(--c-border-soft);
   background: var(--n-bg);
   color: var(--c-text-muted); font-weight: 600;
   box-shadow: var(--sh-mini);
 }
-.btn-ghost.btn-meca:hover { color: var(--c-text); background: var(--n-bg); }
+.btn-ghost.btn-meca:hover {
+  color: var(--c-text);
+  background: var(--n-bg);
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 45%, var(--n-bg));
+}
 .btn-ghost.btn-meca:active { box-shadow: var(--sh-inset-mini); }
+html.dark .btn-ghost.btn-meca {
+  background: rgba(255, 255, 255, .06);
+  border-color: rgba(255, 255, 255, .16);
+  color: var(--c-text);
+}
+html.dark .btn-ghost.btn-meca:hover {
+  background: rgba(255, 255, 255, .1);
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 65%, transparent);
+  color: #fff;
+}
 
 .btn-sm { padding: 8px 14px; font-size: .8rem; border-radius: 11px; }
 .btn-peligro:hover { color: var(--c-terracota) !important; }
@@ -539,7 +553,11 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
   position: relative;
   border-radius: 28px;
   padding: 24px 30px 30px;
-  background: var(--n-bg);
+  /* Ambiente sutil del color del proyecto para que no se vea plano */
+  background:
+    radial-gradient(720px 320px at 88% -30%, color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, transparent), transparent 72%),
+    radial-gradient(520px 280px at -8% 130%, color-mix(in srgb, var(--pc, var(--c-secondary)) 8%, transparent), transparent 70%),
+    var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 25%, var(--n-bg));
   box-shadow:
     12px 12px 28px color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, var(--n-sh-d)),
@@ -554,10 +572,17 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
 .ph-watermark {
   position: absolute; right: -30px; bottom: -40px;
   font-size: 13rem; color: var(--pc, var(--c-secondary));
-  opacity: .06;
+  opacity: .07;
   transform: rotate(-10deg);
   z-index: 0;
 }
+html.dark .proyecto-hero {
+  background:
+    radial-gradient(720px 320px at 88% -30%, color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent), transparent 72%),
+    radial-gradient(520px 280px at -8% 130%, color-mix(in srgb, var(--pc, var(--c-secondary)) 12%, transparent), transparent 70%),
+    var(--n-bg);
+}
+html.dark .ph-watermark { opacity: .14; }
 .ph-top, .ph-main { position: relative; z-index: 1; }
 .ph-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 .ph-back {
@@ -594,6 +619,7 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
   border-radius: 20px;
   padding: 16px 20px;
   background: var(--n-bg);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
   box-shadow: var(--sh-inset);
   display: flex; flex-direction: column; gap: 7px;
 }
