@@ -493,6 +493,39 @@ if (galeriaIconos) {
   }
 }
 
+// Stepper de catalogos: un paso a la vez con navegacion
+const stepper = document.querySelector('.stepper');
+if (stepper) {
+  const pasos = [...stepper.querySelectorAll('.paso')];
+  const paneles = [...document.querySelectorAll('[data-paso-panel]')];
+  const btnPrev = document.getElementById('paso-prev');
+  const btnNext = document.getElementById('paso-next');
+  const indicador = document.getElementById('paso-indicador');
+  const total = pasos.length;
+  const clave = 'paso-' + (stepper.dataset.clave || '');
+
+  const ir = (n) => {
+    n = Math.min(total, Math.max(1, n));
+    pasos.forEach((p) => {
+      const num = parseInt(p.dataset.paso, 10);
+      p.classList.toggle('active', num === n);
+      p.classList.toggle('hecho', num < n);
+    });
+    paneles.forEach((panel) => { panel.hidden = panel.dataset.pasoPanel !== String(n); });
+    if (btnPrev) btnPrev.disabled = n === 1;
+    if (btnNext) btnNext.disabled = n === total;
+    if (indicador) indicador.textContent = 'Paso ' + n + ' de ' + total;
+    sessionStorage.setItem(clave, n);
+    return n;
+  };
+
+  let actual = parseInt(sessionStorage.getItem(clave), 10) || 1;
+  actual = ir(actual);
+  pasos.forEach((p) => p.addEventListener('click', () => { actual = ir(parseInt(p.dataset.paso, 10)); }));
+  btnPrev?.addEventListener('click', () => { actual = ir(actual - 1); });
+  btnNext?.addEventListener('click', () => { actual = ir(actual + 1); });
+}
+
 // Tarjetas de colores de marca: vista previa en vivo y contraste del texto
 document.querySelectorAll('.tarjeta-color').forEach((card) => {
   const inp = card.querySelector('input[type="color"]');

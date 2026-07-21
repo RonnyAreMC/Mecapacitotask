@@ -2077,6 +2077,66 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 .mc-fila.editando .mc-fila-dato { color: var(--c-secondary); }
 .mc-fila-dato::placeholder { color: var(--c-text-soft); font-weight: 600; }
 
+/* =========================================================
+   Stepper (catalogos): pasos numerados con linea conectora
+   ========================================================= */
+.stepper {
+  display: flex; align-items: center;
+  gap: 4px; row-gap: 12px;
+  flex-wrap: wrap;
+  margin-bottom: 22px;
+}
+.paso {
+  display: inline-flex; align-items: center; gap: 10px;
+  padding: 8px 12px;
+  border: 0; border-radius: 13px;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  color: var(--c-text-soft);
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.paso:hover { color: var(--c-text); }
+.paso-num {
+  width: 36px; height: 36px; flex-shrink: 0;
+  border-radius: 50%;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  border: 1.5px solid transparent;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: .84rem; font-weight: 800;
+  color: var(--c-text-muted);
+  transition: box-shadow .2s ease, color .2s ease, border-color .2s ease;
+}
+.paso-txt {
+  display: inline-flex; align-items: center; gap: 8px;
+  font-size: .84rem; font-weight: 700;
+}
+.paso.active { color: var(--c-secondary); }
+.paso.active .paso-num {
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-secondary);
+  border-color: color-mix(in srgb, var(--c-secondary) 35%, var(--n-bg));
+}
+.paso.hecho .paso-num { color: var(--c-verde-esmeralda); }
+.paso-linea {
+  flex: 1 0 20px; max-width: 54px;
+  height: 2px; border-radius: 999px;
+  background: var(--c-border);
+}
+@media (max-width: 860px) {
+  .paso:not(.active) .paso-txt { display: none; }
+  .paso-linea { max-width: 26px; }
+}
+
+.paso-panel[hidden] { display: none; }
+.paso-nav {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px;
+  margin-top: 20px;
+}
+.paso-indicador { font-size: .78rem; font-weight: 800; color: var(--c-text-soft); letter-spacing: .05em; text-transform: uppercase; }
+
 /* Tarjetas de colores de marca (identidad) */
 .tarjetas-color {
   display: grid;

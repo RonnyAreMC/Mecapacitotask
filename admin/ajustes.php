@@ -108,10 +108,33 @@ UI::cabecera(
     </div>
   </div>
 
-  <!-- ================= TAB: Catalogos ================= -->
+  <!-- ================= TAB: Catalogos (stepper) ================= -->
   <div class="tab-panel" data-panel="catalogos" hidden>
-    <div class="ajustes-grid">
 
+    <div class="stepper" data-clave="catalogos">
+      <button type="button" class="paso active" data-paso="1">
+        <span class="paso-num">1</span>
+        <span class="paso-txt"><i class="fa-solid fa-list-check"></i> Estados de tarea</span>
+      </button>
+      <span class="paso-linea"></span>
+      <button type="button" class="paso" data-paso="2">
+        <span class="paso-num">2</span>
+        <span class="paso-txt"><i class="fa-solid fa-angles-up"></i> Prioridades</span>
+      </button>
+      <span class="paso-linea"></span>
+      <button type="button" class="paso" data-paso="3">
+        <span class="paso-num">3</span>
+        <span class="paso-txt"><i class="fa-solid fa-folder-open"></i> Estados de proyecto</span>
+      </button>
+      <span class="paso-linea"></span>
+      <button type="button" class="paso" data-paso="4">
+        <span class="paso-num">4</span>
+        <span class="paso-txt"><i class="fa-solid fa-people-group"></i> Equipos</span>
+      </button>
+    </div>
+
+    <div class="paso-panel" data-paso-panel="1">
+    <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-list-check text-secondary"></i> Estados de tarea</h2>
         <p class="ajuste-ayuda">
@@ -142,6 +165,11 @@ UI::cabecera(
         </div>
       </section>
 
+    </div>
+    </div>
+
+    <div class="paso-panel" data-paso-panel="2" hidden>
+    <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-angles-up text-secondary"></i> Prioridades</h2>
         <p class="ajuste-ayuda">El orden aquí define el orden en la tabla (la última es la más urgente).</p>
@@ -166,6 +194,11 @@ UI::cabecera(
         </div>
       </section>
 
+    </div>
+    </div>
+
+    <div class="paso-panel" data-paso-panel="3" hidden>
+    <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-folder-open text-secondary"></i> Estados de proyecto</h2>
         <p class="ajuste-ayuda">Ej. "En propuesta", "Mantenimiento".</p>
@@ -189,6 +222,11 @@ UI::cabecera(
         </div>
       </section>
 
+    </div>
+    </div>
+
+    <div class="paso-panel" data-paso-panel="4" hidden>
+    <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-people-group text-secondary"></i> Equipos</h2>
         <p class="ajuste-ayuda">Cada equipo tiene su página propia en el menú (ej. "Programadores", "Analistas", "Diseño").</p>
@@ -211,8 +249,19 @@ UI::cabecera(
           </div>
         </div>
       </section>
-
     </div>
+    </div>
+
+    <div class="paso-nav">
+      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-prev" disabled>
+        <i class="fa-solid fa-arrow-left"></i> Anterior
+      </button>
+      <span class="paso-indicador" id="paso-indicador">Paso 1 de 4</span>
+      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-next">
+        Siguiente <i class="fa-solid fa-arrow-right"></i>
+      </button>
+    </div>
+
     <p class="ajuste-ayuda ajuste-nota">
       <i class="fa-solid fa-circle-info"></i>
       Si quitas un estado, prioridad o equipo en uso, lo afectado pasa automáticamente a la primera opción de su catálogo.
