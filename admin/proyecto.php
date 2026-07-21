@@ -62,11 +62,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <i class="fa-solid <?= e($proyecto['icono']) ?> ph-watermark"></i>
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
-    <div class="ph-avance-mini" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
-      <span class="pam-num font-display"><?= $avance ?>%</span>
-      <div class="barra-carga barra-mini"><span class="bc-fill" style="width:<?= $avance ?>%"></span></div>
-      <small><?= $completadas ?>/<?= array_sum($resumen) ?></small>
-    </div>
     <div class="ph-actions">
       <?php if (!empty($proyecto['repo'])): ?>
       <a class="btn-meca btn-sm btn-github" href="<?= e($proyecto['repo']) ?>" target="_blank" rel="noopener">
@@ -96,6 +91,14 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
     </div>
+  </div>
+
+  <!-- Avance abajo a la derecha: barra semaforo (rojo/amarillo/verde) -->
+  <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
+  <div class="ph-avance-abajo" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
+    <small><?= $completadas ?>/<?= array_sum($resumen) ?> tareas</small>
+    <div class="barra-semaforo sem-<?= $nivelAvance ?>"><span style="width:<?= $avance ?>%"></span></div>
+    <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
   </div>
 </header>
 
