@@ -155,28 +155,31 @@ class UI
             }
         }
         ?>
-<dialog id="dlg-ver-como" class="dlg-meca">
+<dialog id="dlg-ver-como" class="dlg-meca dlg-ver-como">
   <div class="dlg-form">
     <header>
       <h3 class="font-display"><i class="fa-regular fa-eye text-secondary"></i> ¿Como quién quieres ver el panel?</h3>
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
     <p class="ajuste-ayuda">Todo el panel se filtra a los proyectos y tareas de esa persona. Puedes cambiar o salir cuando quieras.</p>
-    <div class="mt-lista">
-      <a class="persona-row <?= !$actual ? 'active' : '' ?>" href="<?= e(urlConVerComo(0)) ?>">
-        <span class="avatar avatar-empty" style="--sz:42px"><i class="fa-solid fa-users"></i></span>
-        <span class="pr-info"><b>Todo el equipo</b><small>Sin filtro</small></span>
+    <div class="vc-grid">
+      <a class="vc-card <?= !$actual ? 'active' : '' ?>" href="<?= e(urlConVerComo(0)) ?>">
+        <span class="avatar avatar-empty" style="--sz:62px"><i class="fa-solid fa-users"></i></span>
+        <b>Todo el equipo</b>
+        <small>Sin filtro</small>
       </a>
       <?php foreach ($miembros as $m):
           $mid = (int)$m['id'];
           $c1 = Catalogo::colorDe($m['color'] ?? 0);
           $eqLabel = $equipos[MiembroRepo::equipoDe($m)][0] ?? '';
       ?>
-      <a class="persona-row <?= $actual && (int)$actual['id'] === $mid ? 'active' : '' ?>"
+      <a class="vc-card <?= $actual && (int)$actual['id'] === $mid ? 'active' : '' ?>"
          style="--av-c1:<?= $c1 ?>" href="<?= e(urlConVerComo($mid)) ?>">
-        <?= self::avatar($m, 42) ?>
-        <span class="pr-info"><b><?= e($m['nombre']) ?></b><small><?= e($m['rol']) ?> · <?= e($eqLabel) ?></small></span>
-        <span class="pr-chip" title="Tareas abiertas"><?= $abiertas[$mid] ?? 0 ?></span>
+        <span class="vc-chip" title="Tareas abiertas"><?= $abiertas[$mid] ?? 0 ?></span>
+        <?= self::avatar($m, 62) ?>
+        <b><?= e($m['nombre']) ?></b>
+        <small><?= e($m['rol']) ?></small>
+        <span class="vc-equipo"><?= e($eqLabel) ?></span>
       </a>
       <?php endforeach; ?>
     </div>

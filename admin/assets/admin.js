@@ -598,3 +598,8 @@ document.querySelectorAll('.toast-float').forEach((t) => {
     if (e.animationName === 'toast-out') t.remove();
   });
 });
+
+// Abrir el modal "ver como" por hash (para enlaces directos)
+if (location.hash === '#abrir-ver-como') {
+  document.getElementById('dlg-ver-como')?.showModal();
+}
