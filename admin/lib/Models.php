@@ -471,13 +471,30 @@ class TareaRepo
         return $r;
     }
 
-    /** Tareas en estados marcados como finales (completadas). */
+    /** Tareas con observaciones pendientes (memo, gate de calidad). */
+    private ?array $tareasObservadas = null;
+    private function tareasObservadas(): array
+    {
+        if ($this->tareasObservadas === null) {
+            $this->tareasObservadas = (new ObservacionRepo())->tareasConPendientes();
+        }
+        return $this->tareasObservadas;
+    }
+
+    /**
+     * Tareas realmente completadas: en estado final Y sin observaciones
+     * pendientes. Una tarea marcada "hecha" con una observación abierta
+     * de un analista/programador NO cuenta como terminada (control de calidad).
+     */
     public function completadas(int $proyectoId): int
     {
         $finales = Catalogo::estadosFinales();
+        $observadas = $this->tareasObservadas();
         $n = 0;
-        foreach ($this->resumen($proyectoId) as $estado => $cuenta) {
-            if (in_array($estado, $finales, true)) $n += $cuenta;
+        foreach ($this->store->where('proyecto_id', $proyectoId) as $t) {
+            if (in_array($t['estado'] ?? '', $finales, true) && empty($observadas[(int)$t['id']])) {
+                $n++;
+            }
         }
         return $n;
     }
@@ -537,5 +554,114 @@ class TareaRepo
             $out[$id] = $nivel($id);
         }
         return $out;
+    }
+}
+
+/* =========================================================
+   Observaciones - capa de revision (analistas / programadores).
+   Cada observacion pertenece a un proyecto y opcionalmente a una
+   tarea (0 = general de la entrega). Tiene estado pendiente/resuelta
+   y puede llevar adjuntos (imagenes, PDF, Word).
+   ========================================================= */
+class ObservacionRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('observaciones');
+    }
+
+    /** Observaciones de un proyecto: pendientes primero, luego por fecha desc. */
+    public function delProyecto(int $proyectoId): array
+    {
+        $items = $this->store->where('proyecto_id', $proyectoId);
+        usort($items, function ($a, $b) {
+            $pa = ($a['estado'] ?? 'pendiente') === 'pendiente' ? 0 : 1;
+            $pb = ($b['estado'] ?? 'pendiente') === 'pendiente' ? 0 : 1;
+            if ($pa !== $pb) return $pa <=> $pb;
+            return strcmp($b['creado'] ?? '', $a['creado'] ?? '');
+        });
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
+            'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
+            'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            'equipo'      => (string)($datos['equipo'] ?? ''),
+            'texto'       => trim($datos['texto'] ?? ''),
+            'estado'      => 'pendiente',
+            'adjuntos'    => array_values($datos['adjuntos'] ?? []),
+        ]);
+    }
+
+    public function actualizar(int $id, array $cambios): bool
+    {
+        return $this->store->update($id, $cambios);
+    }
+
+    /** Elimina la observacion y sus archivos adjuntos. */
+    public function eliminar(int $id): bool
+    {
+        $o = $this->buscar($id);
+        if ($o) {
+            foreach ($o['adjuntos'] ?? [] as $a) {
+                $ruta = __DIR__ . '/../' . ($a['ruta'] ?? '');
+                if (!empty($a['ruta']) && file_exists($ruta)) @unlink($ruta);
+            }
+        }
+        return $this->store->delete($id);
+    }
+
+    /** Set [tarea_id => true] de tareas (cualquier proyecto) con >=1 observacion pendiente. */
+    public function tareasConPendientes(): array
+    {
+        $set = [];
+        foreach ($this->store->all() as $o) {
+            if (($o['estado'] ?? '') === 'pendiente' && (int)($o['tarea_id'] ?? 0) > 0) {
+                $set[(int)$o['tarea_id']] = true;
+            }
+        }
+        return $set;
+    }
+
+    /** Conteo de observaciones pendientes por tarea dentro de un proyecto. */
+    public function pendientesPorTarea(int $proyectoId): array
+    {
+        $out = [];
+        foreach ($this->store->where('proyecto_id', $proyectoId) as $o) {
+            if (($o['estado'] ?? '') === 'pendiente' && (int)($o['tarea_id'] ?? 0) > 0) {
+                $tid = (int)$o['tarea_id'];
+                $out[$tid] = ($out[$tid] ?? 0) + 1;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Resumen para metricas: totales y desglose pendientes/resueltas,
+     * generales, y por equipo del autor.
+     */
+    public function resumen(int $proyectoId): array
+    {
+        $r = ['total' => 0, 'pendientes' => 0, 'resueltas' => 0, 'generales' => 0, 'porEquipo' => []];
+        foreach ($this->store->where('proyecto_id', $proyectoId) as $o) {
+            $r['total']++;
+            $pend = ($o['estado'] ?? '') === 'pendiente';
+            $r[$pend ? 'pendientes' : 'resueltas']++;
+            if ((int)($o['tarea_id'] ?? 0) === 0) $r['generales']++;
+            $eq = $o['equipo'] ?? '';
+            if (!isset($r['porEquipo'][$eq])) $r['porEquipo'][$eq] = ['pendientes' => 0, 'resueltas' => 0];
+            $r['porEquipo'][$eq][$pend ? 'pendientes' : 'resueltas']++;
+        }
+        return $r;
     }
 }

@@ -78,6 +78,49 @@ function guardarFoto(string $campo): string
     return $nombre;
 }
 
+/**
+ * Sube varios adjuntos (imagenes, PDF, Word) de un input múltiple.
+ * Devuelve [ ['ruta'=>, 'nombre'=>, 'tipo'=>'img'|'doc', 'ext'=>], ... ].
+ */
+function guardarAdjuntos(string $campo): array
+{
+    $out = [];
+    if (empty($_FILES[$campo]) || empty($_FILES[$campo]['name'])) {
+        return $out;
+    }
+    $permitidos = [
+        'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif',
+        'application/pdf' => 'pdf',
+        'application/msword' => 'doc',
+        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
+    ];
+    $f = $_FILES[$campo];
+    $nombres = is_array($f['name']) ? $f['name'] : [$f['name']];
+    for ($i = 0, $n = count($nombres); $i < $n; $i++) {
+        $error = is_array($f['error']) ? $f['error'][$i] : $f['error'];
+        $tmp   = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+        if ($error !== UPLOAD_ERR_OK || $tmp === '') {
+            continue;
+        }
+        $mime = mime_content_type($tmp);
+        if (!isset($permitidos[$mime])) {
+            continue;
+        }
+        $ext  = $permitidos[$mime];
+        $ruta = 'uploads/' . uniqid('obs_') . '.' . $ext;
+        if (move_uploaded_file($tmp, __DIR__ . '/../' . $ruta)) {
+            $original = is_array($f['name']) ? $f['name'][$i] : $f['name'];
+            $out[] = [
+                'ruta'   => $ruta,
+                'nombre' => mb_substr($original, 0, 80),
+                'tipo'   => str_starts_with($mime, 'image/') ? 'img' : 'doc',
+                'ext'    => $ext,
+            ];
+        }
+    }
+    return $out;
+}
+
 /* ---------- "Ver como": filtro global por persona (transversal) ---------- */
 
 /** Miembro seleccionado en "Ver como", o null si se ve todo el equipo. */

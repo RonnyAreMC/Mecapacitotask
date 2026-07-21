@@ -135,6 +135,58 @@ switch ($accion) {
         }
         redirigir('index.php', 'Tarea no encontrada.', 'error');
 
+    /* ---------- Observaciones (revisión / QA) ---------- */
+
+    case 'obs_crear':
+        $obsRepo = new ObservacionRepo();
+        $pid = (int)($_POST['proyecto_id'] ?? 0);
+        if (!$proyectos->buscar($pid)) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $pid . '#vista-observaciones';
+        $adjuntos = guardarAdjuntos('adjuntos');
+        if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
+            redirigir($volver, 'Escribe la observación o adjunta un archivo.', 'error');
+        }
+        $autor = $miembros->buscar((int)($_POST['autor_id'] ?? 0));
+        // La tarea (si se indica) debe pertenecer al proyecto
+        $tareaId = (int)($_POST['tarea_id'] ?? 0);
+        $tRef = $tareaId ? $tareas->buscar($tareaId) : null;
+        if ($tRef && (int)$tRef['proyecto_id'] !== $pid) $tareaId = 0;
+
+        $obsRepo->crear([
+            'proyecto_id' => $pid,
+            'tarea_id'    => $tareaId,
+            'autor_id'    => (int)($_POST['autor_id'] ?? 0),
+            'equipo'      => $autor ? MiembroRepo::equipoDe($autor) : '',
+            'texto'       => $_POST['texto'] ?? '',
+            'adjuntos'    => $adjuntos,
+        ]);
+        redirigir($volver, 'Observación registrada.');
+
+    case 'obs_estado':
+        $obsRepo = new ObservacionRepo();
+        $o = $obsRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$o) {
+            redirigir('index.php', 'Observación no encontrada.', 'error');
+        }
+        $nuevo = ($o['estado'] ?? 'pendiente') === 'pendiente' ? 'resuelta' : 'pendiente';
+        $obsRepo->actualizar((int)$o['id'], [
+            'estado'      => $nuevo,
+            'resuelto_en' => $nuevo === 'resuelta' ? date('Y-m-d H:i') : '',
+        ]);
+        redirigir('proyecto.php?id=' . $o['proyecto_id'] . '#vista-observaciones',
+                  $nuevo === 'resuelta' ? 'Observación marcada como resuelta.' : 'Observación reabierta.');
+
+    case 'obs_eliminar':
+        $obsRepo = new ObservacionRepo();
+        $o = $obsRepo->buscar((int)($_POST['id'] ?? 0));
+        if ($o) {
+            $obsRepo->eliminar((int)$o['id']);
+            redirigir('proyecto.php?id=' . $o['proyecto_id'] . '#vista-observaciones', 'Observación eliminada.');
+        }
+        redirigir('index.php', 'Observación no encontrada.', 'error');
+
     /* ---------- Miembros ---------- */
 
     case 'miembro_crear':

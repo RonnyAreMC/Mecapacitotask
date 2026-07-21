@@ -178,6 +178,81 @@ if (vistaToggle) {
   if (vGuardada && vistaToggle.querySelector('[data-vista="' + vGuardada + '"]')) activarVista(vGuardada);
 }
 
+// Compositor de observaciones: pegar imágenes (Ctrl+V), arrastrar y adjuntar
+const obsComposer = document.getElementById('obs-composer');
+if (obsComposer) {
+  const fileInput = obsComposer.querySelector('.oc-file');
+  const previews  = obsComposer.querySelector('#oc-previews');
+  const textarea  = obsComposer.querySelector('.oc-texto');
+  const bolsa = new DataTransfer();   // fuente de verdad de los adjuntos
+
+  const pintar = () => {
+    previews.innerHTML = '';
+    [...bolsa.files].forEach((f, i) => {
+      const chip = document.createElement('div');
+      if (f.type.startsWith('image/')) {
+        const url = URL.createObjectURL(f);
+        chip.className = 'oc-prev oc-prev-img';
+        chip.innerHTML = '<img src="' + url + '" alt=""><button type="button" data-i="' + i + '" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+      } else {
+        chip.className = 'oc-prev oc-prev-doc';
+        chip.innerHTML = '<i class="fa-solid fa-file-lines"></i><span>' + f.name + '</span>' +
+                         '<button type="button" data-i="' + i + '" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+      }
+      previews.appendChild(chip);
+    });
+    fileInput.files = bolsa.files;
+  };
+  const agregar = (files) => {
+    [...files].forEach((f) => bolsa.items.add(f));
+    pintar();
+  };
+
+  // Pegar imágenes desde el portapapeles (capturas de pantalla)
+  textarea.addEventListener('paste', (e) => {
+    const imgs = [...(e.clipboardData?.items || [])].filter((it) => it.type.startsWith('image/'));
+    if (!imgs.length) return;
+    imgs.forEach((it, k) => {
+      const blob = it.getAsFile();
+      if (blob) bolsa.items.add(new File([blob], 'captura-' + Date.now() + '-' + k + '.png', { type: blob.type }));
+    });
+    pintar();
+    MC.toast(imgs.length + ' imagen' + (imgs.length === 1 ? '' : 'es') + ' pegada' + (imgs.length === 1 ? '' : 's'), 'success', 2000);
+  });
+
+  // Arrastrar archivos sobre el compositor
+  obsComposer.addEventListener('dragover', (e) => { e.preventDefault(); obsComposer.classList.add('oc-drag'); });
+  obsComposer.addEventListener('dragleave', () => obsComposer.classList.remove('oc-drag'));
+  obsComposer.addEventListener('drop', (e) => {
+    e.preventDefault(); obsComposer.classList.remove('oc-drag');
+    if (e.dataTransfer.files.length) agregar(e.dataTransfer.files);
+  });
+
+  fileInput.addEventListener('change', () => agregar(fileInput.files));
+  previews.addEventListener('click', (e) => {
+    const b = e.target.closest('button[data-i]');
+    if (!b) return;
+    bolsa.items.remove(parseInt(b.dataset.i, 10));
+    pintar();
+  });
+  textarea.addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); obsComposer.requestSubmit(); }
+  });
+}
+
+// Filtro de observaciones (todas / pendientes / resueltas)
+const obsFiltros = document.getElementById('obs-filtros');
+if (obsFiltros) {
+  const items = [...document.querySelectorAll('.obs-item')];
+  obsFiltros.addEventListener('click', (e) => {
+    const chip = e.target.closest('.chip-filtro');
+    if (!chip) return;
+    obsFiltros.querySelectorAll('.chip-filtro').forEach((c) => c.classList.toggle('active', c === chip));
+    const f = chip.dataset.filtro;
+    items.forEach((it) => { it.hidden = f !== 'todas' && it.dataset.estado !== f; });
+  });
+}
+
 // Conectores SVG entre tareas dependientes (vista Flujo)
 function dibujarFlujo() {
   const wrap = document.getElementById('flujo-wrap');
@@ -412,7 +487,7 @@ document.querySelectorAll('dialog.dlg-meca').forEach((dlg) => {
 // Comprimir fotos en el navegador antes de subirlas (evita el limite de PHP).
 // Redimensiona a max 900px y convierte a JPEG; si algo falla, valida el tamano.
 const LIMITE_SUBIDA = parseInt(document.body.dataset.limiteSubida || '2097152', 10);
-document.querySelectorAll('input[type="file"][accept*="image"]').forEach((input) => {
+document.querySelectorAll('.pp-file').forEach((input) => {
   input.addEventListener('change', async () => {
     const file = input.files && input.files[0];
     if (!file) return;

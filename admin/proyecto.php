@@ -53,6 +53,15 @@ $hayDependencias = (bool)array_filter($tareas, fn($t) => (int)($t['depende_de'] 
 // Actividad del repositorio en GitHub (con cache)
 $actividadRepo = GitHub::actividad($proyecto['repo'] ?? '');
 
+// Observaciones (revision / QA)
+$obsRepo         = new ObservacionRepo();
+$observaciones   = $obsRepo->delProyecto($id);
+$obsPorTarea     = $obsRepo->pendientesPorTarea($id);   // [tarea_id => n pendientes]
+$obsResumen      = $obsRepo->resumen($id);
+$obsPendientes   = $obsResumen['pendientes'];
+$equiposCat      = Catalogo::equipos();
+$listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
+
 UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 ?>
 
@@ -86,6 +95,12 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <div class="ph-info">
       <div class="ph-badges">
         <?= UI::badgeEstadoProyecto($proyecto['estado']) ?>
+        <?php if ($listoEntrega): ?>
+          <span class="badge-entrega listo"><i class="fa-solid fa-circle-check"></i> Listo para entrega</span>
+        <?php elseif ($obsPendientes > 0): ?>
+          <a class="badge-entrega alerta" href="#vista-observaciones"><i class="fa-solid fa-triangle-exclamation"></i>
+            <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>
+        <?php endif; ?>
         <span class="ph-fecha"><i class="fa-regular fa-calendar"></i> Creado <?= e($proyecto['creado'] ?? '') ?></span>
       </div>
       <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
@@ -132,6 +147,9 @@ foreach ($tareas as $t) {
     <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
     <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+    <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
+      <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
+    </button>
     <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
   </div>
 </div>
@@ -199,6 +217,11 @@ foreach ($tareas as $t) {
                 <i class="fa-solid <?= $depLista ? 'fa-link' : 'fa-lock' ?>"></i>
                 <?= $depLista ? 'Depende de' : 'Espera a' ?>: <?= e(mb_strimwidth($depTarea['titulo'], 0, 34, '…')) ?>
               </small>
+              <?php endif; ?>
+              <?php $nObs = $obsPorTarea[(int)$t['id']] ?? 0; if ($nObs > 0): ?>
+              <a class="dep-tag obs-tag" href="#vista-observaciones" title="Tiene observaciones pendientes de revisión">
+                <i class="fa-solid fa-comment-dots"></i> <?= $nObs ?> observación<?= $nObs === 1 ? '' : 'es' ?>
+              </a>
               <?php endif; ?>
             </div>
           </td>
@@ -361,8 +384,150 @@ foreach ($tareas as $t) {
   </section>
 </div>
 
+<!-- Vista Observaciones: revisión (analistas / programadores) -->
+<div data-vista-panel="observaciones" hidden>
+  <section class="card-base tabla-card obs-card" style="--pc:<?= $color ?>">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-comment-dots text-secondary"></i> Observaciones
+        <span class="tabla-count"><?= $obsResumen['total'] ?></span>
+      </h2>
+      <div class="tabla-filtros">
+        <div class="obs-filtros" id="obs-filtros">
+          <button type="button" class="chip-filtro active" data-filtro="todas">Todas</button>
+          <button type="button" class="chip-filtro" data-filtro="pendiente">Pendientes <?php if ($obsPendientes): ?>· <?= $obsPendientes ?><?php endif; ?></button>
+          <button type="button" class="chip-filtro" data-filtro="resuelta">Resueltas</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Compositor rápido: para anotar durante las reuniones (pega imágenes con Ctrl+V) -->
+    <form class="obs-composer" id="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
+      <input type="hidden" name="accion" value="obs_crear">
+      <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+      <div class="oc-top">
+        <?= UI::select('autor_id', $opcionesFiltro, (string)$fAsignado, false, 'oc-select') ?>
+        <?= UI::select('tarea_id', [0 => 'General de la entrega'] + array_slice($opcionesDependencia, 1, null, true), '0', false, 'oc-select') ?>
+      </div>
+      <div class="oc-campo">
+        <textarea name="texto" class="oc-texto" rows="2"
+          placeholder="Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí."></textarea>
+        <div class="oc-previews" id="oc-previews"></div>
+      </div>
+      <div class="oc-pie">
+        <label class="oc-adjuntar" title="Adjuntar imágenes, PDF o Word">
+          <input type="file" class="oc-file" name="adjuntos[]" multiple hidden
+                 accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx">
+          <i class="fa-solid fa-paperclip"></i> Adjuntar
+        </label>
+        <span class="oc-hint"><i class="fa-regular fa-clipboard"></i> Ctrl+V pega imágenes · Ctrl+Enter guarda</span>
+        <button type="submit" class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
+      </div>
+    </form>
+
+    <?php if (empty($observaciones)): ?>
+      <?= UI::vacio('fa-clipboard-check', 'Sin observaciones', 'Aún no hay observaciones de revisión. Agrega la primera con el botón de arriba.') ?>
+    <?php else: ?>
+    <div class="obs-lista">
+      <?php foreach ($observaciones as $o):
+          $autor = $miembros[(int)$o['autor_id']] ?? null;
+          $c1 = $autor ? Catalogo::colorDe($autor['color'] ?? 0) : '#64748b';
+          $eqLabel = $equiposCat[$o['equipo'] ?? '']['0'] ?? 'Equipo';
+          $eqIcono = $equiposCat[$o['equipo'] ?? '']['1'] ?? 'fa-user';
+          $pend = ($o['estado'] ?? 'pendiente') === 'pendiente';
+          $tRef = (int)($o['tarea_id'] ?? 0) ? ($tareasPorId[(int)$o['tarea_id']] ?? null) : null;
+      ?>
+      <article class="obs-item <?= $pend ? 'obs-pend' : 'obs-res' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
+        <div class="obs-cabecera">
+          <?= UI::avatar($autor, 40) ?>
+          <div class="obs-autor">
+            <b><?= e($autor['nombre'] ?? 'Alguien') ?></b>
+            <span class="obs-meta">
+              <span class="obs-equipo"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($eqLabel) ?></span>
+              · <?= e($o['creado'] ?? '') ?>
+            </span>
+          </div>
+          <span class="obs-destino">
+            <?php if ($tRef): ?>
+              <i class="fa-regular fa-square-check"></i> <?= e(mb_strimwidth($tRef['titulo'], 0, 40, '…')) ?>
+            <?php else: ?>
+              <i class="fa-solid fa-layer-group"></i> General de la entrega
+            <?php endif; ?>
+          </span>
+          <span class="obs-estado <?= $pend ? 'e-pend' : 'e-res' ?>">
+            <i class="fa-solid <?= $pend ? 'fa-circle-dot' : 'fa-circle-check' ?>"></i>
+            <?= $pend ? 'Pendiente' : 'Resuelta' ?>
+          </span>
+        </div>
+
+        <?php if (!empty($o['texto'])): ?><p class="obs-texto"><?= nl2br(e($o['texto'])) ?></p><?php endif; ?>
+
+        <?php if (!empty($o['adjuntos'])): ?>
+        <div class="obs-adjuntos">
+          <?php foreach ($o['adjuntos'] as $a): if (($a['tipo'] ?? '') === 'img'): ?>
+          <a class="obs-img" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" title="<?= e($a['nombre']) ?>">
+            <img src="<?= e($a['ruta']) ?>" alt="<?= e($a['nombre']) ?>" loading="lazy">
+          </a>
+          <?php else: ?>
+          <a class="obs-doc" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" download>
+            <i class="fa-solid <?= ($a['ext'] ?? '') === 'pdf' ? 'fa-file-pdf' : 'fa-file-word' ?>"></i>
+            <span><?= e($a['nombre']) ?></span>
+            <i class="fa-solid fa-download"></i>
+          </a>
+          <?php endif; endforeach; ?>
+        </div>
+        <?php endif; ?>
+
+        <div class="obs-acciones">
+          <form method="post" action="actions.php" class="inline-form">
+            <input type="hidden" name="accion" value="obs_estado">
+            <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
+            <button class="accion-btn <?= $pend ? '' : 'accion-hecho' ?>">
+              <i class="fa-solid <?= $pend ? 'fa-check' : 'fa-rotate-left' ?>"></i>
+              <?= $pend ? 'Marcar resuelta' : 'Reabrir' ?>
+            </button>
+          </form>
+          <form method="post" action="actions.php" class="inline-form"
+                data-confirmar="Se eliminará esta observación y sus adjuntos."
+                data-confirmar-titulo="¿Eliminar observación?" data-confirmar-ok="Sí, eliminar">
+            <input type="hidden" name="accion" value="obs_eliminar">
+            <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
+            <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+          </form>
+        </div>
+      </article>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </section>
+</div>
+
 <!-- Vista Métricas: actividad del repo + carga por persona -->
 <div data-vista-panel="metricas" hidden>
+
+<section class="card-base tabla-card" style="--pc:<?= $color ?>">
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-solid fa-clipboard-check text-secondary"></i> Observaciones de revisión</h2>
+    <span class="ajuste-ayuda"><?= $obsResumen['pendientes'] ?> pendientes · <?= $obsResumen['resueltas'] ?> resueltas</span>
+  </div>
+  <div class="metricas-cuerpo">
+    <?php if ($obsResumen['total'] === 0): ?>
+      <p class="actividad-msj"><i class="fa-solid fa-clipboard-check"></i> Sin observaciones registradas todavía.</p>
+    <?php else: foreach ($equiposCat as $ek => [$eLabel, $eIcono]):
+        $d = $obsResumen['porEquipo'][$ek] ?? ['pendientes' => 0, 'resueltas' => 0];
+        $tot = $d['pendientes'] + $d['resueltas'];
+        if ($tot === 0) continue;
+    ?>
+    <div class="obs-metrica">
+      <span class="om-equipo"><i class="fa-solid <?= e($eIcono) ?>"></i> <?= e($eLabel) ?></span>
+      <div class="om-barra">
+        <span class="om-pend" style="flex:<?= $d['pendientes'] ?>"></span>
+        <span class="om-res"  style="flex:<?= $d['resueltas'] ?>"></span>
+      </div>
+      <span class="om-nums"><b class="om-num-pend"><?= $d['pendientes'] ?></b> pend · <b class="om-num-res"><?= $d['resueltas'] ?></b> resueltas</span>
+    </div>
+    <?php endforeach; endif; ?>
+  </div>
+</section>
 
 <section class="card-base tabla-card" style="--pc:<?= $color ?>">
   <div class="tabla-toolbar">
