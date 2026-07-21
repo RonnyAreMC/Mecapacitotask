@@ -61,6 +61,11 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <i class="fa-solid <?= e($proyecto['icono']) ?> ph-watermark"></i>
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
+    <div class="ph-avance-mini" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
+      <span class="pam-num font-display"><?= $avance ?>%</span>
+      <div class="barra-carga barra-mini"><span class="bc-fill" style="width:<?= $avance ?>%"></span></div>
+      <small><?= $completadas ?>/<?= array_sum($resumen) ?></small>
+    </div>
     <div class="ph-actions">
       <?php if (!empty($proyecto['repo'])): ?>
       <a class="btn-meca btn-sm btn-github" href="<?= e($proyecto['repo']) ?>" target="_blank" rel="noopener">
@@ -89,15 +94,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       </div>
       <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
-    </div>
-  </div>
-
-  <!-- Avance a lo ancho -->
-  <div class="ph-avance-linea">
-    <div class="ph-avance-num font-display"><?= $avance ?>%</div>
-    <div class="ph-avance-detalle">
-      <small><?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas</small>
-      <div class="barra-carga"><span class="bc-fill" style="width:<?= $avance ?>%"></span></div>
     </div>
   </div>
 </header>
