@@ -174,14 +174,25 @@ class UI
 
     /* ---------- Mensajes flash ---------- */
 
+    /**
+     * Contenedor de toasts MC. Siempre se imprime (vacio o con los flash
+     * de sesion); MC.toast() de admin.js agrega toasts al mismo lugar.
+     */
     public static function flashes(): void
     {
-        if (empty($_SESSION['flash'])) return;
-        foreach ($_SESSION['flash'] as [$tipo, $msg]) {
-            $icono = $tipo === 'success' ? 'fa-circle-check' : ($tipo === 'error' ? 'fa-circle-xmark' : 'fa-circle-info');
-            echo '<div class="toast toast-' . e($tipo) . ' toast-float"><i class="fa-solid ' . $icono . '"></i> ' . e($msg) . '</div>';
+        $iconos = ['success' => 'fa-circle-check', 'error' => 'fa-circle-xmark', 'info' => 'fa-circle-info'];
+        echo '<div class="mc-toasts" id="mc-toasts">';
+        foreach ($_SESSION['flash'] ?? [] as [$tipo, $msg]) {
+            $tipo = isset($iconos[$tipo]) ? $tipo : 'info';
+            echo '<div class="mc-toast mc-' . $tipo . '" data-duracion="' . ($tipo === 'error' ? 8000 : 4500) . '">'
+               . '<i class="fa-solid ' . $iconos[$tipo] . '"></i>'
+               . '<div class="mc-toast-txt">' . e($msg) . '</div>'
+               . '<button type="button" class="mc-toast-x" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>'
+               . '<span class="mc-toast-barra"></span>'
+               . '</div>';
         }
         unset($_SESSION['flash']);
+        echo '</div>';
     }
 
     /* ---------- Avatares ---------- */

@@ -233,6 +233,12 @@ switch ($accion) {
             'refresh_token' => trim($correoPost['refresh_token'] ?? ''),
         ];
 
+        // Roles: filas del catalogo (rl[]) o, por compatibilidad, textarea 'roles'
+        $roles = array_values(array_filter(array_map('trim', (array)($_POST['rl'] ?? []))));
+        if (!$roles) {
+            $roles = $lineas($_POST['roles'] ?? '');
+        }
+
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
@@ -243,7 +249,7 @@ switch ($accion) {
             'estados_proyecto' => $estadosProyecto,
             'equipos'          => $equiposCat,
             'iconos'           => $iconos ?: $def['iconos'],
-            'roles'            => $lineas($_POST['roles'] ?? '') ?: $def['roles'],
+            'roles'            => $roles ?: $def['roles'],
             'correo'           => $correo,
         ]);
 

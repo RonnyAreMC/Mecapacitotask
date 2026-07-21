@@ -158,7 +158,8 @@ UI::cabecera(
           <i class="fa-solid fa-pen"></i> Editar
         </button>
         <form method="post" action="actions.php" class="inline-form"
-              onsubmit="return confirm('¿Retirar a <?= e($m['nombre']) ?> del equipo? Sus tareas quedarán sin asignar.')">
+              data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
+              data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
           <input type="hidden" name="accion" value="miembro_eliminar">
           <input type="hidden" name="id" value="<?= $mid ?>">
           <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-user-minus"></i> Retirar</button>

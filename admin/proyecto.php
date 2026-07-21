@@ -56,7 +56,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       <button class="btn-ghost btn-meca btn-sm" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
-      <form method="post" action="actions.php" onsubmit="return confirm('¿Eliminar este proyecto y TODAS sus tareas?')">
+      <form method="post" action="actions.php"
+            data-confirmar="Se eliminará el proyecto «<?= e($proyecto['nombre']) ?>» y TODAS sus tareas. Esta acción no se puede deshacer."
+            data-confirmar-titulo="¿Eliminar proyecto?" data-confirmar-ok="Sí, eliminar">
         <input type="hidden" name="accion" value="proyecto_eliminar">
         <input type="hidden" name="id" value="<?= $id ?>">
         <button class="btn-ghost btn-meca btn-sm btn-peligro"><i class="fa-solid fa-trash"></i></button>
@@ -182,7 +184,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
             </button>
-            <form method="post" action="actions.php" class="inline-form" onsubmit="return confirm('¿Eliminar esta tarea?')">
+            <form method="post" action="actions.php" class="inline-form"
+                  data-confirmar="Se eliminará la tarea «<?= e($t['titulo']) ?>»."
+                  data-confirmar-titulo="¿Eliminar tarea?" data-confirmar-ok="Sí, eliminar">
               <input type="hidden" name="accion" value="tarea_eliminar">
               <input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
               <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>

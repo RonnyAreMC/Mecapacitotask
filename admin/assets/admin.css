@@ -1479,18 +1479,108 @@ html.dark .input-color-linea { background: var(--c-bg-soft); }
 .empty-state p { margin: 0; font-size: .9rem; }
 
 /* =========================================================
-   Toasts flotantes
+   MC Toasts (componente de alertas Mecapacito)
    ========================================================= */
-.toast-float {
-  position: fixed; top: 20px; right: 22px; z-index: 100;
-  display: flex; align-items: center; gap: 9px;
-  animation: toast-in .35s cubic-bezier(.2,.8,.2,1), toast-out .4s ease 3.6s forwards;
+.mc-toasts {
+  position: fixed; top: 20px; right: 22px; z-index: 200;
+  display: flex; flex-direction: column; gap: 12px;
+  width: min(380px, calc(100vw - 40px));
+  pointer-events: none;
 }
-html.dark .toast-success { background: #143527; color: #57d99a; border-color: #1d4a36; }
-html.dark .toast-error   { background: #3a1d1d; color: #ff9d8a; border-color: #542a2a; }
-html.dark .toast-info    { background: var(--c-bg-soft); color: var(--c-text-muted); border-color: var(--c-border); }
-@keyframes toast-in  { from { opacity: 0; transform: translateX(24px); } to { opacity: 1; transform: none; } }
-@keyframes toast-out { to { opacity: 0; transform: translateY(-10px); } }
+.mc-toast {
+  position: relative;
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 15px 42px 16px 16px;
+  border-radius: 16px;
+  background: var(--n-bg);
+  border: 1.5px solid var(--c-border);
+  box-shadow: var(--sh-card);
+  overflow: hidden;
+  pointer-events: auto;
+  animation: mc-toast-in .4s cubic-bezier(.2,.8,.2,1);
+}
+.mc-toast.out { animation: mc-toast-out .3s ease forwards; }
+@keyframes mc-toast-in  { from { opacity: 0; transform: translateX(30px) scale(.97); } to { opacity: 1; transform: none; } }
+@keyframes mc-toast-out { to { opacity: 0; transform: translateY(-10px) scale(.97); } }
+
+.mc-toast > i { font-size: 1.1rem; margin-top: 1px; flex-shrink: 0; }
+.mc-toast-txt { font-size: .86rem; font-weight: 600; color: var(--c-text); line-height: 1.5; }
+
+.mc-toast-x {
+  position: absolute; top: 9px; right: 9px;
+  width: 26px; height: 26px;
+  border: 0; border-radius: 8px;
+  background: transparent;
+  color: var(--c-text-soft);
+  font-size: .72rem;
+  cursor: pointer;
+  transition: background .2s ease, color .2s ease;
+}
+.mc-toast-x:hover { background: rgba(var(--c-secondary-rgb), .12); color: var(--c-text); }
+
+.mc-toast-barra {
+  position: absolute; left: 0; bottom: 0;
+  height: 3px; width: 100%;
+  border-radius: 0 3px 3px 0;
+  animation: mc-barra linear forwards;   /* duracion la pone JS */
+}
+@keyframes mc-barra { from { width: 100%; } to { width: 0; } }
+.mc-toast:hover .mc-toast-barra { animation-play-state: paused; }
+
+.mc-success { border-color: color-mix(in srgb, var(--c-verde-esmeralda) 40%, var(--n-bg)); }
+.mc-success > i, .mc-success .mc-toast-barra { color: var(--c-verde-esmeralda); background-color: var(--c-verde-esmeralda); }
+.mc-error { border-color: color-mix(in srgb, var(--c-terracota) 45%, var(--n-bg)); }
+.mc-error > i, .mc-error .mc-toast-barra { color: var(--c-terracota); background-color: var(--c-terracota); }
+html.dark .mc-error > i, html.dark .mc-error .mc-toast-barra { color: #ff9d5c; background-color: #ff9d5c; }
+.mc-info { border-color: color-mix(in srgb, var(--c-secondary) 35%, var(--n-bg)); }
+.mc-info > i, .mc-info .mc-toast-barra { color: var(--c-secondary); background-color: var(--c-secondary); }
+.mc-toast > i { background: none !important; }
+
+/* =========================================================
+   MC Confirm (dialogo de confirmacion)
+   ========================================================= */
+.mc-confirm { width: min(420px, calc(100vw - 40px)); }
+.mc-confirm-cuerpo {
+  padding: 30px 28px 24px;
+  display: flex; flex-direction: column; align-items: center;
+  text-align: center; gap: 6px;
+}
+.mc-confirm-icono {
+  width: 68px; height: 68px;
+  border-radius: 50%;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 1.6rem;
+  color: var(--c-secondary);
+  margin-bottom: 10px;
+}
+.mc-confirm-icono.es-peligro { color: var(--c-terracota); }
+html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
+.mc-confirm-cuerpo h3 { margin: 0; font-size: 1.2rem; font-weight: 800; color: var(--c-text); }
+.mc-confirm-cuerpo p { margin: 4px 0 0; font-size: .9rem; color: var(--c-text-muted); line-height: 1.55; }
+.mc-confirm-cuerpo footer {
+  display: flex; gap: 12px; justify-content: center;
+  margin-top: 20px; padding-top: 18px;
+  border-top: 1px dashed var(--c-border-soft);
+  width: 100%;
+}
+
+/* Boton solido de peligro (para confirmar eliminaciones) */
+.btn-peligro-solido {
+  background: var(--c-terracota);
+  color: #fff; font-weight: 700;
+  box-shadow: 5px 5px 12px color-mix(in srgb, var(--c-terracota) 25%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+}
+.btn-peligro-solido:hover { background: #a85622; }
+
+/* Boton verde (Restaurar defaults) */
+.btn-verde { color: var(--c-verde-esmeralda) !important; }
+.btn-verde:hover { color: #1e8a5a !important; }
+html.dark .btn-verde:hover { color: #57d99a !important; }
+
+/* Fila de catalogo simple (roles): input + quitar */
+.fila-cat.fila-cat-2 { grid-template-columns: 1fr auto; }
 
 /* =========================================================
    Responsive

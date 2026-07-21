@@ -1,5 +1,97 @@
 /* Mecapacito Admin - interacciones del panel */
 
+/* =========================================================
+   MC — componente de alertas Mecapacito.
+   Nunca usar alert()/confirm() nativos: MC.toast y MC.confirm.
+   ========================================================= */
+const MC = {
+  _iconos: { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' },
+
+  /** Toast apilable con barra de tiempo. tipo: success | error | info */
+  toast(mensaje, tipo = 'info', duracion = 4500) {
+    const cont = document.getElementById('mc-toasts');
+    if (!cont) return;
+    if (!this._iconos[tipo]) tipo = 'info';
+    cont.insertAdjacentHTML('beforeend',
+      '<div class="mc-toast mc-' + tipo + '" data-duracion="' + duracion + '">' +
+        '<i class="fa-solid ' + this._iconos[tipo] + '"></i>' +
+        '<div class="mc-toast-txt"></div>' +
+        '<button type="button" class="mc-toast-x" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>' +
+        '<span class="mc-toast-barra"></span>' +
+      '</div>');
+    const el = cont.lastElementChild;
+    el.querySelector('.mc-toast-txt').textContent = mensaje;
+    this._activarToast(el);
+  },
+
+  /** Cableado de un toast (tambien para los que renderiza PHP). */
+  _activarToast(el) {
+    const cerrar = () => {
+      if (el.classList.contains('out')) return;
+      el.classList.add('out');
+      el.addEventListener('animationend', () => el.remove(), { once: true });
+    };
+    el.querySelector('.mc-toast-x').addEventListener('click', cerrar);
+    const barra = el.querySelector('.mc-toast-barra');
+    barra.style.animationDuration = (parseInt(el.dataset.duracion, 10) || 4500) + 'ms';
+    barra.addEventListener('animationend', cerrar);
+  },
+
+  /** Dialogo de confirmacion. Devuelve Promise<boolean>. */
+  confirm({ titulo = '¿Estás seguro?', mensaje = '', ok = 'Sí, continuar', cancelar = 'Cancelar', peligro = true } = {}) {
+    return new Promise((resolver) => {
+      const dlg = document.createElement('dialog');
+      dlg.className = 'dlg-meca mc-confirm';
+      dlg.innerHTML =
+        '<div class="mc-confirm-cuerpo">' +
+          '<div class="mc-confirm-icono ' + (peligro ? 'es-peligro' : '') + '">' +
+            '<i class="fa-solid ' + (peligro ? 'fa-triangle-exclamation' : 'fa-circle-question') + '"></i>' +
+          '</div>' +
+          '<h3 class="font-display"></h3>' +
+          '<p></p>' +
+          '<footer>' +
+            '<button type="button" class="btn-outline btn-meca mcc-no"></button>' +
+            '<button type="button" class="btn-meca mcc-si ' + (peligro ? 'btn-peligro-solido' : 'btn-primary') + '"></button>' +
+          '</footer>' +
+        '</div>';
+      dlg.querySelector('h3').textContent = titulo;
+      dlg.querySelector('p').textContent = mensaje;
+      dlg.querySelector('.mcc-no').textContent = cancelar;
+      dlg.querySelector('.mcc-si').textContent = ok;
+      document.body.appendChild(dlg);
+
+      const terminar = (valor) => { dlg.close(); dlg.remove(); resolver(valor); };
+      dlg.querySelector('.mcc-si').addEventListener('click', () => terminar(true));
+      dlg.querySelector('.mcc-no').addEventListener('click', () => terminar(false));
+      dlg.addEventListener('cancel', (e) => { e.preventDefault(); terminar(false); });
+      dlg.addEventListener('click', (e) => { if (e.target === dlg) terminar(false); });
+      dlg.showModal();
+      dlg.querySelector('.mcc-no').focus();
+    });
+  },
+};
+
+// Activar los toasts que ya vienen renderizados por PHP (mensajes flash)
+document.querySelectorAll('#mc-toasts .mc-toast').forEach((t) => MC._activarToast(t));
+
+// Formularios con confirmacion propia: <form data-confirmar="mensaje">
+document.querySelectorAll('form[data-confirmar]').forEach((form) => {
+  form.addEventListener('submit', (e) => {
+    if (form.dataset.confirmado === '1') return;
+    e.preventDefault();
+    MC.confirm({
+      titulo: form.dataset.confirmarTitulo || '¿Estás seguro?',
+      mensaje: form.dataset.confirmar,
+      ok: form.dataset.confirmarOk || 'Sí, continuar',
+    }).then((si) => {
+      if (si) {
+        form.dataset.confirmado = '1';
+        form.requestSubmit ? form.requestSubmit() : form.submit();
+      }
+    });
+  });
+});
+
 // Colapsar / expandir la barra lateral (persistido en localStorage)
 const sidebarToggle = document.getElementById('sidebar-toggle');
 if (sidebarToggle) {
@@ -181,8 +273,8 @@ document.querySelectorAll('input[type="file"][accept*="image"]').forEach((input)
       input.files = dt.files;
     } catch (e) {
       if (file.size > LIMITE_SUBIDA) {
-        alert('Esa foto pesa ' + (file.size / 1048576).toFixed(1) + ' MB y el límite es ' +
-              (LIMITE_SUBIDA / 1048576).toFixed(1) + ' MB. Usa una imagen más liviana.');
+        MC.toast('Esa foto pesa ' + (file.size / 1048576).toFixed(1) + ' MB y el límite es ' +
+                 (LIMITE_SUBIDA / 1048576).toFixed(1) + ' MB. Usa una imagen más liviana.', 'error', 7000);
         input.value = '';
       }
     }
@@ -249,7 +341,7 @@ if (galeriaIconos) {
     extraBtn.addEventListener('click', () => {
       const ic = extraInp.value.trim();
       if (!/^fa-[a-z0-9-]+$/.test(ic)) {
-        alert('Escribe una clase válida, ej. fa-rocket');
+        MC.toast('Escribe una clase válida de Font Awesome, ej. fa-rocket', 'error');
         return;
       }
       let btn = galeriaIconos.querySelector('[data-icono="' + ic + '"]');
@@ -283,7 +375,7 @@ document.addEventListener('click', (e) => {
   if (!btn) return;
   const lista = btn.closest('.ajuste-lista');
   if (lista && lista.children.length <= 1) {
-    alert('Debe quedar al menos una opción en el catálogo.');
+    MC.toast('Debe quedar al menos una opción en el catálogo.', 'error');
     return;
   }
   btn.closest('.ajuste-fila').remove();

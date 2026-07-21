@@ -37,9 +37,11 @@ UI::inicio('Ajustes', 'ajustes');
 UI::cabecera(
     'Ajustes del <span class="text-secondary">panel</span>',
     'Todo es parametrizable. Los cambios se guardan con el botón "Guardar ajustes".',
-    '<form method="post" action="actions.php" class="inline-form" onsubmit="return confirm(\'¿Volver todos los ajustes a sus valores por defecto?\')">
+    '<form method="post" action="actions.php" class="inline-form"
+           data-confirmar="Se perderán todos los ajustes personalizados y el panel volverá a sus valores por defecto."
+           data-confirmar-titulo="¿Restaurar los defaults?" data-confirmar-ok="Sí, restaurar">
        <input type="hidden" name="accion" value="config_reset">
-       <button class="btn-outline btn-meca"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
+       <button class="btn-outline btn-meca btn-verde"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
      </form>'
 );
 ?>
@@ -212,8 +214,18 @@ UI::cabecera(
     <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-user-tag text-secondary"></i> Roles sugeridos</h2>
-        <p class="ajuste-ayuda">Se sugieren al escribir el rol de un colaborador, uno por línea.</p>
-        <textarea class="input-meca" name="roles" rows="9"><?= e(implode("\n", $cfg['roles'])) ?></textarea>
+        <p class="ajuste-ayuda">Se sugieren al escribir el rol de un colaborador. Agrega o quita los que necesiten.</p>
+        <div class="ajuste-lista" id="lista-rl">
+          <?php foreach ($cfg['roles'] as $rol): ?>
+          <div class="ajuste-fila fila-cat fila-cat-2">
+            <input class="input-meca" name="rl[]" maxlength="40" value="<?= e($rol) ?>" placeholder="Nombre del rol">
+            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+          </div>
+          <?php endforeach; ?>
+        </div>
+        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-rl" data-plantilla="tpl-rl">
+          <i class="fa-solid fa-plus"></i> Agregar rol
+        </button>
       </section>
     </div>
   </div>
@@ -326,6 +338,12 @@ UI::cabecera(
     <input type="hidden" name="eqs[__i__][key]" value="">
     <input class="input-meca input-icono" name="eqs[__i__][icono]" value="fa-users" title="Ícono (clase Font Awesome)">
     <input class="input-meca" name="eqs[__i__][label]" maxlength="24" value="" placeholder="Nuevo equipo">
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+  </div>
+</template>
+<template id="tpl-rl">
+  <div class="ajuste-fila fila-cat fila-cat-2">
+    <input class="input-meca" name="rl[]" maxlength="40" value="" placeholder="Nuevo rol">
     <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
