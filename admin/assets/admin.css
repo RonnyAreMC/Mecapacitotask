@@ -626,6 +626,33 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-avance-num { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--pc, var(--c-secondary)); }
 .ph-avance small { color: var(--c-text-soft); font-size: .76rem; font-weight: 600; }
 
+/* Boton GitHub (morado marca) */
+.btn-github {
+  background: #6e5494;
+  color: #fff !important;
+  font-weight: 700;
+  border: 0;
+  box-shadow: 5px 5px 12px color-mix(in srgb, #6e5494 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  transition: background .2s ease, transform .2s ease;
+}
+.btn-github:hover { background: #8365b1; transform: translateY(-1px); }
+.btn-github:active { box-shadow: var(--sh-inset-mini); transform: none; }
+
+/* Barra de avance en el borde superior del hero */
+.ph-barra {
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 6px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, transparent);
+  z-index: 2;
+}
+.ph-barra span {
+  display: block; height: 100%;
+  background: var(--pc, var(--c-secondary));
+  border-radius: 0 6px 6px 0;
+  box-shadow: 0 0 12px color-mix(in srgb, var(--pc, var(--c-secondary)) 60%, transparent);
+  transition: width .6s ease;
+}
+
 /* =========================================================
    Tiles resumen de estados
    ========================================================= */
@@ -636,7 +663,7 @@ html.dark .ph-watermark { opacity: .14; }
   margin-bottom: 26px;
 }
 .estado-tile {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 2px;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
   padding: 16px 20px;
   border-radius: 20px;
   background: var(--n-bg);
@@ -648,16 +675,131 @@ html.dark .ph-watermark { opacity: .14; }
   text-decoration: none;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
 }
-.estado-tile i { font-size: 1rem; margin-bottom: 7px; }
-.estado-tile b { font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--c-text); }
-.estado-tile span { font-size: .76rem; font-weight: 700; color: var(--c-text-soft); }
+.et-icono {
+  width: 46px; height: 46px; flex-shrink: 0;
+  border-radius: 14px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, currentColor 14%, var(--n-bg));
+  box-shadow: var(--sh-inset-mini);
+  font-size: 1.1rem;
+}
+.et-datos {
+  display: flex; flex-direction: column; align-items: flex-end; gap: 1px;
+  text-align: right; min-width: 0;
+}
+.et-datos b { font-size: 1.65rem; font-weight: 800; line-height: 1.05; color: var(--c-text); }
+.et-datos small {
+  font-size: .72rem; font-weight: 700;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 130px;
+}
 .estado-tile:hover { transform: translateY(-3px); }
 .estado-tile.tile-activo {
   box-shadow: var(--sh-inset);
   border-color: color-mix(in srgb, currentColor 55%, var(--n-bg));
   transform: none;
 }
-.estado-tile.tile-activo b { color: currentColor; }
+.estado-tile.tile-activo .et-datos b { color: currentColor; }
+
+/* =========================================================
+   Vista de flujo (dependencias) + actividad GitHub + dep-tags
+   ========================================================= */
+.vista-toggle { display: flex; gap: 10px; margin-bottom: 18px; }
+.vista-toggle .tab-btn { padding: 9px 18px; font-size: .82rem; }
+
+.dep-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-top: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: .7rem; font-weight: 700;
+  box-shadow: var(--sh-inset-mini);
+}
+.dep-tag i { font-size: .62rem; }
+.dep-tag.dep-ok { color: var(--c-verde-esmeralda); }
+.dep-tag.dep-bloqueada { color: var(--c-naranja); }
+html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
+
+.flujo-card { padding-bottom: 8px; }
+.flujo-wrap {
+  position: relative;
+  overflow-x: auto;
+  padding: 22px;
+}
+.flujo-lineas {
+  position: absolute; top: 0; left: 0;
+  pointer-events: none;
+  z-index: 0;
+}
+.flujo-cols {
+  position: relative; z-index: 1;
+  display: flex; gap: 56px;
+  align-items: flex-start;
+  min-width: max-content;
+}
+.flujo-col {
+  display: flex; flex-direction: column; gap: 14px;
+  min-width: 230px; max-width: 270px;
+}
+.flujo-col h4 {
+  margin: 0 0 2px;
+  font-size: .7rem; font-weight: 800;
+  letter-spacing: .12em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.flujo-nodo {
+  padding: 13px 16px;
+  border-radius: 14px;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, var(--n-bg));
+  box-shadow: var(--sh-mini);
+  display: flex; flex-direction: column; gap: 9px;
+  transition: transform .2s ease, border-color .2s ease;
+}
+.flujo-nodo:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 50%, var(--n-bg)); }
+.flujo-nodo b { font-size: .88rem; font-weight: 700; color: var(--c-text); line-height: 1.35; }
+.flujo-nodo.nodo-hecho { opacity: .62; }
+.flujo-nodo.nodo-hecho b { text-decoration: line-through; }
+.fn-meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.fn-meta .badge-estado { padding: 3px 9px; font-size: .66rem; }
+.fn-meta .prio-dot { margin-top: 0; }
+
+/* Mapa de actividad del repositorio (heatmap) */
+.actividad-card { margin-top: 22px; }
+.actividad-cuerpo { padding: 20px 24px 24px; }
+.hm-grid {
+  display: grid;
+  grid-auto-flow: column;
+  grid-template-rows: repeat(7, 13px);
+  gap: 3.5px;
+  width: max-content; max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 6px;
+}
+.hm-celda {
+  width: 13px; height: 13px;
+  border-radius: 3.5px;
+  background: color-mix(in srgb, var(--c-text-soft) 12%, var(--n-bg));
+}
+.hm-1 { background: color-mix(in srgb, var(--pc, var(--c-secondary)) 25%, var(--n-bg)); }
+.hm-2 { background: color-mix(in srgb, var(--pc, var(--c-secondary)) 48%, var(--n-bg)); }
+.hm-3 { background: color-mix(in srgb, var(--pc, var(--c-secondary)) 72%, var(--n-bg)); }
+.hm-4 { background: var(--pc, var(--c-secondary)); }
+.hm-leyenda {
+  display: flex; align-items: center; gap: 4px;
+  margin-top: 12px;
+  color: var(--c-text-soft); font-size: .72rem;
+}
+.hm-leyenda small { margin: 0 5px; }
+.actividad-msj {
+  margin: 0; padding: 16px;
+  border-radius: 13px;
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-text-muted); font-size: .88rem;
+  display: flex; align-items: center; gap: 10px;
+}
+.actividad-msj i { color: var(--c-secondary); }
 
 /* =========================================================
    Tabla de tareas
@@ -1725,15 +1867,78 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
     position: static;
     width: 100%;
     height: auto;
-    flex-direction: row; align-items: center; flex-wrap: wrap;
-    padding: 12px 16px;
+    flex-direction: column; align-items: stretch;
+    padding: 12px 14px;
     gap: 10px;
+    overflow: visible;
   }
+  .sidebar-top { flex-direction: row; align-items: center; }
+  .sidebar-top .sidebar-brand { flex: 1; }
+  .sidebar-top .sidebar-foot-movil { display: flex; }
   .sidebar-brand { padding: 8px 12px; }
-  .sidebar-nav { flex-direction: row; flex-wrap: wrap; padding-top: 0; align-items: center; }
+
+  /* Menu como chips deslizables en horizontal (nunca fuerza el ancho) */
+  .sidebar-nav {
+    flex-direction: row; flex-wrap: nowrap;
+    overflow-x: auto;
+    padding: 2px 2px 6px;
+    gap: 7px;
+    align-items: center;
+    scrollbar-width: thin;
+  }
+  .sidebar-link { padding: 9px 13px; font-size: .82rem; border-radius: 11px; flex-shrink: 0; white-space: nowrap; }
+  .sidebar-link-new { margin-top: 0; }
   .sidebar-label { display: none; }
-  .sidebar-foot { padding: 0; margin-left: auto; }
+  .sidebar-foot { padding: 0; justify-content: flex-end; }
   .sidebar-foot > span { display: none; }
   .admin-main { margin-left: 0; padding: 24px 18px 50px; }
   .ph-main { gap: 16px; }
+}
+
+/* =========================================================
+   Modo celular (pantallas chicas)
+   ========================================================= */
+@media (max-width: 640px) {
+  .admin-main { padding: 18px 14px 44px; overflow-x: clip; }
+  .ph-info { min-width: 0; }
+  .page-title { font-size: 1.45rem; }
+  .page-sub { font-size: .86rem; }
+  .page-head { margin-bottom: 20px; gap: 12px; }
+  .page-actions { width: 100%; }
+
+  .proyecto-hero { padding: 18px 18px 22px; border-radius: 22px; }
+  .ph-top { gap: 10px; }
+  .ph-actions { flex-wrap: wrap; }
+  .ph-main { margin-top: 14px; gap: 14px; }
+  .ph-icon { width: 60px; height: 60px; font-size: 1.5rem; border-radius: 18px; }
+  .ph-info h1 { font-size: 1.3rem; }
+  .ph-info p { font-size: .86rem; }
+  .ph-avance { width: 100%; min-width: 0; }
+
+  .estados-resumen { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .estado-tile { padding: 12px 14px; gap: 10px; }
+  .et-icono { width: 38px; height: 38px; border-radius: 11px; font-size: .95rem; }
+  .et-datos b { font-size: 1.3rem; }
+
+  .tabla-toolbar { padding: 14px 16px; }
+  .tabla-toolbar h2 { font-size: 1rem; }
+  .stats-grid { gap: 12px; }
+  .stat-card { padding: 14px 16px; }
+
+  .pc-head { gap: 16px; }
+  .pc-stats { width: 100%; }
+  .pc-stats .mc-stat { flex: 1; max-width: none; }
+  .persona-card { padding: 20px 18px 16px; }
+  .persona-preview { padding: 14px; }
+
+  .mc-tabla-head { padding: 11px 10px 11px 16px; font-size: .7rem; letter-spacing: .05em; }
+  .mc-tabla-add { padding: 8px 13px; font-size: .72rem; }
+  .mc-fila { padding-left: 14px; }
+
+  .dlg-form { padding: 20px 18px 18px; gap: 12px; }
+  .tabs-meca { gap: 8px; margin-bottom: 18px; }
+  .tab-btn { padding: 9px 14px; font-size: .78rem; }
+  .mc-toasts { top: 12px; right: 12px; width: calc(100vw - 24px); }
+  .flujo-cols { gap: 40px; }
+  .actividad-cuerpo { padding: 14px 16px 18px; }
 }

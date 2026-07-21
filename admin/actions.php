@@ -93,6 +93,10 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
         }
         $t = $tareas->crear($_POST);
+        $dep = $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), $pid);
+        if ($dep !== (int)$t['depende_de']) {
+            $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
+        }
         [$msg, $tipo] = notificarSiAsignada($t, (int)$t['asignado_id'], 0, $proyectos, $miembros);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
@@ -117,6 +121,7 @@ switch ($accion) {
             'estado'       => $_POST['estado'] ?? 'pendiente',
             'asignado_id'  => (int)($_POST['asignado_id'] ?? 0),
             'fecha_limite' => $_POST['fecha_limite'] ?? '',
+            'depende_de'   => $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), (int)$t['proyecto_id']),
         ]);
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, (int)$tActual['asignado_id'], $asignadoAntes, $proyectos, $miembros);
@@ -242,6 +247,7 @@ switch ($accion) {
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
+            'github_token'     => trim($_POST['github_token'] ?? ''),
             'color_secundario' => $hex($_POST['color_secundario'] ?? '', $def['color_secundario']),
             'color_acento'     => $hex($_POST['color_acento'] ?? '', $def['color_acento']),
             'estados_tarea'    => $estados,

@@ -153,6 +153,7 @@ final class Config
         return [
             'titulo'           => 'Mecapacito',
             'subtitulo'        => 'Panel Dev',
+            'github_token'     => '',
             'color_secundario' => '#2B76F7',   // acento principal (botones, links)
             'color_acento'     => '#FFD700',   // acento secundario
             'estados_tarea' => [
@@ -445,6 +446,7 @@ class TareaRepo
             'prioridad'   => $datos['prioridad'] ?? 'media',
             'asignado_id' => (int)($datos['asignado_id'] ?? 0),
             'fecha_limite'=> $datos['fecha_limite'] ?? '',
+            'depende_de'  => (int)($datos['depende_de'] ?? 0),
         ]);
     }
 
@@ -485,5 +487,55 @@ class TareaRepo
     {
         $total = array_sum($this->resumen($proyectoId));
         return $total === 0 ? 0 : (int)round($this->completadas($proyectoId) * 100 / $total);
+    }
+
+    /**
+     * Valida una dependencia: debe existir, ser del mismo proyecto,
+     * no ser la propia tarea y no formar un ciclo. Devuelve el id
+     * validado o 0 si no es valida.
+     */
+    public function dependenciaValida(int $tareaId, int $dependeDe, int $proyectoId): int
+    {
+        if ($dependeDe <= 0 || $dependeDe === $tareaId) {
+            return 0;
+        }
+        $dep = $this->buscar($dependeDe);
+        if (!$dep || (int)$dep['proyecto_id'] !== $proyectoId) {
+            return 0;
+        }
+        // Anti-ciclos: subir por la cadena de dependencias
+        $actual = $dep;
+        $saltos = 0;
+        while ($actual && $saltos++ < 100) {
+            $padre = (int)($actual['depende_de'] ?? 0);
+            if ($padre === 0) break;
+            if ($padre === $tareaId) return 0;   // formaria un ciclo
+            $actual = $this->buscar($padre);
+        }
+        return $dependeDe;
+    }
+
+    /**
+     * Nivel de cada tarea segun su cadena de dependencias
+     * (0 = sin dependencias). Para la vista de flujo.
+     */
+    public function niveles(array $tareas): array
+    {
+        $porId = [];
+        foreach ($tareas as $t) {
+            $porId[(int)$t['id']] = $t;
+        }
+        $memo = [];
+        $nivel = function (int $id) use (&$nivel, &$memo, $porId): int {
+            if (isset($memo[$id])) return $memo[$id];
+            $memo[$id] = 0;   // corta ciclos accidentales
+            $dep = (int)($porId[$id]['depende_de'] ?? 0);
+            return $memo[$id] = ($dep && isset($porId[$dep])) ? $nivel($dep) + 1 : 0;
+        };
+        $out = [];
+        foreach ($porId as $id => $t) {
+            $out[$id] = $nivel($id);
+        }
+        return $out;
     }
 }

@@ -144,6 +144,58 @@ if (masterDetail) {
   if (guardada) seleccionar(guardada);
 }
 
+// Vista Tabla / Flujo en la pagina de proyecto (con memoria por URL)
+const vistaToggle = document.querySelector('.vista-toggle');
+if (vistaToggle) {
+  const claveVista = 'vista-' + location.pathname + location.search;
+  const activarVista = (v) => {
+    vistaToggle.querySelectorAll('[data-vista]').forEach((b) => b.classList.toggle('active', b.dataset.vista === v));
+    document.querySelectorAll('[data-vista-panel]').forEach((p) => { p.hidden = p.dataset.vistaPanel !== v; });
+    if (v === 'flujo') dibujarFlujo();
+  };
+  vistaToggle.querySelectorAll('[data-vista]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activarVista(btn.dataset.vista);
+      sessionStorage.setItem(claveVista, btn.dataset.vista);
+    });
+  });
+  const vGuardada = location.hash === '#vista-flujo' ? 'flujo' : sessionStorage.getItem(claveVista);
+  if (vGuardada === 'flujo') activarVista('flujo');
+}
+
+// Conectores SVG entre tareas dependientes (vista Flujo)
+function dibujarFlujo() {
+  const wrap = document.getElementById('flujo-wrap');
+  const svg = document.getElementById('flujo-lineas');
+  if (!wrap || !svg) return;
+  const caja = wrap.getBoundingClientRect();
+  svg.setAttribute('width', wrap.scrollWidth);
+  svg.setAttribute('height', wrap.scrollHeight);
+  const color = getComputedStyle(wrap).getPropertyValue('--pc').trim() || '#2B76F7';
+  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">' +
+               '<path d="M 0 1 L 9 5 L 0 9 z" fill="' + color + '"/></marker></defs>';
+  wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
+    const depId = nodo.dataset.dep;
+    if (!depId || depId === '0') return;
+    const origen = document.getElementById('fn-' + depId);
+    if (!origen) return;
+    const a = origen.getBoundingClientRect();
+    const b = nodo.getBoundingClientRect();
+    const x1 = a.right - caja.left + wrap.scrollLeft;
+    const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
+    const x2 = b.left - caja.left + wrap.scrollLeft - 7;
+    const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
+    const cx = (x2 - x1) / 2;
+    trazos += '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
+              ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".55" marker-end="url(#flecha)"/>';
+  });
+  svg.innerHTML = trazos;
+}
+window.addEventListener('resize', () => {
+  const panelFlujo = document.querySelector('[data-vista-panel="flujo"]');
+  if (panelFlujo && !panelFlujo.hidden) dibujarFlujo();
+});
+
 // Abrir modales por hash (ej. equipo.php#nuevo-colaborador)
 if (location.hash === '#nuevo-colaborador') {
   const dlg = document.getElementById('dlg-nuevo-miembro');
@@ -162,6 +214,12 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     dlg.querySelector('.js-et-asignado').value = t.asignado_id;
     dlg.querySelector('.js-et-prioridad').value = t.prioridad;
     dlg.querySelector('.js-et-estado').value = t.estado;
+    const dep = dlg.querySelector('.js-et-depende');
+    if (dep) {
+      dep.value = String(t.depende_de || 0);
+      // Una tarea no puede depender de si misma
+      [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
+    }
     dlg.showModal();
   });
 });

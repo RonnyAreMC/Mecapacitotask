@@ -83,6 +83,14 @@ UI::cabecera(
             <input class="input-meca input-color-linea" type="color" name="color_acento" value="<?= e($cfg['color_acento']) ?>">
           </label>
         </div>
+        <label class="campo">
+          <span>Token de GitHub (opcional)</span>
+          <input class="input-meca" type="password" name="github_token" value="<?= e($cfg['github_token'] ?? '') ?>" placeholder="ghp_...">
+        </label>
+        <small class="campo-ayuda">
+          Para el mapa de actividad de repos privados y más cuota de la API.
+          Créalo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> con permiso de solo lectura de repos.
+        </small>
       </section>
     </div>
   </div>
