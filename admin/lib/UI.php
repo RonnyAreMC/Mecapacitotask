@@ -59,16 +59,6 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <i class="fa-solid fa-table-columns"></i> <span class="truncate">Dashboard</span>
     </a>
-    <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
-      <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
-    </a>
-
-    <span class="sidebar-label">Equipos</span>
-    <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
-    <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
-      <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>
-    </a>
-    <?php endforeach; ?>
 
     <span class="sidebar-label">Proyectos</span>
     <?php foreach ($proyectos as $p): ?>
@@ -81,6 +71,18 @@ class UI
 
     <a href="index.php#nuevo" class="sidebar-link sidebar-link-new" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
       <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
+    </a>
+
+    <span class="sidebar-label">Equipos</span>
+    <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
+    <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
+      <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>
+    </a>
+    <?php endforeach; ?>
+
+    <span class="sidebar-label">Configuración</span>
+    <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
+      <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
     </a>
   </nav>
 

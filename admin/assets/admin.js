@@ -207,6 +207,64 @@ function comprimirImagen(file, maxLado, calidad) {
   });
 }
 
+// Tabs genericos (.tabs-meca + .tab-panel), con memoria de la pestana activa
+document.querySelectorAll('.tabs-meca').forEach((tabs) => {
+  const clave = 'tab-' + (tabs.dataset.clave || location.pathname);
+  const activar = (id) => {
+    tabs.querySelectorAll('.tab-btn').forEach((b) => b.classList.toggle('active', b.dataset.tab === id));
+    document.querySelectorAll('.tab-panel').forEach((p) => { p.hidden = p.dataset.panel !== id; });
+  };
+  tabs.querySelectorAll('.tab-btn').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      activar(btn.dataset.tab);
+      sessionStorage.setItem(clave, btn.dataset.tab);
+    });
+  });
+  const porHash = location.hash.startsWith('#tab-') ? location.hash.slice(5) : null;
+  const guardado = porHash || sessionStorage.getItem(clave);
+  if (guardado && tabs.querySelector('[data-tab="' + guardado + '"]')) activar(guardado);
+});
+
+// Galeria de iconos: clic para elegir; el valor se arma solo en el hidden
+const galeriaIconos = document.querySelector('.icon-galeria');
+if (galeriaIconos) {
+  const valor = document.getElementById('iconos-valor');
+  const conteo = document.getElementById('iconos-conteo');
+  const sincronizar = () => {
+    const sel = [...galeriaIconos.querySelectorAll('.ig-btn.sel')].map((b) => b.dataset.icono);
+    valor.value = sel.join('\n');
+    if (conteo) conteo.textContent = sel.length;
+  };
+  galeriaIconos.addEventListener('click', (e) => {
+    const btn = e.target.closest('.ig-btn');
+    if (!btn) return;
+    btn.classList.toggle('sel');
+    sincronizar();
+  });
+
+  // Agregar un icono que no este en la galeria (por clase FA)
+  const extraBtn = document.getElementById('icono-extra-btn');
+  const extraInp = document.getElementById('icono-extra');
+  if (extraBtn && extraInp) {
+    extraBtn.addEventListener('click', () => {
+      const ic = extraInp.value.trim();
+      if (!/^fa-[a-z0-9-]+$/.test(ic)) {
+        alert('Escribe una clase válida, ej. fa-rocket');
+        return;
+      }
+      let btn = galeriaIconos.querySelector('[data-icono="' + ic + '"]');
+      if (!btn) {
+        galeriaIconos.insertAdjacentHTML('afterbegin',
+          '<button type="button" class="ig-btn sel" data-icono="' + ic + '" title="' + ic + '"><i class="fa-solid ' + ic + '"></i></button>');
+      } else {
+        btn.classList.add('sel');
+      }
+      extraInp.value = '';
+      sincronizar();
+    });
+  }
+}
+
 // Ajustes: agregar y quitar filas de catalogos (estados, prioridades...)
 let filaContador = 1000;
 document.querySelectorAll('.btn-agregar-fila').forEach((btn) => {

@@ -1222,6 +1222,71 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
 .color-picker .cp-custom:hover input[type="color"] { transform: scale(1.08); border-color: var(--c-secondary); }
 
 /* =========================================================
+   Tabs (Ajustes y reutilizables)
+   ========================================================= */
+.tabs-meca {
+  display: flex; flex-wrap: wrap; gap: 12px;
+  margin-bottom: 26px;
+}
+.tab-btn {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 11px 20px;
+  border: 1.5px solid transparent;
+  border-radius: 14px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-soft);
+  color: var(--c-text-muted);
+  font-family: 'Inter', sans-serif;
+  font-size: .86rem; font-weight: 700;
+  cursor: pointer;
+  transition: box-shadow .22s ease, color .22s ease, border-color .22s ease;
+}
+.tab-btn:hover { color: var(--c-text); }
+.tab-btn.active {
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-secondary);
+  border-color: color-mix(in srgb, var(--c-secondary) 30%, var(--n-bg));
+}
+.tab-panel[hidden] { display: none; }
+
+/* =========================================================
+   Galeria de iconos (clic para elegir)
+   ========================================================= */
+.icon-galeria {
+  display: flex; flex-wrap: wrap; gap: 10px;
+  padding: 16px;
+  border-radius: 16px;
+  box-shadow: var(--sh-inset-mini);
+  max-height: 340px;
+  overflow-y: auto;
+}
+.ig-btn {
+  width: 46px; height: 46px;
+  border: 1.5px solid transparent;
+  border-radius: 13px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  color: var(--c-text-muted);
+  font-size: 1.05rem;
+  cursor: pointer;
+  transition: box-shadow .18s ease, color .18s ease, transform .18s ease, border-color .18s ease;
+}
+.ig-btn:hover { color: var(--c-secondary); transform: translateY(-2px); }
+.ig-btn.sel {
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-secondary);
+  border-color: color-mix(in srgb, var(--c-secondary) 35%, var(--n-bg));
+  transform: none;
+}
+.icon-extra { display: flex; gap: 10px; align-items: center; }
+.icon-extra .input-meca { max-width: 260px; }
+
+.ajuste-card-ancha { grid-column: 1 / -1; }
+.ajuste-nota { margin-top: 18px; }
+.ajuste-nota i { color: var(--c-secondary); margin-right: 6px; }
+.ajustes-form { display: block; }
+
+/* =========================================================
    Ajustes (parametrizacion del panel)
    ========================================================= */
 .ajustes-grid {
