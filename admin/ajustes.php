@@ -214,18 +214,24 @@ UI::cabecera(
     <div class="ajustes-grid">
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-user-tag text-secondary"></i> Roles sugeridos</h2>
-        <p class="ajuste-ayuda">Se sugieren al escribir el rol de un colaborador. Agrega o quita los que necesiten.</p>
-        <div class="ajuste-lista" id="lista-rl">
-          <?php foreach ($cfg['roles'] as $rol): ?>
-          <div class="ajuste-fila fila-cat fila-cat-2">
-            <input class="input-meca" name="rl[]" maxlength="40" value="<?= e($rol) ?>" placeholder="Nombre del rol">
-            <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+        <p class="ajuste-ayuda">Se sugieren al escribir el rol de un colaborador. Edita en línea y guarda con "Guardar ajustes".</p>
+        <div class="mc-tabla">
+          <div class="mc-tabla-head">
+            <span><i class="fa-solid fa-user-tag"></i> Rol</span>
+            <button type="button" class="mc-tabla-add btn-agregar-fila" data-lista="cuerpo-rl" data-plantilla="tpl-rl" data-insertar="inicio">
+              <i class="fa-solid fa-plus"></i> Agregar
+            </button>
           </div>
-          <?php endforeach; ?>
+          <div class="mc-tabla-cuerpo ajuste-lista" id="cuerpo-rl">
+            <?php foreach ($cfg['roles'] as $rol): ?>
+            <div class="mc-fila">
+              <input class="mc-fila-dato" name="rl[]" maxlength="40" value="<?= e($rol) ?>" readonly>
+              <button type="button" class="accion-btn btn-editar-fila" title="Editar"><i class="fa-solid fa-pen"></i></button>
+              <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+            </div>
+            <?php endforeach; ?>
+          </div>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm btn-agregar-fila" data-lista="lista-rl" data-plantilla="tpl-rl">
-          <i class="fa-solid fa-plus"></i> Agregar rol
-        </button>
       </section>
     </div>
   </div>
@@ -342,9 +348,10 @@ UI::cabecera(
   </div>
 </template>
 <template id="tpl-rl">
-  <div class="ajuste-fila fila-cat fila-cat-2">
-    <input class="input-meca" name="rl[]" maxlength="40" value="" placeholder="Nuevo rol">
-    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Quitar"><i class="fa-solid fa-trash"></i></button>
+  <div class="mc-fila editando">
+    <input class="mc-fila-dato" name="rl[]" maxlength="40" value="" placeholder="Nuevo rol...">
+    <button type="button" class="accion-btn btn-editar-fila" title="Listo"><i class="fa-solid fa-check"></i></button>
+    <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
 <template id="tpl-ep">

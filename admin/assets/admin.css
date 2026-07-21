@@ -1583,6 +1583,69 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 .fila-cat.fila-cat-2 { grid-template-columns: 1fr auto; }
 
 /* =========================================================
+   mc-tabla: tabla con encabezado celeste y filas separadas
+   ========================================================= */
+.mc-tabla { display: flex; flex-direction: column; gap: 12px; }
+
+.mc-tabla-head {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  padding: 11px 12px 11px 18px;
+  border-radius: 15px;
+  background: var(--c-cian);
+  color: var(--c-petroleo);
+  font-size: .78rem; font-weight: 800;
+  letter-spacing: .08em; text-transform: uppercase;
+  box-shadow: 5px 5px 12px color-mix(in srgb, var(--c-cian) 25%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+}
+.mc-tabla-head span { display: inline-flex; align-items: center; gap: 9px; }
+
+.mc-tabla-add {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 15px;
+  border: 0; border-radius: 11px;
+  background: rgba(255, 255, 255, .88);
+  color: var(--c-petroleo);
+  font-family: 'Inter', sans-serif;
+  font-size: .76rem; font-weight: 800;
+  letter-spacing: .03em;
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.mc-tabla-add:hover { background: #fff; transform: translateY(-1px); }
+
+.mc-tabla-cuerpo { display: flex; flex-direction: column; gap: 9px; }
+
+.mc-fila {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center; gap: 8px;
+  padding: 5px 8px 5px 17px;
+  border-radius: 13px;
+  background: var(--n-bg);
+  border: 1.5px solid transparent;
+  box-shadow: var(--sh-mini);
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.mc-fila.editando {
+  border-color: color-mix(in srgb, var(--c-cian) 55%, var(--n-bg));
+  box-shadow: var(--sh-inset-mini);
+}
+
+/* El dato: negrita, sin caja; al editar toma acento */
+.mc-fila-dato {
+  width: 100%; min-width: 0;
+  border: 0; outline: none;
+  background: transparent;
+  font-family: 'Inter', sans-serif;
+  font-size: .93rem; font-weight: 700;
+  color: var(--c-text);
+  padding: 11px 0;
+  cursor: default;
+}
+.mc-fila-dato:not([readonly]) { color: var(--c-secondary); cursor: text; }
+.mc-fila-dato::placeholder { color: var(--c-text-soft); font-weight: 600; }
+
+/* =========================================================
    Responsive
    ========================================================= */
 @media (max-width: 900px) {

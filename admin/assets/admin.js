@@ -364,11 +364,38 @@ document.querySelectorAll('.btn-agregar-fila').forEach((btn) => {
     const tpl = document.getElementById(btn.dataset.plantilla);
     const lista = document.getElementById(btn.dataset.lista);
     if (!tpl || !lista) return;
+    const alInicio = btn.dataset.insertar === 'inicio';
     const html = tpl.innerHTML.replaceAll('__i__', String(filaContador++));
-    lista.insertAdjacentHTML('beforeend', html);
-    const fila = lista.lastElementChild;
-    fila.querySelector('input[type="text"], .input-meca:not(.input-icono)')?.focus();
+    lista.insertAdjacentHTML(alInicio ? 'afterbegin' : 'beforeend', html);
+    const fila = alInicio ? lista.firstElementChild : lista.lastElementChild;
+    fila.querySelector('input:not([type="hidden"]):not([type="color"]):not(.input-icono)')?.focus();
   });
+});
+
+// mc-tabla: edicion en linea (lapiz <-> check); Enter confirma sin enviar el form
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-editar-fila');
+  if (!btn) return;
+  const fila = btn.closest('.mc-fila');
+  const dato = fila.querySelector('.mc-fila-dato');
+  if (dato.readOnly) {
+    dato.readOnly = false;
+    fila.classList.add('editando');
+    btn.innerHTML = '<i class="fa-solid fa-check"></i>';
+    btn.title = 'Listo';
+    dato.focus();
+    dato.select();
+  } else {
+    dato.readOnly = true;
+    fila.classList.remove('editando');
+    btn.innerHTML = '<i class="fa-solid fa-pen"></i>';
+    btn.title = 'Editar';
+  }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter' || !e.target.classList?.contains('mc-fila-dato')) return;
+  e.preventDefault();   // que no envie todo el formulario
+  e.target.closest('.mc-fila').querySelector('.btn-editar-fila').click();
 });
 document.addEventListener('click', (e) => {
   const btn = e.target.closest('.btn-quitar-fila');
