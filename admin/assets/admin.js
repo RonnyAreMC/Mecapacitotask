@@ -189,6 +189,138 @@ function setSelect(el, valor) {
   el.dispatchEvent(new Event('ms-sync'));
 }
 
+/* =========================================================
+   MecaDate — selector de fecha (y hora) con estilo del panel.
+   Reemplaza el date picker nativo. Mantiene el input oculto con
+   su name para que los forms envíen igual (YYYY-MM-DD / ...THH:MM).
+   ========================================================= */
+const MecaDate = {
+  meses: ['Enero','Febrero','Marzo','Abril','Mayo','Junio','Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre'],
+  dows: ['Lu','Ma','Mi','Ju','Vi','Sá','Do'],
+  init(scope) {
+    (scope || document).querySelectorAll('input[type="date"]:not([data-md]), input[type="datetime-local"]:not([data-md])')
+      .forEach((inp) => this.enhance(inp));
+  },
+  enhance(inp) {
+    inp.dataset.md = '1';
+    const conHora = inp.type === 'datetime-local';
+    inp.type = 'hidden';   // conserva el name y envía el valor
+    const wrap = document.createElement('div');
+    wrap.className = 'md';
+    inp.parentNode.insertBefore(wrap, inp);
+    wrap.appendChild(inp);
+
+    const trigger = document.createElement('button');
+    trigger.type = 'button';
+    trigger.className = 'md-trigger';
+    trigger.innerHTML = '<span class="md-label"></span><i class="fa-regular fa-calendar md-ico"></i>';
+    wrap.appendChild(trigger);
+
+    const pop = document.createElement('div');
+    pop.className = 'md-pop';
+    const host = inp.closest('dialog') || document.body;
+    let abierto = false;
+    let ver = new Date();   // mes visible
+
+    const parse = (v) => {
+      if (!v) return null;
+      const d = new Date(v.replace(' ', 'T'));
+      return isNaN(d) ? null : d;
+    };
+    const dos = (n) => String(n).padStart(2, '0');
+    const iso = (d) => d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
+
+    const label = () => {
+      const d = parse(inp.value);
+      const lbl = trigger.querySelector('.md-label');
+      if (!d) { lbl.innerHTML = '<span class="md-ph">Elegir fecha' + (conHora ? ' y hora' : '') + '</span>'; return; }
+      let s = dos(d.getDate()) + '/' + dos(d.getMonth() + 1) + '/' + d.getFullYear();
+      if (conHora) s += ' · ' + dos(d.getHours()) + ':' + dos(d.getMinutes());
+      lbl.textContent = s;
+    };
+
+    const pintar = () => {
+      const sel = parse(inp.value);
+      const hoy = new Date();
+      const anio = ver.getFullYear(), mes = ver.getMonth();
+      const primero = new Date(anio, mes, 1);
+      const offset = (primero.getDay() + 6) % 7;   // lunes primero
+      const dias = new Date(anio, mes + 1, 0).getDate();
+      let cel = '';
+      for (let i = 0; i < offset; i++) cel += '<span class="md-d md-vacia"></span>';
+      for (let d = 1; d <= dias; d++) {
+        const esHoy = hoy.getFullYear() === anio && hoy.getMonth() === mes && hoy.getDate() === d;
+        const esSel = sel && sel.getFullYear() === anio && sel.getMonth() === mes && sel.getDate() === d;
+        cel += '<button type="button" class="md-d' + (esSel ? ' sel' : '') + (esHoy ? ' hoy' : '') + '" data-d="' + d + '">' + d + '</button>';
+      }
+      pop.innerHTML =
+        '<div class="md-head"><button type="button" class="md-nav" data-nav="-1"><i class="fa-solid fa-chevron-left"></i></button>' +
+        '<b>' + this.meses[mes] + ' ' + anio + '</b>' +
+        '<button type="button" class="md-nav" data-nav="1"><i class="fa-solid fa-chevron-right"></i></button></div>' +
+        '<div class="md-dows">' + this.dows.map((x) => '<span>' + x + '</span>').join('') + '</div>' +
+        '<div class="md-grid">' + cel + '</div>' +
+        (conHora ? '<div class="md-hora"><i class="fa-regular fa-clock"></i> Hora <input type="time" class="md-time" value="' + (sel ? dos(sel.getHours()) + ':' + dos(sel.getMinutes()) : '09:00') + '"></div>' : '') +
+        '<div class="md-pie"><button type="button" class="md-borrar">Borrar</button><button type="button" class="md-hoy">Hoy</button></div>';
+    };
+
+    const posicionar = () => {
+      const r = trigger.getBoundingClientRect();
+      pop.style.left = r.left + 'px';
+      pop.style.top = (r.bottom + 6) + 'px';
+      const h = pop.offsetHeight;
+      if (r.bottom + 6 + h > innerHeight && r.top - 6 - h > 0) pop.style.top = (r.top - 6 - h) + 'px';
+    };
+    const abrir = () => {
+      ver = parse(inp.value) || new Date();
+      pintar(); host.appendChild(pop);
+      abierto = true; wrap.classList.add('md-open'); posicionar();
+    };
+    const cerrar = () => { if (!abierto) return; abierto = false; wrap.classList.remove('md-open'); pop.remove(); };
+
+    const fijar = (d) => {
+      let val = iso(d);
+      if (conHora) {
+        const t = pop.querySelector('.md-time')?.value || '09:00';
+        val += 'T' + t;
+      }
+      inp.value = val;
+      inp.dispatchEvent(new Event('change', { bubbles: true }));
+      label();
+    };
+
+    trigger.addEventListener('click', () => abierto ? cerrar() : abrir());
+    pop.addEventListener('click', (e) => {
+      const nav = e.target.closest('[data-nav]');
+      if (nav) { ver = new Date(ver.getFullYear(), ver.getMonth() + parseInt(nav.dataset.nav, 10), 1); pintar(); return; }
+      const dia = e.target.closest('.md-d[data-d]');
+      if (dia) {
+        const d = new Date(ver.getFullYear(), ver.getMonth(), parseInt(dia.dataset.d, 10));
+        fijar(d); pintar();
+        if (!conHora) cerrar();
+        return;
+      }
+      if (e.target.closest('.md-hoy')) { fijar(new Date()); pintar(); if (!conHora) cerrar(); return; }
+      if (e.target.closest('.md-borrar')) { inp.value = ''; inp.dispatchEvent(new Event('change', { bubbles: true })); label(); cerrar(); return; }
+    });
+    pop.addEventListener('change', (e) => {
+      if (e.target.classList.contains('md-time') && parse(inp.value)) fijar(parse(inp.value));
+    });
+    document.addEventListener('click', (e) => { if (abierto && !pop.contains(e.target) && !wrap.contains(e.target)) cerrar(); });
+    addEventListener('scroll', () => cerrar(), true);
+    addEventListener('resize', () => cerrar());
+    inp.addEventListener('md-sync', label);
+    label();
+  },
+};
+MecaDate.init();
+
+// Fija el valor de un input de fecha y refresca su MecaDate
+function setFecha(el, valor) {
+  if (!el) return;
+  el.value = valor || '';
+  el.dispatchEvent(new Event('md-sync'));
+}
+
 // Formularios con confirmacion propia: <form data-confirmar="mensaje">
 // (delegado: funciona también con formularios agregados dinámicamente)
 document.addEventListener('submit', (e) => {
@@ -558,7 +690,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     dlg.querySelector('#et-id').value = t.id;
     dlg.querySelector('#et-titulo').value = t.titulo;
     dlg.querySelector('#et-descripcion').value = t.descripcion;
-    dlg.querySelector('#et-fecha').value = t.fecha_limite;
+    setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
     setSelect(dlg.querySelector('.js-et-asignado'), t.asignado_id);
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);

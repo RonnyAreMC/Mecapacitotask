@@ -387,15 +387,16 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
 }
 
 /* Primario: acento plano azul con relieve */
+/* Botón primario (guardar / crear / confirmar) — SIEMPRE en verde */
 .btn-primary.btn-meca {
-  background: var(--c-secondary);
+  background: var(--c-verde-esmeralda);
   color: #fff; font-weight: 700;
   box-shadow:
-    6px 6px 14px color-mix(in srgb, var(--c-secondary) 30%, var(--n-sh-d)),
+    6px 6px 14px color-mix(in srgb, var(--c-verde-esmeralda) 30%, var(--n-sh-d)),
     -5px -5px 12px var(--n-sh-l),
     var(--clay-pop);
 }
-.btn-primary.btn-meca:hover { background: var(--c-azul-cobalto); transform: translateY(-1px); }
+.btn-primary.btn-meca:hover { background: #1e8f5c; transform: translateY(-1px); }
 .btn-primary.btn-meca:active { box-shadow: var(--sh-inset-mini); transform: none; }
 
 /* Secundario: superficie neumorfica con texto de acento */
@@ -1576,6 +1577,90 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
 }
 .select-sm { padding: 9px 32px 9px 13px; font-size: .8rem; }
+
+/* =========================================================
+   MecaDate — selector de fecha con estilo del panel
+   ========================================================= */
+.md { position: relative; display: block; width: 100%; }
+.md-trigger {
+  width: 100%;
+  display: flex; align-items: center; justify-content: space-between; gap: 8px;
+  padding: 12px 15px;
+  border: 0; border-radius: 12px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini);
+  color: var(--c-text);
+  font-family: 'Inter', sans-serif; font-size: .9rem; font-weight: 600;
+  cursor: pointer; text-align: left;
+}
+html.dark .md-trigger { background: var(--c-bg-soft); }
+.md-open .md-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+.md-ph { color: var(--c-text-soft); font-weight: 500; }
+.md-ico { color: var(--c-secondary); flex-shrink: 0; }
+
+.md-pop {
+  position: fixed; z-index: 320;
+  width: 288px;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--c-secondary) 22%, var(--n-bg));
+  border-radius: 16px;
+  box-shadow: 0 28px 56px -22px rgba(0, 0, 0, .55);
+  padding: 14px;
+  animation: ms-in .16s ease;
+}
+.md-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.md-head b { font-size: .92rem; font-weight: 800; color: var(--c-text); }
+.md-nav {
+  width: 32px; height: 32px; border: 0; border-radius: 9px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  color: var(--c-text-muted); font-size: .78rem; cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.md-nav:hover { color: var(--c-secondary); }
+.md-nav:active { box-shadow: var(--sh-inset-mini); }
+.md-dows { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.md-dows span { text-align: center; font-size: .68rem; font-weight: 800; color: var(--c-text-soft); padding: 4px 0; }
+.md-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }
+.md-d {
+  aspect-ratio: 1; border: 0; border-radius: 9px;
+  background: transparent; color: var(--c-text);
+  font-family: 'Inter', sans-serif; font-size: .82rem; font-weight: 600;
+  cursor: pointer;
+  transition: background .15s ease, color .15s ease;
+}
+.md-d.md-vacia { cursor: default; }
+.md-d:not(.md-vacia):hover { background: rgba(var(--c-secondary-rgb), .12); }
+.md-d.hoy { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 55%, var(--n-bg)); color: var(--c-secondary); }
+.md-d.sel {
+  background: var(--c-secondary); color: #fff;
+  box-shadow: 0 6px 14px -6px var(--c-secondary);
+}
+.md-hora {
+  display: flex; align-items: center; gap: 8px;
+  margin-top: 12px; padding-top: 12px;
+  border-top: 1px dashed var(--c-border-soft);
+  font-size: .8rem; font-weight: 700; color: var(--c-text-muted);
+}
+.md-hora i { color: var(--c-secondary); }
+.md-time {
+  margin-left: auto;
+  border: 0; border-radius: 9px;
+  padding: 8px 10px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text); font-family: 'Inter', sans-serif; font-size: .82rem;
+}
+html.dark .md-time { background: var(--c-bg-soft); color-scheme: dark; }
+.md-pie {
+  display: flex; justify-content: space-between;
+  margin-top: 12px; padding-top: 10px;
+  border-top: 1px dashed var(--c-border-soft);
+}
+.md-pie button {
+  border: 0; background: transparent; cursor: pointer;
+  font-family: 'Inter', sans-serif; font-size: .8rem; font-weight: 700;
+}
+.md-borrar { color: var(--c-terracota); }
+.md-hoy { color: var(--c-secondary); }
 
 /* =========================================================
    MecaSelect (buscador + multi) — realza los .select-meca
