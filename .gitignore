@@ -1,0 +1,11 @@
+# Datos de runtime del panel (se generan al usarlo; no publicar datos del equipo)
+admin/data/*.json
+admin/data/.seeded
+admin/uploads/*
+
+# Mantener las carpetas en el repo
+!admin/data/.gitkeep
+!admin/uploads/.gitkeep
+
+# Sistema
+.DS_Store

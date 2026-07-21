@@ -1,0 +1,238 @@
+/* Mecapacito Admin - interacciones del panel */
+
+// Colapsar / expandir la barra lateral (persistido en localStorage)
+const sidebarToggle = document.getElementById('sidebar-toggle');
+if (sidebarToggle) {
+  sidebarToggle.addEventListener('click', () => {
+    const min = document.documentElement.classList.toggle('sb-collapsed');
+    localStorage.setItem('meca-sidebar', min ? 'min' : 'full');
+  });
+}
+
+// Modo oscuro configurable (persistido en localStorage)
+const themeToggle = document.getElementById('theme-toggle');
+if (themeToggle) {
+  themeToggle.addEventListener('click', () => {
+    const dark = document.documentElement.classList.toggle('dark');
+    localStorage.setItem('meca-theme', dark ? 'dark' : 'light');
+  });
+}
+
+// Abrir modal de "nuevo proyecto" si se llego desde el sidebar
+if (sessionStorage.getItem('abrirNuevo') === '1') {
+  sessionStorage.removeItem('abrirNuevo');
+  const dlg = document.getElementById('dlg-nuevo');
+  if (dlg) dlg.showModal();
+}
+
+// Equipo maestro-detalle: seleccionar una fila muestra su card
+const masterDetail = document.querySelector('.equipo-master-detail');
+if (masterDetail) {
+  const claveSel = 'persona-sel-' + (masterDetail.dataset.equipo || '');
+  const seleccionar = (id) => {
+    let hay = false;
+    masterDetail.querySelectorAll('.persona-row').forEach((r) => {
+      const activa = r.dataset.persona === id;
+      r.classList.toggle('active', activa);
+      if (activa) hay = true;
+    });
+    if (!hay) return false;
+    masterDetail.querySelectorAll('[data-persona-card]').forEach((c) => {
+      c.hidden = c.dataset.personaCard !== id;
+    });
+    return true;
+  };
+  masterDetail.querySelectorAll('.persona-row').forEach((row) => {
+    row.addEventListener('click', () => {
+      seleccionar(row.dataset.persona);
+      sessionStorage.setItem(claveSel, row.dataset.persona);
+    });
+  });
+  const guardada = sessionStorage.getItem(claveSel);
+  if (guardada) seleccionar(guardada);
+}
+
+// Abrir modales por hash (ej. equipo.php#nuevo-colaborador)
+if (location.hash === '#nuevo-colaborador') {
+  const dlg = document.getElementById('dlg-nuevo-miembro');
+  if (dlg) dlg.showModal();
+}
+
+// Rellenar y abrir el modal de edicion de tarea
+document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const t = JSON.parse(btn.dataset.editarTarea);
+    const dlg = document.getElementById('dlg-editar-tarea');
+    dlg.querySelector('#et-id').value = t.id;
+    dlg.querySelector('#et-titulo').value = t.titulo;
+    dlg.querySelector('#et-descripcion').value = t.descripcion;
+    dlg.querySelector('#et-fecha').value = t.fecha_limite;
+    dlg.querySelector('.js-et-asignado').value = t.asignado_id;
+    dlg.querySelector('.js-et-prioridad').value = t.prioridad;
+    dlg.querySelector('.js-et-estado').value = t.estado;
+    dlg.showModal();
+  });
+});
+
+// Formularios de persona: vista previa en vivo (avatar, nombre, rol, git, color, foto)
+document.querySelectorAll('.form-persona').forEach((form) => {
+  const campo = (n) => form.querySelector('[name="' + n + '"]');
+  const av = form.querySelector('.pp-avatar-circle');
+  const img = form.querySelector('.pp-img');
+  const iniEl = form.querySelector('.pp-iniciales');
+
+  const iniciales = (texto) => {
+    const partes = texto.trim().split(/\s+/).filter(Boolean);
+    if (!partes.length) return '?';
+    let ini = partes[0][0].toUpperCase();
+    if (partes.length > 1) ini += partes[partes.length - 1][0].toUpperCase();
+    return ini;
+  };
+
+  const refrescar = () => {
+    const nombre = campo('nombre').value.trim();
+    form.querySelector('.pp-nombre').textContent = nombre || 'Nuevo colaborador';
+    iniEl.textContent = iniciales(nombre);
+    form.querySelector('.pp-rol-texto').textContent = campo('rol').value.trim() || 'Rol del equipo';
+    form.querySelector('.pp-git-user').textContent =
+      campo('git_user').value.trim().replace(/^@/, '') || 'usuario';
+    const radio = form.querySelector('.color-picker input[type="radio"]:checked');
+    const hex = radio && radio.value === 'custom'
+      ? form.querySelector('.color-picker input[type="color"]').value
+      : (radio ? radio.dataset.hex : null);
+    if (hex) av.style.setProperty('--av-c1', hex);
+  };
+  form._refrescarPersona = refrescar;
+  form._fotoPreview = (src) => {
+    img.src = src || '';
+    img.hidden = !src;
+    iniEl.hidden = !!src;
+  };
+
+  ['nombre', 'rol', 'git_user'].forEach((n) => campo(n).addEventListener('input', refrescar));
+  form.querySelectorAll('.color-picker input[type="radio"]').forEach((r) => r.addEventListener('change', refrescar));
+  form.querySelector('.color-picker input[type="color"]').addEventListener('input', refrescar);
+  form.querySelector('.pp-file').addEventListener('change', () => {
+    const file = form.querySelector('.pp-file').files[0];
+    if (file) form._fotoPreview(URL.createObjectURL(file));
+  });
+  refrescar();
+});
+
+// Rellenar y abrir el modal de edicion de miembro
+document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const m = JSON.parse(btn.dataset.editarMiembro);
+    const dlg = document.getElementById('dlg-editar-miembro');
+    const form = dlg.querySelector('form');
+    dlg.querySelector('#em-id').value = m.id;
+    form.querySelector('[name="nombre"]').value = m.nombre;
+    form.querySelector('[name="rol"]').value = m.rol;
+    form.querySelector('[name="git_user"]').value = m.git_user;
+    const selEquipo = form.querySelector('[name="equipo"]');
+    if (selEquipo && m.equipo) selEquipo.value = m.equipo;
+    form.querySelector('.pp-file').value = '';
+    if (String(m.color).startsWith('#')) {
+      form.querySelector('.color-picker input[value="custom"]').checked = true;
+      form.querySelector('.color-picker input[type="color"]').value = m.color;
+    } else {
+      const radio = form.querySelector('.color-picker input[value="' + m.color + '"]');
+      if (radio) {
+        radio.checked = true;
+        const mas = radio.closest('details');
+        if (mas) mas.open = true;   // abrir "Más colores" si el color vive ahí
+      }
+    }
+    form._fotoPreview(m.foto || '');
+    form._refrescarPersona();
+    dlg.showModal();
+  });
+});
+
+// Al usar el picker de color personalizado, marcar su radio automaticamente
+document.querySelectorAll('.color-picker .cp-custom input[type="color"]').forEach((inp) => {
+  const marcar = () => {
+    const radio = inp.closest('.cp-custom').querySelector('input[type="radio"]');
+    if (radio) radio.checked = true;
+  };
+  inp.addEventListener('input', marcar);
+  inp.addEventListener('click', marcar);
+});
+
+// Cerrar dialogs al hacer click en el fondo
+document.querySelectorAll('dialog.dlg-meca').forEach((dlg) => {
+  dlg.addEventListener('click', (e) => {
+    if (e.target === dlg) dlg.close();
+  });
+});
+
+// Comprimir fotos en el navegador antes de subirlas (evita el limite de PHP).
+// Redimensiona a max 900px y convierte a JPEG; si algo falla, valida el tamano.
+const LIMITE_SUBIDA = parseInt(document.body.dataset.limiteSubida || '2097152', 10);
+document.querySelectorAll('input[type="file"][accept*="image"]').forEach((input) => {
+  input.addEventListener('change', async () => {
+    const file = input.files && input.files[0];
+    if (!file) return;
+    try {
+      const comprimida = await comprimirImagen(file, 900, 0.85);
+      const dt = new DataTransfer();
+      dt.items.add(new File([comprimida], file.name.replace(/\.\w+$/, '') + '.jpg', { type: 'image/jpeg' }));
+      input.files = dt.files;
+    } catch (e) {
+      if (file.size > LIMITE_SUBIDA) {
+        alert('Esa foto pesa ' + (file.size / 1048576).toFixed(1) + ' MB y el límite es ' +
+              (LIMITE_SUBIDA / 1048576).toFixed(1) + ' MB. Usa una imagen más liviana.');
+        input.value = '';
+      }
+    }
+  });
+});
+
+function comprimirImagen(file, maxLado, calidad) {
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      URL.revokeObjectURL(url);
+      const escala = Math.min(1, maxLado / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * escala);
+      canvas.height = Math.round(img.height * escala);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      canvas.toBlob((blob) => blob ? resolve(blob) : reject(new Error('sin blob')), 'image/jpeg', calidad);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); reject(new Error('no es imagen')); };
+    img.src = url;
+  });
+}
+
+// Ajustes: agregar y quitar filas de catalogos (estados, prioridades...)
+let filaContador = 1000;
+document.querySelectorAll('.btn-agregar-fila').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const tpl = document.getElementById(btn.dataset.plantilla);
+    const lista = document.getElementById(btn.dataset.lista);
+    if (!tpl || !lista) return;
+    const html = tpl.innerHTML.replaceAll('__i__', String(filaContador++));
+    lista.insertAdjacentHTML('beforeend', html);
+    const fila = lista.lastElementChild;
+    fila.querySelector('input[type="text"], .input-meca:not(.input-icono)')?.focus();
+  });
+});
+document.addEventListener('click', (e) => {
+  const btn = e.target.closest('.btn-quitar-fila');
+  if (!btn) return;
+  const lista = btn.closest('.ajuste-lista');
+  if (lista && lista.children.length <= 1) {
+    alert('Debe quedar al menos una opción en el catálogo.');
+    return;
+  }
+  btn.closest('.ajuste-fila').remove();
+});
+
+// Quitar toasts del DOM cuando termina su animacion de salida
+document.querySelectorAll('.toast-float').forEach((t) => {
+  t.addEventListener('animationend', (e) => {
+    if (e.animationName === 'toast-out') t.remove();
+  });
+});
