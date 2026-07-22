@@ -566,7 +566,9 @@ document.querySelectorAll('.nav-grupo').forEach((grupo) => {
     panel.style.top = '0px';                       // mide con la altura real
     const alto = panel.offsetHeight;
     const margen = 12;
-    let top = r.top - 6;
+    // Si el boton esta en la mitad de abajo (la cuenta), el panel crece
+    // hacia arriba alineando su base con la del boton.
+    let top = r.top + r.height / 2 > innerHeight / 2 ? r.bottom - alto : r.top - 6;
     if (top + alto > innerHeight - margen) top = innerHeight - alto - margen;
     panel.style.top = Math.max(margen, top) + 'px';
   };

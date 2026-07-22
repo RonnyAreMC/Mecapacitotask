@@ -54,7 +54,7 @@ UI::inicio('Mi perfil', 'perfil');
         <i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($yo['rol']) ?: 'Sin rol' ?> · <?= e($eqLabel) ?>
       </p>
       <div class="colab-cuentas">
-        <span class="cuenta-chip">
+        <span class="cuenta-chip cuenta-txt">
           <i class="fa-solid fa-shield-halved"></i>
           <?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?>
         </span>
@@ -64,7 +64,7 @@ UI::inicio('Mi perfil', 'perfil');
           <button type="button" class="btn-copiar mini" data-copiar="<?= e($yo['email']) ?>" title="Copiar correo"><i class="fa-regular fa-copy"></i></button>
         </span>
         <?php endif; ?>
-        <span class="cuenta-chip <?= $tieneClave ? '' : 'cuenta-off' ?>">
+        <span class="cuenta-chip <?= $tieneClave ? 'cuenta-txt' : 'cuenta-off' ?>">
           <i class="fa-solid <?= $tieneClave ? 'fa-lock' : 'fa-lock-open' ?>"></i>
           <?= $tieneClave ? 'Contraseña puesta' : 'Todavía sin contraseña' ?>
         </span>

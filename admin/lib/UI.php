@@ -141,18 +141,36 @@ class UI
   </nav>
 
   <?php $yo = Auth::usuario(); if ($yo): ?>
-  <div class="sesion-chip <?= $activo === 'perfil' ? 'en-perfil' : '' ?>">
-    <a class="sesion-yo" href="perfil.php" title="Mi perfil: datos, foto y contraseña">
+  <!-- Cuenta: abajo solo el avatar; perfil y salir viven en el desplegable -->
+  <div class="nav-grupo cuenta-menu">
+    <button type="button" class="sesion-chip nav-grupo-btn <?= $activo === 'perfil' ? 'en-perfil' : '' ?>"
+            aria-expanded="false" title="Tu cuenta">
       <?= self::avatar($yo, 30) ?>
       <span class="sesion-info truncate">
         <b><?= e(explode(' ', $yo['nombre'])[0]) ?></b>
         <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
       </span>
-    </a>
-    <form method="post" action="actions.php" class="inline-form">
-      <input type="hidden" name="accion" value="auth_logout">
-      <button class="sesion-salir" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket"></i></button>
-    </form>
+      <i class="fa-solid fa-chevron-up sesion-flecha"></i>
+    </button>
+
+    <div class="nav-grupo-items cuenta-panel">
+      <div class="cuenta-cab">
+        <?= self::avatar($yo, 40) ?>
+        <span class="cuenta-cab-txt">
+          <b class="truncate"><?= e($yo['nombre']) ?></b>
+          <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
+        </span>
+      </div>
+      <a href="perfil.php" class="sidebar-link <?= $activo === 'perfil' ? 'active' : '' ?>">
+        <i class="fa-solid fa-id-badge"></i> <span class="truncate">Mi perfil</span>
+      </a>
+      <form method="post" action="actions.php" class="cuenta-form">
+        <input type="hidden" name="accion" value="auth_logout">
+        <button class="sidebar-link cuenta-salir">
+          <i class="fa-solid fa-right-from-bracket"></i> <span class="truncate">Cerrar sesión</span>
+        </button>
+      </form>
+    </div>
   </div>
   <?php endif; ?>
 

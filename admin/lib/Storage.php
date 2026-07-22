@@ -8,6 +8,17 @@ class JsonStore
 {
     private string $file;
 
+    /**
+     * Cache por peticion: ruta del .json => contenido ya decodificado.
+     *
+     * Una pagina como el dashboard preguntaba por las tareas decenas de
+     * veces (resumen, avance y completadas de cada proyecto), y cada
+     * llamada releia y decodificaba el archivo entero. Dentro de una misma
+     * peticion el contenido no cambia salvo que escribamos nosotros, asi
+     * que se guarda aqui y write() lo actualiza.
+     */
+    private static array $cache = [];
+
     public function __construct(string $collection)
     {
         $dir = __DIR__ . '/../data';
@@ -23,12 +34,15 @@ class JsonStore
     /** @return array{seq:int, items:array<int,array>} */
     private function read(): array
     {
+        if (isset(self::$cache[$this->file])) {
+            return self::$cache[$this->file];
+        }
         $raw = file_get_contents($this->file);
         $data = json_decode($raw, true);
         if (!is_array($data) || !isset($data['items'])) {
             $data = ['seq' => 0, 'items' => []];
         }
-        return $data;
+        return self::$cache[$this->file] = $data;
     }
 
     private function write(array $data): void
@@ -41,6 +55,7 @@ class JsonStore
         fflush($fp);
         flock($fp, LOCK_UN);
         fclose($fp);
+        self::$cache[$this->file] = $data;   // lo escrito es lo vigente
     }
 
     /** Todos los registros. */

@@ -420,35 +420,75 @@ body[data-rol="lector"] .solo-admin { display: none !important; }
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
 }
-/* El bloque nombre + rol es el enlace a "Mi perfil" */
-.sesion-yo {
-  display: flex; align-items: center; gap: 10px;
-  flex: 1; min-width: 0;
-  text-decoration: none; color: inherit;
-  border-radius: 10px;
-  transition: opacity .2s ease;
+/* --- Menu de cuenta: abajo solo el avatar; perfil y salir se despliegan --- */
+.cuenta-menu { display: block; position: relative; }
+.cuenta-menu .sesion-chip {
+  width: 100%;
+  border: 0;
+  font-family: 'Inter', sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: box-shadow .2s ease;
 }
-.sesion-yo:hover { opacity: .78; }
-.sesion-yo:hover .sesion-info b { color: var(--c-secondary); }
+.cuenta-menu .sesion-chip:hover .sesion-info b { color: var(--c-secondary); }
+.sesion-flecha {
+  flex-shrink: 0;
+  color: var(--c-text-soft); font-size: .7rem;
+  transition: transform .2s ease;
+}
+.cuenta-menu.abierto .sesion-flecha { transform: rotate(180deg); }
 .sesion-chip.en-perfil {
   box-shadow: var(--sh-inset-mini),
     0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent);
 }
 .sesion-chip.en-perfil .sesion-info b { color: var(--c-secondary); }
+
+/* El panel se despliega tambien con la barra desplegada, no solo plegada */
+.cuenta-menu > .cuenta-panel {
+  display: none;
+  position: fixed;
+  left: calc(var(--sidebar-w) + 10px);
+  width: 232px;
+  padding: 10px;
+  border-radius: 18px;
+  background: var(--n-bg);
+  border: 1px solid var(--c-border-soft);
+  box-shadow: 0 34px 70px -28px rgba(0, 0, 0, .5), var(--sh-card);
+  z-index: 60;
+}
+.cuenta-menu.abierto > .cuenta-panel {
+  display: flex; flex-direction: column; gap: 4px;
+  animation: nav-grupo-in .18s cubic-bezier(.2,.8,.2,1);
+}
+.cuenta-cab {
+  display: flex; align-items: center; gap: 10px;
+  padding: 4px 8px 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--c-border-soft);
+}
+.cuenta-cab-txt { display: flex; flex-direction: column; min-width: 0; }
+.cuenta-cab-txt b { font-size: .86rem; font-weight: 700; color: var(--c-text); }
+.cuenta-cab-txt small { font-size: .7rem; color: var(--c-text-soft); font-weight: 600; }
+.cuenta-form { margin: 0; }
+.cuenta-panel .sidebar-link {
+  justify-content: flex-start;
+  width: 100%;
+  padding: 10px 12px;
+  border: 0;
+  font-family: 'Inter', sans-serif; font-size: .84rem;
+  cursor: pointer;
+}
+.cuenta-panel .sidebar-link .truncate { display: inline; }
+.cuenta-salir { color: var(--c-text-muted); background: transparent; }
+.cuenta-salir:hover { color: var(--c-terracota); }
+html.dark .cuenta-salir:hover { color: #ff9d5c; }
 .sesion-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .sesion-info b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .sesion-info small { font-size: .68rem; color: var(--c-text-soft); font-weight: 600; }
-.sesion-salir {
-  width: 30px; height: 30px; flex-shrink: 0;
-  border: 0; border-radius: 9px;
-  background: var(--n-bg); box-shadow: var(--sh-mini);
-  color: var(--c-text-soft); font-size: .78rem; cursor: pointer;
-  transition: color .2s ease, box-shadow .2s ease;
-}
-.sesion-salir:hover { color: var(--c-terracota); }
-.sesion-salir:active { box-shadow: var(--sh-inset-mini); }
-html.sb-collapsed .sesion-info { display: none; }
-html.sb-collapsed .sesion-chip { flex-direction: column; gap: 8px; }
+/* Plegada solo queda el avatar: nombre, rol y flecha sobran */
+html.sb-collapsed .sesion-info,
+html.sb-collapsed .sesion-flecha { display: none; }
+html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 9px 0; }
 
 /* ---------- Pantalla de login (partida: arte + formulario) ----------
    El login siempre va en claro, sin importar el tema del panel: el lado
@@ -852,7 +892,10 @@ html.dark .btn-ghost.btn-meca:hover {
   border: 1.5px solid color-mix(in srgb, var(--card-c) 22%, var(--n-bg));
   border-radius: 24px;
   box-shadow: var(--sh-clay);
-  transition: box-shadow .3s ease, transform .3s ease, background .3s ease, border-color .3s ease;
+  /* Solo se animan transform y border-color: animar box-shadow obliga al
+     navegador a repintar toda la tarjeta (4 capas con desenfoques de hasta
+     30px) en cada fotograma, y con un grid lleno de tarjetas se nota. */
+  transition: transform .25s ease, border-color .25s ease;
 }
 .card-base:hover {
   transform: translateY(-3px);
@@ -1031,7 +1074,9 @@ html.dark .badge-prio.prio-alta  { color: #ff9d5c; }
 .prio-dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; margin-top: 7px; }
 .prio-dot.prio-baja  { background: var(--c-verde-lima); }
 .prio-dot.prio-media { background: var(--c-amarillo); }
-.prio-dot.prio-alta  { background: var(--c-terracota); animation: pulse-dot 1.6s ease-in-out infinite; }
+/* Sin parpadeo infinito: en un tablero con muchas tareas altas eran
+   decenas de elementos animandose a la vez, sin aportar nada. */
+.prio-dot.prio-alta  { background: var(--c-terracota); }
 html.dark .prio-dot.prio-alta { background: #ff9d5c; }
 
 /* =========================================================
@@ -1155,7 +1200,8 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   background-size: 45px 100%, 100% 100%;
   box-shadow: var(--clay-pop);
   transition: width .6s ease;
-  animation: bc-rayas 1.4s linear infinite;
+  /* Las rayas quedan fijas: animar background-position repinta la barra en
+     cada fotograma, para siempre, aunque nadie la mire. */
 }
 .bc-fill[style*="width:0%"] { min-width: 0; background: transparent; box-shadow: none; animation: none; }
 @keyframes bc-rayas { to { background-position: 45px 0, 0 0; } }
@@ -2249,6 +2295,14 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 /* Dentro del chip (que es una pildora) el boton de copiar tambien es redondo */
 .cuenta-chip .btn-copiar { border-radius: 999px; }
 .cuenta-chip .btn-copiar:hover { color: var(--av-c1); }
+/* Chip de solo texto: el padding base es asimetrico porque esta pensado
+   para los que llevan boton de copiar a la derecha. */
+.cuenta-chip.cuenta-txt {
+  gap: 8px;
+  padding: 7px 15px;
+  color: var(--c-text); font-size: .82rem; font-weight: 700;
+}
+.cuenta-chip.cuenta-txt i { color: var(--c-text-soft); font-size: .8rem; }
 .cuenta-chip.cuenta-off {
   padding: 7px 15px;
   color: var(--c-text-soft); font-size: .82rem; font-weight: 600;
@@ -3443,6 +3497,21 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 }
 .tc-nombre { font-size: .8rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; opacity: .9; }
 .tc-hex { font-size: 1.35rem; font-weight: 800; font-family: ui-monospace, Menlo, monospace; letter-spacing: .02em; }
+
+/* =========================================================
+   Menos movimiento si el sistema lo pide (Windows: "Mostrar animaciones",
+   macOS: "Reducir movimiento"). Tambien alivia equipos justos de GPU.
+   ========================================================= */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .card-base:hover { transform: none; }
+  .dlg-meca::backdrop { backdrop-filter: none; }
+}
 
 /* =========================================================
    Responsive
