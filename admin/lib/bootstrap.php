@@ -40,6 +40,17 @@ function redirigir(string $url, string $msg = '', string $tipo = 'success'): nev
     exit;
 }
 
+/**
+ * Ruta de un asset con ?v=<fecha del archivo>. Evita que un cache del
+ * navegador (o del servidor) siga sirviendo una version vieja del CSS/JS
+ * despues de un despliegue.
+ */
+function asset(string $ruta): string
+{
+    $v = @filemtime(__DIR__ . '/../' . $ruta) ?: 1;
+    return $ruta . '?v=' . $v;
+}
+
 /** Limite efectivo de subida en bytes (min de upload_max_filesize y post_max_size). */
 function limiteSubidaBytes(): int
 {
