@@ -3,11 +3,21 @@
  * Bootstrap del panel: sesion, autocarga de clases, helpers
  * y datos de ejemplo la primera vez que se abre.
  */
-session_start();
+// Cookie de sesión endurecida (no accesible por JS, y solo por HTTPS si lo hay)
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    session_set_cookie_params([
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure'   => !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https',
+    ]);
+    session_start();
+}
 
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
 require_once __DIR__ . '/UI.php';
+require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/GoogleLogin.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/GitHub.php';
 require_once __DIR__ . '/Zoom.php';
@@ -120,6 +130,20 @@ function guardarAdjuntos(string $campo): array
         }
     }
     return $out;
+}
+
+/* ---------- Control de acceso ---------- */
+// Todas las páginas exigen sesión, salvo el login y actions.php
+// (actions.php aplica su propia guarda por acción).
+$scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'actions.php', 'oauth_google.php'], true)) {
+    Auth::requiereLogin();
+}
+
+/** Atajo para plantillas: ¿el usuario actual puede editar? */
+function esAdmin(): bool
+{
+    return Auth::esAdmin();
 }
 
 /* ---------- "Ver como": filtro global por persona (transversal) ---------- */

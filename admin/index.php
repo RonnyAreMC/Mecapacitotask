@@ -33,7 +33,7 @@ UI::cabecera(
     $verComo
         ? 'Viendo solo los proyectos y tareas de <b>' . e($verComo['nombre']) . '</b>.'
         : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.',
-    '<button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
+    '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
 );

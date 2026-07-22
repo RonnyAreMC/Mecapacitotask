@@ -47,12 +47,26 @@ if (!function_exists('camposPersona')) {
           </label>
         </div>
         <label class="campo">
-          <span>Correo (para notificarle sus tareas)</span>
+          <span>Correo (para notificarle sus tareas y para entrar al panel)</span>
           <div class="input-prefijo">
             <i class="fa-solid fa-envelope"></i>
             <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@mecapacito.com">
           </div>
         </label>
+        <div class="campo-doble">
+          <label class="campo">
+            <span>Acceso al panel</span>
+            <?= UI::select('acceso', Auth::ROLES, 'lector', false, 'js-acceso') ?>
+            <small class="campo-ayuda">"Solo lectura" ve todo pero no edita nada.</small>
+          </label>
+          <label class="campo">
+            <span>Contraseña <?= $esEdicion ? '(dejar vacío para no cambiarla)' : '(opcional)' ?></span>
+            <div class="input-prefijo">
+              <i class="fa-solid fa-lock"></i>
+              <input class="input-meca" type="password" name="clave" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+            </div>
+          </label>
+        </div>
         <div class="campo">
           <span>Color del avatar</span>
           <?= UI::colorPicker($esEdicion ? null : 0) ?>

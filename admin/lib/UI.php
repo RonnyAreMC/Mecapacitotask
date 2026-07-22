@@ -50,7 +50,7 @@ class UI
 <link rel="stylesheet" href="assets/admin.css">
 <?php self::estilosConfig(); ?>
 </head>
-<body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>">
+<body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
 <aside class="sidebar">
   <div class="sidebar-top">
     <a href="index.php" class="sidebar-brand">
@@ -107,11 +107,27 @@ class UI
     </a>
     <?php endforeach; ?>
 
+    <?php if (Auth::esAdmin()): ?>
     <span class="sidebar-label">Configuración</span>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
       <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
     </a>
+    <?php endif; ?>
   </nav>
+
+  <?php $yo = Auth::usuario(); if ($yo): ?>
+  <div class="sesion-chip">
+    <?= self::avatar($yo, 30) ?>
+    <span class="sesion-info truncate">
+      <b><?= e(explode(' ', $yo['nombre'])[0]) ?></b>
+      <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
+    </span>
+    <form method="post" action="actions.php" class="inline-form">
+      <input type="hidden" name="accion" value="auth_logout">
+      <button class="sesion-salir" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket"></i></button>
+    </form>
+  </div>
+  <?php endif; ?>
 
   <div class="sidebar-foot">
     <button type="button" id="theme-toggle" class="theme-toggle" title="Cambiar tema">

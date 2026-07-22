@@ -9,6 +9,7 @@
  * Todo se guarda junto en data/config.json con un solo boton.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
+Auth::requiereAdmin();
 
 $cfg = Config::all();
 $co  = $cfg['correo'];
@@ -96,10 +97,38 @@ UI::cabecera(
       </section>
 
       <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-brands fa-google text-secondary"></i> Acceso al panel</h2>
+        <?php $gl = (array)($cfg['google_login'] ?? []); ?>
+        <label class="chk-linea">
+          <input type="checkbox" name="google_login[activo]" <?= !empty($gl['activo']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Permitir entrar con cuenta de Google
+        </label>
+        <p class="ajuste-ayuda">
+          Solo entran los correos que ya existen como colaboradores. Si dejas vacías las credenciales,
+          se reutilizan las del correo (API de Gmail). Registra esta <b>URI de redirección</b> en
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>:
+        </p>
+        <div class="chip-copiar" style="margin-bottom:6px">
+          <code><?= e(GoogleLogin::redirectUri()) ?></code>
+          <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e(GoogleLogin::redirectUri()) ?>" title="Copiar"><i class="fa-regular fa-copy"></i></button>
+        </div>
+        <div class="campo-doble">
+          <label class="campo"><span>Client ID (opcional)</span>
+            <input class="input-meca" name="google_login[client_id]" value="<?= e($gl['client_id'] ?? '') ?>" placeholder="usa el del correo si lo dejas vacío">
+          </label>
+          <label class="campo"><span>Client Secret (opcional)</span>
+            <input class="input-meca" type="password" name="google_login[client_secret]" value="" placeholder="<?= !empty($gl['client_secret']) ? '•••••••• guardado' : '' ?>">
+          </label>
+        </div>
+
+      </section>
+
+      <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Integración con GitHub</h2>
         <label class="campo">
           <span>Token de GitHub (opcional)</span>
-          <input class="input-meca" type="password" name="github_token" value="<?= e($cfg['github_token'] ?? '') ?>" placeholder="ghp_...">
+          <input class="input-meca" type="password" name="github_token" value="" placeholder="<?= !empty($cfg['github_token']) ? '•••••••• guardado' : 'ghp_...' ?>">
         </label>
         <small class="campo-ayuda">
           Para el mapa de actividad de repos privados y más cuota de la API.
@@ -394,7 +423,7 @@ UI::cabecera(
           </label>
         </div>
         <label class="campo"><span>Contraseña de aplicación</span>
-          <input class="input-meca" type="password" name="correo[clave]" value="<?= e($co['clave']) ?>" placeholder="xxxx xxxx xxxx xxxx">
+          <input class="input-meca" type="password" name="correo[clave]" value="" placeholder="<?= !empty($co['clave']) ? '•••••••• guardada' : 'xxxx xxxx xxxx xxxx' ?>">
         </label>
 
         <p class="ajuste-ayuda"><b>Solo para API de Gmail</b> (proyecto de Google Cloud con scope <code>gmail.send</code>):</p>
@@ -403,10 +432,10 @@ UI::cabecera(
         </label>
         <div class="campo-doble">
           <label class="campo"><span>Client Secret</span>
-            <input class="input-meca" type="password" name="correo[client_secret]" value="<?= e($co['client_secret'] ?? '') ?>">
+            <input class="input-meca" type="password" name="correo[client_secret]" value="" placeholder="<?= !empty($co['client_secret']) ? '•••••••• guardado' : '' ?>">
           </label>
           <label class="campo"><span>Refresh Token</span>
-            <input class="input-meca" type="password" name="correo[refresh_token]" value="<?= e($co['refresh_token'] ?? '') ?>">
+            <input class="input-meca" type="password" name="correo[refresh_token]" value="" placeholder="<?= !empty($co['refresh_token']) ? '•••••••• guardado' : '' ?>">
           </label>
         </div>
 
@@ -454,7 +483,7 @@ UI::cabecera(
             <input class="input-meca" name="zoom[client_id]" value="<?= e($zc['client_id']) ?>">
           </label>
           <label class="campo"><span>Client Secret</span>
-            <input class="input-meca" type="password" name="zoom[client_secret]" value="<?= e($zc['client_secret']) ?>">
+            <input class="input-meca" type="password" name="zoom[client_secret]" value="" placeholder="<?= !empty($zc['client_secret']) ? '•••••••• guardado' : '' ?>">
           </label>
         </div>
 

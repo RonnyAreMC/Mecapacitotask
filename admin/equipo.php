@@ -41,7 +41,7 @@ UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
-    '<button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
+    '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
        <i class="fa-solid fa-user-plus"></i> Agregar colaborador
      </button>'
 );

@@ -42,10 +42,40 @@ En el servidor, entra a **Ajustes** y vuelve a poner:
 
 (O súbelo por SFTP si prefieres reutilizar el mismo `config.json`.)
 
-## Proteger con login (IMPORTANTE)
-El panel **no trae autenticación**. En un subdominio público, protégelo con
-cPanel → **Privacidad de directorios (Directory Privacy)** sobre la carpeta del
-subdominio: crea un usuario/clave y Apache pedirá login antes de entrar.
+## Login y roles
+El panel trae autenticación propia. La primera vez que abras `mchub.mecapacito.com`
+te manda a **Primer acceso**: eliges quién es el administrador, su correo y su
+contraseña. A partir de ahí nadie entra sin sesión.
+
+Hay dos niveles de acceso (se definen al crear o editar un colaborador):
+
+| Acceso | Puede |
+|---|---|
+| **Administrador** | Todo: proyectos, tareas, equipo, reuniones y Ajustes. |
+| **Solo lectura** | Ver todo y **anotar observaciones**. No crea ni edita nada más. |
+
+A los de solo lectura se les ocultan los botones de crear/editar/eliminar, no
+pueden arrastrar en el Kanban y `Ajustes` no aparece en el menú. El bloqueo real
+está en el servidor (`actions.php`), no solo en la interfaz.
+
+Para dar acceso a alguien: **Equipo → editar la persona → Acceso + Contraseña**.
+Siempre debe quedar al menos un administrador (el sistema lo impide).
+
+### Entrar con Google (opcional)
+En **Ajustes → Integraciones → Acceso al panel** puedes activar “Continuar con
+Google”. Copia la **URI de redirección** que muestra ahí y pégala en
+[Google Cloud Console](https://console.cloud.google.com/apis/credentials) →
+tu OAuth Client → *Authorized redirect URIs*. Si dejas Client ID/Secret vacíos,
+reutiliza los del correo (API de Gmail).
+
+Solo entran los correos que **ya existen** como colaboradores: Google nunca crea
+usuarios nuevos en el panel.
+
+### Credenciales
+Las contraseñas se guardan con `password_hash` (bcrypt), nunca en claro. Los
+secretos de Ajustes (Zoom, Gmail, GitHub, Google) ya **no se imprimen en el HTML**:
+el campo aparece vacío con el texto “•••••••• guardado”. Si lo dejas vacío al
+guardar, se conserva el que ya estaba; escribe uno nuevo solo para reemplazarlo.
 
 ## Actualizar a futuro
 ```bash

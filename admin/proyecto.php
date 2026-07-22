@@ -111,10 +111,10 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <i class="fa-brands fa-github"></i> <i class="fa-solid <?= e($repo['icono']) ?>"></i> <?= e($repo['label']) ?>
       </a>
       <?php endforeach; ?>
-      <button class="btn-ghost btn-meca btn-sm" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
+      <button class="btn-ghost btn-meca btn-sm solo-admin" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
-      <form method="post" action="actions.php"
+      <form method="post" action="actions.php" class="solo-admin"
             data-confirmar="Se eliminará el proyecto «<?= e($proyecto['nombre']) ?>» y TODAS sus tareas. Esta acción no se puede deshacer."
             data-confirmar-titulo="¿Eliminar proyecto?" data-confirmar-ok="Sí, eliminar">
         <input type="hidden" name="accion" value="proyecto_eliminar">
@@ -210,7 +210,7 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
-      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
+      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
     </div>
@@ -289,7 +289,7 @@ foreach ($tareas as $t) {
             <?php endif; ?>
           </td>
           <td class="celda-acciones">
-            <button class="accion-btn" title="Editar"
+            <button class="accion-btn solo-admin" title="Editar"
               data-editar-tarea='<?= e(json_encode([
                   'id' => (int)$t['id'],
                   'titulo' => $t['titulo'],
@@ -302,7 +302,7 @@ foreach ($tareas as $t) {
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
             </button>
-            <form method="post" action="actions.php" class="inline-form"
+            <form method="post" action="actions.php" class="inline-form solo-admin"
                   data-confirmar="Se eliminará la tarea «<?= e($t['titulo']) ?>»."
                   data-confirmar-titulo="¿Eliminar tarea?" data-confirmar-ok="Sí, eliminar">
               <input type="hidden" name="accion" value="tarea_eliminar">
@@ -337,7 +337,7 @@ foreach ($tareas as $t) {
           <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue;
               $m = $miembros[(int)$t['asignado_id']] ?? null;
           ?>
-          <div class="kb-card" draggable="true" data-tarea="<?= (int)$t['id'] ?>">
+          <div class="kb-card" draggable="<?= esAdmin() ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>">
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
               <?= UI::avatar($m, 22) ?>
@@ -484,7 +484,7 @@ foreach ($tareas as $t) {
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
       <?php if ($zoomListo): ?>
-      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
+      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
       <?php else: ?>
@@ -535,7 +535,7 @@ foreach ($tareas as $t) {
             <button class="accion-btn" title="Buscar grabación en Zoom"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
           </form>
           <?php endif; ?>
-          <form method="post" action="actions.php" class="inline-form"
+          <form method="post" action="actions.php" class="inline-form solo-admin"
                 data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de Zoom."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
             <input type="hidden" name="accion" value="reunion_eliminar">

@@ -20,6 +20,22 @@ if (empty($_POST) && empty($_FILES) && (int)($_SERVER['CONTENT_LENGTH'] ?? 0) > 
 }
 
 $accion = $_POST['accion'] ?? '';
+
+/* ---------- Control de acceso por acción ----------
+   públicas      : sin sesión (login y primer acceso)
+   cualquiera    : con sesión iniciada (salir, anotar observaciones)
+   resto         : solo administrador                                     */
+$accionesPublicas   = ['auth_login', 'auth_setup'];
+$accionesDeCualquiera = ['auth_logout', 'obs_crear'];
+
+if (!in_array($accion, $accionesPublicas, true)) {
+    if (in_array($accion, $accionesDeCualquiera, true)) {
+        Auth::requiereLogin();
+    } else {
+        Auth::requiereAdmin();
+    }
+}
+
 $proyectos = new ProyectoRepo();
 $miembros  = new MiembroRepo();
 $tareas    = new TareaRepo();
@@ -69,6 +85,47 @@ function notificarSiAsignada(array $tarea, int $asignadoNuevo, int $asignadoAnte
 }
 
 switch ($accion) {
+
+    /* ---------- Acceso ---------- */
+
+    case 'auth_login':
+        if (Auth::login($_POST['usuario'] ?? '', $_POST['clave'] ?? '')) {
+            redirigir('index.php', '¡Bienvenido, ' . (Auth::usuario()['nombre'] ?? '') . '!');
+        }
+        redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
+
+    case 'auth_setup':
+        // Solo funciona mientras no exista ningún administrador
+        if (Auth::hayAdmin()) {
+            redirigir('login.php', 'El panel ya tiene administrador.', 'error');
+        }
+        $clave = (string)($_POST['clave'] ?? '');
+        if (strlen($clave) < 6) {
+            redirigir('login.php', 'La contraseña debe tener al menos 6 caracteres.', 'error');
+        }
+        if ($clave !== ($_POST['clave2'] ?? '')) {
+            redirigir('login.php', 'Las contraseñas no coinciden.', 'error');
+        }
+        $mid = (int)($_POST['miembro_id'] ?? 0);
+        $m = $miembros->buscar($mid);
+        if (!$m) {
+            redirigir('login.php', 'Elige un colaborador válido.', 'error');
+        }
+        $correo = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
+        if (!$correo) {
+            redirigir('login.php', 'Escribe un correo válido para el acceso.', 'error');
+        }
+        $miembros->actualizar($mid, [
+            'email'     => $correo,
+            'acceso'    => 'admin',
+            'pass_hash' => Auth::hash($clave),
+        ]);
+        Auth::login($correo, $clave);
+        redirigir('index.php', '¡Listo! Ya eres el administrador del panel.');
+
+    case 'auth_logout':
+        Auth::salir();
+        redirigir('login.php', 'Sesión cerrada.');
 
     /* ---------- Proyectos ---------- */
 
@@ -250,6 +307,13 @@ switch ($accion) {
         $datos = $_POST;
         $datos['foto'] = guardarFoto('foto');
         $m = $miembros->crear($datos);
+        // Acceso al panel (rol + contraseña opcional)
+        $accesoNuevo = ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector';
+        $cambiosAcceso = ['acceso' => $accesoNuevo];
+        if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
+            $cambiosAcceso['pass_hash'] = Auth::hash($_POST['clave']);
+        }
+        $miembros->actualizar((int)$m['id'], $cambiosAcceso);
         redirigir('equipo.php?e=' . $m['equipo'], '¡' . $m['nombre'] . ' se unió al equipo!');
 
     case 'miembro_editar':
@@ -265,7 +329,20 @@ switch ($accion) {
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
+            'acceso'   => ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector',
         ];
+        // Contraseña: solo se cambia si escribieron una nueva
+        if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
+            $cambios['pass_hash'] = Auth::hash($_POST['clave']);
+        }
+        // No permitir quedarse sin ningún administrador
+        if ($cambios['acceso'] !== 'admin' && ($m['acceso'] ?? '') === 'admin') {
+            $otrosAdmins = array_filter($miembros->todos(), fn($x) =>
+                (int)$x['id'] !== $id && ($x['acceso'] ?? '') === 'admin' && !empty($x['pass_hash']));
+            if (!$otrosAdmins) {
+                redirigir('equipo.php', 'No puedes quitar el último administrador del panel.', 'error');
+            }
+        }
         $foto = guardarFoto('foto');
         if ($foto !== '') {
             if (!empty($m['foto']) && file_exists(__DIR__ . '/' . $m['foto'])) {
@@ -286,6 +363,13 @@ switch ($accion) {
 
     case 'config_guardar':
         $def = Config::defaults();
+        $prev = Config::all();
+        // Los secretos no se imprimen en el HTML: si el campo llega vacio,
+        // se conserva el que ya estaba guardado.
+        $secreto = function (?string $nuevo, $anterior): string {
+            $nuevo = trim((string)$nuevo);
+            return $nuevo !== '' ? $nuevo : (string)($anterior ?? '');
+        };
         $hex = fn(string $v, string $fallback) =>
             preg_match('/^#[0-9a-fA-F]{6}$/', $v) ? strtoupper($v) : $fallback;
         $fa = fn(string $v, string $fallback) =>
@@ -334,7 +418,7 @@ switch ($accion) {
             'activo'        => !empty($zoomPost['activo']),
             'account_id'    => trim($zoomPost['account_id'] ?? ''),
             'client_id'     => trim($zoomPost['client_id'] ?? ''),
-            'client_secret' => trim($zoomPost['client_secret'] ?? ''),
+            'client_secret' => $secreto($zoomPost['client_secret'] ?? '', $prev['zoom']['client_secret'] ?? ''),
             'zona'          => trim($zoomPost['zona'] ?? '') ?: 'America/Guayaquil',
         ];
 
@@ -345,12 +429,12 @@ switch ($accion) {
             'host'      => trim($correoPost['host'] ?? '') ?: $def['correo']['host'],
             'puerto'    => (int)($correoPost['puerto'] ?? 0) ?: $def['correo']['puerto'],
             'usuario'   => trim($correoPost['usuario'] ?? ''),
-            'clave'     => trim($correoPost['clave'] ?? ''),
+            'clave'     => $secreto($correoPost['clave'] ?? '', $prev['correo']['clave'] ?? ''),
             'remitente' => trim($correoPost['remitente'] ?? '') ?: $def['correo']['remitente'],
             'url_panel' => trim($correoPost['url_panel'] ?? ''),
             'client_id'     => trim($correoPost['client_id'] ?? ''),
-            'client_secret' => trim($correoPost['client_secret'] ?? ''),
-            'refresh_token' => trim($correoPost['refresh_token'] ?? ''),
+            'client_secret' => $secreto($correoPost['client_secret'] ?? '', $prev['correo']['client_secret'] ?? ''),
+            'refresh_token' => $secreto($correoPost['refresh_token'] ?? '', $prev['correo']['refresh_token'] ?? ''),
             'avisar_asignacion'   => !empty($correoPost['avisar_asignacion']),
             'avisar_recordatorio' => !empty($correoPost['avisar_recordatorio']),
             'dias_recordatorio'   => max(0, min(30, (int)($correoPost['dias_recordatorio'] ?? 3))),
@@ -367,7 +451,12 @@ switch ($accion) {
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
-            'github_token'     => trim($_POST['github_token'] ?? ''),
+            'github_token'     => $secreto($_POST['github_token'] ?? '', $prev['github_token'] ?? ''),
+            'google_login'     => [
+                'activo'        => !empty($_POST['google_login']['activo']),
+                'client_id'     => trim($_POST['google_login']['client_id'] ?? ''),
+                'client_secret' => $secreto($_POST['google_login']['client_secret'] ?? '', $prev['google_login']['client_secret'] ?? ''),
+            ],
             'color_secundario' => $hex($_POST['color_secundario'] ?? '', $def['color_secundario']),
             'color_acento'     => $hex($_POST['color_acento'] ?? '', $def['color_acento']),
             'estados_tarea'    => $estados,

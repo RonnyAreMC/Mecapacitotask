@@ -75,7 +75,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
       </div>
     </div>
     <div class="colab-acciones">
-      <button class="btn-outline btn-meca btn-sm" title="Editar"
+      <button class="btn-outline btn-meca btn-sm solo-admin" title="Editar"
         data-editar-miembro='<?= e(json_encode([
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
             'git_user' => $m['git_user'], 'email' => $m['email'] ?? '',
@@ -83,7 +83,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
         ], JSON_UNESCAPED_UNICODE)) ?>'>
         <i class="fa-solid fa-pen"></i> Editar
       </button>
-      <form method="post" action="actions.php" class="inline-form"
+      <form method="post" action="actions.php" class="inline-form solo-admin"
             data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
             data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
         <input type="hidden" name="accion" value="miembro_eliminar">

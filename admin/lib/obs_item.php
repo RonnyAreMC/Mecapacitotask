@@ -70,7 +70,7 @@ function obsItemHtml(array $o): string
       </div>
       <?php endif; ?>
 
-      <div class="obs-acciones">
+      <div class="obs-acciones solo-admin">
         <form method="post" action="actions.php" class="inline-form">
           <input type="hidden" name="accion" value="obs_estado">
           <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
