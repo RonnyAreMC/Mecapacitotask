@@ -13,6 +13,10 @@ $equipos = Catalogo::equipos();
 $eq = MiembroRepo::equipoValido($_GET['e'] ?? '');
 [$eqLabel, $eqIcono] = $equipos[$eq];
 
+// El interruptor de administrador se muestra solo al admin y solo en el
+// equipo de analistas: son los jefes que pueden editar el panel.
+$puedeAcceso = esAdmin() && $eq === 'analistas';
+
 $equipo = array_values(array_filter(
     $miembrosRepo->todos(),
     fn($m) => MiembroRepo::equipoDe($m) === $eq
@@ -67,6 +71,7 @@ UI::cabecera(
             <th><i class="fa-brands fa-github"></i> Usuario de Git</th>
             <th><i class="fa-solid fa-envelope"></i> Correo</th>
             <th>Abiertas</th>
+            <?php if ($puedeAcceso): ?><th><i class="fa-solid fa-shield-halved"></i> Admin</th><?php endif; ?>
             <th></th>
           </tr>
         </thead>
@@ -108,6 +113,24 @@ UI::cabecera(
               <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
             </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
+            <?php if ($puedeAcceso): $esAdm = ($m['acceso'] ?? 'lector') === 'admin'; ?>
+            <td onclick="event.stopPropagation()">
+              <form method="post" action="actions.php" class="inline-form">
+                <input type="hidden" name="accion" value="miembro_acceso">
+                <input type="hidden" name="id" value="<?= $mid ?>">
+                <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+                <button class="sw-acceso<?= $esAdm ? ' on' : '' ?>" type="submit"
+                        role="switch" aria-checked="<?= $esAdm ? 'true' : 'false' ?>"
+                        title="<?= $esAdm ? 'Quitar el acceso de administrador' : 'Hacer administrador' ?>">
+                  <span class="sw-pista"><span class="sw-bola"></span></span>
+                  <span class="sw-txt"><?= $esAdm ? 'Admin' : 'Lector' ?></span>
+                </button>
+              </form>
+              <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
+                <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
+              <?php endif; ?>
+            </td>
+            <?php endif; ?>
             <td class="celda-acciones">
               <a class="accion-btn" href="<?= $ficha ?>" title="Ver ficha"><i class="fa-solid fa-eye"></i></a>
             </td>

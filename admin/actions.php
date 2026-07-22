@@ -324,6 +324,34 @@ switch ($accion) {
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
 
+    case 'miembro_acceso':
+        // Interruptor de administrador (equipo de analistas)
+        $m = $miembros->buscar((int)($_POST['id'] ?? 0));
+        $volver = $_POST['volver'] ?? 'equipo.php';
+        if (!$m) {
+            redirigir($volver, 'Colaborador no encontrado.', 'error');
+        }
+        $eraAdmin = ($m['acceso'] ?? 'lector') === 'admin';
+        if ($eraAdmin) {
+            // Nunca dejar el panel sin ningun administrador
+            $otros = array_filter($miembros->todos(), fn($x) =>
+                (int)$x['id'] !== (int)$m['id'] && ($x['acceso'] ?? '') === 'admin');
+            if (!$otros) {
+                redirigir($volver, 'No puedes quitar al único administrador del panel.', 'error');
+            }
+            if ((int)$m['id'] === (int)(Auth::usuario()['id'] ?? 0)) {
+                redirigir($volver, 'No puedes quitarte a ti mismo el acceso de administrador.', 'error');
+            }
+        }
+        $miembros->actualizar((int)$m['id'], ['acceso' => $eraAdmin ? 'lector' : 'admin']);
+        if ($eraAdmin) {
+            redirigir($volver, $m['nombre'] . ' vuelve a solo lectura.');
+        }
+        $falta = empty($m['pass_hash'])
+            ? ' Todavía no tiene contraseña: pónsela al editar su ficha o que entre con Google.'
+            : '';
+        redirigir($volver, $m['nombre'] . ' ahora es administrador.' . $falta, $falta ? 'info' : 'success');
+
     case 'miembro_eliminar':
         $id = (int)($_POST['id'] ?? 0);
         $m = $miembros->buscar($id);
