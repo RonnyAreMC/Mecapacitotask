@@ -529,12 +529,74 @@ document.addEventListener('submit', (e) => {
   });
 }, true);
 
+/* ---------- Barra lateral ---------- */
+
+// La lista de navegacion scrollea sin barra visible: si desborda, se le
+// difumina el borde para que se vea que hay mas arriba o abajo.
+const sidebarNav = document.querySelector('.sidebar-nav');
+function marcarDesborde() {
+  if (!sidebarNav) return;
+  const resto = sidebarNav.scrollHeight - sidebarNav.clientHeight;
+  const arriba = sidebarNav.scrollTop > 4;
+  const abajo = resto > 4 && sidebarNav.scrollTop < resto - 4;
+  sidebarNav.classList.toggle('hay-mas-arriba', arriba);
+  sidebarNav.classList.toggle('hay-mas-abajo', abajo);
+}
+if (sidebarNav) {
+  sidebarNav.addEventListener('scroll', marcarDesborde, { passive: true });
+  addEventListener('resize', marcarDesborde);
+  marcarDesborde();
+  // La pagina activa puede quedar fuera de vista al cargar
+  const activo = sidebarNav.querySelector('.sidebar-link.active');
+  if (activo) {
+    activo.scrollIntoView({ block: 'nearest' });
+    marcarDesborde();
+  }
+}
+
+// Grupo "Proyectos": con la barra plegada, el boton abre un panel flotante
+// con todos los proyectos en vez de listarlos como iconos sueltos.
+document.querySelectorAll('.nav-grupo').forEach((grupo) => {
+  const btn = grupo.querySelector('.nav-grupo-btn');
+  const panel = grupo.querySelector('.nav-grupo-items');
+  if (!btn || !panel) return;
+
+  const colocar = () => {
+    const r = btn.getBoundingClientRect();
+    panel.style.top = '0px';                       // mide con la altura real
+    const alto = panel.offsetHeight;
+    const margen = 12;
+    let top = r.top - 6;
+    if (top + alto > innerHeight - margen) top = innerHeight - alto - margen;
+    panel.style.top = Math.max(margen, top) + 'px';
+  };
+  const cerrar = () => {
+    if (!grupo.classList.contains('abierto')) return;
+    grupo.classList.remove('abierto');
+    btn.setAttribute('aria-expanded', 'false');
+  };
+  const abrir = () => {
+    grupo.classList.add('abierto');
+    btn.setAttribute('aria-expanded', 'true');
+    colocar();
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    grupo.classList.contains('abierto') ? cerrar() : abrir();
+  });
+  document.addEventListener('click', (e) => { if (!panel.contains(e.target)) cerrar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+  addEventListener('resize', cerrar);
+});
+
 // Colapsar / expandir la barra lateral (persistido en localStorage)
 const sidebarToggle = document.getElementById('sidebar-toggle');
 if (sidebarToggle) {
   sidebarToggle.addEventListener('click', () => {
     const min = document.documentElement.classList.toggle('sb-collapsed');
     localStorage.setItem('meca-sidebar', min ? 'min' : 'full');
+    setTimeout(marcarDesborde, 320);   // tras la transicion de ancho
   });
 }
 

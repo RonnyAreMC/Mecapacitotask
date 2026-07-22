@@ -91,18 +91,39 @@ class UI
       <i class="fa-solid fa-table-columns"></i> <span class="truncate">Dashboard</span>
     </a>
 
-    <span class="sidebar-label">Proyectos</span>
-    <?php foreach ($proyectos as $p): ?>
-    <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
-       class="sidebar-link <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>" title="<?= e($p['nombre']) ?>">
-      <i class="fa-solid <?= e($p['icono']) ?>" style="color:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>"></i>
-      <span class="truncate"><?= e($p['nombre']) ?></span>
-    </a>
-    <?php endforeach; ?>
+    <?php
+    // Plegada, la barra no lista los proyectos uno a uno (crecia sin fin y
+    // obligaba a hacer scroll): muestra un solo boton que abre un panel
+    // flotante con todos. Desplegada se ven en linea, como siempre.
+    $enProyecto = str_starts_with($activo, 'proyecto-');
+    ?>
+    <div class="nav-grupo <?= $enProyecto ? 'con-activo' : '' ?>">
+      <span class="sidebar-label">Proyectos</span>
+      <button type="button" class="sidebar-link nav-grupo-btn <?= $enProyecto ? 'active' : '' ?>"
+              aria-expanded="false" title="Proyectos">
+        <i class="fa-solid fa-folder-open"></i>
+        <span class="truncate">Proyectos</span>
+        <?php if ($proyectos): ?><span class="nav-grupo-n"><?= count($proyectos) ?></span><?php endif; ?>
+      </button>
 
-    <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
-      <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
-    </a>
+      <div class="nav-grupo-items">
+        <div class="nav-grupo-cab"><i class="fa-solid fa-folder-open"></i> Proyectos</div>
+        <?php foreach ($proyectos as $p): ?>
+        <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
+           class="sidebar-link <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>" title="<?= e($p['nombre']) ?>">
+          <i class="fa-solid <?= e($p['icono']) ?>" style="color:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>"></i>
+          <span class="truncate"><?= e($p['nombre']) ?></span>
+        </a>
+        <?php endforeach; ?>
+        <?php if (!$proyectos): ?>
+        <p class="nav-grupo-vacio">Todavía no hay proyectos.</p>
+        <?php endif; ?>
+
+        <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
+          <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
+        </a>
+      </div>
+    </div>
 
     <span class="sidebar-label">Equipos</span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>

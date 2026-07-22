@@ -125,10 +125,16 @@ body { margin: 0; }
   box-shadow: var(--sh-card);
   padding: 22px 18px;
   z-index: 50;
-  overflow-y: auto;
-  overflow-x: hidden;
+  /* La barra no scrollea: lo hace solo la lista de navegacion, y sin
+     barra visible. Marca, "ver como", sesion y pie quedan siempre fijos. */
+  overflow: hidden;
   transition: background .3s ease, width .3s cubic-bezier(.2,.8,.2,1), padding .3s ease;
 }
+/* Bloques fijos: nunca se encogen para dejar sitio a la lista */
+.sidebar-top,
+.sidebar > .ver-como,
+.sesion-chip,
+.sidebar-foot { flex: none; }
 
 .sidebar-top {
   display: flex; align-items: center; gap: 10px;
@@ -238,7 +244,32 @@ html.sb-collapsed .vc-abrir {
 }
 html.sb-collapsed .vc-abrir .avatar { margin: 0; }
 
-.sidebar-nav { display: flex; flex-direction: column; gap: 6px; padding-top: 20px; flex: 1; }
+.sidebar-nav {
+  display: flex; flex-direction: column; gap: 6px;
+  padding-top: 20px;
+  flex: 1 1 auto;
+  min-height: 0;              /* imprescindible: deja que el hijo flex se encoja */
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: none;      /* Firefox */
+  -ms-overflow-style: none;
+}
+.sidebar-nav::-webkit-scrollbar { width: 0; height: 0; }
+/* Si la lista desborda, un degradado al pie avisa de que sigue.
+   Va con position:sticky y NO con mask-image: una mascara convertiria el
+   nav en bloque contenedor y recortaria el panel flotante de proyectos,
+   que es position:fixed. La clase la pone admin.js cuando hace falta. */
+.sidebar-nav::after {
+  content: '';
+  position: sticky; bottom: 0;
+  flex: none;
+  height: 24px; margin-top: -24px;
+  background: linear-gradient(to bottom, transparent, var(--n-bg));
+  opacity: 0;
+  transition: opacity .2s ease;
+  pointer-events: none;
+}
+.sidebar-nav.hay-mas-abajo::after { opacity: 1; }
 .sidebar-label {
   padding: 14px 12px 6px;
   font-size: .66rem; font-weight: 800; letter-spacing: .16em; text-transform: uppercase;
@@ -275,6 +306,76 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
 html.sb-collapsed .sidebar-link.active::before { left: 3px; top: 28%; bottom: 28%; }
 .sidebar-link.active i { color: var(--c-secondary) !important; }
 .sidebar-link .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* =========================================================
+   Grupo "Proyectos" del menu.
+   Desplegado: display:contents, o sea que rotulo y enlaces fluyen
+   como si el contenedor no existiera (se ve igual que antes).
+   Plegado: un solo boton que abre los enlaces en un panel flotante,
+   asi la barra no crece con cada proyecto ni necesita scroll.
+   ========================================================= */
+.nav-grupo { display: contents; }
+.nav-grupo-items { display: contents; }
+.nav-grupo-btn,
+.nav-grupo-cab,
+.nav-grupo-n { display: none; }
+
+html.sb-collapsed .nav-grupo { display: block; }
+html.sb-collapsed .nav-grupo-btn {
+  position: relative;
+  display: flex; width: 100%;
+  border: 0; background: transparent;
+  font-family: 'Inter', sans-serif;
+  cursor: pointer;
+}
+html.sb-collapsed .nav-grupo-n {
+  display: block;
+  position: absolute; top: 3px; right: 11px;
+  min-width: 16px; padding: 0 4px;
+  border-radius: 999px;
+  background: var(--c-secondary); color: #fff;
+  font-size: .6rem; font-weight: 800; line-height: 16px; text-align: center;
+}
+/* El panel va en position:fixed para escapar del overflow:hidden de la barra */
+html.sb-collapsed .nav-grupo-items {
+  display: none;
+  position: fixed;
+  left: calc(var(--sidebar-w) + 10px);
+  width: 262px;
+  max-height: min(72vh, 540px);
+  overflow-y: auto;
+  padding: 10px;
+  border-radius: 20px;
+  background: var(--n-bg);
+  border: 1px solid var(--c-border-soft);
+  box-shadow: 0 34px 70px -28px rgba(0, 0, 0, .5), var(--sh-card);
+  z-index: 60;
+}
+html.sb-collapsed .nav-grupo.abierto > .nav-grupo-items {
+  display: flex; flex-direction: column; gap: 4px;
+  animation: nav-grupo-in .18s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes nav-grupo-in {
+  from { opacity: 0; transform: translateX(-8px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+html.sb-collapsed .nav-grupo-cab {
+  display: flex; align-items: center; gap: 9px;
+  padding: 6px 10px 10px;
+  margin-bottom: 2px;
+  border-bottom: 1px solid var(--c-border-soft);
+  font-size: .68rem; font-weight: 800; letter-spacing: .14em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+html.sb-collapsed .nav-grupo-cab i { color: var(--c-secondary); font-size: .85rem; }
+/* Dentro del panel los enlaces vuelven a llevar texto */
+html.sb-collapsed .nav-grupo-items .sidebar-link {
+  justify-content: flex-start;
+  padding: 10px 12px;
+}
+html.sb-collapsed .nav-grupo-items .sidebar-link .truncate { display: inline; }
+html.sb-collapsed .nav-grupo-items .sidebar-link i { width: 18px; font-size: .95rem; }
+.nav-grupo-vacio { margin: 6px 10px 10px; font-size: .78rem; color: var(--c-text-soft); }
 
 .sidebar-link-new {
   margin-top: 8px;
@@ -626,15 +727,27 @@ html.sb-collapsed .sidebar-brand {
 }
 html.sb-collapsed .sidebar-brand > div { display: none; }
 
+/* Plegado no caben "PROYECTOS" ni "CONFIGURACION" (se partian a media
+   palabra): el rotulo se vuelve un separador y el texto queda solo para
+   lectores de pantalla. */
 html.sb-collapsed .sidebar-label {
-  padding: 12px 0 4px;
-  text-align: center;
+  width: 24px; height: 2px;
+  margin: 10px auto 6px;
+  padding: 0;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text-soft) 38%, transparent);
+  font-size: 0; line-height: 0;
   overflow: hidden; white-space: nowrap;
-  font-size: .58rem;
 }
+html.sb-collapsed.dark .sidebar-label { background: rgba(255, 255, 255, .14); }
+/* El primero no necesita separador: va pegado al selector de "ver como" */
+html.sb-collapsed .sidebar-nav > .sidebar-label:first-child { margin-top: 2px; }
+
+/* Plegado cabe menos: se aprieta un poco para que no haga falta scroll */
+html.sb-collapsed .sidebar-nav { gap: 3px; padding-top: 10px; }
 html.sb-collapsed .sidebar-link {
   justify-content: center;
-  padding: 12px 0;
+  padding: 10px 0;
 }
 html.sb-collapsed .sidebar-link .truncate { display: none; }
 html.sb-collapsed .sidebar-link i { width: auto; font-size: 1.05rem; }
@@ -3323,6 +3436,22 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   html.sb-collapsed .sidebar-brand > div { display: block; }
   html.sb-collapsed .sidebar-link { padding: 11px 14px; justify-content: flex-start; }
   html.sb-collapsed .sidebar-link .truncate { display: inline; }
+  /* En movil el rotulo vuelve a ser texto, no separador */
+  html.sb-collapsed .sidebar-label,
+  html.sb-collapsed .sidebar-nav > .sidebar-label:first-child {
+    width: auto; height: auto;
+    margin: 0; padding: 14px 12px 6px;
+    background: none;
+    font-size: .66rem; line-height: inherit;
+  }
+  /* La barra es una tira superior: nada de scroll interno */
+  .sidebar-nav { overflow: visible; min-height: auto; }
+  /* Ni panel flotante de proyectos: se listan en linea */
+  html.sb-collapsed .nav-grupo,
+  html.sb-collapsed .nav-grupo-items { display: contents; }
+  html.sb-collapsed .nav-grupo-btn,
+  html.sb-collapsed .nav-grupo-cab,
+  html.sb-collapsed .nav-grupo-n { display: none; }
   html.sb-collapsed .sidebar-foot { flex-direction: row; padding: 0; }
   html.sb-collapsed .theme-toggle { width: 74px; padding: 0 9px; }
   html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(38px); }
