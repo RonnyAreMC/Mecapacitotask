@@ -286,24 +286,13 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
 }
 .sidebar-link i { width: 18px; text-align: center; font-size: .95rem; }
 .sidebar-link:hover { box-shadow: var(--sh-mini); color: var(--c-text); }
+/* El item activo se marca solo con el borde iluminado, sin barra al lado */
 .sidebar-link.active {
-  position: relative;
   box-shadow: var(--sh-inset-mini),
     0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent),
     0 0 18px -3px color-mix(in srgb, var(--c-secondary) 75%, transparent);
   color: var(--c-secondary);
 }
-/* Barra de neón a un lado del ítem activo */
-.sidebar-link.active::before {
-  content: "";
-  position: absolute; left: 6px; top: 22%; bottom: 22%;
-  width: 3px; border-radius: 999px;
-  background: var(--c-secondary);
-  box-shadow: 0 0 8px 1px var(--c-secondary), 0 0 16px 2px color-mix(in srgb, var(--c-secondary) 65%, transparent);
-  animation: neon-pulse 2.2s ease-in-out infinite;
-}
-@keyframes neon-pulse { 0%,100% { opacity: 1; } 50% { opacity: .55; } }
-html.sb-collapsed .sidebar-link.active::before { left: 3px; top: 28%; bottom: 28%; }
 .sidebar-link.active i { color: var(--c-secondary) !important; }
 .sidebar-link .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
