@@ -262,31 +262,55 @@ class Mailer
             ? '<a href="' . e($urlBoton) . '" target="_blank" style="display:inline-block;margin-top:22px;color:' . $acento . ';text-decoration:none;font-size:15px;font-weight:600;font-family:' . $fuente . ';">' . e($textoBoton) . ' &rsaquo;</a>'
             : '';
 
-        return '
-<div style="margin:0;padding:36px 16px;background:#f5f5f7;font-family:' . $fuente . ';">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-  <table role="presentation" width="472" cellpadding="0" cellspacing="0" style="max-width:472px;width:100%;background:#ffffff;border:1px solid #e5e5e7;border-radius:18px;">
-    <tr><td style="padding:18px 26px;border-bottom:1px solid #f0f0f2;">
-      <table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+        return '<!DOCTYPE html>
+<html lang="es"><head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="x-apple-disable-message-reformatting">
+<meta name="color-scheme" content="light">
+<title>' . $titulo . '</title>
+<style>
+  @media only screen and (max-width:480px) {
+    .mc-wrap { padding:16px 10px !important; }
+    .mc-card { border-radius:14px !important; }
+    .mc-head { padding:14px 18px !important; }
+    .mc-body { padding:22px 18px !important; }
+    .mc-foot { padding:14px 18px !important; }
+    .mc-det  { padding:14px 16px !important; }
+    .mc-h1   { font-size:18px !important; }
+    /* Las filas etiqueta/valor se apilan en pantallas chicas */
+    .mc-lbl, .mc-val { display:block !important; width:100% !important; text-align:left !important; }
+    .mc-lbl { padding:8px 0 0 !important; }
+    .mc-val { padding:2px 0 0 !important; }
+  }
+</style>
+</head>
+<body style="margin:0;padding:0;background:#f5f5f7;">
+<div class="mc-wrap" style="margin:0;padding:36px 16px;background:#f5f5f7;font-family:' . $fuente . ';">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">
+  <table role="presentation" width="472" cellpadding="0" cellspacing="0" border="0" class="mc-card" style="max-width:472px;width:100%;background:#ffffff;border:1px solid #e5e5e7;border-radius:18px;">
+    <tr><td class="mc-head" style="padding:18px 26px;border-bottom:1px solid #f0f0f2;">
+      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
         . $logo .
         '<td style="vertical-align:middle;color:#1d1d1f;font-size:15px;font-weight:600;letter-spacing:-.2px;">' . $titulo . '</td>
       </tr></table>
     </td></tr>
-    <tr><td style="padding:28px 26px;">' . $cuerpo . $boton . '</td></tr>
-    <tr><td style="padding:16px 26px;border-top:1px solid #f0f0f2;color:#a1a1a6;font-size:12px;">Notificación automática de ' . $titulo . '.</td></tr>
+    <tr><td class="mc-body" style="padding:28px 26px;">' . $cuerpo . $boton . '</td></tr>
+    <tr><td class="mc-foot" style="padding:16px 26px;border-top:1px solid #f0f0f2;color:#a1a1a6;font-size:12px;">Notificación automática de ' . $titulo . '.</td></tr>
   </table>
   </td></tr></table>
-</div>';
+</div>
+</body></html>';
     }
 
     /** Encabezado: icono pequeño en círculo + título + descripción. */
     private static function encabezado(string $color, string $glifo, string $titulo, string $sub): string
     {
-        return '<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+        return '<table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
             . '<td width="34" style="padding-right:12px;vertical-align:middle;">'
             . '<div style="width:24px;height:24px;background:' . $color . ';border-radius:50%;color:#fff;font-size:13px;font-weight:700;text-align:center;line-height:24px;">' . $glifo . '</div>'
             . '</td>'
-            . '<td style="vertical-align:middle;color:#1d1d1f;font-size:19px;font-weight:700;letter-spacing:-.3px;">' . $titulo . '</td>'
+            . '<td class="mc-h1" style="vertical-align:middle;color:#1d1d1f;font-size:19px;font-weight:700;letter-spacing:-.3px;">' . $titulo . '</td>'
             . '</tr></table>'
             . '<div style="color:#6e6e73;font-size:15px;line-height:1.5;margin-top:12px;">' . $sub . '</div>';
     }
@@ -297,14 +321,14 @@ class Mailer
         $rows = '';
         foreach ($filas as $k => $v) {
             $rows .= '<tr>'
-                . '<td style="padding:5px 0;color:#86868b;font-size:13px;">' . e($k) . '</td>'
-                . '<td style="padding:5px 0;color:#1d1d1f;font-size:13px;font-weight:600;text-align:right;">' . $v . '</td>'
+                . '<td class="mc-lbl" style="padding:5px 0;color:#86868b;font-size:13px;">' . e($k) . '</td>'
+                . '<td class="mc-val" style="padding:5px 0;color:#1d1d1f;font-size:13px;font-weight:600;text-align:right;">' . $v . '</td>'
                 . '</tr>';
         }
-        return '<div style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:16px 18px;">'
+        return '<div class="mc-det" style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:16px 18px;">'
             . '<div style="color:#1d1d1f;font-size:16px;font-weight:600;letter-spacing:-.2px;">' . e($titulo) . '</div>'
             . ($desc !== '' ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>' : '')
-            . ($rows !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">' . $rows . '</table>' : '')
+            . ($rows !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;">' . $rows . '</table>' : '')
             . '</div>';
     }
 
