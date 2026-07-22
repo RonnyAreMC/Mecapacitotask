@@ -111,6 +111,21 @@ reutiliza los del correo (API de Gmail).
 Solo entran los correos que **ya existen** como colaboradores: Google nunca crea
 usuarios nuevos en el panel.
 
+### Mi perfil
+Cada persona edita lo suyo en **Mi perfil** (se llega pinchando su nombre abajo
+del menú): nombre, rol, usuario de Git, correo, foto, color y **contraseña**,
+en un asistente por pasos.
+
+Lo que **no** se toca desde ahí, a propósito: el **nivel de acceso** y el
+**equipo**. Los decide un administrador desde *Equipo*; si no, cualquiera se
+daría permisos de admin editando su propia ficha. El bloqueo está en el
+servidor: `perfil_guardar` saca el id de la sesión y **nunca del formulario**.
+
+Para cambiar la contraseña hay que escribir la actual (salvo si aún no tienes
+ninguna porque entras con Google). Correo y usuario de Git no pueden repetirse
+con los de otra persona, y no se pueden dejar los dos vacíos: son las dos
+formas de entrar, y sin ninguna te quedarías fuera del panel.
+
 ### Credenciales
 Las contraseñas se guardan con `password_hash` (bcrypt), nunca en claro. Los
 secretos de Ajustes (Zoom, Gmail, GitHub, Google) ya **no se imprimen en el HTML**:

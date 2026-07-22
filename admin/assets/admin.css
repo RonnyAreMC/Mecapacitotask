@@ -420,6 +420,21 @@ body[data-rol="lector"] .solo-admin { display: none !important; }
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
 }
+/* El bloque nombre + rol es el enlace a "Mi perfil" */
+.sesion-yo {
+  display: flex; align-items: center; gap: 10px;
+  flex: 1; min-width: 0;
+  text-decoration: none; color: inherit;
+  border-radius: 10px;
+  transition: opacity .2s ease;
+}
+.sesion-yo:hover { opacity: .78; }
+.sesion-yo:hover .sesion-info b { color: var(--c-secondary); }
+.sesion-chip.en-perfil {
+  box-shadow: var(--sh-inset-mini),
+    0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent);
+}
+.sesion-chip.en-perfil .sesion-info b { color: var(--c-secondary); }
 .sesion-info { display: flex; flex-direction: column; min-width: 0; flex: 1; }
 .sesion-info b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .sesion-info small { font-size: .68rem; color: var(--c-text-soft); font-weight: 600; }
@@ -2618,7 +2633,8 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
    estrechas se vuelve una tira horizontal arriba.
    ========================================================= */
 .dlg-wizard { width: min(940px, calc(100vw - 40px)); }
-.dlg-wizard .wz {
+.dlg-wizard .wz,
+.wz-inline {
   display: grid;
   grid-template-columns: 274px 1fr;
   align-items: stretch;
@@ -2752,8 +2768,25 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .wz-resumen dd.vacio { color: var(--c-text-soft); font-weight: 500; font-style: italic; }
 
 /* ----- Estrecho: el riel pasa a tira horizontal arriba ----- */
+/* Version en linea (pagina Mi perfil): el asistente vive dentro de una card */
+.perfil-card { padding: 0; overflow: hidden; }
+.perfil-card:hover { transform: none; }
+.wz-inline { border-radius: inherit; }
+.wz-inline .wz-riel { border-radius: inherit; border-top-right-radius: 0; border-bottom-right-radius: 0; }
+/* La vista previa de la persona, dentro del riel */
+.persona-preview.pp-riel {
+  flex-direction: column; align-items: center; text-align: center;
+  gap: 12px; padding: 0 0 6px;
+}
+.persona-preview.pp-riel .pp-info { align-items: center; }
+.persona-preview.pp-riel .pp-nombre { font-size: 1.05rem; }
+.perfil-aviso { color: var(--c-naranja); font-weight: 600; }
+
 @media (max-width: 820px) {
-  .dlg-wizard .wz { grid-template-columns: 1fr; min-height: 0; }
+  .dlg-wizard .wz,
+  .wz-inline { grid-template-columns: 1fr; min-height: 0; }
+  .persona-preview.pp-riel { flex-direction: row; text-align: left; }
+  .persona-preview.pp-riel .pp-info { align-items: flex-start; }
   .wz-riel {
     flex-direction: row; align-items: center; gap: 14px;
     padding: 16px 18px;

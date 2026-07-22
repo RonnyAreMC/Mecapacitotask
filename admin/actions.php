@@ -26,7 +26,7 @@ $accion = $_POST['accion'] ?? '';
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
 $accionesPublicas   = ['auth_login'];
-$accionesDeCualquiera = ['auth_logout', 'obs_crear'];
+$accionesDeCualquiera = ['auth_logout', 'obs_crear', 'perfil_guardar'];
 
 if (!in_array($accion, $accionesPublicas, true)) {
     if (in_array($accion, $accionesDeCualquiera, true)) {
@@ -302,6 +302,81 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $o['proyecto_id'] . '#vista-observaciones', 'Observación eliminada.');
         }
         redirigir('index.php', 'Observación no encontrada.', 'error');
+
+    /* ---------- Mi perfil (cada quien edita lo suyo) ---------- */
+
+    case 'perfil_guardar':
+        // El id NUNCA sale del POST: siempre es el de la sesion. Asi nadie
+        // edita la ficha de otro mandando otro id, ni se sube el rol solo.
+        $yo = Auth::usuario();
+        if (!$yo) {
+            redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        }
+        $miId = (int)$yo['id'];
+        $volver = 'perfil.php';
+
+        if (trim($_POST['nombre'] ?? '') === '') {
+            redirigir($volver, 'El nombre no puede quedar vacío.', 'error');
+        }
+
+        // Correo y usuario de Git sirven para entrar: no pueden repetirse
+        $correoNuevo = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '';
+        $gitNuevo    = ltrim(trim($_POST['git_user'] ?? ''), '@');
+
+        // Sin ninguno de los dos no habria con que iniciar sesion nunca mas:
+        // el usuario se dejaria fuera del panel el mismo.
+        if ($correoNuevo === '' && $gitNuevo === '') {
+            redirigir($volver, 'Deja al menos el correo o el usuario de Git: son las dos formas de entrar al panel.', 'error');
+        }
+
+        foreach ($miembros->todos() as $otro) {
+            if ((int)$otro['id'] === $miId) continue;
+            if ($correoNuevo !== '' && strcasecmp($otro['email'] ?? '', $correoNuevo) === 0) {
+                redirigir($volver, 'Ese correo ya lo usa otra persona del equipo.', 'error');
+            }
+            if ($gitNuevo !== '' && strcasecmp($otro['git_user'] ?? '', $gitNuevo) === 0) {
+                redirigir($volver, 'Ese usuario de Git ya lo usa otra persona del equipo.', 'error');
+            }
+        }
+
+        $cambios = [
+            'nombre'   => trim($_POST['nombre']),
+            'rol'      => trim($_POST['rol'] ?? ''),
+            'git_user' => $gitNuevo,
+            'email'    => $correoNuevo,
+            'color'    => Catalogo::colorEntrada($_POST),
+        ];
+
+        // Contrasena: solo si la piden, y comprobando siempre la actual
+        $claveNueva = (string)($_POST['clave_nueva'] ?? '');
+        if ($claveNueva !== '') {
+            if (strlen($claveNueva) < 6) {
+                redirigir($volver, 'La contraseña nueva debe tener al menos 6 caracteres.', 'error');
+            }
+            if ($claveNueva !== (string)($_POST['clave_repetir'] ?? '')) {
+                redirigir($volver, 'Las contraseñas nuevas no coinciden.', 'error');
+            }
+            $actual = (string)($_POST['clave_actual'] ?? '');
+            if (!empty($yo['pass_hash'])) {
+                if (!password_verify($actual, $yo['pass_hash'])) {
+                    redirigir($volver, 'La contraseña actual no es correcta.', 'error');
+                }
+            }
+            $cambios['pass_hash'] = Auth::hash($claveNueva);
+        }
+
+        $foto = guardarFoto('foto');
+        if ($foto !== '') {
+            if (!empty($yo['foto']) && file_exists(__DIR__ . '/' . $yo['foto'])) {
+                @unlink(__DIR__ . '/' . $yo['foto']);
+            }
+            $cambios['foto'] = $foto;
+        }
+
+        $miembros->actualizar($miId, $cambios);
+        redirigir($volver, isset($cambios['pass_hash'])
+            ? 'Perfil actualizado y contraseña cambiada.'
+            : 'Perfil actualizado.');
 
     /* ---------- Miembros ---------- */
 

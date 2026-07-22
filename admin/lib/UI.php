@@ -141,12 +141,14 @@ class UI
   </nav>
 
   <?php $yo = Auth::usuario(); if ($yo): ?>
-  <div class="sesion-chip">
-    <?= self::avatar($yo, 30) ?>
-    <span class="sesion-info truncate">
-      <b><?= e(explode(' ', $yo['nombre'])[0]) ?></b>
-      <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
-    </span>
+  <div class="sesion-chip <?= $activo === 'perfil' ? 'en-perfil' : '' ?>">
+    <a class="sesion-yo" href="perfil.php" title="Mi perfil: datos, foto y contraseña">
+      <?= self::avatar($yo, 30) ?>
+      <span class="sesion-info truncate">
+        <b><?= e(explode(' ', $yo['nombre'])[0]) ?></b>
+        <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
+      </span>
+    </a>
     <form method="post" action="actions.php" class="inline-form">
       <input type="hidden" name="accion" value="auth_logout">
       <button class="sesion-salir" title="Cerrar sesión"><i class="fa-solid fa-right-from-bracket"></i></button>
