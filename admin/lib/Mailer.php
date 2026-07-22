@@ -60,6 +60,46 @@ class Mailer
         return self::enviarSmtp($para, $asunto, $html);
     }
 
+    /** Ruta del logo a incrustar en los correos ('' si no existe). */
+    private static function logoPath(): string
+    {
+        $p = __DIR__ . '/../../assets/mecapacito-logo.png';   // raíz del proyecto /assets
+        return is_file($p) ? $p : '';
+    }
+
+    /**
+     * Cuerpo MIME del correo. Si hay logo, arma un multipart/related con la
+     * imagen incrustada (cid:logo) para que se vea sin depender de una URL.
+     * Devuelve [ cabecerasContentType[], cuerpo ].
+     */
+    private static function cuerpoMime(string $html): array
+    {
+        $logo = self::logoPath();
+        $htmlPart = rtrim(chunk_split(base64_encode($html), 76, "\r\n"));
+        if ($logo === '') {
+            return [['Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64'], $htmlPart];
+        }
+        $b = 'mc_' . bin2hex(random_bytes(8));
+        $img = rtrim(chunk_split(base64_encode((string)file_get_contents($logo)), 76, "\r\n"));
+        $cuerpo = implode("\r\n", [
+            '--' . $b,
+            'Content-Type: text/html; charset=UTF-8',
+            'Content-Transfer-Encoding: base64',
+            '',
+            $htmlPart,
+            '--' . $b,
+            'Content-Type: image/png',
+            'Content-Transfer-Encoding: base64',
+            'Content-ID: <logo>',
+            'Content-Disposition: inline; filename="logo.png"',
+            '',
+            $img,
+            '--' . $b . '--',
+            '',
+        ]);
+        return [['Content-Type: multipart/related; boundary="' . $b . '"'], $cuerpo];
+    }
+
     /* ---------- Modo Gmail API (OAuth de Google Cloud) ---------- */
 
     /** POST JSON/form simple con streams; devuelve [codigoHttp, cuerpo]. */
@@ -107,16 +147,13 @@ class Mailer
             return $token['error'];
         }
 
-        $mime = implode("\r\n", [
+        [$ctHeaders, $cuerpo] = self::cuerpoMime($html);
+        $mime = implode("\r\n", array_merge([
             'From: =?UTF-8?B?' . base64_encode($c['remitente']) . '?= <' . $c['usuario'] . '>',
             'To: <' . $para . '>',
             'Subject: =?UTF-8?B?' . base64_encode($asunto) . '?=',
             'MIME-Version: 1.0',
-            'Content-Type: text/html; charset=UTF-8',
-            'Content-Transfer-Encoding: base64',
-            '',
-            rtrim(chunk_split(base64_encode($html), 76, "\r\n")),
-        ]);
+        ], $ctHeaders, ['', $cuerpo]));
         $raw = rtrim(strtr(base64_encode($mime), '+/', '-_'), '=');
 
         [$codigo, $cuerpo] = self::httpPost(
@@ -185,18 +222,15 @@ class Mailer
             if (!$ok($r = $mandar('RCPT TO:<' . $para . '>'), '250'))         return 'Destinatario rechazado: ' . trim($r);
             if (!$ok($r = $mandar('DATA'), '354'))                             return 'Fallo DATA: ' . trim($r);
 
-            $mensaje = implode("\r\n", [
+            [$ctHeaders, $cuerpo] = self::cuerpoMime($html);
+            $mensaje = implode("\r\n", array_merge([
                 'From: =?UTF-8?B?' . base64_encode($c['remitente']) . '?= <' . $c['usuario'] . '>',
                 'To: <' . $para . '>',
                 'Subject: =?UTF-8?B?' . base64_encode($asunto) . '?=',
                 'MIME-Version: 1.0',
-                'Content-Type: text/html; charset=UTF-8',
-                'Content-Transfer-Encoding: base64',
                 'Date: ' . date('r'),
                 'Message-ID: <' . uniqid('meca', true) . '@mecapacito.panel>',
-                '',
-                rtrim(chunk_split(base64_encode($html), 76, "\r\n")),
-            ]);
+            ], $ctHeaders, ['', $cuerpo]));
             if (!$ok($r = $mandar($mensaje . "\r\n."), '250')) return 'El servidor rechazó el mensaje: ' . trim($r);
             $mandar('QUIT');
             return true;
@@ -212,72 +246,85 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
-    /** Envoltura HTML con el branding del panel (logo, título, colores de Ajustes). */
+    /** Envoltura HTML con el branding del panel — tema oscuro, logo incrustado. */
     private static function plantilla(string $cuerpo, string $urlBoton = '', string $textoBoton = ''): string
     {
         $m = Config::all();
         $titulo = e($m['titulo'] ?? 'Panel');
         $sub    = strtoupper(e($m['subtitulo'] ?? ''));
         $acento = e($m['color_secundario'] ?? '#2B76F7');
-        // URL absoluta del logo (mismo dominio del panel, carpeta /assets)
-        $raiz = preg_replace('#/admin/?$#', '', rtrim(self::conf()['url_panel'], '/'));
-        $logo = $raiz !== '' ? $raiz . '/assets/mecapacito-logo.png' : '';
-
-        $celdaLogo = $logo !== ''
-            ? '<td width="52" style="padding-right:14px;vertical-align:middle;">
-                 <img src="' . e($logo) . '" width="48" height="48" alt="' . $titulo . '"
-                      style="display:block;width:48px;height:48px;border-radius:12px;background:#fff;padding:5px;box-sizing:border-box;">
+        $logo = self::logoPath() !== ''
+            ? '<td width="56" style="padding-right:14px;vertical-align:middle;">
+                 <img src="cid:logo" width="50" height="50" alt="' . $titulo . '"
+                      style="display:block;width:50px;height:50px;border-radius:14px;background:#ffffff;padding:6px;box-sizing:border-box;">
                </td>'
             : '';
-
         $boton = $urlBoton !== ''
-            ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:22px;">
-                 <tr><td style="border-radius:12px;background:' . $acento . ';">
+            ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:24px;">
+                 <tr><td style="border-radius:12px;background:' . $acento . ';box-shadow:0 10px 24px -8px ' . $acento . ';">
                    <a href="' . e($urlBoton) . '" target="_blank"
-                      style="display:inline-block;padding:13px 28px;color:#fff;text-decoration:none;font-size:14px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">'
+                      style="display:inline-block;padding:14px 30px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">'
                    . e($textoBoton) . '</a>
-                 </td></tr>
-               </table>'
+                 </td></tr></table>'
             : '';
 
         return '
-<div style="margin:0;padding:28px 16px;background:#e9edf4;font-family:Arial,Helvetica,sans-serif;">
+<div style="margin:0;padding:30px 16px;background:#1a1f2a;font-family:Arial,Helvetica,sans-serif;">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-  <table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px -20px rgba(15,23,42,.35);">
-    <!-- Encabezado con logo y marca -->
-    <tr><td style="background-color:#242c3a;background-image:linear-gradient(135deg,#2D3E50 0%,#1A4B99 70%,' . $acento . ' 130%);padding:22px 28px;">
+  <table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#262c3a;border:1px solid #333c4e;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);">
+    <tr><td style="height:3px;background:#313a4c;line-height:3px;font-size:0;">&nbsp;</td></tr>
+    <tr><td style="background-color:#242c3a;background-image:linear-gradient(135deg,#2D3E50 0%,#1A4B99 72%,' . $acento . ' 135%);padding:24px 30px;">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>'
-        . $celdaLogo .
+        . $logo .
         '<td style="vertical-align:middle;">
-          <div style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-.3px;">' . $titulo . '</div>'
-          . ($sub ? '<div style="color:' . $acento . ';font-size:11px;font-weight:700;letter-spacing:2.5px;margin-top:2px;">' . $sub . '</div>' : '') . '
+          <div style="color:#ffffff;font-size:23px;font-weight:800;letter-spacing:-.3px;">' . $titulo . '</div>'
+          . ($sub ? '<div style="color:#a9c6ff;font-size:11px;font-weight:700;letter-spacing:2.5px;margin-top:3px;">' . $sub . '</div>' : '') . '
         </td>
       </tr></table>
     </td></tr>
-    <!-- Franja de acento -->
     <tr><td style="height:4px;background:' . $acento . ';line-height:4px;font-size:0;">&nbsp;</td></tr>
-    <!-- Cuerpo -->
-    <tr><td style="padding:30px 30px 34px;color:#0f172a;">' . $cuerpo . $boton . '</td></tr>
-    <!-- Pie -->
-    <tr><td style="padding:18px 30px;background:#f6f8fb;border-top:1px solid #eef2f6;color:#94a3b8;font-size:11px;">
-      Correo automático de <b style="color:#64748b;">' . $titulo . '</b> — no es necesario responder.
+    <tr><td style="padding:30px 32px 36px;">' . $cuerpo . $boton . '</td></tr>
+    <tr><td style="padding:18px 32px;background:#212836;border-top:1px solid #333c4e;color:#7b8699;font-size:11px;">
+      Correo automático de <b style="color:#aeb8c9;">' . $titulo . '</b> — no es necesario responder.
     </td></tr>
   </table>
   </td></tr></table>
 </div>';
     }
 
-    /** Tarjeta HTML de una tarea (reutilizada en asignación y recordatorio). */
+    /** Círculo con icono dibujado (sin emojis) para los encabezados. */
+    private static function iconoCirculo(string $color, string $glifo): string
+    {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-block;vertical-align:middle;margin-right:12px;">
+          <tr><td width="40" height="40" align="center" valign="middle"
+              style="width:40px;height:40px;background:' . $color . ';border-radius:50%;color:#fff;font-size:20px;font-weight:bold;line-height:40px;">'
+            . $glifo . '</td></tr></table>';
+    }
+
+    /** Encabezado de correo: icono en círculo + título + subtítulo. */
+    private static function encabezado(string $color, string $glifo, string $titulo, string $sub): string
+    {
+        return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr>'
+            . '<td valign="middle">' . self::iconoCirculo($color, $glifo) . '</td>'
+            . '<td valign="middle">'
+            . '<div style="color:#eef2f9;font-size:18px;font-weight:800;">' . $titulo . '</div>'
+            . '<div style="color:#aeb8c9;font-size:13.5px;margin-top:3px;">' . $sub . '</div>'
+            . '</td></tr></table>';
+    }
+
+    /** Tarjeta HTML de una tarea (tema oscuro), sin emojis. */
     private static function cardTarea(array $tarea, array $proyecto): string
     {
         $prioridades = Catalogo::prioridades();
         $prioridad = $prioridades[$tarea['prioridad'] ?? '']['0'] ?? ($tarea['prioridad'] ?? '');
         $color = ProyectoRepo::colorBase($proyecto);
-        return '<div style="border:1px solid #e2e8f0;border-left:5px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
-            . '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;font-weight:bold;">' . e($tarea['titulo']) . '</p>'
-            . (!empty($tarea['descripcion']) ? '<p style="margin:0 0 12px;color:#475569;font-size:13px;line-height:1.5;">' . e($tarea['descripcion']) . '</p>' : '')
-            . '<p style="margin:0;color:#64748b;font-size:12px;">📁 <b>' . e($proyecto['nombre']) . '</b> &nbsp;·&nbsp; Prioridad: <b>' . e($prioridad) . '</b>'
-            . (!empty($tarea['fecha_limite']) ? ' &nbsp;·&nbsp; 📅 Límite: <b>' . e($tarea['fecha_limite']) . '</b>' : '') . '</p></div>';
+        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+            . '<td style="background:#2b3343;border:1px solid #3a4459;border-left:4px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
+            . '<div style="color:#eef2f9;font-size:16px;font-weight:bold;">' . e($tarea['titulo']) . '</div>'
+            . (!empty($tarea['descripcion']) ? '<div style="color:#aeb8c9;font-size:13px;line-height:1.55;margin-top:7px;">' . e($tarea['descripcion']) . '</div>' : '')
+            . '<div style="color:#8e99ae;font-size:12px;margin-top:12px;">Proyecto: <b style="color:#c8d0dd;">' . e($proyecto['nombre']) . '</b> &nbsp;·&nbsp; Prioridad: <b style="color:#c8d0dd;">' . e($prioridad) . '</b>'
+            . (!empty($tarea['fecha_limite']) ? ' &nbsp;·&nbsp; Límite: <b style="color:#c8d0dd;">' . e($tarea['fecha_limite']) . '</b>' : '') . '</div>'
+            . '</td></tr></table>';
     }
 
     /** Aviso de asignación de tarea (al asignado). */
@@ -287,11 +334,12 @@ class Mailer
         if (!self::listo() || empty($c['avisar_asignacion']) || empty($miembro['email'])) {
             return null;
         }
-        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;">¡Hola <b>' . e($miembro['nombre']) . '</b>! 👋</p>'
-            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">Te asignaron una nueva tarea:</p>'
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $cuerpo = self::encabezado($acento, '&#43;', 'Nueva tarea asignada',
+                    'Hola <b style="color:#eef2f9;">' . e($miembro['nombre']) . '</b>, te asignaron esta tarea.')
             . self::cardTarea($tarea, $proyecto);
-        return self::enviar($miembro['email'], '📋 Nueva tarea asignada: ' . $tarea['titulo'],
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero →'));
+        return self::enviar($miembro['email'], 'Nueva tarea asignada: ' . $tarea['titulo'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
     }
 
     /** Recordatorio de una tarea próxima a vencer (al asignado). */
@@ -301,12 +349,12 @@ class Mailer
         if (!self::listo() || empty($c['avisar_recordatorio']) || empty($miembro['email'])) {
             return null;
         }
-        $cuando = $dias <= 0 ? 'vence <b>hoy</b>' : ('vence en <b>' . $dias . ' día' . ($dias === 1 ? '' : 's') . '</b>');
-        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:16px;">Hola <b>' . e($miembro['nombre']) . '</b> ⏰</p>'
-            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">Recordatorio: tu tarea ' . $cuando . '.</p>'
+        $cuando = $dias <= 0 ? 'vence <b style="color:#ff9d5c;">hoy</b>' : ('vence en <b style="color:#eef2f9;">' . $dias . ' día' . ($dias === 1 ? '' : 's') . '</b>');
+        $cuerpo = self::encabezado('#F7931E', '!', 'Recordatorio de entrega',
+                    'Hola <b style="color:#eef2f9;">' . e($miembro['nombre']) . '</b>, tu tarea ' . $cuando . '.')
             . self::cardTarea($tarea, $proyecto);
-        return self::enviar($miembro['email'], '⏰ Recordatorio: ' . $tarea['titulo'],
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero →'));
+        return self::enviar($miembro['email'], 'Recordatorio: ' . $tarea['titulo'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
     }
 
     /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
@@ -316,12 +364,15 @@ class Mailer
         if (!self::listo() || empty($c['avisar_completado']) || empty($c['admin_email'])) {
             return null;
         }
-        $cuerpo = '<p style="margin:0 0 6px;color:#0f172a;font-size:18px;">🎉 ¡Fase concluida!</p>'
-            . '<p style="margin:0 0 18px;color:#475569;font-size:14px;">El proyecto <b>' . e($proyecto['nombre']) . '</b> completó <b>' . $total . ' de ' . $total . '</b> tareas. ¡Todo entregado!</p>'
-            . '<div style="border:1px solid #e2e8f0;border-left:5px solid ' . e(ProyectoRepo::colorBase($proyecto)) . ';border-radius:12px;padding:16px 18px;">'
-            . '<p style="margin:0;color:#0f172a;font-size:15px;font-weight:bold;">' . e($proyecto['nombre']) . '</p>'
-            . '<p style="margin:6px 0 0;color:#64748b;font-size:12px;">✅ ' . $total . '/' . $total . ' tareas completadas</p></div>';
-        return self::enviar($c['admin_email'], '✅ ' . $proyecto['nombre'] . ': fase concluida (' . $total . '/' . $total . ')',
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto →'));
+        $color = ProyectoRepo::colorBase($proyecto);
+        $cuerpo = self::encabezado('#2BB673', '&#10003;', 'Fase concluida',
+                    'El proyecto <b style="color:#eef2f9;">' . e($proyecto['nombre']) . '</b> completó <b style="color:#eef2f9;">' . $total . ' de ' . $total . '</b> tareas.')
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
+            . '<td style="background:#2b3343;border:1px solid #3a4459;border-left:4px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
+            . '<div style="color:#eef2f9;font-size:15px;font-weight:bold;">' . e($proyecto['nombre']) . '</div>'
+            . '<div style="color:#57d99a;font-size:12px;margin-top:6px;font-weight:bold;">' . $total . ' / ' . $total . ' tareas completadas</div>'
+            . '</td></tr></table>';
+        return self::enviar($c['admin_email'], $proyecto['nombre'] . ': fase concluida (' . $total . '/' . $total . ')',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
     }
 }
