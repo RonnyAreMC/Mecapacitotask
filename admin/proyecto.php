@@ -14,6 +14,9 @@ $proyecto = $proyectosRepo->buscar($id);
 if (!$proyecto) {
     redirigir('index.php', 'Ese proyecto no existe.', 'error');
 }
+// Un colaborador de solo lectura solo abre los proyectos en los que participa,
+// aunque escriba el id a mano en la URL.
+exigirProyecto($id);
 
 $miembros = $miembrosRepo->mapa();
 $tareas   = $tareasRepo->delProyecto($id);

@@ -11,7 +11,9 @@ class UI
 
     public static function inicio(string $titulo, string $activo = ''): void
     {
-        $proyectos = (new ProyectoRepo())->todos();
+        // El sidebar solo lista los proyectos que el usuario puede abrir:
+        // un colaborador de solo lectura ve unicamente en los que participa.
+        $proyectos = soloProyectosVisibles((new ProyectoRepo())->todos());
         $marca = Config::all();
         $verComo = verComo();
 
@@ -65,7 +67,8 @@ class UI
     </button>
   </div>
 
-  <!-- Filtro global "Ver como" -->
+  <!-- Filtro global "Ver como" (solo administradores) -->
+  <?php if (puedeVerComo()): ?>
   <div class="ver-como <?= $verComo ? 'activo' : '' ?>">
     <button type="button" class="vc-abrir" onclick="document.getElementById('dlg-ver-como').showModal()"
             title="<?= $verComo ? 'Viendo solo lo de ' . e($verComo['nombre']) : 'Filtrar todo el panel por una persona' ?>">
@@ -80,6 +83,7 @@ class UI
     <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><i class="fa-solid fa-xmark"></i></a>
     <?php endif; ?>
   </div>
+  <?php endif; ?>
 
   <nav class="sidebar-nav">
     <span class="sidebar-label">General</span>
@@ -96,7 +100,7 @@ class UI
     </a>
     <?php endforeach; ?>
 
-    <a href="index.php#nuevo" class="sidebar-link sidebar-link-new" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
+    <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
       <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
     </a>
 
@@ -146,7 +150,10 @@ class UI
 
     public static function fin(): void
     {
-        self::dialogVerComo();
+        // El modal lista a todo el equipo con sus cargas: solo para el admin.
+        if (puedeVerComo()) {
+            self::dialogVerComo();
+        }
         ?>
 </main>
 <script src="<?= asset('assets/admin.js') ?>"></script>

@@ -72,11 +72,30 @@ Hay dos niveles de acceso (se definen al crear o editar un colaborador):
 | Acceso | Puede |
 |---|---|
 | **Administrador** | Todo: proyectos, tareas, equipo, reuniones y Ajustes. |
-| **Solo lectura** | Ver todo y **anotar observaciones**. No crea ni edita nada más. |
+| **Solo lectura** | Ver **los proyectos en los que participa** y **anotar observaciones** en ellos. No crea ni edita nada más. |
 
 A los de solo lectura se les ocultan los botones de crear/editar/eliminar, no
 pueden arrastrar en el Kanban y `Ajustes` no aparece en el menú. El bloqueo real
 está en el servidor (`actions.php`), no solo en la interfaz.
+
+### Qué ve un colaborador de solo lectura
+
+Solo los proyectos **en los que participa**, y se participa si en ese proyecto:
+
+- tiene al menos una **tarea asignada**, o
+- está **invitado a una reunión**, o
+- **escribió una observación**.
+
+El resto del panel se ajusta solo: el dashboard, el menú lateral y los contadores
+del equipo cuentan únicamente esos proyectos. Escribir `proyecto.php?id=N` a mano
+para un proyecto ajeno devuelve al dashboard con un aviso, y tampoco se pueden
+anotar observaciones ahí (`actions.php` lo valida). La ficha de un colaborador
+(`colaborador.php`) lista sus tareas de todos los proyectos, así que cada quien
+solo abre la suya; el administrador las abre todas.
+
+El selector **«Ver como»** es exclusivo del administrador: no aparece en el menú
+y, si alguien fuerza `?ver_como=N` en la URL, el filtro se descarta. Todo esto se
+decide en `alcanceProyectos()` / `puedeVerProyecto()` (`admin/lib/bootstrap.php`).
 
 Para dar acceso a alguien: **Equipo → editar la persona → Acceso + Contraseña**.
 Siempre debe quedar al menos un administrador (el sistema lo impide).

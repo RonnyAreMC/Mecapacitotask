@@ -13,6 +13,11 @@ $m  = $miembrosRepo->buscar($id);
 if (!$m) {
     redirigir('equipo.php', 'Ese colaborador no existe.', 'error');
 }
+// La ficha lista las tareas de la persona en todos los proyectos: quien no es
+// administrador solo puede abrir la suya.
+if (!esAdmin() && $id !== (int)(Auth::usuario()['id'] ?? 0)) {
+    redirigir('equipo.php?e=' . MiembroRepo::equipoDe($m), 'Solo puedes abrir tu propia ficha.', 'error');
+}
 
 $eq = MiembroRepo::equipoDe($m);
 [$eqLabel, $eqIcono] = Catalogo::equipos()[$eq];

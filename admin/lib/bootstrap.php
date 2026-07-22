@@ -157,13 +157,92 @@ function esAdmin(): bool
     return Auth::esAdmin();
 }
 
+/* ---------- Alcance: que proyectos puede ver cada quien ---------- */
+
+/**
+ * Proyectos visibles para el usuario con la sesion iniciada.
+ *
+ * Devuelve null si los ve todos (administrador) o un set
+ * [proyecto_id => true] con aquellos en los que participa.
+ *
+ * Se participa en un proyecto si se tiene una tarea asignada, si se esta
+ * invitado a alguna de sus reuniones o si se escribio una observacion.
+ */
+function alcanceProyectos(): ?array
+{
+    static $cache = false;
+    if ($cache !== false) return $cache;
+    if (Auth::esAdmin()) {
+        return $cache = null;
+    }
+
+    $yo  = (int)(Auth::usuario()['id'] ?? 0);
+    $ids = [];
+    if ($yo > 0) {
+        foreach ((new TareaRepo())->todas() as $t) {
+            if ((int)($t['asignado_id'] ?? 0) === $yo) {
+                $ids[(int)$t['proyecto_id']] = true;
+            }
+        }
+        foreach ((new JsonStore('reuniones'))->all() as $r) {
+            if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+                $ids[(int)$r['proyecto_id']] = true;
+            }
+        }
+        foreach ((new JsonStore('observaciones'))->all() as $o) {
+            if ((int)($o['autor_id'] ?? 0) === $yo) {
+                $ids[(int)$o['proyecto_id']] = true;
+            }
+        }
+    }
+    return $cache = $ids;
+}
+
+/** ¿El usuario actual puede abrir este proyecto? */
+function puedeVerProyecto(int $proyectoId): bool
+{
+    $alcance = alcanceProyectos();
+    return $alcance === null || isset($alcance[$proyectoId]);
+}
+
+/** Deja de una lista de proyectos solo los que el usuario puede ver. */
+function soloProyectosVisibles(array $proyectos): array
+{
+    $alcance = alcanceProyectos();
+    if ($alcance === null) {
+        return $proyectos;
+    }
+    return array_values(array_filter($proyectos, fn($p) => isset($alcance[(int)$p['id']])));
+}
+
+/** Corta la pagina si el proyecto no es de los suyos. */
+function exigirProyecto(int $proyectoId): void
+{
+    if (!puedeVerProyecto($proyectoId)) {
+        redirigir('index.php', 'Ese proyecto no es tuyo: solo ves los proyectos en los que participas.', 'error');
+    }
+}
+
 /* ---------- "Ver como": filtro global por persona (transversal) ---------- */
+
+/**
+ * Solo el administrador puede mirar el panel "como" otra persona.
+ * Para un colaborador de solo lectura no tendria sentido: ya ve
+ * unicamente lo suyo, y le dejaria espiar el resto del equipo.
+ */
+function puedeVerComo(): bool
+{
+    return Auth::esAdmin();
+}
 
 /** Miembro seleccionado en "Ver como", o null si se ve todo el equipo. */
 function verComo(): ?array
 {
     static $cache = false;
     if ($cache !== false) return $cache;
+    if (!puedeVerComo()) {
+        return $cache = null;
+    }
     $id = (int)($_SESSION['ver_como'] ?? 0);
     return $cache = ($id > 0 ? (new MiembroRepo())->buscar($id) : null);
 }
@@ -176,9 +255,14 @@ function urlConVerComo(int $id): string
     return '?' . http_build_query($qs);
 }
 
-// ?ver_como=N en cualquier pagina: fija la sesion y limpia la URL
+// ?ver_como=N en cualquier pagina: fija la sesion y limpia la URL.
+// Si quien lo pide no es administrador, el filtro se descarta sin más.
 if (isset($_GET['ver_como'])) {
-    $_SESSION['ver_como'] = max(0, (int)$_GET['ver_como']);
+    if (puedeVerComo()) {
+        $_SESSION['ver_como'] = max(0, (int)$_GET['ver_como']);
+    } else {
+        unset($_SESSION['ver_como']);
+    }
     $qs = $_GET;
     unset($qs['ver_como']);
     redirigir(strtok($_SERVER['REQUEST_URI'], '?') . ($qs ? '?' . http_build_query($qs) : ''));

@@ -2051,6 +2051,9 @@ html.dark .select-pill.estado-hecho     { color: #57d99a; }
 .tabla-equipo tr.fila-colab:hover td:first-child {
   box-shadow: inset 3.5px 0 0 var(--av-c1, var(--c-secondary));
 }
+/* Sin ficha que abrir (solo el admin ve la de los demás) */
+.tabla-equipo tr.fila-sin-ficha { cursor: default; }
+.tabla-equipo tr.fila-sin-ficha:hover td:first-child { box-shadow: none; }
 .tabla-equipo thead th i { margin-right: 5px; color: var(--c-text-soft); }
 
 /* Chip copiable (git / correo) */

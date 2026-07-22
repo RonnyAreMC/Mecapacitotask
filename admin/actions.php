@@ -201,6 +201,9 @@ switch ($accion) {
         };
 
         if (!$proyectos->buscar($pid)) $fallar('Proyecto no encontrado.');
+        // Solo se anota en proyectos propios (un lector no puede escribir
+        // en un tablero ajeno mandando el id a mano).
+        if (!puedeVerProyecto($pid)) $fallar('No participas en ese proyecto.');
         $adjuntos = guardarAdjuntos('adjuntos');
         if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
             $fallar('Escribe la observación o adjunta un archivo.');

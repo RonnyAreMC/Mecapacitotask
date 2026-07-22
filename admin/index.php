@@ -12,6 +12,14 @@ $proyectos = $proyectosRepo->todos();
 $miembros  = $miembrosRepo->mapa();
 $todasTareas = $tareasRepo->todas();
 
+// Alcance del usuario: un colaborador de solo lectura ve unicamente
+// los proyectos en los que participa (y las tareas de esos proyectos).
+$alcance = alcanceProyectos();
+if ($alcance !== null) {
+    $proyectos   = soloProyectosVisibles($proyectos);
+    $todasTareas = array_values(array_filter($todasTareas, fn($t) => isset($alcance[(int)$t['proyecto_id']])));
+}
+
 // "Ver como": solo los proyectos y tareas de esa persona
 $verComo = verComo();
 if ($verComo) {
@@ -32,7 +40,9 @@ UI::cabecera(
     'Proyectos <span class="text-secondary">Mecapacito</span>',
     $verComo
         ? 'Viendo solo los proyectos y tareas de <b>' . e($verComo['nombre']) . '</b>.'
-        : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.',
+        : ($alcance !== null
+            ? 'Estos son los proyectos en los que participas.'
+            : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.'),
     '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
@@ -47,9 +57,13 @@ UI::cabecera(
 </section>
 
 <?php if (empty($proyectos)): ?>
-  <?= $verComo
-      ? UI::vacio('fa-mug-hot', 'Sin proyectos para ' . $verComo['nombre'], 'No tiene tareas asignadas en ningún proyecto. Quita el filtro "Ver como" para ver todo.')
-      : UI::vacio('fa-folder-plus', 'Aún no hay proyectos', 'Crea el primer proyecto del equipo con el botón "Nuevo proyecto".') ?>
+  <?php if ($verComo): ?>
+    <?= UI::vacio('fa-mug-hot', 'Sin proyectos para ' . $verComo['nombre'], 'No tiene tareas asignadas en ningún proyecto. Quita el filtro "Ver como" para ver todo.') ?>
+  <?php elseif ($alcance !== null): ?>
+    <?= UI::vacio('fa-mug-hot', 'Todavía no participas en ningún proyecto', 'Cuando te asignen una tarea o te inviten a una reunión, el proyecto aparecerá aquí.') ?>
+  <?php else: ?>
+    <?= UI::vacio('fa-folder-plus', 'Aún no hay proyectos', 'Crea el primer proyecto del equipo con el botón "Nuevo proyecto".') ?>
+  <?php endif; ?>
 <?php else: ?>
 <section class="proyectos-admin-grid">
   <?php foreach ($proyectos as $p):

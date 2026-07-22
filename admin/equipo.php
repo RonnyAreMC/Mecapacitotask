@@ -22,18 +22,24 @@ $equipo = array_values(array_filter(
     fn($m) => MiembroRepo::equipoDe($m) === $eq
 ));
 
-// Tareas por miembro: abiertas (no finales), total asignadas y detalle
+// Solo se abre la ficha ajena siendo administrador
+$yo = (int)(Auth::usuario()['id'] ?? 0);
+
+// Tareas por miembro: abiertas (no finales), total asignadas y detalle.
+// Para quien no es administrador, solo cuentan las de sus propios proyectos.
+$alcance  = alcanceProyectos();
 $finales  = Catalogo::estadosFinales();
 $abiertas = [];
 $asignadas = [];
 $tareasDe = [];
 $nombresProyecto = [];
-foreach ((new ProyectoRepo())->todos() as $p) {
+foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) {
     $nombresProyecto[(int)$p['id']] = $p['nombre'];
 }
 foreach ($tareasRepo->todas() as $t) {
     $mid = (int)($t['asignado_id'] ?? 0);
     if (!$mid) continue;
+    if ($alcance !== null && !isset($alcance[(int)$t['proyecto_id']])) continue;
     $asignadas[$mid] = ($asignadas[$mid] ?? 0) + 1;
     if (!in_array($t['estado'] ?? '', $finales, true)) {
         $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
@@ -61,7 +67,7 @@ UI::cabecera(
       <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
         <span class="tabla-count"><?= count($equipo) ?></span>
       </h2>
-      <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo · <i class="fa-solid fa-eye"></i> abre su ficha.</span>
+      <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo<?= esAdmin() ? ' · <i class="fa-solid fa-eye"></i> abre su ficha.' : '.' ?></span>
     </div>
     <div class="tabla-scroll">
       <table class="tabla-meca tabla-equipo">
@@ -80,9 +86,11 @@ UI::cabecera(
               $c1 = Catalogo::colorDe($m['color'] ?? 0);
               $mid = (int)$m['id'];
               $pendientes = $abiertas[$mid] ?? 0;
-              $ficha = 'colaborador.php?id=' . $mid;
+              // La ficha ajena es solo para el administrador
+              $ficha = (esAdmin() || $mid === $yo) ? 'colaborador.php?id=' . $mid : '';
           ?>
-          <tr class="fila-colab" style="--av-c1:<?= $c1 ?>" onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'">
+          <tr class="fila-colab<?= $ficha ? '' : ' fila-sin-ficha' ?>" style="--av-c1:<?= $c1 ?>"
+              <?php if ($ficha): ?>onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'"<?php endif; ?>>
             <td>
               <div class="celda-persona">
                 <?= UI::avatar($m, 38) ?>
@@ -132,7 +140,9 @@ UI::cabecera(
             </td>
             <?php endif; ?>
             <td class="celda-acciones">
+              <?php if ($ficha): ?>
               <a class="accion-btn" href="<?= $ficha ?>" title="Ver ficha"><i class="fa-solid fa-eye"></i></a>
+              <?php endif; ?>
             </td>
           </tr>
           <?php endforeach; ?>
