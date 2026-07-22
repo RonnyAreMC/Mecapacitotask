@@ -453,7 +453,8 @@ switch ($accion) {
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
             'github_token'     => $secreto($_POST['github_token'] ?? '', $prev['github_token'] ?? ''),
             'google_login'     => [
-                'activo'        => !empty($_POST['google_login']['activo']),
+                'activo'              => !empty($_POST['google_login']['activo']),
+                'vincular_por_nombre' => !empty($_POST['google_login']['vincular_por_nombre']),
                 'client_id'     => trim($_POST['google_login']['client_id'] ?? ''),
                 'client_secret' => $secreto($_POST['google_login']['client_secret'] ?? '', $prev['google_login']['client_secret'] ?? ''),
             ],

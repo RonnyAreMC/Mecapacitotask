@@ -10,7 +10,7 @@ require_once __DIR__ . '/Models.php';
 
 class GoogleLogin
 {
-    private static function conf(): array
+    public static function conf(): array
     {
         $g      = (array)(Config::get('google_login') ?? []);
         $correo = (array)(Config::get('correo') ?? []);
@@ -18,7 +18,77 @@ class GoogleLogin
             'activo'        => !empty($g['activo']),
             'client_id'     => trim($g['client_id'] ?? '')     ?: trim($correo['client_id'] ?? ''),
             'client_secret' => trim($g['client_secret'] ?? '') ?: trim($correo['client_secret'] ?? ''),
+            'vincular_por_nombre' => !empty($g['vincular_por_nombre']),
         ];
+    }
+
+    /** Quita tildes, mayusculas y todo lo que no sea letra: "Jaione Cherres" -> "jaionecherres". */
+    private static function normalizar(string $texto): string
+    {
+        $t = mb_strtolower(trim($texto), 'UTF-8');
+        $t = strtr($t, [
+            'á'=>'a','à'=>'a','ä'=>'a','â'=>'a','ã'=>'a',
+            'é'=>'e','è'=>'e','ë'=>'e','ê'=>'e',
+            'í'=>'i','ì'=>'i','ï'=>'i','î'=>'i',
+            'ó'=>'o','ò'=>'o','ö'=>'o','ô'=>'o','õ'=>'o',
+            'ú'=>'u','ù'=>'u','ü'=>'u','û'=>'u',
+            'ñ'=>'n','ç'=>'c',
+        ]);
+        return (string)preg_replace('/[^a-z0-9]/', '', $t);
+    }
+
+    /** Palabras normalizadas de un nombre, ignorando partículas y letras sueltas. */
+    private static function palabras(string $texto): array
+    {
+        $ignorar = ['de', 'del', 'la', 'las', 'los', 'y', 'da', 'do'];
+        $out = [];
+        foreach (preg_split('/[\s._-]+/', trim($texto)) as $p) {
+            $n = self::normalizar($p);
+            if (mb_strlen($n) < 2 || in_array($n, $ignorar, true)) continue;
+            $out[] = $n;
+        }
+        return $out;
+    }
+
+    /**
+     * Colaboradores que se parecen a la cuenta de Google.
+     *
+     * Coincide si el nombre completo es el mismo, si el usuario de Git calza,
+     * o si TODAS las palabras del nombre del colaborador aparecen en el nombre
+     * de Google (o en la parte local del correo). Así "Jaione Cherres" entra
+     * con jaionecherres@gmail.com y "Kevin" con "Kevin Sánchez".
+     */
+    public static function coincidenciasPorNombre(array $equipo, string $nombreGoogle, string $correo): array
+    {
+        $local     = self::normalizar(strtok($correo, '@') ?: '');
+        $nombreN   = self::normalizar($nombreGoogle);
+        $palabrasG = array_merge(self::palabras($nombreGoogle), self::palabras(strtok($correo, '@') ?: ''));
+        if ($nombreN === '' && $local === '') return [];
+
+        $out = [];
+        foreach ($equipo as $m) {
+            $miembroN = self::normalizar($m['nombre'] ?? '');
+            if ($miembroN === '') continue;
+
+            $gitN = self::normalizar($m['git_user'] ?? '');
+            $iguales = ($miembroN !== '' && ($miembroN === $nombreN || $miembroN === $local))
+                || ($gitN !== '' && ($gitN === $local || $gitN === $nombreN));
+
+            if (!$iguales) {
+                $palabrasM = self::palabras($m['nombre'] ?? '');
+                // Todas las palabras del colaborador tienen que estar en la
+                // cuenta de Google: "Ronny Arellano" no calza con "Ronny Pérez".
+                $iguales = $palabrasM !== [] && !array_diff($palabrasM, $palabrasG);
+                // Un solo nombre suelto ("Kevin") además debe aparecer completo
+                // en la parte local del correo o como primera palabra.
+                if ($iguales && count($palabrasM) === 1) {
+                    $iguales = str_contains($local, $palabrasM[0])
+                        || ($palabrasG !== [] && $palabrasG[0] === $palabrasM[0]);
+                }
+            }
+            if ($iguales) $out[] = $m;
+        }
+        return $out;
     }
 
     public static function listo(): bool

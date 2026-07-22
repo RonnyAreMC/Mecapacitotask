@@ -487,6 +487,17 @@ UI::cabecera(
             <input class="input-meca" type="password" name="google_login[client_secret]" value="" placeholder="<?= !empty($gl['client_secret']) ? '•••••••• guardado' : '' ?>">
           </label>
         </div>
+        <label class="chk-linea">
+          <input type="checkbox" name="google_login[vincular_por_nombre]" <?= !empty($gl['vincular_por_nombre']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Reconocer por nombre y apellido si el correo aún no está registrado
+        </label>
+        <small class="campo-ayuda">
+          Con esto, la cuenta de Google «Jaione Cherres» entra como la colaboradora
+          Jaione Cherres y su correo queda vinculado solo. Requiere que el nombre
+          calce completo y que esa persona todavía no tenga correo.
+          <b>Apágalo</b> si prefieres registrar tú cada correo a mano.
+        </small>
 
       </section>
 

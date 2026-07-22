@@ -204,9 +204,10 @@ final class Config
                 'admin_email'         => '',
             ],
             'google_login' => [
-                'activo'        => false,
-                'client_id'     => '',
-                'client_secret' => '',
+                'activo'              => true,
+                'client_id'           => '',
+                'client_secret'       => '',
+                'vincular_por_nombre' => true,
             ],
         ];
     }

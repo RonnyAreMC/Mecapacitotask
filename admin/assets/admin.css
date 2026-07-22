@@ -345,56 +345,260 @@ body[data-rol="lector"] .solo-admin { display: none !important; }
 html.sb-collapsed .sesion-info { display: none; }
 html.sb-collapsed .sesion-chip { flex-direction: column; gap: 8px; }
 
-/* ---------- Pantalla de login ---------- */
-.login-body { display: flex; align-items: center; justify-content: center; padding: 24px; }
-.login-caja { width: 100%; max-width: 430px; }
-.login-card { padding: 34px 32px 32px; }
-.login-card:hover { transform: none; }
-.login-marca { display: flex; align-items: center; gap: 13px; margin-bottom: 26px; }
-.login-marca img {
-  width: 52px; height: 52px; object-fit: contain;
-  background: #fff; border-radius: 15px; padding: 6px;
-  box-shadow: var(--sh-mini);
+/* ---------- Pantalla de login (partida: arte + formulario) ----------
+   El login siempre va en claro, sin importar el tema del panel: el lado
+   izquierdo es la escena oscura animada y el derecho el formulario blanco. */
+.login-body {
+  display: block; padding: 0; min-height: 100vh;
+  background: #fff;
 }
-.login-marca strong { display: block; font-size: 1.2rem; font-weight: 800; color: var(--c-text); }
+.login-split {
+  display: grid;
+  grid-template-columns: 1.08fr .92fr;
+  min-height: 100vh;
+}
+
+/* --- Lado izquierdo: escena de flujo de tareas --- */
+.login-arte {
+  position: relative;
+  overflow: hidden;
+  display: flex; align-items: flex-end;
+  padding: 52px 54px;
+  background:
+    radial-gradient(115% 85% at 10% 6%, rgba(43,118,247,.34), transparent 58%),
+    radial-gradient(85% 70% at 88% 20%, rgba(64,207,255,.22), transparent 60%),
+    radial-gradient(95% 85% at 78% 96%, rgba(43,182,115,.20), transparent 62%),
+    linear-gradient(155deg, #081327 0%, #0b1a33 45%, #0d2440 100%);
+  background-color: #0a1526;
+  color: #fff;
+  isolation: isolate;
+}
+.login-arte canvas {
+  position: absolute; inset: 0;
+  width: 100%; height: 100%;
+  z-index: 0;
+}
+/* Velo inferior: separa la escena del texto sin cortarla */
+.login-arte::after {
+  content: '';
+  position: absolute; inset: auto 0 0 0; height: 62%;
+  background: linear-gradient(to top,
+    rgba(7,17,33,.96) 0%, rgba(8,20,38,.86) 30%, rgba(9,23,44,.42) 66%, transparent 100%);
+  z-index: 0;
+  pointer-events: none;
+}
+.arte-txt { position: relative; z-index: 1; max-width: 30rem; }
+.arte-marca {
+  display: inline-flex; align-items: center; gap: 13px;
+  padding: 10px 18px 10px 10px; margin-bottom: 26px;
+  border-radius: 18px;
+  background: rgba(255,255,255,.07);
+  border: 1px solid rgba(255,255,255,.14);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 34px -22px rgba(0,0,0,.9);
+}
+.arte-marca img {
+  width: 44px; height: 44px; object-fit: contain;
+  background: #fff; border-radius: 13px; padding: 5px;
+}
+.arte-marca strong {
+  display: block; font-size: 1.05rem; font-weight: 800;
+  color: #fff; letter-spacing: -.01em;
+}
+.arte-marca span {
+  display: block; font-size: .62rem; font-weight: 700;
+  letter-spacing: .16em; text-transform: uppercase;
+  color: #40CFFF;
+}
+.arte-txt h2 {
+  margin: 0 0 14px;
+  font-family: var(--f-display, inherit);
+  font-size: clamp(1.6rem, 2.4vw, 2.3rem);
+  font-weight: 800; line-height: 1.2;
+  letter-spacing: -.02em;
+  color: #fff;
+}
+.arte-txt h2 em {
+  font-style: normal;
+  background: linear-gradient(100deg, #40CFFF 0%, #7AC943 55%, #2BB673 100%);
+  -webkit-background-clip: text; background-clip: text;
+  -webkit-text-fill-color: transparent; color: transparent;
+}
+.arte-txt p {
+  margin: 0 0 26px;
+  max-width: 27rem;
+  font-size: .95rem; line-height: 1.65;
+  color: rgba(255,255,255,.72);
+}
+/* Carrusel de chips: desfilan en bucle de derecha a izquierda */
+.arte-marquee {
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  padding: 4px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 7%, #000 88%, transparent);
+  mask-image: linear-gradient(90deg, transparent, #000 7%, #000 88%, transparent);
+}
+.arte-pista {
+  display: flex; align-items: center; gap: 10px;
+  width: max-content;
+  animation: arte-desfile 34s linear infinite;
+}
+.arte-marquee:hover .arte-pista { animation-play-state: paused; }
+@keyframes arte-desfile {
+  from { transform: translateX(0); }
+  to   { transform: translateX(-50%); }
+}
+.arte-chip {
+  display: inline-flex; align-items: center; gap: 8px;
+  flex: 0 0 auto;
+  padding: 9px 15px;
+  border-radius: 12px;
+  background: rgba(255,255,255,.06);
+  border: 1px solid rgba(255,255,255,.11);
+  font-size: .82rem; font-weight: 600;
+  white-space: nowrap;
+  color: rgba(255,255,255,.86);
+}
+.arte-chip i { font-size: .85rem; }
+.arte-chip.c0 i { color: #40CFFF; }   /* celeste */
+.arte-chip.c1 i { color: #2B76F7; }   /* azul */
+.arte-chip.c2 i { color: #2BB673; }   /* verde */
+.arte-chip.c3 i { color: #7AC943; }   /* verde lima */
+@media (prefers-reduced-motion: reduce) {
+  .arte-pista { animation: none; }
+}
+
+/* --- Lado derecho: el formulario --- */
+.login-panel {
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px 32px;
+  background: #fff;
+}
+.login-caja { width: 100%; max-width: 25rem; }
+.login-marca { display: flex; align-items: center; gap: 13px; margin-bottom: 34px; }
+.login-marca img {
+  width: 46px; height: 46px; object-fit: contain;
+  background: #fff; border-radius: 13px; padding: 5px;
+  box-shadow: 0 4px 14px -6px rgba(16,32,64,.35);
+  border: 1px solid #eceff5;
+}
+.login-marca strong { display: block; font-size: 1.1rem; font-weight: 800; color: #101828; }
 .login-marca span {
-  display: block; font-size: .68rem; font-weight: 700;
+  display: block; font-size: .64rem; font-weight: 700;
   letter-spacing: .14em; text-transform: uppercase; color: var(--c-secondary);
 }
-.login-card h1 { margin: 0 0 6px; font-size: 1.4rem; font-weight: 800; color: var(--c-text); }
-.login-sub { margin: 0 0 22px; font-size: .88rem; color: var(--c-text-soft); line-height: 1.55; }
-.login-form { display: flex; flex-direction: column; gap: 15px; }
+.login-caja h1 {
+  margin: 0 0 7px;
+  font-size: 1.55rem; font-weight: 800; letter-spacing: -.02em;
+  color: #101828;
+}
+.login-sub { margin: 0 0 26px; font-size: .9rem; color: #667085; line-height: 1.55; }
+.login-form { display: flex; flex-direction: column; gap: 16px; }
+
+/* Campos en claro, planos (aquí no hay neumorfismo) */
+.login-caja .campo > span {
+  display: block; margin-bottom: 7px;
+  font-size: .78rem; font-weight: 700; color: #344054;
+}
+.login-caja .input-prefijo {
+  display: flex; align-items: center; gap: 10px;
+  padding: 0 14px;
+  background: #fff;
+  border: 1.5px solid #e0e4eb;
+  border-radius: 12px;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.login-caja .input-prefijo:focus-within {
+  border-color: var(--c-secondary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-secondary) 14%, transparent);
+}
+.login-caja .input-prefijo > i {
+  position: static; transform: none;
+  color: #98a2b3; font-size: .9rem;
+}
+.login-caja .input-prefijo .input-meca { padding-left: 0; }
+.login-caja .input-prefijo .input-meca,
+.login-caja .campo .input-meca,
+.login-caja .select-meca {
+  flex: 1; min-width: 0;
+  padding: 13px 0;
+  background: none; border: none; box-shadow: none;
+  font-size: .95rem; color: #101828;
+}
+.login-caja .input-prefijo .input-meca:focus { box-shadow: none; }
+.login-caja .campo > .input-meca,
+.login-caja .select-meca {
+  padding: 13px 14px;
+  background: #fff;
+  border: 1.5px solid #e0e4eb;
+  border-radius: 12px;
+}
+.login-caja .campo > .input-meca:focus,
+.login-caja .select-meca:focus {
+  border-color: var(--c-secondary);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-secondary) 14%, transparent);
+}
 
 /* Botón "Continuar con Google" */
 .btn-google {
   display: flex; align-items: center; justify-content: center; gap: 11px;
   width: 100%; padding: 13px;
-  border-radius: 13px;
+  border-radius: 12px;
   background: #fff;
   border: 1.5px solid #dadce0;
   color: #3c4043;
   font-size: .92rem; font-weight: 600;
   text-decoration: none;
-  transition: box-shadow .2s ease, transform .2s ease;
+  transition: box-shadow .2s ease, transform .2s ease, border-color .2s ease;
 }
-.btn-google:hover { box-shadow: 0 6px 16px -8px rgba(0,0,0,.35); transform: translateY(-1px); }
-html.dark .btn-google { background: #fff; color: #3c4043; }
+.btn-google:hover {
+  border-color: #c6cad1;
+  box-shadow: 0 8px 20px -12px rgba(16,32,64,.55);
+  transform: translateY(-1px);
+}
 .login-sep {
   display: flex; align-items: center; gap: 12px;
   margin: 22px 0 18px;
-  color: var(--c-text-soft); font-size: .74rem; font-weight: 600;
-  text-transform: uppercase; letter-spacing: .04em;
+  color: #98a2b3; font-size: .72rem; font-weight: 700;
+  text-transform: uppercase; letter-spacing: .06em;
 }
 .login-sep::before, .login-sep::after {
-  content: ''; flex: 1; height: 1px; background: var(--c-border);
+  content: ''; flex: 1; height: 1px; background: #e7eaf0;
 }
-.login-btn { width: 100%; justify-content: center; margin-top: 6px; padding: 13px; }
+.login-btn {
+  width: 100%; justify-content: center;
+  margin-top: 8px; padding: 14px;
+  border-radius: 12px;
+  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--c-success, #22a06b) 90%, #000);
+}
 .login-pie {
-  margin: 20px 0 0; padding-top: 16px;
-  border-top: 1px dashed var(--c-border-soft);
-  font-size: .78rem; color: var(--c-text-soft);
+  margin: 24px 0 0; padding-top: 18px;
+  border-top: 1px solid #eef1f5;
+  font-size: .78rem; color: #667085; line-height: 1.55;
 }
 .login-pie i { color: var(--c-secondary); margin-right: 5px; }
+
+/* Responsive: el arte se convierte en una franja superior y luego desaparece */
+@media (max-width: 1040px) {
+  .login-split { grid-template-columns: 1fr; }
+  .login-arte {
+    min-height: 15rem;
+    padding: 34px 30px;
+    align-items: center;
+  }
+  .arte-txt h2 { font-size: 1.45rem; }
+  .arte-txt p { margin-bottom: 18px; font-size: .88rem; }
+  .login-panel { padding: 44px 26px 56px; }
+}
+@media (max-width: 560px) {
+  .login-arte { min-height: 11.5rem; padding: 26px 22px; }
+  .arte-txt p { display: none; }
+  /* El logo ya aparece sobre el formulario: no lo repetimos arriba */
+  .arte-marca { display: none; }
+  .arte-txt h2 { font-size: 1.25rem; margin-bottom: 16px; }
+  .login-marca { margin-bottom: 26px; }
+}
 
 /* =========================================================
    Main
