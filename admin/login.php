@@ -14,11 +14,6 @@ if (Auth::usuario()) {
 }
 $marca      = Config::all();
 $primerUso  = !Auth::hayAdmin();
-$miembros   = (new MiembroRepo())->todos();
-$opcMiembros = [];
-foreach ($miembros as $m) {
-    $opcMiembros[(int)$m['id']] = $m['nombre'] . (!empty($m['rol']) ? ' · ' . $m['rol'] : '');
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -89,37 +84,6 @@ foreach ($miembros as $m) {
         </div>
       </div>
 
-      <?php if ($primerUso): ?>
-        <h1 class="font-display">Primer acceso</h1>
-        <p class="login-sub">Elige quién será el <b>administrador</b> del panel y define su contraseña.
-          Los demás colaboradores entrarán en modo <b>solo lectura</b>.</p>
-
-        <form method="post" action="actions.php" class="login-form">
-          <input type="hidden" name="accion" value="auth_setup">
-          <label class="campo"><span>Administrador</span>
-            <?= UI::select('miembro_id', $opcMiembros, (string)array_key_first($opcMiembros)) ?>
-          </label>
-          <label class="campo"><span>Correo de acceso</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-envelope"></i>
-              <input class="input-meca" type="email" name="email" required placeholder="tucorreo@gmail.com">
-            </div>
-          </label>
-          <label class="campo"><span>Contraseña (mínimo 6 caracteres)</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-lock"></i>
-              <input class="input-meca" type="password" name="clave" required minlength="6">
-            </div>
-          </label>
-          <label class="campo"><span>Repetir contraseña</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-lock"></i>
-              <input class="input-meca" type="password" name="clave2" required minlength="6">
-            </div>
-          </label>
-          <button class="btn-primary btn-meca login-btn"><i class="fa-solid fa-shield-halved"></i> Crear administrador</button>
-        </form>
-      <?php else: ?>
         <h1 class="font-display">Entrar al panel</h1>
         <p class="login-sub"><?= GoogleLogin::listo() ? 'Entra con tu cuenta de Google o con tu contraseña.' : 'Usa tu correo o tu usuario de Git.' ?></p>
 
@@ -148,8 +112,14 @@ foreach ($miembros as $m) {
         </a>
         <?php endif; ?>
 
+        <?php if ($primerUso): ?>
+        <p class="login-pie login-pie-alerta">
+          <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
+          Créalo por terminal: <code>php admin/crear_admin.php</code>
+        </p>
+        <?php else: ?>
         <p class="login-pie"><i class="fa-solid fa-circle-info"></i> ¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
-      <?php endif; ?>
+        <?php endif; ?>
     </div>
   </main>
 

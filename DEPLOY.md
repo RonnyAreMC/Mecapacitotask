@@ -52,9 +52,20 @@ Si prefieres hacerlo a mano, entra a **Ajustes** y vuelve a poner correo, Zoom y
 token de GitHub (o sube el `config.json` por SFTP).
 
 ## Login y roles
-El panel trae autenticación propia. La primera vez que abras `mchub.mecapacito.com`
-te manda a **Primer acceso**: eliges quién es el administrador, su correo y su
-contraseña. A partir de ahí nadie entra sin sesión.
+El panel trae autenticación propia y **no hay forma de crear un administrador
+desde la web**: el primero se crea por terminal, así nadie que llegue a la URL
+puede darse acceso.
+
+```bash
+cd ~/mchub.mecapacito.com
+php admin/crear_admin.php --listar          # ver el equipo con sus ids
+php admin/crear_admin.php "Ronny" tucorreo@gmail.com TuClaveSegura
+```
+
+Sin argumentos (`php admin/crear_admin.php`) va preguntando paso a paso y
+oculta la contraseña mientras la escribes. El mismo comando sirve para cambiarle
+la clave a un admin que la olvidó. Los siguientes administradores ya se agregan
+desde el panel: **Equipo → editar la persona → Acceso: Administrador**.
 
 Hay dos niveles de acceso (se definen al crear o editar un colaborador):
 

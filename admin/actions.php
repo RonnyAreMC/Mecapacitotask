@@ -25,7 +25,7 @@ $accion = $_POST['accion'] ?? '';
    públicas      : sin sesión (login y primer acceso)
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
-$accionesPublicas   = ['auth_login', 'auth_setup'];
+$accionesPublicas   = ['auth_login'];
 $accionesDeCualquiera = ['auth_logout', 'obs_crear'];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -93,35 +93,6 @@ switch ($accion) {
             redirigir('index.php', '¡Bienvenido, ' . (Auth::usuario()['nombre'] ?? '') . '!');
         }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
-
-    case 'auth_setup':
-        // Solo funciona mientras no exista ningún administrador
-        if (Auth::hayAdmin()) {
-            redirigir('login.php', 'El panel ya tiene administrador.', 'error');
-        }
-        $clave = (string)($_POST['clave'] ?? '');
-        if (strlen($clave) < 6) {
-            redirigir('login.php', 'La contraseña debe tener al menos 6 caracteres.', 'error');
-        }
-        if ($clave !== ($_POST['clave2'] ?? '')) {
-            redirigir('login.php', 'Las contraseñas no coinciden.', 'error');
-        }
-        $mid = (int)($_POST['miembro_id'] ?? 0);
-        $m = $miembros->buscar($mid);
-        if (!$m) {
-            redirigir('login.php', 'Elige un colaborador válido.', 'error');
-        }
-        $correo = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL);
-        if (!$correo) {
-            redirigir('login.php', 'Escribe un correo válido para el acceso.', 'error');
-        }
-        $miembros->actualizar($mid, [
-            'email'     => $correo,
-            'acceso'    => 'admin',
-            'pass_hash' => Auth::hash($clave),
-        ]);
-        Auth::login($correo, $clave);
-        redirigir('index.php', '¡Listo! Ya eres el administrador del panel.');
 
     case 'auth_logout':
         Auth::salir();
