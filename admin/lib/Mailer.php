@@ -212,26 +212,58 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
-    /** Envoltura HTML con el branding del panel (título/subtítulo/color de Ajustes). */
+    /** Envoltura HTML con el branding del panel (logo, título, colores de Ajustes). */
     private static function plantilla(string $cuerpo, string $urlBoton = '', string $textoBoton = ''): string
     {
         $m = Config::all();
         $titulo = e($m['titulo'] ?? 'Panel');
         $sub    = strtoupper(e($m['subtitulo'] ?? ''));
         $acento = e($m['color_secundario'] ?? '#2B76F7');
-        $boton  = $urlBoton !== ''
-            ? '<div style="margin-top:20px"><a href="' . e($urlBoton) . '" style="display:inline-block;background:' . $acento . ';color:#fff;text-decoration:none;padding:12px 24px;border-radius:10px;font-size:14px;font-weight:bold;">' . e($textoBoton) . '</a></div>'
+        // URL absoluta del logo (mismo dominio del panel, carpeta /assets)
+        $raiz = preg_replace('#/admin/?$#', '', rtrim(self::conf()['url_panel'], '/'));
+        $logo = $raiz !== '' ? $raiz . '/assets/mecapacito-logo.png' : '';
+
+        $celdaLogo = $logo !== ''
+            ? '<td width="52" style="padding-right:14px;vertical-align:middle;">
+                 <img src="' . e($logo) . '" width="48" height="48" alt="' . $titulo . '"
+                      style="display:block;width:48px;height:48px;border-radius:12px;background:#fff;padding:5px;box-sizing:border-box;">
+               </td>'
             : '';
+
+        $boton = $urlBoton !== ''
+            ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:22px;">
+                 <tr><td style="border-radius:12px;background:' . $acento . ';">
+                   <a href="' . e($urlBoton) . '" target="_blank"
+                      style="display:inline-block;padding:13px 28px;color:#fff;text-decoration:none;font-size:14px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">'
+                   . e($textoBoton) . '</a>
+                 </td></tr>
+               </table>'
+            : '';
+
         return '
-<div style="margin:0;padding:24px;background:#eef1f7;font-family:Arial,Helvetica,sans-serif;">
-  <div style="max-width:560px;margin:0 auto;background:#fff;border-radius:16px;overflow:hidden;border:1px solid #e2e8f0;">
-    <div style="background:#2D3E50;padding:18px 26px;">
-      <span style="color:#fff;font-size:19px;font-weight:bold;">' . $titulo . '</span>'
-      . ($sub ? '<span style="color:' . $acento . ';font-size:12px;letter-spacing:2px;"> · ' . $sub . '</span>' : '') . '
-    </div>
-    <div style="padding:26px;">' . $cuerpo . $boton . '</div>
-    <div style="padding:14px 26px;background:#f6f8fb;color:#94a3b8;font-size:11px;">Correo automático del panel ' . $titulo . ' — no es necesario responder.</div>
-  </div>
+<div style="margin:0;padding:28px 16px;background:#e9edf4;font-family:Arial,Helvetica,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
+  <table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#ffffff;border-radius:20px;overflow:hidden;box-shadow:0 18px 50px -20px rgba(15,23,42,.35);">
+    <!-- Encabezado con logo y marca -->
+    <tr><td style="background-color:#242c3a;background-image:linear-gradient(135deg,#2D3E50 0%,#1A4B99 70%,' . $acento . ' 130%);padding:22px 28px;">
+      <table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+        . $celdaLogo .
+        '<td style="vertical-align:middle;">
+          <div style="color:#ffffff;font-size:22px;font-weight:800;letter-spacing:-.3px;">' . $titulo . '</div>'
+          . ($sub ? '<div style="color:' . $acento . ';font-size:11px;font-weight:700;letter-spacing:2.5px;margin-top:2px;">' . $sub . '</div>' : '') . '
+        </td>
+      </tr></table>
+    </td></tr>
+    <!-- Franja de acento -->
+    <tr><td style="height:4px;background:' . $acento . ';line-height:4px;font-size:0;">&nbsp;</td></tr>
+    <!-- Cuerpo -->
+    <tr><td style="padding:30px 30px 34px;color:#0f172a;">' . $cuerpo . $boton . '</td></tr>
+    <!-- Pie -->
+    <tr><td style="padding:18px 30px;background:#f6f8fb;border-top:1px solid #eef2f6;color:#94a3b8;font-size:11px;">
+      Correo automático de <b style="color:#64748b;">' . $titulo . '</b> — no es necesario responder.
+    </td></tr>
+  </table>
+  </td></tr></table>
 </div>';
     }
 
