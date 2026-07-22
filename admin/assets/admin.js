@@ -314,12 +314,202 @@ const MecaDate = {
 };
 MecaDate.init();
 
+/* =========================================================
+   MecaWizard - asistente por pasos de los modales apaisados.
+   Marca el formulario con novalidate y valida panel a panel,
+   asi el navegador nunca intenta enfocar un campo escondido.
+   ========================================================= */
+const MecaWizard = {
+  init(scope) {
+    (scope || document).querySelectorAll('form.wz:not([data-wz])').forEach((f) => this.montar(f));
+  },
+
+  /** Texto legible del valor de un control (para el resumen final). */
+  valorDe(ctrl) {
+    if (!ctrl) return '';
+    if (ctrl.tagName === 'SELECT') {
+      const elegidas = [...ctrl.selectedOptions].filter((o) => o.value !== '0' && o.value !== '');
+      return elegidas.map((o) => o.textContent.trim()).join(', ');
+    }
+    return (ctrl.value || '').trim();
+  },
+
+  /** Rellena el resumen del ultimo paso con lo que se lleva escrito. */
+  resumir(form) {
+    const caja = form.querySelector('.wz-resumen');
+    if (!caja) return;
+    caja.innerHTML = '';
+    form.querySelectorAll('.wz-panel .campo').forEach((campo) => {
+      if (campo.hasAttribute('data-sin-resumen')) return;
+      const etiqueta = campo.querySelector(':scope > span');
+      // Los campos de fecha quedan como input[type=hidden] tras MecaDate,
+      // asi que se reconocen por su marca data-md en vez de por el tipo.
+      const ctrl = [...campo.querySelectorAll('select, textarea, input')].find((c) =>
+        c.dataset.md !== undefined ||
+        !['radio', 'checkbox', 'color', 'hidden', 'submit', 'button'].includes(c.type));
+      if (!etiqueta || !ctrl) return;
+      const valor = this.valorDe(ctrl);
+      const fila = document.createElement('div');
+      const dt = document.createElement('dt');
+      const dd = document.createElement('dd');
+      dt.textContent = etiqueta.textContent.replace('*', '').trim();
+      dd.textContent = valor || '— sin definir —';
+      if (!valor) dd.className = 'vacio';
+      fila.append(dt, dd);
+      caja.appendChild(fila);
+    });
+  },
+
+  montar(form) {
+    form.dataset.wz = '1';
+    form.setAttribute('novalidate', '');
+    const pasos    = [...form.querySelectorAll('.wz-paso')];
+    const paneles  = [...form.querySelectorAll('.wz-panel')];
+    const btnAtras = form.querySelector('.wz-atras');
+    const btnSig   = form.querySelector('.wz-siguiente');
+    const btnOk    = form.querySelector('.wz-guardar');
+    const contador = form.querySelector('.wz-contador');
+    const tituloEl = form.querySelector('.wz-titulo-paso');
+    const ayudaEl  = form.querySelector('.wz-ayuda-paso');
+    if (!paneles.length) return;
+    let actual = 0;
+
+    // Controles del panel que el navegador puede validar
+    const controles = (i) => [...paneles[i].querySelectorAll('input, select, textarea')]
+      .filter((c) => c.willValidate && !c.disabled);
+    const valido  = (i) => controles(i).every((c) => c.checkValidity());
+    const avisar  = (i) => {
+      const malo = controles(i).find((c) => !c.checkValidity());
+      if (malo) malo.reportValidity();
+    };
+
+    const ir = (i) => {
+      actual = Math.max(0, Math.min(paneles.length - 1, i));
+      const ultimo = actual === paneles.length - 1;
+      paneles.forEach((p, n) => p.classList.toggle('activo', n === actual));
+      pasos.forEach((p, n) => {
+        p.classList.toggle('activo', n === actual);
+        p.classList.toggle('hecho', n < actual);
+        const num = p.querySelector('.wz-num');
+        if (num) num.innerHTML = n < actual ? '<i class="fa-solid fa-check"></i>' : String(n + 1);
+      });
+      if (contador) contador.textContent = 'Paso ' + (actual + 1) + ' de ' + paneles.length;
+      const pasoAct = pasos[actual];
+      if (tituloEl && pasoAct) tituloEl.textContent = pasoAct.dataset.titulo || '';
+      if (ayudaEl && pasoAct) ayudaEl.textContent = pasoAct.dataset.ayuda || '';
+      btnAtras?.classList.toggle('wz-oculto', actual === 0);
+      btnSig?.classList.toggle('wz-oculto', ultimo);
+      btnOk?.classList.toggle('wz-oculto', !ultimo);
+      if (ultimo) this.resumir(form);
+      const foco = paneles[actual].querySelector('input:not([type=hidden]):not([type=radio]):not([type=color]), textarea');
+      if (foco) setTimeout(() => foco.focus({ preventScroll: true }), 60);
+    };
+
+    const avanzar = () => { if (valido(actual)) ir(actual + 1); else avisar(actual); };
+
+    btnSig?.addEventListener('click', avanzar);
+    btnAtras?.addEventListener('click', () => ir(actual - 1));
+    pasos.forEach((p, n) => p.addEventListener('click', () => {
+      if (n <= actual) return ir(n);
+      for (let i = actual; i < n; i++) {
+        if (!valido(i)) { ir(i); avisar(i); return; }
+      }
+      ir(n);
+    }));
+
+    form.addEventListener('submit', (e) => {
+      // Enter a media asistente avanza en vez de enviar
+      if (e.submitter !== btnOk) {
+        e.preventDefault();
+        avanzar();
+        return;
+      }
+      const fallo = paneles.findIndex((_, i) => !valido(i));
+      if (fallo !== -1) {
+        e.preventDefault();
+        ir(fallo);
+        avisar(fallo);
+      }
+    });
+
+    // Cada vez que se abre el modal, vuelve al primer paso
+    const dlg = form.closest('dialog');
+    if (dlg) {
+      new MutationObserver(() => { if (dlg.open) ir(0); })
+        .observe(dlg, { attributes: true, attributeFilter: ['open'] });
+    }
+    ir(0);
+  },
+};
+MecaWizard.init();
+
 // Fija el valor de un input de fecha y refresca su MecaDate
 function setFecha(el, valor) {
   if (!el) return;
   el.value = valor || '';
   el.dispatchEvent(new Event('md-sync'));
 }
+
+/* ---------- Fechas de inicio/limite en los asistentes ---------- */
+
+const isoDeFecha = (d) =>
+  d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+
+/** Aviso en vivo: cuánto dura la tarea, o si las fechas están al revés. */
+function actualizarDuracion(form) {
+  const txt = form.querySelector('.wz-duracion');
+  if (!txt) return;
+  const ini = form.querySelector('input[name="fecha_inicio"]')?.value || '';
+  const fin = form.querySelector('input[name="fecha_limite"]')?.value || '';
+  txt.classList.remove('duracion-mal');
+  if (!ini && !fin) { txt.textContent = 'Sin fechas: la tarea no aparecerá en el calendario.'; return; }
+  if (!ini || !fin) {
+    txt.textContent = ini ? 'Arranca el ' + ini + ', sin fecha límite.' : 'Con fecha límite el ' + fin + ', sin fecha de inicio.';
+    return;
+  }
+  const dias = Math.round((new Date(fin + 'T12:00') - new Date(ini + 'T12:00')) / 86400000);
+  if (dias < 0) {
+    txt.textContent = 'El inicio es posterior a la fecha límite: corrige una de las dos.';
+    txt.classList.add('duracion-mal');
+    return;
+  }
+  txt.textContent = dias === 0
+    ? 'Empieza y termina el mismo día.'
+    : 'Ventana de ' + (dias + 1) + ' días (del ' + ini + ' al ' + fin + ').';
+}
+
+// Chips "Hoy / Mañana / El lunes que viene / En dos semanas"
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-atajos-fecha] .chip-atajo');
+  if (!chip) return;
+  const form = chip.closest('form');
+  const ini = form?.querySelector('input[name="fecha_inicio"]');
+  if (!ini) return;
+
+  if (chip.hasAttribute('data-limpiar')) {
+    setFecha(ini, '');
+  } else {
+    const d = new Date();
+    d.setHours(12, 0, 0, 0);
+    if (chip.hasAttribute('data-lunes')) {
+      d.setDate(d.getDate() + (((8 - d.getDay()) % 7) || 7));   // el próximo lunes
+    } else {
+      d.setDate(d.getDate() + parseInt(chip.dataset.dias || '0', 10));
+    }
+    setFecha(ini, isoDeFecha(d));
+  }
+  form.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
+  chip.classList.add('activo');
+  actualizarDuracion(form);
+});
+
+// Recalcular el aviso cuando se toca cualquiera de las dos fechas
+document.addEventListener('change', (e) => {
+  const inp = e.target;
+  if (inp.name !== 'fecha_inicio' && inp.name !== 'fecha_limite') return;
+  const form = inp.closest('form');
+  if (form) actualizarDuracion(form);
+});
 
 // Formularios con confirmacion propia: <form data-confirmar="mensaje">
 // (delegado: funciona también con formularios agregados dinámicamente)
@@ -393,15 +583,48 @@ if (masterDetail) {
   if (guardada) seleccionar(guardada);
 }
 
-// Copiar al portapapeles (usuarios de git, correos...)
+// Copiar al portapapeles (usuarios de git, correos...).
+// navigator.clipboard solo existe en contexto seguro (HTTPS o localhost),
+// asi que hay un respaldo con un textarea temporal para el resto de casos.
+function copiarAlPortapapeles(texto) {
+  if (navigator.clipboard && window.isSecureContext) {
+    return navigator.clipboard.writeText(texto);
+  }
+  return new Promise((resolver, rechazar) => {
+    const ta = document.createElement('textarea');
+    ta.value = texto;
+    ta.setAttribute('readonly', '');
+    ta.style.cssText = 'position:fixed;top:-1000px;opacity:0';
+    document.body.appendChild(ta);
+    ta.select();
+    ta.setSelectionRange(0, ta.value.length);   // iOS
+    const ok = document.execCommand && document.execCommand('copy');
+    ta.remove();
+    ok ? resolver() : rechazar(new Error('sin portapapeles'));
+  });
+}
+
 document.addEventListener('click', async (e) => {
   const btn = e.target.closest('.btn-copiar');
   if (!btn) return;
+  const texto = btn.dataset.copiar || '';
+  if (!texto) return;
   try {
-    await navigator.clipboard.writeText(btn.dataset.copiar);
-    MC.toast('Copiado: ' + btn.dataset.copiar, 'success', 2500);
+    await copiarAlPortapapeles(texto);
+    MC.toast('Copiado: ' + texto, 'success', 2500);
+    // Confirmacion en el propio boton: el icono pasa a un check un momento
+    const icono = btn.querySelector('i');
+    if (icono && !btn.classList.contains('copiado')) {
+      const clasesAntes = icono.className;
+      btn.classList.add('copiado');
+      icono.className = 'fa-solid fa-check';
+      setTimeout(() => {
+        btn.classList.remove('copiado');
+        icono.className = clasesAntes;
+      }, 1200);
+    }
   } catch {
-    MC.toast('No se pudo copiar al portapapeles.', 'error');
+    MC.toast('No se pudo copiar. Selecciona el texto y usa Ctrl+C.', 'error');
   }
 });
 
@@ -690,7 +913,9 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     dlg.querySelector('#et-id').value = t.id;
     dlg.querySelector('#et-titulo').value = t.titulo;
     dlg.querySelector('#et-descripcion').value = t.descripcion;
+    setFecha(dlg.querySelector('#et-inicio'), t.fecha_inicio);
     setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
+    dlg.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
     setSelect(dlg.querySelector('.js-et-asignado'), t.asignado_id);
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);
@@ -700,6 +925,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
       [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
       setSelect(dep, t.depende_de || 0);
     }
+    actualizarDuracion(dlg.querySelector('form'));
     dlg.showModal();
   });
 });

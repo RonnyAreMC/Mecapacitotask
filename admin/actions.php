@@ -61,6 +61,20 @@ function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $ta
 }
 
 /**
+ * Comprueba el par inicio/limite de una tarea. Devuelve [inicio, limite]
+ * ya normalizados, o redirige con un error si el inicio queda despues.
+ */
+function fechasTarea(array $post, string $volver): array
+{
+    $inicio = ProyectoRepo::fecha($post['fecha_inicio'] ?? '');
+    $limite = ProyectoRepo::fecha($post['fecha_limite'] ?? '');
+    if ($inicio !== '' && $limite !== '' && $inicio > $limite) {
+        redirigir($volver, 'La fecha de inicio (' . $inicio . ') no puede ser posterior a la fecha límite (' . $limite . ').', 'error');
+    }
+    return [$inicio, $limite];
+}
+
+/**
  * Si la tarea quedo asignada a alguien nuevo, le envia el correo.
  * Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
@@ -107,6 +121,18 @@ switch ($accion) {
         $p = $proyectos->crear($_POST);
         redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.');
 
+    case 'proyecto_equipo':
+        // Guarda solo la lista de participantes (desde el tablero)
+        $id = (int)($_POST['id'] ?? 0);
+        if (!$proyectos->buscar($id)) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        $equipoNuevo = ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []);
+        $proyectos->actualizar($id, ['miembros' => $equipoNuevo]);
+        redirigir('proyecto.php?id=' . $id, $equipoNuevo
+            ? 'Equipo del proyecto actualizado: ' . count($equipoNuevo) . ' persona(s).'
+            : 'El proyecto queda abierto a todo el equipo.');
+
     case 'proyecto_editar':
         $id = (int)($_POST['id'] ?? 0);
         if (!$proyectos->buscar($id)) {
@@ -120,6 +146,8 @@ switch ($accion) {
             'estado'        => $_POST['estado'] ?? 'activo',
             'icono'         => $_POST['icono'] ?? 'fa-rocket',
             'color'         => Catalogo::colorEntrada($_POST),
+            'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
+            'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
         ]);
         redirigir('proyecto.php?id=' . $id, 'Proyecto actualizado.');
 
@@ -141,6 +169,7 @@ switch ($accion) {
         if (trim($_POST['titulo'] ?? '') === '') {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
         }
+        fechasTarea($_POST, 'proyecto.php?id=' . $pid);   // corta si el inicio va después del límite
         $t = $tareas->crear($_POST);
         $dep = $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), $pid);
         if ($dep !== (int)$t['depende_de']) {
@@ -165,13 +194,15 @@ switch ($accion) {
             redirigir('index.php', 'Tarea no encontrada.', 'error');
         }
         $asignadoAntes = (int)($t['asignado_id'] ?? 0);
+        [$fIni, $fLim] = fechasTarea($_POST, 'proyecto.php?id=' . $t['proyecto_id']);
         $tareas->actualizar((int)$t['id'], [
             'titulo'       => trim($_POST['titulo'] ?? ''),
             'descripcion'  => trim($_POST['descripcion'] ?? ''),
             'prioridad'    => $_POST['prioridad'] ?? 'media',
             'estado'       => $_POST['estado'] ?? 'pendiente',
             'asignado_id'  => (int)($_POST['asignado_id'] ?? 0),
-            'fecha_limite' => $_POST['fecha_limite'] ?? '',
+            'fecha_inicio' => $fIni,
+            'fecha_limite' => $fLim,
             'depende_de'   => $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), (int)$t['proyecto_id']),
         ]);
         $tActual = $tareas->buscar((int)$t['id']);

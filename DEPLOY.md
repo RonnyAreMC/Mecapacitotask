@@ -82,6 +82,7 @@ está en el servidor (`actions.php`), no solo en la interfaz.
 
 Solo los proyectos **en los que participa**, y se participa si en ese proyecto:
 
+- figura en el **equipo del proyecto** (Editar proyecto → Equipo), o
 - tiene al menos una **tarea asignada**, o
 - está **invitado a una reunión**, o
 - **escribió una observación**.
@@ -115,6 +116,25 @@ Las contraseñas se guardan con `password_hash` (bcrypt), nunca en claro. Los
 secretos de Ajustes (Zoom, Gmail, GitHub, Google) ya **no se imprimen en el HTML**:
 el campo aparece vacío con el texto “•••••••• guardado”. Si lo dejas vacío al
 guardar, se conserva el que ya estaba; escribe uno nuevo solo para reemplazarlo.
+
+## Equipo del proyecto y fechas de inicio
+
+**Editar proyecto → Equipo** define quién participa. Con la lista puesta, al
+crear o editar una tarea el selector «Asignado a» **solo ofrece a esa gente**
+(en vez de a todo el equipo), y esas personas ganan acceso al proyecto aunque
+todavía no tengan tareas. Si no eliges a nadie, el proyecto queda **abierto a
+todo el equipo**: los proyectos de antes de esta versión siguen así, no hay que
+migrar nada.
+
+> Si alguien ya tenía una tarea asignada y luego sale del equipo del proyecto,
+> se le sigue ofreciendo en el selector para no perder esa asignación.
+
+Tareas y proyectos tienen **fecha de inicio** además de la fecha límite, así que
+puedes dejar una tarea programada para más adelante. El paso «Fechas» del
+asistente trae atajos (*Hoy*, *Mañana*, *El lunes que viene*, *En dos semanas*)
+y avisa de la ventana que queda. Una tarea cuyo inicio aún no llegó se marca en
+el tablero con **«en N d»**. El servidor rechaza guardar si el inicio queda
+después del límite.
 
 ## Actualizar a futuro
 ```bash

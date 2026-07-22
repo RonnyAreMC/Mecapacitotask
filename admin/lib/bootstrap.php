@@ -165,8 +165,9 @@ function esAdmin(): bool
  * Devuelve null si los ve todos (administrador) o un set
  * [proyecto_id => true] con aquellos en los que participa.
  *
- * Se participa en un proyecto si se tiene una tarea asignada, si se esta
- * invitado a alguna de sus reuniones o si se escribio una observacion.
+ * Se participa en un proyecto si se figura en su equipo, si se tiene una
+ * tarea asignada, si se esta invitado a alguna de sus reuniones o si se
+ * escribio una observacion.
  */
 function alcanceProyectos(): ?array
 {
@@ -179,6 +180,12 @@ function alcanceProyectos(): ?array
     $yo  = (int)(Auth::usuario()['id'] ?? 0);
     $ids = [];
     if ($yo > 0) {
+        foreach ((new ProyectoRepo())->todos() as $p) {
+            $suEquipo = ProyectoRepo::miembrosDe($p);
+            if ($suEquipo !== null && in_array($yo, $suEquipo, true)) {
+                $ids[(int)$p['id']] = true;
+            }
+        }
         foreach ((new TareaRepo())->todas() as $t) {
             if ((int)($t['asignado_id'] ?? 0) === $yo) {
                 $ids[(int)$t['proyecto_id']] = true;

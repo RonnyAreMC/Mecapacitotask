@@ -29,6 +29,12 @@ if ($verComo) {
     $proyectos = array_values(array_filter($proyectos, fn($p) => isset($pidsVc[(int)$p['id']])));
 }
 
+// Equipo completo, para elegir participantes al crear un proyecto
+$opcionesEquipo = [];
+foreach ($miembrosRepo->todos() as $m) {
+    $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+}
+
 $finales     = Catalogo::estadosFinales();
 $primerEstadoProyecto = array_key_first(Catalogo::estadosProyecto());
 $activos    = count(array_filter($proyectos, fn($p) => ($p['estado'] ?? '') === $primerEstadoProyecto));
@@ -119,63 +125,86 @@ UI::cabecera(
 </section>
 <?php endif; ?>
 
-<!-- Modal: nuevo proyecto -->
-<dialog id="dlg-nuevo" class="dlg-meca">
-  <form method="post" action="actions.php" class="dlg-form">
+<!-- Modal: nuevo proyecto (asistente por pasos) -->
+<dialog id="dlg-nuevo" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="proyecto_crear">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-folder-plus text-secondary"></i> Nuevo proyecto</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
+    <?= UI::wizardRiel('fa-folder-plus', 'Nuevo proyecto', 'Se creará en el panel del equipo', UI::PASOS_PROYECTO) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
 
-    <label class="campo">
-      <span>Nombre del proyecto *</span>
-      <input class="input-meca" name="nombre" required maxlength="80" placeholder="Ej. App de delivery">
-    </label>
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Nombre del proyecto *</span>
+          <input class="input-meca" name="nombre" required maxlength="80" placeholder="Ej. App de delivery">
+        </label>
+        <label class="campo">
+          <span>Descripción</span>
+          <textarea class="input-meca" name="descripcion" rows="3" placeholder="¿De qué trata el proyecto?"></textarea>
+        </label>
+        <label class="campo">
+          <span>Fecha de inicio</span>
+          <input class="input-meca" type="date" name="fecha_inicio">
+          <small class="campo-ayuda">Cuándo arranca el proyecto. Puedes dejarlo vacío.</small>
+        </label>
+      </section>
 
-    <label class="campo">
-      <span>Descripción</span>
-      <textarea class="input-meca" name="descripcion" rows="2" placeholder="¿De qué trata el proyecto?"></textarea>
-    </label>
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Participantes del proyecto</span>
+          <?= UI::select('miembros', $opcionesEquipo, [], false, '', true) ?>
+          <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+      </section>
 
-    <div class="campo-doble">
-      <label class="campo">
-        <span><i class="fa-solid fa-server"></i> Repositorio backend</span>
-        <input class="input-meca" name="repo" type="url" placeholder="https://github.com/…/backend">
-      </label>
-      <label class="campo">
-        <span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span>
-        <input class="input-meca" name="repo_frontend" type="url" placeholder="https://github.com/…/frontend">
-      </label>
-    </div>
+      <section class="wz-panel">
+        <label class="campo">
+          <span><i class="fa-solid fa-server"></i> Repositorio backend</span>
+          <input class="input-meca" name="repo" type="url" placeholder="https://github.com/…/backend">
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span>
+          <input class="input-meca" name="repo_frontend" type="url" placeholder="https://github.com/…/frontend">
+        </label>
+        <label class="campo">
+          <span>Estado</span>
+          <?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), 'activo') ?>
+        </label>
+      </section>
 
-    <div class="campo-doble">
-      <label class="campo">
-        <span>Estado</span>
-        <?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), 'activo') ?>
-      </label>
-      <div class="campo">
-        <span>Ícono</span>
-        <div class="icon-picker">
-          <?php foreach (Catalogo::iconosProyecto() as $i => $ic): ?>
-          <label>
-            <input type="radio" name="icono" value="<?= $ic ?>" <?= $i === 0 ? 'checked' : '' ?>>
-            <i class="fa-solid <?= $ic ?>"></i>
-          </label>
-          <?php endforeach; ?>
+      <section class="wz-panel">
+        <div class="campo" data-sin-resumen>
+          <span>Ícono</span>
+          <div class="icon-picker">
+            <?php foreach (Catalogo::iconosProyecto() as $i => $ic): ?>
+            <label>
+              <input type="radio" name="icono" value="<?= $ic ?>" <?= $i === 0 ? 'checked' : '' ?>>
+              <i class="fa-solid <?= $ic ?>"></i>
+            </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <div class="campo" data-sin-resumen>
+          <span>Color</span>
+          <?= UI::colorPicker(0) ?>
+        </div>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
         </div>
       </div>
     </div>
-
-    <div class="campo">
-      <span>Color</span>
-      <?= UI::colorPicker(0) ?>
-    </div>
-
-    <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Crear proyecto</button>
-    </footer>
   </form>
 </dialog>
 

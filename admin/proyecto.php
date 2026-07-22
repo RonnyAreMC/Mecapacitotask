@@ -36,13 +36,36 @@ $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     return true;
 });
 
+// Equipo del proyecto: si esta definido, los selectores de tareas y reuniones
+// solo ofrecen a esas personas (null = proyecto abierto a todo el equipo).
+$equipoProyecto = ProyectoRepo::miembrosDe($proyecto);
+$delProyecto = $equipoProyecto === null
+    ? $miembros
+    : array_filter($miembros, fn($m) => in_array((int)$m['id'], $equipoProyecto, true));
+
+// Quien ya tiene tareas aqui pero salio del equipo: se sigue ofreciendo para
+// no perder la asignacion existente al editar la tarea.
+foreach ($tareas as $t) {
+    $mid = (int)($t['asignado_id'] ?? 0);
+    if ($mid && isset($miembros[$mid]) && !isset($delProyecto[$mid])) {
+        $delProyecto[$mid] = $miembros[$mid];
+    }
+}
+uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+
 $opcionesMiembros = [0 => '— Sin asignar —'];
 $opcionesFiltro   = [0 => 'Todo el equipo'];
 $opcionesInvitados = [];
-foreach ($miembros as $m) {
+foreach ($delProyecto as $m) {
     $opcionesMiembros[$m['id']]  = $m['nombre'] . ' (@' . $m['git_user'] . ')';
     $opcionesFiltro[$m['id']]    = $m['nombre'];
     $opcionesInvitados[$m['id']] = $m['nombre'] . (!empty($m['email']) ? ' · ' . $m['email'] : '');
+}
+
+// Todo el equipo, para el selector de participantes del proyecto
+$opcionesEquipo = [];
+foreach ($miembros as $m) {
+    $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
 }
 
 // Dependencias: opciones (todas las tareas del proyecto) y mapa por id
@@ -137,6 +160,12 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php elseif ($obsPendientes > 0): ?>
           <a class="badge-entrega alerta" href="#vista-observaciones"><i class="fa-solid fa-triangle-exclamation"></i>
             <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>
+        <?php endif; ?>
+        <?php if (!empty($proyecto['fecha_inicio'])): ?>
+        <span class="ph-fecha"><i class="fa-regular fa-flag"></i> Inicia <?= e($proyecto['fecha_inicio']) ?></span>
+        <?php endif; ?>
+        <?php if ($equipoProyecto !== null): ?>
+        <span class="ph-fecha"><i class="fa-solid fa-user-group"></i> <?= count($equipoProyecto) ?> participante<?= count($equipoProyecto) === 1 ? '' : 's' ?></span>
         <?php endif; ?>
         <span class="ph-fecha"><i class="fa-regular fa-calendar"></i> Creado <?= e($proyecto['creado'] ?? '') ?></span>
       </div>
@@ -282,12 +311,18 @@ foreach ($tareas as $t) {
           <td><?= UI::badgePrioridad($t['prioridad']) ?></td>
           <td><?= UI::selectEstadoTarea($t) ?></td>
           <td>
+            <?php $arranque = TareaRepo::arranque($t); ?>
+            <?php if ($arranque === 'programada'): ?>
+              <span class="celda-fecha fecha-programada" title="Todavía no arranca: empieza el <?= e($t['fecha_inicio']) ?>">
+                <i class="fa-regular fa-hourglass-half"></i> en <?= TareaRepo::diasParaArrancar($t) ?> d
+              </span>
+            <?php endif; ?>
             <?php if (!empty($t['fecha_limite'])): ?>
               <span class="celda-fecha <?= $vencida ? 'fecha-vencida' : '' ?>">
                 <i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?>
                 <?php if ($vencida): ?><i class="fa-solid fa-triangle-exclamation" title="Vencida"></i><?php endif; ?>
               </span>
-            <?php else: ?>
+            <?php elseif ($arranque === ''): ?>
               <span class="celda-fecha celda-muted">—</span>
             <?php endif; ?>
           </td>
@@ -300,6 +335,7 @@ foreach ($tareas as $t) {
                   'prioridad' => $t['prioridad'],
                   'estado' => $t['estado'],
                   'asignado_id' => (int)$t['asignado_id'],
+                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '',
                   'depende_de' => (int)($t['depende_de'] ?? 0),
               ], JSON_UNESCAPED_UNICODE)) ?>'>
@@ -458,6 +494,7 @@ foreach ($tareas as $t) {
             data-editar-tarea='<?= e(json_encode([
                 'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
                 'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignado_id' => (int)$t['asignado_id'],
+                'fecha_inicio' => $t['fecha_inicio'] ?? '',
                 'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
             ], JSON_UNESCAPED_UNICODE)) ?>'>
             <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
@@ -753,111 +790,207 @@ foreach ($tareas as $t) {
 </dialog>
 <?php endif; ?>
 
-<!-- Modal: nueva tarea -->
-<dialog id="dlg-nueva-tarea" class="dlg-meca dlg-tarea">
-  <form method="post" action="actions.php" class="dlg-form">
+<!-- Modal: nueva tarea (asistente por pasos) -->
+<dialog id="dlg-nueva-tarea" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="tarea_crear">
     <input type="hidden" name="proyecto_id" value="<?= $id ?>">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-circle-plus text-secondary"></i> Nueva tarea</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <label class="campo">
-      <span>Título *</span>
-      <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google">
-    </label>
-    <label class="campo">
-      <span>Descripción</span>
-      <textarea class="input-meca" name="descripcion" rows="2" placeholder="Detalles, criterios de aceptación..."></textarea>
-    </label>
-    <div class="campo-doble">
-      <label class="campo"><span>Asignado a</span><?= UI::select('asignado_id', $opcionesMiembros, '0') ?></label>
-      <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
+    <?= UI::wizardRiel('fa-circle-plus', 'Nueva tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Título *</span>
+          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google">
+        </label>
+        <label class="campo">
+          <span>Descripción</span>
+          <textarea class="input-meca" name="descripcion" rows="3" placeholder="Detalles, criterios de aceptación..."></textarea>
+        </label>
+        <div class="campo-doble">
+          <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
+          <label class="campo"><span>Estado inicial</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente') ?></label>
+        </div>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Asignado a</span>
+          <?= UI::select('asignado_id', $opcionesMiembros, '0') ?>
+          <small class="campo-ayuda"><?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
+        </label>
+        <label class="campo">
+          <span>Depende de (opcional)</span>
+          <?= UI::select('depende_de', $opcionesDependencia, '0') ?>
+          <small class="campo-ayuda">La tarea quedará "en espera" hasta que su dependencia se complete.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <div class="campo-doble">
+          <label class="campo"><span>Fecha de inicio</span>
+            <input class="input-meca" type="date" name="fecha_inicio">
+          </label>
+          <label class="campo"><span>Fecha límite</span>
+            <input class="input-meca" type="date" name="fecha_limite">
+          </label>
+        </div>
+        <?= UI::atajosFecha() ?>
+      </section>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear tarea</button>
+        </div>
+      </div>
     </div>
-    <div class="campo-doble">
-      <label class="campo"><span>Estado inicial</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente') ?></label>
-      <label class="campo"><span>Fecha límite</span><input class="input-meca" type="date" name="fecha_limite"></label>
-    </div>
-    <label class="campo">
-      <span>Depende de (opcional)</span>
-      <?= UI::select('depende_de', $opcionesDependencia, '0') ?>
-      <small class="campo-ayuda">La tarea quedará "en espera" hasta que su dependencia se complete.</small>
-    </label>
-    <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Crear tarea</button>
-    </footer>
   </form>
 </dialog>
 
 <!-- Modal: editar tarea (se rellena por JS) -->
-<dialog id="dlg-editar-tarea" class="dlg-meca dlg-tarea">
-  <form method="post" action="actions.php" class="dlg-form">
+<dialog id="dlg-editar-tarea" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="tarea_editar">
     <input type="hidden" name="id" id="et-id">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-pen text-secondary"></i> Editar tarea</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
-    <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" id="et-descripcion" rows="2"></textarea></label>
-    <div class="campo-doble">
-      <label class="campo"><span>Asignado a</span><?= UI::select('asignado_id', $opcionesMiembros, '0', false, 'js-et-asignado') ?></label>
-      <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
-    </div>
-    <div class="campo-doble">
-      <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
-      <label class="campo"><span>Fecha límite</span><input class="input-meca" type="date" name="fecha_limite" id="et-fecha"></label>
-    </div>
-    <label class="campo">
-      <span>Depende de (opcional)</span>
-      <?= UI::select('depende_de', $opcionesDependencia, '0', false, 'js-et-depende') ?>
-      <small class="campo-ayuda">No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
-    </label>
-    <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
-    </footer>
-  </form>
-</dialog>
+    <?= UI::wizardRiel('fa-pen', 'Editar tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
 
-<!-- Modal: editar proyecto -->
-<dialog id="dlg-editar-proyecto" class="dlg-meca">
-  <form method="post" action="actions.php" class="dlg-form">
-    <input type="hidden" name="accion" value="proyecto_editar">
-    <input type="hidden" name="id" value="<?= $id ?>">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-folder-open text-secondary"></i> Editar proyecto</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <label class="campo"><span>Nombre *</span><input class="input-meca" name="nombre" required value="<?= e($proyecto['nombre']) ?>"></label>
-    <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" rows="2"><?= e($proyecto['descripcion']) ?></textarea></label>
-    <div class="campo-doble">
-      <label class="campo"><span><i class="fa-solid fa-server"></i> Repositorio backend</span><input class="input-meca" type="url" name="repo" value="<?= e($proyecto['repo'] ?? '') ?>" placeholder="https://github.com/…/backend"></label>
-      <label class="campo"><span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span><input class="input-meca" type="url" name="repo_frontend" value="<?= e($proyecto['repo_frontend'] ?? '') ?>" placeholder="https://github.com/…/frontend"></label>
-    </div>
-    <div class="campo-doble">
-      <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>
-      <div class="campo">
-        <span>Ícono</span>
-        <div class="icon-picker">
-          <?php foreach (Catalogo::iconosProyecto() as $ic): ?>
-          <label>
-            <input type="radio" name="icono" value="<?= $ic ?>" <?= $proyecto['icono'] === $ic ? 'checked' : '' ?>>
-            <i class="fa-solid <?= $ic ?>"></i>
+      <section class="wz-panel">
+        <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
+        <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" id="et-descripcion" rows="3"></textarea></label>
+        <div class="campo-doble">
+          <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
+          <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
+        </div>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Asignado a</span>
+          <?= UI::select('asignado_id', $opcionesMiembros, '0', false, 'js-et-asignado') ?>
+          <small class="campo-ayuda"><?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
+        </label>
+        <label class="campo">
+          <span>Depende de (opcional)</span>
+          <?= UI::select('depende_de', $opcionesDependencia, '0', false, 'js-et-depende') ?>
+          <small class="campo-ayuda">No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <div class="campo-doble">
+          <label class="campo"><span>Fecha de inicio</span>
+            <input class="input-meca" type="date" name="fecha_inicio" id="et-inicio">
           </label>
-          <?php endforeach; ?>
+          <label class="campo"><span>Fecha límite</span>
+            <input class="input-meca" type="date" name="fecha_limite" id="et-fecha">
+          </label>
+        </div>
+        <?= UI::atajosFecha() ?>
+      </section>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>
       </div>
     </div>
-    <div class="campo">
-      <span>Color</span>
-      <?= UI::colorPicker($proyecto['color'] ?? 0) ?>
+  </form>
+</dialog>
+
+<!-- Modal: editar proyecto (asistente por pasos) -->
+<dialog id="dlg-editar-proyecto" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
+    <input type="hidden" name="accion" value="proyecto_editar">
+    <input type="hidden" name="id" value="<?= $id ?>">
+    <?= UI::wizardRiel('fa-folder-open', 'Editar proyecto', $proyecto['nombre'], UI::PASOS_PROYECTO) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo"><span>Nombre *</span><input class="input-meca" name="nombre" required value="<?= e($proyecto['nombre']) ?>"></label>
+        <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" rows="3"><?= e($proyecto['descripcion']) ?></textarea></label>
+        <label class="campo"><span>Fecha de inicio</span>
+          <input class="input-meca" type="date" name="fecha_inicio" value="<?= e($proyecto['fecha_inicio'] ?? '') ?>">
+          <small class="campo-ayuda">Cuándo arranca el proyecto. Se muestra en la cabecera del tablero.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Participantes del proyecto</span>
+          <?= UI::select('miembros', $opcionesEquipo, $equipoProyecto ?? [], false, '', true) ?>
+          <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo"><span><i class="fa-solid fa-server"></i> Repositorio backend</span><input class="input-meca" type="url" name="repo" value="<?= e($proyecto['repo'] ?? '') ?>" placeholder="https://github.com/…/backend"></label>
+        <label class="campo"><span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span><input class="input-meca" type="url" name="repo_frontend" value="<?= e($proyecto['repo_frontend'] ?? '') ?>" placeholder="https://github.com/…/frontend"></label>
+        <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>
+      </section>
+
+      <section class="wz-panel">
+        <div class="campo" data-sin-resumen>
+          <span>Ícono</span>
+          <div class="icon-picker">
+            <?php foreach (Catalogo::iconosProyecto() as $ic): ?>
+            <label>
+              <input type="radio" name="icono" value="<?= $ic ?>" <?= $proyecto['icono'] === $ic ? 'checked' : '' ?>>
+              <i class="fa-solid <?= $ic ?>"></i>
+            </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+        <div class="campo" data-sin-resumen>
+          <span>Color</span>
+          <?= UI::colorPicker($proyecto['color'] ?? 0) ?>
+        </div>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
+        </div>
+      </div>
     </div>
-    <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
-    </footer>
   </form>
 </dialog>
 

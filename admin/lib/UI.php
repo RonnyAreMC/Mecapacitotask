@@ -356,9 +356,11 @@ class UI
     /**
      * Select estilizado. $opciones: clave => etiqueta (o [etiqueta, icono]).
      * $auto: true => envia el formulario al cambiar (edicion en linea).
+     * $valor: con $multiple es una lista de claves; si no, una sola clave.
      */
-    public static function select(string $name, array $opciones, string $valor = '', bool $auto = false, string $clase = '', bool $multiple = false): string
+    public static function select(string $name, array $opciones, string|int|array|null $valor = '', bool $auto = false, string $clase = '', bool $multiple = false): string
     {
+        $valor ??= '';
         $attrs = $auto ? ' onchange="this.form.submit()"' : '';
         $seleccion = $multiple ? array_map('strval', (array)$valor) : [(string)$valor];
         $nombre = $multiple ? $name . '[]' : $name;
@@ -426,6 +428,75 @@ class UI
         }
         $html .= '</div></details></div>';
         return $html;
+    }
+
+    /* ---------- Asistente por pasos (modales apaisados) ---------- */
+
+    /**
+     * Pasos de los modales. Cada fila es [etiqueta corta del riel,
+     * titulo del panel, texto de ayuda].
+     */
+    public const PASOS_TAREA = [
+        ['Detalle',    'Qué hay que hacer',       'Ponle un título claro y, si quieres, los criterios de aceptación.'],
+        ['Asignación', 'Quién la saca adelante',  'Elige a la persona responsable y si espera a otra tarea.'],
+        ['Fechas',     'Cuándo empieza y acaba',  'Puedes programarla para que arranque más adelante.'],
+        ['Revisión',   'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
+    ];
+
+    public const PASOS_PROYECTO = [
+        ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
+        ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],
+        ['Repos',      'Código y estado',         'Enlaza los repositorios para ver la actividad de commits.'],
+        ['Aspecto',    'Ícono y color',           'Cómo se distingue el proyecto en el panel.'],
+    ];
+
+    /** Riel lateral con la marca del modal y la lista de pasos. */
+    public static function wizardRiel(string $icono, string $titulo, string $sub, array $pasos): string
+    {
+        $html = '<aside class="wz-riel">'
+              . '<div class="wz-marca">'
+              . '<span class="wz-icono"><i class="fa-solid ' . e($icono) . '"></i></span>'
+              . '<h3 class="font-display">' . e($titulo) . '</h3>'
+              . '<p>' . e($sub) . '</p>'
+              . '</div><div class="wz-pasos">';
+        foreach ($pasos as $i => [$corto, $tituloPaso, $ayuda]) {
+            $html .= '<button type="button" class="wz-paso" data-titulo="' . e($tituloPaso) . '" data-ayuda="' . e($ayuda) . '">'
+                   . '<span class="wz-num">' . ($i + 1) . '</span>'
+                   . '<span class="wz-txt"><b>' . e($corto) . '</b><small>' . e($ayuda) . '</small></span>'
+                   . '</button>';
+        }
+        return $html . '</div></aside>';
+    }
+
+    /** Texto de ayuda bajo el selector de asignado. */
+    public static function ayudaEquipoProyecto(?array $equipoProyecto): string
+    {
+        if ($equipoProyecto === null) {
+            return 'Este proyecto está abierto a todo el equipo. Definí sus participantes en «Editar» para acortar esta lista.';
+        }
+        $n = count($equipoProyecto);
+        return 'Solo se listan ' . $n . ' participante' . ($n === 1 ? '' : 's') . ' del proyecto.';
+    }
+
+    /**
+     * Atajos para la fecha de inicio ("la otra semana", etc.) y aviso en vivo
+     * de cuántos días dura la tarea. Los resuelve admin.js.
+     */
+    public static function atajosFecha(): string
+    {
+        $atajos = [
+            ['dias' => 0,  'label' => 'Hoy'],
+            ['dias' => 1,  'label' => 'Mañana'],
+            ['lunes' => 1, 'label' => 'El lunes que viene'],
+            ['dias' => 14, 'label' => 'En dos semanas'],
+        ];
+        $html = '<div class="wz-atajos" data-atajos-fecha><span class="wz-atajos-tit">Empezar</span>';
+        foreach ($atajos as $a) {
+            $attr = isset($a['lunes']) ? 'data-lunes="1"' : 'data-dias="' . (int)$a['dias'] . '"';
+            $html .= '<button type="button" class="chip-atajo" ' . $attr . '>' . e($a['label']) . '</button>';
+        }
+        $html .= '<button type="button" class="chip-atajo chip-atajo-off" data-limpiar="1">Sin fecha</button></div>';
+        return $html . '<p class="campo-ayuda wz-duracion"></p>';
     }
 
     /* ---------- Varios ---------- */

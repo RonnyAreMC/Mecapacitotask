@@ -342,7 +342,44 @@ class ProyectoRepo
             'estado'        => $datos['estado'] ?? 'activo',
             'icono'         => $datos['icono'] ?? 'fa-rocket',
             'color'         => Catalogo::colorEntrada($datos),
+            'fecha_inicio'  => self::fecha($datos['fecha_inicio'] ?? ''),
+            'miembros'      => self::miembrosEntrada($datos['miembros'] ?? []),
         ]);
+    }
+
+    /** Valida una fecha 'Y-m-d'; devuelve '' si no lo es. */
+    public static function fecha(?string $v): string
+    {
+        $v = trim((string)$v);
+        if ($v === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $v)) {
+            return '';
+        }
+        [$a, $m, $d] = array_map('intval', explode('-', $v));
+        return checkdate($m, $d, $a) ? $v : '';
+    }
+
+    /** Normaliza la lista de miembros del proyecto: ids unicos y positivos. */
+    public static function miembrosEntrada(mixed $valor): array
+    {
+        $ids = array_values(array_unique(array_filter(
+            array_map('intval', (array)$valor),
+            fn($n) => $n > 0
+        )));
+        sort($ids);
+        return $ids;
+    }
+
+    /**
+     * Ids del equipo asignado al proyecto. Un proyecto sin lista definida
+     * (los de antes de esta funcion) se considera abierto a todo el equipo:
+     * devuelve null para que quien llame no filtre nada.
+     */
+    public static function miembrosDe(array $p): ?array
+    {
+        if (!isset($p['miembros']) || !is_array($p['miembros']) || $p['miembros'] === []) {
+            return null;
+        }
+        return array_map('intval', $p['miembros']);
     }
 
     public function actualizar(int $id, array $datos): bool
@@ -514,9 +551,31 @@ class TareaRepo
             'estado'      => $datos['estado'] ?? 'pendiente',
             'prioridad'   => $datos['prioridad'] ?? 'media',
             'asignado_id' => (int)($datos['asignado_id'] ?? 0),
-            'fecha_limite'=> $datos['fecha_limite'] ?? '',
+            'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
+            'fecha_limite'=> ProyectoRepo::fecha($datos['fecha_limite'] ?? ''),
             'depende_de'  => (int)($datos['depende_de'] ?? 0),
         ]);
+    }
+
+    /**
+     * Estado temporal de una tarea segun su fecha de inicio:
+     * 'programada' si empieza en el futuro, 'curso' si ya arranco, '' si no
+     * tiene fecha de inicio. Sirve para marcarla en el tablero.
+     */
+    public static function arranque(array $t): string
+    {
+        $ini = $t['fecha_inicio'] ?? '';
+        if ($ini === '') return '';
+        return $ini > date('Y-m-d') ? 'programada' : 'curso';
+    }
+
+    /** Dias que faltan para que arranque (0 si ya arranco o no tiene fecha). */
+    public static function diasParaArrancar(array $t): int
+    {
+        if (self::arranque($t) !== 'programada') return 0;
+        $hoy = new DateTime('today');
+        $ini = DateTime::createFromFormat('Y-m-d', $t['fecha_inicio']);
+        return $ini ? max(0, (int)$hoy->diff($ini)->format('%r%a')) : 0;
     }
 
     public function actualizar(int $id, array $datos): bool
