@@ -2312,6 +2312,55 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .colab-acciones { display: flex; align-items: center; gap: 10px; }
 .colab-acciones form { margin: 0; }
 
+/* =========================================================
+   Intercambios de tareas
+   ========================================================= */
+.inter-intro { margin: 0 18px 4px; }
+.inter-lista { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 18px; }
+.inter-item {
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  border-left: 3px solid var(--c-border-soft);
+}
+.inter-item.inter-pendiente { border-left-color: var(--c-naranja); }
+.inter-item.inter-aceptado  { border-left-color: var(--c-verde-esmeralda); }
+.inter-item.inter-rechazado { border-left-color: var(--c-terracota); }
+.inter-item.inter-cancelado { opacity: .68; }
+
+.inter-cab { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; margin-bottom: 12px; }
+.inter-estado {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 11px; border-radius: 999px;
+  font-size: .74rem; font-weight: 800;
+}
+.inter-estado.est-pendiente { background: rgba(247,147,30,.14); color: var(--c-naranja); }
+.inter-estado.est-aceptado  { background: rgba(43,182,115,.14); color: var(--c-verde-esmeralda); }
+.inter-estado.est-rechazado { background: rgba(198,107,45,.14); color: var(--c-terracota); }
+.inter-estado.est-cancelado { background: var(--c-bg-soft); color: var(--c-text-soft); }
+.inter-motivo { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; font-weight: 600; color: var(--c-text-muted); }
+.inter-motivo i { color: var(--c-secondary); }
+.inter-fecha { margin-left: auto; font-size: .72rem; color: var(--c-text-soft); }
+
+.inter-cuerpo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.inter-lado { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 210px; }
+.inter-lado small { display: block; font-size: .7rem; color: var(--c-text-soft); font-weight: 600; }
+.inter-lado b { display: block; font-size: .88rem; color: var(--c-text); }
+.inter-flecha { color: var(--c-secondary); font-size: 1rem; flex: none; }
+
+.inter-nota {
+  margin: 12px 0 0; padding: 10px 12px;
+  border-radius: 11px; background: var(--c-bg-soft);
+  font-size: .84rem; color: var(--c-text-muted); line-height: 1.5;
+}
+.inter-nota i { color: var(--c-text-soft); margin-right: 6px; }
+.inter-respuesta { border-left: 2px solid var(--c-secondary); }
+
+.inter-acciones { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
+.inter-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; }
+.inter-form .input-sm { padding: 8px 12px; font-size: .82rem; min-width: 200px; }
+
 /* Chip de proyecto en la tabla de tareas de la ficha */
 .chip-proyecto {
   display: inline-flex; align-items: center; gap: 7px;

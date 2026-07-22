@@ -26,7 +26,12 @@ $accion = $_POST['accion'] ?? '';
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
 $accionesPublicas   = ['auth_login'];
-$accionesDeCualquiera = ['auth_logout', 'obs_crear', 'perfil_guardar'];
+// Los intercambios los pide y responde la propia gente, no un administrador:
+// cada accion comprueba por dentro que la tarea sea suya.
+$accionesDeCualquiera = [
+    'auth_logout', 'obs_crear', 'perfil_guardar',
+    'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
+];
 
 if (!in_array($accion, $accionesPublicas, true)) {
     if (in_array($accion, $accionesDeCualquiera, true)) {
@@ -58,6 +63,28 @@ function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $ta
     } elseif (!$completo && $yaAvisado) {
         $proyectos->actualizar($proyectoId, ['entrega_notificada' => 0]);
     }
+}
+
+/**
+ * Avisa por correo a quienes acaban de entrar al equipo del proyecto.
+ * Solo a los nuevos: comparar antes/despues evita reenviar a los que ya
+ * estaban cada vez que se guarda el proyecto.
+ * Devuelve el sufijo para el mensaje flash.
+ */
+function avisarNuevosDelProyecto(array $antes, array $despues, array $proyecto, MiembroRepo $miembros): string
+{
+    $nuevos = array_diff($despues, $antes);
+    if (!$nuevos || !Mailer::listo()) {
+        return '';
+    }
+    $avisados = 0;
+    foreach ($nuevos as $mid) {
+        $m = $miembros->buscar((int)$mid);
+        if ($m && Mailer::notificarEquipoProyecto($m, $proyecto) === true) {
+            $avisados++;
+        }
+    }
+    return $avisados ? ' 📧 ' . $avisados . ' persona(s) avisada(s) por correo.' : '';
 }
 
 /**
@@ -119,25 +146,31 @@ switch ($accion) {
             redirigir('index.php', 'El nombre del proyecto es obligatorio.', 'error');
         }
         $p = $proyectos->crear($_POST);
-        redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.');
+        $avisoEquipo = avisarNuevosDelProyecto([], (array)($p['miembros'] ?? []), $p, $miembros);
+        redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.' . $avisoEquipo);
 
     case 'proyecto_equipo':
         // Guarda solo la lista de participantes (desde el tablero)
         $id = (int)($_POST['id'] ?? 0);
-        if (!$proyectos->buscar($id)) {
+        $p = $proyectos->buscar($id);
+        if (!$p) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
+        $equipoAntes = (array)($p['miembros'] ?? []);
         $equipoNuevo = ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []);
         $proyectos->actualizar($id, ['miembros' => $equipoNuevo]);
-        redirigir('proyecto.php?id=' . $id, $equipoNuevo
+        $avisoEquipo = avisarNuevosDelProyecto($equipoAntes, $equipoNuevo, $proyectos->buscar($id), $miembros);
+        redirigir('proyecto.php?id=' . $id, ($equipoNuevo
             ? 'Equipo del proyecto actualizado: ' . count($equipoNuevo) . ' persona(s).'
-            : 'El proyecto queda abierto a todo el equipo.');
+            : 'El proyecto queda abierto a todo el equipo.') . $avisoEquipo);
 
     case 'proyecto_editar':
         $id = (int)($_POST['id'] ?? 0);
-        if (!$proyectos->buscar($id)) {
+        $p = $proyectos->buscar($id);
+        if (!$p) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
+        $equipoAntes = (array)($p['miembros'] ?? []);
         $proyectos->actualizar($id, [
             'nombre'        => trim($_POST['nombre'] ?? ''),
             'descripcion'   => trim($_POST['descripcion'] ?? ''),
@@ -149,7 +182,9 @@ switch ($accion) {
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
         ]);
-        redirigir('proyecto.php?id=' . $id, 'Proyecto actualizado.');
+        $pAhora = $proyectos->buscar($id);
+        $avisoEquipo = avisarNuevosDelProyecto($equipoAntes, (array)($pAhora['miembros'] ?? []), $pAhora, $miembros);
+        redirigir('proyecto.php?id=' . $id, 'Proyecto actualizado.' . $avisoEquipo);
 
     case 'proyecto_estado':
         $id = (int)($_POST['id'] ?? 0);
@@ -302,6 +337,128 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $o['proyecto_id'] . '#vista-observaciones', 'Observación eliminada.');
         }
         redirigir('index.php', 'Observación no encontrada.', 'error');
+
+    /* ---------- Intercambio de tareas ---------- */
+
+    case 'intercambio_crear':
+        $inter = new IntercambioRepo();
+        $yo    = Auth::usuario();
+        $miId  = (int)($yo['id'] ?? 0);
+        $pid   = (int)($_POST['proyecto_id'] ?? 0);
+        $volver = 'proyecto.php?id=' . $pid . '#vista-intercambios';
+
+        if (!$proyectos->buscar($pid) || !puedeVerProyecto($pid)) {
+            redirigir('index.php', 'Ese proyecto no es tuyo.', 'error');
+        }
+        $tMia  = $tareas->buscar((int)($_POST['tarea_de'] ?? 0));
+        $tSuya = $tareas->buscar((int)($_POST['tarea_para'] ?? 0));
+        if (!$tMia || !$tSuya) {
+            redirigir($volver, 'Elige las dos tareas del intercambio.', 'error');
+        }
+        if ((int)$tMia['proyecto_id'] !== $pid || (int)$tSuya['proyecto_id'] !== $pid) {
+            redirigir($volver, 'Las dos tareas tienen que ser de este proyecto.', 'error');
+        }
+        // Solo se ofrece lo propio: un admin puede mover tareas sin pedir permiso
+        if (!esAdmin() && (int)$tMia['asignado_id'] !== $miId) {
+            redirigir($volver, 'Solo puedes ofrecer una tarea que sea tuya.', 'error');
+        }
+        $paraId = (int)$tSuya['asignado_id'];
+        if ($paraId === 0) {
+            redirigir($volver, 'Esa tarea no tiene responsable: no hay con quién intercambiar.', 'error');
+        }
+        if ($paraId === (int)$tMia['asignado_id']) {
+            redirigir($volver, 'Las dos tareas ya son de la misma persona.', 'error');
+        }
+        if ($inter->tareaComprometida((int)$tMia['id'], (int)$tSuya['id'])) {
+            redirigir($volver, 'Una de esas tareas ya está en una propuesta pendiente. Resuélvela primero.', 'error');
+        }
+        if (!isset(Catalogo::MOTIVOS_INTERCAMBIO[$_POST['motivo'] ?? ''])) {
+            redirigir($volver, 'Elige el motivo del intercambio.', 'error');
+        }
+
+        $nuevo = $inter->crear([
+            'proyecto_id' => $pid,
+            'de_id'       => (int)$tMia['asignado_id'],
+            'para_id'     => $paraId,
+            'tarea_de'    => (int)$tMia['id'],
+            'tarea_para'  => (int)$tSuya['id'],
+            'motivo'      => $_POST['motivo'],
+            'nota'        => $_POST['nota'] ?? '',
+        ]);
+
+        $mDe   = $miembros->buscar((int)$nuevo['de_id']);
+        $mPara = $miembros->buscar($paraId);
+        $aviso = '';
+        if ($mDe && $mPara) {
+            $r = Mailer::notificarIntercambio($nuevo, $mDe, $mPara, $tMia, $tSuya, $proyectos->buscar($pid));
+            if ($r === true)          $aviso = ' 📧 ' . $mPara['nombre'] . ' fue avisado por correo.';
+            elseif (is_string($r))    $aviso = ' Pero el correo falló: ' . $r;
+        }
+        redirigir($volver, 'Propuesta enviada a ' . ($mPara['nombre'] ?? '') . '.' . $aviso);
+
+    case 'intercambio_responder':
+        $inter = new IntercambioRepo();
+        $yo    = Auth::usuario();
+        $miId  = (int)($yo['id'] ?? 0);
+        $x     = $inter->buscar((int)($_POST['id'] ?? 0));
+        if (!$x) {
+            redirigir('index.php', 'Esa propuesta no existe.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $x['proyecto_id'] . '#vista-intercambios';
+        if (($x['estado'] ?? '') !== 'pendiente') {
+            redirigir($volver, 'Esa propuesta ya estaba resuelta.', 'error');
+        }
+        // Responde a quien va dirigida (o un administrador)
+        if (!esAdmin() && (int)$x['para_id'] !== $miId) {
+            redirigir($volver, 'Esa propuesta no va dirigida a ti.', 'error');
+        }
+        $acepta = ($_POST['respuesta'] ?? '') === 'aceptar';
+
+        if ($acepta) {
+            // Cruzar responsables. Se releen por si algo cambio entretanto.
+            $tA = $tareas->buscar((int)$x['tarea_de']);
+            $tB = $tareas->buscar((int)$x['tarea_para']);
+            if (!$tA || !$tB) {
+                $inter->actualizar((int)$x['id'], ['estado' => 'cancelado', 'resuelto_en' => date('Y-m-d H:i'),
+                                                   'respuesta' => 'Una de las tareas ya no existe.']);
+                redirigir($volver, 'Una de las tareas ya no existe: la propuesta se canceló.', 'error');
+            }
+            $tareas->actualizar((int)$tA['id'], ['asignado_id' => (int)$x['para_id']]);
+            $tareas->actualizar((int)$tB['id'], ['asignado_id' => (int)$x['de_id']]);
+        }
+
+        $inter->actualizar((int)$x['id'], [
+            'estado'      => $acepta ? 'aceptado' : 'rechazado',
+            'respuesta'   => trim($_POST['nota'] ?? ''),
+            'resuelto_en' => date('Y-m-d H:i'),
+        ]);
+
+        $quien = $miembros->buscar($miId);
+        $dest  = $miembros->buscar((int)$x['de_id']);
+        if ($quien && $dest) {
+            Mailer::notificarRespuestaIntercambio(
+                $inter->buscar((int)$x['id']), $quien, $dest, $proyectos->buscar((int)$x['proyecto_id']), $acepta);
+        }
+        redirigir($volver, $acepta
+            ? 'Intercambio aceptado: las tareas ya cambiaron de responsable.'
+            : 'Propuesta rechazada. No se cambió nada.');
+
+    case 'intercambio_cancelar':
+        $inter = new IntercambioRepo();
+        $miId  = (int)(Auth::usuario()['id'] ?? 0);
+        $x     = $inter->buscar((int)($_POST['id'] ?? 0));
+        if (!$x) {
+            redirigir('index.php', 'Esa propuesta no existe.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $x['proyecto_id'] . '#vista-intercambios';
+        if (!esAdmin() && (int)$x['de_id'] !== $miId) {
+            redirigir($volver, 'Solo quien propuso el intercambio puede retirarlo.', 'error');
+        }
+        if (($x['estado'] ?? '') !== 'pendiente') {
+            redirigir($volver, 'Esa propuesta ya estaba resuelta.', 'error');
+        }
+        $inter->actualizar((int)$x['id'], ['estado' => 'cancelado', 'resuelto_en' => date('Y-m-d H:i')]);
+        redirigir($volver, 'Propuesta retirada.');
 
     /* ---------- Mi perfil (cada quien edita lo suyo) ---------- */
 
@@ -544,6 +701,8 @@ switch ($accion) {
             'client_secret' => $secreto($correoPost['client_secret'] ?? '', $prev['correo']['client_secret'] ?? ''),
             'refresh_token' => $secreto($correoPost['refresh_token'] ?? '', $prev['correo']['refresh_token'] ?? ''),
             'avisar_asignacion'   => !empty($correoPost['avisar_asignacion']),
+            'avisar_proyecto'     => !empty($correoPost['avisar_proyecto']),
+            'avisar_intercambio'  => !empty($correoPost['avisar_intercambio']),
             'avisar_recordatorio' => !empty($correoPost['avisar_recordatorio']),
             'dias_recordatorio'   => max(0, min(30, (int)($correoPost['dias_recordatorio'] ?? 3))),
             'avisar_completado'   => !empty($correoPost['avisar_completado']),

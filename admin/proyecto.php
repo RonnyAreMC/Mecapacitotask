@@ -94,6 +94,29 @@ $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
 
+// Intercambios de tareas
+$interRepo      = new IntercambioRepo();
+$intercambios   = $interRepo->delProyecto($id);
+$interResumen   = $interRepo->resumen($id);
+$interPendientes = $interResumen['pendiente'];
+$miId           = (int)(Auth::usuario()['id'] ?? 0);
+
+// Mis tareas aqui (las que puedo ofrecer) y las del resto (las que puedo pedir)
+$misTareasAqui = array_values(array_filter($tareas, fn($t) => (int)($t['asignado_id'] ?? 0) === $miId));
+$tareasDeOtros = array_values(array_filter($tareas, fn($t) => (int)($t['asignado_id'] ?? 0) > 0
+    && (int)$t['asignado_id'] !== $miId));
+
+$opcionesMisTareas = [];
+foreach ($misTareasAqui as $t) {
+    $opcionesMisTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 46, '…');
+}
+$opcionesOtrasTareas = [];
+foreach ($tareasDeOtros as $t) {
+    $duenio = $miembros[(int)$t['asignado_id']]['nombre'] ?? '?';
+    $opcionesOtrasTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 34, '…') . ' · ' . $duenio;
+}
+$puedeIntercambiar = $opcionesMisTareas !== [] && $opcionesOtrasTareas !== [];
+
 // Reuniones (Zoom)
 $reunionesRepo = new ReunionRepo();
 $reuniones     = $reunionesRepo->delProyecto($id);
@@ -216,6 +239,9 @@ foreach ($tareas as $t) {
     <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
     <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
+    </button>
+    <button type="button" class="tab-btn" data-vista="intercambios"><i class="fa-solid fa-right-left"></i> Intercambios
+      <?php if ($interPendientes > 0): ?><span class="tab-badge"><?= $interPendientes ?></span><?php endif; ?>
     </button>
     <button type="button" class="tab-btn" data-vista="reuniones"><i class="fa-solid fa-video"></i> Reuniones
       <?php if (count($reuniones)): ?><span class="tab-badge tab-badge-zoom"><?= count($reuniones) ?></span><?php endif; ?>
@@ -515,6 +541,174 @@ foreach ($tareas as $t) {
     </div>
   </section>
 </div>
+
+<!-- Vista Intercambios de tareas -->
+<div data-vista-panel="intercambios" hidden>
+  <section class="card-base tabla-card" style="--pc:<?= $color ?>">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-right-left text-secondary"></i> Intercambios
+        <span class="tabla-count"><?= count($intercambios) ?></span>
+      </h2>
+      <?php if ($puedeIntercambiar): ?>
+      <button class="btn-primary btn-meca btn-sm" onclick="document.getElementById('dlg-intercambio').showModal()">
+        <i class="fa-solid fa-right-left"></i> Proponer intercambio
+      </button>
+      <?php endif; ?>
+    </div>
+
+    <p class="ajuste-ayuda inter-intro">
+      <i class="fa-solid fa-circle-info"></i>
+      Si no puedes avanzar con una tarea —por salud, carga de trabajo o porque bloquea a alguien—
+      ofrécela a cambio de otra. <b>No cambia nada hasta que la otra persona acepta.</b>
+    </p>
+
+    <?php if (empty($intercambios)): ?>
+      <?= UI::vacio('fa-right-left', 'Sin intercambios',
+            $puedeIntercambiar
+              ? 'Nadie ha propuesto todavía. Usa «Proponer intercambio» si necesitas soltar una tarea.'
+              : 'Para proponer un intercambio necesitas al menos una tarea tuya y otra de un compañero.') ?>
+    <?php else: ?>
+    <div class="inter-lista">
+      <?php foreach ($intercambios as $x):
+          $tA = $tareasPorId[(int)$x['tarea_de']]   ?? null;
+          $tB = $tareasPorId[(int)$x['tarea_para']] ?? null;
+          $mA = $miembros[(int)$x['de_id']]   ?? null;
+          $mB = $miembros[(int)$x['para_id']] ?? null;
+          $estado = $x['estado'] ?? 'pendiente';
+          $mio    = (int)$x['de_id'] === $miId;
+          $paraMi = (int)$x['para_id'] === $miId;
+          [$mLabel, $mIcono] = Catalogo::MOTIVOS_INTERCAMBIO[$x['motivo']] ?? ['—', 'fa-circle-question'];
+      ?>
+      <article class="inter-item inter-<?= e($estado) ?>">
+        <header class="inter-cab">
+          <span class="inter-estado est-<?= e($estado) ?>">
+            <i class="fa-solid <?= $estado === 'pendiente' ? 'fa-hourglass-half'
+                : ($estado === 'aceptado' ? 'fa-circle-check'
+                : ($estado === 'rechazado' ? 'fa-circle-xmark' : 'fa-ban')) ?>"></i>
+            <?= ucfirst(e($estado)) ?>
+          </span>
+          <span class="inter-motivo" title="Motivo"><i class="fa-solid <?= e($mIcono) ?>"></i> <?= e($mLabel) ?></span>
+          <span class="inter-fecha"><?= e($x['creado'] ?? '') ?></span>
+        </header>
+
+        <div class="inter-cuerpo">
+          <div class="inter-lado">
+            <?= UI::avatar($mA, 30, true) ?>
+            <div>
+              <small><?= e($mA['nombre'] ?? '?') ?> ofrece</small>
+              <b><?= e($tA['titulo'] ?? 'tarea eliminada') ?></b>
+            </div>
+          </div>
+          <i class="fa-solid fa-right-left inter-flecha"></i>
+          <div class="inter-lado">
+            <?= UI::avatar($mB, 30, true) ?>
+            <div>
+              <small><?= e($mB['nombre'] ?? '?') ?> daría</small>
+              <b><?= e($tB['titulo'] ?? 'tarea eliminada') ?></b>
+            </div>
+          </div>
+        </div>
+
+        <?php if (!empty($x['nota'])): ?>
+        <p class="inter-nota"><i class="fa-solid fa-quote-left"></i> <?= e($x['nota']) ?></p>
+        <?php endif; ?>
+        <?php if (!empty($x['respuesta'])): ?>
+        <p class="inter-nota inter-respuesta"><i class="fa-solid fa-reply"></i> <?= e($x['respuesta']) ?></p>
+        <?php endif; ?>
+
+        <?php if ($estado === 'pendiente'): ?>
+        <footer class="inter-acciones">
+          <?php if ($paraMi || esAdmin()): ?>
+          <form method="post" action="actions.php" class="inter-form">
+            <input type="hidden" name="accion" value="intercambio_responder">
+            <input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
+            <input class="input-meca input-sm" name="nota" maxlength="160" placeholder="Comentario (opcional)">
+            <button class="btn-primary btn-meca btn-sm" name="respuesta" value="aceptar">
+              <i class="fa-solid fa-check"></i> Aceptar
+            </button>
+            <button class="btn-outline btn-meca btn-sm" name="respuesta" value="rechazar">
+              <i class="fa-solid fa-xmark"></i> Rechazar
+            </button>
+          </form>
+          <?php elseif ($mio): ?>
+          <form method="post" action="actions.php" class="inter-form"
+                data-confirmar="Se retirará tu propuesta de intercambio." data-confirmar-titulo="¿Retirar propuesta?" data-confirmar-ok="Sí, retirar">
+            <input type="hidden" name="accion" value="intercambio_cancelar">
+            <input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
+            <button class="btn-outline btn-meca btn-sm"><i class="fa-solid fa-rotate-left"></i> Retirar propuesta</button>
+          </form>
+          <?php else: ?>
+          <span class="ajuste-ayuda">Esperando la respuesta de <?= e($mB['nombre'] ?? '') ?>.</span>
+          <?php endif; ?>
+        </footer>
+        <?php endif; ?>
+      </article>
+      <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+  </section>
+</div>
+
+<?php if ($puedeIntercambiar): ?>
+<!-- Modal: proponer intercambio -->
+<dialog id="dlg-intercambio" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
+    <input type="hidden" name="accion" value="intercambio_crear">
+    <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+    <?= UI::wizardRiel('fa-right-left', 'Proponer intercambio', 'En ' . $proyecto['nombre'], UI::PASOS_INTERCAMBIO) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>La tarea que sueltas *</span>
+          <?= UI::select('tarea_de', $opcionesMisTareas, (string)array_key_first($opcionesMisTareas)) ?>
+          <small class="campo-ayuda">Solo aparecen tus tareas de este proyecto.</small>
+        </label>
+        <label class="campo">
+          <span>La tarea que tomarías *</span>
+          <?= UI::select('tarea_para', $opcionesOtrasTareas, (string)array_key_first($opcionesOtrasTareas)) ?>
+          <small class="campo-ayuda">La propuesta le llegará a quien la tenga asignada.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>Motivo *</span>
+          <?= UI::select('motivo', array_map(fn($v) => $v[0], Catalogo::MOTIVOS_INTERCAMBIO), 'carga') ?>
+        </label>
+        <label class="campo">
+          <span>Cuéntale por qué</span>
+          <textarea class="input-meca" name="nota" rows="3" maxlength="400"
+                    placeholder="Ej. Estoy con reposo hasta el viernes y tu tarea no depende de nadie."></textarea>
+          <small class="campo-ayuda">Se incluye en el correo que recibirá.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+        <p class="campo-ayuda"><i class="fa-solid fa-circle-info"></i>
+          Al enviar no se cambia nada todavía: las tareas solo se cruzan si la otra persona acepta.</p>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-paper-plane"></i> Enviar propuesta</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <!-- Vista Reuniones (Zoom) -->
 <div data-vista-panel="reuniones" hidden>

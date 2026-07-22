@@ -151,6 +151,38 @@ y avisa de la ventana que queda. Una tarea cuyo inicio aún no llegó se marca e
 el tablero con **«en N d»**. El servidor rechaza guardar si el inicio queda
 después del límite.
 
+## Intercambio de tareas
+
+Cuando alguien no puede avanzar con una tarea —indisposición de salud, carga de
+trabajo, o porque su tarea bloquea la de otro— puede **ofrecerla a cambio de
+otra** desde la pestaña **Intercambios** del tablero.
+
+1. Elige **su** tarea y la del compañero (solo se ofrece lo propio).
+2. Indica el **motivo** (salud, carga, bloqueo, perfil, permiso u otro) y una nota.
+3. Al otro le llega un **correo**: «X quiere intercambiar tareas contigo».
+4. Esa persona **acepta o rechaza** desde el panel, y quien propuso recibe otro
+   correo con la respuesta.
+
+**Nada cambia hasta que la otra parte acepta**: al aceptar se cruzan los
+responsables de las dos tareas. Quien propuso puede retirar la propuesta
+mientras siga pendiente, y una tarea no puede estar en dos propuestas a la vez.
+
+Lo pueden usar también las cuentas de **solo lectura**: es su forma de pedir un
+cambio sin tener que editar tareas. Cada acción comprueba en el servidor que la
+tarea ofrecida sea tuya y que la respuesta la dé el destinatario.
+
+## Qué se avisa por correo
+
+En **Ajustes → Correo → ¿Qué avisar?**:
+
+| Aviso | A quién |
+|---|---|
+| Tarea asignada | A la persona asignada |
+| **Sumado al equipo de un proyecto** | A quien se acaba de sumar (solo a los nuevos) |
+| **Intercambio de tareas** | Al destinatario de la propuesta y, al responder, a quien la hizo |
+| Tarea próxima a vencer | Al asignado (necesita el cron, ver abajo) |
+| Proyecto completado | Al correo de administrador configurado |
+
 ## Actualizar a futuro
 ```bash
 cd ~/public_html/panel.tudominio.com

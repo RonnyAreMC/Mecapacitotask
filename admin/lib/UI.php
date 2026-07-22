@@ -484,6 +484,12 @@ class UI
         ['Revisión',   'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
     ];
 
+    public const PASOS_INTERCAMBIO = [
+        ['Tareas',   'Qué se intercambia',      'La tuya que sueltas y la que tomarías a cambio.'],
+        ['Motivo',   'Por qué lo pides',        'Va en el correo, así la otra persona entiende el contexto.'],
+        ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.'],
+    ];
+
     public const PASOS_PROYECTO = [
         ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
         ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],

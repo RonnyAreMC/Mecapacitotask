@@ -49,6 +49,25 @@ final class Catalogo
         '#3498DB', '#FF9F1C', '#8D6E63', '#607D8B',
     ];
 
+    /**
+     * Motivos por los que alguien pide intercambiar una tarea:
+     * clave => [etiqueta, icono].
+     */
+    public const MOTIVOS_INTERCAMBIO = [
+        'salud'       => ['Indisposición de salud',    'fa-notes-medical'],
+        'carga'       => ['Carga de trabajo',          'fa-weight-hanging'],
+        'bloqueo'     => ['Mi tarea bloquea la suya',  'fa-link-slash'],
+        'experiencia' => ['Encaja mejor con su perfil','fa-user-gear'],
+        'permiso'     => ['Permiso o vacaciones',      'fa-plane-departure'],
+        'otro'        => ['Otro motivo',               'fa-circle-question'],
+    ];
+
+    /** Etiqueta legible de un motivo (o la clave si no está en el catálogo). */
+    public static function motivoIntercambio(string $clave): string
+    {
+        return self::MOTIVOS_INTERCAMBIO[$clave][0] ?? $clave;
+    }
+
     /** Resuelve el color guardado (indice de la paleta o hex custom) a hex. */
     public static function colorDe(int|string $valor): string
     {
@@ -198,6 +217,8 @@ final class Config
                 'client_secret' => '',
                 'refresh_token' => '',
                 'avisar_asignacion'   => true,
+                'avisar_proyecto'     => true,
+                'avisar_intercambio'  => true,
                 'avisar_recordatorio' => false,
                 'dias_recordatorio'   => 3,
                 'avisar_completado'   => false,
@@ -790,6 +811,94 @@ class ObservacionRepo
             $eq = $o['equipo'] ?? '';
             if (!isset($r['porEquipo'][$eq])) $r['porEquipo'][$eq] = ['pendientes' => 0, 'resueltas' => 0];
             $r['porEquipo'][$eq][$pend ? 'pendientes' : 'resueltas']++;
+        }
+        return $r;
+    }
+}
+
+/* =========================================================
+   Intercambios de tareas.
+   Alguien propone cambiar su tarea por la de otra persona (por salud,
+   carga de trabajo, dependencias...). Hasta que la otra parte acepta no
+   se toca nada: al aceptar se cruzan los asignados de ambas tareas.
+   ========================================================= */
+class IntercambioRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('intercambios');
+    }
+
+    /** Intercambios de un proyecto: pendientes primero, luego por fecha desc. */
+    public function delProyecto(int $proyectoId): array
+    {
+        $items = $this->store->where('proyecto_id', $proyectoId);
+        usort($items, function ($a, $b) {
+            $pa = ($a['estado'] ?? '') === 'pendiente' ? 0 : 1;
+            $pb = ($b['estado'] ?? '') === 'pendiente' ? 0 : 1;
+            if ($pa !== $pb) return $pa <=> $pb;
+            return strcmp($b['creado'] ?? '', $a['creado'] ?? '');
+        });
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
+            'de_id'       => (int)($datos['de_id'] ?? 0),
+            'para_id'     => (int)($datos['para_id'] ?? 0),
+            'tarea_de'    => (int)($datos['tarea_de'] ?? 0),
+            'tarea_para'  => (int)($datos['tarea_para'] ?? 0),
+            'motivo'      => (string)($datos['motivo'] ?? 'otro'),
+            'nota'        => trim($datos['nota'] ?? ''),
+            'estado'      => 'pendiente',
+            'respuesta'   => '',
+            'resuelto_en' => '',
+        ]);
+    }
+
+    public function actualizar(int $id, array $cambios): bool
+    {
+        return $this->store->update($id, $cambios);
+    }
+
+    /** ¿Alguna de estas dos tareas ya está en una propuesta pendiente? */
+    public function tareaComprometida(int $tareaA, int $tareaB): bool
+    {
+        foreach ($this->store->all() as $x) {
+            if (($x['estado'] ?? '') !== 'pendiente') continue;
+            $ids = [(int)$x['tarea_de'], (int)$x['tarea_para']];
+            if (in_array($tareaA, $ids, true) || in_array($tareaB, $ids, true)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    /** Propuestas pendientes dirigidas a una persona. */
+    public function pendientesPara(int $miembroId): array
+    {
+        return array_values(array_filter(
+            $this->store->all(),
+            fn($x) => ($x['estado'] ?? '') === 'pendiente' && (int)$x['para_id'] === $miembroId
+        ));
+    }
+
+    /** Conteo por estado de un proyecto. */
+    public function resumen(int $proyectoId): array
+    {
+        $r = ['pendiente' => 0, 'aceptado' => 0, 'rechazado' => 0, 'cancelado' => 0];
+        foreach ($this->store->where('proyecto_id', $proyectoId) as $x) {
+            $e = $x['estado'] ?? 'pendiente';
+            $r[$e] = ($r[$e] ?? 0) + 1;
         }
         return $r;
     }

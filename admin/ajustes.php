@@ -355,6 +355,16 @@ UI::cabecera(
           <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
           Avisar a la persona cuando se le asigna una tarea
         </label>
+        <label class="chk-linea">
+          <input type="checkbox" name="correo[avisar_proyecto]" <?= !empty($co['avisar_proyecto']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisar cuando se le suma al equipo de un proyecto
+        </label>
+        <label class="chk-linea">
+          <input type="checkbox" name="correo[avisar_intercambio]" <?= !empty($co['avisar_intercambio']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisar de las propuestas de intercambio de tareas y sus respuestas
+        </label>
         <div class="chk-con-campo">
           <label class="chk-linea">
             <input type="checkbox" name="correo[avisar_recordatorio]" <?= !empty($co['avisar_recordatorio']) ? 'checked' : '' ?>>

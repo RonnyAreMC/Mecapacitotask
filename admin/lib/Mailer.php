@@ -356,6 +356,68 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
 
+    /** Aviso de entrada al equipo de un proyecto (a quien se acaba de sumar). */
+    public static function notificarEquipoProyecto(array $miembro, array $proyecto): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_proyecto']) || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = ['Proyecto' => e($proyecto['nombre'])];
+        if (!empty($proyecto['fecha_inicio'])) $filas['Inicia'] = e($proyecto['fecha_inicio']);
+        $cuerpo = self::encabezado($acento, '&#9679;', 'Te sumaron a un proyecto',
+                    'Hola ' . e($miembro['nombre']) . ', ya formas parte del equipo de ' . e($proyecto['nombre']) . '.')
+            . self::detalle($proyecto['nombre'], $filas, $proyecto['descripcion'] ?? '');
+        return self::enviar($miembro['email'], 'Ahora participas en ' . $proyecto['nombre'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
+    /**
+     * Propuesta de intercambio de tareas (a quien la recibe).
+     * $de y $para son miembros; $tareaDe es la del proponente.
+     */
+    public static function notificarIntercambio(array $intercambio, array $de, array $para, array $tareaDe, array $tareaPara, array $proyecto): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_intercambio']) || empty($para['email'])) {
+            return null;
+        }
+        $motivo = Catalogo::MOTIVOS_INTERCAMBIO[$intercambio['motivo']][0]
+            ?? ($intercambio['motivo'] ?? '');
+        $cuerpo = self::encabezado('#ff9500', '&#8646;', 'Te proponen un intercambio',
+                    e($de['nombre']) . ' quiere intercambiar tareas contigo en ' . e($proyecto['nombre']) . '.')
+            . self::detalle('Qué se intercambia', [
+                'Pasarías a llevar' => e($tareaDe['titulo']),
+                'Y ' . e(explode(' ', $de['nombre'])[0]) . ' tomaría' => e($tareaPara['titulo']),
+                'Motivo'            => e($motivo),
+            ], $intercambio['nota'] ?? '')
+            . '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:16px;">'
+            . 'Nada cambia hasta que lo aceptes desde el panel.</div>';
+        return self::enviar($para['email'], $de['nombre'] . ' quiere intercambiar tareas contigo',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la propuesta'));
+    }
+
+    /** Respuesta a la propuesta (a quien la hizo). */
+    public static function notificarRespuestaIntercambio(array $intercambio, array $quienResponde, array $destino, array $proyecto, bool $aceptado): true|string|null
+    {
+        $c = self::conf();
+        if (!self::listo() || empty($c['avisar_intercambio']) || empty($destino['email'])) {
+            return null;
+        }
+        $cuerpo = $aceptado
+            ? self::encabezado('#34c759', '&#10003;', 'Intercambio aceptado',
+                e($quienResponde['nombre']) . ' aceptó el intercambio. Las tareas ya cambiaron de responsable.')
+            : self::encabezado('#ff3b30', '&#10005;', 'Intercambio rechazado',
+                e($quienResponde['nombre']) . ' no pudo aceptar el intercambio. Todo sigue como estaba.');
+        $cuerpo .= self::detalle($proyecto['nombre'], [
+            'Estado' => $aceptado ? '<span style="color:#34c759;">Aceptado</span>' : '<span style="color:#ff3b30;">Rechazado</span>',
+        ], $intercambio['respuesta'] ?? '');
+        return self::enviar($destino['email'],
+            ($aceptado ? 'Aceptado' : 'Rechazado') . ': tu intercambio en ' . $proyecto['nombre'],
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
     /** Recordatorio de una tarea próxima a vencer (al asignado). */
     public static function recordatorioTarea(array $tarea, array $miembro, array $proyecto, int $dias): true|string|null
     {
