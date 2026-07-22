@@ -34,13 +34,22 @@ La primera carga siembra el equipo y los proyectos de ejemplo automáticamente.
 ---
 
 ## Configurar credenciales en el servidor
-`admin/data/config.json` (correo Gmail, Zoom) **no viaja en git** por seguridad.
-En el servidor, entra a **Ajustes** y vuelve a poner:
-- **Correo**: la contraseña de aplicación o el OAuth de Gmail.
-- **Zoom**: Account ID, Client ID, Client Secret.
-- **Token de GitHub** (opcional, para repos privados).
+`admin/data/config.json` (correo Gmail, Zoom) **no viaja en git** por seguridad,
+así que en el servidor hay que ponerlo aparte. La forma rápida:
 
-(O súbelo por SFTP si prefieres reutilizar el mismo `config.json`.)
+1. En tu panel local: **Ajustes → Acceso y respaldo → Exportar configuración**.
+   Se descarga un `mchub-config-AAAA-MM-DD.json` con todo (marca, catálogos,
+   correo, Zoom, tokens).
+2. En el servidor: **Ajustes → Acceso y respaldo → Elegir archivo .json → Importar**.
+
+Listo, no hay que reescribir nada a mano. El importador solo acepta claves
+conocidas, así que un archivo manipulado no puede meter datos raros.
+
+> El archivo exportado lleva **tus claves en texto plano**. Guárdalo en un lugar
+> seguro y bórralo cuando termines.
+
+Si prefieres hacerlo a mano, entra a **Ajustes** y vuelve a poner correo, Zoom y
+token de GitHub (o sube el `config.json` por SFTP).
 
 ## Login y roles
 El panel trae autenticación propia. La primera vez que abras `mchub.mecapacito.com`

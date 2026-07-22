@@ -515,6 +515,40 @@ switch ($accion) {
         }
         redirigir('ajustes.php', 'El envío falló: ' . $r, 'error');
 
+    /* ---------- Respaldo de la configuracion ---------- */
+
+    case 'config_exportar':
+        $json = json_encode(Config::all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        $nombre = 'mchub-config-' . date('Y-m-d') . '.json';
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . $nombre . '"');
+        header('Content-Length: ' . strlen($json));
+        header('Cache-Control: no-store');
+        echo $json;
+        exit;
+
+    case 'config_importar':
+        $err = $_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE;
+        if ($err === UPLOAD_ERR_NO_FILE) {
+            redirigir('ajustes.php', 'Elige el archivo .json que quieres importar.', 'error');
+        }
+        if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+            redirigir('ajustes.php', 'El archivo supera el límite del servidor (' . ini_get('upload_max_filesize') . ').', 'error');
+        }
+        if ($err !== UPLOAD_ERR_OK || empty($_FILES['archivo']['tmp_name'])) {
+            redirigir('ajustes.php', 'No se pudo subir el archivo (código ' . $err . ').', 'error');
+        }
+        $contenido = (string)file_get_contents($_FILES['archivo']['tmp_name']);
+        $datos = json_decode($contenido, true);
+        if (!is_array($datos) || json_last_error() !== JSON_ERROR_NONE) {
+            redirigir('ajustes.php', 'Ese archivo no es un JSON válido de configuración.', 'error');
+        }
+        $aplicadas = Config::importar($datos);
+        if (!$aplicadas) {
+            redirigir('ajustes.php', 'El archivo no traía ninguna clave de configuración reconocida.', 'error');
+        }
+        redirigir('ajustes.php', 'Configuración importada: ' . count($aplicadas) . ' bloque(s) actualizado(s) (' . implode(', ', $aplicadas) . ').');
+
     case 'zoom_prueba':
         if (!Zoom::listo()) {
             redirigir('ajustes.php', 'Primero activa Zoom y guarda Account ID, Client ID y Client Secret.', 'error');

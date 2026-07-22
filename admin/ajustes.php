@@ -55,6 +55,7 @@ UI::cabecera(
   <button type="button" class="tab-btn" data-tab="roles"><i class="fa-solid fa-user-tag"></i> Roles</button>
   <button type="button" class="tab-btn" data-tab="correo"><i class="fa-solid fa-envelope"></i> Correo</button>
   <button type="button" class="tab-btn" data-tab="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
+  <button type="button" class="tab-btn" data-tab="acceso"><i class="fa-solid fa-shield-halved"></i> Acceso y respaldo</button>
 </div>
 
 <form method="post" action="actions.php" class="ajustes-form">
@@ -96,45 +97,6 @@ UI::cabecera(
         </div>
       </section>
 
-      <section class="card-base ajuste-card">
-        <h2 class="font-display"><i class="fa-brands fa-google text-secondary"></i> Acceso al panel</h2>
-        <?php $gl = (array)($cfg['google_login'] ?? []); ?>
-        <label class="chk-linea">
-          <input type="checkbox" name="google_login[activo]" <?= !empty($gl['activo']) ? 'checked' : '' ?>>
-          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-          Permitir entrar con cuenta de Google
-        </label>
-        <p class="ajuste-ayuda">
-          Solo entran los correos que ya existen como colaboradores. Si dejas vacías las credenciales,
-          se reutilizan las del correo (API de Gmail). Registra esta <b>URI de redirección</b> en
-          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>:
-        </p>
-        <div class="chip-copiar" style="margin-bottom:6px">
-          <code><?= e(GoogleLogin::redirectUri()) ?></code>
-          <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e(GoogleLogin::redirectUri()) ?>" title="Copiar"><i class="fa-regular fa-copy"></i></button>
-        </div>
-        <div class="campo-doble">
-          <label class="campo"><span>Client ID (opcional)</span>
-            <input class="input-meca" name="google_login[client_id]" value="<?= e($gl['client_id'] ?? '') ?>" placeholder="usa el del correo si lo dejas vacío">
-          </label>
-          <label class="campo"><span>Client Secret (opcional)</span>
-            <input class="input-meca" type="password" name="google_login[client_secret]" value="" placeholder="<?= !empty($gl['client_secret']) ? '•••••••• guardado' : '' ?>">
-          </label>
-        </div>
-
-      </section>
-
-      <section class="card-base ajuste-card">
-        <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Integración con GitHub</h2>
-        <label class="campo">
-          <span>Token de GitHub (opcional)</span>
-          <input class="input-meca" type="password" name="github_token" value="" placeholder="<?= !empty($cfg['github_token']) ? '•••••••• guardado' : 'ghp_...' ?>">
-        </label>
-        <small class="campo-ayuda">
-          Para el mapa de actividad de repos privados y más cuota de la API.
-          Créalo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> con permiso de solo lectura de repos.
-        </small>
-      </section>
     </div>
   </div>
 
@@ -497,6 +459,73 @@ UI::cabecera(
     </div>
   </div>
 
+  <!-- ================= TAB: Acceso y respaldo ================= -->
+  <div class="tab-panel" data-panel="acceso" hidden>
+    <div class="ajustes-grid">
+      <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-brands fa-google text-secondary"></i> Acceso al panel</h2>
+        <?php $gl = (array)($cfg['google_login'] ?? []); ?>
+        <label class="chk-linea">
+          <input type="checkbox" name="google_login[activo]" <?= !empty($gl['activo']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Permitir entrar con cuenta de Google
+        </label>
+        <p class="ajuste-ayuda">
+          Solo entran los correos que ya existen como colaboradores. Si dejas vacías las credenciales,
+          se reutilizan las del correo (API de Gmail). Registra esta <b>URI de redirección</b> en
+          <a href="https://console.cloud.google.com/apis/credentials" target="_blank" rel="noopener">Google Cloud Console</a>:
+        </p>
+        <div class="chip-copiar" style="margin-bottom:6px">
+          <code><?= e(GoogleLogin::redirectUri()) ?></code>
+          <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e(GoogleLogin::redirectUri()) ?>" title="Copiar"><i class="fa-regular fa-copy"></i></button>
+        </div>
+        <div class="campo-doble">
+          <label class="campo"><span>Client ID (opcional)</span>
+            <input class="input-meca" name="google_login[client_id]" value="<?= e($gl['client_id'] ?? '') ?>" placeholder="usa el del correo si lo dejas vacío">
+          </label>
+          <label class="campo"><span>Client Secret (opcional)</span>
+            <input class="input-meca" type="password" name="google_login[client_secret]" value="" placeholder="<?= !empty($gl['client_secret']) ? '•••••••• guardado' : '' ?>">
+          </label>
+        </div>
+
+      </section>
+
+      <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Integración con GitHub</h2>
+        <label class="campo">
+          <span>Token de GitHub (opcional)</span>
+          <input class="input-meca" type="password" name="github_token" value="" placeholder="<?= !empty($cfg['github_token']) ? '•••••••• guardado' : 'ghp_...' ?>">
+        </label>
+        <small class="campo-ayuda">
+          Para el mapa de actividad de repos privados y más cuota de la API.
+          Créalo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> con permiso de solo lectura de repos.
+        </small>
+      </section>
+
+      <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-solid fa-file-arrow-down text-secondary"></i> Respaldo de la configuración</h2>
+        <p class="ajuste-ayuda">
+          Descarga todos estos ajustes en un archivo y súbelo en otra instalación
+          (por ejemplo, del panel local al servidor) para no volver a escribirlos a mano.
+          <b>El archivo lleva tus claves en texto plano</b>: guárdalo en un lugar seguro
+          y bórralo cuando termines.
+        </p>
+        <div class="respaldo-acciones">
+          <button class="btn-outline btn-meca" form="frm-config-exportar">
+            <i class="fa-solid fa-download"></i> Exportar configuración
+          </button>
+          <label class="respaldo-archivo">
+            <input type="file" name="archivo" accept="application/json,.json" form="frm-config-importar" required>
+            <span><i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .json</span>
+          </label>
+          <button class="btn-primary btn-meca" form="frm-config-importar">
+            <i class="fa-solid fa-upload"></i> Importar
+          </button>
+        </div>
+      </section>
+    </div>
+  </div>
+
   <footer class="ajustes-guardar">
     <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
   </footer>
@@ -508,6 +537,16 @@ UI::cabecera(
 </form>
 <form id="frm-zoom-prueba" method="post" action="actions.php">
   <input type="hidden" name="accion" value="zoom_prueba">
+</form>
+
+<!-- Respaldo: exportar (descarga) e importar (subida de un config.json) -->
+<form id="frm-config-exportar" method="post" action="actions.php">
+  <input type="hidden" name="accion" value="config_exportar">
+</form>
+<form id="frm-config-importar" method="post" action="actions.php" enctype="multipart/form-data"
+      data-confirmar="Se reemplazarán los ajustes actuales con los del archivo. Tus proyectos, tareas y personas no se tocan."
+      data-confirmar-titulo="¿Importar configuración?" data-confirmar-ok="Sí, importar">
+  <input type="hidden" name="accion" value="config_importar">
 </form>
 
 <!-- Plantillas para filas nuevas -->

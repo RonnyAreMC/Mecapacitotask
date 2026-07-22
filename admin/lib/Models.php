@@ -203,6 +203,11 @@ final class Config
                 'avisar_completado'   => false,
                 'admin_email'         => '',
             ],
+            'google_login' => [
+                'activo'        => false,
+                'client_id'     => '',
+                'client_secret' => '',
+            ],
         ];
     }
 
@@ -249,6 +254,40 @@ final class Config
             json_encode($datos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
         );
         self::$cache = null;
+    }
+
+    /** Catalogos y listas: al importar se reemplazan enteros, no se mezclan. */
+    private const LISTAS = ['iconos', 'roles', 'estados_tarea', 'prioridades', 'estados_proyecto', 'equipos'];
+
+    /**
+     * Importa una configuracion externa (por ejemplo, un config.json exportado
+     * desde otra instalacion). Solo se aceptan claves conocidas y, dentro de
+     * cada bloque, solo las subclaves que existen en los defaults: asi un
+     * archivo manipulado no puede inyectar datos raros.
+     * Devuelve la lista de claves aplicadas.
+     */
+    public static function importar(array $datos): array
+    {
+        $actual   = self::all();
+        $aplicadas = [];
+        foreach (self::defaults() as $clave => $porDefecto) {
+            if (!array_key_exists($clave, $datos)) continue;
+            $nuevo = $datos[$clave];
+
+            if (in_array($clave, self::LISTAS, true)) {
+                if (!is_array($nuevo) || $nuevo === []) continue;
+                $actual[$clave] = $nuevo;
+            } elseif (is_array($porDefecto)) {
+                if (!is_array($nuevo)) continue;
+                $actual[$clave] = array_replace($porDefecto, array_intersect_key($nuevo, $porDefecto));
+            } else {
+                if (is_array($nuevo)) continue;
+                $actual[$clave] = $nuevo;
+            }
+            $aplicadas[] = $clave;
+        }
+        if ($aplicadas) self::guardar($actual);
+        return $aplicadas;
     }
 
     /** Vuelve a los valores por defecto. */

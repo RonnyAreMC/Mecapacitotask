@@ -1005,3 +1005,16 @@ document.querySelectorAll('.toast-float').forEach((t) => {
 if (location.hash === '#abrir-ver-como') {
   document.getElementById('dlg-ver-como')?.showModal();
 }
+
+/* Respaldo de configuracion: muestra el nombre del .json elegido */
+document.addEventListener('change', (e) => {
+  const input = e.target.closest('.respaldo-archivo input[type="file"]');
+  if (!input) return;
+  const label = input.closest('.respaldo-archivo');
+  const txt   = label.querySelector('span');
+  const f     = input.files && input.files[0];
+  label.classList.toggle('tiene-archivo', !!f);
+  txt.innerHTML = f
+    ? '<i class="fa-solid fa-file-circle-check"></i> ' + f.name
+    : '<i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .json';
+});
