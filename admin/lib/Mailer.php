@@ -246,85 +246,75 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
-    /** Envoltura HTML con el branding del panel — tema oscuro, logo incrustado. */
+    /** Envoltura minimalista (estilo iOS): claro, sin degradados, tipografía del sistema. */
     private static function plantilla(string $cuerpo, string $urlBoton = '', string $textoBoton = ''): string
     {
         $m = Config::all();
         $titulo = e($m['titulo'] ?? 'Panel');
-        $sub    = strtoupper(e($m['subtitulo'] ?? ''));
         $acento = e($m['color_secundario'] ?? '#2B76F7');
+        $fuente = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
         $logo = self::logoPath() !== ''
-            ? '<td width="56" style="padding-right:14px;vertical-align:middle;">
-                 <img src="cid:logo" width="50" height="50" alt="' . $titulo . '"
-                      style="display:block;width:50px;height:50px;border-radius:14px;background:#ffffff;padding:6px;box-sizing:border-box;">
+            ? '<td width="30" style="padding-right:10px;vertical-align:middle;">
+                 <img src="cid:logo" width="26" height="26" alt="" style="display:block;width:26px;height:26px;border-radius:7px;">
                </td>'
             : '';
         $boton = $urlBoton !== ''
-            ? '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-top:24px;">
-                 <tr><td style="border-radius:12px;background:' . $acento . ';box-shadow:0 10px 24px -8px ' . $acento . ';">
-                   <a href="' . e($urlBoton) . '" target="_blank"
-                      style="display:inline-block;padding:14px 30px;color:#ffffff;text-decoration:none;font-size:14px;font-weight:bold;font-family:Arial,Helvetica,sans-serif;">'
-                   . e($textoBoton) . '</a>
-                 </td></tr></table>'
+            ? '<a href="' . e($urlBoton) . '" target="_blank" style="display:inline-block;margin-top:22px;color:' . $acento . ';text-decoration:none;font-size:15px;font-weight:600;font-family:' . $fuente . ';">' . e($textoBoton) . ' &rsaquo;</a>'
             : '';
 
         return '
-<div style="margin:0;padding:30px 16px;background:#1a1f2a;font-family:Arial,Helvetica,sans-serif;">
+<div style="margin:0;padding:36px 16px;background:#f5f5f7;font-family:' . $fuente . ';">
   <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td align="center">
-  <table role="presentation" width="580" cellpadding="0" cellspacing="0" style="max-width:580px;width:100%;background:#262c3a;border:1px solid #333c4e;border-radius:22px;overflow:hidden;box-shadow:0 24px 60px -20px rgba(0,0,0,.7);">
-    <tr><td style="height:3px;background:#313a4c;line-height:3px;font-size:0;">&nbsp;</td></tr>
-    <tr><td style="background-color:#242c3a;background-image:linear-gradient(135deg,#2D3E50 0%,#1A4B99 72%,' . $acento . ' 135%);padding:24px 30px;">
+  <table role="presentation" width="472" cellpadding="0" cellspacing="0" style="max-width:472px;width:100%;background:#ffffff;border:1px solid #e5e5e7;border-radius:18px;">
+    <tr><td style="padding:18px 26px;border-bottom:1px solid #f0f0f2;">
       <table role="presentation" cellpadding="0" cellspacing="0"><tr>'
         . $logo .
-        '<td style="vertical-align:middle;">
-          <div style="color:#ffffff;font-size:23px;font-weight:800;letter-spacing:-.3px;">' . $titulo . '</div>'
-          . ($sub ? '<div style="color:#a9c6ff;font-size:11px;font-weight:700;letter-spacing:2.5px;margin-top:3px;">' . $sub . '</div>' : '') . '
-        </td>
+        '<td style="vertical-align:middle;color:#1d1d1f;font-size:15px;font-weight:600;letter-spacing:-.2px;">' . $titulo . '</td>
       </tr></table>
     </td></tr>
-    <tr><td style="height:4px;background:' . $acento . ';line-height:4px;font-size:0;">&nbsp;</td></tr>
-    <tr><td style="padding:30px 32px 36px;">' . $cuerpo . $boton . '</td></tr>
-    <tr><td style="padding:18px 32px;background:#212836;border-top:1px solid #333c4e;color:#7b8699;font-size:11px;">
-      Correo automático de <b style="color:#aeb8c9;">' . $titulo . '</b> — no es necesario responder.
-    </td></tr>
+    <tr><td style="padding:28px 26px;">' . $cuerpo . $boton . '</td></tr>
+    <tr><td style="padding:16px 26px;border-top:1px solid #f0f0f2;color:#a1a1a6;font-size:12px;">Notificación automática de ' . $titulo . '.</td></tr>
   </table>
   </td></tr></table>
 </div>';
     }
 
-    /** Círculo con icono dibujado (sin emojis) para los encabezados. */
-    private static function iconoCirculo(string $color, string $glifo): string
-    {
-        return '<table role="presentation" cellpadding="0" cellspacing="0" style="display:inline-block;vertical-align:middle;margin-right:12px;">
-          <tr><td width="40" height="40" align="center" valign="middle"
-              style="width:40px;height:40px;background:' . $color . ';border-radius:50%;color:#fff;font-size:20px;font-weight:bold;line-height:40px;">'
-            . $glifo . '</td></tr></table>';
-    }
-
-    /** Encabezado de correo: icono en círculo + título + subtítulo. */
+    /** Encabezado: icono pequeño en círculo + título + descripción. */
     private static function encabezado(string $color, string $glifo, string $titulo, string $sub): string
     {
-        return '<table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:20px;"><tr>'
-            . '<td valign="middle">' . self::iconoCirculo($color, $glifo) . '</td>'
-            . '<td valign="middle">'
-            . '<div style="color:#eef2f9;font-size:18px;font-weight:800;">' . $titulo . '</div>'
-            . '<div style="color:#aeb8c9;font-size:13.5px;margin-top:3px;">' . $sub . '</div>'
-            . '</td></tr></table>';
+        return '<table role="presentation" cellpadding="0" cellspacing="0"><tr>'
+            . '<td width="34" style="padding-right:12px;vertical-align:middle;">'
+            . '<div style="width:24px;height:24px;background:' . $color . ';border-radius:50%;color:#fff;font-size:13px;font-weight:700;text-align:center;line-height:24px;">' . $glifo . '</div>'
+            . '</td>'
+            . '<td style="vertical-align:middle;color:#1d1d1f;font-size:19px;font-weight:700;letter-spacing:-.3px;">' . $titulo . '</td>'
+            . '</tr></table>'
+            . '<div style="color:#6e6e73;font-size:15px;line-height:1.5;margin-top:12px;">' . $sub . '</div>';
     }
 
-    /** Tarjeta HTML de una tarea (tema oscuro), sin emojis. */
-    private static function cardTarea(array $tarea, array $proyecto): string
+    /** Caja de detalle minimalista con filas etiqueta / valor. */
+    private static function detalle(string $titulo, array $filas, string $desc = ''): string
+    {
+        $rows = '';
+        foreach ($filas as $k => $v) {
+            $rows .= '<tr>'
+                . '<td style="padding:5px 0;color:#86868b;font-size:13px;">' . e($k) . '</td>'
+                . '<td style="padding:5px 0;color:#1d1d1f;font-size:13px;font-weight:600;text-align:right;">' . $v . '</td>'
+                . '</tr>';
+        }
+        return '<div style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:16px 18px;">'
+            . '<div style="color:#1d1d1f;font-size:16px;font-weight:600;letter-spacing:-.2px;">' . e($titulo) . '</div>'
+            . ($desc !== '' ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>' : '')
+            . ($rows !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-top:10px;">' . $rows . '</table>' : '')
+            . '</div>';
+    }
+
+    private static function filasTarea(array $tarea, array $proyecto): array
     {
         $prioridades = Catalogo::prioridades();
         $prioridad = $prioridades[$tarea['prioridad'] ?? '']['0'] ?? ($tarea['prioridad'] ?? '');
-        $color = ProyectoRepo::colorBase($proyecto);
-        return '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
-            . '<td style="background:#2b3343;border:1px solid #3a4459;border-left:4px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
-            . '<div style="color:#eef2f9;font-size:16px;font-weight:bold;">' . e($tarea['titulo']) . '</div>'
-            . (!empty($tarea['descripcion']) ? '<div style="color:#aeb8c9;font-size:13px;line-height:1.55;margin-top:7px;">' . e($tarea['descripcion']) . '</div>' : '')
-            . '<div style="color:#8e99ae;font-size:12px;margin-top:12px;">Proyecto: <b style="color:#c8d0dd;">' . e($proyecto['nombre']) . '</b> &nbsp;·&nbsp; Prioridad: <b style="color:#c8d0dd;">' . e($prioridad) . '</b>'
-            . (!empty($tarea['fecha_limite']) ? ' &nbsp;·&nbsp; Límite: <b style="color:#c8d0dd;">' . e($tarea['fecha_limite']) . '</b>' : '') . '</div>'
-            . '</td></tr></table>';
+        $filas = ['Proyecto' => e($proyecto['nombre']), 'Prioridad' => e($prioridad)];
+        if (!empty($tarea['fecha_limite'])) $filas['Fecha límite'] = e($tarea['fecha_limite']);
+        return $filas;
     }
 
     /** Aviso de asignación de tarea (al asignado). */
@@ -336,10 +326,10 @@ class Mailer
         }
         $acento = Config::all()['color_secundario'] ?? '#2B76F7';
         $cuerpo = self::encabezado($acento, '&#43;', 'Nueva tarea asignada',
-                    'Hola <b style="color:#eef2f9;">' . e($miembro['nombre']) . '</b>, te asignaron esta tarea.')
-            . self::cardTarea($tarea, $proyecto);
+                    'Hola ' . e($miembro['nombre']) . ', se te asignó una tarea en ' . e($proyecto['nombre']) . '.')
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Nueva tarea asignada: ' . $tarea['titulo'],
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
 
     /** Recordatorio de una tarea próxima a vencer (al asignado). */
@@ -349,12 +339,12 @@ class Mailer
         if (!self::listo() || empty($c['avisar_recordatorio']) || empty($miembro['email'])) {
             return null;
         }
-        $cuando = $dias <= 0 ? 'vence <b style="color:#ff9d5c;">hoy</b>' : ('vence en <b style="color:#eef2f9;">' . $dias . ' día' . ($dias === 1 ? '' : 's') . '</b>');
-        $cuerpo = self::encabezado('#F7931E', '!', 'Recordatorio de entrega',
-                    'Hola <b style="color:#eef2f9;">' . e($miembro['nombre']) . '</b>, tu tarea ' . $cuando . '.')
-            . self::cardTarea($tarea, $proyecto);
+        $cuando = $dias <= 0 ? 'vence hoy' : ('vence en ' . $dias . ' día' . ($dias === 1 ? '' : 's'));
+        $cuerpo = self::encabezado('#ff9500', '!', 'Tarea por vencer',
+                    'Hola ' . e($miembro['nombre']) . ', tu tarea ' . $cuando . '.')
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Recordatorio: ' . $tarea['titulo'],
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
 
     /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
@@ -364,15 +354,13 @@ class Mailer
         if (!self::listo() || empty($c['avisar_completado']) || empty($c['admin_email'])) {
             return null;
         }
-        $color = ProyectoRepo::colorBase($proyecto);
-        $cuerpo = self::encabezado('#2BB673', '&#10003;', 'Fase concluida',
-                    'El proyecto <b style="color:#eef2f9;">' . e($proyecto['nombre']) . '</b> completó <b style="color:#eef2f9;">' . $total . ' de ' . $total . '</b> tareas.')
-            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr>'
-            . '<td style="background:#2b3343;border:1px solid #3a4459;border-left:4px solid ' . e($color) . ';border-radius:12px;padding:16px 18px;">'
-            . '<div style="color:#eef2f9;font-size:15px;font-weight:bold;">' . e($proyecto['nombre']) . '</div>'
-            . '<div style="color:#57d99a;font-size:12px;margin-top:6px;font-weight:bold;">' . $total . ' / ' . $total . ' tareas completadas</div>'
-            . '</td></tr></table>';
-        return self::enviar($c['admin_email'], $proyecto['nombre'] . ': fase concluida (' . $total . '/' . $total . ')',
+        $cuerpo = self::encabezado('#34c759', '&#10003;', 'Proyecto completado',
+                    'Todas las tareas de ' . e($proyecto['nombre']) . ' ya se entregaron.')
+            . self::detalle($proyecto['nombre'], [
+                'Estado'  => '<span style="color:#34c759;">Completado</span>',
+                'Tareas'  => $total . ' de ' . $total,
+            ]);
+        return self::enviar($c['admin_email'], $proyecto['nombre'] . ' — proyecto completado',
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
     }
 }
