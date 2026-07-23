@@ -233,10 +233,10 @@ foreach ($tareas as $t) {
 ?>
 <div class="vista-fila">
   <div class="vista-toggle">
-    <button type="button" class="tab-btn active" data-vista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
-    <button type="button" class="tab-btn" data-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
     <button type="button" class="tab-btn" data-vista="calendario"><i class="fa-solid fa-calendar-days"></i> Calendario</button>
-    <button type="button" class="tab-btn" data-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+    <button type="button" class="tab-btn" data-vista="tareas"><i class="fa-solid fa-list-check"></i> Tareas
+      <span class="tab-badge tab-badge-neutro"><?= count($tareas) ?></span>
+    </button>
     <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
     </button>
@@ -247,6 +247,14 @@ foreach ($tareas as $t) {
       <?php if (count($reuniones)): ?><span class="tab-badge tab-badge-zoom"><?= count($reuniones) ?></span><?php endif; ?>
     </button>
     <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
+  </div>
+
+  <!-- Subvistas de "Tareas": la misma lista vista como tabla, kanban o flujo -->
+  <div class="subvista-toggle" hidden>
+    <span class="subvista-tit">Ver como</span>
+    <button type="button" class="subvista-btn active" data-subvista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
+    <button type="button" class="subvista-btn" data-subvista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
+    <button type="button" class="subvista-btn" data-subvista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
   </div>
 </div>
 
@@ -1153,8 +1161,10 @@ foreach ($tareas as $t) {
       </section>
 
       <section class="wz-panel">
-        <label class="campo"><span><i class="fa-solid fa-server"></i> Repositorio backend</span><input class="input-meca" type="url" name="repo" value="<?= e($proyecto['repo'] ?? '') ?>" placeholder="https://github.com/…/backend"></label>
-        <label class="campo"><span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span><input class="input-meca" type="url" name="repo_frontend" value="<?= e($proyecto['repo_frontend'] ?? '') ?>" placeholder="https://github.com/…/frontend"></label>
+        <div class="campo" data-sin-resumen>
+          <span><i class="fa-brands fa-github"></i> Repositorios</span>
+          <?= UI::reposEditor($proyecto) ?>
+        </div>
         <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>
       </section>
 

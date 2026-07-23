@@ -515,6 +515,55 @@ class UI
         return $html . '</div></aside>';
     }
 
+    /**
+     * Editor de repositorios: una fila por repo (tipo, nombre, url) con
+     * botones para agregar y quitar. admin.js lo maneja (repos-editor).
+     * Un proyecto puede tener varios: dos instituciones, back + front, etc.
+     */
+    public static function reposEditor(array $proyecto = []): string
+    {
+        $repos = ProyectoRepo::repos($proyecto);   // ya resuelve nuevos y viejos
+        $tipos = ProyectoRepo::TIPOS_REPO;
+
+        // Cada fila lleva un indice propio: 'repos[][tipo]' con [] vacio NO
+        // agrupa los tres campos en el mismo elemento (cada [] crea otro).
+        $fila = function (array $r, string $idx) use ($tipos): string {
+            $tipoActual = $r['tipo'] ?? 'otro';
+            $opts = '';
+            foreach ($tipos as $k => [$label, $icono]) {
+                $sel = $k === $tipoActual ? ' selected' : '';
+                $opts .= '<option value="' . e($k) . '"' . $sel . '>' . e($label) . '</option>';
+            }
+            // nombre: solo si difiere de la etiqueta por defecto del tipo
+            $etiquetaDef = $tipos[$tipoActual][0] ?? '';
+            $nombre = ($r['label'] ?? '') !== $etiquetaDef ? ($r['label'] ?? '') : '';
+            $n = 'repos[' . $idx . ']';
+            return '<div class="repo-fila">'
+                . '<select class="select-meca repo-tipo" name="' . $n . '[tipo]" data-ms="1">' . $opts . '</select>'
+                . '<input class="input-meca repo-nombre" name="' . $n . '[nombre]" maxlength="60" value="' . e($nombre) . '" placeholder="Nombre (ej. Sede Norte)">'
+                . '<input class="input-meca repo-url" type="url" name="' . $n . '[url]" value="' . e($r['url'] ?? '') . '" placeholder="https://github.com/…">'
+                . '<button type="button" class="repo-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>'
+                . '</div>';
+        };
+
+        $filas = '';
+        $i = 0;
+        foreach ($repos as $r) {
+            $filas .= $fila($r, (string)$i++);
+        }
+
+        // Plantilla para filas nuevas: el JS cambia __i__ por un indice fresco
+        $plantilla = '<template id="repo-fila-tpl">' . $fila(['tipo' => 'backend', 'url' => '', 'label' => ''], '__i__') . '</template>';
+
+        return '<div class="repos-editor" id="repos-editor" data-repos-editor data-repo-siguiente="' . $i . '">'
+            . '<div class="repos-filas">' . $filas . '</div>'
+            . '<button type="button" class="btn-outline btn-meca btn-sm repo-agregar">'
+            . '<i class="fa-solid fa-plus"></i> Agregar repositorio</button>'
+            . $plantilla
+            . '<small class="campo-ayuda">Elige el tipo y, si tienes varios del mismo (p. ej. dos instituciones), ponle un nombre para distinguirlos.</small>'
+            . '</div>';
+    }
+
     /** Texto de ayuda bajo el selector de asignado. */
     public static function ayudaEquipoProyecto(?array $equipoProyecto): string
     {

@@ -164,14 +164,10 @@ UI::cabecera(
       </section>
 
       <section class="wz-panel">
-        <label class="campo">
-          <span><i class="fa-solid fa-server"></i> Repositorio backend</span>
-          <input class="input-meca" name="repo" type="url" placeholder="https://github.com/…/backend">
-        </label>
-        <label class="campo">
-          <span><i class="fa-solid fa-desktop"></i> Repositorio frontend</span>
-          <input class="input-meca" name="repo_frontend" type="url" placeholder="https://github.com/…/frontend">
-        </label>
+        <div class="campo" data-sin-resumen>
+          <span><i class="fa-brands fa-github"></i> Repositorios</span>
+          <?= UI::reposEditor() ?>
+        </div>
         <label class="campo">
           <span>Estado</span>
           <?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), 'activo') ?>

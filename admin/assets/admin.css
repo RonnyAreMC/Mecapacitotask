@@ -1292,6 +1292,39 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 .vista-toggle { display: flex; gap: 10px; flex-wrap: wrap; }
 .vista-toggle .tab-btn { padding: 9px 18px; font-size: .82rem; }
+
+/* Subselector de "Tareas": segmentado compacto embutido */
+.subvista-toggle {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 4px; border-radius: 13px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+}
+.subvista-toggle[hidden] { display: none; }
+.subvista-tit {
+  padding: 0 8px 0 6px;
+  font-size: .72rem; font-weight: 700; color: var(--c-text-soft);
+  text-transform: uppercase; letter-spacing: .05em;
+}
+.subvista-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
+  border: 0; border-radius: 10px;
+  background: transparent;
+  color: var(--c-text-muted);
+  font-family: 'Inter', sans-serif; font-size: .8rem; font-weight: 700;
+  cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease, background .2s ease;
+}
+.subvista-btn:hover { color: var(--c-text); }
+.subvista-btn.active {
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  color: var(--c-secondary);
+}
+.tab-badge-neutro { background: var(--c-text-soft) !important; }
+@media (max-width: 620px) {
+  .subvista-tit { display: none; }
+}
 .btn-quien { display: inline-flex; align-items: center; gap: 9px; padding: 8px 16px; font-size: .82rem; }
 .btn-quien .avatar { box-shadow: none; }
 
@@ -2311,6 +2344,33 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .cuenta-chip.cuenta-off i { margin-right: 6px; }
 .colab-acciones { display: flex; align-items: center; gap: 10px; }
 .colab-acciones form { margin: 0; }
+
+/* =========================================================
+   Editor de repositorios (crear / editar proyecto)
+   ========================================================= */
+.repos-editor { display: flex; flex-direction: column; gap: 10px; }
+.repos-filas { display: flex; flex-direction: column; gap: 8px; }
+.repo-fila {
+  display: grid;
+  grid-template-columns: 130px 130px 1fr auto;
+  gap: 8px; align-items: center;
+}
+.repo-fila .repo-tipo,
+.repo-fila .input-meca { padding: 10px 12px; font-size: .88rem; }
+.repo-quitar {
+  width: 34px; height: 34px; flex: none;
+  border: 0; border-radius: 10px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  color: var(--c-text-soft); cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.repo-quitar:hover { color: var(--c-terracota); }
+.repo-quitar:active { box-shadow: var(--sh-inset-mini); }
+.repo-agregar { align-self: flex-start; }
+@media (max-width: 620px) {
+  .repo-fila { grid-template-columns: 1fr 1fr; }
+  .repo-fila .repo-url { grid-column: 1 / -1; }
+}
 
 /* =========================================================
    Intercambios de tareas

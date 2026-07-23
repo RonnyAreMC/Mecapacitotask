@@ -692,24 +692,88 @@ document.addEventListener('click', async (e) => {
   }
 });
 
-// Vista Tabla / Flujo en la pagina de proyecto (con memoria por URL)
+// Editor de repositorios de un proyecto: agregar y quitar filas.
+document.querySelectorAll('[data-repos-editor]').forEach((editor) => {
+  const filas = editor.querySelector('.repos-filas');
+  const tpl   = editor.querySelector('#repo-fila-tpl');
+
+  const sincronizar = () => {
+    // El nombre solo tiene sentido si hay mas de un repo del mismo tipo;
+    // igual se deja siempre editable, pero al menos una fila siempre existe.
+    if (!filas.querySelector('.repo-fila')) agregar();
+  };
+  const agregar = () => {
+    // Indice fresco para que los tres campos caigan en la misma fila del POST
+    const i = parseInt(editor.dataset.repoSiguiente || '0', 10);
+    editor.dataset.repoSiguiente = i + 1;
+    const frag = tpl.content.cloneNode(true);
+    frag.querySelectorAll('[name]').forEach((el) => {
+      el.name = el.name.replace('__i__', i);
+    });
+    filas.appendChild(frag);
+    const url = filas.querySelector('.repo-fila:last-child .repo-url');
+    if (url) url.focus();
+  };
+
+  editor.querySelector('.repo-agregar').addEventListener('click', agregar);
+  editor.addEventListener('click', (e) => {
+    const quitar = e.target.closest('.repo-quitar');
+    if (!quitar) return;
+    quitar.closest('.repo-fila').remove();
+    sincronizar();
+  });
+});
+
+// Vistas de la pagina de proyecto.
+// "Tareas" es un combo: agrupa Tabla / Kanban / Flujo bajo un subselector.
+// Al entrar se muestra el Calendario; las subvistas recuerdan su eleccion.
 const vistaToggle = document.querySelector('.vista-toggle');
 if (vistaToggle) {
-  const claveVista = 'vista-' + location.pathname + location.search;
-  const activarVista = (v) => {
+  const subToggle = document.querySelector('.subvista-toggle');
+  const SUBVISTAS = ['tabla', 'kanban', 'flujo'];
+  const claveVista = 'vista-' + location.pathname;
+  const claveSub   = 'subvista-' + location.pathname;
+
+  let subActual = sessionStorage.getItem(claveSub) || 'tabla';
+  if (!SUBVISTAS.includes(subActual)) subActual = 'tabla';
+
+  const panelActivo = (v) => (v === 'tareas' ? subActual : v);
+
+  const pintar = (v) => {
+    const panel = panelActivo(v);
     vistaToggle.querySelectorAll('[data-vista]').forEach((b) => b.classList.toggle('active', b.dataset.vista === v));
-    document.querySelectorAll('[data-vista-panel]').forEach((p) => { p.hidden = p.dataset.vistaPanel !== v; });
-    if (v === 'flujo') dibujarFlujo();
+    document.querySelectorAll('[data-vista-panel]').forEach((p) => { p.hidden = p.dataset.vistaPanel !== panel; });
+    if (subToggle) {
+      subToggle.hidden = v !== 'tareas';
+      subToggle.querySelectorAll('[data-subvista]').forEach((b) => b.classList.toggle('active', b.dataset.subvista === subActual));
+    }
+    if (panel === 'flujo') dibujarFlujo();
   };
-  vistaToggle.querySelectorAll('[data-vista]').forEach((btn) => {
-    btn.addEventListener('click', () => {
-      activarVista(btn.dataset.vista);
-      sessionStorage.setItem(claveVista, btn.dataset.vista);
-    });
-  });
-  const porHashVista = location.hash.startsWith('#vista-') ? location.hash.slice(7) : null;
-  const vGuardada = porHashVista || sessionStorage.getItem(claveVista);
-  if (vGuardada && vistaToggle.querySelector('[data-vista="' + vGuardada + '"]')) activarVista(vGuardada);
+
+  // Elegir una vista principal (calendario, tareas, observaciones, ...)
+  const activarVista = (v) => {
+    // Una subvista suelta (por hash o guardada) equivale a Tareas + esa subvista
+    if (SUBVISTAS.includes(v)) { subActual = v; sessionStorage.setItem(claveSub, v); v = 'tareas'; }
+    if (!vistaToggle.querySelector('[data-vista="' + v + '"]')) return;
+    sessionStorage.setItem(claveVista, v);
+    pintar(v);
+  };
+
+  vistaToggle.querySelectorAll('[data-vista]').forEach((btn) =>
+    btn.addEventListener('click', () => activarVista(btn.dataset.vista)));
+
+  if (subToggle) {
+    subToggle.querySelectorAll('[data-subvista]').forEach((btn) =>
+      btn.addEventListener('click', () => {
+        subActual = btn.dataset.subvista;
+        sessionStorage.setItem(claveSub, subActual);
+        pintar('tareas');
+      }));
+  }
+
+  // Al entrar: hash (#vista-X), luego lo ultimo elegido, si no el Calendario
+  const porHash = location.hash.startsWith('#vista-') ? location.hash.slice(7) : null;
+  activarVista(porHash || sessionStorage.getItem(claveVista) || 'calendario');
 }
 
 // Compositor de observaciones: pegar (Ctrl+V), arrastrar, adjuntar y enviar por AJAX.

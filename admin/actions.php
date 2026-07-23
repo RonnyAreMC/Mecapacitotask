@@ -174,8 +174,11 @@ switch ($accion) {
         $proyectos->actualizar($id, [
             'nombre'        => trim($_POST['nombre'] ?? ''),
             'descripcion'   => trim($_POST['descripcion'] ?? ''),
-            'repo'          => trim($_POST['repo'] ?? ''),
-            'repo_frontend' => trim($_POST['repo_frontend'] ?? ''),
+            'repos'         => ProyectoRepo::reposEntrada($_POST['repos'] ?? []),
+            // La lista nueva manda: se limpian los campos sueltos de antes
+            // para no dejar dos fuentes de verdad.
+            'repo'          => '',
+            'repo_frontend' => '',
             'estado'        => $_POST['estado'] ?? 'activo',
             'icono'         => $_POST['icono'] ?? 'fa-rocket',
             'color'         => Catalogo::colorEntrada($_POST),

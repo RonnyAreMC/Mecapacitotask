@@ -358,8 +358,7 @@ class ProyectoRepo
         return $this->store->insert([
             'nombre'        => trim($datos['nombre'] ?? ''),
             'descripcion'   => trim($datos['descripcion'] ?? ''),
-            'repo'          => trim($datos['repo'] ?? ''),
-            'repo_frontend' => trim($datos['repo_frontend'] ?? ''),
+            'repos'         => self::reposEntrada($datos['repos'] ?? []),
             'estado'        => $datos['estado'] ?? 'activo',
             'icono'         => $datos['icono'] ?? 'fa-rocket',
             'color'         => Catalogo::colorEntrada($datos),
@@ -421,18 +420,65 @@ class ProyectoRepo
         return Catalogo::colorDe($p['color'] ?? 0);
     }
 
+    /** Tipos de repositorio: clave => [etiqueta por defecto, icono]. */
+    public const TIPOS_REPO = [
+        'backend'  => ['Backend',  'fa-server'],
+        'frontend' => ['Frontend', 'fa-desktop'],
+        'movil'    => ['Móvil',    'fa-mobile-screen'],
+        'otro'     => ['Repositorio', 'fa-code-branch'],
+    ];
+
     /**
-     * Repositorios del proyecto (backend y frontend), solo los que tienen URL.
-     * @return array<int,array{label:string,icono:string,url:string}>
+     * Repositorios del proyecto, solo los que tienen URL.
+     *
+     * Formato nuevo: $p['repos'] = [ ['tipo'=>, 'nombre'=>, 'url'=>], ... ],
+     * asi un proyecto puede tener varios (dos instituciones, backend +
+     * frontend, etc.). Los proyectos viejos guardaban 'repo' y
+     * 'repo_frontend' sueltos: se siguen leyendo como respaldo.
+     *
+     * @return array<int,array{label:string,icono:string,url:string,tipo:string}>
      */
     public static function repos(array $p): array
     {
         $out = [];
+        if (!empty($p['repos']) && is_array($p['repos'])) {
+            foreach ($p['repos'] as $r) {
+                $url = trim($r['url'] ?? '');
+                if ($url === '') continue;
+                $tipo = isset(self::TIPOS_REPO[$r['tipo'] ?? '']) ? $r['tipo'] : 'otro';
+                [$etiquetaDef, $icono] = self::TIPOS_REPO[$tipo];
+                $label = trim($r['nombre'] ?? '') !== '' ? trim($r['nombre']) : $etiquetaDef;
+                $out[] = ['label' => $label, 'icono' => $icono, 'url' => $url, 'tipo' => $tipo];
+            }
+            return $out;
+        }
+        // Respaldo: proyectos anteriores a la lista de repos
         if (!empty($p['repo'])) {
-            $out[] = ['label' => 'Backend', 'icono' => 'fa-server', 'url' => $p['repo']];
+            $out[] = ['label' => 'Backend', 'icono' => 'fa-server', 'url' => $p['repo'], 'tipo' => 'backend'];
         }
         if (!empty($p['repo_frontend'])) {
-            $out[] = ['label' => 'Frontend', 'icono' => 'fa-desktop', 'url' => $p['repo_frontend']];
+            $out[] = ['label' => 'Frontend', 'icono' => 'fa-desktop', 'url' => $p['repo_frontend'], 'tipo' => 'frontend'];
+        }
+        return $out;
+    }
+
+    /**
+     * Lee la lista de repos de un formulario: repos[i][tipo|nombre|url].
+     * Descarta filas sin URL y normaliza el tipo.
+     */
+    public static function reposEntrada(mixed $valor): array
+    {
+        $out = [];
+        foreach ((array)$valor as $fila) {
+            if (!is_array($fila)) continue;
+            $url = trim($fila['url'] ?? '');
+            if ($url === '') continue;
+            $tipo = isset(self::TIPOS_REPO[$fila['tipo'] ?? '']) ? $fila['tipo'] : 'otro';
+            $out[] = [
+                'tipo'   => $tipo,
+                'nombre' => mb_substr(trim($fila['nombre'] ?? ''), 0, 60),
+                'url'    => $url,
+            ];
         }
         return $out;
     }

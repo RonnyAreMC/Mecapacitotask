@@ -132,6 +132,27 @@ secretos de Ajustes (Zoom, Gmail, GitHub, Google) ya **no se imprimen en el HTML
 el campo aparece vacío con el texto “•••••••• guardado”. Si lo dejas vacío al
 guardar, se conserva el que ya estaba; escribe uno nuevo solo para reemplazarlo.
 
+## Repositorios de un proyecto
+
+Cada proyecto puede enlazar **varios repositorios**, no solo backend y frontend.
+En **Editar proyecto → Repos** agregas las filas que necesites; cada una lleva:
+
+- **Tipo**: Backend, Frontend, Móvil o Repositorio (define el icono).
+- **Nombre** (opcional): para distinguir cuando hay varios del mismo tipo —por
+  ejemplo, un mismo sistema para dos instituciones, cada una con su repo.
+- **URL** del repositorio en GitHub.
+
+Se muestran como botones en la cabecera del tablero y su actividad de commits
+sale en Métricas. Los proyectos creados antes (que guardaban un backend y un
+frontend sueltos) se siguen viendo igual hasta que los edites.
+
+## Vistas del tablero
+
+Al abrir un proyecto lo primero es el **Calendario**. La pestaña **Tareas**
+agrupa las tres formas de ver la misma lista —**Tabla, Kanban y Flujo**— en un
+subselector «Ver como»; el panel recuerda cuál elegiste. Las demás pestañas
+(Observaciones, Intercambios, Reuniones, Métricas) quedan al lado.
+
 ## Equipo del proyecto y fechas de inicio
 
 **Editar proyecto → Equipo** define quién participa. Con la lista puesta, al
