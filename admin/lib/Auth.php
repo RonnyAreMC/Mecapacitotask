@@ -88,7 +88,7 @@ class Auth
     {
         if (PHP_SAPI === 'cli') return;
         if (!self::usuario()) {
-            header('Location: login.php');
+            header('Location: ' . urlPanel('login.php'));
             exit;
         }
     }

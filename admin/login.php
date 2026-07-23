@@ -9,7 +9,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 
 if (Auth::usuario()) {
-    header('Location: index.php');
+    header('Location: ' . urlPanel('index.php'));
     exit;
 }
 $marca      = Config::all();

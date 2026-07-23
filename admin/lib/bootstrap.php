@@ -3,6 +3,21 @@
  * Bootstrap del panel: sesion, autocarga de clases, helpers
  * y datos de ejemplo la primera vez que se abre.
  */
+// Corta bucles de redirección. Si la URL trae una cola después del script
+// (p. ej. /admin/oauth_google.php/login.php, sea por PATH_INFO o por un CGI
+// que no la separó), los redirect relativos como "login.php" se resuelven
+// una y otra vez sobre esa cola y el navegador entra en ERR_TOO_MANY_REDIRECTS.
+// Se manda UNA vez a la URL limpia del script.
+if (PHP_SAPI !== 'cli') {
+    $sn = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (!empty($_SERVER['PATH_INFO']) || preg_match('#\.php/.+#i', $sn)) {
+        $limpio = preg_replace('#(\.php)/.*$#i', '$1', $sn);
+        $qs = $_SERVER['QUERY_STRING'] ?? '';
+        header('Location: ' . $limpio . ($qs !== '' ? '?' . $qs : ''), true, 302);
+        exit;
+    }
+}
+
 // Cookie de sesión endurecida (no accesible por JS, y solo por HTTPS si lo hay)
 if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
     session_set_cookie_params([
@@ -30,13 +45,43 @@ function e(?string $s): string
     return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
 }
 
-/** Guarda un mensaje flash y redirige. */
+/**
+ * Directorio del panel en el servidor (p. ej. "/admin"), a prueba de colas
+ * PATH_INFO: corta SCRIPT_NAME en el primer ".php" antes de sacar la carpeta.
+ */
+function rutaPanelBase(): string
+{
+    $sn = $_SERVER['SCRIPT_NAME'] ?? '/admin/index.php';
+    if (preg_match('#^(.*?\.php)#i', $sn, $m)) {
+        $sn = $m[1];
+    }
+    $dir = str_replace('\\', '/', dirname($sn));
+    return $dir === '/' || $dir === '.' ? '' : rtrim($dir, '/');
+}
+
+/**
+ * Convierte un destino en una URL absoluta dentro del panel. Los redirect
+ * relativos ("login.php") son frágiles: cualquier cola en la URL los enrosca
+ * en un bucle. Un destino ya absoluto (http… o que empieza por "/") se respeta.
+ */
+function urlPanel(string $destino): string
+{
+    if ($destino === '') {
+        return rutaPanelBase() . '/index.php';
+    }
+    if ($destino[0] === '/' || preg_match('#^https?://#i', $destino)) {
+        return $destino;
+    }
+    return rutaPanelBase() . '/' . ltrim($destino, '/');
+}
+
+/** Guarda un mensaje flash y redirige (siempre con URL absoluta del panel). */
 function redirigir(string $url, string $msg = '', string $tipo = 'success'): never
 {
     if ($msg !== '') {
         $_SESSION['flash'][] = [$tipo, $msg];
     }
-    header('Location: ' . $url);
+    header('Location: ' . urlPanel($url));
     exit;
 }
 
