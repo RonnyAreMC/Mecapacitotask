@@ -68,6 +68,22 @@ class Mailer
     }
 
     /**
+     * Mezcla un color con blanco. $t=0 es el color puro, $t=1 blanco.
+     * Se usa para los tintes claros de fondos y bordes: da un hex sólido de
+     * 6 dígitos, que Outlook sí entiende (el hex de 8 con alfa no siempre).
+     */
+    private static function tinte(string $hex, float $t): string
+    {
+        $hex = ltrim($hex, '#');
+        if (!preg_match('/^[0-9a-fA-F]{6}$/', $hex)) return '#' . $hex;
+        $r = hexdec(substr($hex, 0, 2));
+        $g = hexdec(substr($hex, 2, 2));
+        $b = hexdec(substr($hex, 4, 2));
+        $mix = fn($c) => (int)round($c + (255 - $c) * $t);
+        return sprintf('#%02x%02x%02x', $mix($r), $mix($g), $mix($b));
+    }
+
+    /**
      * Cuerpo MIME del correo. Si hay logo, arma un multipart/related con la
      * imagen incrustada (cid:logo) para que se vea sin depender de una URL.
      * Devuelve [ cabecerasContentType[], cuerpo ].
@@ -246,60 +262,165 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
-    /** Envoltura minimalista (estilo iOS): claro, sin degradados, tipografía del sistema. */
+    /**
+     * Envoltura del correo. Diseño minimalista: tarjeta blanca con borde
+     * sutil, cabecera con logo + chip, título con barra de acento, chip de
+     * aviso automático, tarjeta institucional y footer con línea de acento.
+     * El color se toma de la marca (Ajustes → color secundario).
+     */
     private static function plantilla(string $cuerpo, string $urlBoton = '', string $textoBoton = ''): string
     {
-        $m = Config::all();
-        $titulo = e($m['titulo'] ?? 'Panel');
-        $acento = e($m['color_secundario'] ?? '#2B76F7');
-        $fuente = "-apple-system,BlinkMacSystemFont,'SF Pro Text','Segoe UI',Roboto,Helvetica,Arial,sans-serif";
-        $logo = self::logoPath() !== ''
-            ? '<td width="30" style="padding-right:10px;vertical-align:middle;">
-                 <img src="cid:logo" width="26" height="26" alt="" style="display:block;width:26px;height:26px;border-radius:7px;">
+        $m        = Config::all();
+        $marca    = e($m['titulo'] ?? 'Panel');
+        $sub      = e($m['subtitulo'] ?? 'Notificación');
+        $pri      = preg_match('/^#[0-9a-fA-F]{6}$/', $m['color_secundario'] ?? '') ? $m['color_secundario'] : '#2B76F7';
+        $priLight = self::tinte($pri, 0.38);
+        $chipBg   = self::tinte($pri, 0.90);
+        $chipBd   = self::tinte($pri, 0.74);
+        $infoBg   = self::tinte($pri, 0.92);
+        $anio     = date('Y');
+        $fuente   = "Helvetica,Arial,sans-serif";
+
+        // Logo incrustado (cid:logo). Sin logo, se muestra la inicial de la marca.
+        $tieneLogo = self::logoPath() !== '';
+        $logoHead = $tieneLogo
+            ? '<td valign="middle" width="52" style="padding:0 14px 0 0;">
+                 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                   <td align="center" valign="middle" width="44" height="44" style="width:44px;height:44px;background:#f9fafb;border:1px solid #ececec;border-radius:11px;text-align:center;">
+                     <img src="cid:logo" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;object-fit:contain;">
+                   </td>
+                 </tr></table>
                </td>'
             : '';
+
+        // Botón CTA: píldora sólida con el color de acento
         $boton = $urlBoton !== ''
-            ? '<a href="' . e($urlBoton) . '" target="_blank" style="display:inline-block;margin-top:22px;color:' . $acento . ';text-decoration:none;font-size:15px;font-weight:600;font-family:' . $fuente . ';">' . e($textoBoton) . ' &rsaquo;</a>'
+            ? '<div style="text-align:center;margin-top:24px;">
+                 <a href="' . e($urlBoton) . '" target="_blank" style="display:inline-block;background:' . $pri . ';color:#ffffff;text-decoration:none;font-family:' . $fuente . ';font-size:14px;font-weight:700;padding:12px 26px;border-radius:10px;letter-spacing:.2px;">' . e($textoBoton) . ' &rsaquo;</a>
+               </div>'
+            : '';
+
+        // Tarjeta institucional del pie (logo enmarcado + marca)
+        $logoPie = $tieneLogo
+            ? '<td valign="middle" width="118" style="padding:22px 0 22px 22px;">
+                 <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                   <td style="background:linear-gradient(135deg,' . $pri . ',' . $priLight . ');padding:3px;border-radius:16px;">
+                     <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+                       <td style="background:#ffffff;border-radius:13px;padding:9px;">
+                         <img src="cid:logo" alt="' . $marca . '" width="72" height="72" style="display:block;border:0;width:72px;height:72px;object-fit:contain;border-radius:8px;">
+                       </td>
+                     </tr></table>
+                   </td>
+                 </tr></table>
+               </td>'
             : '';
 
         return '<!DOCTYPE html>
 <html lang="es"><head>
-<meta charset="UTF-8">
+<meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <meta name="x-apple-disable-message-reformatting">
 <meta name="color-scheme" content="light">
-<title>' . $titulo . '</title>
+<title>' . $marca . '</title>
 <style>
   @media only screen and (max-width:480px) {
-    .mc-wrap { padding:16px 10px !important; }
-    .mc-card { border-radius:14px !important; }
-    .mc-head { padding:14px 18px !important; }
-    .mc-body { padding:22px 18px !important; }
-    .mc-foot { padding:14px 18px !important; }
-    .mc-det  { padding:14px 16px !important; }
-    .mc-h1   { font-size:18px !important; }
-    /* Las filas etiqueta/valor se apilan en pantallas chicas */
+    .mc-pad  { padding-left:18px !important; padding-right:18px !important; }
+    .mc-h1   { font-size:19px !important; }
     .mc-lbl, .mc-val { display:block !important; width:100% !important; text-align:left !important; }
-    .mc-lbl { padding:8px 0 0 !important; }
-    .mc-val { padding:2px 0 0 !important; }
+    .mc-lbl { padding:8px 0 0 !important; } .mc-val { padding:2px 0 0 !important; }
   }
 </style>
 </head>
-<body style="margin:0;padding:0;background:#f5f5f7;">
-<div class="mc-wrap" style="margin:0;padding:36px 16px;background:#f5f5f7;font-family:' . $fuente . ';">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr><td align="center">
-  <table role="presentation" width="472" cellpadding="0" cellspacing="0" border="0" class="mc-card" style="max-width:472px;width:100%;background:#ffffff;border:1px solid #e5e5e7;border-radius:18px;">
-    <tr><td class="mc-head" style="padding:18px 26px;border-bottom:1px solid #f0f0f2;">
-      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>'
-        . $logo .
-        '<td style="vertical-align:middle;color:#1d1d1f;font-size:15px;font-weight:600;letter-spacing:-.2px;">' . $titulo . '</td>
-      </tr></table>
-    </td></tr>
-    <tr><td class="mc-body" style="padding:28px 26px;">' . $cuerpo . $boton . '</td></tr>
-    <tr><td class="mc-foot" style="padding:16px 26px;border-top:1px solid #f0f0f2;color:#a1a1a6;font-size:12px;">Notificación automática de ' . $titulo . '.</td></tr>
-  </table>
-  </td></tr></table>
-</div>
+<body style="margin:0;padding:0;background:#fafafa;font-family:' . $fuente . ';-webkit-text-size-adjust:100%;color:#1f2937;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#fafafa;"><tr>
+<td align="center" style="padding:24px 8px;">
+<table role="presentation" width="600" cellpadding="0" cellspacing="0" border="0" style="max-width:600px;width:100%;">
+
+  <!-- Tarjeta principal -->
+  <tr><td style="padding:0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border:1px solid #ececec;border-radius:18px;border-collapse:separate;overflow:hidden;">
+
+      <!-- Cabecera: logo + marca + chip -->
+      <tr><td class="mc-pad" style="padding:22px 28px 14px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+          . $logoHead .
+          '<td valign="middle">
+            <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:2.4px;color:#9ca3af;font-weight:700;margin-bottom:2px;">' . $sub . '</div>
+            <div style="font-size:14px;color:#111827;font-weight:800;letter-spacing:-.005em;line-height:1.2;">' . $marca . '</div>
+          </td>
+          <td valign="middle" align="right" style="white-space:nowrap;">
+            <span style="display:inline-block;padding:5px 11px;font-size:9.5px;font-weight:800;letter-spacing:2px;text-transform:uppercase;color:' . $pri . ';background:' . $chipBg . ';border:1px solid ' . $chipBd . ';border-radius:999px;">Notificación</span>
+          </td>
+        </tr></table>
+      </td></tr>
+
+      <!-- Puntos + línea -->
+      <tr><td class="mc-pad" style="padding:0 28px 4px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td valign="middle">
+            <span style="display:inline-block;width:6px;height:6px;background:' . $pri . ';border-radius:50%;margin-right:5px;"></span>
+            <span style="display:inline-block;width:5px;height:5px;background:' . $priLight . ';border-radius:50%;margin-right:5px;"></span>
+            <span style="display:inline-block;width:4px;height:4px;background:' . $chipBd . ';border-radius:50%;"></span>
+          </td>
+          <td valign="middle" align="right">
+            <div style="display:inline-block;width:64px;height:2px;background:' . $pri . ';border-radius:2px;"></div>
+          </td>
+        </tr></table>
+      </td></tr>
+
+      <!-- Cuerpo (con barra de acento a la izquierda) -->
+      <tr><td class="mc-pad" style="padding:18px 28px 24px;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>
+          <td valign="top" width="4" style="padding-top:4px;"><div style="width:4px;background:' . $pri . ';border-radius:4px;height:40px;"></div></td>
+          <td valign="top" style="padding-left:16px;">' . $cuerpo . $boton . '</td>
+        </tr></table>
+      </td></tr>
+
+    </table>
+  </td></tr>
+
+  <!-- Chip de aviso automático -->
+  <tr><td style="padding:14px 0 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border:1px solid #ececec;border-radius:14px;border-collapse:separate;"><tr>
+      <td valign="top" width="44" style="padding:14px 0 14px 16px;">
+        <div style="width:28px;height:28px;background:' . $infoBg . ';border-radius:50%;text-align:center;line-height:28px;color:' . $pri . ';font-size:13px;font-weight:800;">i</div>
+      </td>
+      <td style="padding:14px 18px 14px 12px;font-size:12.5px;line-height:1.6;color:#6b7280;">Mensaje automático de <b>' . $marca . '</b>. No hace falta responder a este correo.</td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Tarjeta institucional -->
+  <tr><td style="padding:14px 0 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border:1px solid #ececec;border-radius:18px;border-collapse:separate;overflow:hidden;"><tr>
+      <td style="padding:0;">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"><tr>'
+          . $logoPie .
+          '<td valign="middle" style="padding:22px 24px;">
+            <div style="font-size:9.5px;text-transform:uppercase;letter-spacing:2px;color:' . $priLight . ';font-weight:700;margin-bottom:6px;">' . $sub . '</div>
+            <div style="font-size:17px;color:#111827;font-weight:800;letter-spacing:-.01em;line-height:1.25;">' . $marca . '</div>
+          </td>
+        </tr></table>
+      </td>
+    </tr></table>
+  </td></tr>
+
+  <!-- Footer -->
+  <tr><td style="padding:14px 0 0;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr><td style="padding:0 0 8px;line-height:0;font-size:0;"><div style="height:3px;background:linear-gradient(90deg,' . $pri . ' 0%,' . $priLight . ' 100%);border-radius:2px;"></div></td></tr>
+      <tr><td align="center" style="padding:6px 8px 4px;">
+        <span style="font-size:11px;color:#6b7280;font-weight:600;">' . $marca . '</span>
+        <span style="font-size:11px;color:#d1d5db;margin:0 6px;">|</span>
+        <span style="font-size:11px;color:#6b7280;">Todos los derechos reservados</span>
+        <span style="font-size:11px;color:#d1d5db;margin:0 6px;">|</span>
+        <span style="font-size:11px;color:' . $pri . ';font-weight:800;letter-spacing:.5px;">' . $anio . '</span>
+      </td></tr>
+    </table>
+  </td></tr>
+
+  <tr><td style="height:18px;font-size:0;line-height:0;">&nbsp;</td></tr>
+</table>
+</td></tr></table>
 </body></html>';
     }
 
