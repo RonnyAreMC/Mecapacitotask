@@ -24,7 +24,7 @@ if ($alcance !== null) {
 $verComo = verComo();
 if ($verComo) {
     $vcId = (int)$verComo['id'];
-    $todasTareas = array_values(array_filter($todasTareas, fn($t) => (int)($t['asignado_id'] ?? 0) === $vcId));
+    $todasTareas = array_values(array_filter($todasTareas, fn($t) => TareaRepo::tieneAsignado($t, $vcId)));
     $pidsVc = array_flip(array_map(fn($t) => (int)$t['proyecto_id'], $todasTareas));
     $proyectos = array_values(array_filter($proyectos, fn($p) => isset($pidsVc[(int)$p['id']])));
 }
@@ -81,8 +81,9 @@ UI::cabecera(
       // Miembros con tareas en este proyecto
       $equipo = [];
       foreach ($tareasRepo->delProyecto((int)$p['id']) as $t) {
-          $mid = (int)($t['asignado_id'] ?? 0);
-          if ($mid && isset($miembros[$mid])) $equipo[$mid] = $miembros[$mid];
+          foreach (TareaRepo::asignadosDe($t) as $mid) {
+              if (isset($miembros[$mid])) $equipo[$mid] = $miembros[$mid];
+          }
       }
   ?>
   <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">

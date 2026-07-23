@@ -549,12 +549,15 @@ class MiembroRepo
         return $this->store->update($id, $datos);
     }
 
-    /** Elimina al miembro y des-asigna sus tareas. */
+    /** Elimina al miembro y lo saca de las tareas que tenía asignadas. */
     public function eliminar(int $id): bool
     {
         $tareas = new JsonStore('tareas');
-        foreach ($tareas->where('asignado_id', $id) as $t) {
-            $tareas->update((int)$t['id'], ['asignado_id' => 0]);
+        foreach ($tareas->all() as $t) {
+            $ids = TareaRepo::asignadosDe($t);
+            if (!in_array($id, $ids, true)) continue;
+            $quedan = array_values(array_filter($ids, fn($x) => $x !== $id));
+            $tareas->update((int)$t['id'], TareaRepo::camposAsignado(['asignados' => $quedan]));
         }
         $m = $this->buscar($id);
         if ($m && !empty($m['foto']) && file_exists(__DIR__ . '/../' . $m['foto'])) {
@@ -609,6 +612,53 @@ class TareaRepo
         return $this->store->find($id);
     }
 
+    /**
+     * Ids de los responsables de una tarea. Formato nuevo: 'asignados' (lista).
+     * Las tareas viejas guardaban un solo 'asignado_id': se sigue leyendo.
+     */
+    public static function asignadosDe(array $t): array
+    {
+        if (isset($t['asignados']) && is_array($t['asignados'])) {
+            return array_values(array_filter(array_map('intval', $t['asignados']), fn($n) => $n > 0));
+        }
+        $uno = (int)($t['asignado_id'] ?? 0);
+        return $uno > 0 ? [$uno] : [];
+    }
+
+    /** ¿La tarea tiene a este miembro como responsable? */
+    public static function tieneAsignado(array $t, int $miembroId): bool
+    {
+        return in_array($miembroId, self::asignadosDe($t), true);
+    }
+
+    /** Normaliza una lista de responsables del POST: ids únicos y positivos. */
+    public static function asignadosEntrada(mixed $valor): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)$valor), fn($n) => $n > 0)));
+        return $ids;
+    }
+
+    /** Campos de responsable: guarda la lista y deja asignado_id = el primero. */
+    public static function camposAsignado(array $datos): array
+    {
+        // Acepta 'asignados' (lista nueva) o 'asignado_id' (una sola, compat).
+        $ids = isset($datos['asignados'])
+            ? self::asignadosEntrada($datos['asignados'])
+            : self::asignadosEntrada([$datos['asignado_id'] ?? 0]);
+        return ['asignados' => $ids, 'asignado_id' => $ids[0] ?? 0];
+    }
+
+    /** Cambia un responsable por otro en una tarea (lo usa el intercambio). */
+    public function reemplazarAsignado(int $tareaId, int $sale, int $entra): void
+    {
+        $t = $this->buscar($tareaId);
+        if (!$t) return;
+        $ids = self::asignadosDe($t);
+        $ids = array_values(array_filter($ids, fn($x) => $x !== $sale));
+        if ($entra > 0 && !in_array($entra, $ids, true)) $ids[] = $entra;
+        $this->actualizar($tareaId, self::camposAsignado(['asignados' => $ids]));
+    }
+
     public function crear(array $datos): array
     {
         return $this->store->insert([
@@ -617,11 +667,10 @@ class TareaRepo
             'descripcion' => trim($datos['descripcion'] ?? ''),
             'estado'      => $datos['estado'] ?? 'pendiente',
             'prioridad'   => $datos['prioridad'] ?? 'media',
-            'asignado_id' => (int)($datos['asignado_id'] ?? 0),
             'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
             'fecha_limite'=> ProyectoRepo::fecha($datos['fecha_limite'] ?? ''),
             'depende_de'  => (int)($datos['depende_de'] ?? 0),
-        ]);
+        ] + self::camposAsignado($datos));
     }
 
     /**

@@ -232,7 +232,7 @@ function alcanceProyectos(): ?array
             }
         }
         foreach ((new TareaRepo())->todas() as $t) {
-            if ((int)($t['asignado_id'] ?? 0) === $yo) {
+            if (TareaRepo::tieneAsignado($t, $yo)) {
                 $ids[(int)$t['proyecto_id']] = true;
             }
         }

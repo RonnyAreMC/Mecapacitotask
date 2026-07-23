@@ -84,7 +84,7 @@ function avisarNuevosDelProyecto(array $antes, array $despues, array $proyecto, 
             $avisados++;
         }
     }
-    return $avisados ? ' 📧 ' . $avisados . ' persona(s) avisada(s) por correo.' : '';
+    return $avisados ? ' ' . $avisados . ' persona(s) avisada(s) por correo.' : '';
 }
 
 /**
@@ -102,27 +102,26 @@ function fechasTarea(array $post, string $volver): array
 }
 
 /**
- * Si la tarea quedo asignada a alguien nuevo, le envia el correo.
- * Devuelve [sufijo para el mensaje flash, tipo de toast].
+ * Avisa por correo a cada responsable NUEVO de la tarea (los que no estaban
+ * antes). Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
-function notificarSiAsignada(array $tarea, int $asignadoNuevo, int $asignadoAntes, ProyectoRepo $proyectos, MiembroRepo $miembros): array
+function notificarSiAsignada(array $tarea, array $asignadosNuevos, array $asignadosAntes, ProyectoRepo $proyectos, MiembroRepo $miembros): array
 {
-    if ($asignadoNuevo === 0 || $asignadoNuevo === $asignadoAntes) {
-        return ['', 'success'];
-    }
-    $m = $miembros->buscar($asignadoNuevo);
+    $nuevos = array_diff($asignadosNuevos, $asignadosAntes);
     $p = $proyectos->buscar((int)($tarea['proyecto_id'] ?? 0));
-    if (!$m || !$p) {
+    if (!$nuevos || !$p) {
         return ['', 'success'];
     }
-    $resultado = Mailer::notificarAsignacion($tarea, $m, $p);
-    if ($resultado === true) {
-        return [' 📧 ' . $m['nombre'] . ' fue notificado por correo.', 'success'];
+    $avisados = [];
+    foreach ($nuevos as $mid) {
+        $m = $miembros->buscar((int)$mid);
+        if ($m && Mailer::notificarAsignacion($tarea, $m, $p) === true) {
+            $avisados[] = explode(' ', $m['nombre'])[0];
+        }
     }
-    if (is_string($resultado)) {
-        return [' Pero el correo a ' . $m['nombre'] . ' falló: ' . $resultado, 'error'];
-    }
-    return ['', 'success']; // sin correo registrado o notificaciones apagadas
+    return $avisados
+        ? [' ' . implode(', ', $avisados) . ' ' . (count($avisados) === 1 ? 'fue notificado' : 'fueron notificados') . ' por correo.', 'success']
+        : ['', 'success'];
 }
 
 switch ($accion) {
@@ -213,7 +212,7 @@ switch ($accion) {
         if ($dep !== (int)$t['depende_de']) {
             $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
         }
-        [$msg, $tipo] = notificarSiAsignada($t, (int)$t['asignado_id'], 0, $proyectos, $miembros);
+        [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
         chequearEntrega($pid, $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
@@ -231,20 +230,19 @@ switch ($accion) {
         if (!$t) {
             redirigir('index.php', 'Tarea no encontrada.', 'error');
         }
-        $asignadoAntes = (int)($t['asignado_id'] ?? 0);
+        $asignadosAntes = TareaRepo::asignadosDe($t);
         [$fIni, $fLim] = fechasTarea($_POST, 'proyecto.php?id=' . $t['proyecto_id']);
         $tareas->actualizar((int)$t['id'], [
             'titulo'       => trim($_POST['titulo'] ?? ''),
             'descripcion'  => trim($_POST['descripcion'] ?? ''),
             'prioridad'    => $_POST['prioridad'] ?? 'media',
             'estado'       => $_POST['estado'] ?? 'pendiente',
-            'asignado_id'  => (int)($_POST['asignado_id'] ?? 0),
             'fecha_inicio' => $fIni,
             'fecha_limite' => $fLim,
             'depende_de'   => $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), (int)$t['proyecto_id']),
-        ]);
+        ] + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
-        [$msg, $tipo] = notificarSiAsignada($tActual, (int)$tActual['asignado_id'], $asignadoAntes, $proyectos, $miembros);
+        [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
@@ -362,14 +360,21 @@ switch ($accion) {
             redirigir($volver, 'Las dos tareas tienen que ser de este proyecto.', 'error');
         }
         // Solo se ofrece lo propio: un admin puede mover tareas sin pedir permiso
-        if (!esAdmin() && (int)$tMia['asignado_id'] !== $miId) {
+        $mios = TareaRepo::asignadosDe($tMia);
+        if (!esAdmin() && !in_array($miId, $mios, true)) {
             redirigir($volver, 'Solo puedes ofrecer una tarea que sea tuya.', 'error');
         }
-        $paraId = (int)$tSuya['asignado_id'];
+        // Quién sale de tu tarea (tú; o el primer responsable si un admin la mueve)
+        $deId = in_array($miId, $mios, true) ? $miId : ($mios[0] ?? 0);
+        if ($deId === 0) {
+            redirigir($volver, 'Esa tarea no tiene un responsable que ofrecer.', 'error');
+        }
+        // Quién recibe: el (primer) responsable de la otra tarea
+        $paraId = TareaRepo::asignadosDe($tSuya)[0] ?? 0;
         if ($paraId === 0) {
             redirigir($volver, 'Esa tarea no tiene responsable: no hay con quién intercambiar.', 'error');
         }
-        if ($paraId === (int)$tMia['asignado_id']) {
+        if ($paraId === $deId) {
             redirigir($volver, 'Las dos tareas ya son de la misma persona.', 'error');
         }
         if ($inter->tareaComprometida((int)$tMia['id'], (int)$tSuya['id'])) {
@@ -381,7 +386,7 @@ switch ($accion) {
 
         $nuevo = $inter->crear([
             'proyecto_id' => $pid,
-            'de_id'       => (int)$tMia['asignado_id'],
+            'de_id'       => $deId,
             'para_id'     => $paraId,
             'tarea_de'    => (int)$tMia['id'],
             'tarea_para'  => (int)$tSuya['id'],
@@ -394,7 +399,7 @@ switch ($accion) {
         $aviso = '';
         if ($mDe && $mPara) {
             $r = Mailer::notificarIntercambio($nuevo, $mDe, $mPara, $tMia, $tSuya, $proyectos->buscar($pid));
-            if ($r === true)          $aviso = ' 📧 ' . $mPara['nombre'] . ' fue avisado por correo.';
+            if ($r === true)          $aviso = ' ' . $mPara['nombre'] . ' fue avisado por correo.';
             elseif (is_string($r))    $aviso = ' Pero el correo falló: ' . $r;
         }
         redirigir($volver, 'Propuesta enviada a ' . ($mPara['nombre'] ?? '') . '.' . $aviso);
@@ -426,8 +431,9 @@ switch ($accion) {
                                                    'respuesta' => 'Una de las tareas ya no existe.']);
                 redirigir($volver, 'Una de las tareas ya no existe: la propuesta se canceló.', 'error');
             }
-            $tareas->actualizar((int)$tA['id'], ['asignado_id' => (int)$x['para_id']]);
-            $tareas->actualizar((int)$tB['id'], ['asignado_id' => (int)$x['de_id']]);
+            // Cruzar responsables sin pisar a los demás co-responsables
+            $tareas->reemplazarAsignado((int)$tA['id'], (int)$x['de_id'], (int)$x['para_id']);
+            $tareas->reemplazarAsignado((int)$tB['id'], (int)$x['para_id'], (int)$x['de_id']);
         }
 
         $inter->actualizar((int)$x['id'], [
@@ -779,8 +785,8 @@ switch ($accion) {
         if (!Mailer::listo()) {
             redirigir('ajustes.php', 'Primero guarda la configuración de correo (activo, usuario y contraseña).', 'error');
         }
-        $r = Mailer::enviar($para, '✅ Prueba de correo — Panel Mecapacito',
-            '<p style="font-family:Arial;font-size:15px;">¡Funciona! 🎉 El panel Mecapacito ya puede enviar notificaciones por correo.</p>');
+        $r = Mailer::enviar($para, 'Prueba de correo — Panel Mecapacito',
+            '<p style="font-family:Arial;font-size:15px;">¡Funciona! El panel Mecapacito ya puede enviar notificaciones por correo.</p>');
         if ($r === true) {
             redirigir('ajustes.php', 'Correo de prueba enviado a ' . $para . '. ¡Revisa la bandeja!');
         }
@@ -874,11 +880,11 @@ switch ($accion) {
                     $html = '<p style="font-family:Arial;font-size:15px">Hola <b>' . e($m['nombre']) . '</b>, te invitaron a una reunión:</p>'
                         . '<p style="font-family:Arial;font-size:15px"><b>' . e($topic) . '</b><br>' . e($inicio) . '</p>'
                         . '<p><a href="' . e($reu['join_url']) . '" style="background:#2D8CFF;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-family:Arial">Entrar a la reunión</a></p>';
-                    if (Mailer::enviar($m['email'], '📹 Reunión: ' . $topic, $html) === true) $avisados++;
+                    if (Mailer::enviar($m['email'], 'Reunión: ' . $topic, $html) === true) $avisados++;
                 }
             }
         }
-        redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' 📧 ' . $avisados . ' invitado(s) notificado(s).' : ''));
+        redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));
 
     case 'reunion_grabaciones':
         $reuniones = new ReunionRepo();

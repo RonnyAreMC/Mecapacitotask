@@ -32,7 +32,7 @@ foreach ((new ProyectoRepo())->todos() as $p) {
 }
 
 // Todas las tareas del colaborador (abiertas primero)
-$susTareas = array_values(array_filter($tareasRepo->todas(), fn($t) => (int)($t['asignado_id'] ?? 0) === $id));
+$susTareas = array_values(array_filter($tareasRepo->todas(), fn($t) => TareaRepo::tieneAsignado($t, $id)));
 usort($susTareas, function ($a, $b) use ($finales) {
     $fa = in_array($a['estado'] ?? '', $finales, true) ? 1 : 0;
     $fb = in_array($b['estado'] ?? '', $finales, true) ? 1 : 0;

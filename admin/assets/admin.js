@@ -185,7 +185,13 @@ MecaSelect.init();
 // Fija el valor de un <select> y refresca su MecaSelect
 function setSelect(el, valor) {
   if (!el) return;
-  el.value = String(valor);
+  if (el.multiple) {
+    // Varias opciones marcadas: valor es una lista de ids
+    const set = new Set((Array.isArray(valor) ? valor : [valor]).map(String));
+    [...el.options].forEach((o) => { o.selected = set.has(o.value); });
+  } else {
+    el.value = String(valor);
+  }
   el.dispatchEvent(new Event('ms-sync'));
 }
 
@@ -224,6 +230,11 @@ const MecaDate = {
 
     const parse = (v) => {
       if (!v) return null;
+      // Una fecha sola "YYYY-MM-DD" hay que construirla en hora LOCAL: si se
+      // pasa a new Date() se interpreta como UTC y en zonas al oeste (Ecuador
+      // es UTC-5) cae al día anterior. Por eso se veía corrida.
+      const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(v.trim());
+      if (m) return new Date(+m[1], +m[2] - 1, +m[3]);
       const d = new Date(v.replace(' ', 'T'));
       return isNaN(d) ? null : d;
     };
@@ -1044,7 +1055,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     setFecha(dlg.querySelector('#et-inicio'), t.fecha_inicio);
     setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
     dlg.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
-    setSelect(dlg.querySelector('.js-et-asignado'), t.asignado_id);
+    setSelect(dlg.querySelector('.js-et-asignado'), t.asignados || (t.asignado_id ? [t.asignado_id] : []));
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);
     const dep = dlg.querySelector('.js-et-depende');

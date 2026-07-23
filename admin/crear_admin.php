@@ -104,5 +104,5 @@ $repo->actualizar((int)$miembro['id'], [
     'pass_hash' => Auth::hash($clave),
 ]);
 
-fwrite(STDOUT, "\n✔ {$miembro['nombre']} ya es administrador del panel.\n");
+fwrite(STDOUT, "\n{$miembro['nombre']} ya es administrador del panel.\n");
 fwrite(STDOUT, "  Entra en /admin/login.php con $mail y la contraseña que pusiste.\n\n");

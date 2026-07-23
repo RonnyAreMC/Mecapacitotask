@@ -32,7 +32,7 @@ $fEstado   = $_GET['estado'] ?? '';
 $fAsignado = $verComo ? (int)$verComo['id'] : (int)($_GET['asignado'] ?? 0);
 $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     if ($fEstado !== '' && $t['estado'] !== $fEstado) return false;
-    if ($fAsignado && (int)$t['asignado_id'] !== $fAsignado) return false;
+    if ($fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado)) return false;
     return true;
 });
 
@@ -46,12 +46,19 @@ $delProyecto = $equipoProyecto === null
 // Quien ya tiene tareas aqui pero salio del equipo: se sigue ofreciendo para
 // no perder la asignacion existente al editar la tarea.
 foreach ($tareas as $t) {
-    $mid = (int)($t['asignado_id'] ?? 0);
-    if ($mid && isset($miembros[$mid]) && !isset($delProyecto[$mid])) {
-        $delProyecto[$mid] = $miembros[$mid];
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        if (isset($miembros[$mid]) && !isset($delProyecto[$mid])) {
+            $delProyecto[$mid] = $miembros[$mid];
+        }
     }
 }
 uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+
+// Para el selector de responsables (múltiple): sin la opción "sin asignar"
+$opcionesAsignar = [];
+foreach ($delProyecto as $m) {
+    $opcionesAsignar[$m['id']] = $m['nombre'] . ' (@' . $m['git_user'] . ')';
+}
 
 $opcionesMiembros = [0 => '— Sin asignar —'];
 $opcionesFiltro   = [0 => 'Todo el equipo'];
@@ -102,9 +109,9 @@ $interPendientes = $interResumen['pendiente'];
 $miId           = (int)(Auth::usuario()['id'] ?? 0);
 
 // Mis tareas aqui (las que puedo ofrecer) y las del resto (las que puedo pedir)
-$misTareasAqui = array_values(array_filter($tareas, fn($t) => (int)($t['asignado_id'] ?? 0) === $miId));
-$tareasDeOtros = array_values(array_filter($tareas, fn($t) => (int)($t['asignado_id'] ?? 0) > 0
-    && (int)$t['asignado_id'] !== $miId));
+$misTareasAqui = array_values(array_filter($tareas, fn($t) => TareaRepo::tieneAsignado($t, $miId)));
+$tareasDeOtros = array_values(array_filter($tareas, fn($t) => TareaRepo::asignadosDe($t)
+    && !TareaRepo::tieneAsignado($t, $miId)));
 
 $opcionesMisTareas = [];
 foreach ($misTareasAqui as $t) {
@@ -112,7 +119,8 @@ foreach ($misTareasAqui as $t) {
 }
 $opcionesOtrasTareas = [];
 foreach ($tareasDeOtros as $t) {
-    $duenio = $miembros[(int)$t['asignado_id']]['nombre'] ?? '?';
+    $nombres = array_map(fn($mid) => $miembros[$mid]['nombre'] ?? '?', TareaRepo::asignadosDe($t));
+    $duenio = implode(', ', $nombres) ?: '?';
     $opcionesOtrasTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 34, '…') . ' · ' . $duenio;
 }
 $puedeIntercambiar = $opcionesMisTareas !== [] && $opcionesOtrasTareas !== [];
@@ -226,8 +234,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 $abiertasProyecto = [];
 foreach ($tareas as $t) {
     if (!in_array($t['estado'] ?? '', $finales, true)) {
-        $mid = (int)($t['asignado_id'] ?? 0);
-        if ($mid) $abiertasProyecto[$mid] = ($abiertasProyecto[$mid] ?? 0) + 1;
+        foreach (TareaRepo::asignadosDe($t) as $mid) {
+            $abiertasProyecto[$mid] = ($abiertasProyecto[$mid] ?? 0) + 1;
+        }
     }
 }
 ?>
@@ -300,7 +309,8 @@ foreach ($tareas as $t) {
       </thead>
       <tbody>
         <?php foreach ($visibles as $t):
-            $m = $miembros[(int)$t['asignado_id']] ?? null;
+            $asigIds = TareaRepo::asignadosDe($t);
+            $asigLista = array_values(array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $asigIds)));
             $esFinal = in_array($t['estado'] ?? '', $finales, true);
             $vencida = !empty($t['fecha_limite']) && $t['fecha_limite'] < date('Y-m-d') && !$esFinal;
         ?>
@@ -331,11 +341,16 @@ foreach ($tareas as $t) {
           </td>
           <td>
             <div class="celda-persona">
-              <?= UI::avatar($m, 34) ?>
-              <?php if ($m): ?>
+              <?= UI::avatarsAsignados($t, $miembros, 34) ?>
+              <?php if (count($asigLista) === 1): ?>
               <div class="cp-info">
-                <span><?= e($m['nombre']) ?></span>
-                <small><i class="fa-brands fa-github"></i> <?= e($m['git_user']) ?></small>
+                <span><?= e($asigLista[0]['nombre']) ?></span>
+                <small><i class="fa-brands fa-github"></i> <?= e($asigLista[0]['git_user']) ?></small>
+              </div>
+              <?php elseif (count($asigLista) > 1): ?>
+              <div class="cp-info">
+                <span><?= e($asigLista[0]['nombre']) ?> +<?= count($asigLista) - 1 ?></span>
+                <small><?= count($asigLista) ?> responsables</small>
               </div>
               <?php else: ?>
               <span class="cp-nadie">Sin asignar</span>
@@ -368,7 +383,7 @@ foreach ($tareas as $t) {
                   'descripcion' => $t['descripcion'] ?? '',
                   'prioridad' => $t['prioridad'],
                   'estado' => $t['estado'],
-                  'asignado_id' => (int)$t['asignado_id'],
+                  'asignados' => TareaRepo::asignadosDe($t),
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '',
                   'depende_de' => (int)($t['depende_de'] ?? 0),
@@ -407,13 +422,11 @@ foreach ($tareas as $t) {
           <span class="kb-count"><?= (int)$resumen[$k] ?></span>
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
-          <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue;
-              $m = $miembros[(int)$t['asignado_id']] ?? null;
-          ?>
+          <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
           <div class="kb-card" draggable="<?= esAdmin() ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>">
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
-              <?= UI::avatar($m, 22) ?>
+              <?= UI::avatarsAsignados($t, $miembros, 22) ?>
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
               <?php if (!empty($t['fecha_limite'])): ?>
               <small><i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?></small>
@@ -474,14 +487,13 @@ foreach ($tareas as $t) {
         <div class="flujo-col">
           <h4><?= $nivel === 0 ? 'Inicio' : 'Fase ' . ($nivel + 1) ?></h4>
           <?php foreach ($lista as $t):
-              $m = $miembros[(int)$t['asignado_id']] ?? null;
               $esFinalF = in_array($t['estado'] ?? '', $finales, true);
           ?>
-          <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && (int)$t['asignado_id'] !== $fAsignado ? 'nodo-ajeno' : '' ?>"
+          <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado) ? 'nodo-ajeno' : '' ?>"
                id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>">
             <b><?= e($t['titulo']) ?></b>
             <div class="fn-meta">
-              <?= UI::avatar($m, 24) ?>
+              <?= UI::avatarsAsignados($t, $miembros, 24) ?>
               <?= UI::badgeEstadoTarea($t['estado'] ?? '') ?>
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
             </div>
@@ -527,7 +539,7 @@ foreach ($tareas as $t) {
           <button type="button" class="cal-ev cal-ev-tarea <?= $venc ? 'cal-venc' : '' ?>" title="<?= e($t['titulo']) ?>"
             data-editar-tarea='<?= e(json_encode([
                 'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
-                'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignado_id' => (int)$t['asignado_id'],
+                'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
                 'fecha_inicio' => $t['fecha_inicio'] ?? '',
                 'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
             ], JSON_UNESCAPED_UNICODE)) ?>'>
@@ -1024,9 +1036,9 @@ foreach ($tareas as $t) {
 
       <section class="wz-panel">
         <label class="campo">
-          <span>Asignado a</span>
-          <?= UI::select('asignado_id', $opcionesMiembros, '0') ?>
-          <small class="campo-ayuda"><?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
+          <span>Responsables</span>
+          <?= UI::select('asignados', $opcionesAsignar, [], false, '', true) ?>
+          <small class="campo-ayuda">Puedes elegir varias personas. <?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
         </label>
         <label class="campo">
           <span>Depende de (opcional)</span>
@@ -1089,9 +1101,9 @@ foreach ($tareas as $t) {
 
       <section class="wz-panel">
         <label class="campo">
-          <span>Asignado a</span>
-          <?= UI::select('asignado_id', $opcionesMiembros, '0', false, 'js-et-asignado') ?>
-          <small class="campo-ayuda"><?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
+          <span>Responsables</span>
+          <?= UI::select('asignados', $opcionesAsignar, [], false, 'js-et-asignado', true) ?>
+          <small class="campo-ayuda">Puedes elegir varias personas. <?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
         </label>
         <label class="campo">
           <span>Depende de (opcional)</span>

@@ -37,13 +37,14 @@ foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) {
     $nombresProyecto[(int)$p['id']] = $p['nombre'];
 }
 foreach ($tareasRepo->todas() as $t) {
-    $mid = (int)($t['asignado_id'] ?? 0);
-    if (!$mid) continue;
     if ($alcance !== null && !isset($alcance[(int)$t['proyecto_id']])) continue;
-    $asignadas[$mid] = ($asignadas[$mid] ?? 0) + 1;
-    if (!in_array($t['estado'] ?? '', $finales, true)) {
-        $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
-        $tareasDe[$mid][] = $t;
+    $abierta = !in_array($t['estado'] ?? '', $finales, true);
+    foreach (TareaRepo::asignadosDe($t) as $mid) {   // cuenta para cada responsable
+        $asignadas[$mid] = ($asignadas[$mid] ?? 0) + 1;
+        if ($abierta) {
+            $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
+            $tareasDe[$mid][] = $t;
+        }
     }
 }
 

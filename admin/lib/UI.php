@@ -357,6 +357,21 @@ class UI
              . $inner . '</span>';
     }
 
+    /**
+     * Avatares de los responsables de una tarea. Sin responsables muestra el
+     * avatar "sin asignar"; con uno, su avatar; con varios, la pila solapada.
+     */
+    public static function avatarsAsignados(array $tarea, array $miembros, int $size = 30, int $max = 3): string
+    {
+        $lista = [];
+        foreach (TareaRepo::asignadosDe($tarea) as $mid) {
+            if (isset($miembros[$mid])) $lista[] = $miembros[$mid];
+        }
+        if (!$lista)              return self::avatar(null, $size);
+        if (count($lista) === 1)  return self::avatar($lista[0], $size, true);
+        return self::avatarStack($lista, $max, $size);
+    }
+
     /** Pila de avatares solapados (equipo de un proyecto). */
     public static function avatarStack(array $miembros, int $max = 4, int $size = 34): string
     {

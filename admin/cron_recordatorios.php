@@ -25,8 +25,8 @@ $enviados  = 0;
 foreach ($tareas->todas() as $t) {
     if (empty($t['fecha_limite'])) continue;
     if (in_array($t['estado'] ?? '', $finales, true)) continue;        // ya entregada
-    $mid = (int)($t['asignado_id'] ?? 0);
-    if (!$mid) continue;
+    $responsables = TareaRepo::asignadosDe($t);
+    if (!$responsables) continue;
 
     $limite = DateTime::createFromFormat('Y-m-d', $t['fecha_limite']);
     if (!$limite) continue;
@@ -36,13 +36,21 @@ foreach ($tareas->todas() as $t) {
     // Un aviso por tarea al día
     if (($t['recordado_en'] ?? '') === $hoy->format('Y-m-d')) continue;
 
-    $m = $miembros->buscar($mid);
     $p = $proyectos->buscar((int)$t['proyecto_id']);
-    if (!$m || !$p || empty($m['email'])) continue;
+    if (!$p) continue;
 
-    if (Mailer::recordatorioTarea($t, $m, $p, $restan) === true) {
+    // Recordar a cada responsable con correo
+    $algunEnvio = false;
+    foreach ($responsables as $mid) {
+        $m = $miembros->buscar((int)$mid);
+        if (!$m || empty($m['email'])) continue;
+        if (Mailer::recordatorioTarea($t, $m, $p, $restan) === true) {
+            $algunEnvio = true;
+            $enviados++;
+        }
+    }
+    if ($algunEnvio) {
         $tareas->actualizar((int)$t['id'], ['recordado_en' => $hoy->format('Y-m-d')]);
-        $enviados++;
     }
 }
 

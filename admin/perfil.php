@@ -24,7 +24,7 @@ $googleOn   = GoogleLogin::listo();
 
 // Mis tareas, para el resumen de la cabecera
 $finales  = Catalogo::estadosFinales();
-$misTareas = array_filter((new TareaRepo())->todas(), fn($t) => (int)($t['asignado_id'] ?? 0) === $miId);
+$misTareas = array_filter((new TareaRepo())->todas(), fn($t) => TareaRepo::tieneAsignado($t, $miId));
 $abiertas  = count(array_filter($misTareas, fn($t) => !in_array($t['estado'] ?? '', $finales, true)));
 $misProyectos = [];
 foreach ($misTareas as $t) {
