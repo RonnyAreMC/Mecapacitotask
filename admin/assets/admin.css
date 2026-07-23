@@ -1597,9 +1597,33 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 }
 .cal-ev:hover { transform: translateX(2px); }
 .cal-ev .prio-dot { margin-top: 0; }
-.cal-ev-tarea { background: var(--n-bg); color: var(--c-text); }
+.cal-ev-tarea {
+  background: var(--n-bg); color: var(--c-text);
+  border-left: 3px solid var(--tc, var(--c-secondary));   /* arranque de la barra */
+}
 .cal-ev-tarea.cal-venc { color: var(--c-terracota); box-shadow: var(--sh-mini), inset 0 0 0 1.5px color-mix(in srgb, var(--c-terracota) 40%, transparent); }
 html.dark .cal-ev-tarea.cal-venc { color: #ff9d5c; }
+
+/* Continuación de una tarea que dura varios días: una línea de color que
+   va desde el día de inicio hasta el de fin (con banderita en el último). */
+.cal-ev-linea {
+  min-height: 9px; height: 9px; padding: 0;
+  justify-content: flex-end;
+  background: color-mix(in srgb, var(--tc, var(--c-secondary)) 45%, var(--n-bg));
+  box-shadow: none;
+  border-radius: 3px;
+  /* Se estira a los bordes de la celda para que "conecte" entre días */
+  margin: 0 -8px;
+}
+.cal-ev-linea.cal-medio { border-radius: 0; }
+.cal-ev-linea.cal-fin {
+  margin-right: 0; border-radius: 0 6px 6px 0;
+  background: var(--tc, var(--c-secondary));
+}
+.cal-ev-linea.cal-fin i { font-size: .55rem; color: #fff; margin-right: 4px; }
+.cal-ev-linea:hover { transform: none; }
+.cal-ev-linea.cal-venc { background: var(--c-terracota); }
+
 .cal-ev-reunion { background: rgba(45,140,255,.14); color: #2D8CFF; }
 .cal-leyenda {
   display: flex; gap: 18px; flex-wrap: wrap;

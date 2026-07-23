@@ -142,15 +142,33 @@ $mesesEs   = [1=>'Enero',2=>'Febrero',3=>'Marzo',4=>'Abril',5=>'Mayo',6=>'Junio'
 $calTitulo = $mesesEs[(int)date('n', $calIni)] . ' ' . date('Y', $calIni);
 $hoyIso    = date('Y-m-d');
 
-$eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>..., ...], ... ]
-foreach ($tareas as $t) {
-    if (!empty($t['fecha_limite'])) {
-        $eventosCal[$t['fecha_limite']][] = ['tipo' => 'tarea', 'dato' => $t];
+// Las tareas se pintan como una barra desde su fecha de inicio hasta la de
+// fin: 'inicio' arranca la barra (con el título), 'medio'/'fin' la continúan.
+$eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>, 'dato'=>, 'pos'=>], ... ]
+$mesIni = $mesCal . '-01';
+$mesFin = sprintf('%s-%02d', $mesCal, $calDias);
+// Ordenar por inicio para que las barras se apilen parejas entre días
+$tareasCal = $tareas;
+usort($tareasCal, fn($a, $b) =>
+    strcmp($a['fecha_inicio'] ?: ($a['fecha_limite'] ?? ''), $b['fecha_inicio'] ?: ($b['fecha_limite'] ?? '')));
+foreach ($tareasCal as $t) {
+    $ini = $t['fecha_inicio'] ?? '';
+    $fin = $t['fecha_limite'] ?? '';
+    if ($ini === '' && $fin === '') continue;
+    if ($ini === '') $ini = $fin;          // solo fin: un día
+    if ($fin === '') $fin = $ini;          // solo inicio: un día
+    if ($ini > $fin) { [$ini, $fin] = [$fin, $ini]; }
+    $desde = max($ini, $mesIni);
+    $hasta = min($fin, $mesFin);
+    if ($desde > $hasta) continue;         // el tramo no cae en este mes
+    for ($d = $desde; $d <= $hasta; $d = date('Y-m-d', strtotime($d . ' +1 day'))) {
+        $pos = ($ini === $fin) ? 'solo' : ($d === $ini ? 'inicio' : ($d === $fin ? 'fin' : 'medio'));
+        $eventosCal[$d][] = ['tipo' => 'tarea', 'dato' => $t, 'pos' => $pos, 'ini' => $ini, 'fin' => $fin];
     }
 }
 foreach ($reuniones as $r) {
     $dia = substr($r['inicio'] ?? '', 0, 10);
-    if ($dia) $eventosCal[$dia][] = ['tipo' => 'reunion', 'dato' => $r];
+    if ($dia) $eventosCal[$dia][] = ['tipo' => 'reunion', 'dato' => $r, 'pos' => 'solo'];
 }
 
 UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
@@ -534,17 +552,28 @@ foreach ($tareas as $t) {
           <span class="cal-num"><?= $d ?></span>
           <?php foreach ($evs as $ev): if ($ev['tipo'] === 'tarea'):
               $t = $ev['dato'];
-              $venc = $iso < $hoyIso && !in_array($t['estado'] ?? '', $finales, true);
+              $pos = $ev['pos'];
+              $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
+              $datos = e(json_encode([
+                  'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
+                  'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
+                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
+                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
+              ], JSON_UNESCAPED_UNICODE));
+              // Tooltip con el rango real de la tarea
+              $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
           ?>
-          <button type="button" class="cal-ev cal-ev-tarea <?= $venc ? 'cal-venc' : '' ?>" title="<?= e($t['titulo']) ?>"
-            data-editar-tarea='<?= e(json_encode([
-                'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
-                'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
-                'fecha_inicio' => $t['fecha_inicio'] ?? '',
-                'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
-            ], JSON_UNESCAPED_UNICODE)) ?>'>
+          <?php if ($pos === 'inicio' || $pos === 'solo'): ?>
+          <button type="button" class="cal-ev cal-ev-tarea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
+            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · <?= e($rango) ?>" data-editar-tarea='<?= $datos ?>'>
             <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
           </button>
+          <?php else: ?>
+          <button type="button" class="cal-ev cal-ev-linea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
+            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · hasta <?= e($ev['fin']) ?>" data-editar-tarea='<?= $datos ?>'>
+            <?php if ($pos === 'fin'): ?><i class="fa-solid fa-flag-checkered"></i><?php endif; ?>
+          </button>
+          <?php endif; ?>
           <?php else: $r = $ev['dato']; ?>
           <a class="cal-ev cal-ev-reunion" href="?id=<?= $id ?>#vista-reuniones" title="<?= e($r['topic']) ?>">
             <i class="fa-solid fa-video"></i> <?= e(substr($r['inicio'], 11, 5)) ?> <?= e(mb_strimwidth($r['topic'], 0, 16, '…')) ?>
