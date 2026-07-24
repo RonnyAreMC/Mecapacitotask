@@ -1,7 +1,13 @@
 # Datos de runtime del panel (se generan al usarlo; no publicar datos del equipo)
 admin/data/*.json
+admin/data/*.json.importado
 admin/data/.seeded
 admin/uploads/*
+
+# Base de datos SQLite y sus archivos temporales (WAL)
+admin/data/*.sqlite
+admin/data/*.sqlite-wal
+admin/data/*.sqlite-shm
 
 # Mantener las carpetas en el repo
 !admin/data/.gitkeep

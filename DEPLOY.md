@@ -1,7 +1,12 @@
 # Deploy en cPanel (subdominio) por terminal
 
-Panel PHP con persistencia en archivos JSON — **no necesita base de datos**.
-Requisitos: **PHP 8.1+** y **HTTPS** (el pegado de imágenes usa el portapapeles del navegador, que exige contexto seguro).
+Panel PHP con persistencia en **SQLite** (un solo archivo, sin servidor de base de datos).
+Requisitos: **PHP 8.1+** con la extensión **pdo_sqlite** (viene activa en casi todo
+cPanel) y **HTTPS** (el pegado de imágenes usa el portapapeles del navegador, que exige contexto seguro).
+
+> Para comprobar que el servidor tiene SQLite: `php -m | grep sqlite` (deben salir
+> `pdo_sqlite` y `sqlite3`). Si no aparecen, actívalos en cPanel → **Select PHP
+> Version / MultiPHP INI Editor → Extensions**.
 
 ## 1. Crear el subdominio (una sola vez)
 En cPanel → **Dominios / Subdominios**, crea `panel.tudominio.com`.
@@ -209,8 +214,30 @@ En **Ajustes → Correo → ¿Qué avisar?**:
 cd ~/public_html/panel.tudominio.com
 git pull
 ```
-Tus datos (`admin/data/*.json`, `admin/uploads/`) están en `.gitignore`, así que
-`git pull` **nunca los pisa**.
+Tus datos (`admin/data/panel.sqlite`, `admin/uploads/`) están en `.gitignore`, así
+que `git pull` **nunca los pisa**.
+
+## Migrar de JSON a SQLite (una sola vez, si ya tenías datos)
+
+Las versiones viejas guardaban en archivos `.json`. Al actualizar a la versión con
+SQLite, los datos se pasan solos la primera vez que se abre el panel. Para hacerlo
+de forma controlada (y confirmar que el servidor tiene SQLite) antes de que entren
+los usuarios:
+
+```bash
+cd ~/public_html/panel.tudominio.com
+git pull
+php admin/migrar_sqlite.php
+```
+
+Verás cuántos registros se migraron de cada colección. Los `.json` viejos quedan
+como `*.json.importado` (respaldo); puedes borrarlos cuando confirmes que todo va
+bien. Es idempotente: si ya se migró, no repite.
+
+> **Instalación nueva** (sin datos previos): no hay que hacer nada, el panel crea
+> el SQLite y siembra los datos de ejemplo solo.
+>
+> **Respaldo:** ahora es copiar **un archivo**, `admin/data/panel.sqlite`.
 
 ## Seguridad ya incluida en el repo
 - `admin/data/.htaccess` y `admin/lib/.htaccess`: bloquean el acceso web a datos y clases.
