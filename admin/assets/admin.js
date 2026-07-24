@@ -1048,6 +1048,65 @@ if (location.hash === '#nuevo-colaborador') {
   if (dlg) dlg.showModal();
 }
 
+/* ---------- Detalle de tarea (solo lectura, para cualquiera) ---------- */
+function abrirDetalleTarea(t) {
+  const dlg = document.getElementById('dlg-detalle-tarea');
+  if (!dlg) return;
+  const set = (sel, val) => { const el = dlg.querySelector(sel); if (el) el.textContent = val; };
+
+  set('.dt-proyecto', t.proyecto || '');
+  set('.dt-titulo', t.titulo || '');
+
+  const desc = dlg.querySelector('.dt-desc');
+  if (desc) { desc.textContent = t.descripcion || ''; desc.hidden = !t.descripcion; }
+
+  const chips = dlg.querySelector('.dt-chips');
+  if (chips) {
+    chips.innerHTML =
+      (t.estado ? '<span class="dt-chip dt-chip-estado">' + esc(t.estado) + '</span>' : '') +
+      (t.prioridad ? '<span class="dt-chip dt-chip-prio">Prioridad: ' + esc(t.prioridad) + '</span>' : '');
+  }
+
+  const asig = t.asignados && t.asignados.length ? t.asignados.join(', ') : 'Sin asignar';
+  set('.dt-asignados', asig);
+
+  let fechas = '';
+  if (t.fecha_inicio && t.fecha_limite) {
+    const d = Math.round((new Date(t.fecha_limite + 'T12:00') - new Date(t.fecha_inicio + 'T12:00')) / 86400000);
+    fechas = 'Del ' + t.fecha_inicio + ' al ' + t.fecha_limite + (d >= 0 ? ' · ' + (d + 1) + ' días' : '');
+  } else if (t.fecha_limite) { fechas = 'Límite: ' + t.fecha_limite; }
+  else if (t.fecha_inicio) { fechas = 'Arranca: ' + t.fecha_inicio; }
+  else { fechas = 'Sin fechas'; }
+  set('.dt-fechas', fechas);
+
+  const filaDep = dlg.querySelector('.dt-fila-dep');
+  if (filaDep) {
+    filaDep.hidden = !t.dep;
+    if (t.dep) dlg.querySelector('.dt-dep').innerHTML =
+      '<span class="dt-dep-tag ' + (t.dep_lista ? 'ok' : 'bloq') + '">' +
+      '<i class="fa-solid ' + (t.dep_lista ? 'fa-link' : 'fa-lock') + '"></i> ' +
+      (t.dep_lista ? 'Depende de' : 'Espera a') + ': ' + esc(t.dep) + '</span>';
+  }
+  const filaObs = dlg.querySelector('.dt-fila-obs');
+  if (filaObs) {
+    filaObs.hidden = !t.obs;
+    if (t.obs) set('.dt-obs', t.obs + ' observación' + (t.obs === 1 ? '' : 'es') + ' pendiente' + (t.obs === 1 ? '' : 's'));
+  }
+  dlg.showModal();
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+// Clic en una tarea (fila, kanban, flujo, calendario) → detalle de solo lectura
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-ver-tarea]');
+  if (!el) return;
+  // No abrir si se clicó un control interno (estado, editar, borrar, enlaces),
+  // salvo que ese control sea la tarjeta misma (el evento del calendario es button).
+  const ctrl = e.target.closest('button, select, a, input, textarea, form, .ms, .md, .btn-copiar');
+  if (ctrl && ctrl !== el && el.contains(ctrl)) return;
+  try { abrirDetalleTarea(JSON.parse(el.dataset.verTarea)); } catch (_) {}
+});
+
 // Rellenar y abrir el modal de edicion de tarea
 document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
   btn.addEventListener('click', () => {

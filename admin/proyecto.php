@@ -99,6 +99,33 @@ $obsPorTarea     = $obsRepo->pendientesPorTarea($id);   // [tarea_id => n pendie
 $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
+
+// Datos de solo lectura de una tarea para el modal de detalle (cualquiera puede
+// abrirlo, incluidos los programadores). Se calcula una vez y se pega como
+// atributo data-ver-tarea en cada tarjeta/fila/nodo.
+$estadosCat = Catalogo::estadosTarea();
+$prioCat    = Catalogo::prioridades();
+$verTareaAttr = function (array $t) use ($miembros, $tareasPorId, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto): string {
+    $nombres = [];
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        if (isset($miembros[$mid])) $nombres[] = $miembros[$mid]['nombre'];
+    }
+    $depId = (int)($t['depende_de'] ?? 0);
+    $dep = $depId && isset($tareasPorId[$depId]) ? $tareasPorId[$depId] : null;
+    return e(json_encode([
+        'titulo'       => $t['titulo'] ?? '',
+        'descripcion'  => $t['descripcion'] ?? '',
+        'proyecto'     => $proyecto['nombre'] ?? '',
+        'estado'       => $estadosCat[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? ''),
+        'prioridad'    => $prioCat[$t['prioridad'] ?? ''][0] ?? ($t['prioridad'] ?? ''),
+        'asignados'    => $nombres,
+        'fecha_inicio' => $t['fecha_inicio'] ?? '',
+        'fecha_limite' => $t['fecha_limite'] ?? '',
+        'dep'          => $dep['titulo'] ?? '',
+        'dep_lista'    => $dep ? in_array($dep['estado'] ?? '', $finales, true) : false,
+        'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
+    ], JSON_UNESCAPED_UNICODE));
+};
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
 
 // Intercambios de tareas
@@ -332,7 +359,7 @@ foreach ($tareas as $t) {
             $esFinal = in_array($t['estado'] ?? '', $finales, true);
             $vencida = !empty($t['fecha_limite']) && $t['fecha_limite'] < date('Y-m-d') && !$esFinal;
         ?>
-        <tr class="<?= $esFinal ? 'fila-hecha' : '' ?>">
+        <tr class="fila-tarea <?= $esFinal ? 'fila-hecha' : '' ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
@@ -441,7 +468,7 @@ foreach ($tareas as $t) {
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
           <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
-          <div class="kb-card" draggable="<?= esAdmin() ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>">
+          <div class="kb-card" draggable="<?= esAdmin() ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>
@@ -508,7 +535,7 @@ foreach ($tareas as $t) {
               $esFinalF = in_array($t['estado'] ?? '', $finales, true);
           ?>
           <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado) ? 'nodo-ajeno' : '' ?>"
-               id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>">
+               id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <b><?= e($t['titulo']) ?></b>
             <div class="fn-meta">
               <?= UI::avatarsAsignados($t, $miembros, 24) ?>
@@ -565,12 +592,12 @@ foreach ($tareas as $t) {
           ?>
           <?php if ($pos === 'inicio' || $pos === 'solo'): ?>
           <button type="button" class="cal-ev cal-ev-tarea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · <?= e($rango) ?>" data-editar-tarea='<?= $datos ?>'>
+            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · <?= e($rango) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
             <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
           </button>
           <?php else: ?>
           <button type="button" class="cal-ev cal-ev-linea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · hasta <?= e($ev['fin']) ?>" data-editar-tarea='<?= $datos ?>'>
+            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · hasta <?= e($ev['fin']) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
             <?php if ($pos === 'fin'): ?><i class="fa-solid fa-flag-checkered"></i><?php endif; ?>
           </button>
           <?php endif; ?>
@@ -1167,6 +1194,30 @@ foreach ($tareas as $t) {
       </div>
     </div>
   </form>
+</dialog>
+
+<!-- Modal: detalle de tarea (solo lectura, lo abre cualquiera) -->
+<dialog id="dlg-detalle-tarea" class="dlg-meca dlg-detalle">
+  <div class="dlg-form dt-body">
+    <header class="dt-head">
+      <div class="dt-head-txt">
+        <span class="dt-proyecto"></span>
+        <h3 class="dt-titulo font-display"></h3>
+      </div>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dt-chips"></div>
+    <p class="dt-desc"></p>
+    <dl class="dt-datos">
+      <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
+      <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
+      <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Dependencia</dt><dd class="dt-dep"></dd></div>
+      <div class="dt-fila-obs" hidden><dt><i class="fa-solid fa-comment-dots"></i> Observaciones</dt><dd class="dt-obs"></dd></div>
+    </dl>
+    <footer class="dt-foot">
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cerrar</button>
+    </footer>
+  </div>
 </dialog>
 
 <!-- Modal: editar proyecto (asistente por pasos) -->

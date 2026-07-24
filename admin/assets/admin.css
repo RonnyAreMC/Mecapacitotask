@@ -3927,3 +3927,40 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   color: var(--c-secondary); font-size: .78rem; font-weight: 700;
 }
 .acceso-yo i { font-size: .74rem; }
+
+/* ---------- Modal de detalle de tarea (solo lectura) ---------- */
+.dlg-detalle { max-width: 520px; width: 92vw; }
+.dt-body { padding: 4px; }
+.dt-head { display: flex; align-items: flex-start; gap: 12px; }
+.dt-head-txt { flex: 1; min-width: 0; }
+.dt-proyecto {
+  display: inline-block; margin-bottom: 4px;
+  font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-secondary);
+}
+.dt-titulo { margin: 0; font-size: 1.25rem; line-height: 1.25; color: var(--c-text); }
+.dt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
+.dt-chip {
+  padding: 5px 12px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700;
+  background: var(--n-bg); box-shadow: var(--sh-mini); color: var(--c-text-muted);
+}
+.dt-chip-estado { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); }
+.dt-desc {
+  margin: 16px 0 0; padding: 13px 15px;
+  border-radius: 13px; background: var(--c-bg-hundido);
+  font-size: .9rem; line-height: 1.6; color: var(--c-text-muted); white-space: pre-wrap;
+}
+.dt-datos { margin: 18px 0 0; display: flex; flex-direction: column; gap: 12px; }
+.dt-datos > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline; }
+.dt-datos > div[hidden] { display: none; }
+.dt-datos dt { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); }
+.dt-datos dt i { margin-right: 6px; color: var(--c-secondary); }
+.dt-datos dd { margin: 0; font-size: .9rem; color: var(--c-text); }
+.dt-dep-tag { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 600; }
+.dt-dep-tag.ok   { color: var(--c-success); }
+.dt-dep-tag.bloq { color: var(--c-warning); }
+.dt-foot { margin-top: 22px; display: flex; justify-content: flex-end; }
+/* Señal de que las tarjetas son clicables */
+.fila-tarea, .kb-card, .flujo-nodo { cursor: pointer; }
+@media (max-width: 480px) { .dt-datos > div { grid-template-columns: 1fr; gap: 2px; } }
