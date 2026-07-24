@@ -134,6 +134,9 @@ class UI
 
     <?php if (Auth::esAdmin()): ?>
     <span class="sidebar-label">Configuración</span>
+    <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
+      <i class="fa-solid fa-list-check"></i> <span class="truncate">Planificar</span>
+    </a>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
       <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
     </a>
