@@ -4170,3 +4170,21 @@ html.dark .sk::after {
   .admin-main, .sk-fade { animation: none; }
   .sk::after { animation: none; }
 }
+
+/* Tarjeta "Conectar mi Google Calendar" en Mi perfil */
+.gcal-card {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap; margin-top: 20px; padding: 20px 22px;
+}
+.gcal-info { display: flex; align-items: center; gap: 15px; min-width: 0; }
+.gcal-icono {
+  flex: none; width: 46px; height: 46px; border-radius: 13px;
+  display: grid; place-items: center; font-size: 1.25rem; color: #fff;
+  background: linear-gradient(135deg, #2BB673, #2B76F7);
+}
+.gcal-card h2 { margin: 0 0 3px; font-size: 1.05rem; font-weight: 800; color: var(--c-text); }
+.gcal-estado { margin: 0; font-size: .88rem; color: var(--c-text-muted); }
+.gcal-estado.ok { color: var(--c-success); }
+.gcal-estado i { margin-right: 5px; }
+.gcal-card .btn-meca { flex: none; }
+@media (max-width: 560px) { .gcal-card .btn-meca { width: 100%; justify-content: center; } }

@@ -110,27 +110,48 @@ class GoogleLogin
         return $esquema . '://' . $host . $dir . '/oauth_google.php';
     }
 
-    /** URL a la que se manda al usuario para que elija su cuenta de Google. */
+    /**
+     * URL para INICIAR SESIÓN. Pide solo lo básico (openid/email/profile), que
+     * no requiere verificación de Google. El permiso de calendario NO va aquí:
+     * es un permiso "sensible" que en modo prueba bloquea el acceso a todo el
+     * equipo. Se pide aparte y de forma opcional con urlCalendario().
+     */
     public static function urlAutorizacion(): string
     {
         $c = self::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        $scope  = 'openid email profile';
+        unset($_SESSION['oauth_calendario']);   // este flujo es solo de acceso
         $params = [
             'client_id'     => $c['client_id'],
             'redirect_uri'  => self::redirectUri(),
             'response_type' => 'code',
-            'scope'         => $scope,
+            'scope'         => 'openid email profile',
             'state'         => $_SESSION['oauth_state'],
             'prompt'        => 'select_account',
         ];
-        // Con el calendario activo pedimos permiso de escritura y acceso offline
-        // para obtener un refresh token (así podemos crear eventos más tarde).
-        if ($c['calendario']) {
-            $params['scope']       = $scope . ' https://www.googleapis.com/auth/calendar.events';
-            $params['access_type'] = 'offline';
-            $params['prompt']      = 'consent select_account';   // fuerza el refresh token
-        }
+        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
+    }
+
+    /**
+     * URL para CONECTAR EL CALENDARIO (permiso aparte del acceso). El usuario ya
+     * está dentro; aquí pide el permiso de escritura y acceso offline para
+     * obtener el refresh token. Marca la sesión para que el retorno lo distinga.
+     */
+    public static function urlCalendario(): string
+    {
+        $c = self::conf();
+        $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
+        $_SESSION['oauth_calendario'] = true;
+        $params = [
+            'client_id'     => $c['client_id'],
+            'redirect_uri'  => self::redirectUri(),
+            'response_type' => 'code',
+            'scope'         => 'openid email profile https://www.googleapis.com/auth/calendar.events',
+            'state'         => $_SESSION['oauth_state'],
+            'access_type'   => 'offline',
+            'prompt'        => 'consent',              // fuerza el refresh token
+            'include_granted_scopes' => 'true',        // autorización incremental
+        ];
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
     }
 

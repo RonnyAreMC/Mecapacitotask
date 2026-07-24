@@ -13,13 +13,36 @@ require_once __DIR__ . '/lib/bootstrap.php';
 if (!GoogleLogin::listo()) {
     redirigir('login.php', 'El acceso con Google no está configurado.', 'error');
 }
+
+// ¿Es el retorno de "conectar mi calendario" o el de iniciar sesión?
+$esCalendario = !empty($_SESSION['oauth_calendario']);
+unset($_SESSION['oauth_calendario']);
+$volver = $esCalendario ? 'perfil.php' : 'login.php';
+
 if (!empty($_GET['error'])) {
-    redirigir('login.php', 'Cancelaste el acceso con Google.', 'info');
+    redirigir($volver, $esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.', 'info');
 }
 
 $r = GoogleLogin::procesar($_GET['code'] ?? '', $_GET['state'] ?? '');
 if (!$r['ok']) {
-    redirigir('login.php', $r['error'], 'error');
+    redirigir($volver, $r['error'], 'error');
+}
+
+// --- Conectar calendario: el usuario ya está dentro, solo guardamos su token ---
+if ($esCalendario) {
+    $actual = Auth::usuario();
+    if (!$actual) {
+        redirigir('login.php', 'Tu sesión expiró. Entra de nuevo y vuelve a conectar tu calendario.', 'error');
+    }
+    // Debe conectarlo con la MISMA cuenta con la que entró
+    if (strcasecmp($actual['email'] ?? '', $r['email']) !== 0) {
+        redirigir('perfil.php', 'Conecta el calendario con tu misma cuenta (' . ($actual['email'] ?? '') . '), no con otra de Google.', 'error');
+    }
+    if (empty($r['refresh_token'])) {
+        redirigir('perfil.php', 'Google no devolvió el permiso. Vuelve a intentarlo aceptando el acceso al calendario.', 'error');
+    }
+    (new MiembroRepo())->actualizar((int)$actual['id'], ['gcal_refresh' => $r['refresh_token']]);
+    redirigir('perfil.php', 'Conectaste tu Google Calendar. Tus tareas con fecha se enviarán ahí.', 'success');
 }
 
 $repo     = new MiembroRepo();

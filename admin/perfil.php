@@ -79,6 +79,25 @@ UI::inicio('Mi perfil', 'perfil');
   <?= UI::stat('fa-folder-open', $c1, (string)count($misProyectos), 'Proyectos') ?>
 </section>
 
+<?php if (GoogleCalendar::listo()): $calConectado = !empty($yo['gcal_refresh']); ?>
+<section class="card-base gcal-card">
+  <div class="gcal-info">
+    <span class="gcal-icono"><i class="fa-brands fa-google"></i></span>
+    <div>
+      <h2 class="font-display">Google Calendar</h2>
+      <?php if ($calConectado): ?>
+        <p class="gcal-estado ok"><i class="fa-solid fa-circle-check"></i> Conectado. Tus tareas con fecha se envían a tu calendario.</p>
+      <?php else: ?>
+        <p class="gcal-estado"><i class="fa-solid fa-circle-info"></i> Conecta tu calendario para recibir ahí tus tareas con fecha.</p>
+      <?php endif; ?>
+    </div>
+  </div>
+  <a href="google_calendario.php" class="btn-meca <?= $calConectado ? 'btn-outline' : 'btn-primary' ?>">
+    <i class="fa-brands fa-google"></i> <?= $calConectado ? 'Volver a conectar' : 'Conectar mi calendario' ?>
+  </a>
+</section>
+<?php endif; ?>
+
 <section class="card-base perfil-card">
   <form method="post" action="actions.php" class="wz wz-inline form-persona" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="perfil_guardar">
