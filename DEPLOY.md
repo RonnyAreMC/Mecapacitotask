@@ -116,6 +116,19 @@ reutiliza los del correo (API de Gmail).
 Solo entran los correos que **ya existen** como colaboradores: Google nunca crea
 usuarios nuevos en el panel.
 
+### Enviar las tareas al Google Calendar de cada responsable
+En **Ajustes → Integraciones → Acceso al panel** activa «Enviar las tareas al Google
+Calendar de cada responsable». Cuando una tarea tiene fecha se crea un evento (de día
+completo, del inicio al fin) en el Google Calendar de cada persona asignada; al editar
+la tarea el evento se actualiza y al borrarla se elimina.
+
+Requisitos:
+- En **Google Cloud Console → OAuth consent screen**, agrega el scope
+  `https://www.googleapis.com/auth/calendar.events`.
+- Cada colaborador debe **volver a entrar con Google una vez** para conceder el permiso
+  (ahí el panel guarda su *refresh token*). Quien no lo haga, no recibe eventos; su
+  tarea funciona igual.
+
 ### Mi perfil
 Cada persona edita lo suyo en **Mi perfil** (se llega pinchando su nombre abajo
 del menú): nombre, rol, usuario de Git, correo, foto, color y **contraseña**,

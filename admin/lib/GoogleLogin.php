@@ -19,6 +19,7 @@ class GoogleLogin
             'client_id'     => trim($g['client_id'] ?? '')     ?: trim($correo['client_id'] ?? ''),
             'client_secret' => trim($g['client_secret'] ?? '') ?: trim($correo['client_secret'] ?? ''),
             'vincular_por_nombre' => !empty($g['vincular_por_nombre']),
+            'calendario'    => !empty($g['calendario']),
         ];
     }
 
@@ -114,14 +115,23 @@ class GoogleLogin
     {
         $c = self::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+        $scope  = 'openid email profile';
+        $params = [
             'client_id'     => $c['client_id'],
             'redirect_uri'  => self::redirectUri(),
             'response_type' => 'code',
-            'scope'         => 'openid email profile',
+            'scope'         => $scope,
             'state'         => $_SESSION['oauth_state'],
             'prompt'        => 'select_account',
-        ]);
+        ];
+        // Con el calendario activo pedimos permiso de escritura y acceso offline
+        // para obtener un refresh token (así podemos crear eventos más tarde).
+        if ($c['calendario']) {
+            $params['scope']       = $scope . ' https://www.googleapis.com/auth/calendar.events';
+            $params['access_type'] = 'offline';
+            $params['prompt']      = 'consent select_account';   // fuerza el refresh token
+        }
+        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query($params);
     }
 
     /**
@@ -162,7 +172,13 @@ class GoogleLogin
         if (isset($info['email_verified']) && !$info['email_verified']) {
             return ['ok' => false, 'error' => 'Tu correo de Google no está verificado.'];
         }
-        return ['ok' => true, 'email' => strtolower($info['email']), 'nombre' => $info['name'] ?? ''];
+        return [
+            'ok'            => true,
+            'email'         => strtolower($info['email']),
+            'nombre'        => $info['name'] ?? '',
+            // Solo llega la primera vez que consiente (o con prompt=consent)
+            'refresh_token' => $tok['refresh_token'] ?? '',
+        ];
     }
 
     private static function http(string $url, array $datos): array

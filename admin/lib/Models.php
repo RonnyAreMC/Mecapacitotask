@@ -229,6 +229,7 @@ final class Config
                 'client_id'           => '',
                 'client_secret'       => '',
                 'vincular_por_nombre' => true,
+                'calendario'          => false,   // enviar tareas al Google Calendar del responsable
             ],
         ];
     }

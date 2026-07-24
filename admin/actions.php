@@ -88,6 +88,36 @@ function avisarNuevosDelProyecto(array $antes, array $despues, array $proyecto, 
 }
 
 /**
+ * Sincroniza los eventos de Google Calendar de una tarea: crea/actualiza el
+ * evento de cada responsable que tenga conectado su Google, y borra el de
+ * quien ya no es responsable. Guarda el mapa idMiembro=>idEvento en la tarea.
+ */
+function sincronizarCalendario(array $tarea, ProyectoRepo $proyectos, MiembroRepo $miembros, TareaRepo $tareas): void
+{
+    if (!GoogleCalendar::listo()) return;
+    $p = $proyectos->buscar((int)($tarea['proyecto_id'] ?? 0));
+    if (!$p) return;
+
+    $eventos   = is_array($tarea['gcal_eventos'] ?? null) ? $tarea['gcal_eventos'] : [];
+    $asignados = TareaRepo::asignadosDe($tarea);
+    $nuevos = [];
+
+    foreach ($asignados as $mid) {
+        $m = $miembros->buscar((int)$mid);
+        if (!$m || empty($m['gcal_refresh'])) continue;
+        $id = GoogleCalendar::upsert($m, $tarea, $p, (string)($eventos[$mid] ?? ''));
+        if ($id) $nuevos[$mid] = $id;
+    }
+    // Eventos de quienes dejaron de ser responsables
+    foreach ($eventos as $mid => $eid) {
+        if (in_array((int)$mid, $asignados, true)) continue;
+        $m = $miembros->buscar((int)$mid);
+        if ($m) GoogleCalendar::borrar($m, (string)$eid);
+    }
+    $tareas->actualizar((int)$tarea['id'], ['gcal_eventos' => $nuevos]);
+}
+
+/**
  * Comprueba el par inicio/limite de una tarea. Devuelve [inicio, limite]
  * ya normalizados, o redirige con un error si el inicio queda despues.
  */
@@ -213,6 +243,7 @@ switch ($accion) {
             $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
         }
         [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
+        sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
         chequearEntrega($pid, $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
@@ -243,12 +274,20 @@ switch ($accion) {
         ] + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
+        sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tarea_eliminar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if ($t) {
+            // Borra los eventos de Google Calendar de la tarea, si los tenía
+            if (GoogleCalendar::listo() && is_array($t['gcal_eventos'] ?? null)) {
+                foreach ($t['gcal_eventos'] as $mid => $eid) {
+                    $m = $miembros->buscar((int)$mid);
+                    if ($m) GoogleCalendar::borrar($m, (string)$eid);
+                }
+            }
             $tareas->eliminar((int)$t['id']);
             chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
             redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea eliminada.');
@@ -735,6 +774,7 @@ switch ($accion) {
             'google_login'     => [
                 'activo'              => !empty($_POST['google_login']['activo']),
                 'vincular_por_nombre' => !empty($_POST['google_login']['vincular_por_nombre']),
+                'calendario'          => !empty($_POST['google_login']['calendario']),
                 'client_id'     => trim($_POST['google_login']['client_id'] ?? ''),
                 'client_secret' => $secreto($_POST['google_login']['client_secret'] ?? '', $prev['google_login']['client_secret'] ?? ''),
             ],

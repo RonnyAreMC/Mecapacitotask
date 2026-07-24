@@ -62,9 +62,18 @@ if (!$miembro) {
         'error');
 }
 
+// Guarda el refresh token para poder crear eventos en su Google Calendar.
+// Solo llega la primera vez que la persona concede el permiso de calendario.
+$avisoCal = '';
+if (!empty($r['refresh_token'])) {
+    $repo->actualizar((int)$miembro['id'], ['gcal_refresh' => $r['refresh_token']]);
+    $avisoCal = ' Tus tareas con fecha se enviarán a tu Google Calendar.';
+}
+
 Auth::iniciarSesion((int)$miembro['id']);
 redirigir(
     'index.php',
     '¡Bienvenido, ' . explode(' ', $miembro['nombre'])[0] . '!'
         . ($vinculado ? ' Vinculé tu cuenta de Google (' . $correo . ') a tu ficha del equipo.' : '')
+        . $avisoCal
 );

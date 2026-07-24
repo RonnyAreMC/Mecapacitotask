@@ -502,6 +502,17 @@ UI::cabecera(
           <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
           Reconocer por nombre y apellido si el correo aún no está registrado
         </label>
+        <label class="chk-linea">
+          <input type="checkbox" name="google_login[calendario]" <?= !empty($gl['calendario']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Enviar las tareas al Google Calendar de cada responsable
+        </label>
+        <small class="campo-ayuda">
+          Cuando una tarea tiene fecha, se crea un evento en el Google Calendar de su
+          responsable. Cada persona debe <b>volver a entrar con Google</b> una vez para
+          conceder el permiso de calendario (en Google Cloud Console agrega el scope
+          <code>calendar.events</code> a la pantalla de consentimiento).
+        </small>
         <small class="campo-ayuda">
           Con esto, la cuenta de Google «Jaione Cherres» entra como la colaboradora
           Jaione Cherres y su correo queda vinculado solo. Requiere que el nombre
