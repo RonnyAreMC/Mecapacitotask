@@ -61,6 +61,33 @@ final class ImportadorTareas
         return (string)preg_replace('/\s+/', ' ', $t);
     }
 
+    /**
+     * Busca un colaborador por nombre, tolerante:
+     *  - coincidencia exacta del nombre completo, o
+     *  - que un nombre sea prefijo del otro por palabras ("Kevin" ↔ "Kevin
+     *    Arellano"), siempre que la coincidencia sea UNICA.
+     * Devuelve el miembro, 'ambiguo' si hay varios, o null si ninguno.
+     */
+    private function resolverMiembro(string $nombre): array|string|null
+    {
+        $q = self::norm($nombre);
+        if ($q === '') return null;
+        if (isset($this->miembros[$q])) return $this->miembros[$q];
+
+        $qp = explode(' ', $q);
+        $hallados = [];
+        foreach ($this->miembros as $clave => $m) {
+            $mp = explode(' ', $clave);
+            $corto = min(count($qp), count($mp));
+            if (array_slice($qp, 0, $corto) === array_slice($mp, 0, $corto)) {
+                $hallados[] = $m;
+            }
+        }
+        if (count($hallados) === 1) return $hallados[0];
+        if (count($hallados) > 1)   return 'ambiguo';
+        return null;
+    }
+
     /** Resuelve una prioridad por clave o por etiqueta; '' si no encaja. */
     private function prioridad(string $v): string
     {
@@ -132,9 +159,10 @@ final class ImportadorTareas
             foreach ((array)($t['asignados'] ?? $t['asignado'] ?? []) as $nom) {
                 $nom = trim((string)$nom);
                 if ($nom === '') continue;
-                $m = $this->miembros[self::norm($nom)] ?? null;
-                if ($m) { $ids[] = (int)$m['id']; $nombresOk[] = $m['nombre']; }
-                else    { $avisos[] = 'no encontré a «' . $nom . '», tarea sin ese responsable'; }
+                $m = $this->resolverMiembro($nom);
+                if (is_array($m))          { $ids[] = (int)$m['id']; $nombresOk[] = $m['nombre']; }
+                elseif ($m === 'ambiguo')  { $avisos[] = 'hay varios que coinciden con «' . $nom . '», usa el nombre completo'; }
+                else                       { $avisos[] = 'no encontré a «' . $nom . '», tarea sin ese responsable'; }
             }
 
             // Prioridad / estado
