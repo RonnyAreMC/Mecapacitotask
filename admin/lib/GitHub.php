@@ -64,14 +64,14 @@ class GitHub
      * Devuelve ['estado'=>'ok'|'error'|'vacio'|'sin_repo', 'commits'=>[
      *   ['sha'=>, 'msg'=>, 'login'=>, 'nombre'=>, 'fecha'=>, 'url'=>], ... ]]
      */
-    public static function commitsRecientes(?string $repoUrl, int $limite = 60): array
+    public static function commitsRecientes(?string $repoUrl, int $limite = 60, string $rama = ''): array
     {
         $repo = self::parsearRepo($repoUrl);
         if (!$repo) {
             return ['estado' => 'sin_repo', 'commits' => []];
         }
         [$owner, $nombre] = $repo;
-        $clave = 'commits:' . strtolower("$owner/$nombre");
+        $clave = 'commits:' . strtolower("$owner/$nombre") . ($rama !== '' ? '@' . $rama : '');
 
         $cacheFile = __DIR__ . '/../data/cache_github.json';
         $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
@@ -81,7 +81,8 @@ class GitHub
             return $entrada;
         }
 
-        [$codigo, $cuerpo] = self::api("/repos/$owner/$nombre/commits?per_page=" . max(1, min(100, $limite)));
+        $qs = 'per_page=' . max(1, min(100, $limite)) . ($rama !== '' ? '&sha=' . rawurlencode($rama) : '');
+        [$codigo, $cuerpo] = self::api("/repos/$owner/$nombre/commits?$qs");
         $resultado = ['t' => time(), 'estado' => 'error', 'commits' => []];
 
         if ($codigo === 200) {
@@ -106,6 +107,33 @@ class GitHub
         $cache[$clave] = $resultado;
         file_put_contents($cacheFile, json_encode($cache));
         return $resultado;
+    }
+
+    /** Nombres de las ramas de un repo (cacheado 1h). */
+    public static function ramas(?string $repoUrl): array
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo) return [];
+        [$owner, $nombre] = $repo;
+        $clave = 'ramas:' . strtolower("$owner/$nombre");
+
+        $cacheFile = __DIR__ . '/../data/cache_github.json';
+        $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
+        $entrada = $cache[$clave] ?? null;
+        if ($entrada && (time() - ($entrada['t'] ?? 0)) < 3600) {
+            return $entrada['ramas'] ?? [];
+        }
+
+        [$codigo, $cuerpo] = self::api("/repos/$owner/$nombre/branches?per_page=100");
+        $ramas = [];
+        if ($codigo === 200) {
+            foreach (json_decode($cuerpo, true) ?: [] as $b) {
+                if (!empty($b['name'])) $ramas[] = $b['name'];
+            }
+        }
+        $cache[$clave] = ['t' => time(), 'ramas' => $ramas];
+        file_put_contents($cacheFile, json_encode($cache));
+        return $ramas;
     }
 
     /** GET a la API de GitHub. Devuelve [codigoHttp, cuerpo]. */

@@ -934,10 +934,21 @@ foreach ($tareas as $t) {
 <div data-vista-panel="metricas" hidden>
 
 <?php
-// Commits recientes de todos los repos del proyecto, para "quién subió qué"
+// Un solo gráfico de aportes: commits de TODOS los repos del proyecto,
+// filtrables por persona, por rama y por rango de fechas.
+$rama = trim($_GET['rama'] ?? '');
+
+// Ramas disponibles (unión de todos los repos)
+$ramasProyecto = [];
+foreach ($reposProyecto as $rp) {
+    foreach (GitHub::ramas($rp['url']) as $rn) $ramasProyecto[$rn] = true;
+}
+$ramasProyecto = array_keys($ramasProyecto);
+if ($rama !== '' && !in_array($rama, $ramasProyecto, true)) $rama = '';   // rama pedida ya no existe
+
 $commitsProyecto = [];
 foreach ($reposProyecto as $rp) {
-    $cr = GitHub::commitsRecientes($rp['url'], 100);
+    $cr = GitHub::commitsRecientes($rp['url'], 100, $rama);
     if (($cr['estado'] ?? '') !== 'ok') continue;
     foreach ($cr['commits'] as $c) {
         $c['repo'] = $rp['label'];
@@ -946,7 +957,6 @@ foreach ($reposProyecto as $rp) {
 }
 usort($commitsProyecto, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 
-// Datos para el filtro por persona y el enlace commit->tarea (lo maneja el JS)
 $comMiembros = [];
 foreach ($miembros as $m) {
     if (empty($m['git_user'])) continue;
@@ -960,6 +970,7 @@ foreach ($tareas as $t) {
     $comTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 50, '…');
 }
 $comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembros, 'tareas' => $comTareas], JSON_UNESCAPED_UNICODE);
+$urlSinRama = strtok($_SERVER['REQUEST_URI'], '#');
 ?>
 <?php if (!empty($comMiembros) && $reposProyecto): ?>
 <section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes>
@@ -967,29 +978,57 @@ $comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembro
     <h2 class="font-display"><i class="fa-brands fa-github"></i> Aportes del equipo
       <span class="ap-total"></span>
     </h2>
-    <div class="tabla-filtros">
-      <div class="subvista-toggle ap-modo">
-        <button type="button" class="subvista-btn active" data-modo="mapa"><i class="fa-solid fa-table-cells"></i> Mapa</button>
-        <button type="button" class="subvista-btn" data-modo="commits"><i class="fa-solid fa-list"></i> Commits</button>
-      </div>
+    <div class="tabla-filtros ap-filtros">
       <select class="select-meca select-sm ap-persona">
         <option value="0">Todo el equipo</option>
         <?php foreach ($comMiembros as $cm): ?>
         <option value="<?= $cm['id'] ?>"><?= e($cm['n']) ?></option>
         <?php endforeach; ?>
       </select>
+      <?php if (count($ramasProyecto) > 1): ?>
+      <select class="select-meca select-sm ap-rama" onchange="location.href=this.value">
+        <?php $qb = $_GET; unset($qb['rama']); $urlBase = 'proyecto.php?' . http_build_query($qb); ?>
+        <option value="<?= e($urlBase) ?>#vista-metricas" <?= $rama === '' ? 'selected' : '' ?>>Rama por defecto</option>
+        <?php foreach ($ramasProyecto as $rn): $qr = $_GET; $qr['rama'] = $rn; ?>
+        <option value="proyecto.php?<?= e(http_build_query($qr)) ?>#vista-metricas" <?= $rama === $rn ? 'selected' : '' ?>><?= e($rn) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
+      <div class="subvista-toggle ap-rango">
+        <button type="button" class="subvista-btn" data-dias="30">30 d</button>
+        <button type="button" class="subvista-btn" data-dias="90">90 d</button>
+        <button type="button" class="subvista-btn active" data-dias="182">6 m</button>
+        <button type="button" class="subvista-btn" data-dias="365">1 año</button>
+      </div>
+      <button type="button" class="btn-outline btn-meca btn-sm ap-ver-commits"><i class="fa-solid fa-list"></i> Ver commits</button>
     </div>
   </div>
   <div class="metricas-cuerpo">
     <p class="ajuste-ayuda ap-intro"><i class="fa-solid fa-circle-info"></i>
-      El mapa muestra los commits por día (elige una persona para ver solo los suyos). En <b>Commits</b> ves la lista;
-      si en el mensaje pones <b>#<i>id</i></b> de una tarea (ej. «#12 arreglar login»), se enlaza ahí.</p>
+      Un solo mapa de commits del proyecto: fíltralo por persona, rama y periodo.
+      «Ver commits» abre la lista a pantalla completa (de 25 en 25). Si el mensaje trae
+      <b>#<i>id</i></b> de una tarea, se enlaza ahí.</p>
     <div class="ap-leaderboard"></div>
     <div class="ap-mapa"></div>
-    <ol class="ap-lista" hidden></ol>
-    <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits de esta persona en el periodo reciente.</p>
+    <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits con esos filtros.</p>
   </div>
   <script type="application/json" data-aportes-data><?= $comData ?></script>
+
+  <!-- Commits a pantalla completa, paginados de 25 en 25 -->
+  <dialog class="dlg-meca dlg-commits ap-dialogo">
+    <div class="dlg-form">
+      <header>
+        <h3 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Commits <span class="apc-sub"></span></h3>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+      <ol class="apc-lista"></ol>
+      <footer class="apc-pie">
+        <button type="button" class="btn-outline btn-meca btn-sm apc-prev"><i class="fa-solid fa-arrow-left"></i> Anterior</button>
+        <span class="apc-pag"></span>
+        <button type="button" class="btn-outline btn-meca btn-sm apc-next">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+      </footer>
+    </div>
+  </dialog>
 </section>
 <?php endif; ?>
 
@@ -1043,47 +1082,6 @@ $comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembro
   </div>
 </section>
 
-<?php foreach ($actividades as $rep): $actividadRepo = $rep['act']; if ($actividadRepo['estado'] === 'sin_repo') continue; ?>
-<!-- Actividad del repositorio (GitHub) -->
-<section class="card-base tabla-card actividad-card" style="--pc:<?= $color ?>">
-  <div class="tabla-toolbar">
-    <h2 class="font-display"><i class="fa-brands fa-github"></i> Actividad · <span class="text-secondary"><i class="fa-solid <?= e($rep['icono']) ?>"></i> <?= e($rep['label']) ?></span></h2>
-    <div class="tabla-filtros">
-      <?php if ($actividadRepo['estado'] === 'ok'): ?>
-      <span class="ajuste-ayuda"><b><?= (int)$actividadRepo['total'] ?></b> commits en el último año</span>
-      <?php endif; ?>
-      <a class="btn-meca btn-sm btn-github" href="<?= e($actividadRepo['url']) ?>" target="_blank" rel="noopener">
-        <i class="fa-brands fa-github"></i> Abrir en GitHub
-      </a>
-    </div>
-  </div>
-  <div class="actividad-cuerpo">
-    <?php if ($actividadRepo['estado'] === 'ok'):
-        // Ultimas 26 semanas, celdas por dia con intensidad 0-4
-        $semanas = array_slice($actividadRepo['semanas'], -26);
-        $max = 1;
-        foreach ($semanas as $s) { foreach ($s['days'] as $d) $max = max($max, $d); }
-    ?>
-    <div class="hm-grid" title="Commits por día (últimas 26 semanas)">
-      <?php foreach ($semanas as $s): foreach ($s['days'] as $di => $d):
-          $nivel = $d === 0 ? 0 : (int)ceil($d / $max * 4);
-          $fecha = date('d M Y', $s['week'] + $di * 86400);
-      ?><span class="hm-celda hm-<?= $nivel ?>" title="<?= $d ?> commit<?= $d === 1 ? '' : 's' ?> · <?= $fecha ?>"></span><?php
-      endforeach; endforeach; ?>
-    </div>
-    <div class="hm-leyenda">
-      <small>Menos</small>
-      <span class="hm-celda hm-0"></span><span class="hm-celda hm-1"></span><span class="hm-celda hm-2"></span><span class="hm-celda hm-3"></span><span class="hm-celda hm-4"></span>
-      <small>Más</small>
-    </div>
-    <?php elseif ($actividadRepo['estado'] === 'pendiente'): ?>
-    <p class="actividad-msj"><i class="fa-solid fa-hourglass-half"></i> GitHub está calculando las estadísticas del repo — recarga en unos segundos.</p>
-    <?php else: ?>
-    <p class="actividad-msj"><i class="fa-solid fa-circle-info"></i> No se pudo leer la actividad. Si el repo es privado, agrega un token de GitHub en Ajustes → Identidad.</p>
-    <?php endif; ?>
-  </div>
-</section>
-<?php endforeach; ?>
 
 </div><!-- /metricas -->
 

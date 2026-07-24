@@ -2401,11 +2401,27 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
    ========================================================= */
 .ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }
 .ap-intro { margin: 0 0 4px; }
+.ap-filtros { flex-wrap: wrap; align-items: center; gap: 8px; }
 /* El selector de persona más ancho para que no corte los nombres */
-.met-aportes .tabla-filtros .ms { min-width: 210px; }
+.met-aportes .tabla-filtros .ms { min-width: 200px; }
 .met-aportes .tabla-filtros .ms-trigger { width: 100%; }
 /* La clase .actividad-msj fija display:flex y pisaba el atributo [hidden] */
 .ap-vacio[hidden], .ap-mapa[hidden], .ap-lista[hidden] { display: none !important; }
+
+/* Diálogo de commits a pantalla completa, paginado */
+.dlg-commits { width: min(960px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); }
+.dlg-commits .dlg-form { gap: 12px; }
+.apc-lista {
+  list-style: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column;
+  max-height: 66vh; overflow-y: auto;
+}
+.apc-pie {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  margin-top: 8px; padding-top: 14px; border-top: 1px solid var(--c-border-soft);
+}
+.apc-pag { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); }
+.apc-prev[disabled], .apc-next[disabled] { opacity: .4; cursor: default; box-shadow: var(--sh-mini); }
 
 /* Leaderboard: barra por persona, clicable para filtrar */
 .ap-leaderboard { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 18px; }

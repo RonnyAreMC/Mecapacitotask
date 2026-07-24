@@ -1126,11 +1126,10 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
 
   const sel = caja.querySelector('.ap-persona');
   const lb = caja.querySelector('.ap-leaderboard');
-  const lista = caja.querySelector('.ap-lista');
   const mapa = caja.querySelector('.ap-mapa');
   const vacio = caja.querySelector('.ap-vacio');
   const totalEl = caja.querySelector('.ap-total');
-  let modo = 'mapa';
+  let dias = 182;   // rango de fechas activo
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
   const avatarHtml = (m, sz) => {
@@ -1138,32 +1137,29 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     if (m.foto) return '<span class="ap-av" style="--sz:' + sz + 'px"><img src="' + esc(m.foto) + '" alt=""></span>';
     return '<span class="ap-av" style="--sz:' + sz + 'px;--c:' + m.c + '">' + esc(m.ini) + '</span>';
   };
-  // Marca los #id del mensaje que corresponden a una tarea del proyecto
   const conTareas = (msg) => esc(msg).replace(/#(\d+)/g, (m, id) =>
     tareas[id] ? '<span class="ap-tarea" title="Tarea: ' + esc(tareas[id]) + '">#' + id + '</span>' : m);
 
-  totalEl.textContent = commits.length ? commits.length + ' commits' : '';
-
-  // Leaderboard: commits por persona (siempre visible, sirve de filtro)
-  const cuenta = {};
-  commits.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
-  const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
-  const maxN = Math.max(1, ...rank.map((x) => x.n));
-  lb.innerHTML = rank.map((x) =>
-    '<button type="button" class="ap-lb-fila" data-persona="' + x.m.id + '">' +
-    avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
-    '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
-    '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
-
   const dos = (n) => String(n).padStart(2, '0');
   const iso = (d) => d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
+  const hoy0 = () => { const d = new Date(); d.setHours(12, 0, 0, 0); return d; };
+  // Fecha límite del rango (los commits anteriores no cuentan)
+  const desde = () => { const d = hoy0(); d.setDate(d.getDate() - dias + 1); return iso(d); };
 
-  // Heatmap tipo GitHub construido desde los commits (por día, 26 semanas)
+  // Commits dentro del filtro (persona + rango de fechas)
+  const filtrar = () => {
+    const pid = parseInt(sel.value, 10) || 0;
+    const min = desde();
+    return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid)) && (c.fecha || '') >= min);
+  };
+
+  // Heatmap tipo GitHub: una celda por día, tantas semanas como el rango
   const heatmap = (visibles) => {
     const cont = {};
     visibles.forEach((c) => { if (c.fecha) cont[c.fecha] = (cont[c.fecha] || 0) + 1; });
-    const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
-    const ini = new Date(hoy); ini.setDate(ini.getDate() - (25 * 7 + hoy.getDay()));  // domingo ~26 semanas atrás
+    const hoy = hoy0();
+    const semanas = Math.ceil(dias / 7);
+    const ini = new Date(hoy); ini.setDate(ini.getDate() - ((semanas - 1) * 7 + hoy.getDay()));
     let max = 1; Object.values(cont).forEach((v) => { if (v > max) max = v; });
     let celdas = '';
     for (let d = new Date(ini); d <= hoy; d.setDate(d.getDate() + 1)) {
@@ -1171,7 +1167,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
       const nivel = n === 0 ? 0 : Math.ceil(n / max * 4);
       celdas += '<span class="hm-celda hm-' + nivel + '" title="' + n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k + '"></span>';
     }
-    return '<div class="hm-grid" title="Commits por día (últimas 26 semanas)">' + celdas + '</div>' +
+    return '<div class="hm-grid">' + celdas + '</div>' +
       '<div class="hm-leyenda"><small>Menos</small>' +
       '<span class="hm-celda hm-0"></span><span class="hm-celda hm-1"></span><span class="hm-celda hm-2"></span>' +
       '<span class="hm-celda hm-3"></span><span class="hm-celda hm-4"></span><small>Más</small></div>';
@@ -1181,37 +1177,75 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     const pid = parseInt(sel.value, 10) || 0;
     lb.querySelectorAll('.ap-lb-fila').forEach((f) =>
       f.classList.toggle('activo', pid && parseInt(f.dataset.persona, 10) === pid));
-    caja.querySelectorAll('.ap-modo [data-modo]').forEach((b) => b.classList.toggle('active', b.dataset.modo === modo));
 
-    const vis = commits.filter((c) => !pid || (c.miembro && c.miembro.id === pid));
+    const vis = filtrar();
+    totalEl.textContent = vis.length + ' commits';
+    // Leaderboard según el rango de fechas (no según la persona filtrada)
+    const enRango = commits.filter((c) => (c.fecha || '') >= desde());
+    const cuenta = {};
+    enRango.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
+    const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+    const maxN = Math.max(1, ...rank.map((x) => x.n));
+    lb.innerHTML = rank.map((x) =>
+      '<button type="button" class="ap-lb-fila' + (pid === x.m.id ? ' activo' : '') + '" data-persona="' + x.m.id + '">' +
+      avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
+      '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
+      '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
+
     vacio.hidden = vis.length > 0;
-    mapa.hidden = modo !== 'mapa' || vis.length === 0;
-    lista.hidden = modo !== 'commits' || vis.length === 0;
-
-    if (modo === 'mapa') {
-      mapa.innerHTML = vis.length ? heatmap(vis) : '';
-    } else {
-      lista.innerHTML = vis.slice(0, 40).map((c) =>
-        '<li class="ap-commit">' + avatarHtml(c.miembro, 26) +
-        '<div class="ap-commit-txt"><span class="ap-msg">' + conTareas(c.msg) + '</span>' +
-        '<small>' + esc(c.miembro ? c.miembro.n : (c.nombre || '?')) + ' · ' + esc(c.repo || '') + ' · ' + esc(c.fecha || '') +
-        ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.sha) + '</a></small></div></li>').join('');
-    }
+    mapa.hidden = vis.length === 0;
+    mapa.innerHTML = vis.length ? heatmap(vis) : '';
   };
-
-  caja.querySelector('.ap-modo').addEventListener('click', (e) => {
-    const b = e.target.closest('[data-modo]'); if (!b) return;
-    modo = b.dataset.modo; render();
-  });
 
   sel.addEventListener('change', render);
   lb.addEventListener('click', (e) => {
     const f = e.target.closest('.ap-lb-fila'); if (!f) return;
     const pid = f.dataset.persona;
-    sel.value = (sel.value === pid) ? '0' : pid;   // volver a clic = quitar filtro
-    sel.dispatchEvent(new Event('ms-sync'));        // refresca la etiqueta del desplegable
+    sel.value = (sel.value === pid) ? '0' : pid;
+    sel.dispatchEvent(new Event('ms-sync'));
     render();
   });
+  caja.querySelector('.ap-rango').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-dias]'); if (!b) return;
+    dias = parseInt(b.dataset.dias, 10);
+    caja.querySelectorAll('.ap-rango [data-dias]').forEach((x) => x.classList.toggle('active', x === b));
+    render();
+  });
+
+  /* ----- Commits a pantalla completa, paginados de 25 en 25 ----- */
+  const dlg = caja.querySelector('.ap-dialogo');
+  const apcLista = dlg.querySelector('.apc-lista');
+  const apcSub = dlg.querySelector('.apc-sub');
+  const apcPag = dlg.querySelector('.apc-pag');
+  const POR_PAG = 25;
+  let pagina = 0, visCommits = [];
+
+  const pintarPagina = () => {
+    const total = visCommits.length;
+    const paginas = Math.max(1, Math.ceil(total / POR_PAG));
+    pagina = Math.max(0, Math.min(pagina, paginas - 1));
+    const trozo = visCommits.slice(pagina * POR_PAG, pagina * POR_PAG + POR_PAG);
+    apcLista.innerHTML = trozo.map((c) =>
+      '<li class="ap-commit">' + avatarHtml(c.miembro, 28) +
+      '<div class="ap-commit-txt"><span class="ap-msg">' + conTareas(c.msg) + '</span>' +
+      '<small>' + esc(c.miembro ? c.miembro.n : (c.nombre || '?')) + ' · ' + esc(c.repo || '') + ' · ' + esc(c.fecha || '') +
+      ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.sha) + '</a></small></div></li>').join('');
+    apcPag.textContent = 'Página ' + (pagina + 1) + ' de ' + paginas + ' · ' + total + ' commits';
+    dlg.querySelector('.apc-prev').disabled = pagina === 0;
+    dlg.querySelector('.apc-next').disabled = pagina >= paginas - 1;
+  };
+  caja.querySelector('.ap-ver-commits').addEventListener('click', () => {
+    visCommits = filtrar();
+    pagina = 0;
+    const pid = parseInt(sel.value, 10) || 0;
+    const quien = pid ? (miembros.find((m) => m.id === pid) || {}).n : 'Todo el equipo';
+    apcSub.textContent = '· ' + quien;
+    pintarPagina();
+    dlg.showModal();
+  });
+  dlg.querySelector('.apc-prev').addEventListener('click', () => { pagina--; pintarPagina(); });
+  dlg.querySelector('.apc-next').addEventListener('click', () => { pagina++; pintarPagina(); });
+
   render();
 });
 
