@@ -59,6 +59,55 @@ class GitHub
         return $resultado + ['url' => $urlWeb];
     }
 
+    /**
+     * Commits recientes de un repo (para ver "quién subió qué"), cacheado 1h.
+     * Devuelve ['estado'=>'ok'|'error'|'vacio'|'sin_repo', 'commits'=>[
+     *   ['sha'=>, 'msg'=>, 'login'=>, 'nombre'=>, 'fecha'=>, 'url'=>], ... ]]
+     */
+    public static function commitsRecientes(?string $repoUrl, int $limite = 60): array
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo) {
+            return ['estado' => 'sin_repo', 'commits' => []];
+        }
+        [$owner, $nombre] = $repo;
+        $clave = 'commits:' . strtolower("$owner/$nombre");
+
+        $cacheFile = __DIR__ . '/../data/cache_github.json';
+        $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
+        $entrada = $cache[$clave] ?? null;
+        $ttl = ($entrada['estado'] ?? '') === 'ok' ? 3600 : 180;
+        if ($entrada && (time() - ($entrada['t'] ?? 0)) < $ttl) {
+            return $entrada;
+        }
+
+        [$codigo, $cuerpo] = self::api("/repos/$owner/$nombre/commits?per_page=" . max(1, min(100, $limite)));
+        $resultado = ['t' => time(), 'estado' => 'error', 'commits' => []];
+
+        if ($codigo === 200) {
+            $lista = json_decode($cuerpo, true) ?: [];
+            $commits = [];
+            foreach ($lista as $c) {
+                $msg = (string)($c['commit']['message'] ?? '');
+                $commits[] = [
+                    'sha'    => substr((string)($c['sha'] ?? ''), 0, 7),
+                    'msg'    => trim(strtok($msg, "\n")),          // primera línea
+                    'login'  => strtolower((string)($c['author']['login'] ?? '')),
+                    'nombre' => (string)($c['commit']['author']['name'] ?? ''),
+                    'fecha'  => substr((string)($c['commit']['author']['date'] ?? ''), 0, 10),
+                    'url'    => (string)($c['html_url'] ?? ''),
+                ];
+            }
+            $resultado = ['t' => time(), 'estado' => $commits ? 'ok' : 'vacio', 'commits' => $commits];
+        } elseif ($codigo === 409) {
+            $resultado['estado'] = 'vacio';   // repo sin commits
+        }
+
+        $cache[$clave] = $resultado;
+        file_put_contents($cacheFile, json_encode($cache));
+        return $resultado;
+    }
+
     /** GET a la API de GitHub. Devuelve [codigoHttp, cuerpo]. */
     private static function api(string $ruta): array
     {

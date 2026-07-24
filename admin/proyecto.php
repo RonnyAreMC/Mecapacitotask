@@ -933,6 +933,60 @@ foreach ($tareas as $t) {
 <!-- Vista Métricas: actividad del repo + carga por persona -->
 <div data-vista-panel="metricas" hidden>
 
+<?php
+// Commits recientes de todos los repos del proyecto, para "quién subió qué"
+$commitsProyecto = [];
+foreach ($reposProyecto as $rp) {
+    $cr = GitHub::commitsRecientes($rp['url']);
+    if (($cr['estado'] ?? '') !== 'ok') continue;
+    foreach ($cr['commits'] as $c) {
+        $c['repo'] = $rp['label'];
+        $commitsProyecto[] = $c;
+    }
+}
+usort($commitsProyecto, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
+
+// Datos para el filtro por persona y el enlace commit->tarea (lo maneja el JS)
+$comMiembros = [];
+foreach ($miembros as $m) {
+    if (empty($m['git_user'])) continue;
+    $comMiembros[] = [
+        'id' => (int)$m['id'], 'git' => strtolower($m['git_user']), 'n' => $m['nombre'],
+        'c' => Catalogo::colorDe($m['color'] ?? 0), 'ini' => MiembroRepo::iniciales($m), 'foto' => $m['foto'] ?? '',
+    ];
+}
+$comTareas = [];
+foreach ($tareas as $t) {
+    $comTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 50, '…');
+}
+$comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembros, 'tareas' => $comTareas], JSON_UNESCAPED_UNICODE);
+?>
+<?php if (!empty($comMiembros) && $reposProyecto): ?>
+<section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes>
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-brands fa-github"></i> Aportes del equipo
+      <span class="ap-total"></span>
+    </h2>
+    <div class="tabla-filtros">
+      <select class="select-meca select-sm ap-persona">
+        <option value="0">Todo el equipo</option>
+        <?php foreach ($comMiembros as $cm): ?>
+        <option value="<?= $cm['id'] ?>"><?= e($cm['n']) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+  </div>
+  <div class="metricas-cuerpo">
+    <p class="ajuste-ayuda ap-intro"><i class="fa-solid fa-circle-info"></i>
+      Commits recientes por persona. Si en el mensaje pones <b>#<i>id</i></b> de una tarea (ej. «#12 arreglar login»), se enlaza aquí.</p>
+    <div class="ap-leaderboard"></div>
+    <ol class="ap-lista"></ol>
+    <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits de esta persona en el periodo reciente.</p>
+  </div>
+  <script type="application/json" data-aportes-data><?= $comData ?></script>
+</section>
+<?php endif; ?>
+
 <section class="card-base tabla-card" style="--pc:<?= $color ?>">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-solid fa-clipboard-check text-secondary"></i> Observaciones de revisión</h2>

@@ -1106,6 +1106,77 @@ document.addEventListener('click', (e) => {
   try { abrirDetalleTarea(JSON.parse(el.dataset.verTarea)); } catch (_) {}
 });
 
+/* ---------- Aportes del equipo: commits por persona (Métricas) ---------- */
+document.querySelectorAll('[data-aportes]').forEach((caja) => {
+  const dataEl = caja.querySelector('[data-aportes-data]');
+  if (!dataEl) return;
+  let data;
+  try { data = JSON.parse(dataEl.textContent); } catch { return; }
+  const commits = data.commits || [];
+  const miembros = data.miembros || [];
+  const tareas = data.tareas || {};
+
+  // A cada commit le asignamos el miembro del panel (por login o por nombre de git)
+  const porGit = {};
+  miembros.forEach((m) => { porGit[m.git] = m; });
+  const norm = (s) => (s || '').toLowerCase().trim();
+  commits.forEach((c) => {
+    c.miembro = porGit[norm(c.login)] || porGit[norm(c.nombre)] || null;
+  });
+
+  const sel = caja.querySelector('.ap-persona');
+  const lb = caja.querySelector('.ap-leaderboard');
+  const lista = caja.querySelector('.ap-lista');
+  const vacio = caja.querySelector('.ap-vacio');
+  const totalEl = caja.querySelector('.ap-total');
+
+  const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
+  const avatarHtml = (m, sz) => {
+    if (!m) return '<span class="ap-av ap-av-x" style="--sz:' + sz + 'px">?</span>';
+    if (m.foto) return '<span class="ap-av" style="--sz:' + sz + 'px"><img src="' + esc(m.foto) + '" alt=""></span>';
+    return '<span class="ap-av" style="--sz:' + sz + 'px;--c:' + m.c + '">' + esc(m.ini) + '</span>';
+  };
+  // Marca los #id del mensaje que corresponden a una tarea del proyecto
+  const conTareas = (msg) => esc(msg).replace(/#(\d+)/g, (m, id) =>
+    tareas[id] ? '<span class="ap-tarea" title="Tarea: ' + esc(tareas[id]) + '">#' + id + '</span>' : m);
+
+  totalEl.textContent = commits.length ? commits.length + ' commits' : '';
+
+  // Leaderboard: commits por persona (siempre visible, sirve de filtro)
+  const cuenta = {};
+  commits.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
+  const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
+  const maxN = Math.max(1, ...rank.map((x) => x.n));
+  lb.innerHTML = rank.map((x) =>
+    '<button type="button" class="ap-lb-fila" data-persona="' + x.m.id + '">' +
+    avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
+    '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
+    '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
+
+  const render = () => {
+    const pid = parseInt(sel.value, 10) || 0;
+    lb.querySelectorAll('.ap-lb-fila').forEach((f) =>
+      f.classList.toggle('activo', pid && parseInt(f.dataset.persona, 10) === pid));
+    const vis = commits.filter((c) => !pid || (c.miembro && c.miembro.id === pid)).slice(0, 40);
+    vacio.hidden = vis.length > 0;
+    lista.innerHTML = vis.map((c) =>
+      '<li class="ap-commit">' + avatarHtml(c.miembro, 26) +
+      '<div class="ap-commit-txt"><span class="ap-msg">' + conTareas(c.msg) + '</span>' +
+      '<small>' + esc(c.miembro ? c.miembro.n : (c.nombre || '?')) + ' · ' + esc(c.repo || '') + ' · ' + esc(c.fecha || '') +
+      ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.sha) + '</a></small></div></li>').join('');
+  };
+
+  sel.addEventListener('change', render);
+  lb.addEventListener('click', (e) => {
+    const f = e.target.closest('.ap-lb-fila'); if (!f) return;
+    const pid = f.dataset.persona;
+    sel.value = (sel.value === pid) ? '0' : pid;   // volver a clic = quitar filtro
+    sel.dispatchEvent(new Event('ms-sync'));        // refresca la etiqueta del desplegable
+    render();
+  });
+  render();
+});
+
 // Rellenar y abrir el modal de edicion de tarea
 document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
   btn.addEventListener('click', () => {

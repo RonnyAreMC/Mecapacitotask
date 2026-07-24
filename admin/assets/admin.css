@@ -2397,6 +2397,55 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 }
 
 /* =========================================================
+   Aportes del equipo (commits por persona, en Métricas)
+   ========================================================= */
+.ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }
+.ap-intro { margin: 0 0 4px; }
+.ap-persona { min-width: 180px; }
+
+/* Leaderboard: barra por persona, clicable para filtrar */
+.ap-leaderboard { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 18px; }
+.ap-lb-fila {
+  display: flex; align-items: center; gap: 12px;
+  width: 100%; padding: 7px 10px;
+  border: 0; border-radius: 12px; background: transparent; cursor: pointer;
+  transition: background .2s ease, box-shadow .2s ease;
+}
+.ap-lb-fila:hover { background: color-mix(in srgb, var(--c-secondary) 8%, transparent); }
+.ap-lb-fila.activo { background: var(--n-bg); box-shadow: var(--sh-inset-mini); }
+.ap-lb-n { flex: none; font-size: .86rem; font-weight: 700; color: var(--c-text); min-width: 0; }
+.ap-lb-barra { flex: 1; height: 9px; border-radius: 999px; background: var(--c-bg-soft); overflow: hidden; }
+.ap-lb-barra > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-verde-lima), var(--c-verde-esmeralda)); }
+.ap-lb-num { flex: none; font-size: .9rem; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
+
+/* Avatares chicos */
+.ap-av {
+  flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: calc(var(--sz) * .38); font-weight: 700; color: #fff;
+  background: var(--c, var(--c-secondary)); overflow: hidden;
+}
+.ap-av img { width: 100%; height: 100%; object-fit: cover; }
+.ap-av-x { background: var(--c-text-soft); }
+
+/* Lista de commits */
+.ap-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ap-commit {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 10px 8px; border-bottom: 1px solid var(--c-border-soft);
+}
+.ap-commit:last-child { border-bottom: 0; }
+.ap-commit-txt { min-width: 0; }
+.ap-msg { display: block; font-size: .88rem; color: var(--c-text); line-height: 1.4; word-break: break-word; }
+.ap-commit small { color: var(--c-text-soft); font-size: .74rem; }
+.ap-commit small a { color: var(--c-secondary); text-decoration: none; font-family: ui-monospace, Menlo, monospace; }
+.ap-tarea {
+  display: inline-block; padding: 0 6px; border-radius: 6px;
+  background: color-mix(in srgb, var(--c-secondary) 15%, transparent);
+  color: var(--c-secondary); font-weight: 700; cursor: help;
+}
+
+/* =========================================================
    Intercambios de tareas
    ========================================================= */
 .inter-intro { margin: 0 18px 4px; }
