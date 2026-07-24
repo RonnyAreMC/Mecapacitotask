@@ -1062,9 +1062,8 @@ function abrirDetalleTarea(t) {
 
   const chips = dlg.querySelector('.dt-chips');
   if (chips) {
-    chips.innerHTML =
-      (t.estado ? '<span class="dt-chip dt-chip-estado">' + esc(t.estado) + '</span>' : '') +
-      (t.prioridad ? '<span class="dt-chip dt-chip-prio">Prioridad: ' + esc(t.prioridad) + '</span>' : '');
+    // Reutiliza los badges de color del tablero (estado y prioridad)
+    chips.innerHTML = (t.estado_badge || '') + (t.prio_badge || '');
   }
 
   const asig = t.asignados && t.asignados.length ? t.asignados.join(', ') : 'Sin asignar';

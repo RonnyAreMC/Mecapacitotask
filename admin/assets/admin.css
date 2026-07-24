@@ -3930,7 +3930,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 
 /* ---------- Modal de detalle de tarea (solo lectura) ---------- */
 .dlg-detalle { max-width: 520px; width: 92vw; }
-.dt-body { padding: 4px; }
+.dt-body { padding: 24px 26px 22px; }   /* antes 4px: todo quedaba pegado al borde y se cortaba */
 .dt-head { display: flex; align-items: flex-start; gap: 12px; }
 .dt-head-txt { flex: 1; min-width: 0; }
 .dt-proyecto {
@@ -3939,13 +3939,10 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   color: var(--c-secondary);
 }
 .dt-titulo { margin: 0; font-size: 1.25rem; line-height: 1.25; color: var(--c-text); }
-.dt-chips { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 0; }
-.dt-chip {
-  padding: 5px 12px; border-radius: 999px;
-  font-size: .78rem; font-weight: 700;
-  background: var(--n-bg); box-shadow: var(--sh-mini); color: var(--c-text-muted);
-}
-.dt-chip-estado { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); }
+/* Los chips son los mismos badges de color del tablero (estado + prioridad) */
+.dt-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 0; }
+.dt-chips .badge-estado,
+.dt-chips .badge-prio { font-size: .82rem; }
 .dt-desc {
   margin: 16px 0 0; padding: 13px 15px;
   border-radius: 13px; background: var(--c-bg-hundido);

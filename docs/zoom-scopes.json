@@ -1,0 +1,45 @@
+{
+  "_ayuda": "Referencia para configurar la app Server-to-Server OAuth de Zoom del Panel Mecapacito. En Zoom -> Scopes -> Add Scopes, busca cada 'id' en el buscador y agrégalo. En el campo 'Scope description' de cada uno, pega el texto 'descripcion'. NO contiene credenciales: el Account ID / Client ID / Client Secret se pegan solo en Ajustes -> Zoom del panel.",
+  "tipo_de_app": "Server-to-Server OAuth",
+  "scopes": [
+    {
+      "id": "meeting:write:meeting:admin",
+      "etiqueta_zoom": "Crear una reunión",
+      "para_que": "El panel crea las reuniones del proyecto en Zoom.",
+      "descripcion": "El panel crea reuniones de Zoom para los proyectos. Solo se guarda el enlace y la hora de la reunión; no se almacena ningún otro dato de Zoom."
+    },
+    {
+      "id": "meeting:delete:meeting:admin",
+      "etiqueta_zoom": "Eliminar una reunión",
+      "para_que": "Permite borrar una reunión desde el panel.",
+      "descripcion": "El panel elimina en Zoom las reuniones que se borran desde el proyecto. No se almacena ningún dato de Zoom."
+    },
+    {
+      "id": "cloud_recording:read:list_recording_files:admin",
+      "id_alternativo": "cloud_recording:read:recording:admin",
+      "etiqueta_zoom": "Ver los archivos de grabación de una reunión (o «Ver una grabación»)",
+      "para_que": "El panel muestra el enlace de las grabaciones de la reunión.",
+      "descripcion": "El panel lee los archivos de grabación de las reuniones para mostrar el enlace de reproducción y descarga. No se almacenan los archivos; solo se muestra el enlace de Zoom.",
+      "nota": "Si no aparece 'cloud_recording:read:list_recording_files:admin', usa 'id_alternativo' (cloud_recording:read:recording:admin, que en tu lista salía como «Ver una grabación»)."
+    },
+    {
+      "id": "user:read:user:admin",
+      "etiqueta_zoom": "Ver un usuario",
+      "para_que": "El botón «Probar conexión» del panel consulta /users/me.",
+      "descripcion": "El panel consulta la cuenta dueña para verificar la conexión y crear las reuniones a su nombre. No se almacena ningún dato del usuario."
+    }
+  ],
+  "pasos": [
+    "1. En Zoom Marketplace, tu app Server-to-Server OAuth -> pestaña Scopes -> Add Scopes.",
+    "2. Busca cada 'id' de la lista de arriba y márcalo (usa las variantes ':admin').",
+    "3. En 'Scope description' de cada scope, pega su 'descripcion'.",
+    "4. Continue -> Activation -> Activate your app.",
+    "5. En el panel: Ajustes -> Integraciones -> Zoom -> marca Activo, pega Account ID / Client ID / Client Secret, Guarda y pulsa «Probar conexión»."
+  ],
+  "credenciales": {
+    "_nota": "NO se guardan aquí por seguridad. Se pegan directamente en Ajustes -> Zoom del panel.",
+    "account_id": "(pegar en el panel)",
+    "client_id": "(pegar en el panel)",
+    "client_secret": "(pegar en el panel; conviene regenerarlo en Zoom si lo compartiste)"
+  }
+}

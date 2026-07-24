@@ -877,15 +877,11 @@ switch ($accion) {
         ]);
         // Notifica por correo a los invitados con correo registrado
         $avisados = 0;
+        $p = $proyectos->buscar($pid);
         if (Mailer::listo()) {
             foreach ($invitados as $mid) {
                 $m = $miembros->buscar($mid);
-                if ($m && !empty($m['email'])) {
-                    $html = '<p style="font-family:Arial;font-size:15px">Hola <b>' . e($m['nombre']) . '</b>, te invitaron a una reunión:</p>'
-                        . '<p style="font-family:Arial;font-size:15px"><b>' . e($topic) . '</b><br>' . e($inicio) . '</p>'
-                        . '<p><a href="' . e($reu['join_url']) . '" style="background:#2D8CFF;color:#fff;padding:10px 20px;border-radius:8px;text-decoration:none;font-family:Arial">Entrar a la reunión</a></p>';
-                    if (Mailer::enviar($m['email'], 'Reunión: ' . $topic, $html) === true) $avisados++;
-                }
+                if ($m && Mailer::notificarReunion($reu, $m, $p) === true) $avisados++;
             }
         }
         redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));

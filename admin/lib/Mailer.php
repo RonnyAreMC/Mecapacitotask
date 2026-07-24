@@ -63,8 +63,13 @@ class Mailer
     /** Ruta del logo a incrustar en los correos ('' si no existe). */
     private static function logoPath(): string
     {
-        $p = __DIR__ . '/../../assets/mecapacito-logo.png';   // raíz del proyecto /assets
-        return is_file($p) ? $p : '';
+        // Versión chica y liviana para el correo (el logo grande, 167 KB, se
+        // veía "cargando"). Si no está, cae al logo normal.
+        $base = __DIR__ . '/../../assets/';
+        foreach (['mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
+            if (is_file($base . $f)) return $base . $f;
+        }
+        return '';
     }
 
     /**
@@ -492,6 +497,26 @@ class Mailer
             . self::detalle($proyecto['nombre'], $filas, $proyecto['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Ahora participas en ' . $proyecto['nombre'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
+    /** Invitación a una reunión de Zoom (a cada invitado). */
+    public static function notificarReunion(array $reunion, array $miembro, array $proyecto): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = [
+            'Proyecto' => e($proyecto['nombre']),
+            'Cuándo'   => e($reunion['inicio'] ?? ''),
+        ];
+        if (!empty($reunion['duracion'])) $filas['Duración'] = (int)$reunion['duracion'] . ' min';
+        if (!empty($reunion['password'])) $filas['Código'] = e($reunion['password']);
+        $cuerpo = self::encabezado($acento, '&#9658;', 'Te invitaron a una reunión',
+                    'Hola ' . e($miembro['nombre']) . ', tienes una reunión de ' . e($proyecto['nombre']) . '.')
+            . self::detalle($reunion['topic'] ?? 'Reunión', $filas);
+        return self::enviar($miembro['email'], 'Reunión: ' . ($reunion['topic'] ?? ''),
+            self::plantilla($cuerpo, $reunion['join_url'] ?? '', 'Entrar a la reunión'));
     }
 
     /**
