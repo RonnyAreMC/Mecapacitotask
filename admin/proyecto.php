@@ -1033,6 +1033,7 @@ $comData = json_encode([
 </section>
 <?php endif; ?>
 
+<div class="met-2col">
 <section class="card-base tabla-card" style="--pc:<?= $color ?>">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-solid fa-clipboard-check text-secondary"></i> Observaciones de revisión</h2>
@@ -1082,6 +1083,7 @@ $comData = json_encode([
     <?php endforeach; endif; ?>
   </div>
 </section>
+</div>
 
 
 </div><!-- /metricas -->
