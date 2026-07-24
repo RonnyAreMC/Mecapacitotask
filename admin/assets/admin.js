@@ -1,6 +1,28 @@
 /* Mecapacito Admin - interacciones del panel */
 
 /* =========================================================
+   Feedback de carga: barra verde arriba al navegar + spinner en el
+   botón que se envía. Hace que "cargar la pestaña" se vea, no un salto seco.
+   ========================================================= */
+(function () {
+  const barra = document.createElement('div');
+  barra.className = 'nav-progreso';
+  document.addEventListener('DOMContentLoaded', () => document.body.appendChild(barra));
+  const mostrar = () => barra.classList.add('activa');
+
+  // Al abandonar la página (submit de formulario, clic en enlace, redirección)
+  addEventListener('beforeunload', mostrar);
+
+  // Spinner en el botón que envía el formulario (los AJAX hacen preventDefault
+  // y no llegan aquí con submitter, así que no se marcan por error)
+  document.addEventListener('submit', (e) => {
+    const b = e.submitter;
+    if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) b.classList.add('btn-cargando');
+    mostrar();
+  }, true);
+})();
+
+/* =========================================================
    MC — componente de alertas Mecapacito.
    Nunca usar alert()/confirm() nativos: MC.toast y MC.confirm.
    ========================================================= */
@@ -1112,23 +1134,25 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   if (!dataEl) return;
   let data;
   try { data = JSON.parse(dataEl.textContent); } catch { return; }
-  const commits = data.commits || [];
+  let commits = data.commits || [];
   const miembros = data.miembros || [];
   const tareas = data.tareas || {};
+  const repos = data.repos || [];
 
-  // A cada commit le asignamos el miembro del panel (por login o por nombre de git)
+  // A cada commit le asigna el miembro del panel (por login o por nombre de git)
   const porGit = {};
   miembros.forEach((m) => { porGit[m.git] = m; });
   const norm = (s) => (s || '').toLowerCase().trim();
-  commits.forEach((c) => {
-    c.miembro = porGit[norm(c.login)] || porGit[norm(c.nombre)] || null;
-  });
+  const mapear = (cs) => { cs.forEach((c) => { c.miembro = porGit[norm(c.login)] || porGit[norm(c.nombre)] || null; }); };
+  mapear(commits);
 
   const sel = caja.querySelector('.ap-persona');
+  const selRama = caja.querySelector('.ap-rama');
   const lb = caja.querySelector('.ap-leaderboard');
-  const mapa = caja.querySelector('.ap-mapa');
+  const mapas = caja.querySelector('.ap-mapas');
   const vacio = caja.querySelector('.ap-vacio');
   const totalEl = caja.querySelector('.ap-total');
+  const cargandoEl = caja.querySelector('.ap-cargando');
   let dias = 182;   // rango de fechas activo
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
@@ -1153,7 +1177,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid)) && (c.fecha || '') >= min);
   };
 
-  // Heatmap tipo GitHub: una celda por día, tantas semanas como el rango
+  // Heatmap tipo GitHub (verde): una celda por día, tantas semanas como el rango
   const heatmap = (visibles) => {
     const cont = {};
     visibles.forEach((c) => { if (c.fecha) cont[c.fecha] = (cont[c.fecha] || 0) + 1; });
@@ -1167,16 +1191,11 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
       const nivel = n === 0 ? 0 : Math.ceil(n / max * 4);
       celdas += '<span class="hm-celda hm-' + nivel + '" title="' + n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k + '"></span>';
     }
-    return '<div class="hm-grid">' + celdas + '</div>' +
-      '<div class="hm-leyenda"><small>Menos</small>' +
-      '<span class="hm-celda hm-0"></span><span class="hm-celda hm-1"></span><span class="hm-celda hm-2"></span>' +
-      '<span class="hm-celda hm-3"></span><span class="hm-celda hm-4"></span><small>Más</small></div>';
+    return '<div class="hm-grid hm-verde hm-grande">' + celdas + '</div>';
   };
 
   const render = () => {
     const pid = parseInt(sel.value, 10) || 0;
-    lb.querySelectorAll('.ap-lb-fila').forEach((f) =>
-      f.classList.toggle('activo', pid && parseInt(f.dataset.persona, 10) === pid));
 
     const vis = filtrar();
     totalEl.textContent = vis.length + ' commits';
@@ -1192,9 +1211,20 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
 
+    // Un mapa por repositorio, con lo filtrado por persona y fechas
     vacio.hidden = vis.length > 0;
-    mapa.hidden = vis.length === 0;
-    mapa.innerHTML = vis.length ? heatmap(vis) : '';
+    mapas.hidden = vis.length === 0;
+    const lista = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    mapas.innerHTML = lista.map((repo) => {
+      const cs = vis.filter((c) => (c.repo || '') === repo);
+      return '<div class="ap-repo">' +
+        '<div class="ap-repo-cab"><span class="ap-repo-nom"><i class="fa-solid fa-code-branch"></i> ' + esc(repo) + '</span>' +
+        '<b class="ap-repo-n">' + cs.length + '</b></div>' + heatmap(cs) + '</div>';
+    }).join('') +
+      '<div class="hm-leyenda"><small>Menos</small>' +
+      '<span class="hm-celda hm-0 hm-verde"></span><span class="hm-celda hm-1 hm-verde"></span>' +
+      '<span class="hm-celda hm-2 hm-verde"></span><span class="hm-celda hm-3 hm-verde"></span>' +
+      '<span class="hm-celda hm-4 hm-verde"></span><small>Más</small></div>';
   };
 
   sel.addEventListener('change', render);
@@ -1211,6 +1241,22 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     caja.querySelectorAll('.ap-rango [data-dias]').forEach((x) => x.classList.toggle('active', x === b));
     render();
   });
+
+  // Cambiar de rama trae sus commits por AJAX, sin recargar la página
+  if (selRama) {
+    const proyecto = caja.dataset.proyecto;
+    const alCambiarRama = () => {
+      cargandoEl.hidden = false;
+      fetch('aportes.php?id=' + proyecto + '&rama=' + encodeURIComponent(selRama.value))
+        .then((r) => r.json())
+        .then((j) => {
+          if (j && j.commits) { commits = j.commits; mapear(commits); render(); }
+        })
+        .catch(() => {})
+        .finally(() => { cargandoEl.hidden = true; });
+    };
+    selRama.addEventListener('change', alCambiarRama);
+  }
 
   /* ----- Commits a pantalla completa, paginados de 25 en 25 ----- */
   const dlg = caja.querySelector('.ap-dialogo');

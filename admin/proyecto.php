@@ -969,14 +969,20 @@ $comTareas = [];
 foreach ($tareas as $t) {
     $comTareas[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 50, '…');
 }
-$comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembros, 'tareas' => $comTareas], JSON_UNESCAPED_UNICODE);
-$urlSinRama = strtok($_SERVER['REQUEST_URI'], '#');
+$comReposLabels = array_map(fn($rp) => $rp['label'], $reposProyecto);
+$comData = json_encode([
+    'commits'  => $commitsProyecto,
+    'miembros' => $comMiembros,
+    'tareas'   => $comTareas,
+    'repos'    => $comReposLabels,
+], JSON_UNESCAPED_UNICODE);
 ?>
 <?php if (!empty($comMiembros) && $reposProyecto): ?>
-<section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes>
+<section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes data-proyecto="<?= $id ?>">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-brands fa-github"></i> Aportes del equipo
       <span class="ap-total"></span>
+      <span class="ap-cargando" hidden><i class="fa-solid fa-circle-notch fa-spin"></i></span>
     </h2>
     <div class="tabla-filtros ap-filtros">
       <select class="select-meca select-sm ap-persona">
@@ -986,11 +992,10 @@ $urlSinRama = strtok($_SERVER['REQUEST_URI'], '#');
         <?php endforeach; ?>
       </select>
       <?php if (count($ramasProyecto) > 1): ?>
-      <select class="select-meca select-sm ap-rama" onchange="location.href=this.value">
-        <?php $qb = $_GET; unset($qb['rama']); $urlBase = 'proyecto.php?' . http_build_query($qb); ?>
-        <option value="<?= e($urlBase) ?>#vista-metricas" <?= $rama === '' ? 'selected' : '' ?>>Rama por defecto</option>
-        <?php foreach ($ramasProyecto as $rn): $qr = $_GET; $qr['rama'] = $rn; ?>
-        <option value="proyecto.php?<?= e(http_build_query($qr)) ?>#vista-metricas" <?= $rama === $rn ? 'selected' : '' ?>><?= e($rn) ?></option>
+      <select class="select-meca select-sm ap-rama">
+        <option value="" <?= $rama === '' ? 'selected' : '' ?>>Rama por defecto</option>
+        <?php foreach ($ramasProyecto as $rn): ?>
+        <option value="<?= e($rn) ?>" <?= $rama === $rn ? 'selected' : '' ?>><?= e($rn) ?></option>
         <?php endforeach; ?>
       </select>
       <?php endif; ?>
@@ -1004,12 +1009,8 @@ $urlSinRama = strtok($_SERVER['REQUEST_URI'], '#');
     </div>
   </div>
   <div class="metricas-cuerpo">
-    <p class="ajuste-ayuda ap-intro"><i class="fa-solid fa-circle-info"></i>
-      Un solo mapa de commits del proyecto: fíltralo por persona, rama y periodo.
-      «Ver commits» abre la lista a pantalla completa (de 25 en 25). Si el mensaje trae
-      <b>#<i>id</i></b> de una tarea, se enlaza ahí.</p>
     <div class="ap-leaderboard"></div>
-    <div class="ap-mapa"></div>
+    <div class="ap-mapas"></div>
     <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits con esos filtros.</p>
   </div>
   <script type="application/json" data-aportes-data><?= $comData ?></script>

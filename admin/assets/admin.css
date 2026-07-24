@@ -2399,9 +2399,69 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 /* =========================================================
    Aportes del equipo (commits por persona, en Métricas)
    ========================================================= */
+/* Barra de carga superior (verde) y spinner en botones */
+.nav-progreso {
+  position: fixed; top: 0; left: 0; height: 3px; width: 0;
+  z-index: 9999; pointer-events: none;
+  background: linear-gradient(90deg, var(--c-verde-lima), var(--c-verde-esmeralda));
+  box-shadow: 0 0 8px var(--c-verde-esmeralda);
+  opacity: 0;
+}
+.nav-progreso.activa { opacity: 1; animation: nav-prog 2.2s ease-out forwards; }
+@keyframes nav-prog {
+  0% { width: 0; } 25% { width: 45%; } 60% { width: 75%; } 100% { width: 92%; }
+}
+.btn-primary.btn-cargando, .btn-meca.btn-cargando {
+  position: relative; color: transparent !important; pointer-events: none;
+}
+.btn-cargando > i, .btn-cargando > * { visibility: hidden; }
+.btn-cargando::after {
+  content: ''; position: absolute; inset: 0; margin: auto;
+  width: 16px; height: 16px; border-radius: 50%;
+  border: 2.5px solid rgba(255, 255, 255, .4); border-top-color: #fff;
+  animation: spin .6s linear infinite; visibility: visible;
+}
+.btn-outline.btn-cargando::after { border-color: color-mix(in srgb, var(--c-verde-esmeralda) 35%, transparent); border-top-color: var(--c-verde-esmeralda); }
+@keyframes spin { to { transform: rotate(360deg); } }
+
 .ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }
-.ap-intro { margin: 0 0 4px; }
+.ap-cargando { margin-left: 8px; color: var(--c-verde-esmeralda); }
 .ap-filtros { flex-wrap: wrap; align-items: center; gap: 8px; }
+
+/* Un heatmap por repositorio, lado a lado para llenar el ancho */
+.ap-mapas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px 26px;
+  margin-top: 16px;
+}
+.ap-mapas[hidden] { display: none; }
+.ap-mapas .hm-leyenda { grid-column: 1 / -1; margin-top: 0; }
+.ap-repo {
+  min-width: 0;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini);
+}
+.ap-repo-cab {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.ap-repo-nom { font-size: .86rem; font-weight: 700; color: var(--c-text); display: inline-flex; align-items: center; gap: 7px; }
+.ap-repo-nom i { color: var(--c-verde-esmeralda); }
+.ap-repo-n { font-size: 1rem; font-weight: 800; color: var(--c-verde-esmeralda); }
+
+/* Celdas más grandes para el heatmap de aportes */
+.hm-grid.hm-grande { grid-template-rows: repeat(7, 16px); gap: 4px; }
+.hm-grid.hm-grande .hm-celda { width: 16px; height: 16px; border-radius: 4px; }
+
+/* Escala verde (estilo GitHub), adaptable a claro/oscuro */
+.hm-celda.hm-verde.hm-0, .hm-verde .hm-celda.hm-0 { background: color-mix(in srgb, var(--c-text-soft) 12%, var(--n-bg)); }
+.hm-celda.hm-verde.hm-1, .hm-verde .hm-celda.hm-1 { background: color-mix(in srgb, #26a641 30%, var(--n-bg)); }
+.hm-celda.hm-verde.hm-2, .hm-verde .hm-celda.hm-2 { background: color-mix(in srgb, #26a641 55%, var(--n-bg)); }
+.hm-celda.hm-verde.hm-3, .hm-verde .hm-celda.hm-3 { background: color-mix(in srgb, #26a641 78%, var(--n-bg)); }
+.hm-celda.hm-verde.hm-4, .hm-verde .hm-celda.hm-4 { background: #26a641; }
 /* El selector de persona más ancho para que no corte los nombres */
 .met-aportes .tabla-filtros .ms { min-width: 200px; }
 .met-aportes .tabla-filtros .ms-trigger { width: 100%; }
