@@ -1127,8 +1127,10 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const sel = caja.querySelector('.ap-persona');
   const lb = caja.querySelector('.ap-leaderboard');
   const lista = caja.querySelector('.ap-lista');
+  const mapa = caja.querySelector('.ap-mapa');
   const vacio = caja.querySelector('.ap-vacio');
   const totalEl = caja.querySelector('.ap-total');
+  let modo = 'mapa';
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
   const avatarHtml = (m, sz) => {
@@ -1153,18 +1155,54 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
     '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
 
+  const dos = (n) => String(n).padStart(2, '0');
+  const iso = (d) => d.getFullYear() + '-' + dos(d.getMonth() + 1) + '-' + dos(d.getDate());
+
+  // Heatmap tipo GitHub construido desde los commits (por día, 26 semanas)
+  const heatmap = (visibles) => {
+    const cont = {};
+    visibles.forEach((c) => { if (c.fecha) cont[c.fecha] = (cont[c.fecha] || 0) + 1; });
+    const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+    const ini = new Date(hoy); ini.setDate(ini.getDate() - (25 * 7 + hoy.getDay()));  // domingo ~26 semanas atrás
+    let max = 1; Object.values(cont).forEach((v) => { if (v > max) max = v; });
+    let celdas = '';
+    for (let d = new Date(ini); d <= hoy; d.setDate(d.getDate() + 1)) {
+      const k = iso(d), n = cont[k] || 0;
+      const nivel = n === 0 ? 0 : Math.ceil(n / max * 4);
+      celdas += '<span class="hm-celda hm-' + nivel + '" title="' + n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k + '"></span>';
+    }
+    return '<div class="hm-grid" title="Commits por día (últimas 26 semanas)">' + celdas + '</div>' +
+      '<div class="hm-leyenda"><small>Menos</small>' +
+      '<span class="hm-celda hm-0"></span><span class="hm-celda hm-1"></span><span class="hm-celda hm-2"></span>' +
+      '<span class="hm-celda hm-3"></span><span class="hm-celda hm-4"></span><small>Más</small></div>';
+  };
+
   const render = () => {
     const pid = parseInt(sel.value, 10) || 0;
     lb.querySelectorAll('.ap-lb-fila').forEach((f) =>
       f.classList.toggle('activo', pid && parseInt(f.dataset.persona, 10) === pid));
-    const vis = commits.filter((c) => !pid || (c.miembro && c.miembro.id === pid)).slice(0, 40);
+    caja.querySelectorAll('.ap-modo [data-modo]').forEach((b) => b.classList.toggle('active', b.dataset.modo === modo));
+
+    const vis = commits.filter((c) => !pid || (c.miembro && c.miembro.id === pid));
     vacio.hidden = vis.length > 0;
-    lista.innerHTML = vis.map((c) =>
-      '<li class="ap-commit">' + avatarHtml(c.miembro, 26) +
-      '<div class="ap-commit-txt"><span class="ap-msg">' + conTareas(c.msg) + '</span>' +
-      '<small>' + esc(c.miembro ? c.miembro.n : (c.nombre || '?')) + ' · ' + esc(c.repo || '') + ' · ' + esc(c.fecha || '') +
-      ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.sha) + '</a></small></div></li>').join('');
+    mapa.hidden = modo !== 'mapa' || vis.length === 0;
+    lista.hidden = modo !== 'commits' || vis.length === 0;
+
+    if (modo === 'mapa') {
+      mapa.innerHTML = vis.length ? heatmap(vis) : '';
+    } else {
+      lista.innerHTML = vis.slice(0, 40).map((c) =>
+        '<li class="ap-commit">' + avatarHtml(c.miembro, 26) +
+        '<div class="ap-commit-txt"><span class="ap-msg">' + conTareas(c.msg) + '</span>' +
+        '<small>' + esc(c.miembro ? c.miembro.n : (c.nombre || '?')) + ' · ' + esc(c.repo || '') + ' · ' + esc(c.fecha || '') +
+        ' · <a href="' + esc(c.url) + '" target="_blank" rel="noopener">' + esc(c.sha) + '</a></small></div></li>').join('');
+    }
   };
+
+  caja.querySelector('.ap-modo').addEventListener('click', (e) => {
+    const b = e.target.closest('[data-modo]'); if (!b) return;
+    modo = b.dataset.modo; render();
+  });
 
   sel.addEventListener('change', render);
   lb.addEventListener('click', (e) => {

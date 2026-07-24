@@ -2401,7 +2401,11 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
    ========================================================= */
 .ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }
 .ap-intro { margin: 0 0 4px; }
-.ap-persona { min-width: 180px; }
+/* El selector de persona más ancho para que no corte los nombres */
+.met-aportes .tabla-filtros .ms { min-width: 210px; }
+.met-aportes .tabla-filtros .ms-trigger { width: 100%; }
+/* La clase .actividad-msj fija display:flex y pisaba el atributo [hidden] */
+.ap-vacio[hidden], .ap-mapa[hidden], .ap-lista[hidden] { display: none !important; }
 
 /* Leaderboard: barra por persona, clicable para filtrar */
 .ap-leaderboard { display: flex; flex-direction: column; gap: 6px; margin: 14px 0 18px; }

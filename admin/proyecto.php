@@ -937,7 +937,7 @@ foreach ($tareas as $t) {
 // Commits recientes de todos los repos del proyecto, para "quién subió qué"
 $commitsProyecto = [];
 foreach ($reposProyecto as $rp) {
-    $cr = GitHub::commitsRecientes($rp['url']);
+    $cr = GitHub::commitsRecientes($rp['url'], 100);
     if (($cr['estado'] ?? '') !== 'ok') continue;
     foreach ($cr['commits'] as $c) {
         $c['repo'] = $rp['label'];
@@ -968,6 +968,10 @@ $comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembro
       <span class="ap-total"></span>
     </h2>
     <div class="tabla-filtros">
+      <div class="subvista-toggle ap-modo">
+        <button type="button" class="subvista-btn active" data-modo="mapa"><i class="fa-solid fa-table-cells"></i> Mapa</button>
+        <button type="button" class="subvista-btn" data-modo="commits"><i class="fa-solid fa-list"></i> Commits</button>
+      </div>
       <select class="select-meca select-sm ap-persona">
         <option value="0">Todo el equipo</option>
         <?php foreach ($comMiembros as $cm): ?>
@@ -978,9 +982,11 @@ $comData = json_encode(['commits' => $commitsProyecto, 'miembros' => $comMiembro
   </div>
   <div class="metricas-cuerpo">
     <p class="ajuste-ayuda ap-intro"><i class="fa-solid fa-circle-info"></i>
-      Commits recientes por persona. Si en el mensaje pones <b>#<i>id</i></b> de una tarea (ej. «#12 arreglar login»), se enlaza aquí.</p>
+      El mapa muestra los commits por día (elige una persona para ver solo los suyos). En <b>Commits</b> ves la lista;
+      si en el mensaje pones <b>#<i>id</i></b> de una tarea (ej. «#12 arreglar login»), se enlaza ahí.</p>
     <div class="ap-leaderboard"></div>
-    <ol class="ap-lista"></ol>
+    <div class="ap-mapa"></div>
+    <ol class="ap-lista" hidden></ol>
     <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits de esta persona en el periodo reciente.</p>
   </div>
   <script type="application/json" data-aportes-data><?= $comData ?></script>
