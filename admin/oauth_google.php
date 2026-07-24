@@ -34,15 +34,22 @@ if ($esCalendario) {
     if (!$actual) {
         redirigir('login.php', 'Tu sesión expiró. Entra de nuevo y vuelve a conectar tu calendario.', 'error');
     }
-    // Debe conectarlo con la MISMA cuenta con la que entró
-    if (strcasecmp($actual['email'] ?? '', $r['email']) !== 0) {
-        redirigir('perfil.php', 'Conecta el calendario con tu misma cuenta (' . ($actual['email'] ?? '') . '), no con otra de Google.', 'error');
-    }
     if (empty($r['refresh_token'])) {
-        redirigir('perfil.php', 'Google no devolvió el permiso. Vuelve a intentarlo aceptando el acceso al calendario.', 'error');
+        // Google no reenvía el refresh token si ya lo habías concedido antes.
+        // Hay que revocar el acceso en myaccount.google.com y reconectar, o
+        // aceptar de nuevo la pantalla de permiso (forzamos prompt=consent).
+        redirigir('perfil.php',
+            'Google no devolvió el permiso esta vez. Si ya habías conectado antes, entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a pulsar "Conectar mi calendario".',
+            'error');
     }
+    // Se guarda el token en la cuenta con la que estás dentro del panel. Si
+    // usaste otra cuenta de Google, tus tareas irán a ESE calendario (tu elección).
     (new MiembroRepo())->actualizar((int)$actual['id'], ['gcal_refresh' => $r['refresh_token']]);
-    redirigir('perfil.php', 'Conectaste tu Google Calendar. Tus tareas con fecha se enviarán ahí.', 'success');
+    $aviso = 'Conectaste tu Google Calendar (' . $r['email'] . '). Tus tareas con fecha se enviarán ahí.';
+    if (strcasecmp($actual['email'] ?? '', $r['email']) !== 0) {
+        $aviso .= ' Nota: es una cuenta distinta a la de tu ficha (' . ($actual['email'] ?: 'sin correo') . ').';
+    }
+    redirigir('perfil.php', $aviso, 'success');
 }
 
 $repo     = new MiembroRepo();

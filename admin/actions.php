@@ -354,7 +354,7 @@ switch ($accion) {
             $tipo = 'error';
         }
         if ($sinConectar) {
-            $aviso .= ' Falta que entren una vez con Google para dar el permiso de calendario: '
+            $aviso .= ' Falta que conecten su calendario en Mi perfil → "Conectar mi calendario": '
                 . implode(', ', array_keys($sinConectar)) . '.';
         }
         if ($sinResponsable) {
