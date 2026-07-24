@@ -307,23 +307,63 @@ switch ($accion) {
         }
         $lista = $tareas->delProyecto($id);
         $conFecha = 0;              // tareas con fecha (candidatas a evento)
+        $creados = 0;               // eventos realmente creados/actualizados en Google
         $sinConectar = [];          // responsables sin Google conectado
+        $errores = [];              // otros motivos de fallo (dedup por texto)
+        $sinResponsable = 0;        // tareas con fecha pero sin nadie asignado
         foreach ($lista as $t) {
             if (empty($t['fecha_inicio']) && empty($t['fecha_limite'])) continue;
             $conFecha++;
-            foreach (TareaRepo::asignadosDe($t) as $mid) {
+            $tarea = $tareas->buscar((int)$t['id']);
+            $eventos = is_array($tarea['gcal_eventos'] ?? null) ? $tarea['gcal_eventos'] : [];
+            $asignados = TareaRepo::asignadosDe($tarea);
+            if (!$asignados) { $sinResponsable++; continue; }
+            $nuevos = [];
+            foreach ($asignados as $mid) {
                 $m = $miembros->buscar((int)$mid);
-                if ($m && empty($m['gcal_refresh'])) $sinConectar[explode(' ', $m['nombre'])[0]] = true;
+                if (!$m) continue;
+                $eid = GoogleCalendar::upsert($m, $tarea, $p, (string)($eventos[$mid] ?? ''));
+                if ($eid) {
+                    $nuevos[$mid] = $eid;
+                    $creados++;
+                } elseif (GoogleCalendar::$ultimoError === 'sin_conexion') {
+                    $sinConectar[explode(' ', $m['nombre'])[0]] = true;
+                } elseif (GoogleCalendar::$ultimoError) {
+                    $errores[GoogleCalendar::$ultimoError] = true;
+                }
             }
-            sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
+            // Conservar el id de eventos que no se pudieron re-crear; borrar los de quien ya no está
+            foreach ($eventos as $mid => $eid) {
+                if (isset($nuevos[$mid])) continue;
+                if (in_array((int)$mid, $asignados, true)) { $nuevos[$mid] = $eid; continue; }
+                $m = $miembros->buscar((int)$mid);
+                if ($m) GoogleCalendar::borrar($m, (string)$eid);
+            }
+            $tareas->actualizar((int)$tarea['id'], ['gcal_eventos' => $nuevos]);
         }
-        $aviso = $conFecha
-            ? 'Sincronizadas ' . $conFecha . ' tarea(s) con fecha al Google Calendar de sus responsables.'
-            : 'No hay tareas con fecha para sincronizar.';
+
+        // Mensaje honesto: se cuenta lo que de verdad llegó a Google
+        if ($creados > 0) {
+            $aviso = 'Se enviaron ' . $creados . ' evento(s) al Google Calendar de los responsables.';
+            $tipo = 'success';
+        } elseif ($conFecha === 0) {
+            $aviso = 'No hay tareas con fecha para sincronizar.';
+            $tipo = 'info';
+        } else {
+            $aviso = 'No se creó ningún evento.';
+            $tipo = 'error';
+        }
         if ($sinConectar) {
-            $aviso .= ' Falta que conecten su Google: ' . implode(', ', array_keys($sinConectar)) . '.';
+            $aviso .= ' Falta que entren una vez con Google para dar el permiso de calendario: '
+                . implode(', ', array_keys($sinConectar)) . '.';
         }
-        redirigir('proyecto.php?id=' . $id, $aviso, $conFecha ? 'success' : 'info');
+        if ($sinResponsable) {
+            $aviso .= ' ' . $sinResponsable . ' tarea(s) con fecha no tienen responsable.';
+        }
+        if ($errores) {
+            $aviso .= ' Detalle: ' . implode(' · ', array_keys($errores));
+        }
+        redirigir('proyecto.php?id=' . $id, $aviso, $tipo);
 
     /* ---------- Observaciones (revisión / QA) ---------- */
 

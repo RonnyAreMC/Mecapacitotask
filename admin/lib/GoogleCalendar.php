@@ -12,6 +12,9 @@ require_once __DIR__ . '/Models.php';
 
 class GoogleCalendar
 {
+    /** Último motivo de fallo (para diagnóstico en la sincronización manual). */
+    public static ?string $ultimoError = null;
+
     /** ¿Está activada la sincronización con el calendario? */
     public static function listo(): bool
     {
@@ -71,14 +74,19 @@ class GoogleCalendar
      */
     public static function upsert(array $miembro, array $tarea, array $proyecto, string $eventoId = ''): ?string
     {
-        if (!self::listo() || empty($miembro['gcal_refresh'])) return null;
+        self::$ultimoError = null;
+        if (!self::listo()) { self::$ultimoError = 'Google Calendar no está configurado.'; return null; }
+        if (empty($miembro['gcal_refresh'])) { self::$ultimoError = 'sin_conexion'; return null; }
         $ev = self::evento($tarea, $proyecto);
         if ($ev === null) {                    // la tarea se quedó sin fechas
             if ($eventoId !== '') self::borrar($miembro, $eventoId);
             return null;
         }
         $token = self::accessToken($miembro['gcal_refresh']);
-        if (is_array($token)) return null;     // no se pudo renovar (permiso revocado, etc.)
+        if (is_array($token)) {                // no se pudo renovar (permiso revocado, etc.)
+            self::$ultimoError = 'Google rechazó el permiso (' . ($token['error'] ?? '') . '). La persona debe volver a entrar con Google.';
+            return null;
+        }
 
         // PATCH si ya existía, POST si es nuevo
         $url = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
@@ -92,7 +100,11 @@ class GoogleCalendar
                 'https://www.googleapis.com/calendar/v3/calendars/primary/events', $ev, $token, 'POST');
         }
         $json = json_decode($cuerpo, true) ?: [];
-        return ($codigo >= 200 && $codigo < 300 && !empty($json['id'])) ? $json['id'] : null;
+        if ($codigo >= 200 && $codigo < 300 && !empty($json['id'])) return $json['id'];
+
+        $motivo = $json['error']['message'] ?? $json['error_description'] ?? ('HTTP ' . $codigo);
+        self::$ultimoError = 'Google no aceptó el evento (' . $motivo . ').';
+        return null;
     }
 
     /** Borra el evento del calendario del miembro. */
