@@ -2428,12 +2428,14 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .ap-cargando { margin-left: 8px; color: var(--c-verde-esmeralda); }
 .ap-filtros { flex-wrap: wrap; align-items: center; gap: 8px; }
 
-/* Dos tarjetas de métricas lado a lado (Observaciones + Carga) */
+/* Dos tarjetas de métricas lado a lado (Observaciones + Carga).
+   Gap amplio: con menos, las sombras neumórficas se tocan y parecen montadas. */
 .met-2col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 20px;
+  gap: 30px;
   align-items: start;
+  margin-top: 22px;
 }
 .met-2col > section { margin: 0; }
 
