@@ -1363,7 +1363,10 @@ document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
     if (!dlg) return;
     dlg.querySelector('#er-id').value = r.id;
     dlg.querySelector('#er-topic').value = r.topic || '';
-    dlg.querySelector('#er-inicio').value = r.inicio || '';
+    // datetime-local exige "YYYY-MM-DDTHH:MM". Aceptamos espacio o T y con o
+    // sin segundos, para que la hora guardada de la reunión SIEMPRE se cargue.
+    const m = String(r.inicio || '').match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2})/);
+    dlg.querySelector('#er-inicio').value = m ? (m[1] + 'T' + m[2]) : '';
     setSelect(dlg.querySelector('.js-er-duracion'), r.duracion || 60);
     setSelect(dlg.querySelector('.js-er-invitados'), r.invitados || []);
     dlg.showModal();
