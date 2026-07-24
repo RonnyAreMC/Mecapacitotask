@@ -2452,9 +2452,18 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .ap-repo-nom i { color: var(--c-verde-esmeralda); }
 .ap-repo-n { font-size: 1rem; font-weight: 800; color: var(--c-verde-esmeralda); }
 
-/* Celdas más grandes para el heatmap de aportes */
-.hm-grid.hm-grande { grid-template-rows: repeat(7, 16px); gap: 4px; }
-.hm-grid.hm-grande .hm-celda { width: 16px; height: 16px; border-radius: 4px; }
+/* Heatmap de aportes: llena el ancho disponible (celdas cuadradas, sin scroll) */
+.hm-grid.hm-grande {
+  grid-template-rows: repeat(7, auto);
+  grid-auto-columns: 1fr;
+  gap: 4px;
+  width: 100%;
+  overflow: visible;
+}
+.hm-grid.hm-grande .hm-celda {
+  width: 100%; height: auto; aspect-ratio: 1;
+  border-radius: 4px;
+}
 
 /* Escala verde (estilo GitHub), adaptable a claro/oscuro */
 .hm-celda.hm-verde.hm-0, .hm-verde .hm-celda.hm-0 { background: color-mix(in srgb, var(--c-text-soft) 12%, var(--n-bg)); }

@@ -1191,7 +1191,9 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
       const nivel = n === 0 ? 0 : Math.ceil(n / max * 4);
       celdas += '<span class="hm-celda hm-' + nivel + '" title="' + n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k + '"></span>';
     }
-    return '<div class="hm-grid hm-verde hm-grande">' + celdas + '</div>';
+    // max-width en proporción a las semanas: las celdas llenan el ancho sin
+    // pasarse de tamaño en rangos cortos, y sin scroll en los largos.
+    return '<div class="hm-grid hm-verde hm-grande" style="max-width:' + (semanas * 26) + 'px">' + celdas + '</div>';
   };
 
   const render = () => {
