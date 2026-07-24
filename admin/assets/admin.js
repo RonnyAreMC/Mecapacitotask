@@ -1355,6 +1355,21 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
   });
 });
 
+// Rellenar y abrir el modal de edicion de reunion (editar / invitar a mas gente)
+document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    const r = JSON.parse(btn.dataset.editarReunion);
+    const dlg = document.getElementById('dlg-editar-reunion');
+    if (!dlg) return;
+    dlg.querySelector('#er-id').value = r.id;
+    dlg.querySelector('#er-topic').value = r.topic || '';
+    dlg.querySelector('#er-inicio').value = r.inicio || '';
+    setSelect(dlg.querySelector('.js-er-duracion'), r.duracion || 60);
+    setSelect(dlg.querySelector('.js-er-invitados'), r.invitados || []);
+    dlg.showModal();
+  });
+});
+
 // Formularios de persona: vista previa en vivo (avatar, nombre, rol, git, color, foto)
 document.querySelectorAll('.form-persona').forEach((form) => {
   const campo = (n) => form.querySelector('[name="' + n + '"]');

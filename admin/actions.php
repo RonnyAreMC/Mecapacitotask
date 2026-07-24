@@ -997,6 +997,50 @@ switch ($accion) {
         }
         redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));
 
+    case 'reunion_editar':
+        $reuniones = new ReunionRepo();
+        $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
+        if (!$reu) {
+            redirigir('index.php', 'Reunión no encontrada.', 'error');
+        }
+        $pid = (int)$reu['proyecto_id'];
+        $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
+        $topic = trim($_POST['topic'] ?? '');
+        $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));
+        $duracion = (int)($_POST['duracion'] ?? 60);
+        if ($topic === '' || $inicio === '') {
+            redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
+        }
+        // Actualiza en Zoom (si sigue teniendo id y Zoom está activo)
+        if (!empty($reu['zoom_id']) && Zoom::listo()) {
+            $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], [
+                'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
+            ]);
+            if ($ok !== true) {
+                redirigir($volver, $ok, 'error');
+            }
+        }
+        $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
+        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
+        $reuniones->actualizar((int)$reu['id'], [
+            'topic'     => $topic,
+            'inicio'    => $inicio,
+            'duracion'  => $duracion,
+            'invitados' => $invitados,
+        ]);
+        // Avisa solo a los invitados NUEVOS
+        $nuevos = array_diff($invitados, $invitadosAntes);
+        $avisados = 0;
+        $p = $proyectos->buscar($pid);
+        $reuActual = $reuniones->buscar((int)$reu['id']);
+        if ($nuevos && $p && Mailer::listo()) {
+            foreach ($nuevos as $mid) {
+                $m = $miembros->buscar((int)$mid);
+                if ($m && Mailer::notificarReunion($reuActual, $m, $p) === true) $avisados++;
+            }
+        }
+        redirigir($volver, 'Reunión actualizada.' . ($avisados ? ' ' . $avisados . ' invitado(s) nuevo(s) notificado(s).' : ''));
+
     case 'reunion_grabaciones':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));

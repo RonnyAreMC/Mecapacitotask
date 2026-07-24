@@ -851,6 +851,14 @@ foreach ($tareas as $t) {
             <button class="accion-btn" title="Buscar grabación en Zoom"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
           </form>
           <?php endif; ?>
+          <?php $reuData = htmlspecialchars(json_encode([
+              'id'        => (int)$r['id'],
+              'topic'     => (string)($r['topic'] ?? ''),
+              'inicio'    => str_replace(' ', 'T', (string)($r['inicio'] ?? '')),
+              'duracion'  => (int)$r['duracion'],
+              'invitados' => array_map('intval', $r['invitados'] ?? []),
+          ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
+          <button type="button" class="accion-btn solo-admin js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
           <form method="post" action="actions.php" class="inline-form solo-admin"
                 data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de Zoom."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
@@ -1110,6 +1118,37 @@ $comData = json_encode([
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear en Zoom</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Modal: editar reunión / invitar a más gente -->
+<dialog id="dlg-editar-reunion" class="dlg-meca">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="reunion_editar">
+    <input type="hidden" name="id" id="er-id" value="">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-pen text-secondary"></i> Editar reunión</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <label class="campo"><span>Tema de la reunión *</span>
+      <input class="input-meca" name="topic" id="er-topic" required maxlength="120">
+    </label>
+    <div class="campo-doble">
+      <label class="campo"><span>Fecha y hora *</span>
+        <input class="input-meca" type="datetime-local" name="inicio" id="er-inicio" required>
+      </label>
+      <label class="campo"><span>Duración (min)</span>
+        <?= UI::select('duracion', [30 => '30 min', 45 => '45 min', 60 => '1 hora', 90 => '1h 30m', 120 => '2 horas'], '60', false, 'js-er-duracion') ?>
+      </label>
+    </div>
+    <label class="campo"><span>Invitar (añade a más personas del equipo)</span>
+      <?= UI::select('invitados', $opcionesInvitados, [], false, 'js-er-invitados', true) ?>
+      <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
+    </label>
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>

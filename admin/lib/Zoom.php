@@ -109,6 +109,23 @@ class Zoom
         return ['error' => 'Zoom rechazó la creación: ' . ($json['message'] ?? ('HTTP ' . $codigo))];
     }
 
+    /**
+     * Edita una reunión existente (tema, inicio, duración).
+     * Devuelve true o un mensaje de error.
+     */
+    public static function actualizarReunion(string $zoomId, array $datos): true|string
+    {
+        $inicioIso = str_replace(' ', 'T', $datos['inicio']) . ':00';
+        [$codigo, $json] = self::api('PATCH', '/meetings/' . $zoomId, [
+            'topic'      => $datos['topic'],
+            'start_time' => $inicioIso,
+            'duration'   => (int)$datos['duracion'],
+            'timezone'   => self::zona(),
+        ]);
+        if ($codigo === 204) return true;             // Zoom no devuelve cuerpo al editar
+        return 'Zoom rechazó la edición: ' . ($json['message'] ?? ('HTTP ' . $codigo));
+    }
+
     public static function eliminarReunion(string $zoomId): void
     {
         self::api('DELETE', '/meetings/' . $zoomId);
