@@ -599,16 +599,20 @@ switch ($accion) {
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
 
-    case 'miembro_acceso':
-        // Interruptor de administrador (equipo de analistas)
+    case 'miembro_acceso_set':
+        // Select de acceso en la tabla de equipo (admin / solo lectura)
         $m = $miembros->buscar((int)($_POST['id'] ?? 0));
         $volver = $_POST['volver'] ?? 'equipo.php';
         if (!$m) {
             redirigir($volver, 'Colaborador no encontrado.', 'error');
         }
+        $nuevo = ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector';
         $eraAdmin = ($m['acceso'] ?? 'lector') === 'admin';
-        if ($eraAdmin) {
-            // Nunca dejar el panel sin ningun administrador
+        if ($eraAdmin === ($nuevo === 'admin')) {
+            redirigir($volver);   // sin cambios
+        }
+        if ($eraAdmin && $nuevo === 'lector') {
+            // Nunca dejar el panel sin ningun administrador, ni quitarse uno mismo
             $otros = array_filter($miembros->todos(), fn($x) =>
                 (int)$x['id'] !== (int)$m['id'] && ($x['acceso'] ?? '') === 'admin');
             if (!$otros) {
@@ -618,8 +622,8 @@ switch ($accion) {
                 redirigir($volver, 'No puedes quitarte a ti mismo el acceso de administrador.', 'error');
             }
         }
-        $miembros->actualizar((int)$m['id'], ['acceso' => $eraAdmin ? 'lector' : 'admin']);
-        if ($eraAdmin) {
+        $miembros->actualizar((int)$m['id'], ['acceso' => $nuevo]);
+        if ($nuevo === 'lector') {
             redirigir($volver, $m['nombre'] . ' vuelve a solo lectura.');
         }
         $falta = empty($m['pass_hash'])

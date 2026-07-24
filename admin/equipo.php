@@ -15,7 +15,8 @@ $eq = MiembroRepo::equipoValido($_GET['e'] ?? '');
 
 // El interruptor de administrador se muestra solo al admin y solo en el
 // equipo de analistas: son los jefes que pueden editar el panel.
-$puedeAcceso = esAdmin() && $eq === 'analistas';
+$puedeAcceso = esAdmin();
+$yoId = (int)(Auth::usuario()['id'] ?? 0);
 
 $equipo = array_values(array_filter(
     $miembrosRepo->todos(),
@@ -123,20 +124,19 @@ UI::cabecera(
             </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
             <?php if ($puedeAcceso): $esAdm = ($m['acceso'] ?? 'lector') === 'admin'; ?>
-            <td onclick="event.stopPropagation()">
+            <td class="celda-acceso" onclick="event.stopPropagation()">
+              <?php if ($mid === $yoId): ?>
+                <span class="acceso-yo"><i class="fa-solid fa-shield-halved"></i> Tú (admin)</span>
+              <?php else: ?>
               <form method="post" action="actions.php" class="inline-form">
-                <input type="hidden" name="accion" value="miembro_acceso">
+                <input type="hidden" name="accion" value="miembro_acceso_set">
                 <input type="hidden" name="id" value="<?= $mid ?>">
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <button class="sw-acceso<?= $esAdm ? ' on' : '' ?>" type="submit"
-                        role="switch" aria-checked="<?= $esAdm ? 'true' : 'false' ?>"
-                        title="<?= $esAdm ? 'Quitar el acceso de administrador' : 'Hacer administrador' ?>">
-                  <span class="sw-pista"><span class="sw-bola"></span></span>
-                  <span class="sw-txt"><?= $esAdm ? 'Admin' : 'Lector' ?></span>
-                </button>
+                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso ' . ($esAdm ? 'es-admin' : 'es-lector')) ?>
               </form>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
                 <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
+              <?php endif; ?>
               <?php endif; ?>
             </td>
             <?php endif; ?>

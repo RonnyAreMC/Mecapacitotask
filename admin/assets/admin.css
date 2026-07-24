@@ -3915,3 +3915,15 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 .plan-mal   { display: block; margin-top: 4px; font-size: .76rem; color: var(--c-danger); }
 
 @media (max-width: 900px) { .plan-grid { grid-template-columns: 1fr; } }
+
+/* ---------- Select de acceso en la tabla de equipo ---------- */
+.celda-acceso .inline-form { display: inline-block; margin: 0; }
+.select-acceso.es-admin + .ms-trigger .ms-label { color: var(--c-success); font-weight: 700; }
+.select-acceso.es-lector + .ms-trigger .ms-label { color: var(--c-text-soft); }
+.acceso-yo {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  color: var(--c-secondary); font-size: .78rem; font-weight: 700;
+}
+.acceso-yo i { font-size: .74rem; }

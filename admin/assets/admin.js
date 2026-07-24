@@ -301,6 +301,10 @@ const MecaDate = {
 
     trigger.addEventListener('click', () => abierto ? cerrar() : abrir());
     pop.addEventListener('click', (e) => {
+      // pintar() regenera el HTML del pop y desconecta el nodo clicado; sin
+      // esto, el clic sigue burbujeando al listener de "clic fuera" (que ya no
+      // encuentra el nodo dentro del pop) y cierra el calendario al navegar.
+      e.stopPropagation();
       const nav = e.target.closest('[data-nav]');
       if (nav) { ver = new Date(ver.getFullYear(), ver.getMonth() + parseInt(nav.dataset.nav, 10), 1); pintar(); return; }
       const dia = e.target.closest('.md-d[data-d]');
