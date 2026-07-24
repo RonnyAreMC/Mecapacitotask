@@ -17,8 +17,18 @@ if (!$proyecto || !puedeVerProyecto($id)) {
     exit;
 }
 
+$repos = ProyectoRepo::repos($proyecto);
+
+// Ramas disponibles (unión de todos los repos) para el filtro del panel.
+$ramas = [];
+foreach ($repos as $rp) {
+    foreach (GitHub::ramas($rp['url']) as $rn) $ramas[$rn] = true;
+}
+$ramas = array_keys($ramas);
+if ($rama !== '' && !in_array($rama, $ramas, true)) $rama = '';   // rama pedida ya no existe
+
 $commits = [];
-foreach (ProyectoRepo::repos($proyecto) as $rp) {
+foreach ($repos as $rp) {
     $cr = GitHub::commitsRecientes($rp['url'], 100, $rama);
     if (($cr['estado'] ?? '') !== 'ok') continue;
     foreach ($cr['commits'] as $c) {
@@ -28,4 +38,4 @@ foreach (ProyectoRepo::repos($proyecto) as $rp) {
 }
 usort($commits, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 
-echo json_encode(['commits' => $commits], JSON_UNESCAPED_UNICODE);
+echo json_encode(['commits' => $commits, 'ramas' => $ramas], JSON_UNESCAPED_UNICODE);

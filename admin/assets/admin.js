@@ -1153,6 +1153,11 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const vacio = caja.querySelector('.ap-vacio');
   const totalEl = caja.querySelector('.ap-total');
   const cargandoEl = caja.querySelector('.ap-cargando');
+  const skel = caja.querySelector('.ap-skeleton');
+  const lazy = caja.dataset.aportesLazy === '1';
+  const proyecto = caja.dataset.proyecto;
+  const ramaWrap = selRama ? selRama.closest('.ms') : null;
+  let ramasListas = false, cargado = false;
   let dias = 182;   // rango de fechas activo
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
@@ -1197,6 +1202,8 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   };
 
   const render = () => {
+    if (skel) skel.hidden = true;
+    lb.hidden = false;
     const pid = parseInt(sel.value, 10) || 0;
 
     const vis = filtrar();
@@ -1244,21 +1251,38 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     render();
   });
 
-  // Cambiar de rama trae sus commits por AJAX, sin recargar la página
-  if (selRama) {
-    const proyecto = caja.dataset.proyecto;
-    const alCambiarRama = () => {
-      cargandoEl.hidden = false;
-      fetch('aportes.php?id=' + proyecto + '&rama=' + encodeURIComponent(selRama.value))
-        .then((r) => r.json())
-        .then((j) => {
-          if (j && j.commits) { commits = j.commits; mapear(commits); render(); }
-        })
-        .catch(() => {})
-        .finally(() => { cargandoEl.hidden = true; });
-    };
-    selRama.addEventListener('change', alCambiarRama);
-  }
+  // Rellena el selector de ramas una vez que GitHub las devuelve (solo si hay >1)
+  const rellenarRamas = (ramas) => {
+    if (ramasListas || !selRama) return;
+    ramasListas = true;
+    if (!ramas || ramas.length < 2) return;
+    ramas.forEach((rn) => {
+      const o = document.createElement('option');
+      o.value = rn; o.textContent = rn;
+      selRama.appendChild(o);
+    });
+    if (ramaWrap) ramaWrap.hidden = false;   // MecaSelect relee las opciones al abrir
+  };
+
+  // Trae por AJAX los commits (y ramas) del repo/rama, sin recargar la página
+  const cargar = (rama) => {
+    cargandoEl.hidden = false;
+    return fetch('aportes.php?id=' + proyecto + '&rama=' + encodeURIComponent(rama || ''))
+      .then((r) => r.json())
+      .then((j) => {
+        if (j) {
+          commits = j.commits || [];
+          mapear(commits);
+          rellenarRamas(j.ramas);
+          cargado = true;
+          render();
+        }
+      })
+      .catch(() => { if (skel) skel.hidden = true; lb.hidden = false; vacio.hidden = false; })
+      .finally(() => { cargandoEl.hidden = true; });
+  };
+
+  if (selRama) selRama.addEventListener('change', () => cargar(selRama.value));
 
   /* ----- Commits a pantalla completa, paginados de 25 en 25 ----- */
   const dlg = caja.querySelector('.ap-dialogo');
@@ -1294,7 +1318,16 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   dlg.querySelector('.apc-prev').addEventListener('click', () => { pagina--; pintarPagina(); });
   dlg.querySelector('.apc-next').addEventListener('click', () => { pagina++; pintarPagina(); });
 
-  render();
+  if (ramaWrap) ramaWrap.hidden = true;   // se muestra solo si hay varias ramas
+  if (lazy) {
+    // Cargar los commits al abrir la vista Métricas (cuando la card se hace visible)
+    const io = new IntersectionObserver((entradas) => {
+      if (!cargado && entradas.some((e) => e.isIntersecting)) { io.disconnect(); cargar(''); }
+    });
+    io.observe(caja);
+  } else {
+    render();
+  }
 });
 
 // Rellenar y abrir el modal de edicion de tarea

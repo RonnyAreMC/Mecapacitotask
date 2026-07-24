@@ -1557,8 +1557,11 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   padding: 18px 24px 12px;
 }
 .cal-head h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); }
-.cal-nav { display: flex; align-items: center; gap: 8px; }
+.cal-nav { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .cal-nav .accion-btn { text-decoration: none; }
+.cal-nav .cal-sync { display: inline-flex; margin: 0; }
+.cal-nav .cal-sync .accion-btn { gap: 7px; }
+.cal-nav .cal-sync .fa-google { color: #2BB673; }
 .cal-scroll { overflow-x: auto; padding: 0 24px; }
 .cal-dows, .cal-grid {
   display: grid; grid-template-columns: repeat(7, minmax(0, 1fr));
@@ -2411,7 +2414,7 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 @keyframes nav-prog {
   0% { width: 0; } 25% { width: 45%; } 60% { width: 75%; } 100% { width: 92%; }
 }
-.btn-primary.btn-cargando, .btn-meca.btn-cargando {
+.btn-primary.btn-cargando, .btn-meca.btn-cargando, .accion-btn.btn-cargando {
   position: relative; color: transparent !important; pointer-events: none;
 }
 .btn-cargando > i, .btn-cargando > * { visibility: hidden; }
@@ -2421,7 +2424,8 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   border: 2.5px solid rgba(255, 255, 255, .4); border-top-color: #fff;
   animation: spin .6s linear infinite; visibility: visible;
 }
-.btn-outline.btn-cargando::after { border-color: color-mix(in srgb, var(--c-verde-esmeralda) 35%, transparent); border-top-color: var(--c-verde-esmeralda); }
+.btn-outline.btn-cargando::after,
+.accion-btn.btn-cargando::after { border-color: color-mix(in srgb, var(--c-verde-esmeralda) 35%, transparent); border-top-color: var(--c-verde-esmeralda); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }
@@ -4111,3 +4115,58 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 /* Señal de que las tarjetas son clicables */
 .fila-tarea, .kb-card, .flujo-nodo { cursor: pointer; }
 @media (max-width: 480px) { .dt-datos > div { grid-template-columns: 1fr; gap: 2px; } }
+
+/* =========================================================================
+   Carga suave: skeletons reutilizables + entrada de página
+   ========================================================================= */
+
+/* Entrada suave del contenido para que la página no "salte" al pintar */
+.admin-main { animation: page-in .34s cubic-bezier(.22,.61,.36,1) both; }
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(7px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Skeleton base: bloque gris con brillo que barre (placeholder de carga).
+   Reutilizable: <span class="sk" style="width:..;height:.."></span> */
+.sk {
+  display: block;
+  position: relative;
+  overflow: hidden;
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--c-text-soft) 15%, var(--n-bg));
+}
+.sk::after {
+  content: '';
+  position: absolute; inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent,
+              color-mix(in srgb, #fff 42%, transparent), transparent);
+  animation: sk-brillo 1.25s ease-in-out infinite;
+}
+html.dark .sk::after {
+  background: linear-gradient(90deg, transparent,
+              color-mix(in srgb, #fff 12%, transparent), transparent);
+}
+@keyframes sk-brillo { to { transform: translateX(100%); } }
+
+/* Piezas prefabricadas */
+.sk-line  { height: 14px; }
+.sk-title { height: 22px; width: 40%; }
+.sk-fade  { animation: page-in .3s ease both; }
+
+/* Skeleton concreto de "Aportes del equipo" (leaderboard + mapas) */
+.ap-skeleton { margin-top: 4px; }
+.ap-sk-lb { display: flex; flex-direction: column; gap: 12px; margin-bottom: 24px; }
+.ap-sk-lb .sk-fila { height: 46px; border-radius: 13px; }
+.ap-sk-mapas {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(360px, 1fr));
+  gap: 20px;
+}
+.ap-sk-mapas .sk-mapa { height: 168px; border-radius: 16px; }
+
+@media (prefers-reduced-motion: reduce) {
+  .admin-main, .sk-fade { animation: none; }
+  .sk::after { animation: none; }
+}

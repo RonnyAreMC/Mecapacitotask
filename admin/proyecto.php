@@ -85,12 +85,9 @@ foreach ($tareas as $t) {
 $nivelesFlujo = $tareasRepo->niveles($tareas);
 $hayDependencias = (bool)array_filter($tareas, fn($t) => (int)($t['depende_de'] ?? 0) > 0);
 
-// Actividad de GitHub por cada repositorio del proyecto (backend/frontend)
+// Repos del proyecto. Los datos de GitHub (commits, ramas) se cargan de forma
+// diferida al abrir la vista Métricas, así la página no espera a la API al abrir.
 $reposProyecto = ProyectoRepo::repos($proyecto);
-$actividades = [];
-foreach ($reposProyecto as $r) {
-    $actividades[] = ['label' => $r['label'], 'icono' => $r['icono'], 'act' => GitHub::actividad($r['url'])];
-}
 
 // Observaciones (revision / QA)
 $obsRepo         = new ObservacionRepo();
@@ -558,6 +555,15 @@ foreach ($tareas as $t) {
     <div class="cal-head">
       <h2 class="font-display"><i class="fa-solid fa-calendar-days text-secondary"></i> <?= e($calTitulo) ?></h2>
       <div class="cal-nav">
+        <?php if (esAdmin() && GoogleCalendar::listo()): ?>
+        <form method="post" action="actions.php" class="cal-sync">
+          <input type="hidden" name="accion" value="sincronizar_calendario">
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <button type="submit" class="accion-btn" title="Enviar estas tareas al Google Calendar de cada responsable">
+            <i class="fa-brands fa-google"></i> Sincronizar
+          </button>
+        </form>
+        <?php endif; ?>
         <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= $calPrev ?>#vista-calendario" title="Mes anterior"><i class="fa-solid fa-chevron-left"></i></a>
         <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= date('Y-m') ?>#vista-calendario">Hoy</a>
         <a class="accion-btn" href="?id=<?= $id ?>&mes=<?= $calNext ?>#vista-calendario" title="Mes siguiente"><i class="fa-solid fa-chevron-right"></i></a>
@@ -936,26 +942,9 @@ foreach ($tareas as $t) {
 <?php
 // Un solo gráfico de aportes: commits de TODOS los repos del proyecto,
 // filtrables por persona, por rama y por rango de fechas.
-$rama = trim($_GET['rama'] ?? '');
-
-// Ramas disponibles (unión de todos los repos)
-$ramasProyecto = [];
-foreach ($reposProyecto as $rp) {
-    foreach (GitHub::ramas($rp['url']) as $rn) $ramasProyecto[$rn] = true;
-}
-$ramasProyecto = array_keys($ramasProyecto);
-if ($rama !== '' && !in_array($rama, $ramasProyecto, true)) $rama = '';   // rama pedida ya no existe
-
+// Los commits y las ramas se traen por AJAX (aportes.php) al abrir esta vista,
+// para no frenar la carga de la página con llamadas a la API de GitHub.
 $commitsProyecto = [];
-foreach ($reposProyecto as $rp) {
-    $cr = GitHub::commitsRecientes($rp['url'], 100, $rama);
-    if (($cr['estado'] ?? '') !== 'ok') continue;
-    foreach ($cr['commits'] as $c) {
-        $c['repo'] = $rp['label'];
-        $commitsProyecto[] = $c;
-    }
-}
-usort($commitsProyecto, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 
 $comMiembros = [];
 foreach ($miembros as $m) {
@@ -978,7 +967,7 @@ $comData = json_encode([
 ], JSON_UNESCAPED_UNICODE);
 ?>
 <?php if (!empty($comMiembros) && $reposProyecto): ?>
-<section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes data-proyecto="<?= $id ?>">
+<section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes data-aportes-lazy="1" data-proyecto="<?= $id ?>">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-brands fa-github"></i> Aportes del equipo
       <span class="ap-total"></span>
@@ -991,14 +980,10 @@ $comData = json_encode([
         <option value="<?= $cm['id'] ?>"><?= e($cm['n']) ?></option>
         <?php endforeach; ?>
       </select>
-      <?php if (count($ramasProyecto) > 1): ?>
-      <select class="select-meca select-sm ap-rama">
-        <option value="" <?= $rama === '' ? 'selected' : '' ?>>Rama por defecto</option>
-        <?php foreach ($ramasProyecto as $rn): ?>
-        <option value="<?= e($rn) ?>" <?= $rama === $rn ? 'selected' : '' ?>><?= e($rn) ?></option>
-        <?php endforeach; ?>
+      <!-- La lista de ramas la rellena el JS tras traerlas por AJAX -->
+      <select class="select-meca select-sm ap-rama" hidden>
+        <option value="">Rama por defecto</option>
       </select>
-      <?php endif; ?>
       <div class="subvista-toggle ap-rango">
         <button type="button" class="subvista-btn" data-dias="30">30 d</button>
         <button type="button" class="subvista-btn" data-dias="90">90 d</button>
@@ -1009,8 +994,17 @@ $comData = json_encode([
     </div>
   </div>
   <div class="metricas-cuerpo">
-    <div class="ap-leaderboard"></div>
-    <div class="ap-mapas"></div>
+    <!-- Skeleton mientras se traen los commits de GitHub -->
+    <div class="ap-skeleton sk-fade">
+      <div class="ap-sk-lb">
+        <span class="sk sk-fila"></span><span class="sk sk-fila"></span><span class="sk sk-fila"></span>
+      </div>
+      <div class="ap-sk-mapas">
+        <span class="sk sk-mapa"></span><span class="sk sk-mapa"></span>
+      </div>
+    </div>
+    <div class="ap-leaderboard" hidden></div>
+    <div class="ap-mapas" hidden></div>
     <p class="ap-vacio actividad-msj" hidden><i class="fa-solid fa-mug-hot"></i> Sin commits con esos filtros.</p>
   </div>
   <script type="application/json" data-aportes-data><?= $comData ?></script>

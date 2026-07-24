@@ -294,6 +294,37 @@ switch ($accion) {
         }
         redirigir('index.php', 'Tarea no encontrada.', 'error');
 
+    case 'sincronizar_calendario':
+        // Empuja al Google Calendar de cada responsable TODAS las tareas del
+        // proyecto (útil para las que ya existían antes de conectar Google).
+        $id = (int)($_POST['id'] ?? 0);
+        $p = $proyectos->buscar($id);
+        if (!$p) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        if (!GoogleCalendar::listo()) {
+            redirigir('proyecto.php?id=' . $id, 'Google Calendar no está configurado en Ajustes.', 'error');
+        }
+        $lista = $tareas->delProyecto($id);
+        $conFecha = 0;              // tareas con fecha (candidatas a evento)
+        $sinConectar = [];          // responsables sin Google conectado
+        foreach ($lista as $t) {
+            if (empty($t['fecha_inicio']) && empty($t['fecha_limite'])) continue;
+            $conFecha++;
+            foreach (TareaRepo::asignadosDe($t) as $mid) {
+                $m = $miembros->buscar((int)$mid);
+                if ($m && empty($m['gcal_refresh'])) $sinConectar[explode(' ', $m['nombre'])[0]] = true;
+            }
+            sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
+        }
+        $aviso = $conFecha
+            ? 'Sincronizadas ' . $conFecha . ' tarea(s) con fecha al Google Calendar de sus responsables.'
+            : 'No hay tareas con fecha para sincronizar.';
+        if ($sinConectar) {
+            $aviso .= ' Falta que conecten su Google: ' . implode(', ', array_keys($sinConectar)) . '.';
+        }
+        redirigir('proyecto.php?id=' . $id, $aviso, $conFecha ? 'success' : 'info');
+
     /* ---------- Observaciones (revisión / QA) ---------- */
 
     case 'obs_crear':
