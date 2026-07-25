@@ -1140,12 +1140,14 @@ switch ($accion) {
             $msg = count($g['archivos']) . ' archivo(s) de grabación disponibles.';
             if (!empty($g['abierto'])) {
                 $msg .= ' Abre sin pedir código.';
-            } elseif (!empty($g['password'])) {
-                // El enlace lleva el código incrustado (?pwd=); si Zoom igual lo
-                // pide, está junto al botón para copiarlo de un clic.
-                $msg .= ' El enlace lleva el código puesto; si aun así lo pide, cópialo del botón de al lado.';
+            } else {
+                // No se pudo quitar el código por API: mostramos el motivo real
+                // (para saber si es scope o política de la cuenta) y el código.
+                $msg .= ' No se pudo quitar el código automáticamente';
+                $msg .= !empty($g['abrir_error']) ? ' (' . $g['abrir_error'] . ').' : '.';
+                if (!empty($g['password'])) $msg .= ' Usa el código del botón de al lado, o desactívalo en Zoom → Configuración → Grabación.';
             }
-            redirigir($volver, $msg, 'success');
+            redirigir($volver, $msg, !empty($g['abierto']) ? 'success' : 'info');
         }
         redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
 
