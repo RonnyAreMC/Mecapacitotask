@@ -837,9 +837,11 @@ foreach ($tareas as $t) {
           <?php endif; ?>
         </div>
         <div class="reu-acciones">
+          <?php if (!$pasada): ?>
           <a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a>
           <?php if (!empty($r['start_url'])): ?>
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
+          <?php endif; ?>
           <?php endif; ?>
           <?php if (!empty($r['grabaciones'])): ?>
             <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
@@ -851,25 +853,21 @@ foreach ($tareas as $t) {
               <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($r['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
             </span>
             <?php endif; ?>
-            <?php
-            $tieneTrans = false;
-            foreach ($r['grabaciones'] as $g) {
-                if (str_contains(strtolower(($g['tipo'] ?? '') . ($g['ext'] ?? '')), 'transcript')) { $tieneTrans = true; break; }
-            }
-            if ($tieneTrans): ?>
-            <form method="post" action="actions.php" class="inline-form">
-              <input type="hidden" name="accion" value="reunion_transcripcion">
-              <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-              <button class="accion-btn accion-claude" title="Bajar la transcripción en texto (con contexto) para pasarla a Claude">
-                <img src="assets/claude.svg" alt="" width="15" height="15"> Transcripción
-              </button>
-            </form>
-            <?php endif; ?>
           <?php elseif ($pasada): ?>
           <form method="post" action="actions.php" class="inline-form">
             <input type="hidden" name="accion" value="reunion_grabaciones">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
             <button class="accion-btn" title="Buscar grabación en Zoom"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
+          </form>
+          <?php endif; ?>
+          <?php if ($pasada): ?>
+          <!-- Transcripción para Claude: la acción la busca en vivo en Zoom -->
+          <form method="post" action="actions.php" class="inline-form">
+            <input type="hidden" name="accion" value="reunion_transcripcion">
+            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+            <button class="accion-btn accion-claude" title="Bajar la transcripción en texto (con contexto) para pasarla a Claude">
+              <img src="assets/claude.svg" alt="" width="15" height="15"> Transcripción
+            </button>
           </form>
           <?php endif; ?>
           <?php $reuData = htmlspecialchars(json_encode([
