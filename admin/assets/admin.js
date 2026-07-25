@@ -1687,3 +1687,81 @@ document.addEventListener('change', (e) => {
     ? '<i class="fa-solid fa-file-circle-check"></i> ' + f.name
     : '<i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .json';
 });
+
+/* =========================================================
+   MecaTip — tooltip estilo Apple SOLO para botones de ícono
+   (controles sin texto visible). Convierte su title en un
+   tooltip propio y quita el nativo para que no salga doble.
+   Funciona por delegación: cubre lo que se crea después.
+   ========================================================= */
+(() => {
+  let tip = null, actual = null, timer = 0;
+  const SEL = 'button, a, label, [role="button"], .accion-btn';
+
+  const iconoSolo = (el) => el.textContent.replace(/\s+/g, '') === '';
+  const textoDe = (el) => el.getAttribute('data-tip') || el.getAttribute('title') || '';
+
+  const crear = () => {
+    if (tip) return tip;
+    tip = document.createElement('div');
+    tip.className = 'meca-tip';
+    document.body.appendChild(tip);
+    return tip;
+  };
+
+  const colocar = (el) => {
+    const r = el.getBoundingClientRect();
+    const t = tip.getBoundingClientRect();
+    const sep = 9;
+    let arriba = true;
+    let top = r.top - t.height - sep;
+    if (top < 6) { top = r.bottom + sep; arriba = false; }   // no cabe arriba → abajo
+    let left = r.left + r.width / 2 - t.width / 2;
+    left = Math.max(6, Math.min(left, innerWidth - t.width - 6));
+    tip.style.left = Math.round(left) + 'px';
+    tip.style.top = Math.round(top) + 'px';
+    tip.classList.toggle('abajo', !arriba);
+    // posición de la flechita respecto al centro del botón
+    const cx = r.left + r.width / 2 - left;
+    tip.style.setProperty('--tip-x', Math.max(12, Math.min(cx, t.width - 12)) + 'px');
+  };
+
+  const mostrar = (el) => {
+    const texto = textoDe(el);
+    if (!texto) return;
+    // pasa el title nativo a data-tip para que no aparezca el tooltip del navegador
+    if (el.hasAttribute('title')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
+    crear().textContent = texto;
+    tip.classList.remove('visible');
+    colocar(el);
+    requestAnimationFrame(() => { colocar(el); tip.classList.add('visible'); });
+  };
+
+  const ocultar = () => { if (tip) tip.classList.remove('visible'); actual = null; clearTimeout(timer); };
+
+  const candidato = (target) => {
+    const el = target.closest?.(SEL);
+    if (!el || !(el.hasAttribute('title') || el.hasAttribute('data-tip'))) return null;
+    return iconoSolo(el) ? el : null;
+  };
+
+  document.addEventListener('pointerover', (e) => {
+    const el = candidato(e.target);
+    if (!el || el === actual) return;
+    // quita el title de una vez para matar el tooltip nativo aunque no se muestre el nuestro
+    if (el.hasAttribute('title')) { el.setAttribute('data-tip', el.getAttribute('title')); el.removeAttribute('title'); }
+    actual = el;
+    clearTimeout(timer);
+    timer = setTimeout(() => mostrar(el), 340);
+  });
+  document.addEventListener('pointerout', (e) => {
+    if (actual && (e.target.closest?.(SEL) === actual)) ocultar();
+  });
+  document.addEventListener('focusin', (e) => {
+    const el = candidato(e.target);
+    if (el) { actual = el; mostrar(el); }
+  });
+  document.addEventListener('focusout', ocultar);
+  document.addEventListener('click', ocultar);      // al accionar, se cierra
+  addEventListener('scroll', ocultar, true);
+})();

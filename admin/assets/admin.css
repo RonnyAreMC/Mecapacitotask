@@ -4216,11 +4216,18 @@ html.dark .sk::after {
 .doc-btn {
   display: inline-flex; align-items: center; gap: 5px;
   padding: 6px 11px; border-radius: 9px; text-decoration: none;
-  background: var(--n-bg); box-shadow: var(--sh-mini);
-  font-size: .74rem; font-weight: 700; color: var(--c-danger);
+  background: color-mix(in srgb, #e5484d 10%, var(--n-bg));
+  border: 1px solid color-mix(in srgb, #e5484d 28%, transparent);
+  box-shadow: var(--sh-mini);
+  font-size: .74rem; font-weight: 700; color: #e5484d;
 }
-.doc-btn:hover { box-shadow: var(--sh-soft); }
-.doc-btn-md { color: var(--c-secondary); }
+.doc-btn:hover { box-shadow: var(--sh-soft); background: color-mix(in srgb, #e5484d 16%, var(--n-bg)); }
+.doc-btn-md {
+  color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 9%, var(--n-bg));
+  border-color: color-mix(in srgb, var(--c-secondary) 24%, transparent);
+}
+.doc-btn-md:hover { background: color-mix(in srgb, var(--c-secondary) 15%, var(--n-bg)); }
 
 .doc-claude-nota {
   display: flex; gap: 10px; align-items: flex-start;
@@ -4282,8 +4289,6 @@ html.dark .doc-claude-nota { background: color-mix(in srgb, #d97757 14%, var(--c
 }
 .docs-frame { border: 1px solid color-mix(in srgb, var(--claude) 14%, var(--c-border)); }
 
-/* Botón MD también en tono Claude, PDF ya es naranja */
-.doc-btn { border: 1px solid color-mix(in srgb, var(--claude) 20%, transparent); }
 
 /* --- Movimiento del SVG de Claude --- */
 img[src$="claude.svg"] {
@@ -4300,3 +4305,65 @@ img[src$="claude.svg"] {
   70%      { transform: translateY(-2.5px) rotate(5deg); }
 }
 @media (prefers-reduced-motion: reduce) { img[src$="claude.svg"] { animation: none; } }
+
+/* ---------- MecaTip: tooltip estilo Apple (botones de ícono) ---------- */
+.meca-tip {
+  position: fixed; z-index: 9999; pointer-events: none;
+  max-width: 240px;
+  padding: 6px 10px; border-radius: 9px;
+  background: rgba(28, 32, 42, .94);
+  color: #fff; font-size: .76rem; font-weight: 600; line-height: 1.25;
+  white-space: nowrap; letter-spacing: .01em;
+  box-shadow: 0 10px 28px -10px rgba(0,0,0,.55), inset 0 0 0 .5px rgba(255,255,255,.1);
+  -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  opacity: 0; transform: translateY(3px) scale(.96); transform-origin: center bottom;
+  transition: opacity .14s ease, transform .16s cubic-bezier(.34,1.4,.5,1);
+}
+.meca-tip.abajo { transform-origin: center top; transform: translateY(-3px) scale(.96); }
+.meca-tip.visible { opacity: 1; transform: translateY(0) scale(1); }
+.meca-tip::after {
+  content: ''; position: absolute; left: var(--tip-x, 50%); bottom: -4px;
+  width: 8px; height: 8px; margin-left: -4px;
+  background: inherit; border-radius: 2px;
+  transform: rotate(45deg);
+  box-shadow: inset -.5px -.5px 0 rgba(255,255,255,.06);
+}
+.meca-tip.abajo::after { bottom: auto; top: -4px; }
+@media (prefers-reduced-motion: reduce) {
+  .meca-tip { transition: opacity .1s ease; transform: none; }
+  .meca-tip.abajo { transform: none; }
+}
+
+/* ---------- Móvil: menú de la cuenta como drawer inferior (bottom sheet) ---------- */
+@keyframes sheet-up   { from { transform: translateY(100%); } to { transform: translateY(0); } }
+@keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+@media (max-width: 900px) {
+  /* Fondo oscuro detrás del drawer */
+  .cuenta-menu.abierto::after {
+    content: ''; position: fixed; inset: 0; z-index: 998;
+    background: rgba(8, 14, 26, .5);
+    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+    animation: sheet-fade .2s ease;
+  }
+  /* El panel deja de flotar junto al sidebar y se ancla abajo, a lo ancho */
+  .cuenta-menu > .cuenta-panel {
+    position: fixed !important;
+    left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
+    width: auto !important; z-index: 999;
+    padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    border-radius: 22px 22px 0 0;
+    border: 1px solid var(--c-border-soft); border-bottom: none;
+    box-shadow: 0 -22px 55px -20px rgba(0, 0, 0, .55);
+  }
+  .cuenta-menu.abierto > .cuenta-panel { animation: sheet-up .26s cubic-bezier(.2,.9,.2,1); }
+  /* Asa del drawer */
+  .cuenta-panel::before {
+    content: ''; display: block; width: 42px; height: 4px; border-radius: 99px;
+    background: var(--c-border); margin: 2px auto 12px;
+  }
+  /* Objetivos táctiles más grandes */
+  .cuenta-panel .sidebar-link { padding: 15px 12px; font-size: .95rem; border-radius: 13px; }
+  .cuenta-panel .sidebar-link i { width: 22px; font-size: 1rem; }
+  .cuenta-cab { padding: 2px 6px 12px; }
+  .cuenta-cab-txt b { font-size: .95rem; }
+}
