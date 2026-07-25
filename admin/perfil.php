@@ -1,11 +1,10 @@
 <?php
 /**
- * Mi perfil: cada quien edita SUS datos (nombre, rol, cuentas, foto y
- * contrasena) sin pasar por un administrador.
+ * Mi perfil: cada quien edita SUS datos con edición inline (lápiz por campo).
+ * Un solo formulario; la barra de guardar aparece cuando hay cambios.
  *
- * Lo que NO se toca desde aqui, a proposito: el nivel de acceso y el
- * equipo. Los decide un administrador desde Equipo, si no cualquiera se
- * daria permisos de admin editando su propia ficha.
+ * Lo que NO se toca aquí, a propósito: el nivel de acceso y el equipo. Los
+ * decide un administrador desde Equipo (si no, cualquiera se daría permisos).
  */
 require_once __DIR__ . '/lib/bootstrap.php';
 
@@ -22,67 +21,47 @@ $c1         = Catalogo::colorDe($yo['color'] ?? 0);
 $tieneClave = !empty($yo['pass_hash']);
 $googleOn   = GoogleLogin::listo();
 
-// Mis tareas, para el resumen de la cabecera
-$finales  = Catalogo::estadosFinales();
+$finales   = Catalogo::estadosFinales();
 $misTareas = array_filter((new TareaRepo())->todas(), fn($t) => TareaRepo::tieneAsignado($t, $miId));
 $abiertas  = count(array_filter($misTareas, fn($t) => !in_array($t['estado'] ?? '', $finales, true)));
 $misProyectos = [];
-foreach ($misTareas as $t) {
-    $misProyectos[(int)$t['proyecto_id']] = true;
-}
-
-$pasos = [
-    ['Datos',     'Cómo te ves en el panel',   'Tu nombre y el rol que ocupas en el equipo.'],
-    ['Cuentas',   'Git y correo',              'Con cualquiera de los dos puedes entrar al panel.'],
-    ['Aspecto',   'Foto y color',              'Tu avatar en tableros, tareas y reuniones.'],
-    ['Seguridad', 'Tu contraseña',             'Para cambiarla hay que escribir la actual.'],
-    ['Revisión',  'Revisa antes de guardar',   'Un vistazo a lo que se va a guardar.'],
-];
+foreach ($misTareas as $t) { $misProyectos[(int)$t['proyecto_id']] = true; }
 
 UI::inicio('Mi perfil', 'perfil');
 ?>
 
-<header class="colab-hero card-base" style="--av-c1:<?= $c1 ?>">
-  <div class="colab-hero-main">
-    <div class="mc-avatar-zone">
-      <span class="mc-ring-anim"></span>
-      <div class="mc-avatar-ring"><?= UI::avatar($yo, 104) ?></div>
+<!-- Cabecera -->
+<header class="pf-hero card-base" style="--av-c1:<?= $c1 ?>">
+  <label class="pf-hero-foto" title="Cambiar foto">
+    <input type="file" name="foto" class="pf-file" form="perfil-form" accept="image/png,image/jpeg,image/webp,image/gif">
+    <span class="avatar pf-hero-avatar" style="--sz:96px;--av-c1:<?= $c1 ?>">
+      <img class="pf-img" alt="" <?= empty($yo['foto']) ? 'hidden' : 'src="' . e($yo['foto']) . '"' ?>>
+      <span class="pf-iniciales" <?= empty($yo['foto']) ? '' : 'hidden' ?>><?= e(MiembroRepo::iniciales($yo)) ?></span>
+    </span>
+    <span class="pf-cam"><i class="fa-solid fa-camera"></i></span>
+  </label>
+  <div class="pf-hero-id">
+    <h1 class="font-display js-hero-nombre"><?= e($yo['nombre']) ?></h1>
+    <p class="pf-hero-rol" style="--av-c1:<?= $c1 ?>">
+      <i class="fa-solid <?= e($eqIcono) ?>"></i> <span class="js-hero-rol"><?= e($yo['rol']) ?: 'Sin rol' ?></span> · <?= e($eqLabel) ?>
+    </p>
+    <div class="pf-hero-chips">
+      <span class="pf-chip"><i class="fa-solid fa-shield-halved"></i> <?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></span>
+      <span class="pf-chip <?= $tieneClave ? '' : 'off' ?>"><i class="fa-solid <?= $tieneClave ? 'fa-lock' : 'fa-lock-open' ?>"></i> <?= $tieneClave ? 'Con contraseña' : 'Sin contraseña' ?></span>
     </div>
-    <div class="colab-id">
-      <h1 class="font-display"><?= e($yo['nombre']) ?></h1>
-      <p class="mc-rol" style="--av-c1:<?= $c1 ?>">
-        <i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($yo['rol']) ?: 'Sin rol' ?> · <?= e($eqLabel) ?>
-      </p>
-      <div class="colab-cuentas">
-        <span class="cuenta-chip cuenta-txt">
-          <i class="fa-solid fa-shield-halved"></i>
-          <?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?>
-        </span>
-        <?php if (!empty($yo['email'])): ?>
-        <span class="cuenta-chip">
-          <a href="mailto:<?= e($yo['email']) ?>"><i class="fa-solid fa-envelope"></i> <?= e($yo['email']) ?></a>
-          <button type="button" class="btn-copiar mini" data-copiar="<?= e($yo['email']) ?>" title="Copiar correo"><i class="fa-regular fa-copy"></i></button>
-        </span>
-        <?php endif; ?>
-        <span class="cuenta-chip <?= $tieneClave ? 'cuenta-txt' : 'cuenta-off' ?>">
-          <i class="fa-solid <?= $tieneClave ? 'fa-lock' : 'fa-lock-open' ?>"></i>
-          <?= $tieneClave ? 'Contraseña puesta' : 'Todavía sin contraseña' ?>
-        </span>
-      </div>
-    </div>
+  </div>
+  <div class="pf-hero-stats">
+    <span><b><?= $abiertas ?></b> abiertas</span>
+    <span><b><?= count($misTareas) ?></b> asignadas</span>
+    <span><b><?= count($misProyectos) ?></b> proyectos</span>
   </div>
 </header>
 
-<section class="stats-grid">
-  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Tareas abiertas') ?>
-  <?= UI::stat('fa-layer-group', '#2B76F7', (string)count($misTareas), 'Tareas asignadas') ?>
-  <?= UI::stat('fa-folder-open', $c1, (string)count($misProyectos), 'Proyectos') ?>
-</section>
-
 <?php if (GoogleCalendar::listo()): $calConectado = !empty($yo['gcal_refresh']); ?>
+<!-- Google Calendar -->
 <section class="card-base gcal-card">
   <div class="gcal-info">
-    <span class="gcal-icono"><i class="fa-brands fa-google"></i></span>
+    <span class="gcal-icono-svg"><img src="assets/calendar.svg" alt="Calendar" width="46" height="46"></span>
     <div>
       <h2 class="font-display">Google Calendar</h2>
       <?php if ($calConectado): ?>
@@ -98,151 +77,178 @@ UI::inicio('Mi perfil', 'perfil');
 </section>
 <?php endif; ?>
 
-<section class="card-base perfil-card">
-  <form method="post" action="actions.php" class="wz wz-inline form-persona" enctype="multipart/form-data">
-    <input type="hidden" name="accion" value="perfil_guardar">
+<form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data">
+  <input type="hidden" name="accion" value="perfil_guardar">
 
-    <aside class="wz-riel">
-      <div class="persona-preview pp-riel">
-        <label class="pp-avatar" title="Cambiar foto">
-          <input type="file" name="foto" class="pp-file" accept="image/png,image/jpeg,image/webp,image/gif">
-          <span class="avatar pp-avatar-circle" style="--sz:88px;--av-c1:<?= $c1 ?>">
-            <img class="pp-img" alt="" <?= empty($yo['foto']) ? 'hidden' : 'src="' . e($yo['foto']) . '"' ?>>
-            <span class="pp-iniciales" <?= empty($yo['foto']) ? '' : 'hidden' ?>><?= e(MiembroRepo::iniciales($yo)) ?></span>
-          </span>
-          <span class="pp-cam"><i class="fa-solid fa-camera"></i></span>
-        </label>
-        <div class="pp-info">
-          <b class="pp-nombre font-display">—</b>
-          <span class="pp-rol"><i class="fa-solid fa-code"></i> <span class="pp-rol-texto">Rol</span></span>
-          <span class="pp-git"><i class="fa-brands fa-github"></i> @<span class="pp-git-user">usuario</span></span>
+  <div class="pf-grid">
+    <!-- Datos -->
+    <section class="card-base pf-card">
+      <h2 class="pf-card-tit"><i class="fa-solid fa-id-badge text-secondary"></i> Tus datos</h2>
+
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-user"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Nombre</span>
+          <span class="pf-valor js-valor"><?= e($yo['nombre']) ?></span>
+          <input class="input-meca pf-input" name="nombre" required maxlength="60" value="<?= e($yo['nombre']) ?>" data-hero="nombre" hidden>
         </div>
+        <button type="button" class="pf-lapiz" title="Editar nombre"><i class="fa-solid fa-pen"></i></button>
       </div>
 
-      <div class="wz-pasos">
-        <?php foreach ($pasos as $i => [$corto, $tituloPaso, $ayuda]): ?>
-        <button type="button" class="wz-paso" data-titulo="<?= e($tituloPaso) ?>" data-ayuda="<?= e($ayuda) ?>">
-          <span class="wz-num"><?= $i + 1 ?></span>
-          <span class="wz-txt"><b><?= e($corto) ?></b><small><?= e($ayuda) ?></small></span>
-        </button>
-        <?php endforeach; ?>
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-briefcase"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Rol</span>
+          <span class="pf-valor js-valor"><?= e($yo['rol']) ?: '<i class="pf-vacio">Sin definir</i>' ?></span>
+          <input class="input-meca pf-input" name="rol" maxlength="40" list="lista-roles" value="<?= e($yo['rol'] ?? '') ?>" placeholder="Frontend Dev, Backend Dev…" data-hero="rol" hidden>
+        </div>
+        <button type="button" class="pf-lapiz" title="Editar rol"><i class="fa-solid fa-pen"></i></button>
       </div>
-    </aside>
 
-    <div class="wz-cuerpo">
-      <header>
-        <div>
-          <h4 class="wz-titulo-paso"></h4>
-          <p class="wz-ayuda-paso"></p>
+      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Tu <b>equipo</b> (<?= e($eqLabel) ?>) y tu <b>acceso</b> los cambia un administrador desde Equipo.</p>
+    </section>
+
+    <!-- Cuentas -->
+    <section class="card-base pf-card">
+      <h2 class="pf-card-tit"><i class="fa-solid fa-at text-secondary"></i> Cuentas para entrar</h2>
+
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-brands fa-github"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Usuario de Git</span>
+          <span class="pf-valor js-valor"><?= !empty($yo['git_user']) ? '@' . e($yo['git_user']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
+          <input class="input-meca pf-input" name="git_user" maxlength="40" value="<?= e($yo['git_user'] ?? '') ?>" placeholder="usuario-github" hidden>
         </div>
-      </header>
+        <button type="button" class="pf-lapiz" title="Editar usuario de Git"><i class="fa-solid fa-pen"></i></button>
+      </div>
 
-      <!-- 1. Datos -->
-      <section class="wz-panel">
-        <label class="campo"><span>Nombre *</span>
-          <input class="input-meca" name="nombre" required maxlength="60" value="<?= e($yo['nombre']) ?>">
-        </label>
-        <label class="campo"><span>Rol</span>
-          <input class="input-meca" name="rol" maxlength="40" list="lista-roles" value="<?= e($yo['rol'] ?? '') ?>" placeholder="Frontend Dev, Backend Dev...">
-        </label>
-        <p class="campo-ayuda">
-          <i class="fa-solid fa-circle-info"></i>
-          Tu <b>equipo</b> (<?= e($eqLabel) ?>) y tu <b>nivel de acceso</b> los cambia un administrador desde Equipo.
-        </p>
-      </section>
-
-      <!-- 2. Cuentas -->
-      <section class="wz-panel">
-        <label class="campo">
-          <span>Usuario de Git</span>
-          <div class="input-prefijo">
-            <i class="fa-brands fa-github"></i>
-            <input class="input-meca" name="git_user" maxlength="40" value="<?= e($yo['git_user'] ?? '') ?>" placeholder="usuario-github">
-          </div>
-          <small class="campo-ayuda">Sirve para entrar al panel y para reconocer tus commits.</small>
-        </label>
-        <label class="campo">
-          <span>Correo</span>
-          <div class="input-prefijo">
-            <i class="fa-solid fa-envelope"></i>
-            <input class="input-meca" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@mecapacito.com">
-          </div>
-          <small class="campo-ayuda">
-            Ahí llegan los avisos de tus tareas<?= $googleOn ? ' y con él entras con «Continuar con Google»' : '' ?>.
-            No puede repetirse con el de otra persona.
-          </small>
-        </label>
-      </section>
-
-      <!-- 3. Aspecto -->
-      <section class="wz-panel">
-        <div class="campo" data-sin-resumen>
-          <span>Foto</span>
-          <p class="campo-ayuda"><i class="fa-solid fa-camera"></i> Toca el avatar de la izquierda para cambiarla. JPG, PNG, WebP o GIF.</p>
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-envelope"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Correo</span>
+          <span class="pf-valor js-valor"><?= !empty($yo['email']) ? e($yo['email']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
+          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@mecapacito.com" hidden>
         </div>
-        <div class="campo" data-sin-resumen>
-          <span>Color del avatar</span>
+        <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
+      </div>
+
+      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Con cualquiera de los dos entras al panel<?= $googleOn ? '; con el correo, también con «Continuar con Google»' : '' ?>.</p>
+    </section>
+
+    <!-- Aspecto -->
+    <section class="card-base pf-card">
+      <h2 class="pf-card-tit"><i class="fa-solid fa-palette text-secondary"></i> Aspecto</h2>
+      <div class="pf-fila pf-fila-color">
+        <div class="pf-ic"><i class="fa-solid fa-droplet"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Color del avatar</span>
           <?= UI::colorPicker($yo['color'] ?? 0) ?>
-          <small class="campo-ayuda">Se usa cuando no tienes foto y para el borde de tu avatar.</small>
-        </div>
-      </section>
-
-      <!-- 4. Seguridad -->
-      <section class="wz-panel">
-        <?php if ($tieneClave): ?>
-        <label class="campo" data-sin-resumen>
-          <span>Contraseña actual</span>
-          <div class="input-prefijo">
-            <i class="fa-solid fa-lock"></i>
-            <input class="input-meca" type="password" name="clave_actual" autocomplete="current-password" placeholder="La que usas hoy">
-          </div>
-          <small class="campo-ayuda">Solo hace falta si vas a cambiar la contraseña.</small>
-        </label>
-        <?php else: ?>
-        <p class="campo-ayuda perfil-aviso">
-          <i class="fa-solid fa-triangle-exclamation"></i>
-          Todavía no tienes contraseña: entras con Google. Si pones una, podrás entrar también con tu correo o tu usuario de Git.
-        </p>
-        <?php endif; ?>
-
-        <div class="campo-doble">
-          <label class="campo" data-sin-resumen>
-            <span>Contraseña nueva</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-key"></i>
-              <input class="input-meca" type="password" name="clave_nueva" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
-            </div>
-          </label>
-          <label class="campo" data-sin-resumen>
-            <span>Repetir la nueva</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-key"></i>
-              <input class="input-meca" type="password" name="clave_repetir" minlength="6" autocomplete="new-password" placeholder="otra vez">
-            </div>
-          </label>
-        </div>
-        <p class="campo-ayuda">Deja las dos vacías si no quieres cambiarla.</p>
-      </section>
-
-      <!-- 5. Revisión -->
-      <section class="wz-panel">
-        <dl class="wz-resumen"></dl>
-      </section>
-
-      <div class="wz-pie">
-        <span class="wz-contador"></span>
-        <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
-          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>
       </div>
+      <p class="pf-nota"><i class="fa-solid fa-camera"></i> Tu foto se cambia tocando el avatar de arriba. JPG, PNG, WebP o GIF.</p>
+    </section>
+
+    <!-- Seguridad -->
+    <section class="card-base pf-card">
+      <h2 class="pf-card-tit"><i class="fa-solid fa-lock text-secondary"></i> Seguridad</h2>
+
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid <?= $tieneClave ? 'fa-lock' : 'fa-lock-open' ?>"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Contraseña</span>
+          <span class="pf-valor"><?= $tieneClave ? '••••••••' : '<i class="pf-vacio">Sin contraseña — entras con Google</i>' ?></span>
+        </div>
+        <button type="button" class="pf-lapiz js-clave-toggle" title="Cambiar contraseña"><i class="fa-solid fa-pen"></i></button>
+      </div>
+
+      <div class="pf-clave" hidden>
+        <?php if ($tieneClave): ?>
+        <label class="campo"><span>Contraseña actual</span>
+          <div class="input-prefijo"><i class="fa-solid fa-lock"></i>
+            <input class="input-meca" type="password" name="clave_actual" autocomplete="current-password" placeholder="La que usas hoy"></div>
+        </label>
+        <?php endif; ?>
+        <div class="campo-doble">
+          <label class="campo"><span>Nueva</span>
+            <div class="input-prefijo"><i class="fa-solid fa-key"></i>
+              <input class="input-meca" type="password" name="clave_nueva" minlength="6" autocomplete="new-password" placeholder="mínimo 6"></div>
+          </label>
+          <label class="campo"><span>Repetir</span>
+            <div class="input-prefijo"><i class="fa-solid fa-key"></i>
+              <input class="input-meca" type="password" name="clave_repetir" minlength="6" autocomplete="new-password" placeholder="otra vez"></div>
+          </label>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <!-- Barra de guardar: aparece al haber cambios -->
+  <div class="pf-guardar" id="pf-guardar" hidden>
+    <span class="pf-guardar-txt"><i class="fa-solid fa-circle-dot"></i> Tienes cambios sin guardar</span>
+    <div class="pf-guardar-acc">
+      <button type="button" class="btn-outline btn-meca" id="pf-descartar">Descartar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </div>
-  </form>
-</section>
+  </div>
+</form>
 
 <datalist id="lista-roles">
   <?php foreach (Catalogo::roles() as $rol): ?><option value="<?= e($rol) ?>"></option><?php endforeach; ?>
 </datalist>
+
+<script>
+(() => {
+  const form = document.getElementById('perfil-form');
+  const barra = document.getElementById('pf-guardar');
+  if (!form) return;
+
+  // Edición inline: el lápiz revela el input de esa fila
+  form.querySelectorAll('.pf-lapiz:not(.js-clave-toggle)').forEach((lapiz) => {
+    const fila = lapiz.closest('.pf-fila');
+    const input = fila.querySelector('.pf-input');
+    const valor = fila.querySelector('.pf-valor');
+    if (!input) return;
+    const abrir = () => {
+      fila.classList.add('editando');
+      input.hidden = false; valor.hidden = true;
+      input.focus(); input.select?.();
+    };
+    const cerrar = () => {
+      fila.classList.remove('editando');
+      input.hidden = true; valor.hidden = false;
+    };
+    lapiz.addEventListener('click', () => fila.classList.contains('editando') ? cerrar() : abrir());
+    input.addEventListener('blur', cerrar);
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); cerrar(); }
+      if (e.key === 'Escape') { cerrar(); }
+    });
+    // Reflejar en vivo en la fila y en la cabecera
+    input.addEventListener('input', () => {
+      const v = input.value.trim();
+      const pref = input.name === 'git_user' && v ? '@' : '';
+      valor.innerHTML = v ? pref + v.replace(/[<>&]/g, '') : '<i class="pf-vacio">Sin definir</i>';
+      const hero = input.dataset.hero;
+      if (hero === 'nombre') document.querySelector('.js-hero-nombre').textContent = v || '—';
+      if (hero === 'rol') document.querySelector('.js-hero-rol').textContent = v || 'Sin rol';
+    });
+  });
+
+  // Cambiar contraseña: revela el bloque
+  const claveToggle = form.querySelector('.js-clave-toggle');
+  const claveBox = form.querySelector('.pf-clave');
+  claveToggle?.addEventListener('click', () => {
+    claveBox.hidden = !claveBox.hidden;
+    claveToggle.classList.toggle('activo', !claveBox.hidden);
+    if (!claveBox.hidden) claveBox.querySelector('input')?.focus();
+  });
+
+  // Barra de guardar cuando algo cambia
+  const mostrar = () => barra.hidden = false;
+  form.addEventListener('input', mostrar);
+  form.addEventListener('change', mostrar);
+  document.getElementById('pf-descartar')?.addEventListener('click', () => location.reload());
+})();
+</script>
 
 <?php UI::fin(); ?>

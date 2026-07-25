@@ -4424,3 +4424,121 @@ img[src$="claude.svg"] {
 }
 
 @keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
+
+/* ================= Mi perfil (cards + edición inline) ================= */
+.pf-hero {
+  display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
+  padding: 24px 26px; margin-bottom: 18px;
+  position: relative; overflow: hidden;
+}
+.pf-hero::before {
+  content: ''; position: absolute; inset: 0;
+  background: radial-gradient(120% 140% at 100% 0, color-mix(in srgb, var(--av-c1) 16%, transparent), transparent 55%);
+  pointer-events: none;
+}
+.pf-hero-foto { position: relative; cursor: pointer; flex-shrink: 0; }
+.pf-file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
+.pf-hero-avatar { box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--av-c1) 80%, #000); }
+.pf-cam {
+  position: absolute; right: -2px; bottom: -2px;
+  width: 32px; height: 32px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--c-secondary); color: #fff; font-size: .78rem;
+  border: 3px solid var(--c-bg); box-shadow: var(--sh-mini);
+  transition: transform .2s ease;
+}
+.pf-hero-foto:hover .pf-cam { transform: scale(1.1); }
+.pf-hero-id { flex: 1; min-width: 200px; position: relative; }
+.pf-hero-id h1 { margin: 0 0 4px; font-size: 1.7rem; color: var(--c-text); letter-spacing: -.02em; }
+.pf-hero-rol { margin: 0 0 12px; font-size: .92rem; color: var(--c-text-muted); font-weight: 600; }
+.pf-hero-rol i { color: var(--av-c1); margin-right: 5px; }
+.pf-hero-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.pf-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  font-size: .76rem; font-weight: 700; color: var(--c-text-muted);
+}
+.pf-chip i { color: var(--c-success); }
+.pf-chip.off { color: var(--c-text-soft); }
+.pf-chip.off i { color: var(--c-warning); }
+.pf-hero-stats {
+  display: flex; gap: 8px; flex-wrap: wrap;
+  position: relative;
+}
+.pf-hero-stats span {
+  display: flex; flex-direction: column; align-items: center;
+  padding: 10px 16px; border-radius: 15px;
+  background: var(--c-bg-hundido); min-width: 74px;
+  font-size: .7rem; font-weight: 600; color: var(--c-text-soft);
+}
+.pf-hero-stats b { font-size: 1.35rem; color: var(--c-text); font-family: var(--f-display, inherit); }
+
+/* Ícono del calendario (SVG) */
+.gcal-icono-svg { display: inline-flex; align-items: center; justify-content: center; }
+.gcal-icono-svg img { filter: drop-shadow(0 6px 14px rgba(60,144,255,.35)); }
+
+/* Grid de cards */
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.pf-card { padding: 20px 22px; }
+.pf-card-tit { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-size: 1rem; font-weight: 700; font-family: var(--f-display, inherit); color: var(--c-text); }
+
+/* Fila editable */
+.pf-fila {
+  display: flex; align-items: center; gap: 13px;
+  padding: 11px 0;
+}
+.pf-fila + .pf-fila { border-top: 1px solid var(--c-border-soft); }
+.pf-ic {
+  flex: 0 0 auto; width: 38px; height: 38px; border-radius: 12px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c-secondary) 11%, transparent);
+  color: var(--c-secondary); font-size: .92rem;
+}
+.pf-cuerpo { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-label { font-size: .72rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--c-text-soft); }
+.pf-valor { font-size: .95rem; font-weight: 600; color: var(--c-text); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-vacio { color: var(--c-text-soft); font-weight: 500; font-style: normal; }
+.pf-input { margin-top: 3px; padding: 9px 12px; font-size: .92rem; }
+.pf-lapiz {
+  flex: 0 0 auto; width: 34px; height: 34px; border-radius: 10px;
+  border: none; cursor: pointer;
+  display: flex; align-items: center; justify-content: center;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  color: var(--c-text-soft); font-size: .8rem;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.pf-lapiz:hover { color: var(--c-secondary); box-shadow: var(--sh-soft); }
+.pf-fila.editando .pf-lapiz, .pf-lapiz.activo { color: var(--c-secondary); box-shadow: var(--sh-inset-mini); }
+.pf-fila.editando .pf-ic { background: color-mix(in srgb, var(--c-secondary) 18%, transparent); }
+.pf-fila-color { align-items: flex-start; }
+.pf-fila-color .pf-cuerpo { gap: 8px; }
+.pf-nota { margin: 12px 0 0; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
+.pf-nota i { color: var(--c-secondary); margin-right: 4px; }
+
+.pf-clave { margin-top: 12px; display: flex; flex-direction: column; gap: 12px; }
+.pf-clave[hidden], .pf-guardar[hidden] { display: none !important; }
+
+/* Barra de guardar flotante */
+.pf-guardar {
+  position: sticky; bottom: 16px; z-index: 20;
+  display: flex; align-items: center; justify-content: space-between; gap: 14px;
+  margin-top: 18px; padding: 12px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--n-bg) 90%, transparent);
+  border: 1px solid var(--c-border-soft);
+  box-shadow: 0 18px 44px -18px rgba(0,0,0,.4), var(--sh-card);
+  -webkit-backdrop-filter: blur(12px); backdrop-filter: blur(12px);
+  animation: pf-sube .28s cubic-bezier(.2,.9,.2,1);
+}
+@keyframes pf-sube { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+.pf-guardar-txt { font-size: .86rem; font-weight: 700; color: var(--c-text-muted); }
+.pf-guardar-txt i { color: var(--c-warning); margin-right: 6px; }
+.pf-guardar-acc { display: flex; gap: 8px; }
+
+@media (max-width: 860px) { .pf-grid { grid-template-columns: 1fr; } }
+@media (max-width: 560px) {
+  .pf-hero { padding: 20px; }
+  .pf-hero-stats { width: 100%; }
+  .pf-hero-stats span { flex: 1; }
+}
