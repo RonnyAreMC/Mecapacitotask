@@ -1130,7 +1130,7 @@ switch ($accion) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-        $g = Zoom::grabaciones($reu['zoom_id']);
+        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''));
         if ($g['estado'] === 'ok') {
             $reuniones->actualizar((int)$reu['id'], [
                 'grabaciones'   => $g['archivos'],
@@ -1141,13 +1141,11 @@ switch ($accion) {
             if (!empty($g['abierto'])) {
                 $msg .= ' Abre sin pedir código.';
             } elseif (!empty($g['password'])) {
-                // No se pudo quitar el código: se lo damos y explicamos por qué
-                $msg .= ' Zoom mantiene un código (aparece junto al botón para copiarlo).';
-                if (!empty($g['abrir_error'])) {
-                    $msg .= ' No se pudo quitar automáticamente: ' . $g['abrir_error'];
-                }
+                // El enlace lleva el código incrustado (?pwd=); si Zoom igual lo
+                // pide, está junto al botón para copiarlo de un clic.
+                $msg .= ' El enlace lleva el código puesto; si aun así lo pide, cópialo del botón de al lado.';
             }
-            redirigir($volver, $msg, empty($g['abierto']) && !empty($g['password']) ? 'info' : 'success');
+            redirigir($volver, $msg, 'success');
         }
         redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
 

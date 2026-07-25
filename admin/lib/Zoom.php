@@ -167,16 +167,18 @@ class Zoom
         return false;
     }
 
-    public static function grabaciones(string $zoomId): array
+    public static function grabaciones(string $zoomId, string $passReunion = ''): array
     {
         // Antes de leerla, intentamos quitarle el passcode para que abra directo.
         $abierto = self::abrirGrabacion($zoomId);
         $abrirError = self::$ultimoError;
         [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
         if ($codigo === 200 && !empty($json['recording_files'])) {
-            // Passcode de la grabación: metiéndolo en la URL (?pwd=) el enlace
-            // abre sin pedirlo. Zoom lo devuelve como password / play_passcode.
+            // Passcode para incrustar en la URL (?pwd=) y que abra sin pedirlo.
+            // Como la grabación suele usar la contraseña de la REUNIÓN
+            // (useWhichPasswd=meeting), usamos esa si la API no da una propia.
             $pass = (string)($json['recording_play_passcode'] ?? $json['password'] ?? '');
+            if ($pass === '') $pass = $passReunion;
             $conPwd = function (string $url) use ($pass): string {
                 if ($url === '' || $pass === '') return $url;
                 if (str_contains($url, 'pwd=')) return $url;
