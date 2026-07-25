@@ -1000,14 +1000,37 @@ window.addEventListener('resize', () => {
   if (panelFlujo && !panelFlujo.hidden) dibujarFlujo();
 });
 
-// Kanban: arrastrar tarjetas entre columnas cambia el estado
+/* Guarda el estado de una tarea por AJAX (sin recargar → sin "brinco").
+   Actualiza los contadores del kanban con lo que devuelve el servidor.
+   Devuelve una promesa con {ok, ...}. */
+function guardarEstadoTarea(id, estado) {
+  const body = new URLSearchParams({ accion: 'tarea_estado', id, estado, ajax: '1' });
+  return fetch('actions.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
+    body,
+  }).then((r) => r.json()).then((res) => {
+    if (res && res.ok && res.conteo) {
+      document.querySelectorAll('.kanban .kb-cards[data-estado-drop]').forEach((z) => {
+        const k = z.dataset.estadoDrop;
+        const head = z.closest('.kb-col')?.querySelector('.kb-count');
+        if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
+      });
+    }
+    return res || { ok: false };
+  }).catch(() => ({ ok: false, error: 'Sin conexión' }));
+}
+
+// Kanban: arrastrar tarjetas entre columnas cambia el estado (AJAX, sin recargar)
 const kanban = document.querySelector('.kanban');
 if (kanban) {
   let arrastrando = null;
+  let origen = null;
   kanban.addEventListener('dragstart', (e) => {
     const card = e.target.closest('.kb-card');
-    if (!card) return;
+    if (!card || card.getAttribute('draggable') === 'false') return;
     arrastrando = card;
+    origen = card.parentElement;   // por si hay que revertir
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
   });
@@ -1020,15 +1043,39 @@ if (kanban) {
     zona.addEventListener('dragleave', () => zona.classList.remove('drag-over'));
     zona.addEventListener('drop', (e) => {
       e.preventDefault();
-      if (!arrastrando) return;
+      zona.classList.remove('drag-over');
+      if (!arrastrando || zona === origen) return;
+      const card = arrastrando;
+      const previo = origen;
       const nuevoEstado = zona.dataset.estadoDrop;
-      zona.appendChild(arrastrando);
-      document.getElementById('kb-id').value = arrastrando.dataset.tarea;
-      document.getElementById('kb-estado').value = nuevoEstado;
-      document.getElementById('frm-kanban').submit();
+      zona.appendChild(card);                 // movimiento optimista
+      card.classList.add('kb-guardando');     // feedback (pulso), sin recargar
+      guardarEstadoTarea(card.dataset.tarea, nuevoEstado).then((res) => {
+        card.classList.remove('kb-guardando');
+        if (res.ok) {
+          MC?.toast?.('Estado actualizado', 'success', 1600);
+        } else {
+          previo.appendChild(card);           // revertir si falló
+          MC?.toast?.(res.error || 'No se pudo mover la tarea', 'error');
+        }
+      });
     });
   });
 }
+
+// Tabla: el select de estado también guarda por AJAX (no recarga la página)
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  const acc = form.querySelector?.('input[name="accion"]');
+  if (!acc || acc.value !== 'tarea_estado' || form.id === 'frm-kanban') return;
+  const id = form.querySelector('input[name="id"]')?.value;
+  const estado = form.querySelector('[name="estado"]')?.value;
+  if (!id || !estado) return;
+  e.preventDefault();
+  guardarEstadoTarea(id, estado).then((res) => {
+    MC?.toast?.(res.ok ? 'Estado actualizado' : (res.error || 'No se pudo cambiar'), res.ok ? 'success' : 'error', res.ok ? 1600 : 4000);
+  });
+});
 
 // Paginador de la tabla de tareas (8 por página)
 const cuerpoTabla = document.querySelector('[data-vista-panel="tabla"] .tabla-meca tbody');

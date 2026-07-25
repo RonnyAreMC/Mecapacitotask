@@ -1506,6 +1506,7 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
 }
 .kb-card {
+  position: relative; overflow: hidden;
   background: var(--n-bg);
   border: 1.5px solid var(--c-border-soft);
   border-radius: 13px;
@@ -1515,6 +1516,7 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   cursor: grab;
   transition: transform .2s ease, border-color .2s ease;
 }
+.kb-card.kb-fija { cursor: default; }
 .kb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 35%, var(--n-bg)); }
 .kb-card:active { cursor: grabbing; }
 .kb-card.dragging { opacity: .45; transform: rotate(2deg); }
@@ -4565,3 +4567,17 @@ img[src$="claude.svg"] {
 }
 .pf-claude .btn-outline { border-color: color-mix(in srgb, #d97757 42%, transparent); color: #c8663f; }
 @media (max-width: 640px) { .pf-claude-acc { width: 100%; } .pf-claude-acc .btn-meca { flex: 1; justify-content: center; } }
+
+/* Tarjeta del kanban mientras guarda su nuevo estado (skeleton shimmer) */
+.kb-card.kb-guardando { pointer-events: none; }
+.kb-card.kb-guardando::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; z-index: 2;
+  background: linear-gradient(100deg,
+    transparent 25%,
+    color-mix(in srgb, var(--c-secondary) 22%, transparent) 50%,
+    transparent 75%);
+  background-size: 220% 100%;
+  animation: kb-shimmer 1s linear infinite;
+  pointer-events: none;
+}
+@keyframes kb-shimmer { from { background-position: 220% 0; } to { background-position: -220% 0; } }

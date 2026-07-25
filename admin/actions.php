@@ -254,18 +254,31 @@ switch ($accion) {
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
     case 'tarea_estado':
-        $t = $tareas->buscar((int)($_POST['id'] ?? 0));
-        if ($t) {
-            // Cada quien puede mover SUS tareas por el tablero; los demás,
-            // solo un administrador.
-            if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
-                redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Solo puedes cambiar el estado de tus tareas.', 'error');
+        // Si viene por AJAX (kanban/tabla), respondemos JSON y NO redirigimos:
+        // así la página no se recarga y no hay "brinco".
+        $ajaxEstado = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
+        $respEstado = function (bool $ok, string $msg = '', array $extra = []) use ($ajaxEstado) {
+            if ($ajaxEstado) {
+                header('Content-Type: application/json');
+                echo json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg] + $extra);
+                exit;
             }
-            $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
-            chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
-            redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Estado actualizado.');
+            redirigir($ok ? paginaOrigen() : 'index.php', $msg, $ok ? 'success' : 'error');
+        };
+        $t = $tareas->buscar((int)($_POST['id'] ?? 0));
+        if (!$t) {
+            $respEstado(false, 'Tarea no encontrada.');
         }
-        redirigir('index.php', 'Tarea no encontrada.', 'error');
+        // Cada quien puede mover SUS tareas por el tablero; los demás, solo admin.
+        if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
+            $respEstado(false, 'Solo puedes cambiar el estado de tus tareas.');
+        }
+        $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
+        chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
+        // Contadores por estado del proyecto, para que el kanban se actualice
+        // sin recargar.
+        $conteo = $tareas->resumen((int)$t['proyecto_id']);
+        $respEstado(true, 'Estado actualizado.', ['conteo' => $conteo]);
 
     case 'tarea_editar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
