@@ -1137,7 +1137,17 @@ switch ($accion) {
                 'share_url'     => $g['share_url'] ?? '',
                 'grab_password' => $g['password'] ?? '',
             ]);
-            redirigir($volver, count($g['archivos']) . ' archivo(s) de grabación disponibles.');
+            $msg = count($g['archivos']) . ' archivo(s) de grabación disponibles.';
+            if (!empty($g['abierto'])) {
+                $msg .= ' Abre sin pedir código.';
+            } elseif (!empty($g['password'])) {
+                // No se pudo quitar el código: se lo damos y explicamos por qué
+                $msg .= ' Zoom mantiene un código (aparece junto al botón para copiarlo).';
+                if (!empty($g['abrir_error'])) {
+                    $msg .= ' No se pudo quitar automáticamente: ' . $g['abrir_error'];
+                }
+            }
+            redirigir($volver, $msg, empty($g['abierto']) && !empty($g['password']) ? 'info' : 'success');
         }
         redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
 

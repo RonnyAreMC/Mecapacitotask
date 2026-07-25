@@ -11,6 +11,9 @@ require_once __DIR__ . '/Models.php';
 
 class Zoom
 {
+    /** Último motivo de fallo al quitar el código de la grabación (diagnóstico). */
+    public static ?string $ultimoError = null;
+
     private static function conf(): array
     {
         return array_merge([
@@ -34,13 +37,14 @@ class Zoom
         return self::conf()['zona'] ?: 'America/Guayaquil';
     }
 
-    /** Token de acceso (cacheado ~55 min). Devuelve string o ['error'=>...]. */
-    private static function token(): string|array
+    /** Token de acceso (cacheado ~55 min). Devuelve string o ['error'=>...].
+     *  $forzar ignora la caché (útil tras cambiar los scopes en la app de Zoom). */
+    private static function token(bool $forzar = false): string|array
     {
         $c = self::conf();
         $cacheFile = __DIR__ . '/../data/cache_zoom.json';
         $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
-        if (!empty($cache['token']) && ($cache['exp'] ?? 0) > time() + 60) {
+        if (!$forzar && !empty($cache['token']) && ($cache['exp'] ?? 0) > time() + 60) {
             return $cache['token'];
         }
         $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . urlencode($c['account_id']);
@@ -57,9 +61,9 @@ class Zoom
     }
 
     /** Llamada autenticada a la API. Devuelve [codigoHttp, arrayJson]. */
-    private static function api(string $metodo, string $ruta, ?array $body = null): array
+    private static function api(string $metodo, string $ruta, ?array $body = null, bool $forzarToken = false): array
     {
-        $token = self::token();
+        $token = self::token($forzarToken);
         if (is_array($token)) return [0, $token];
         [$codigo, $cuerpo] = self::http($metodo, 'https://api.zoom.us/v2' . $ruta,
             $body !== null ? json_encode($body) : null,
@@ -143,19 +147,31 @@ class Zoom
      */
     public static function abrirGrabacion(string $zoomId): bool
     {
-        [$codigo] = self::api('PATCH', '/meetings/' . $zoomId . '/recordings/settings', [
-            'password'                => '',
-            'viewer_download'         => true,
-            'on_demand'               => false,
+        self::$ultimoError = null;
+        $cuerpo = [
+            'password'                 => '',
+            'viewer_download'          => true,
+            'on_demand'                => false,
             'recording_authentication' => false,
-        ]);
-        return $codigo === 204;
+        ];
+        [$codigo, $json] = self::api('PATCH', '/meetings/' . $zoomId . '/recordings/settings', $cuerpo);
+        // Acabas de añadir el scope pero el token cacheado aún no lo tiene:
+        // reintenta UNA vez pidiendo un token nuevo.
+        if ($codigo === 400 || $codigo === 401 || $codigo === 403) {
+            [$codigo, $json] = self::api('PATCH', '/meetings/' . $zoomId . '/recordings/settings', $cuerpo, true);
+        }
+        if ($codigo === 204) return true;
+        $msg = $json['message'] ?? ($json['error']['message'] ?? ('HTTP ' . $codigo));
+        if ($codigo === 0 && is_array($json) && isset($json['error'])) $msg = $json['error'];
+        self::$ultimoError = $msg;
+        return false;
     }
 
     public static function grabaciones(string $zoomId): array
     {
         // Antes de leerla, intentamos quitarle el passcode para que abra directo.
-        self::abrirGrabacion($zoomId);
+        $abierto = self::abrirGrabacion($zoomId);
+        $abrirError = self::$ultimoError;
         [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
         if ($codigo === 200 && !empty($json['recording_files'])) {
             // Passcode de la grabación: metiéndolo en la URL (?pwd=) el enlace
@@ -177,10 +193,12 @@ class Zoom
                 ];
             }
             return [
-                'estado'    => 'ok',
-                'archivos'  => $archivos,
-                'share_url' => $conPwd($json['share_url'] ?? ''),
-                'password'  => $pass,
+                'estado'     => 'ok',
+                'archivos'   => $archivos,
+                'share_url'  => $conPwd($json['share_url'] ?? ''),
+                'password'   => $abierto ? '' : $pass,   // si se quitó, no hace falta el código
+                'abierto'    => $abierto,
+                'abrir_error' => $abrirError,
             ];
         }
         if ($codigo === 404) {
