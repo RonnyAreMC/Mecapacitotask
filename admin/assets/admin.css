@@ -4338,32 +4338,47 @@ img[src$="claude.svg"] {
 @keyframes sheet-up   { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
 @media (max-width: 900px) {
+  /* En móvil el sidebar aplana los grupos con display:contents; el menú de la
+     cuenta necesita recuperar su caja para poder anclar el drawer al fondo. */
+  html.sb-collapsed .cuenta-menu,
+  .cuenta-menu { display: block !important; position: static; }
+
   /* Fondo oscuro detrás del drawer */
   .cuenta-menu.abierto::after {
     content: ''; position: fixed; inset: 0; z-index: 998;
-    background: rgba(8, 14, 26, .5);
+    background: rgba(8, 14, 26, .55);
     -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
     animation: sheet-fade .2s ease;
   }
-  /* El panel deja de flotar junto al sidebar y se ancla abajo, a lo ancho */
+
+  /* Panel anclado abajo, a lo ancho. display:flex !important vence al
+     display:contents heredado de .nav-grupo-items. */
+  html.sb-collapsed .cuenta-menu > .cuenta-panel,
   .cuenta-menu > .cuenta-panel {
+    display: none !important;
     position: fixed !important;
     left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
-    width: auto !important; z-index: 999;
-    padding: 10px 16px calc(18px + env(safe-area-inset-bottom, 0px));
+    width: auto !important; max-width: none !important; z-index: 999;
+    padding: 10px 16px calc(20px + env(safe-area-inset-bottom, 0px));
     border-radius: 22px 22px 0 0;
     border: 1px solid var(--c-border-soft); border-bottom: none;
     box-shadow: 0 -22px 55px -20px rgba(0, 0, 0, .55);
+    animation: none;
   }
-  .cuenta-menu.abierto > .cuenta-panel { animation: sheet-up .26s cubic-bezier(.2,.9,.2,1); }
+  html.sb-collapsed .cuenta-menu.abierto > .cuenta-panel,
+  .cuenta-menu.abierto > .cuenta-panel {
+    display: flex !important; flex-direction: column; gap: 4px;
+    animation: sheet-up .28s cubic-bezier(.2,.9,.2,1) !important;
+  }
+
   /* Asa del drawer */
-  .cuenta-panel::before {
+  .cuenta-menu > .cuenta-panel::before {
     content: ''; display: block; width: 42px; height: 4px; border-radius: 99px;
     background: var(--c-border); margin: 2px auto 12px;
   }
   /* Objetivos táctiles más grandes */
-  .cuenta-panel .sidebar-link { padding: 15px 12px; font-size: .95rem; border-radius: 13px; }
+  .cuenta-panel .sidebar-link { padding: 15px 14px; font-size: .95rem; border-radius: 13px; }
   .cuenta-panel .sidebar-link i { width: 22px; font-size: 1rem; }
-  .cuenta-cab { padding: 2px 6px 12px; }
+  .cuenta-cab { padding: 4px 8px 12px; }
   .cuenta-cab-txt b { font-size: .95rem; }
 }
