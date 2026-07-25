@@ -1792,8 +1792,12 @@ document.addEventListener('change', (e) => {
 
   const candidato = (target) => {
     const el = target.closest?.(SEL);
-    if (!el || !(el.hasAttribute('title') || el.hasAttribute('data-tip'))) return null;
-    return iconoSolo(el) ? el : null;
+    if (!el) return null;
+    // Un data-tip explícito siempre muestra el tooltip (aunque el botón tenga
+    // texto). El title nativo solo se convierte en botones de solo icono.
+    if (el.hasAttribute('data-tip')) return el;
+    if (el.hasAttribute('title') && iconoSolo(el)) return el;
+    return null;
   };
 
   document.addEventListener('pointerover', (e) => {
