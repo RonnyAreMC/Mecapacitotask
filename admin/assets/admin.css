@@ -4245,3 +4245,58 @@ html.dark .doc-claude-nota { background: color-mix(in srgb, #d97757 14%, var(--c
   .docs-layout { grid-template-columns: 1fr; }
   .docs-frame { height: 68vh; }
 }
+
+/* ================= Tema "Claude" para Documentación ================= */
+.docs-layout { --claude: #d97757; --claude-hi: #e8926a; --claude-lo: #c8663f; }
+
+/* Alineación de la barra del visor (los botones ya no quedan "muy arriba") */
+.docs-visor { padding: 18px; border: 1px solid color-mix(in srgb, var(--claude) 22%, var(--c-border)); }
+.docs-visor-top {
+  align-items: center; min-height: 40px;
+  margin-bottom: 14px; padding-bottom: 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--claude) 16%, var(--c-border));
+}
+.docs-visor-acc { align-items: center; }
+
+/* Botones con la identidad de Claude */
+#doc-bajar.btn-primary {
+  background: linear-gradient(135deg, var(--claude-hi), var(--claude));
+  border: none; color: #fff;
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--claude) 90%, #000);
+}
+#doc-bajar.btn-primary:hover { background: linear-gradient(135deg, var(--claude), var(--claude-lo)); transform: translateY(-1px); }
+#doc-abrir.btn-outline {
+  border: 1.5px solid color-mix(in srgb, var(--claude) 42%, transparent);
+  color: var(--claude); background: color-mix(in srgb, var(--claude) 7%, transparent);
+}
+#doc-abrir.btn-outline:hover { border-color: var(--claude); background: color-mix(in srgb, var(--claude) 13%, transparent); }
+
+/* Tarjetas de la lista: acento naranja */
+.doc-item { border: 1px solid transparent; }
+.doc-item.activo {
+  border-color: color-mix(in srgb, var(--claude) 55%, transparent);
+  box-shadow: var(--sh-inset-mini), 0 0 0 2px var(--claude), 0 10px 24px -16px var(--claude);
+}
+.doc-item:has(img[src$="claude.svg"]) .doc-ico {
+  background: color-mix(in srgb, var(--claude) 14%, transparent);
+}
+.docs-frame { border: 1px solid color-mix(in srgb, var(--claude) 14%, var(--c-border)); }
+
+/* Botón MD también en tono Claude, PDF ya es naranja */
+.doc-btn { border: 1px solid color-mix(in srgb, var(--claude) 20%, transparent); }
+
+/* --- Movimiento del SVG de Claude --- */
+img[src$="claude.svg"] {
+  animation: claude-bob 2.6s ease-in-out infinite;
+  transform-origin: 50% 65%;
+  will-change: transform;
+}
+.doc-item:hover img[src$="claude.svg"],
+.doc-claude-nota:hover img[src$="claude.svg"] { animation-duration: .55s; }
+@keyframes claude-bob {
+  0%, 100% { transform: translateY(0) rotate(0deg); }
+  20%      { transform: translateY(-2.5px) rotate(-5deg); }
+  50%      { transform: translateY(0) rotate(0deg); }
+  70%      { transform: translateY(-2.5px) rotate(5deg); }
+}
+@media (prefers-reduced-motion: reduce) { img[src$="claude.svg"] { animation: none; } }
