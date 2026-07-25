@@ -169,6 +169,9 @@ class UI
       <a href="perfil.php" class="sidebar-link <?= $activo === 'perfil' ? 'active' : '' ?>">
         <i class="fa-solid fa-id-badge"></i> <span class="truncate">Mi perfil</span>
       </a>
+      <a href="docs.php" class="sidebar-link <?= $activo === 'docs' ? 'active' : '' ?>">
+        <i class="fa-solid fa-book-open"></i> <span class="truncate">Documentación</span>
+      </a>
       <form method="post" action="actions.php" class="cuenta-form">
         <input type="hidden" name="accion" value="auth_logout">
         <button class="sidebar-link cuenta-salir">
