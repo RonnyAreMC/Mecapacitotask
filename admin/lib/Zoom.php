@@ -139,17 +139,30 @@ class Zoom
     {
         [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
         if ($codigo === 200 && !empty($json['recording_files'])) {
+            // Passcode de la grabación: metiéndolo en la URL (?pwd=) el enlace
+            // abre sin pedirlo. Zoom lo devuelve como password / play_passcode.
+            $pass = (string)($json['recording_play_passcode'] ?? $json['password'] ?? '');
+            $conPwd = function (string $url) use ($pass): string {
+                if ($url === '' || $pass === '') return $url;
+                if (str_contains($url, 'pwd=')) return $url;
+                return $url . (str_contains($url, '?') ? '&' : '?') . 'pwd=' . rawurlencode($pass);
+            };
             $archivos = [];
             foreach ($json['recording_files'] as $f) {
                 if (($f['status'] ?? 'completed') !== 'completed') continue;
                 $archivos[] = [
                     'tipo'     => $f['recording_type'] ?? ($f['file_type'] ?? 'archivo'),
                     'ext'      => strtolower($f['file_type'] ?? ''),
-                    'play'     => $f['play_url'] ?? '',
-                    'download' => $f['download_url'] ?? '',
+                    'play'     => $conPwd($f['play_url'] ?? ''),
+                    'download' => $conPwd($f['download_url'] ?? ''),
                 ];
             }
-            return ['estado' => 'ok', 'archivos' => $archivos, 'share_url' => $json['share_url'] ?? ''];
+            return [
+                'estado'    => 'ok',
+                'archivos'  => $archivos,
+                'share_url' => $conPwd($json['share_url'] ?? ''),
+                'password'  => $pass,
+            ];
         }
         if ($codigo === 404) {
             return ['estado' => 'vacio', 'archivos' => [], 'msg' => 'Aún no hay grabación (aparece cuando Zoom termina de procesarla).'];

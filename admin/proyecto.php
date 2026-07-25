@@ -845,6 +845,12 @@ foreach ($tareas as $t) {
             <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
             <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><i class="fa-solid fa-circle-play"></i> Grabación</a>
             <?php break; endif; endforeach; ?>
+            <?php if (!empty($r['grab_password'])): ?>
+            <span class="chip-copiar grab-codigo" title="Código de la grabación (por si Zoom lo pide)">
+              <code><i class="fa-solid fa-key"></i> <?= e($r['grab_password']) ?></code>
+              <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($r['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
+            </span>
+            <?php endif; ?>
           <?php elseif ($pasada): ?>
           <form method="post" action="actions.php" class="inline-form">
             <input type="hidden" name="accion" value="reunion_grabaciones">

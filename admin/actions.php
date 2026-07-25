@@ -1132,7 +1132,11 @@ switch ($accion) {
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
         $g = Zoom::grabaciones($reu['zoom_id']);
         if ($g['estado'] === 'ok') {
-            $reuniones->actualizar((int)$reu['id'], ['grabaciones' => $g['archivos'], 'share_url' => $g['share_url'] ?? '']);
+            $reuniones->actualizar((int)$reu['id'], [
+                'grabaciones'   => $g['archivos'],
+                'share_url'     => $g['share_url'] ?? '',
+                'grab_password' => $g['password'] ?? '',
+            ]);
             redirigir($volver, count($g['archivos']) . ' archivo(s) de grabación disponibles.');
         }
         redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
