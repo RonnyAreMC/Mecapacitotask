@@ -30,7 +30,7 @@ $accionesPublicas   = ['auth_login'];
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json',
-    'reunion_grabaciones', 'tarea_estado', 'tarea_crear',
+    'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
 
@@ -1150,6 +1150,42 @@ switch ($accion) {
             redirigir($volver, $msg, !empty($g['abierto']) ? 'success' : 'info');
         }
         redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
+
+    case 'reunion_transcripcion':
+        // Descarga la transcripción de la reunión como .md con contexto, para
+        // pasársela a Claude (resúmenes, tareas, decisiones).
+        $reuniones = new ReunionRepo();
+        $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
+        if (!$reu) {
+            redirigir('index.php', 'Reunión no encontrada.', 'error');
+        }
+        if (!puedeVerProyecto((int)$reu['proyecto_id'])) {
+            redirigir('index.php', 'No participas en ese proyecto.', 'error');
+        }
+        $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
+        $tr = Zoom::transcripcion((string)$reu['zoom_id']);
+        if ($tr['estado'] !== 'ok') {
+            redirigir($volver, $tr['msg'] ?? 'Sin transcripción.', $tr['estado'] === 'vacio' ? 'info' : 'error');
+        }
+        $p = $proyectos->buscar((int)$reu['proyecto_id']);
+        $nombres = [];
+        foreach ((array)($reu['invitados'] ?? []) as $mid) {
+            $m = $miembros->buscar((int)$mid);
+            if ($m) $nombres[] = $m['nombre'];
+        }
+        $cab = '# Transcripción de reunión — ' . ($reu['topic'] ?? '') . "\n\n"
+            . 'Proyecto: ' . ($p['nombre'] ?? '') . "\n"
+            . 'Fecha: ' . ($reu['inicio'] ?? '') . "\n"
+            . ($nombres ? 'Participantes: ' . implode(', ', $nombres) . "\n" : '')
+            . "\nContexto para Claude: esto es la transcripción automática (Zoom) de una reunión "
+            . "del equipo de MChub. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
+            . "Las tareas del panel se referencian con su #id.\n\n---\n\n";
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($reu['topic'] ?? 'reunion'));
+        header('Content-Type: text/markdown; charset=utf-8');
+        header('Content-Disposition: attachment; filename="transcripcion-' . trim($slug, '-') . '.md"');
+        header('Cache-Control: no-store');
+        echo $cab . $tr['texto'];
+        exit;
 
     case 'reunion_eliminar':
         $reuniones = new ReunionRepo();

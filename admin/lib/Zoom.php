@@ -210,6 +210,60 @@ class Zoom
         return ['estado' => 'error', 'archivos' => [], 'msg' => 'No se pudo leer la grabación: ' . $msg];
     }
 
+    /**
+     * Descarga la transcripción de la grabación (archivo VTT) y la devuelve
+     * como texto plano, listo para pasárselo a Claude.
+     * ['estado'=>'ok'|'vacio'|'error', 'texto'=>string, 'msg'=>string]
+     */
+    public static function transcripcion(string $zoomId): array
+    {
+        [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
+        if ($codigo === 404 || ($codigo === 200 && empty($json['recording_files']))) {
+            return ['estado' => 'vacio', 'texto' => '', 'msg' => 'Aún no hay grabación.'];
+        }
+        if ($codigo !== 200) {
+            $msg = $json['error']['message'] ?? ($json['message'] ?? ('HTTP ' . $codigo));
+            return ['estado' => 'error', 'texto' => '', 'msg' => 'No se pudo leer la grabación: ' . $msg];
+        }
+        // Busca el archivo de transcripción (VTT)
+        $url = '';
+        foreach ($json['recording_files'] as $f) {
+            if (strtoupper($f['file_type'] ?? '') === 'TRANSCRIPT'
+                || ($f['recording_type'] ?? '') === 'audio_transcript') {
+                $url = (string)($f['download_url'] ?? '');
+                break;
+            }
+        }
+        if ($url === '') {
+            return ['estado' => 'vacio', 'texto' => '',
+                'msg' => 'Esta grabación no tiene transcripción. Zoom tarda un rato en generarla, y debe estar activada la "Transcripción de audio" en Zoom → Configuración → Grabación.'];
+        }
+        $token = self::token();
+        if (is_array($token)) return ['estado' => 'error', 'texto' => '', 'msg' => $token['error']];
+        // La descarga autenticada de S2S se hace con el token en la URL
+        $sep = str_contains($url, '?') ? '&' : '?';
+        $vtt = @file_get_contents($url . $sep . 'access_token=' . rawurlencode($token));
+        if ($vtt === false || trim((string)$vtt) === '') {
+            return ['estado' => 'error', 'texto' => '', 'msg' => 'No se pudo descargar la transcripción.'];
+        }
+        return ['estado' => 'ok', 'texto' => self::vttATexto((string)$vtt), 'msg' => ''];
+    }
+
+    /** Convierte un VTT (con tiempos y numeración) en texto plano legible. */
+    private static function vttATexto(string $vtt): string
+    {
+        $out = [];
+        foreach (preg_split('/\r\n|\r|\n/', $vtt) as $linea) {
+            $l = trim($linea);
+            if ($l === '' || $l === 'WEBVTT') continue;
+            if (str_contains($l, '-->')) continue;       // línea de tiempos
+            if (ctype_digit($l)) continue;               // número de segmento
+            if (str_starts_with($l, 'NOTE ')) continue;
+            $out[] = $l;
+        }
+        return implode("\n", $out);
+    }
+
     /** Prueba la conexión creando (y no) — solo pide el token. true|string. */
     public static function probar(): true|string
     {

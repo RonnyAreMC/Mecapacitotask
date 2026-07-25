@@ -851,6 +851,20 @@ foreach ($tareas as $t) {
               <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($r['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
             </span>
             <?php endif; ?>
+            <?php
+            $tieneTrans = false;
+            foreach ($r['grabaciones'] as $g) {
+                if (str_contains(strtolower(($g['tipo'] ?? '') . ($g['ext'] ?? '')), 'transcript')) { $tieneTrans = true; break; }
+            }
+            if ($tieneTrans): ?>
+            <form method="post" action="actions.php" class="inline-form">
+              <input type="hidden" name="accion" value="reunion_transcripcion">
+              <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+              <button class="accion-btn accion-claude" title="Bajar la transcripción en texto (con contexto) para pasarla a Claude">
+                <img src="assets/claude.svg" alt="" width="15" height="15"> Transcripción
+              </button>
+            </form>
+            <?php endif; ?>
           <?php elseif ($pasada): ?>
           <form method="post" action="actions.php" class="inline-form">
             <input type="hidden" name="accion" value="reunion_grabaciones">
