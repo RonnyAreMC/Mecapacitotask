@@ -29,7 +29,7 @@ $accionesPublicas   = ['auth_login'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
-    'auth_logout', 'obs_crear', 'perfil_guardar',
+    'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
 
@@ -580,6 +580,59 @@ switch ($accion) {
         redirigir($volver, 'Propuesta retirada.');
 
     /* ---------- Mi perfil (cada quien edita lo suyo) ---------- */
+
+    case 'mis_tareas_json':
+        // Exporta MIS tareas como JSON, para pasárselo a Claude junto con el
+        // estándar (cada commit referencia la tarea con su #id).
+        $yo = Auth::usuario();
+        if (!$yo) {
+            redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        }
+        $miId2   = (int)$yo['id'];
+        $estCat  = Catalogo::estadosTarea();
+        $priCat  = Catalogo::prioridades();
+        $proyMap = [];
+        foreach ($proyectos->todos() as $p) { $proyMap[(int)$p['id']] = $p['nombre']; }
+        $todasT  = $tareas->todas();
+        $porId   = [];
+        foreach ($todasT as $t) { $porId[(int)$t['id']] = $t; }
+
+        $mias = [];
+        foreach ($todasT as $t) {
+            if (!TareaRepo::tieneAsignado($t, $miId2)) continue;
+            $depId = (int)($t['depende_de'] ?? 0);
+            $mias[] = [
+                'id'           => (int)$t['id'],
+                'ref'          => '#' . (int)$t['id'],
+                'proyecto'     => $proyMap[(int)$t['proyecto_id']] ?? '',
+                'titulo'       => $t['titulo'] ?? '',
+                'descripcion'  => $t['descripcion'] ?? '',
+                'estado'       => $estCat[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? ''),
+                'prioridad'    => $priCat[$t['prioridad'] ?? ''][0] ?? ($t['prioridad'] ?? ''),
+                'fecha_inicio' => $t['fecha_inicio'] ?? '',
+                'fecha_limite' => $t['fecha_limite'] ?? '',
+                'depende_de'   => $depId && isset($porId[$depId]) ? ('#' . $depId . ' · ' . $porId[$depId]['titulo']) : '',
+            ];
+        }
+        // Ordenar: primero las abiertas, por fecha límite
+        $finalesX = Catalogo::estadosFinales();
+        usort($mias, function ($a, $b) use ($finalesX, $estCat) {
+            return [$a['fecha_limite'] ?: '9999', $a['id']] <=> [$b['fecha_limite'] ?: '9999', $b['id']];
+        });
+
+        $salida = json_encode([
+            'persona'   => $yo['nombre'],
+            'total'     => count($mias),
+            'nota'      => 'Mis tareas en MChub. Cada commit referencia su tarea con el #id (ver estándar del equipo).',
+            'tareas'    => $mias,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(MiembroRepo::iniciales($yo) . '-' . $yo['nombre']));
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="mis-tareas-' . trim($slug, '-') . '.json"');
+        header('Cache-Control: no-store');
+        echo $salida;
+        exit;
 
     case 'perfil_guardar':
         // El id NUNCA sale del POST: siempre es el de la sesion. Asi nadie

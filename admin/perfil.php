@@ -77,6 +77,24 @@ UI::inicio('Mi perfil', 'perfil');
 </section>
 <?php endif; ?>
 
+<!-- Trabajar con Claude: descarga tus tareas para pasárselas -->
+<section class="card-base pf-claude">
+  <div class="pf-claude-info">
+    <span class="pf-claude-ic"><img src="assets/claude.svg" alt="Claude" width="30" height="30"></span>
+    <div>
+      <h2 class="font-display">Trabaja con tu Claude</h2>
+      <p>Descarga tus tareas en JSON y pásaselas a tu Claude: sabrá el <b>#id</b> de cada una para que tus commits se enlacen solos.</p>
+    </div>
+  </div>
+  <div class="pf-claude-acc">
+    <form method="post" action="actions.php" class="inline-form">
+      <input type="hidden" name="accion" value="mis_tareas_json">
+      <button class="btn-primary btn-meca"><i class="fa-solid fa-file-arrow-down"></i> Descargar mis tareas (JSON)</button>
+    </form>
+    <a href="docs.php" class="btn-outline btn-meca"><i class="fa-solid fa-book-open"></i> Ver el estándar</a>
+  </div>
+</section>
+
 <form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data">
   <input type="hidden" name="accion" value="perfil_guardar">
 

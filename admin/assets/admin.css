@@ -4428,7 +4428,7 @@ img[src$="claude.svg"] {
 /* ================= Mi perfil (cards + edición inline) ================= */
 .pf-hero {
   display: flex; align-items: center; gap: 22px; flex-wrap: wrap;
-  padding: 24px 26px; margin-bottom: 18px;
+  padding: 24px 26px; margin-bottom: 24px;
   position: relative; overflow: hidden;
 }
 .pf-hero::before {
@@ -4479,7 +4479,7 @@ img[src$="claude.svg"] {
 .gcal-icono-svg img { filter: drop-shadow(0 6px 14px rgba(60,144,255,.35)); }
 
 /* Grid de cards */
-.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; align-items: start; }
+.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; margin-top: 22px; }
 .pf-card { padding: 20px 22px; }
 .pf-card-tit { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-size: 1rem; font-weight: 700; font-family: var(--f-display, inherit); color: var(--c-text); }
 
@@ -4542,3 +4542,26 @@ img[src$="claude.svg"] {
   .pf-hero-stats { width: 100%; }
   .pf-hero-stats span { flex: 1; }
 }
+
+/* Bloque "Trabaja con tu Claude" en el perfil */
+.pf-claude {
+  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
+  padding: 18px 22px; margin-bottom: 24px;
+  border-color: color-mix(in srgb, #d97757 30%, var(--n-bg)) !important;
+}
+.pf-claude-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.pf-claude-ic {
+  flex: 0 0 auto; width: 48px; height: 48px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, #d97757 12%, transparent);
+}
+.pf-claude-ic img { animation: claude-bob 2.6s ease-in-out infinite; transform-origin: 50% 65%; }
+.pf-claude h2 { margin: 0 0 3px; font-size: 1.05rem; color: var(--c-text); }
+.pf-claude p { margin: 0; font-size: .84rem; color: var(--c-text-soft); line-height: 1.5; max-width: 56ch; }
+.pf-claude-acc { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-claude .btn-primary {
+  background: linear-gradient(135deg, #e8926a, #d97757); border: none;
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, #d97757 90%, #000);
+}
+.pf-claude .btn-outline { border-color: color-mix(in srgb, #d97757 42%, transparent); color: #c8663f; }
+@media (max-width: 640px) { .pf-claude-acc { width: 100%; } .pf-claude-acc .btn-meca { flex: 1; justify-content: center; } }
