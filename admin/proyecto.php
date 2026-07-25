@@ -327,6 +327,13 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
+      <form method="post" action="actions.php" class="inline-form" data-descarga>
+        <input type="hidden" name="accion" value="proyecto_tareas_json">
+        <input type="hidden" name="id" value="<?= $id ?>">
+        <button class="accion-btn accion-claude" data-tip="Descarga las tareas de este proyecto en JSON (con sus #id) para pasárselas a Claude">
+          <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
+        </button>
+      </form>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>

@@ -29,7 +29,7 @@ $accionesPublicas   = ['auth_login'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
-    'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json',
+    'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
     'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
@@ -654,6 +654,60 @@ switch ($accion) {
         $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(MiembroRepo::iniciales($yo) . '-' . $yo['nombre']));
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="mis-tareas-' . trim($slug, '-') . '.json"');
+        header('Cache-Control: no-store');
+        echo $salida;
+        exit;
+
+    case 'proyecto_tareas_json':
+        // Exporta TODAS las tareas de un proyecto como JSON (con su #id), para
+        // que cualquier participante se lo pase a su Claude con contexto.
+        $pid = (int)($_POST['id'] ?? 0);
+        $p = $proyectos->buscar($pid);
+        if (!$p) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        if (!puedeVerProyecto($pid)) {
+            redirigir('index.php', 'No participas en ese proyecto.', 'error');
+        }
+        $estCat  = Catalogo::estadosTarea();
+        $priCat  = Catalogo::prioridades();
+        $memNom  = [];
+        foreach ($miembros->todos() as $m) { $memNom[(int)$m['id']] = $m['nombre']; }
+        $lista   = $tareas->delProyecto($pid);
+        $porId   = [];
+        foreach ($lista as $t) { $porId[(int)$t['id']] = $t; }
+
+        $out = [];
+        foreach ($lista as $t) {
+            $resp = [];
+            foreach (TareaRepo::asignadosDe($t) as $mid) {
+                if (isset($memNom[$mid])) $resp[] = $memNom[$mid];
+            }
+            $depId = (int)($t['depende_de'] ?? 0);
+            $out[] = [
+                'id'           => (int)$t['id'],
+                'ref'          => '#' . (int)$t['id'],
+                'proyecto'     => $p['nombre'],
+                'titulo'       => $t['titulo'] ?? '',
+                'descripcion'  => $t['descripcion'] ?? '',
+                'estado'       => $estCat[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? ''),
+                'prioridad'    => $priCat[$t['prioridad'] ?? ''][0] ?? ($t['prioridad'] ?? ''),
+                'fecha_inicio' => $t['fecha_inicio'] ?? '',
+                'fecha_limite' => $t['fecha_limite'] ?? '',
+                'responsables' => $resp,
+                'depende_de'   => $depId && isset($porId[$depId]) ? ('#' . $depId . ' · ' . ($porId[$depId]['titulo'] ?? '')) : '',
+            ];
+        }
+        $salida = json_encode([
+            'proyecto' => $p['nombre'],
+            'total'    => count($out),
+            'nota'     => 'Tareas del proyecto «' . $p['nombre'] . '» en MChub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id> (ver estándar del equipo).',
+            'tareas'   => $out,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($p['nombre']));
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="tareas-' . trim($slug, '-') . '.json"');
         header('Cache-Control: no-store');
         echo $salida;
         exit;
