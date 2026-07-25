@@ -117,7 +117,7 @@ final class ImportadorTareas
      * @return array{ok:bool, creadas:int, filas:array, errores:array}
      *   filas: por cada tarea [titulo, proyecto, asignados[], avisos[], error]
      */
-    public function procesar(array $json, bool $soloValidar): array
+    public function procesar(array $json, bool $soloValidar, bool $actualizar = false): array
     {
         $lista = $json['tareas'] ?? $json;
         if (!is_array($lista) || $lista === [] || array_is_list($lista) === false && isset($lista['titulo'])) {
@@ -132,6 +132,13 @@ final class ImportadorTareas
         $filas = [];
         $errores = [];
         $preparadas = [];   // datos listos para crear, en orden
+
+        // Índice de tareas ya existentes por proyecto + título (para actualizar
+        // en vez de duplicar cuando el admin marca la opción).
+        $existentes = [];
+        foreach ($this->tareasRepo->todas() as $tx) {
+            $existentes[(int)($tx['proyecto_id'] ?? 0) . '|' . self::norm((string)($tx['titulo'] ?? ''))] = (int)$tx['id'];
+        }
 
         foreach (array_values($lista) as $i => $t) {
             $n = $i + 1;
@@ -184,6 +191,14 @@ final class ImportadorTareas
             if (!empty($t['fecha_limite']) && $fl === '') $avisos[] = 'fecha_limite inválida (usa AAAA-MM-DD), la dejé vacía';
             if ($fi !== '' && $fl !== '' && $fl < $fi) $avisos[] = 'la fecha límite es anterior al inicio';
 
+            // ¿Ya existe una tarea con ese título en el proyecto?
+            $existe = ($proyecto && $titulo !== '')
+                ? ($existentes[(int)$proyecto['id'] . '|' . self::norm($titulo)] ?? 0)
+                : 0;
+            if ($existe && !$actualizar) {
+                $avisos[] = 'ya existe una tarea con ese título en «' . $proyecto['nombre'] . '»; se creará OTRA (marca "Actualizar" para reemplazarla)';
+            }
+
             $filas[] = [
                 'n'         => $n,
                 'titulo'    => $titulo ?: '(sin título)',
@@ -191,6 +206,7 @@ final class ImportadorTareas
                 'asignados' => $nombresOk,
                 'avisos'    => $avisos,
                 'error'     => $error,
+                'accion'    => ($existe && $actualizar) ? 'actualizar' : 'crear',
             ];
             if ($error) {
                 $errores[] = "Tarea #$n («" . ($titulo ?: $nomProy) . "»): $error.";
@@ -200,6 +216,7 @@ final class ImportadorTareas
             $preparadas[] = [
                 'ref'  => trim((string)($t['ref'] ?? '')),
                 'dep'  => trim((string)($t['depende_de'] ?? '')),
+                'existe' => $existe,
                 'datos' => [
                     'proyecto_id'  => (int)$proyecto['id'],
                     'titulo'       => $titulo,
@@ -216,19 +233,29 @@ final class ImportadorTareas
 
         // Con errores graves: no se crea nada
         if ($errores) {
-            return ['ok' => false, 'creadas' => 0, 'filas' => $filas, 'errores' => $errores];
+            return ['ok' => false, 'creadas' => 0, 'actualizadas' => 0, 'filas' => $filas, 'errores' => $errores];
         }
         if ($soloValidar) {
-            return ['ok' => true, 'creadas' => 0, 'filas' => $filas, 'errores' => []];
+            return ['ok' => true, 'creadas' => 0, 'actualizadas' => 0, 'filas' => $filas, 'errores' => []];
         }
 
-        // Crear todo; recordar ref -> id y titulo -> id para las dependencias
+        // Aplicar: crear las nuevas y (si se pidió) actualizar las que ya existen.
+        // Recuerda ref -> id y titulo -> id para resolver las dependencias.
         $porRef = [];
         $porTitulo = [];
         $creadasIds = [];
+        $creadas = 0;
+        $actualizadas = 0;
         foreach ($preparadas as $p) {
-            $t = $this->tareasRepo->crear($p['datos']);
-            $id = (int)$t['id'];
+            if ($actualizar && $p['existe'] > 0) {
+                $this->tareasRepo->actualizar($p['existe'], $p['datos'] + TareaRepo::camposAsignado($p['datos']));
+                $id = (int)$p['existe'];
+                $actualizadas++;
+            } else {
+                $t = $this->tareasRepo->crear($p['datos']);
+                $id = (int)$t['id'];
+                $creadas++;
+            }
             $creadasIds[] = ['id' => $id, 'pid' => (int)$p['datos']['proyecto_id'], 'dep' => $p['dep']];
             if ($p['ref'] !== '') $porRef[self::norm($p['ref'])] = $id;
             $porTitulo[self::norm($p['datos']['titulo'])] = $id;
@@ -243,6 +270,6 @@ final class ImportadorTareas
             if ($valido > 0) $this->tareasRepo->actualizar($c['id'], ['depende_de' => $valido]);
         }
 
-        return ['ok' => true, 'creadas' => count($preparadas), 'filas' => $filas, 'errores' => []];
+        return ['ok' => true, 'creadas' => $creadas, 'actualizadas' => $actualizadas, 'filas' => $filas, 'errores' => []];
     }
 }

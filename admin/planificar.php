@@ -13,9 +13,11 @@ $miembros  = (new MiembroRepo())->todos();
 $reporte = null;
 $jsonPegado = '';
 $modo = '';
+$actualizar = false;
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $modo = $_POST['modo'] ?? 'validar';   // 'validar' | 'importar'
+    $actualizar = !empty($_POST['actualizar']);
     $jsonPegado = (string)($_POST['json'] ?? '');
 
     // Si subieron un archivo, ese manda sobre el textarea
@@ -29,7 +31,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'errores' => ['El texto no es un JSON válido. Revisa que no falten comas o comillas. (' . json_last_error_msg() . ')']];
     } else {
         $imp = new ImportadorTareas(new ProyectoRepo(), new MiembroRepo(), new TareaRepo());
-        $reporte = $imp->procesar($datos, $modo !== 'importar');
+        $reporte = $imp->procesar($datos, $modo !== 'importar', $actualizar);
     }
 }
 
@@ -101,6 +103,10 @@ UI::cabecera(
       <textarea name="json" id="plan-json" class="input-meca plan-text" spellcheck="false"
         placeholder='Pega aquí el JSON…'><?= e($jsonPegado) ?></textarea>
       <input type="hidden" name="modo" id="plan-modo" value="validar">
+      <label class="plan-check">
+        <input type="checkbox" name="actualizar" value="1" <?= $actualizar ? 'checked' : '' ?>>
+        <span>Actualizar las que ya existan (mismo proyecto y título) en vez de duplicarlas</span>
+      </label>
       <div class="plan-botones">
         <button class="btn-outline btn-meca" value="validar" onclick="document.getElementById('plan-modo').value='validar'">
           <i class="fa-solid fa-eye"></i> Validar sin crear
@@ -139,13 +145,25 @@ UI::cabecera(
         <ul class="plan-errores">
           <?php foreach ($reporte['errores'] as $e): ?><li><i class="fa-solid fa-xmark"></i> <?= e($e) ?></li><?php endforeach; ?>
         </ul>
-      <?php elseif ($reporte['creadas'] > 0): ?>
+      <?php elseif (($reporte['creadas'] ?? 0) + ($reporte['actualizadas'] ?? 0) > 0): ?>
+        <?php $partes = [];
+          if ($reporte['creadas'] > 0)      $partes[] = $reporte['creadas'] . ' creada' . ($reporte['creadas'] === 1 ? '' : 's');
+          if ($reporte['actualizadas'] > 0) $partes[] = $reporte['actualizadas'] . ' actualizada' . ($reporte['actualizadas'] === 1 ? '' : 's'); ?>
         <h2 class="font-display"><i class="fa-solid fa-circle-check" style="color:var(--c-success)"></i>
-          <?= (int)$reporte['creadas'] ?> tarea<?= $reporte['creadas'] === 1 ? '' : 's' ?> creada<?= $reporte['creadas'] === 1 ? '' : 's' ?></h2>
+          <?= e(implode(' · ', $partes)) ?></h2>
       <?php else: ?>
+        <?php
+          $nCrear = 0; $nAct = 0;
+          foreach ($reporte['filas'] as $f) { (($f['accion'] ?? 'crear') === 'actualizar') ? $nAct++ : $nCrear++; }
+        ?>
         <h2 class="font-display"><i class="fa-solid fa-circle-check" style="color:var(--c-success)"></i>
           Todo en orden</h2>
-        <p class="plan-nota">Se crearán <?= count($reporte['filas']) ?> tareas. Pulsa <b>Importar</b> cuando quieras.</p>
+        <p class="plan-nota">
+          <?php if ($nAct > 0): ?>Se actualizarán <b><?= $nAct ?></b><?php endif; ?>
+          <?php if ($nAct > 0 && $nCrear > 0): ?> y <?php endif; ?>
+          <?php if ($nCrear > 0 || $nAct === 0): ?>Se crearán <b><?= $nCrear ?></b><?php endif; ?>
+          tarea(s). Pulsa <b>Importar</b> cuando quieras.
+        </p>
       <?php endif; ?>
 
       <?php if (!empty($reporte['filas'])): ?>
@@ -156,6 +174,7 @@ UI::cabecera(
             <i class="fa-solid <?= $f['error'] ? 'fa-circle-xmark' : (empty($f['avisos']) ? 'fa-circle-check' : 'fa-circle-exclamation') ?>"></i>
             <b><?= e($f['titulo']) ?></b>
             <span class="plan-tag"><?= e($f['proyecto']) ?></span>
+            <?php if (($f['accion'] ?? 'crear') === 'actualizar'): ?><span class="plan-tag-act"><i class="fa-solid fa-rotate"></i> Actualiza</span><?php endif; ?>
             <?php if ($f['asignados']): ?><span class="plan-tag-p"><i class="fa-solid fa-user"></i> <?= e(implode(', ', $f['asignados'])) ?></span><?php endif; ?>
           </div>
           <?php foreach ($f['avisos'] as $a): ?><small class="plan-aviso">↳ <?= e($a) ?></small><?php endforeach; ?>
@@ -165,7 +184,7 @@ UI::cabecera(
       </div>
       <?php endif; ?>
 
-      <?php if ($reporte['creadas'] > 0): ?>
+      <?php if (($reporte['creadas'] ?? 0) + ($reporte['actualizadas'] ?? 0) > 0): ?>
         <a href="index.php" class="btn-primary btn-meca" style="margin-top:16px"><i class="fa-solid fa-table-columns"></i> Ver el tablero</a>
       <?php endif; ?>
     <?php endif; ?>

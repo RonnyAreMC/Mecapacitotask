@@ -66,6 +66,18 @@ Analistas: **Felipe Arevalo** (admin/jefe), **Erick Pastrano**, **Ronald**.
 4. **Bloques grandes** (módulos): ~1–2 semanas cada uno, no 2 días.
 5. Convertir fechas relativas ("hoy", "en dos semanas") a `AAAA-MM-DD`.
 
+## Actualizar en vez de duplicar
+
+En **Planificar** hay una casilla **"Actualizar las que ya existan"**. Con ella
+marcada, si una tarea del JSON tiene el **mismo proyecto y título** que una que
+ya existe, el panel la **actualiza** (descripción, prioridad, estado, fechas y
+responsables) en lugar de crear una copia. Las que no existan se crean igual.
+
+- El emparejamiento es por **título exacto** (sin distinguir tildes/mayúsculas).
+- Al actualizar, los campos del JSON **reemplazan** a los de la tarea (incluidos
+  los `asignados`): el JSON manda como estado deseado.
+- Sin la casilla marcada, todo se crea (y avisa si un título ya existía).
+
 ## Enlace con commits (estándar del equipo)
 
 Cada tarea, ya creada, tiene un número `#id`. Los commits la referencian con
