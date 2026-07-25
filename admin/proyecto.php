@@ -862,7 +862,7 @@ foreach ($tareas as $t) {
           <?php endif; ?>
           <?php if ($pasada): ?>
           <!-- Transcripción para Claude: la acción la busca en vivo en Zoom -->
-          <form method="post" action="actions.php" class="inline-form">
+          <form method="post" action="actions.php" class="inline-form" data-descarga>
             <input type="hidden" name="accion" value="reunion_transcripcion">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
             <button class="accion-btn accion-claude" title="Bajar la transcripción en texto (con contexto) para pasarla a Claude">

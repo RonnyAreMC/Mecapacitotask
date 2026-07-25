@@ -572,7 +572,7 @@ UI::cabecera(
 </form>
 
 <!-- Respaldo: exportar (descarga) e importar (subida de un config.json) -->
-<form id="frm-config-exportar" method="post" action="actions.php">
+<form id="frm-config-exportar" method="post" action="actions.php" data-descarga>
   <input type="hidden" name="accion" value="config_exportar">
 </form>
 <form id="frm-config-importar" method="post" action="actions.php" enctype="multipart/form-data"

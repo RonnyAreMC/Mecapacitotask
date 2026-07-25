@@ -87,7 +87,7 @@ UI::inicio('Mi perfil', 'perfil');
     </div>
   </div>
   <div class="pf-claude-acc">
-    <form method="post" action="actions.php" class="inline-form">
+    <form method="post" action="actions.php" class="inline-form" data-descarga>
       <input type="hidden" name="accion" value="mis_tareas_json">
       <button class="btn-primary btn-meca"><i class="fa-solid fa-file-arrow-down"></i> Descargar mis tareas (JSON)</button>
     </form>

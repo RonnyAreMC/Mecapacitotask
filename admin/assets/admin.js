@@ -16,6 +16,10 @@
   // Spinner en el botón que envía el formulario (los AJAX hacen preventDefault
   // y no llegan aquí con submitter, así que no se marcan por error)
   document.addEventListener('submit', (e) => {
+    // Las descargas no recargan la página: si mostráramos spinner/barra se
+    // quedarían girando para siempre. Los formularios de descarga se marcan
+    // con data-descarga.
+    if (e.target && e.target.dataset && e.target.dataset.descarga !== undefined) return;
     const b = e.submitter;
     if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) b.classList.add('btn-cargando');
     mostrar();
