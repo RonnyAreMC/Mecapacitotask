@@ -327,7 +327,7 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
-      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
+      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
     </div>
@@ -465,7 +465,8 @@ foreach ($tareas as $t) {
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
           <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
-          <div class="kb-card" draggable="<?= esAdmin() ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+          <?php $puedoMover = esAdmin() || TareaRepo::tieneAsignado($t, $miId); ?>
+          <div class="kb-card <?= $puedoMover ? '' : 'kb-fija' ?>" draggable="<?= $puedoMover ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>

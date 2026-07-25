@@ -448,6 +448,13 @@ class UI
     /** Select de estado de tarea que se auto-guarda y se colorea segun el estado. */
     public static function selectEstadoTarea(array $tarea): string
     {
+        // Solo el admin o la persona asignada pueden cambiar el estado; para el
+        // resto se muestra una insignia estatica (no un select que rebotaria).
+        $puede = Auth::esAdmin()
+            || TareaRepo::tieneAsignado($tarea, (int)(Auth::usuario()['id'] ?? 0));
+        if (!$puede) {
+            return self::badgeEstadoTarea($tarea['estado'] ?? '');
+        }
         $html = '<form method="post" action="actions.php" class="inline-form">';
         $html .= '<input type="hidden" name="accion" value="tarea_estado">';
         $html .= '<input type="hidden" name="id" value="' . (int)$tarea['id'] . '">';

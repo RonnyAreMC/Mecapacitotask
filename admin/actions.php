@@ -30,7 +30,7 @@ $accionesPublicas   = ['auth_login'];
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json',
-    'reunion_grabaciones',
+    'reunion_grabaciones', 'tarea_estado', 'tarea_crear',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
 
@@ -234,6 +234,11 @@ switch ($accion) {
 
     case 'tarea_crear':
         $pid = (int)($_POST['proyecto_id'] ?? 0);
+        // Cualquier participante del proyecto puede registrar tareas; nadie
+        // ajeno (aunque mande el id del proyecto a mano).
+        if (!puedeVerProyecto($pid)) {
+            redirigir('index.php', 'No participas en ese proyecto.', 'error');
+        }
         if (trim($_POST['titulo'] ?? '') === '') {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
         }
@@ -251,6 +256,11 @@ switch ($accion) {
     case 'tarea_estado':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if ($t) {
+            // Cada quien puede mover SUS tareas por el tablero; los demás,
+            // solo un administrador.
+            if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
+                redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Solo puedes cambiar el estado de tus tareas.', 'error');
+            }
             $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
             chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
             redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Estado actualizado.');
