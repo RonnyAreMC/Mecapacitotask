@@ -1681,8 +1681,18 @@ html.dark .cal-venc-ley { color: #ff9d5c; }
 .reu-invitados { display: inline-flex; align-items: center; gap: 9px; margin-top: 4px; }
 .reu-invitados small { font-size: .74rem; color: var(--c-text-soft); font-weight: 600; }
 .reu-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
-.accion-grab { color: #c26f0e !important; }
-html.dark .accion-grab { color: #ffb35c !important; }
+/* "Ver grabación": botón lleno tipo play, resalta cuando ya hay grabación.
+   Doble clase para ganarle al fondo de .accion-btn (declarado más abajo). */
+.accion-btn.accion-grab {
+  background: linear-gradient(135deg, #7C3AED, #A855F7);
+  color: #fff !important; font-weight: 700; border: 0;
+  padding: 8px 14px;
+  box-shadow: 5px 5px 12px color-mix(in srgb, #7C3AED 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
+}
+.accion-btn.accion-grab i { color: #fff !important; }
+.accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
+.accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
 
 .obs-reunion {
   display: inline-flex; align-items: center; gap: 7px;
