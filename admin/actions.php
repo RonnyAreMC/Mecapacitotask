@@ -30,6 +30,7 @@ $accionesPublicas   = ['auth_login'];
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json',
+    'reunion_grabaciones',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
 
@@ -1099,6 +1100,11 @@ switch ($accion) {
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
         if (!$reu) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
+        }
+        // Cualquier participante del proyecto puede traer/ver las grabaciones,
+        // no solo un administrador (pero no gente ajena al proyecto).
+        if (!puedeVerProyecto((int)$reu['proyecto_id'])) {
+            redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
         $g = Zoom::grabaciones($reu['zoom_id']);

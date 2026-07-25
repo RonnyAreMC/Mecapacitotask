@@ -38,7 +38,7 @@ UI::cabecera(
   <aside class="docs-lista">
     <?php foreach ($docs as $i => $d): ?>
     <button type="button" class="doc-item <?= $i === 0 ? 'activo' : '' ?>"
-            data-pdf="<?= e($d['pdf']) ?>" data-titulo="<?= e($d['titulo']) ?>">
+            data-pdf="<?= e($d['pdf']) ?>" data-bajar="descargar.php?d=<?= e($d['clave']) ?>-pdf" data-titulo="<?= e($d['titulo']) ?>">
       <span class="doc-ico">
         <?php if ($d['icono'] === 'claude'): ?>
           <img src="assets/claude.svg" alt="Claude" width="22" height="22">
@@ -58,8 +58,8 @@ UI::cabecera(
       <?php foreach ($docs as $d): ?>
       <div class="doc-desc-fila">
         <span class="doc-desc-nom"><?= e($d['titulo']) ?></span>
-        <a class="doc-btn" href="<?= e($d['pdf']) ?>" download="<?= e(basename($d['pdf'])) ?>" title="Descargar PDF"><i class="fa-solid fa-file-pdf"></i> PDF</a>
-        <a class="doc-btn doc-btn-md" href="<?= e($d['md']) ?>" download="<?= e(basename($d['md'])) ?>" title="Descargar Markdown (CLAUDE.md)"><i class="fa-brands fa-markdown"></i> MD</a>
+        <a class="doc-btn" href="descargar.php?d=<?= e($d['clave']) ?>-pdf" title="Descargar PDF"><i class="fa-solid fa-file-pdf"></i> PDF</a>
+        <a class="doc-btn doc-btn-md" href="descargar.php?d=<?= e($d['clave']) ?>-md" title="Descargar Markdown (CLAUDE.md)"><i class="fa-brands fa-markdown"></i> MD</a>
       </div>
       <?php endforeach; ?>
     </div>
@@ -78,7 +78,7 @@ UI::cabecera(
         <a id="doc-abrir" class="btn-outline btn-meca btn-sm" href="<?= e($docs[0]['pdf']) ?>" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Abrir en pestaña
         </a>
-        <a id="doc-bajar" class="btn-primary btn-meca btn-sm" href="<?= e($docs[0]['pdf']) ?>" download="<?= e(basename($docs[0]['pdf'])) ?>">
+        <a id="doc-bajar" class="btn-primary btn-meca btn-sm" href="descargar.php?d=<?= e($docs[0]['clave']) ?>-pdf">
           <i class="fa-solid fa-download"></i> Descargar PDF
         </a>
       </div>
@@ -96,7 +96,7 @@ UI::cabecera(
       document.getElementById('doc-frame').src = pdf + '#toolbar=1&navpanes=0';
       document.getElementById('doc-titulo').textContent = btn.dataset.titulo;
       document.getElementById('doc-abrir').href = pdf;
-      document.getElementById('doc-bajar').href = pdf;
+      document.getElementById('doc-bajar').href = btn.dataset.bajar;
     });
   });
 </script>
