@@ -1694,16 +1694,18 @@ html.dark .cal-venc-ley { color: #ff9d5c; }
 .accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
 .accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
 
-/* "Transcripción" para Claude: tinte cálido con el logo de Claude */
+/* "Transcripción" para Claude: botón CIRCULAR con solo el logo de Claude */
 .accion-btn.accion-claude {
-  background: color-mix(in srgb, #D97757 16%, var(--n-bg));
-  color: #b3502f !important; font-weight: 700;
+  width: 36px; height: 36px; padding: 0; border-radius: 50%;
+  justify-content: center; align-items: center; flex: none;
+  background: color-mix(in srgb, #D97757 18%, var(--n-bg));
   box-shadow: var(--sh-mini);
+  transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
 }
-html.dark .accion-btn.accion-claude { color: #e8a487 !important; background: color-mix(in srgb, #D97757 22%, var(--n-bg)); }
-.accion-btn.accion-claude img { display: inline-block; vertical-align: -2px; }
-.accion-btn.accion-claude:hover { color: #b3502f !important; transform: translateY(-1px); filter: brightness(1.03); }
-html.dark .accion-btn.accion-claude:hover { color: #f0b89e !important; }
+html.dark .accion-btn.accion-claude { background: color-mix(in srgb, #D97757 26%, var(--n-bg)); }
+.accion-btn.accion-claude img { width: 20px; height: 20px; display: block; }
+.accion-btn.accion-claude:hover { transform: translateY(-1px) scale(1.05); filter: brightness(1.05); box-shadow: var(--sh-soft); }
+.accion-btn.accion-claude:active { transform: none; box-shadow: var(--sh-inset-mini); }
 
 .obs-reunion {
   display: inline-flex; align-items: center; gap: 7px;

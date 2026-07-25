@@ -865,8 +865,8 @@ foreach ($tareas as $t) {
           <form method="post" action="actions.php" class="inline-form" data-descarga>
             <input type="hidden" name="accion" value="reunion_transcripcion">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-            <button class="accion-btn accion-claude" title="Bajar la transcripción en texto (con contexto) para pasarla a Claude">
-              <img src="assets/claude.svg" alt="" width="15" height="15"> Transcripción
+            <button class="accion-btn accion-claude" data-tip="Lleva esto a Claude Code para que tenga el contexto de la reunión">
+              <img src="assets/claude.svg" alt="Transcripción para Claude" width="20" height="20">
             </button>
           </form>
           <?php endif; ?>
