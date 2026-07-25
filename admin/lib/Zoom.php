@@ -135,8 +135,27 @@ class Zoom
      * Grabaciones de una reunión.
      * ['estado'=>'ok'|'vacio'|'error', 'archivos'=>[...], 'share_url'=>, 'msg'=>]
      */
+    /**
+     * Quita el passcode de la grabación para que el enlace abra sin pedir
+     * "Código de acceso". Es la única forma realmente automática (meter el
+     * código en la URL no lo evita: Zoom lo valida del lado del servidor).
+     * Requiere el scope cloud_recording:write. Devuelve true si lo logró.
+     */
+    public static function abrirGrabacion(string $zoomId): bool
+    {
+        [$codigo] = self::api('PATCH', '/meetings/' . $zoomId . '/recordings/settings', [
+            'password'                => '',
+            'viewer_download'         => true,
+            'on_demand'               => false,
+            'recording_authentication' => false,
+        ]);
+        return $codigo === 204;
+    }
+
     public static function grabaciones(string $zoomId): array
     {
+        // Antes de leerla, intentamos quitarle el passcode para que abra directo.
+        self::abrirGrabacion($zoomId);
         [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
         if ($codigo === 200 && !empty($json['recording_files'])) {
             // Passcode de la grabación: metiéndolo en la URL (?pwd=) el enlace
