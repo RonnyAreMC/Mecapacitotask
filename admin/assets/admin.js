@@ -1765,3 +1765,27 @@ document.addEventListener('change', (e) => {
   document.addEventListener('click', ocultar);      // al accionar, se cierra
   addEventListener('scroll', ocultar, true);
 })();
+
+/* Menú flotante en móvil: las tres rayitas abren/cierran el menú */
+(() => {
+  const burger = document.getElementById('sidebar-burger');
+  const sidebar = document.querySelector('.sidebar');
+  const menu = document.getElementById('sidebar-menu');
+  if (!burger || !sidebar || !menu) return;
+
+  const abrir = () => { sidebar.classList.add('menu-abierto'); burger.setAttribute('aria-expanded', 'true'); };
+  const cerrar = () => { sidebar.classList.remove('menu-abierto'); burger.setAttribute('aria-expanded', 'false'); };
+
+  burger.addEventListener('click', (e) => {
+    e.stopPropagation();
+    sidebar.classList.contains('menu-abierto') ? cerrar() : abrir();
+  });
+  // Cerrar al tocar fuera, al navegar o con Escape
+  document.addEventListener('click', (e) => {
+    if (!sidebar.classList.contains('menu-abierto')) return;
+    if (!menu.contains(e.target) && e.target !== burger) cerrar();
+  });
+  menu.addEventListener('click', (e) => { if (e.target.closest('a')) cerrar(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
+  addEventListener('resize', () => { if (innerWidth > 900) cerrar(); });
+})();

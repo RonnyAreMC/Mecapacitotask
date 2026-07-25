@@ -3803,67 +3803,156 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 /* =========================================================
    Responsive
    ========================================================= */
+/* En escritorio el envoltorio del menú es transparente (no cambia el layout) */
+.sidebar-menu { display: contents; }
+.sidebar-burger { display: none; }
+
 @media (max-width: 900px) {
   :root, html.sb-collapsed { --sidebar-w: 0px; }
-
-  /* En movil el sidebar es barra superior: el colapso no aplica */
   .sidebar-toggle { display: none; }
-  html.sb-collapsed .sidebar { padding: 12px 16px; }
-  html.sb-collapsed .sidebar-top { flex-direction: row; }
-  html.sb-collapsed .sidebar-brand { width: auto; padding: 8px 12px; }
-  html.sb-collapsed .sidebar-brand > div { display: block; }
-  html.sb-collapsed .sidebar-link { padding: 11px 14px; justify-content: flex-start; }
-  html.sb-collapsed .sidebar-link .truncate { display: inline; }
-  /* En movil el rotulo vuelve a ser texto, no separador */
-  html.sb-collapsed .sidebar-label,
-  html.sb-collapsed .sidebar-nav > .sidebar-label:first-child {
-    width: auto; height: auto;
-    margin: 0; padding: 14px 12px 6px;
-    background: none;
-    font-size: .66rem; line-height: inherit;
-  }
-  /* La barra es una tira superior: nada de scroll interno */
-  .sidebar-nav { overflow: visible; min-height: auto; }
-  /* Ni panel flotante de proyectos: se listan en linea */
-  html.sb-collapsed .nav-grupo,
-  html.sb-collapsed .nav-grupo-items { display: contents; }
-  html.sb-collapsed .nav-grupo-btn,
-  html.sb-collapsed .nav-grupo-cab,
-  html.sb-collapsed .nav-grupo-n { display: none; }
-  html.sb-collapsed .sidebar-foot { flex-direction: row; padding: 0; }
-  html.sb-collapsed .theme-toggle { width: 74px; padding: 0 9px; }
-  html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(38px); }
 
-  .sidebar {
-    position: static;
-    width: 100%;
-    height: auto;
-    flex-direction: column; align-items: stretch;
-    padding: 12px 14px;
-    gap: 10px;
-    overflow: visible;
+  /* La barra superior: solo el logo y las tres rayitas */
+  .sidebar, html.sb-collapsed .sidebar {
+    position: sticky; top: 0; z-index: 60;
+    width: 100%; height: auto;
+    flex-direction: row; align-items: center; justify-content: space-between;
+    padding: 10px 14px; gap: 10px; overflow: visible;
+    border-bottom: 1px solid var(--c-border-soft);
   }
-  .sidebar-top { flex-direction: row; align-items: center; }
-  .sidebar-top .sidebar-brand { flex: 1; }
-  .sidebar-top .sidebar-foot-movil { display: flex; }
-  .sidebar-brand { padding: 8px 12px; }
-
-  /* Menu como chips deslizables en horizontal (nunca fuerza el ancho) */
-  .sidebar-nav {
-    flex-direction: row; flex-wrap: nowrap;
-    overflow-x: auto;
-    padding: 2px 2px 6px;
-    gap: 7px;
-    align-items: center;
-    scrollbar-width: thin;
+  .sidebar-top, html.sb-collapsed .sidebar-top {
+    flex: 1; flex-direction: row; align-items: center; justify-content: space-between; gap: 10px;
   }
-  .sidebar-link { padding: 9px 13px; font-size: .82rem; border-radius: 11px; flex-shrink: 0; white-space: nowrap; }
-  .sidebar-link-new { margin-top: 0; }
-  .sidebar-label { display: none; }
-  .sidebar-foot { padding: 0; justify-content: flex-end; }
-  .sidebar-foot > span { display: none; }
-  .admin-main { margin-left: 0; padding: 24px 18px 50px; }
+  .sidebar-brand, html.sb-collapsed .sidebar-brand { width: auto; padding: 6px 10px; }
+  .sidebar-brand > div, html.sb-collapsed .sidebar-brand > div { display: block; }
+  .admin-main { margin-left: 0; padding: 22px 16px 48px; }
   .ph-main { gap: 16px; }
+
+  /* Botón de las tres rayitas (hamburguesa → X) */
+  .sidebar-burger {
+    display: inline-flex; flex-direction: column; justify-content: center; gap: 5px;
+    width: 42px; height: 42px; padding: 0 11px;
+    border: none; border-radius: 13px; cursor: pointer;
+    background: var(--n-bg); box-shadow: var(--sh-mini);
+  }
+  .sidebar-burger span {
+    display: block; height: 2.5px; border-radius: 2px;
+    background: var(--c-text-muted);
+    transition: transform .26s cubic-bezier(.3,1.3,.5,1), opacity .2s ease;
+  }
+  .sidebar-burger span:nth-child(1) { width: 20px; }
+  .sidebar-burger span:nth-child(2) { width: 14px; }
+  .sidebar-burger span:nth-child(3) { width: 20px; }
+  .menu-abierto .sidebar-burger { box-shadow: var(--sh-inset-mini); }
+  .menu-abierto .sidebar-burger span { background: var(--c-secondary); width: 20px; }
+  .menu-abierto .sidebar-burger span:nth-child(1) { transform: translateY(7.5px) rotate(45deg); }
+  .menu-abierto .sidebar-burger span:nth-child(2) { opacity: 0; }
+  .menu-abierto .sidebar-burger span:nth-child(3) { transform: translateY(-7.5px) rotate(-45deg); }
+
+  /* Fondo tenue al abrir */
+  .sidebar.menu-abierto::after {
+    content: ''; position: fixed; inset: 0; z-index: 90;
+    background: rgba(8, 14, 26, .38);
+    -webkit-backdrop-filter: blur(1.5px); backdrop-filter: blur(1.5px);
+    animation: sheet-fade .18s ease;
+  }
+
+  /* --- Menú flotante estilo Apple: sale del botón, anclado arriba-derecha --- */
+  .sidebar-menu {
+    display: none;
+    position: fixed; top: 62px; right: 10px; left: auto;
+    width: min(320px, 92vw); max-height: calc(100vh - 78px); overflow-y: auto;
+    z-index: 95;
+    padding: 8px; gap: 2px;
+    border-radius: 22px;
+    background: color-mix(in srgb, var(--n-bg) 92%, transparent);
+    border: 1px solid var(--c-border-soft);
+    box-shadow: 0 28px 64px -22px rgba(0,0,0,.5), var(--sh-card);
+    -webkit-backdrop-filter: blur(16px) saturate(1.4); backdrop-filter: blur(16px) saturate(1.4);
+    transform-origin: top right;
+  }
+  .sidebar.menu-abierto .sidebar-menu {
+    display: flex; flex-direction: column;
+    animation: pop-apple .26s cubic-bezier(.3,1.35,.5,1);
+  }
+
+  /* Contenido del menú: vertical, con texto */
+  .sidebar-menu .sidebar-nav {
+    flex-direction: column; align-items: stretch; overflow: visible;
+    min-height: auto; gap: 2px; padding: 2px;
+  }
+  .sidebar-menu .sidebar-link {
+    justify-content: flex-start; width: 100%;
+    padding: 12px 13px; font-size: .9rem; border-radius: 13px; white-space: nowrap;
+  }
+  .sidebar-menu .sidebar-link .truncate { display: inline; }
+  .sidebar-menu .sidebar-label {
+    display: block; width: auto; height: auto; background: none;
+    margin: 0; padding: 12px 12px 5px; font-size: .64rem; line-height: 1;
+    letter-spacing: .1em; text-transform: uppercase; color: var(--c-text-soft);
+  }
+  .sidebar-menu .ver-como { margin: 2px; }
+  /* Grupos (proyectos): se listan planos dentro del menú */
+  .sidebar-menu .nav-grupo:not(.cuenta-menu),
+  .sidebar-menu .nav-grupo-items:not(.cuenta-panel) { display: contents; }
+  .sidebar-menu .nav-grupo-btn, .sidebar-menu .nav-grupo-cab, .sidebar-menu .nav-grupo-n { display: none; }
+
+  /* Cuenta: como lista plana dentro del menú (sin drawer ni chip plegable) */
+  .sidebar-menu .cuenta-menu { display: block; }
+  .sidebar-menu .cuenta-menu > .sesion-chip { display: none; }
+  .sidebar-menu .cuenta-panel {
+    display: flex !important; position: static !important;
+    inset: auto !important; width: auto !important;
+    flex-direction: column; gap: 2px;
+    padding: 6px 0 2px; margin-top: 6px;
+    border: none; border-top: 1px solid var(--c-border-soft); border-radius: 0;
+    box-shadow: none; animation: none !important;
+    background: none; z-index: auto;
+  }
+  .sidebar-menu .cuenta-panel::before { display: none; }
+  .sidebar-menu .cuenta-cab { padding: 8px 12px 10px; }
+
+  /* Pie: tema + créditos dentro del menú */
+  .sidebar-menu .sidebar-foot {
+    flex-direction: row; align-items: center; justify-content: space-between;
+    padding: 10px 12px 4px; margin-top: 4px;
+    border-top: 1px solid var(--c-border-soft);
+  }
+  .sidebar-menu .sidebar-foot > span { display: inline; }
+
+  /* Anula el modo "solo ícono" de sb-collapsed DENTRO del menú flotante:
+     todo se ve expandido, con su texto. */
+  html.sb-collapsed .sidebar-menu .sidebar-link,
+  .sidebar-menu .sidebar-link { justify-content: flex-start !important; width: 100% !important; padding: 12px 13px !important; }
+  html.sb-collapsed .sidebar-menu .sidebar-link .truncate,
+  .sidebar-menu .sidebar-link .truncate,
+  .sidebar-menu .vc-abrir .truncate { display: inline !important; }
+  .sidebar-menu .sidebar-link i { width: 22px !important; font-size: .95rem !important; }
+  html.sb-collapsed .sidebar-menu .nav-grupo:not(.cuenta-menu),
+  html.sb-collapsed .sidebar-menu .nav-grupo-items:not(.cuenta-panel) { display: contents !important; }
+  html.sb-collapsed .sidebar-menu .nav-grupo-btn,
+  .sidebar-menu .nav-grupo-btn,
+  .sidebar-menu .nav-grupo-cab,
+  .sidebar-menu .nav-grupo-n { display: none !important; }
+  html.sb-collapsed .sidebar-menu .sidebar-label,
+  .sidebar-menu .sidebar-label {
+    display: block !important; width: auto !important; height: auto !important;
+    background: none !important; margin: 0 !important; padding: 12px 12px 5px !important;
+    font-size: .64rem !important; line-height: 1 !important;
+  }
+  html.sb-collapsed .sidebar-menu .ver-como,
+  .sidebar-menu .ver-como { display: flex !important; width: auto !important; margin: 2px 2px 6px !important; padding: 0 !important; background: none !important; box-shadow: none !important; }
+  .sidebar-menu .ver-como .vc-abrir {
+    justify-content: flex-start !important; width: 100% !important;
+    padding: 12px 13px !important; border-radius: 13px !important;
+  }
+  .sidebar-menu .ver-como .vc-abrir i { width: 22px !important; }
+}
+@keyframes pop-apple {
+  from { opacity: 0; transform: scale(.9) translateY(-6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar.menu-abierto .sidebar-menu { animation: sheet-fade .15s ease; }
 }
 
 /* =========================================================
@@ -4334,51 +4423,4 @@ img[src$="claude.svg"] {
   .meca-tip.abajo { transform: none; }
 }
 
-/* ---------- Móvil: menú de la cuenta como drawer inferior (bottom sheet) ---------- */
-@keyframes sheet-up   { from { transform: translateY(100%); } to { transform: translateY(0); } }
 @keyframes sheet-fade { from { opacity: 0; } to { opacity: 1; } }
-@media (max-width: 900px) {
-  /* En móvil el sidebar aplana los grupos con display:contents; el menú de la
-     cuenta necesita recuperar su caja para poder anclar el drawer al fondo. */
-  html.sb-collapsed .cuenta-menu,
-  .cuenta-menu { display: block !important; position: static; }
-
-  /* Fondo oscuro detrás del drawer */
-  .cuenta-menu.abierto::after {
-    content: ''; position: fixed; inset: 0; z-index: 998;
-    background: rgba(8, 14, 26, .55);
-    -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
-    animation: sheet-fade .2s ease;
-  }
-
-  /* Panel anclado abajo, a lo ancho. display:flex !important vence al
-     display:contents heredado de .nav-grupo-items. */
-  html.sb-collapsed .cuenta-menu > .cuenta-panel,
-  .cuenta-menu > .cuenta-panel {
-    display: none !important;
-    position: fixed !important;
-    left: 0 !important; right: 0 !important; bottom: 0 !important; top: auto !important;
-    width: auto !important; max-width: none !important; z-index: 999;
-    padding: 10px 16px calc(20px + env(safe-area-inset-bottom, 0px));
-    border-radius: 22px 22px 0 0;
-    border: 1px solid var(--c-border-soft); border-bottom: none;
-    box-shadow: 0 -22px 55px -20px rgba(0, 0, 0, .55);
-    animation: none;
-  }
-  html.sb-collapsed .cuenta-menu.abierto > .cuenta-panel,
-  .cuenta-menu.abierto > .cuenta-panel {
-    display: flex !important; flex-direction: column; gap: 4px;
-    animation: sheet-up .28s cubic-bezier(.2,.9,.2,1) !important;
-  }
-
-  /* Asa del drawer */
-  .cuenta-menu > .cuenta-panel::before {
-    content: ''; display: block; width: 42px; height: 4px; border-radius: 99px;
-    background: var(--c-border); margin: 2px auto 12px;
-  }
-  /* Objetivos táctiles más grandes */
-  .cuenta-panel .sidebar-link { padding: 15px 14px; font-size: .95rem; border-radius: 13px; }
-  .cuenta-panel .sidebar-link i { width: 22px; font-size: 1rem; }
-  .cuenta-cab { padding: 4px 8px 12px; }
-  .cuenta-cab-txt b { font-size: .95rem; }
-}

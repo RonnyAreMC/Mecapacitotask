@@ -67,7 +67,13 @@ class UI
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
       <i class="fa-solid fa-angles-left"></i>
     </button>
+    <!-- Solo en móvil: abre el menú flotante -->
+    <button type="button" id="sidebar-burger" class="sidebar-burger" aria-label="Menú" aria-expanded="false">
+      <span></span><span></span><span></span>
+    </button>
   </div>
+
+  <div class="sidebar-menu" id="sidebar-menu">
 
   <!-- Filtro global "Ver como" (solo administradores) -->
   <?php if (puedeVerComo()): ?>
@@ -190,6 +196,7 @@ class UI
     </button>
     <span><i class="fa-solid fa-code"></i> Equipo dev</span>
   </div>
+  </div><!-- /.sidebar-menu -->
 </aside>
 
 <main class="admin-main">
