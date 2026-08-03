@@ -1672,6 +1672,13 @@ html.dark .cal-venc-ley { color: #ff9d5c; }
 }
 .reu-proxima { background: #2D8CFF; }
 .reu-pasada  { background: var(--c-text-soft); }
+.reu-icono.reu-meet.reu-proxima { background: linear-gradient(135deg, #00897B, #1A73E8); }
+/* Chip de plataforma en la meta de la reunión */
+.reu-plat { padding: 2px 9px; border-radius: 999px; font-size: .66rem; font-weight: 800; letter-spacing: .02em; text-transform: uppercase; }
+.reu-plat.plat-zoom { background: rgba(45,140,255,.16); color: #2D8CFF; }
+.reu-plat.plat-meet { background: rgba(26,115,232,.16); color: #1A73E8; }
+html.dark .reu-plat.plat-meet { color: #7BAAF7; }
+.nr-plat { display: inline-flex; }
 .reu-info { flex: 1; min-width: 200px; display: flex; flex-direction: column; gap: 4px; }
 .reu-info b { font-size: 1rem; font-weight: 800; color: var(--c-text); }
 .reu-meta { font-size: .78rem; color: var(--c-text-soft); font-weight: 600; display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }

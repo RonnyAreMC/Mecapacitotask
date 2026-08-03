@@ -153,6 +153,8 @@ $puedeIntercambiar = $opcionesMisTareas !== [] && $opcionesOtrasTareas !== [];
 $reunionesRepo = new ReunionRepo();
 $reuniones     = $reunionesRepo->delProyecto($id);
 $zoomListo     = Zoom::listo();
+$meetListo     = GoogleCalendar::listo();          // reuniones por Google Meet
+$reunionesOn   = $zoomListo || $meetListo;         // hay al menos una plataforma
 
 // Calendario del proyecto (fechas límite de tareas + reuniones)
 $mesCal = $_GET['mes'] ?? date('Y-m');
@@ -807,7 +809,7 @@ foreach ($tareas as $t) {
       <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
-      <?php if ($zoomListo): ?>
+      <?php if ($reunionesOn): ?>
       <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
@@ -816,25 +818,28 @@ foreach ($tareas as $t) {
       <?php endif; ?>
     </div>
 
-    <?php if (!$zoomListo): ?>
+    <?php if (!$reunionesOn): ?>
       <div class="obs-intro"><i class="fa-solid fa-video"></i>
-        <span>Conecta tu cuenta de Zoom en <a href="ajustes.php#tab-zoom">Ajustes → Zoom</a> para crear reuniones,
-        registrar a las personas y acceder a las grabaciones desde aquí.</span>
+        <span>Configura <a href="ajustes.php#tab-zoom">Zoom en Ajustes</a> —o activa Google Calendar— para crear
+        reuniones (Zoom o Google Meet), registrar a las personas y acceder a las grabaciones desde aquí.</span>
       </div>
     <?php endif; ?>
     <?php if (empty($reuniones)): ?>
-      <?php if ($zoomListo): ?><?= UI::vacio('fa-video', 'Sin reuniones', 'Crea la primera reunión de Zoom para este proyecto con el botón de arriba.') ?><?php endif; ?>
+      <?php if ($reunionesOn): ?><?= UI::vacio('fa-video', 'Sin reuniones', 'Crea la primera reunión (Zoom o Google Meet) de este proyecto con el botón de arriba.') ?><?php endif; ?>
     <?php else: ?>
     <div class="reu-lista">
       <?php foreach ($reuniones as $r):
           $pasada = strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60) < time();
           $invita = array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $r['invitados'] ?? []));
+          $esMeet = ($r['plataforma'] ?? 'zoom') === 'meet';
       ?>
       <article class="reu-item">
-        <div class="reu-icono <?= $pasada ? 'reu-pasada' : 'reu-proxima' ?>"><i class="fa-solid fa-video"></i></div>
+        <div class="reu-icono <?= $pasada ? 'reu-pasada' : 'reu-proxima' ?> <?= $esMeet ? 'reu-meet' : 'reu-zoom' ?>">
+          <i class="fa-solid <?= $esMeet ? 'fa-video' : 'fa-video' ?>"></i></div>
         <div class="reu-info">
           <b><?= e($r['topic']) ?></b>
           <span class="reu-meta">
+            <span class="reu-plat <?= $esMeet ? 'plat-meet' : 'plat-zoom' ?>"><?= $esMeet ? 'Google Meet' : 'Zoom' ?></span>
             <i class="fa-regular fa-calendar"></i> <?= e($r['inicio']) ?> · <?= (int)$r['duracion'] ?> min
             <span class="reu-estado <?= $pasada ? 'e-pasada' : 'e-proxima' ?>"><?= $pasada ? 'Finalizada' : 'Próxima' ?></span>
           </span>
@@ -850,6 +855,7 @@ foreach ($tareas as $t) {
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
           <?php endif; ?>
+          <?php if (!$esMeet): /* grabación y transcripción son de Zoom */ ?>
           <?php if (!empty($r['grabaciones'])): ?>
             <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
             <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><i class="fa-solid fa-circle-play"></i> Grabación</a>
@@ -877,6 +883,7 @@ foreach ($tareas as $t) {
             </button>
           </form>
           <?php endif; ?>
+          <?php endif; /* !$esMeet */ ?>
           <?php $reuData = htmlspecialchars(json_encode([
               'id'        => (int)$r['id'],
               'topic'     => (string)($r['topic'] ?? ''),
@@ -886,7 +893,7 @@ foreach ($tareas as $t) {
           ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
           <button type="button" class="accion-btn solo-admin js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
           <form method="post" action="actions.php" class="inline-form solo-admin"
-                data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de Zoom."
+                data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de <?= $esMeet ? 'Google Calendar' : 'Zoom' ?>."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
             <input type="hidden" name="accion" value="reunion_eliminar">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
@@ -1116,8 +1123,8 @@ $comData = json_encode([
 
 </div><!-- /metricas -->
 
-<?php if ($zoomListo): ?>
-<!-- Modal: nueva reunión de Zoom -->
+<?php if ($reunionesOn): ?>
+<!-- Modal: nueva reunión (Zoom o Google Meet) -->
 <dialog id="dlg-nueva-reunion" class="dlg-meca">
   <form method="post" action="actions.php" class="dlg-form">
     <input type="hidden" name="accion" value="reunion_crear">
@@ -1126,6 +1133,19 @@ $comData = json_encode([
       <h3 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Nueva reunión</h3>
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
+    <?php if ($zoomListo && $meetListo): ?>
+    <div class="campo"><span>Plataforma</span>
+      <input type="hidden" name="plataforma" value="zoom">
+      <div class="subvista-toggle nr-plat">
+        <button type="button" class="subvista-btn active" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
+        <button type="button" class="subvista-btn" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
+      </div>
+      <small class="campo-ayuda nr-meet-hint" hidden>La reunión de Meet se crea en TU Google Calendar (debes tener tu calendario conectado en Mi perfil).</small>
+    </div>
+    <?php else: ?>
+    <input type="hidden" name="plataforma" value="<?= $zoomListo ? 'zoom' : 'meet' ?>">
+    <?php if ($meetListo): ?><small class="campo-ayuda">Se creará como reunión de <b>Google Meet</b> en tu calendario.</small><?php endif; ?>
+    <?php endif; ?>
     <label class="campo"><span>Tema de la reunión *</span>
       <input class="input-meca" name="topic" required maxlength="120" placeholder="Ej. Revisión de avances — <?= e($proyecto['nombre']) ?>">
     </label>

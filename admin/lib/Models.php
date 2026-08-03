@@ -1030,7 +1030,10 @@ class ReunionRepo
     {
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
+            'plataforma'  => in_array($datos['plataforma'] ?? '', ['zoom', 'meet'], true) ? $datos['plataforma'] : 'zoom',
             'zoom_id'     => (string)($datos['zoom_id'] ?? ''),
+            'gcal_event'  => (string)($datos['gcal_event'] ?? ''),
+            'creador_id'  => (int)($datos['creador_id'] ?? 0),
             'topic'       => trim($datos['topic'] ?? ''),
             'inicio'      => (string)($datos['inicio'] ?? ''),
             'duracion'    => (int)($datos['duracion'] ?? 60),

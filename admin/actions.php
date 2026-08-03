@@ -1099,45 +1099,82 @@ switch ($accion) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
-        if (!Zoom::listo()) {
-            redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom.', 'error');
-        }
-        $topic = trim($_POST['topic'] ?? '');
-        $inicio = trim($_POST['inicio'] ?? '');   // datetime-local: Y-m-dTH:i
-        $inicio = str_replace('T', ' ', $inicio);
+        $plataforma = ($_POST['plataforma'] ?? 'zoom') === 'meet' ? 'meet' : 'zoom';
+        $topic  = trim($_POST['topic'] ?? '');
+        $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));   // datetime-local
+        $dur    = (int)($_POST['duracion'] ?? 60);
         if ($topic === '' || $inicio === '') {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
-        $creada = Zoom::crearReunion([
-            'topic'    => $topic,
-            'inicio'   => $inicio,
-            'duracion' => (int)($_POST['duracion'] ?? 60),
-        ]);
-        if (isset($creada['error'])) {
-            redirigir($volver, $creada['error'], 'error');
-        }
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
-        $reu = $reuniones->crear([
-            'proyecto_id' => $pid,
-            'zoom_id'     => (string)($creada['id'] ?? ''),
-            'topic'       => $topic,
-            'inicio'      => $inicio,
-            'duracion'    => (int)($_POST['duracion'] ?? 60),
-            'join_url'    => $creada['join_url'] ?? '',
-            'start_url'   => $creada['start_url'] ?? '',
-            'password'    => $creada['password'] ?? '',
-            'invitados'   => $invitados,
-        ]);
+        $p = $proyectos->buscar($pid);
+
+        if ($plataforma === 'meet') {
+            // Meet: se crea en el calendario del creador (necesita su Google)
+            $yo = Auth::usuario();
+            $refresh = (string)($yo['gcal_refresh'] ?? '');
+            if ($refresh === '') {
+                redirigir($volver, 'Para crear reuniones de Meet, primero conecta tu Google en Mi perfil → "Conectar mi calendario".', 'error');
+            }
+            $emails = [];
+            foreach ($invitados as $mid) {
+                $m = $miembros->buscar($mid);
+                if ($m && !empty($m['email'])) $emails[] = $m['email'];
+            }
+            $creada = GoogleCalendar::crearMeet($refresh, [
+                'topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'invitados' => $emails,
+            ]);
+            if (isset($creada['error'])) {
+                $msg = $creada['error'] === 'sin_conexion'
+                    ? 'Conecta tu Google en Mi perfil para crear reuniones de Meet.'
+                    : $creada['error'];
+                redirigir($volver, $msg, 'error');
+            }
+            $reu = $reuniones->crear([
+                'proyecto_id' => $pid,
+                'plataforma'  => 'meet',
+                'gcal_event'  => (string)($creada['event'] ?? ''),
+                'creador_id'  => (int)($yo['id'] ?? 0),
+                'topic'       => $topic,
+                'inicio'      => $inicio,
+                'duracion'    => $dur,
+                'join_url'    => (string)($creada['meet'] ?? ''),
+                'invitados'   => $invitados,
+            ]);
+            $donde = 'Reunión de Google Meet creada.';
+        } else {
+            // Zoom (Server-to-Server)
+            if (!Zoom::listo()) {
+                redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom (o crea la reunión con Meet).', 'error');
+            }
+            $creada = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur]);
+            if (isset($creada['error'])) {
+                redirigir($volver, $creada['error'], 'error');
+            }
+            $reu = $reuniones->crear([
+                'proyecto_id' => $pid,
+                'plataforma'  => 'zoom',
+                'zoom_id'     => (string)($creada['id'] ?? ''),
+                'topic'       => $topic,
+                'inicio'      => $inicio,
+                'duracion'    => $dur,
+                'join_url'    => $creada['join_url'] ?? '',
+                'start_url'   => $creada['start_url'] ?? '',
+                'password'    => $creada['password'] ?? '',
+                'invitados'   => $invitados,
+            ]);
+            $donde = 'Reunión creada en Zoom.';
+        }
+
         // Notifica por correo a los invitados con correo registrado
         $avisados = 0;
-        $p = $proyectos->buscar($pid);
         if (Mailer::listo()) {
             foreach ($invitados as $mid) {
                 $m = $miembros->buscar($mid);
                 if ($m && Mailer::notificarReunion($reu, $m, $p) === true) $avisados++;
             }
         }
-        redirigir($volver, 'Reunión creada en Zoom.' . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));
+        redirigir($volver, $donde . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));
 
     case 'reunion_editar':
         $reuniones = new ReunionRepo();
@@ -1153,8 +1190,17 @@ switch ($accion) {
         if ($topic === '' || $inicio === '') {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
-        // Actualiza en Zoom (si sigue teniendo id y Zoom está activo)
-        if (!empty($reu['zoom_id']) && Zoom::listo()) {
+        // Actualiza en la plataforma correspondiente
+        if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {
+            $creador = $miembros->buscar((int)($reu['creador_id'] ?? 0));
+            $refresh = (string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? ''));
+            $ok = GoogleCalendar::actualizarMeet($refresh, (string)$reu['gcal_event'], [
+                'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
+            ]);
+            if ($ok !== true) {
+                redirigir($volver, $ok, 'error');
+            }
+        } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
             $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], [
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
             ]);
@@ -1256,7 +1302,13 @@ switch ($accion) {
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
         if ($reu) {
-            if (!empty($reu['zoom_id']) && Zoom::listo()) Zoom::eliminarReunion($reu['zoom_id']);
+            if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {
+                $creador = $miembros->buscar((int)($reu['creador_id'] ?? 0));
+                $refresh = (string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? ''));
+                GoogleCalendar::borrarEvento($refresh, (string)$reu['gcal_event']);
+            } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
+                Zoom::eliminarReunion($reu['zoom_id']);
+            }
             $reuniones->eliminar((int)$reu['id']);
             redirigir('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones', 'Reunión eliminada.');
         }

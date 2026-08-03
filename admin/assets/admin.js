@@ -1406,6 +1406,20 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
   });
 });
 
+// Toggle de plataforma (Zoom / Meet) en "Nueva reunión"
+document.querySelectorAll('.nr-plat').forEach((tg) => {
+  const campo = tg.closest('.campo');
+  const hidden = campo?.querySelector('input[name="plataforma"]');
+  const hint = campo?.querySelector('.nr-meet-hint');
+  tg.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-plat]');
+    if (!b) return;
+    tg.querySelectorAll('[data-plat]').forEach((x) => x.classList.toggle('active', x === b));
+    if (hidden) hidden.value = b.dataset.plat;
+    if (hint) hint.hidden = b.dataset.plat !== 'meet';
+  });
+});
+
 // Rellenar y abrir el modal de edicion de reunion (editar / invitar a mas gente)
 document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
   btn.addEventListener('click', () => {

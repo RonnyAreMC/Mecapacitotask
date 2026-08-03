@@ -117,6 +117,96 @@ class GoogleCalendar
             null, $token, 'DELETE');
     }
 
+    /* ================= Reuniones con Google Meet ================= */
+
+    /** Inicio/fin RFC3339 (hora local del equipo) a partir de "Y-m-d H:i" + minutos. */
+    private static function rango(string $inicio, int $duracion): array
+    {
+        $ini = str_replace(' ', 'T', trim($inicio)) . ':00';
+        $fin = date('Y-m-d\TH:i:s', strtotime($inicio . ' +' . max(1, $duracion) . ' minutes'));
+        return [$ini, $fin];
+    }
+
+    /**
+     * Crea una reunión con enlace de Google Meet en el calendario del creador.
+     * $datos: topic, inicio (Y-m-d H:i), duracion (min), invitados (emails).
+     * Devuelve ['ok'=>true,'meet'=>url,'event'=>id] o ['error'=>...].
+     */
+    public static function crearMeet(string $refresh, array $datos): array
+    {
+        if (!self::listo())  return ['error' => 'Google Calendar no está configurado en Ajustes.'];
+        if ($refresh === '') return ['error' => 'sin_conexion'];
+        $token = self::accessToken($refresh);
+        if (is_array($token)) return ['error' => 'Google rechazó el permiso. Vuelve a conectar tu calendario en Mi perfil.'];
+
+        [$ini, $fin] = self::rango($datos['inicio'], (int)$datos['duracion']);
+        $zona = self::zona();
+        $asistentes = [];
+        foreach ((array)($datos['invitados'] ?? []) as $email) {
+            $email = trim((string)$email);
+            if ($email !== '') $asistentes[] = ['email' => $email];
+        }
+        $body = [
+            'summary'        => $datos['topic'] ?? 'Reunión',
+            'description'    => (string)($datos['descripcion'] ?? ''),
+            'start'          => ['dateTime' => $ini, 'timeZone' => $zona],
+            'end'            => ['dateTime' => $fin, 'timeZone' => $zona],
+            'attendees'      => $asistentes,
+            'conferenceData' => [
+                'createRequest' => [
+                    'requestId'             => uniqid('meet_'),
+                    'conferenceSolutionKey' => ['type' => 'hangoutsMeet'],
+                ],
+            ],
+        ];
+        [$codigo, $cuerpo] = self::http(
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+            $body, $token, 'POST');
+        $json = json_decode($cuerpo, true) ?: [];
+        if ($codigo >= 200 && $codigo < 300) {
+            $meet = (string)($json['hangoutLink'] ?? '');
+            foreach ($json['conferenceData']['entryPoints'] ?? [] as $ep) {
+                if (($ep['entryPointType'] ?? '') === 'video' && !empty($ep['uri'])) { $meet = $ep['uri']; break; }
+            }
+            if ($meet === '') return ['error' => 'Google creó el evento pero sin enlace de Meet. Revisa que Meet esté habilitado en la cuenta.'];
+            return ['ok' => true, 'meet' => $meet, 'event' => (string)($json['id'] ?? '')];
+        }
+        return ['error' => 'Google no creó la reunión (' . ($json['error']['message'] ?? ('HTTP ' . $codigo)) . ').'];
+    }
+
+    /** Actualiza tema/fecha de una reunión de Meet ya creada. true | mensaje. */
+    public static function actualizarMeet(string $refresh, string $eventoId, array $datos): bool|string
+    {
+        if (!self::listo() || $refresh === '' || $eventoId === '') return 'Falta la conexión con Google.';
+        $token = self::accessToken($refresh);
+        if (is_array($token)) return 'Google rechazó el permiso. Reconecta tu calendario en Mi perfil.';
+        [$ini, $fin] = self::rango($datos['inicio'], (int)$datos['duracion']);
+        $zona = self::zona();
+        [$codigo] = self::http(
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events/' . rawurlencode($eventoId),
+            ['summary' => $datos['topic'] ?? 'Reunión',
+             'start'   => ['dateTime' => $ini, 'timeZone' => $zona],
+             'end'     => ['dateTime' => $fin, 'timeZone' => $zona]],
+            $token, 'PATCH');
+        return ($codigo >= 200 && $codigo < 300) ? true : ('Google no pudo actualizar la reunión (HTTP ' . $codigo . ').');
+    }
+
+    /** Borra un evento por id usando un refresh token concreto (para Meet). */
+    public static function borrarEvento(string $refresh, string $eventoId): void
+    {
+        if ($eventoId === '' || $refresh === '' || !self::listo()) return;
+        $token = self::accessToken($refresh);
+        if (is_array($token)) return;
+        self::http('https://www.googleapis.com/calendar/v3/calendars/primary/events/' . rawurlencode($eventoId),
+            null, $token, 'DELETE');
+    }
+
+    /** Zona horaria del equipo (la misma que usa Zoom). */
+    private static function zona(): string
+    {
+        return class_exists('Zoom') ? Zoom::zona() : (Config::get('zoom')['zona'] ?? 'America/Guayaquil');
+    }
+
     /** HTTP con streams. $body array => JSON. Devuelve [codigo, cuerpo]. */
     private static function http(string $url, ?array $body, string $token = '', string $metodo = 'POST'): array
     {
