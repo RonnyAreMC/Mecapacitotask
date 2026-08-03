@@ -33,7 +33,7 @@ class UI
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($titulo) ?> · Mecapacito Admin</title>
-<link rel="icon" type="image/png" href="../assets/mecapacito-logo.png">
+<link rel="icon" type="image/png" href="<?= e(logoPanel()) ?>">
 <script>
 (function () {
   var params = new URLSearchParams(location.search);
@@ -58,7 +58,7 @@ class UI
 <aside class="sidebar">
   <div class="sidebar-top">
     <a href="index.php" class="sidebar-brand">
-      <img src="../assets/mecapacito-logo.png" alt="<?= e($marca['titulo']) ?>">
+      <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
       <div>
         <strong><?= e($marca['titulo']) ?></strong>
         <span><?= e($marca['subtitulo']) ?></span>

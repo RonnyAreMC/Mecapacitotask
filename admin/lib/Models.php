@@ -172,6 +172,7 @@ final class Config
         return [
             'titulo'           => 'Mecapacito',
             'subtitulo'        => 'Panel Dev',
+            'logo'             => '',          // imagen subida; vacío = logo por defecto
             'github_token'     => '',
             'color_secundario' => '#2B76F7',   // acento principal (botones, links)
             'color_acento'     => '#FFD700',   // acento secundario

@@ -21,7 +21,7 @@ $primerUso  = !Auth::hayAdmin();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar · <?= e($marca['titulo']) ?></title>
-<link rel="icon" type="image/png" href="../assets/mecapacito-logo.png">
+<link rel="icon" type="image/png" href="<?= e(logoPanel()) ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -38,7 +38,7 @@ $primerUso  = !Auth::hayAdmin();
     <canvas id="lg-flujo" aria-hidden="true"></canvas>
     <div class="arte-txt">
       <div class="arte-marca">
-        <img src="../assets/mecapacito-logo.png" alt="<?= e($marca['titulo']) ?>">
+        <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
         <div>
           <strong class="font-display"><?= e($marca['titulo']) ?></strong>
           <span><?= e($marca['subtitulo']) ?></span>
@@ -77,7 +77,7 @@ $primerUso  = !Auth::hayAdmin();
   <main class="login-panel">
     <div class="login-caja">
       <div class="login-marca">
-        <img src="../assets/mecapacito-logo.png" alt="<?= e($marca['titulo']) ?>">
+        <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
         <div>
           <strong class="font-display"><?= e($marca['titulo']) ?></strong>
           <span><?= e($marca['subtitulo']) ?></span>

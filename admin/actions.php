@@ -969,9 +969,20 @@ switch ($accion) {
             $roles = $lineas($_POST['roles'] ?? '');
         }
 
+        // Logo del panel: sube uno nuevo, quítalo (vuelve al de siempre) o
+        // conserva el que había si no tocaron el campo.
+        $logoPrev = (string)($prev['logo'] ?? '');
+        if (!empty($_POST['logo_quitar'])) {
+            $logo = '';
+        } else {
+            $subido = guardarFoto('logo', 'marca_', 'imagen del logo');
+            $logo = $subido !== '' ? $subido : $logoPrev;
+        }
+
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
+            'logo'             => $logo,
             'github_token'     => $secreto($_POST['github_token'] ?? '', $prev['github_token'] ?? ''),
             'google_login'     => [
                 'activo'              => !empty($_POST['google_login']['activo']),

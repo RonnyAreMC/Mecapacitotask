@@ -126,29 +126,39 @@ function paginaOrigen(): string
  * Si la subida fallo (tamano, formato), redirige con un error claro
  * en vez de guardar en silencio sin foto.
  */
-function guardarFoto(string $campo): string
+function guardarFoto(string $campo, string $prefijo = 'foto_', string $etiqueta = 'foto'): string
 {
     $err = $_FILES[$campo]['error'] ?? UPLOAD_ERR_NO_FILE;
     if ($err === UPLOAD_ERR_NO_FILE) {
         return '';
     }
     if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
-        redirigir(paginaOrigen(), 'La foto pesa demasiado (límite del servidor: ' . ini_get('upload_max_filesize') . '). Intenta con una más liviana.', 'error');
+        redirigir(paginaOrigen(), 'La ' . $etiqueta . ' pesa demasiado (límite del servidor: ' . ini_get('upload_max_filesize') . '). Intenta con una más liviana.', 'error');
     }
     if ($err !== UPLOAD_ERR_OK || empty($_FILES[$campo]['tmp_name'])) {
-        redirigir(paginaOrigen(), 'No se pudo subir la foto (código ' . $err . '). Intenta de nuevo.', 'error');
+        redirigir(paginaOrigen(), 'No se pudo subir la ' . $etiqueta . ' (código ' . $err . '). Intenta de nuevo.', 'error');
     }
     $permitidos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
     $mime = mime_content_type($_FILES[$campo]['tmp_name']);
     if (!isset($permitidos[$mime])) {
-        redirigir(paginaOrigen(), 'Formato de foto no soportado. Usa JPG, PNG, WebP o GIF.', 'error');
+        redirigir(paginaOrigen(), 'Formato no soportado para la ' . $etiqueta . '. Usa JPG, PNG, WebP o GIF.', 'error');
     }
-    $nombre = 'uploads/' . uniqid('foto_') . '.' . $permitidos[$mime];
+    $nombre = 'uploads/' . uniqid($prefijo) . '.' . $permitidos[$mime];
     $destino = __DIR__ . '/../' . $nombre;
     if (!move_uploaded_file($_FILES[$campo]['tmp_name'], $destino)) {
-        redirigir(paginaOrigen(), 'No se pudo guardar la foto en el servidor.', 'error');
+        redirigir(paginaOrigen(), 'No se pudo guardar la ' . $etiqueta . ' en el servidor.', 'error');
     }
     return $nombre;
+}
+
+/** Ruta del logo del panel: la imagen subida en Ajustes o el logo por defecto. */
+function logoPanel(): string
+{
+    $logo = trim((string)(Config::get('logo') ?? ''));
+    if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
+        return $logo;
+    }
+    return '../assets/mecapacito-logo.png';
 }
 
 /**

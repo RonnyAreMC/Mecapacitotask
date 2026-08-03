@@ -58,7 +58,7 @@ UI::cabecera(
   <button type="button" class="tab-btn" data-tab="acceso"><i class="fa-solid fa-shield-halved"></i> Acceso y respaldo</button>
 </div>
 
-<form method="post" action="actions.php" class="ajustes-form">
+<form method="post" action="actions.php" class="ajustes-form" enctype="multipart/form-data">
   <input type="hidden" name="accion" value="config_guardar">
 
   <!-- ================= TAB: Identidad ================= -->
@@ -94,6 +94,20 @@ UI::cabecera(
             <span>Subtítulo</span>
             <input class="input-meca" name="subtitulo" maxlength="30" value="<?= e($cfg['subtitulo']) ?>">
           </label>
+        </div>
+
+        <div class="campo logo-campo">
+          <span>Logo del panel</span>
+          <div class="logo-config">
+            <span class="logo-prev"><img src="<?= e(logoPanel()) ?>" alt="Logo actual"></span>
+            <div class="logo-config-txt">
+              <input type="file" name="logo" class="input-meca" accept="image/png,image/jpeg,image/webp">
+              <small class="campo-ayuda">PNG con fondo transparente, cuadrado (se ve en el menú, el login y la pestaña del navegador).</small>
+              <?php if (!empty($cfg['logo'])): ?>
+              <label class="logo-quitar"><input type="checkbox" name="logo_quitar" value="1"> Quitar y volver al logo por defecto</label>
+              <?php endif; ?>
+            </div>
+          </div>
         </div>
       </section>
 
