@@ -95,11 +95,10 @@ class Zoom
      */
     public static function crearReunion(array $datos): array
     {
-        $inicioIso = str_replace(' ', 'T', $datos['inicio']) . ':00';
-        [$codigo, $json] = self::api('POST', '/users/me/meetings', [
+        $cuerpo = [
             'topic'      => $datos['topic'],
             'type'       => 2,                       // reunión programada
-            'start_time' => $inicioIso,
+            'start_time' => str_replace(' ', 'T', $datos['inicio']) . ':00',
             'duration'   => (int)$datos['duracion'],
             'timezone'   => self::zona(),
             'settings'   => [
@@ -108,26 +107,49 @@ class Zoom
                 'auto_recording'   => 'cloud',       // graba en la nube (requiere plan de pago)
                 'approval_type'    => 2,
             ],
-        ]);
+        ];
+        [$codigo, $json] = self::api('POST', '/users/me/meetings', self::conRepeticion($cuerpo, $datos));
         if ($codigo === 201) return $json;
         return ['error' => 'Zoom rechazó la creación: ' . ($json['message'] ?? ('HTTP ' . $codigo))];
     }
 
     /**
-     * Edita una reunión existente (tema, inicio, duración).
+     * Edita una reunión existente (tema, inicio, duración y repetición).
      * Devuelve true o un mensaje de error.
      */
     public static function actualizarReunion(string $zoomId, array $datos): true|string
     {
-        $inicioIso = str_replace(' ', 'T', $datos['inicio']) . ':00';
-        [$codigo, $json] = self::api('PATCH', '/meetings/' . $zoomId, [
+        $cuerpo = [
             'topic'      => $datos['topic'],
-            'start_time' => $inicioIso,
+            'type'       => 2,
+            'start_time' => str_replace(' ', 'T', $datos['inicio']) . ':00',
             'duration'   => (int)$datos['duracion'],
             'timezone'   => self::zona(),
-        ]);
+        ];
+        [$codigo, $json] = self::api('PATCH', '/meetings/' . $zoomId, self::conRepeticion($cuerpo, $datos));
         if ($codigo === 204) return true;             // Zoom no devuelve cuerpo al editar
         return 'Zoom rechazó la edición: ' . ($json['message'] ?? ('HTTP ' . $codigo));
+    }
+
+    /**
+     * Añade la repetición semanal al cuerpo si $datos trae dias + hasta.
+     * En Zoom una reunión que se repite es de tipo 8 y su semana empieza en
+     * domingo, de ahí la traducción en Reuniones::zoomDias().
+     */
+    private static function conRepeticion(array $cuerpo, array $datos): array
+    {
+        $dias  = Reuniones::diasValidos($datos['dias'] ?? []);
+        $hasta = trim((string)($datos['hasta'] ?? ''));
+        if (!$dias || $hasta === '') return $cuerpo;
+
+        $cuerpo['type'] = 8;                          // reunión recurrente con hora fija
+        $cuerpo['recurrence'] = [
+            'type'            => 2,                   // semanal
+            'repeat_interval' => 1,                   // cada semana
+            'weekly_days'     => Reuniones::zoomDias($dias),
+            'end_date_time'   => Reuniones::finUtcZoom($hasta),
+        ];
+        return $cuerpo;
     }
 
     public static function eliminarReunion(string $zoomId): void

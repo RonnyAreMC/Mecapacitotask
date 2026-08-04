@@ -141,17 +141,12 @@ class GoogleCalendar
 
         [$ini, $fin] = self::rango($datos['inicio'], (int)$datos['duracion']);
         $zona = self::zona();
-        $asistentes = [];
-        foreach ((array)($datos['invitados'] ?? []) as $email) {
-            $email = trim((string)$email);
-            if ($email !== '') $asistentes[] = ['email' => $email];
-        }
         $body = [
             'summary'        => $datos['topic'] ?? 'Reunión',
             'description'    => (string)($datos['descripcion'] ?? ''),
             'start'          => ['dateTime' => $ini, 'timeZone' => $zona],
             'end'            => ['dateTime' => $fin, 'timeZone' => $zona],
-            'attendees'      => $asistentes,
+            'attendees'      => self::asistentes($datos['invitados'] ?? []),
             'conferenceData' => [
                 'createRequest' => [
                     'requestId'             => uniqid('meet_'),
@@ -159,8 +154,14 @@ class GoogleCalendar
                 ],
             ],
         ];
+        // Repeticion semanal ("todos los dias de lunes a viernes"): un solo
+        // evento con su RRULE, no una fila por dia.
+        $rrule = Reuniones::rrule((array)($datos['dias'] ?? []), (string)($datos['hasta'] ?? ''));
+        if ($rrule !== '') $body['recurrence'] = [$rrule];
+
+        // sendUpdates=all: sin esto Google crea el evento pero no avisa a nadie.
         [$codigo, $cuerpo] = self::http(
-            'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1',
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events?conferenceDataVersion=1&sendUpdates=all',
             $body, $token, 'POST');
         $json = json_decode($cuerpo, true) ?: [];
         if ($codigo >= 200 && $codigo < 300) {
@@ -174,7 +175,7 @@ class GoogleCalendar
         return ['error' => 'Google no creó la reunión (' . ($json['error']['message'] ?? ('HTTP ' . $codigo)) . ').'];
     }
 
-    /** Actualiza tema/fecha de una reunión de Meet ya creada. true | mensaje. */
+    /** Actualiza tema/fecha/repetición/invitados de una reunión de Meet. true | mensaje. */
     public static function actualizarMeet(string $refresh, string $eventoId, array $datos): bool|string
     {
         if (!self::listo() || $refresh === '' || $eventoId === '') return 'Falta la conexión con Google.';
@@ -182,13 +183,89 @@ class GoogleCalendar
         if (is_array($token)) return 'Google rechazó el permiso. Reconecta tu calendario en Mi perfil.';
         [$ini, $fin] = self::rango($datos['inicio'], (int)$datos['duracion']);
         $zona = self::zona();
+        $body = [
+            'summary' => $datos['topic'] ?? 'Reunión',
+            'start'   => ['dateTime' => $ini, 'timeZone' => $zona],
+            'end'     => ['dateTime' => $fin, 'timeZone' => $zona],
+        ];
+        if (isset($datos['invitados'])) {
+            $body['attendees'] = self::asistentes($datos['invitados']);
+        }
+        // La repeticion se manda siempre: una lista vacia le quita la repeticion
+        // al evento si la reunion dejo de ser recurrente.
+        $rrule = Reuniones::rrule((array)($datos['dias'] ?? []), (string)($datos['hasta'] ?? ''));
+        $body['recurrence'] = $rrule !== '' ? [$rrule] : [];
+
         [$codigo] = self::http(
-            'https://www.googleapis.com/calendar/v3/calendars/primary/events/' . rawurlencode($eventoId),
-            ['summary' => $datos['topic'] ?? 'Reunión',
-             'start'   => ['dateTime' => $ini, 'timeZone' => $zona],
-             'end'     => ['dateTime' => $fin, 'timeZone' => $zona]],
-            $token, 'PATCH');
+            'https://www.googleapis.com/calendar/v3/calendars/primary/events/' . rawurlencode($eventoId) . '?sendUpdates=all',
+            $body, $token, 'PATCH');
         return ($codigo >= 200 && $codigo < 300) ? true : ('Google no pudo actualizar la reunión (HTTP ' . $codigo . ').');
+    }
+
+    /** Lista de attendees a partir de correos sueltos. */
+    private static function asistentes(mixed $emails): array
+    {
+        $out = [];
+        foreach ((array)$emails as $email) {
+            $email = trim((string)$email);
+            if ($email !== '' && !in_array(['email' => $email], $out, true)) $out[] = ['email' => $email];
+        }
+        return $out;
+    }
+
+    /**
+     * Agenda la reunión en el calendario PROPIO de un miembro, con su token.
+     *
+     * Hace falta sobre todo para Zoom: Google no sabe nada de esas reuniones,
+     * así que sin esto no aparecen en el calendario de nadie. En Meet cubre a
+     * quien no tenga correo registrado (no puede ir como invitado del evento).
+     *
+     * Devuelve el id del evento creado/actualizado, o null si no se pudo.
+     */
+    public static function agendarReunion(array $miembro, array $reunion, array $proyecto = [], string $eventoId = ''): ?string
+    {
+        self::$ultimoError = null;
+        if (!self::listo())                 { self::$ultimoError = 'Google Calendar no está configurado.'; return null; }
+        if (empty($miembro['gcal_refresh'])){ self::$ultimoError = 'sin_conexion'; return null; }
+        $token = self::accessToken($miembro['gcal_refresh']);
+        if (is_array($token)) {
+            self::$ultimoError = 'Google rechazó el permiso (' . ($token['error'] ?? '') . ').';
+            return null;
+        }
+
+        [$ini, $fin] = self::rango((string)$reunion['inicio'], (int)$reunion['duracion']);
+        $zona = self::zona();
+        $plataforma = ($reunion['plataforma'] ?? 'zoom') === 'meet' ? 'Google Meet' : 'Zoom';
+
+        $desc = 'Reunión de ' . $plataforma;
+        if (!empty($proyecto['nombre'])) $desc .= ' · Proyecto: ' . $proyecto['nombre'];
+        if (!empty($reunion['join_url'])) $desc .= "\nEntrar: " . $reunion['join_url'];
+        if (!empty($reunion['password'])) $desc .= "\nCódigo: " . $reunion['password'];
+
+        $body = [
+            'summary'     => (string)($reunion['topic'] ?? 'Reunión'),
+            'description' => $desc,
+            'location'    => (string)($reunion['join_url'] ?? ''),
+            'start'       => ['dateTime' => $ini, 'timeZone' => $zona],
+            'end'         => ['dateTime' => $fin, 'timeZone' => $zona],
+        ];
+        $rrule = Reuniones::rrule((array)($reunion['dias'] ?? []), (string)($reunion['hasta'] ?? ''));
+        $body['recurrence'] = $rrule !== '' ? [$rrule] : [];
+
+        $base = 'https://www.googleapis.com/calendar/v3/calendars/primary/events';
+        $url = $base;
+        $metodo = 'POST';
+        if ($eventoId !== '') { $url .= '/' . rawurlencode($eventoId); $metodo = 'PATCH'; }
+
+        [$codigo, $cuerpo] = self::http($url, $body, $token, $metodo);
+        if ($codigo === 404 && $eventoId !== '') {          // lo borraron a mano en Google
+            [$codigo, $cuerpo] = self::http($base, $body, $token, 'POST');
+        }
+        $json = json_decode($cuerpo, true) ?: [];
+        if ($codigo >= 200 && $codigo < 300 && !empty($json['id'])) return $json['id'];
+
+        self::$ultimoError = 'Google no aceptó el evento (' . ($json['error']['message'] ?? ('HTTP ' . $codigo)) . ').';
+        return null;
     }
 
     /** Borra un evento por id usando un refresh token concreto (para Meet). */

@@ -2,6 +2,9 @@
 admin/data/*.json
 admin/data/*.json.importado
 admin/data/.seeded
+# Cualquier respaldo o copia de la config: lleva credenciales en texto plano
+admin/data/config.json.*
+admin/data/*.bak
 admin/uploads/*
 
 # Base de datos SQLite y sus archivos temporales (WAL)

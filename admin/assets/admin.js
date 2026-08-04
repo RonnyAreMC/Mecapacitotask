@@ -1496,8 +1496,30 @@ document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
     dlg.querySelector('#er-inicio').value = m ? (m[1] + 'T' + m[2]) : '';
     setSelect(dlg.querySelector('.js-er-duracion'), r.duracion || 60);
     setSelect(dlg.querySelector('.js-er-invitados'), r.invitados || []);
+
+    // Repetición semanal: marcar los días guardados y abrir el bloque si aplica
+    const rec = dlg.querySelector('.js-er-recurrente');
+    if (rec) {
+      const dias = (r.dias || []).map(String);
+      dlg.querySelectorAll('.js-er-dias input[type="checkbox"]').forEach((c) => {
+        c.checked = dias.includes(c.value);
+      });
+      const hasta = dlg.querySelector('.js-er-hasta');
+      if (hasta) hasta.value = r.hasta || '';
+      rec.checked = !!r.recurrente;
+      rec.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     dlg.showModal();
   });
+});
+
+// Bloque "Repetir todas las semanas": muestra u oculta días y fecha final
+document.querySelectorAll('.js-repetir').forEach((chk) => {
+  const detalle = chk.closest('.repetir-caja')?.querySelector('.repetir-detalle');
+  if (!detalle) return;
+  const pintar = () => { detalle.hidden = !chk.checked; };
+  chk.addEventListener('change', pintar);
+  pintar();
 });
 
 // Formularios de persona: vista previa en vivo (avatar, nombre, rol, git, color, foto)

@@ -155,6 +155,11 @@ $reuniones     = $reunionesRepo->delProyecto($id);
 $zoomListo     = Zoom::listo();
 $meetListo     = GoogleCalendar::listo();          // reuniones por Google Meet
 $reunionesOn   = $zoomListo || $meetListo;         // hay al menos una plataforma
+// Parametrizacion del admin (Ajustes -> Reuniones)
+$platElegir    = Reuniones::puedeElegir();         // ¿se ofrece el selector?
+$platDefecto   = Reuniones::plataformaDefecto($proyecto);   // el proyecto puede tener la suya
+$durDefecto    = Reuniones::duracionDefecto();
+$durOpciones   = Reuniones::duraciones();
 
 // Calendario del proyecto (fechas límite de tareas + reuniones)
 $mesCal = $_GET['mes'] ?? date('Y-m');
@@ -194,7 +199,21 @@ foreach ($tareasCal as $t) {
 }
 foreach ($reuniones as $r) {
     $dia = substr($r['inicio'] ?? '', 0, 10);
-    if ($dia) $eventosCal[$dia][] = ['tipo' => 'reunion', 'dato' => $r, 'pos' => 'solo'];
+    if ($dia === '') continue;
+    if (!Reuniones::esRecurrente($r)) {
+        $eventosCal[$dia][] = ['tipo' => 'reunion', 'dato' => $r, 'pos' => 'solo'];
+        continue;
+    }
+    // Una reunión que se repite cae en cada día marcado: se pinta en todos los
+    // que toquen dentro del mes que se está viendo, no solo el primero.
+    $dias  = Reuniones::diasValidos($r['dias']);
+    $desde = max($dia, $mesIni);
+    $hasta = min((string)$r['hasta'], $mesFin);
+    for ($d = $desde; $d <= $hasta; $d = date('Y-m-d', strtotime($d . ' +1 day'))) {
+        if (in_array((int)date('N', strtotime($d)), $dias, true)) {
+            $eventosCal[$d][] = ['tipo' => 'reunion', 'dato' => $r, 'pos' => 'solo'];
+        }
+    }
 }
 
 UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
@@ -814,14 +833,15 @@ foreach ($tareas as $t) {
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
       <?php else: ?>
-      <a class="btn-outline btn-meca btn-sm" href="ajustes.php#tab-zoom"><i class="fa-solid fa-gear"></i> Configurar Zoom</a>
+      <a class="btn-outline btn-meca btn-sm" href="ajustes.php#tab-reuniones"><i class="fa-solid fa-gear"></i> Configurar reuniones</a>
       <?php endif; ?>
     </div>
 
     <?php if (!$reunionesOn): ?>
       <div class="obs-intro"><i class="fa-solid fa-video"></i>
-        <span>Configura <a href="ajustes.php#tab-zoom">Zoom en Ajustes</a> —o activa Google Calendar— para crear
-        reuniones (Zoom o Google Meet), registrar a las personas y acceder a las grabaciones desde aquí.</span>
+        <span>Ve a <a href="ajustes.php#tab-reuniones">Ajustes → Reuniones</a> y configura Zoom —o activa Google
+        Calendar— para crear reuniones desde aquí: sueltas o repetidas (por ejemplo, todos los días de lunes a
+        viernes), con sus invitados y sus grabaciones.</span>
       </div>
     <?php endif; ?>
     <?php if (empty($reuniones)): ?>
@@ -829,7 +849,12 @@ foreach ($tareas as $t) {
     <?php else: ?>
     <div class="reu-lista">
       <?php foreach ($reuniones as $r):
-          $pasada = strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60) < time();
+          $repite = Reuniones::esRecurrente($r);
+          // Una reunión que se repite no está "finalizada" hasta que pasa su último día
+          $fin = $repite
+              ? (int)strtotime($r['hasta'] . ' 23:59:59')
+              : (int)strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60);
+          $pasada = $fin < time();
           $invita = array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $r['invitados'] ?? []));
           $esMeet = ($r['plataforma'] ?? 'zoom') === 'meet';
       ?>
@@ -841,6 +866,11 @@ foreach ($tareas as $t) {
           <span class="reu-meta">
             <span class="reu-plat <?= $esMeet ? 'plat-meet' : 'plat-zoom' ?>"><?= $esMeet ? 'Google Meet' : 'Zoom' ?></span>
             <i class="fa-regular fa-calendar"></i> <?= e($r['inicio']) ?> · <?= (int)$r['duracion'] ?> min
+            <?php if ($repite): ?>
+            <span class="reu-repite" title="<?= e(Reuniones::resumen($r)) ?>">
+              <i class="fa-solid fa-repeat"></i> <?= e(Reuniones::etiqueta((array)$r['dias'])) ?> · hasta <?= e($r['hasta']) ?>
+            </span>
+            <?php endif; ?>
             <span class="reu-estado <?= $pasada ? 'e-pasada' : 'e-proxima' ?>"><?= $pasada ? 'Finalizada' : 'Próxima' ?></span>
           </span>
           <?php if ($invita): ?>
@@ -890,6 +920,9 @@ foreach ($tareas as $t) {
               'inicio'    => str_replace(' ', 'T', (string)($r['inicio'] ?? '')),
               'duracion'  => (int)$r['duracion'],
               'invitados' => array_map('intval', $r['invitados'] ?? []),
+              'recurrente'=> $repite,
+              'dias'      => array_map('intval', (array)($r['dias'] ?? [])),
+              'hasta'     => (string)($r['hasta'] ?? ''),
           ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
           <button type="button" class="accion-btn solo-admin js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
           <form method="post" action="actions.php" class="inline-form solo-admin"
@@ -1133,19 +1166,6 @@ $comData = json_encode([
       <h3 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Nueva reunión</h3>
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
-    <?php if ($zoomListo && $meetListo): ?>
-    <div class="campo"><span>Plataforma</span>
-      <input type="hidden" name="plataforma" value="zoom">
-      <div class="subvista-toggle nr-plat">
-        <button type="button" class="subvista-btn active" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
-        <button type="button" class="subvista-btn" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
-      </div>
-      <small class="campo-ayuda nr-meet-hint" hidden>La reunión de Meet se crea en TU Google Calendar (debes tener tu calendario conectado en Mi perfil).</small>
-    </div>
-    <?php else: ?>
-    <input type="hidden" name="plataforma" value="<?= $zoomListo ? 'zoom' : 'meet' ?>">
-    <?php if ($meetListo): ?><small class="campo-ayuda">Se creará como reunión de <b>Google Meet</b> en tu calendario.</small><?php endif; ?>
-    <?php endif; ?>
     <label class="campo"><span>Tema de la reunión *</span>
       <input class="input-meca" name="topic" required maxlength="120" placeholder="Ej. Revisión de avances — <?= e($proyecto['nombre']) ?>">
     </label>
@@ -1154,16 +1174,61 @@ $comData = json_encode([
         <input class="input-meca" type="datetime-local" name="inicio" required value="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>">
       </label>
       <label class="campo"><span>Duración (min)</span>
-        <?= UI::select('duracion', [30 => '30 min', 45 => '45 min', 60 => '1 hora', 90 => '1h 30m', 120 => '2 horas'], '60') ?>
+        <?= UI::select('duracion', $durOpciones, (string)$durDefecto) ?>
       </label>
     </div>
+
+    <!-- Repeticion semanal: una sola reunion con un enlace fijo -->
+    <div class="campo repetir-caja">
+      <label class="chk-linea" title="Se crea una sola reunión con el mismo enlace para todos los días.<?= $zoomListo ? ' En Zoom, máximo 60 repeticiones por serie.' : '' ?>">
+        <input type="checkbox" name="recurrente" value="1" class="js-repetir">
+        <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+        Repetir todas las semanas
+      </label>
+      <div class="repetir-detalle" hidden>
+        <div class="dias-semana">
+          <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
+          <label class="dia-chip" title="<?= e($largo) ?>">
+            <input type="checkbox" name="dias[]" value="<?= $dn ?>" <?= $dn <= 5 ? 'checked' : '' ?>>
+            <span><?= e($corto) ?></span>
+          </label>
+          <?php endforeach; ?>
+        </div>
+        <label class="repetir-hasta"><span>hasta</span>
+          <input class="input-meca" type="date" name="hasta" value="<?= date('Y-m-d', strtotime('+1 month')) ?>">
+        </label>
+      </div>
+    </div>
+
+    <?php if ($platElegir): ?>
+    <div class="campo"><span>Plataforma</span>
+      <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
+      <div class="subvista-toggle nr-plat">
+        <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
+        <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
+      </div>
+      <small class="campo-ayuda nr-meet-hint" <?= $platDefecto === 'meet' ? '' : 'hidden' ?>>La reunión de Meet se crea en TU Google Calendar (necesitas tenerlo conectado en Mi perfil).</small>
+    </div>
+    <?php else:
+      // Sin selector conviene decir de dónde sale la plataforma, o parece impuesta sin motivo
+      $platOrigen = ProyectoRepo::plataformaEntrada($proyecto['plataforma'] ?? '') !== ''
+          ? 'la elegida para este proyecto'
+          : (count(Reuniones::disponibles()) < 2 ? 'la única configurada' : 'la del panel');
+    ?>
+    <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
+    <div class="campo"><span>Plataforma</span>
+      <small class="campo-ayuda"><b><?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></b><?= $platDefecto === 'meet' ? ', en tu calendario' : '' ?>
+        — <?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
+    </div>
+    <?php endif; ?>
+
     <label class="campo"><span>Invitar (registra a las personas del equipo)</span>
       <?= UI::select('invitados', $opcionesInvitados, [], false, '', true) ?>
-      <small class="campo-ayuda">Se les enviará el enlace por correo si tienen uno registrado.</small>
+      <small class="campo-ayuda">Se les enviará el enlace por correo si tienen uno registrado<?= Reuniones::agendaEnCalendarios() ? ', y se les agenda en su Google Calendar' : '' ?>.</small>
     </label>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear en Zoom</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear reunión</button>
     </footer>
   </form>
 </dialog>
@@ -1185,9 +1250,31 @@ $comData = json_encode([
         <input class="input-meca" type="datetime-local" name="inicio" id="er-inicio" required>
       </label>
       <label class="campo"><span>Duración (min)</span>
-        <?= UI::select('duracion', [30 => '30 min', 45 => '45 min', 60 => '1 hora', 90 => '1h 30m', 120 => '2 horas'], '60', false, 'js-er-duracion') ?>
+        <?= UI::select('duracion', $durOpciones, (string)$durDefecto, false, 'js-er-duracion') ?>
       </label>
     </div>
+
+    <div class="campo repetir-caja">
+      <label class="chk-linea" title="Al guardar se actualiza toda la serie, no un día suelto.">
+        <input type="checkbox" name="recurrente" value="1" class="js-repetir js-er-recurrente">
+        <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+        Repetir todas las semanas
+      </label>
+      <div class="repetir-detalle" hidden>
+        <div class="dias-semana js-er-dias">
+          <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
+          <label class="dia-chip" title="<?= e($largo) ?>">
+            <input type="checkbox" name="dias[]" value="<?= $dn ?>">
+            <span><?= e($corto) ?></span>
+          </label>
+          <?php endforeach; ?>
+        </div>
+        <label class="repetir-hasta"><span>hasta</span>
+          <input class="input-meca js-er-hasta" type="date" name="hasta">
+        </label>
+      </div>
+    </div>
+
     <label class="campo"><span>Invitar (añade a más personas del equipo)</span>
       <?= UI::select('invitados', $opcionesInvitados, [], false, 'js-er-invitados', true) ?>
       <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
@@ -1398,6 +1485,15 @@ $comData = json_encode([
           <?= UI::reposEditor($proyecto) ?>
         </div>
         <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>
+        <label class="campo"><span>Plataforma de reuniones</span>
+          <?= UI::select('plataforma', [
+                '' => 'La del panel (' . (Reuniones::etiquetaPlataforma(Reuniones::conf()['plataforma']) ?: 'sin definir') . ')',
+                'zoom' => 'Zoom',
+                'meet' => 'Google Meet',
+              ], (string)($proyecto['plataforma'] ?? '')) ?>
+          <small class="campo-ayuda">Este proyecto puede usar una distinta a la del resto. Si la que elijas no
+            está configurada, se usa la que sí lo esté.</small>
+        </label>
       </section>
 
       <section class="wz-panel">

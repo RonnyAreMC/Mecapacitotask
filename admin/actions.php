@@ -119,6 +119,84 @@ function sincronizarCalendario(array $tarea, ProyectoRepo $proyectos, MiembroRep
 }
 
 /**
+ * Deja la reunion en el calendario propio de cada invitado y devuelve a cuantos
+ * les llego. Es imprescindible en Zoom (Google no sabe que esa reunion existe);
+ * en Meet solo se usa para quien no tiene correo, porque el resto ya recibe la
+ * invitacion del evento y tenerla dos veces seria ruido.
+ *
+ * Guarda el mapa idMiembro => idEvento en la reunion para poder actualizar o
+ * borrar despues, y limpia las copias de quien dejo de estar invitado.
+ */
+function agendarReunionEnCalendarios(array $reu, array $proyecto, MiembroRepo $miembros, ReunionRepo $reuniones): int
+{
+    $copias    = (array)($reu['gcal_copias'] ?? []);
+    $invitados = array_map('intval', (array)($reu['invitados'] ?? []));
+    $esMeet    = ($reu['plataforma'] ?? 'zoom') === 'meet';
+    $vigentes  = [];
+    $agendados = 0;
+
+    if (Reuniones::agendaEnCalendarios()) {
+        foreach ($invitados as $mid) {
+            $m = $miembros->buscar($mid);
+            if (!$m || empty($m['gcal_refresh'])) continue;         // sin su Google conectado
+            if ($esMeet && !empty($m['email'])) continue;           // ya va como invitado del evento
+            $ev = GoogleCalendar::agendarReunion($m, $reu, $proyecto, (string)($copias[$mid] ?? ''));
+            if ($ev !== null) { $vigentes[$mid] = $ev; $agendados++; }
+        }
+    }
+    // Copias que sobran: se desinvito a alguien, cambio la plataforma o se apago
+    // la opcion en Ajustes.
+    foreach ($copias as $mid => $ev) {
+        if (isset($vigentes[(int)$mid])) continue;
+        $m = $miembros->buscar((int)$mid);
+        if ($m) GoogleCalendar::borrar($m, (string)$ev);
+    }
+    $reuniones->actualizar((int)$reu['id'], ['gcal_copias' => $vigentes]);
+    return $agendados;
+}
+
+/** Quita del calendario de cada invitado las copias de una reunion borrada. */
+function borrarCopiasReunion(array $reu, MiembroRepo $miembros): void
+{
+    foreach ((array)($reu['gcal_copias'] ?? []) as $mid => $ev) {
+        $m = $miembros->buscar((int)$mid);
+        if ($m) GoogleCalendar::borrar($m, (string)$ev);
+    }
+}
+
+/**
+ * Lee del formulario la repeticion semanal de una reunion y la valida.
+ * Devuelve [recurrente, dias, hasta, inicio] con el inicio ya movido al primer
+ * dia que cumple la regla. Redirige con un mensaje claro si algo no cuadra.
+ */
+function repeticionReunion(array $post, string $inicio, string $plataforma, string $volver): array
+{
+    if (empty($post['recurrente'])) return [false, [], '', $inicio];
+
+    $dias  = Reuniones::diasValidos($post['dias'] ?? []);
+    $hasta = trim((string)($post['hasta'] ?? ''));
+    if (!$dias) {
+        redirigir($volver, 'Marca al menos un día de la semana para repetir la reunión.', 'error');
+    }
+    if ($hasta === '') {
+        redirigir($volver, 'Indica hasta qué fecha se repite la reunión.', 'error');
+    }
+    if ($hasta < substr($inicio, 0, 10)) {
+        redirigir($volver, 'La fecha final de la repetición («' . $hasta . '») es anterior al primer día de la reunión.', 'error');
+    }
+    // Si el primer dia elegido no es de los marcados, la serie arrancaria fuera
+    // de la regla: se adelanta al siguiente que si lo sea.
+    $inicio = Reuniones::primerInicio($inicio, $dias);
+
+    $veces = Reuniones::ocurrencias($inicio, $dias, $hasta);
+    if ($plataforma === 'zoom' && $veces > 60) {
+        redirigir($volver, 'Zoom admite como máximo 60 repeticiones por reunión y esta serie tendría ' . $veces
+            . '. Acorta el rango de fechas o crea la reunión con Google Meet.', 'error');
+    }
+    return [true, $dias, $hasta, $inicio];
+}
+
+/**
  * Comprueba el par inicio/limite de una tarea. Devuelve [inicio, limite]
  * ya normalizados, o redirige con un error si el inicio queda despues.
  */
@@ -214,6 +292,7 @@ switch ($accion) {
             'color'         => Catalogo::colorEntrada($_POST),
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
+            'plataforma'    => ProyectoRepo::plataformaEntrada($_POST['plataforma'] ?? ''),
         ]);
         $pAhora = $proyectos->buscar($id);
         $avisoEquipo = avisarNuevosDelProyecto($equipoAntes, (array)($pAhora['miembros'] ?? []), $pAhora, $miembros);
@@ -949,6 +1028,16 @@ switch ($accion) {
             'zona'          => trim($zoomPost['zona'] ?? '') ?: 'America/Guayaquil',
         ];
 
+        $reuPost = (array)($_POST['reuniones'] ?? []);
+        $reunionesCfg = [
+            'plataforma'      => ($reuPost['plataforma'] ?? '') === 'meet' ? 'meet' : 'zoom',
+            'permitir_elegir' => !empty($reuPost['permitir_elegir']),
+            'duracion'        => isset(Reuniones::duraciones()[(int)($reuPost['duracion'] ?? 0)])
+                                    ? (int)$reuPost['duracion'] : $def['reuniones']['duracion'],
+            'zona'            => trim($reuPost['zona'] ?? ''),
+            'agendar'         => !empty($reuPost['agendar']),
+        ];
+
         $correoPost = (array)($_POST['correo'] ?? []);
         $correo = [
             'activo'    => !empty($correoPost['activo']),
@@ -1009,6 +1098,7 @@ switch ($accion) {
             'roles'            => $roles ?: $def['roles'],
             'correo'           => $correo,
             'zoom'             => $zoom,
+            'reuniones'        => $reunionesCfg,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -1107,13 +1197,19 @@ switch ($accion) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
-        $plataforma = ($_POST['plataforma'] ?? 'zoom') === 'meet' ? 'meet' : 'zoom';
+        // La plataforma la decide el proyecto (si tiene una propia) o Ajustes;
+        // lo que pida el formulario solo cuenta si el admin dejo elegir.
+        $plataforma = Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pid));
+        if ($plataforma === '') {
+            redirigir($volver, 'No hay ninguna plataforma de reuniones configurada. Ve a Ajustes → Reuniones.', 'error');
+        }
         $topic  = trim($_POST['topic'] ?? '');
         $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));   // datetime-local
-        $dur    = (int)($_POST['duracion'] ?? 60);
+        $dur    = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
         if ($topic === '' || $inicio === '') {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
+        [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $plataforma, $volver);
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
         $p = $proyectos->buscar($pid);
 
@@ -1131,6 +1227,7 @@ switch ($accion) {
             }
             $creada = GoogleCalendar::crearMeet($refresh, [
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'invitados' => $emails,
+                'dias'  => $dias,  'hasta'  => $hasta,
             ]);
             if (isset($creada['error'])) {
                 $msg = $creada['error'] === 'sin_conexion'
@@ -1148,6 +1245,9 @@ switch ($accion) {
                 'duracion'    => $dur,
                 'join_url'    => (string)($creada['meet'] ?? ''),
                 'invitados'   => $invitados,
+                'recurrente'  => $recurrente,
+                'dias'        => $dias,
+                'hasta'       => $hasta,
             ]);
             $donde = 'Reunión de Google Meet creada.';
         } else {
@@ -1155,7 +1255,10 @@ switch ($accion) {
             if (!Zoom::listo()) {
                 redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom (o crea la reunión con Meet).', 'error');
             }
-            $creada = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur]);
+            $creada = Zoom::crearReunion([
+                'topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur,
+                'dias'  => $dias,  'hasta'  => $hasta,
+            ]);
             if (isset($creada['error'])) {
                 redirigir($volver, $creada['error'], 'error');
             }
@@ -1163,6 +1266,7 @@ switch ($accion) {
                 'proyecto_id' => $pid,
                 'plataforma'  => 'zoom',
                 'zoom_id'     => (string)($creada['id'] ?? ''),
+                'creador_id'  => (int)(Auth::usuario()['id'] ?? 0),
                 'topic'       => $topic,
                 'inicio'      => $inicio,
                 'duracion'    => $dur,
@@ -1170,9 +1274,18 @@ switch ($accion) {
                 'start_url'   => $creada['start_url'] ?? '',
                 'password'    => $creada['password'] ?? '',
                 'invitados'   => $invitados,
+                'recurrente'  => $recurrente,
+                'dias'        => $dias,
+                'hasta'       => $hasta,
             ]);
             $donde = 'Reunión creada en Zoom.';
         }
+        if ($recurrente) {
+            $donde .= ' Se repite ' . mb_strtolower(Reuniones::etiqueta($dias)) . ' hasta el ' . $hasta . '.';
+        }
+
+        // La deja en el calendario de cada invitado (imprescindible en Zoom)
+        $agendados = agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), (array)$p, $miembros, $reuniones);
 
         // Notifica por correo a los invitados con correo registrado
         $avisados = 0;
@@ -1182,7 +1295,9 @@ switch ($accion) {
                 if ($m && Mailer::notificarReunion($reu, $m, $p) === true) $avisados++;
             }
         }
-        redirigir($volver, $donde . ($avisados ? ' ' . $avisados . ' invitado(s) notificado(s).' : ''));
+        redirigir($volver, $donde
+            . ($avisados  ? ' ' . $avisados . ' invitado(s) notificado(s).' : '')
+            . ($agendados ? ' Agendada en ' . $agendados . ' calendario(s).' : ''));
 
     case 'reunion_editar':
         $reuniones = new ReunionRepo();
@@ -1194,16 +1309,27 @@ switch ($accion) {
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
         $topic = trim($_POST['topic'] ?? '');
         $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));
-        $duracion = (int)($_POST['duracion'] ?? 60);
+        $duracion = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
         if ($topic === '' || $inicio === '') {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
+        $esMeet = ($reu['plataforma'] ?? 'zoom') === 'meet';
+        [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $esMeet ? 'meet' : 'zoom', $volver);
+        $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
+        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
+
         // Actualiza en la plataforma correspondiente
-        if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {
+        if ($esMeet && !empty($reu['gcal_event'])) {
             $creador = $miembros->buscar((int)($reu['creador_id'] ?? 0));
             $refresh = (string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? ''));
+            $emails = [];
+            foreach ($invitados as $mid) {
+                $m = $miembros->buscar($mid);
+                if ($m && !empty($m['email'])) $emails[] = $m['email'];
+            }
             $ok = GoogleCalendar::actualizarMeet($refresh, (string)$reu['gcal_event'], [
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
+                'dias'  => $dias,  'hasta'  => $hasta, 'invitados' => $emails,
             ]);
             if ($ok !== true) {
                 redirigir($volver, $ok, 'error');
@@ -1211,19 +1337,24 @@ switch ($accion) {
         } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
             $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], [
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
+                'dias'  => $dias,  'hasta'  => $hasta,
             ]);
             if ($ok !== true) {
                 redirigir($volver, $ok, 'error');
             }
         }
-        $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
-        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
         $reuniones->actualizar((int)$reu['id'], [
-            'topic'     => $topic,
-            'inicio'    => $inicio,
-            'duracion'  => $duracion,
-            'invitados' => $invitados,
+            'topic'      => $topic,
+            'inicio'     => $inicio,
+            'duracion'   => $duracion,
+            'invitados'  => $invitados,
+            'recurrente' => $recurrente,
+            'dias'       => $dias,
+            'hasta'      => $hasta,
         ]);
+        // Reagenda las copias: la hora, la repeticion o los invitados pudieron cambiar
+        $pReu = $proyectos->buscar($pid);
+        agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), (array)$pReu, $miembros, $reuniones);
         // Avisa solo a los invitados NUEVOS
         $nuevos = array_diff($invitados, $invitadosAntes);
         $avisados = 0;
@@ -1310,6 +1441,8 @@ switch ($accion) {
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
         if ($reu) {
+            // Las copias en los calendarios de los invitados se van con ella
+            borrarCopiasReunion($reu, $miembros);
             if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {
                 $creador = $miembros->buscar((int)($reu['creador_id'] ?? 0));
                 $refresh = (string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? ''));

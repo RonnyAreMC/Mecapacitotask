@@ -38,6 +38,7 @@ require_once __DIR__ . '/ImportadorTareas.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/GitHub.php';
 require_once __DIR__ . '/Zoom.php';
+require_once __DIR__ . '/Reuniones.php';
 
 // Zona horaria del equipo. Sin esto PHP usa la del servidor (normalmente UTC)
 // y las horas de reuniones y fechas salen corridas al compararlas o mostrarlas.

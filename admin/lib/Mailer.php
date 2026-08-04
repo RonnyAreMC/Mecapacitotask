@@ -510,6 +510,13 @@ class Mailer
             'Proyecto' => e($proyecto['nombre']),
             'Cuándo'   => e($reunion['inicio'] ?? ''),
         ];
+        // Si se repite, la fecha suelta engaña: hay que decir los días y hasta cuándo.
+        if (Reuniones::esRecurrente($reunion)) {
+            $filas['Cuándo']  = e(Reuniones::etiqueta((array)$reunion['dias'])
+                                  . ' a las ' . substr((string)$reunion['inicio'], 11, 5));
+            $filas['Desde']   = e(substr((string)$reunion['inicio'], 0, 10));
+            $filas['Se repite hasta'] = e((string)$reunion['hasta']);
+        }
         if (!empty($reunion['duracion'])) $filas['Duración'] = (int)$reunion['duracion'] . ' min';
         if (!empty($reunion['password'])) $filas['Código'] = e($reunion['password']);
         $cuerpo = self::encabezado($acento, '&#9658;', 'Te invitaron a una reunión',

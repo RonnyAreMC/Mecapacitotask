@@ -54,7 +54,7 @@ UI::cabecera(
   <button type="button" class="tab-btn" data-tab="iconos"><i class="fa-solid fa-icons"></i> Íconos</button>
   <button type="button" class="tab-btn" data-tab="roles"><i class="fa-solid fa-user-tag"></i> Roles</button>
   <button type="button" class="tab-btn" data-tab="correo"><i class="fa-solid fa-envelope"></i> Correo</button>
-  <button type="button" class="tab-btn" data-tab="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
+  <button type="button" class="tab-btn" data-tab="reuniones"><i class="fa-solid fa-calendar-check"></i> Reuniones</button>
   <button type="button" class="tab-btn" data-tab="acceso"><i class="fa-solid fa-shield-halved"></i> Acceso y respaldo</button>
 </div>
 
@@ -438,12 +438,88 @@ UI::cabecera(
 
   <!-- ================= TAB: Zoom ================= -->
   <?php $zc = $cfg['zoom']; ?>
-  <div class="tab-panel" data-panel="zoom" hidden>
+  <div class="tab-panel" data-panel="reuniones" hidden>
     <div class="ajustes-grid">
       <section class="card-base ajuste-card ajuste-card-ancha">
-        <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones con Zoom</h2>
+        <?php $rc = Reuniones::conf(); $disp = Reuniones::disponibles(); ?>
+        <h2 class="font-display"><i class="fa-solid fa-calendar-check text-secondary"></i> Reuniones</h2>
         <p class="ajuste-ayuda">
-          Crea reuniones de Zoom desde cada proyecto, con enlace para entrar y acceso a la grabación.
+          Aquí <b>no se crea ninguna reunión</b>: se definen las reglas que aplican a todos los proyectos.
+          Cada reunión se crea en <b>Proyecto → Reuniones → Nueva reunión</b>, y es ahí donde eliges su día y
+          su hora, y donde está la casilla <i>«Repetir todas las semanas»</i> con las fichas L M X J V S D
+          (por ejemplo, todos los días de lunes a viernes a la misma hora).
+        </p>
+
+        <?php if (!$disp): ?>
+        <div class="obs-intro reu-vacio">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          <span>
+            <b>Todavía no puedes crear reuniones.</b> El panel no las inventa: necesita conectarse a Zoom o a
+            Google. Hasta que hagas una de las dos cosas, en los proyectos verás «Configurar reuniones» en vez
+            del botón «Nueva reunión», y lo de aquí abajo no tiene efecto.
+            <br><br>
+            <b>Opción A — Zoom.</b> Crea una app <i>Server-to-Server OAuth</i> en
+            <a href="https://marketplace.zoom.us/develop/create" target="_blank" rel="noopener">Zoom Marketplace</a>
+            y pega Account ID, Client ID y Client Secret en <a href="#zoom-credenciales">Conexión con Zoom</a>
+            (aquí abajo), marcando «Activar reuniones de Zoom».
+            <br>
+            <b>Opción B — Google Meet.</b> En <a href="#tab-acceso">Acceso y respaldo → Acceso al panel</a>
+            pon el Client ID y el Client Secret de Google y marca «enviar tareas al Google Calendar».
+            Después, cada persona conecta su calendario en <b>Mi perfil → Conectar mi calendario</b>.
+            <br><br>
+            Con cualquiera de las dos basta. Si configuras las dos, podrás elegir por reunión.
+          </span>
+        </div>
+        <?php endif; ?>
+
+        <div class="campo-doble">
+          <label class="campo"><span>Plataforma por defecto</span>
+            <?= UI::select('reuniones[plataforma]', ['zoom' => 'Zoom', 'meet' => 'Google Meet'], $rc['plataforma']) ?>
+            <small class="campo-ayuda">
+              <?php if ($disp && !isset($disp[$rc['plataforma']])): ?>
+              <b class="sem-txt-rojo">Ojo:</b> esa plataforma no está configurada, así que ahora mismo
+              se usa <b><?= e(reset($disp)) ?></b>.
+              <?php else: ?>
+              La que se usa salvo que un proyecto tenga la suya propia
+              (<b>Editar proyecto → Plataforma de reuniones</b>).
+              <?php endif; ?>
+            </small>
+          </label>
+          <label class="campo"><span>Duración por defecto</span>
+            <?= UI::select('reuniones[duracion]', Reuniones::duraciones(), (string)$rc['duracion']) ?>
+            <small class="campo-ayuda">La que viene marcada al abrir "Nueva reunión".</small>
+          </label>
+        </div>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="reuniones[permitir_elegir]" <?= !empty($rc['permitir_elegir']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Dejar que el equipo elija la plataforma en cada reunión
+        </label>
+        <p class="ajuste-ayuda">Si lo desmarcas, el selector desaparece del formulario y todas salen
+          por la plataforma de arriba. El selector solo aparece si las dos están configuradas.</p>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="reuniones[agendar]" <?= !empty($rc['agendar']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Agendar la reunión en el Google Calendar de cada invitado
+        </label>
+        <p class="ajuste-ayuda">
+          En <b>Meet</b>, quien tenga correo registrado recibe la invitación de Google (con aviso por correo).
+          En <b>Zoom</b>, y para quien no tenga correo, se escribe el evento en su calendario usando su propia
+          conexión de Google — hace falta que cada persona la active en <b>Mi perfil → Conectar mi calendario</b>.
+        </p>
+
+        <label class="campo"><span>Zona horaria de las reuniones</span>
+          <input class="input-meca" name="reuniones[zona]" value="<?= e($rc['zona']) ?>" placeholder="vacío = la misma que Zoom (<?= e(Reuniones::zona()) ?>)">
+          <small class="campo-ayuda">Se aplica a Zoom y a Google Meet por igual.</small>
+        </label>
+      </section>
+
+      <section class="card-base ajuste-card ajuste-card-ancha">
+        <h2 class="font-display" id="zoom-credenciales"><i class="fa-solid fa-video text-secondary"></i> Conexión con Zoom</h2>
+        <p class="ajuste-ayuda">
+          Credenciales para que el panel pueda crear reuniones de Zoom, con enlace para entrar y acceso a la grabación.
           Necesitas una app <b>Server-to-Server OAuth</b> en
           <a href="https://marketplace.zoom.us/develop/create" target="_blank" rel="noopener">Zoom Marketplace</a>
           con scopes <code>meeting:write</code>, <code>meeting:read</code> y <code>recording:read</code>.

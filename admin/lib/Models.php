@@ -205,6 +205,13 @@ final class Config
                 'client_secret' => '',
                 'zona'          => 'America/Guayaquil',
             ],
+            'reuniones' => [
+                'plataforma'      => 'zoom',   // la que se usa por defecto: zoom | meet
+                'permitir_elegir' => true,     // ¿el equipo puede cambiarla al crear?
+                'duracion'        => 60,       // minutos sugeridos en el formulario
+                'zona'            => '',       // vacío = la misma que Zoom
+                'agendar'         => true,     // agendar en el calendario de los invitados
+            ],
             'correo' => [
                 'activo'    => false,
                 'modo'      => 'smtp',
@@ -366,7 +373,15 @@ class ProyectoRepo
             'color'         => Catalogo::colorEntrada($datos),
             'fecha_inicio'  => self::fecha($datos['fecha_inicio'] ?? ''),
             'miembros'      => self::miembrosEntrada($datos['miembros'] ?? []),
+            // Plataforma de reuniones propia del proyecto ('' = la del panel)
+            'plataforma'    => self::plataformaEntrada($datos['plataforma'] ?? ''),
         ]);
+    }
+
+    /** Plataforma de reuniones valida para un proyecto: 'zoom', 'meet' o '' (heredar). */
+    public static function plataformaEntrada(mixed $valor): string
+    {
+        return in_array($valor, ['zoom', 'meet'], true) ? $valor : '';
     }
 
     /** Valida una fecha 'Y-m-d'; devuelve '' si no lo es. */
@@ -1041,6 +1056,12 @@ class ReunionRepo
             'start_url'   => (string)($datos['start_url'] ?? ''),
             'password'    => (string)($datos['password'] ?? ''),
             'invitados'   => array_values(array_map('intval', $datos['invitados'] ?? [])),
+            // Repeticion semanal: dias en ISO (1=lunes) y fecha final inclusive.
+            'recurrente'  => !empty($datos['recurrente']),
+            'dias'        => Reuniones::diasValidos($datos['dias'] ?? []),
+            'hasta'       => (string)($datos['hasta'] ?? ''),
+            // Copias del evento en el calendario de cada invitado: idMiembro => idEvento
+            'gcal_copias' => (array)($datos['gcal_copias'] ?? []),
             'grabaciones' => [],
         ]);
     }
