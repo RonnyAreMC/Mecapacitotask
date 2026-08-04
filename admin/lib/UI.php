@@ -432,7 +432,9 @@ class UI
     public static function select(string $name, array $opciones, string|int|array|null $valor = '', bool $auto = false, string $clase = '', bool $multiple = false): string
     {
         $valor ??= '';
-        $attrs = $auto ? ' onchange="this.form.submit()"' : '';
+        // requestSubmit() SI dispara el evento 'submit' (a diferencia de submit()),
+        // que es lo que deja al JS interceptar y guardar por AJAX sin recargar.
+        $attrs = $auto ? ' onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"' : '';
         $seleccion = $multiple ? array_map('strval', (array)$valor) : [(string)$valor];
         $nombre = $multiple ? $name . '[]' : $name;
         $html = '<select name="' . e($nombre) . '" class="select-meca ' . e($clase) . '"'

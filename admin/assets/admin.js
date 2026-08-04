@@ -13,16 +13,30 @@
   // Al abandonar la página (submit de formulario, clic en enlace, redirección)
   addEventListener('beforeunload', mostrar);
 
-  // Spinner en el botón que envía el formulario (los AJAX hacen preventDefault
-  // y no llegan aquí con submitter, así que no se marcan por error)
+  // Volver con el botón "atrás" restaura la página tal cual quedó (bfcache),
+  // barra encendida incluida: hay que apagarla a mano.
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    barra.classList.remove('activa');
+    document.querySelectorAll('.btn-cargando').forEach((b) => b.classList.remove('btn-cargando'));
+  });
+
+  // Spinner en el botón que envía el formulario.
   document.addEventListener('submit', (e) => {
     // Las descargas no recargan la página: si mostráramos spinner/barra se
     // quedarían girando para siempre. Los formularios de descarga se marcan
     // con data-descarga.
     if (e.target && e.target.dataset && e.target.dataset.descarga !== undefined) return;
     const b = e.submitter;
-    if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) b.classList.add('btn-cargando');
-    mostrar();
+    // Este listener va en captura, así que corre ANTES que los de burbuja: aún
+    // no se sabe si alguno hará preventDefault para guardar por AJAX. Se decide
+    // al final del ciclo; si nadie navega, no hay quien apague la barra y se
+    // quedaría colgada arriba.
+    setTimeout(() => {
+      if (e.defaultPrevented) return;
+      if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) b.classList.add('btn-cargando');
+      mostrar();
+    }, 0);
   }, true);
 })();
 
@@ -1014,15 +1028,54 @@ function guardarEstadoTarea(id, estado) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
     body,
   }).then((r) => r.json()).then((res) => {
-    if (res && res.ok && res.conteo) {
-      document.querySelectorAll('.kanban .kb-cards[data-estado-drop]').forEach((z) => {
-        const k = z.dataset.estadoDrop;
-        const head = z.closest('.kb-col')?.querySelector('.kb-count');
-        if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
-      });
-    }
+    if (res && res.ok) pintarAvanceProyecto(res);
     return res || { ok: false };
   }).catch(() => ({ ok: false, error: 'Sin conexión' }));
+}
+
+/* Refresca lo que la recarga pintaba sola: contadores del kanban, tiles de
+   resumen por estado y la barra de avance de la cabecera. Sin esto, guardar
+   por AJAX deja esos números en el valor viejo. */
+function pintarAvanceProyecto(res) {
+  if (res.conteo) {
+    document.querySelectorAll('.kanban .kb-cards[data-estado-drop]').forEach((z) => {
+      const k = z.dataset.estadoDrop;
+      const head = z.closest('.kb-col')?.querySelector('.kb-count');
+      if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
+    });
+    Object.keys(res.conteo).forEach((k) => {
+      const num = document.querySelector('.estado-tile.estado-' + k + ' .et-datos b');
+      if (num) num.textContent = res.conteo[k];
+    });
+  }
+
+  if (typeof res.avance !== 'number') return;
+  // Mismo corte de semáforo que proyecto.php
+  const nivel = res.avance >= 67 ? 'verde' : (res.avance >= 34 ? 'amarillo' : 'rojo');
+
+  const hero = document.querySelector('.proyecto-hero .ph-barra');
+  if (hero) {
+    hero.title = 'Avance del proyecto: ' + res.avance + '%';
+    const relleno = hero.querySelector('span');
+    if (relleno) relleno.style.width = res.avance + '%';
+  }
+
+  const caja = document.querySelector('.ph-avance-abajo');
+  if (!caja) return;
+  caja.title = res.completadas + ' de ' + res.total + ' tareas completadas';
+  const texto = caja.querySelector('small');
+  if (texto) texto.textContent = res.completadas + '/' + res.total + ' tareas';
+  const semaforo = caja.querySelector('.barra-semaforo');
+  if (semaforo) {
+    semaforo.className = 'barra-semaforo sem-' + nivel;
+    const relleno = semaforo.querySelector('span');
+    if (relleno) relleno.style.width = res.avance + '%';
+  }
+  const pct = caja.querySelector('.pam-num');
+  if (pct) {
+    pct.className = 'pam-num sem-txt-' + nivel;
+    pct.textContent = res.avance + '%';
+  }
 }
 
 // Kanban: arrastrar tarjetas entre columnas cambia el estado (AJAX, sin recargar)
@@ -1076,7 +1129,16 @@ document.addEventListener('submit', (e) => {
   const estado = form.querySelector('[name="estado"]')?.value;
   if (!id || !estado) return;
   e.preventDefault();
+  const sel = form.querySelector('[name="estado"]');
+  const previo = [...(sel?.classList || [])].find((c) => c.startsWith('estado-'));
   guardarEstadoTarea(id, estado).then((res) => {
+    // Recolorear la píldora: sin recarga, la clase estado-* quedaría en el valor viejo.
+    if (res.ok && sel) {
+      if (previo) sel.classList.remove(previo);
+      sel.classList.add('estado-' + estado);
+    } else if (!res.ok && sel && previo) {
+      sel.value = previo.slice('estado-'.length);   // revertir lo que no se guardó
+    }
     MC?.toast?.(res.ok ? 'Estado actualizado' : (res.error || 'No se pudo cambiar'), res.ok ? 'success' : 'error', res.ok ? 1600 : 4000);
   });
 });

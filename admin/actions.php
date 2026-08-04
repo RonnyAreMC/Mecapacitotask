@@ -275,10 +275,18 @@ switch ($accion) {
         }
         $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
-        // Contadores por estado del proyecto, para que el kanban se actualice
-        // sin recargar.
-        $conteo = $tareas->resumen((int)$t['proyecto_id']);
-        $respEstado(true, 'Estado actualizado.', ['conteo' => $conteo]);
+        // Contadores por estado del proyecto, para que el kanban, los tiles de
+        // resumen y la barra de avance se actualicen sin recargar. El avance se
+        // calcula aqui porque descuenta las tareas con observaciones pendientes:
+        // el navegador no puede deducirlo del conteo.
+        $pidEstado = (int)$t['proyecto_id'];
+        $conteo    = $tareas->resumen($pidEstado);
+        $respEstado(true, 'Estado actualizado.', [
+            'conteo'      => $conteo,
+            'avance'      => $tareas->avance($pidEstado),
+            'completadas' => $tareas->completadas($pidEstado),
+            'total'       => array_sum($conteo),
+        ]);
 
     case 'tarea_editar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
