@@ -37,6 +37,8 @@ require_once __DIR__ . '/GoogleCalendar.php';
 require_once __DIR__ . '/ImportadorTareas.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/GitHub.php';
+require_once __DIR__ . '/GitLab.php';
+require_once __DIR__ . '/Repos.php';
 require_once __DIR__ . '/Zoom.php';
 require_once __DIR__ . '/Reuniones.php';
 
@@ -169,53 +171,154 @@ function logoPanel(): string
     return '../assets/mecapacito-logo.png';
 }
 
-/** Tipo MIME del logo actual, para el favicon (soporta SVG y PNG). */
-function logoMime(): string
+/**
+ * Icono para la pestaña del navegador. NO sirve el logo del panel: ese es el
+ * wordmark (281x59), y a 16px el texto se aplasta hasta volverse ilegible.
+ * Se usa el icono cuadrado, que es lo que se lee a ese tamaño.
+ * Si en Ajustes subieron un logo propio, ese manda: es una decisión explícita.
+ */
+function faviconPanel(): string
 {
-    return str_ends_with(strtolower(logoPanel()), '.svg') ? 'image/svg+xml' : 'image/png';
+    $logo = trim((string)(Config::get('logo') ?? ''));
+    if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
+        return $logo;
+    }
+    foreach (['innotech-hub-icon.svg', 'innotech-hub-icon.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
+    }
+    return logoPanel();          // sin icono propio, mejor el logo que nada
+}
+
+/** Tipo MIME de una imagen del panel, para el atributo type del favicon. */
+function logoMime(string $ruta = ''): string
+{
+    $ruta = $ruta !== '' ? $ruta : logoPanel();
+    return str_ends_with(strtolower($ruta), '.svg') ? 'image/svg+xml' : 'image/png';
 }
 
 /**
- * Sube varios adjuntos (imagenes, PDF, Word) de un input múltiple.
- * Devuelve [ ['ruta'=>, 'nombre'=>, 'tipo'=>'img'|'doc', 'ext'=>], ... ].
+ * Formatos admitidos como adjunto: extension => tipos reales aceptables.
+ *
+ * Se comprueban los dos. Solo por extension seria confiar en el nombre que
+ * manda el navegador; solo por tipo real no funciona con Office moderno,
+ * porque un .docx es un ZIP por dentro y muchos servidores lo reportan como
+ * application/zip (asi se descartaban en silencio archivos legitimos).
  */
-function guardarAdjuntos(string $campo): array
+const ADJUNTOS_PERMITIDOS = [
+    'jpg'  => ['image/jpeg'],
+    'jpeg' => ['image/jpeg'],
+    'png'  => ['image/png'],
+    'webp' => ['image/webp'],
+    'gif'  => ['image/gif'],
+    'pdf'  => ['application/pdf'],
+    'txt'  => ['text/plain'],
+    'csv'  => ['text/plain', 'text/csv', 'application/csv'],
+    'doc'  => ['application/msword', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'xls'  => ['application/vnd.ms-excel', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'ppt'  => ['application/vnd.ms-powerpoint', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+    'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
+    'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+];
+
+/**
+ * Sube varios adjuntos de un input múltiple.
+ * Devuelve [ ['ruta'=>, 'nombre'=>, 'tipo'=>'img'|'doc', 'ext'=>], ... ].
+ * Los que no se pudieron subir salen por $rechazados, para poder decirlo en
+ * pantalla en vez de perderlos sin avisar.
+ */
+function guardarAdjuntos(string $campo, string $prefijo = 'obs_', array &$rechazados = []): array
 {
     $out = [];
     if (empty($_FILES[$campo]) || empty($_FILES[$campo]['name'])) {
         return $out;
     }
-    $permitidos = [
-        'image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif',
-        'application/pdf' => 'pdf',
-        'application/msword' => 'doc',
-        'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
-    ];
     $f = $_FILES[$campo];
     $nombres = is_array($f['name']) ? $f['name'] : [$f['name']];
     for ($i = 0, $n = count($nombres); $i < $n; $i++) {
-        $error = is_array($f['error']) ? $f['error'][$i] : $f['error'];
-        $tmp   = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+        $error    = is_array($f['error']) ? $f['error'][$i] : $f['error'];
+        $tmp      = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+        $original = (string)(is_array($f['name']) ? $f['name'][$i] : $f['name']);
+        if ($error === UPLOAD_ERR_NO_FILE || $original === '') {
+            continue;                       // hueco del input, no es un fallo
+        }
         if ($error !== UPLOAD_ERR_OK || $tmp === '') {
+            $rechazados[] = $original;
             continue;
         }
-        $mime = mime_content_type($tmp);
-        if (!isset($permitidos[$mime])) {
+        $ext   = strtolower(pathinfo($original, PATHINFO_EXTENSION));
+        $mime  = (string)mime_content_type($tmp);
+        $tipos = ADJUNTOS_PERMITIDOS[$ext] ?? null;
+        if (!$tipos || !in_array($mime, $tipos, true)) {
+            $rechazados[] = $original;
             continue;
         }
-        $ext  = $permitidos[$mime];
-        $ruta = 'uploads/' . uniqid('obs_') . '.' . $ext;
-        if (move_uploaded_file($tmp, __DIR__ . '/../' . $ruta)) {
-            $original = is_array($f['name']) ? $f['name'][$i] : $f['name'];
-            $out[] = [
-                'ruta'   => $ruta,
-                'nombre' => mb_substr($original, 0, 80),
-                'tipo'   => str_starts_with($mime, 'image/') ? 'img' : 'doc',
-                'ext'    => $ext,
-            ];
+        $ruta = 'uploads/' . uniqid($prefijo) . '.' . $ext;
+        if (!move_uploaded_file($tmp, __DIR__ . '/../' . $ruta)) {
+            $rechazados[] = $original;
+            continue;
         }
+        $out[] = [
+            'ruta'   => $ruta,
+            'nombre' => mb_substr($original, 0, 80),
+            'tipo'   => str_starts_with($mime, 'image/') ? 'img' : 'doc',
+            'ext'    => $ext,
+        ];
     }
     return $out;
+}
+
+/**
+ * Borra del disco los archivos de una lista de adjuntos. Solo toca lo que
+ * vive en uploads/ y sin barras: una ruta manipulada no puede sacar el borrado
+ * de esa carpeta.
+ */
+function borrarAdjuntos(array $adjuntos): void
+{
+    foreach ($adjuntos as $a) {
+        $ruta = (string)($a['ruta'] ?? '');
+        if (!preg_match('#^uploads/[\w.-]+$#', $ruta)) {
+            continue;
+        }
+        $archivo = __DIR__ . '/../' . $ruta;
+        if (is_file($archivo)) {
+            @unlink($archivo);
+        }
+    }
+}
+
+/**
+ * Añade al mensaje de vuelta los adjuntos que no se pudieron guardar, y lo
+ * marca como error: perder un documento en silencio es peor que un aviso.
+ * Devuelve [mensaje, tipo].
+ */
+function avisoAdjuntos(array $rechazados, string $msg = '', string $tipo = 'success'): array
+{
+    if (!$rechazados) {
+        return [$msg, $tipo];
+    }
+    $nombres = implode(', ', array_map(fn($n) => mb_substr((string)$n, 0, 40), $rechazados));
+    return [
+        $msg . ' No se pudo adjuntar: ' . $nombres
+             . '. Se admiten imágenes, PDF, Word, Excel, PowerPoint, TXT y CSV.',
+        'error',
+    ];
+}
+
+/** Icono de Font Awesome para un adjunto, segun su extension. */
+function iconoAdjunto(string $ext): string
+{
+    return match (strtolower($ext)) {
+        'pdf'                        => 'fa-file-pdf',
+        'doc', 'docx'                => 'fa-file-word',
+        'xls', 'xlsx', 'csv'         => 'fa-file-excel',
+        'ppt', 'pptx'                => 'fa-file-powerpoint',
+        'txt'                        => 'fa-file-lines',
+        'jpg', 'jpeg', 'png', 'webp', 'gif' => 'fa-file-image',
+        default                      => 'fa-paperclip',
+    };
 }
 
 /* ---------- Control de acceso ---------- */

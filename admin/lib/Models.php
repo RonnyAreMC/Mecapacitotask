@@ -174,6 +174,8 @@ final class Config
             'subtitulo'        => 'Panel Dev',
             'logo'             => '',          // imagen subida; vacío = logo por defecto
             'github_token'     => '',
+            'gitlab_token'     => '',   // token personal de GitLab (scope read_api)
+            'gitlab_host'      => '',   // host de una instancia autogestionada
             'color_secundario' => '#2B76F7',   // acento principal (botones, links)
             'color_acento'     => '#FFD700',   // acento secundario
             'estados_tarea' => [
@@ -453,7 +455,10 @@ class ProyectoRepo
      * frontend, etc.). Los proyectos viejos guardaban 'repo' y
      * 'repo_frontend' sueltos: se siguen leyendo como respaldo.
      *
-     * @return array<int,array{label:string,icono:string,url:string,tipo:string}>
+     * 'rama' es opcional: si esta vacia se usa la rama por defecto del
+     * repositorio. Sirve para equipos que no trabajan sobre main.
+     *
+     * @return array<int,array{label:string,icono:string,url:string,tipo:string,rama:string}>
      */
     public static function repos(array $p): array
     {
@@ -465,22 +470,23 @@ class ProyectoRepo
                 $tipo = isset(self::TIPOS_REPO[$r['tipo'] ?? '']) ? $r['tipo'] : 'otro';
                 [$etiquetaDef, $icono] = self::TIPOS_REPO[$tipo];
                 $label = trim($r['nombre'] ?? '') !== '' ? trim($r['nombre']) : $etiquetaDef;
-                $out[] = ['label' => $label, 'icono' => $icono, 'url' => $url, 'tipo' => $tipo];
+                $out[] = ['label' => $label, 'icono' => $icono, 'url' => $url, 'tipo' => $tipo,
+                          'rama' => trim($r['rama'] ?? '')];
             }
             return $out;
         }
         // Respaldo: proyectos anteriores a la lista de repos
         if (!empty($p['repo'])) {
-            $out[] = ['label' => 'Backend', 'icono' => 'fa-server', 'url' => $p['repo'], 'tipo' => 'backend'];
+            $out[] = ['label' => 'Backend', 'icono' => 'fa-server', 'url' => $p['repo'], 'tipo' => 'backend', 'rama' => ''];
         }
         if (!empty($p['repo_frontend'])) {
-            $out[] = ['label' => 'Frontend', 'icono' => 'fa-desktop', 'url' => $p['repo_frontend'], 'tipo' => 'frontend'];
+            $out[] = ['label' => 'Frontend', 'icono' => 'fa-desktop', 'url' => $p['repo_frontend'], 'tipo' => 'frontend', 'rama' => ''];
         }
         return $out;
     }
 
     /**
-     * Lee la lista de repos de un formulario: repos[i][tipo|nombre|url].
+     * Lee la lista de repos de un formulario: repos[i][tipo|nombre|url|rama].
      * Descarta filas sin URL y normaliza el tipo.
      */
     public static function reposEntrada(mixed $valor): array
@@ -495,6 +501,8 @@ class ProyectoRepo
                 'tipo'   => $tipo,
                 'nombre' => mb_substr(trim($fila['nombre'] ?? ''), 0, 60),
                 'url'    => $url,
+                // Se acepta pegada de la interfaz web ('.../-/tree/develop')
+                'rama'   => mb_substr(trim(preg_replace('#^.*/-/tree/#', '', trim($fila['rama'] ?? ''))), 0, 100),
             ];
         }
         return $out;
@@ -687,7 +695,15 @@ class TareaRepo
             'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
             'fecha_limite'=> ProyectoRepo::fecha($datos['fecha_limite'] ?? ''),
             'depende_de'  => (int)($datos['depende_de'] ?? 0),
+            // Documentos de respaldo para quien la ejecute (los sube actions.php)
+            'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
         ] + self::camposAsignado($datos));
+    }
+
+    /** Adjuntos de una tarea; las tareas anteriores a esto no traen el campo. */
+    public static function adjuntosDe(array $t): array
+    {
+        return is_array($t['adjuntos'] ?? null) ? array_values($t['adjuntos']) : [];
     }
 
     /**
