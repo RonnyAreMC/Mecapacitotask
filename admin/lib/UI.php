@@ -37,25 +37,16 @@ class UI
         }
         $color = fn(int $i) => $colores[$i % count($colores)];
 
-        // Carriles de punta a punta y ramas que salen de uno y entran en otro:
-        // ninguna termina en el aire.
+        // Poco y espaciado: dos carriles largos y tres ramas que los unen.
+        // Antes eran 14 trazos cruzándose y el fondo cansaba la vista.
         $trazos = [
-            ['c1', 'M-60 60 H1260'],   ['c2', 'M-60 230 H1260'],
-            ['c3', 'M-60 400 H1260'],  ['c4', 'M-60 560 H1260'],
-            ['r1', 'M120 60 C210 60 190 230 280 230'],
-            ['r2', 'M340 230 C430 230 410 60 500 60'],
-            ['r3', 'M560 60 C650 60 630 230 720 230'],
-            ['r4', 'M180 400 C270 400 250 230 340 230'],
-            ['r5', 'M420 400 C510 400 490 560 580 560'],
-            ['r6', 'M640 560 C730 560 710 400 800 400'],
-            ['r7', 'M860 230 C950 230 930 400 1020 400'],
-            ['r8', 'M900 400 C990 400 970 230 1060 230'],
-            ['r9', 'M1080 60 C1170 60 1150 230 1240 230'],
-            ['r10','M40 560 C130 560 110 400 200 400'],
+            ['c1', 'M-60 210 H1260'],
+            ['c2', 'M-60 470 H1260'],
+            ['r1', 'M210 210 C330 210 300 470 420 470'],
+            ['r2', 'M660 470 C780 470 750 210 870 210'],
+            ['r3', 'M980 210 C1100 210 1070 470 1190 470'],
         ];
-        $nodos = [[120,60],[280,230],[340,230],[500,60],[560,60],[720,230],[180,400],
-                  [420,400],[580,560],[640,560],[800,400],[860,230],[1020,400],
-                  [1060,230],[1080,60],[200,400],[900,400],[40,560]];
+        $nodos = [[210,210],[420,470],[660,470],[870,210],[980,210],[1190,470]];
         ?>
 <svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
   <g class="fr-lineas">
@@ -63,14 +54,15 @@ class UI
     <path id="<?= $id ?>" pathLength="1" d="<?= $d ?>" style="color:<?= e($color($i)) ?>"/>
     <?php endforeach; ?>
   </g>
+  <!-- El pulso solo recorre los dos carriles largos: con uno por rama, el
+       conjunto era demasiado movimiento a la vez. -->
   <g class="fr-pulsos">
-    <?php foreach ($trazos as $i => [$id, $d]): ?>
-    <use href="#<?= $id ?>" style="color:<?= e($color($i)) ?>"/>
-    <?php endforeach; ?>
+    <use href="#c1" style="color:<?= e($color(0)) ?>"/>
+    <use href="#c2" style="color:<?= e($color(1)) ?>"/>
   </g>
   <g class="fr-nodos">
     <?php foreach ($nodos as $i => [$x, $y]): ?>
-    <circle cx="<?= $x ?>" cy="<?= $y ?>" r="<?= $i % 3 ? 7 : 9 ?>" style="color:<?= e($color($i)) ?>"/>
+    <circle cx="<?= $x ?>" cy="<?= $y ?>" r="6" style="color:<?= e($color($i)) ?>"/>
     <?php endforeach; ?>
   </g>
 </svg>
