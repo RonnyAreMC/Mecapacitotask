@@ -43,7 +43,7 @@ $hechas     = count($todasTareas) - $abiertas;
 
 UI::inicio('Dashboard', 'dashboard');
 UI::cabecera(
-    'Proyectos <span class="text-secondary">Mecapacito</span>',
+    'Proyectos <span class="text-secondary">' . e(Config::get('titulo')) . '</span>',
     $verComo
         ? 'Viendo solo los proyectos y tareas de <b>' . e($verComo['nombre']) . '</b>.'
         : ($alcance !== null

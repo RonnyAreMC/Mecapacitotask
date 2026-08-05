@@ -1167,8 +1167,9 @@ switch ($accion) {
         if (!Mailer::listo()) {
             redirigir('ajustes.php', 'Primero guarda la configuración de correo (activo, usuario y contraseña).', 'error');
         }
-        $r = Mailer::enviar($para, 'Prueba de correo — Panel Mecapacito',
-            '<p style="font-family:Arial;font-size:15px;">¡Funciona! El panel Mecapacito ya puede enviar notificaciones por correo.</p>');
+        $marcaCorreo = Config::get('titulo');
+        $r = Mailer::enviar($para, 'Prueba de correo — ' . $marcaCorreo,
+            '<p style="font-family:Arial;font-size:15px;">¡Funciona! El panel ' . e($marcaCorreo) . ' ya puede enviar notificaciones por correo.</p>');
         if ($r === true) {
             redirigir('ajustes.php', 'Correo de prueba enviado a ' . $para . '. ¡Revisa la bandeja!');
         }

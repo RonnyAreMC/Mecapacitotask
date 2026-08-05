@@ -18,7 +18,7 @@ class Mailer
             'puerto'    => 587,
             'usuario'   => '',
             'clave'     => '',
-            'remitente' => 'Panel Mecapacito',
+            'remitente' => 'InnoTech Hub',
             'url_panel' => '',
             // Modo gmail_api (OAuth de un proyecto de Google Cloud)
             'client_id'     => '',
@@ -65,8 +65,12 @@ class Mailer
     {
         // Versión chica y liviana para el correo (el logo grande, 167 KB, se
         // veía "cargando"). Si no está, cae al logo normal.
+        // Los clientes de correo NO renderizan SVG: siempre PNG. Preferimos el
+        // logo de InnoTech (rasterizado del SVG) si existe.
+        // En el correo va SOLO el ícono (sin el texto del wordmark), al lado de
+        // la marca. Preferimos el ícono; si no, cae al wordmark o al logo base.
         $base = __DIR__ . '/../../assets/';
-        foreach (['mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
+        foreach (['innotech-hub-icon-email.png', 'innotech-hub-logo-email.png', 'mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
             if (is_file($base . $f)) return $base . $f;
         }
         return '';
@@ -288,11 +292,12 @@ class Mailer
 
         // Logo incrustado (cid:logo). Sin logo, se muestra la inicial de la marca.
         $tieneLogo = self::logoPath() !== '';
+        // Solo el ícono (cuadrado), en su pastilla, al lado de la marca.
         $logoHead = $tieneLogo
             ? '<td valign="middle" width="52" style="padding:0 14px 0 0;">
                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                    <td align="center" valign="middle" width="44" height="44" style="width:44px;height:44px;background:#f9fafb;border:1px solid #ececec;border-radius:11px;text-align:center;">
-                     <img src="cid:logo" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;object-fit:contain;">
+                     <img src="cid:logo" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;">
                    </td>
                  </tr></table>
                </td>'
@@ -307,12 +312,12 @@ class Mailer
 
         // Tarjeta institucional del pie (logo enmarcado + marca)
         $logoPie = $tieneLogo
-            ? '<td valign="middle" width="118" style="padding:22px 0 22px 22px;">
+            ? '<td valign="middle" style="padding:22px 0 22px 22px;">
                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                    <td style="background:linear-gradient(135deg,' . $pri . ',' . $priLight . ');padding:3px;border-radius:16px;">
                      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                        <td style="background:#ffffff;border-radius:13px;padding:9px;">
-                         <img src="cid:logo" alt="' . $marca . '" width="72" height="72" style="display:block;border:0;width:72px;height:72px;object-fit:contain;border-radius:8px;">
+                         <img src="cid:logo" alt="' . $marca . '" width="64" height="64" style="display:block;border:0;width:64px;height:64px;border-radius:8px;">
                        </td>
                      </tr></table>
                    </td>

@@ -219,7 +219,7 @@ final class Config
                 'puerto'    => 587,
                 'usuario'   => '',
                 'clave'     => '',
-                'remitente' => 'Panel Mecapacito',
+                'remitente' => 'InnoTech Hub',
                 'url_panel' => '',
                 'client_id'     => '',
                 'client_secret' => '',

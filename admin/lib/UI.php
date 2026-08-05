@@ -32,7 +32,7 @@ class UI
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= e($titulo) ?> · Mecapacito Admin</title>
+<title><?= e($titulo) ?> · <?= e(Config::get('titulo')) ?></title>
 <link rel="icon" type="<?= logoMime() ?>" href="<?= e(logoPanel()) ?>">
 <script>
 (function () {
