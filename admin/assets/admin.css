@@ -190,6 +190,21 @@ html.sb-collapsed .sidebar-brand { padding: 8px; border-radius: 16px; }
   color: var(--c-secondary);
 }
 
+/* --- Logo tipo wordmark (InnoTech Hub): es ancho y ya trae el nombre, así que
+   se muestra a tamaño natural (no aplastado en un cuadro) y reemplaza al texto
+   de marca para no duplicarlo. Sobre pastilla blanca para asegurar contraste. */
+.sidebar-brand img,
+.login-marca img,
+.arte-marca img {
+  width: auto; height: 32px; max-width: 100%;
+  border-radius: 10px; padding: 6px 11px;
+}
+.sidebar-brand > div,
+.login-marca > div,
+.arte-marca > div { display: none; }
+/* Barra plegada: el rail es angosto, encoge el wordmark para que quepa. */
+html.sb-collapsed .sidebar-brand img { height: 24px; max-width: 44px; padding: 5px 6px; }
+
 /* Chip global "Ver como" en el sidebar */
 .ver-como {
   display: flex; align-items: center; gap: 8px;
@@ -4709,3 +4724,71 @@ img[src$="claude.svg"] {
   pointer-events: none;
 }
 @keyframes kb-shimmer { from { background-position: 220% 0; } to { background-position: -220% 0; } }
+
+/* ============================================================
+   Login InnoTech Hub — celeste + verde, plano, wordmark arriba.
+   Override del login neumórfico anterior (gana por orden de fuente).
+   ============================================================ */
+:root{
+  --it-celeste:#0EA5E9; --it-celeste-2:#38BDF8;
+  --it-verde:#16A34A;   --it-verde-2:#22C55E;
+  --it-tinta:#0f2b32;   --it-borde:#e2e8f0;
+}
+
+/* Lado marca: degradado celeste→verde (profundo para que el canvas se lea) */
+.login-arte{
+  background: linear-gradient(158deg,#06283a 0%,#075e78 36%,#0e7a5f 70%,#128140 100%) !important;
+  background-color:#06283a !important;
+}
+.login-arte::after{ background: linear-gradient(to top, rgba(6,40,58,.92), transparent 55%) !important; }
+
+/* Wordmark arriba, grande, sobre pastilla blanca (contraste garantizado) */
+.arte-marca{
+  background: rgba(255,255,255,.97) !important; border:none !important;
+  box-shadow:0 12px 34px -18px rgba(0,0,0,.65) !important;
+  padding:13px 20px !important; border-radius:16px !important; margin-bottom:30px !important;
+}
+.arte-marca img{ width:auto !important; height:34px !important; max-width:210px !important;
+  background:none !important; padding:0 !important; border-radius:0 !important; }
+
+/* Lado formulario: más plano y con el wordmark arriba */
+.login-panel{ background:#fff !important; }
+.login-marca{ margin-bottom:30px !important; }
+.login-marca img{ width:auto !important; height:30px !important; max-width:200px !important;
+  background:none !important; box-shadow:none !important; border:none !important; padding:0 !important; }
+.login-caja h1{ color:var(--it-tinta) !important; }
+.login-sub{ color:#5b7079 !important; }
+
+/* Inputs planos, foco celeste (sin neumorfismo) */
+.login-caja .input-prefijo,
+.login-caja .campo > .input-meca,
+.login-caja .select-meca{
+  border:1.5px solid var(--it-borde) !important; box-shadow:none !important;
+  border-radius:12px !important; background:#fff !important;
+}
+.login-caja .input-prefijo:focus-within,
+.login-caja .campo > .input-meca:focus,
+.login-caja .select-meca:focus{
+  border-color:var(--it-celeste) !important;
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--it-celeste) 18%, transparent) !important;
+}
+.login-caja .input-prefijo > i{ color:var(--it-celeste) !important; }
+
+/* Botón Entrar: celeste→verde, plano */
+.login-btn{
+  background:linear-gradient(100deg,var(--it-celeste) 0%,var(--it-verde) 100%) !important;
+  border:none !important;
+  box-shadow:0 10px 22px -12px color-mix(in srgb, var(--it-verde) 75%, #000) !important;
+}
+.login-btn:hover{ filter:brightness(1.04); }
+
+/* Google y separador: planos, acento celeste */
+.btn-google{ box-shadow:none !important; border:1.5px solid var(--it-borde) !important; border-radius:12px !important; }
+.btn-google:hover{ border-color:var(--it-celeste) !important; background:#f8fbfe !important; }
+.login-sep span{ color:#93a3ab !important; }
+.login-pie i{ color:var(--it-celeste) !important; }
+
+/* Selector "¿Quién eres?": acento celeste al pasar */
+.ident-persona:hover{ border-color:var(--it-celeste) !important;
+  box-shadow:0 10px 24px -16px color-mix(in srgb, var(--it-celeste) 80%, #000) !important; }
+.ident-persona > i{ color:var(--it-celeste) !important; }
