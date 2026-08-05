@@ -4798,3 +4798,59 @@ img[src$="claude.svg"] {
 .ident-persona:hover{ border-color:var(--it-celeste) !important;
   box-shadow:0 10px 24px -16px color-mix(in srgb, var(--it-celeste) 80%, #000) !important; }
 .ident-persona > i{ color:var(--it-celeste) !important; }
+
+/* ============================================================
+   Barra lateral InnoTech — celeste en claro y oscuro, iconos
+   blancos, activos SOLO con el icono en verde (sin cajas ni bordes).
+   ============================================================ */
+.sidebar, html.dark .sidebar{
+  background: linear-gradient(180deg,#4C97EE 0%,#3A81DF 100%) !important;
+  box-shadow: 8px 0 30px -20px rgba(2,40,70,.55) !important;
+}
+/* Rótulos de sección */
+.sidebar .sidebar-label, html.dark .sidebar .sidebar-label{
+  color: rgba(255,255,255,.72) !important; background: transparent !important;
+}
+html.sb-collapsed .sidebar-label, html.sb-collapsed.dark .sidebar-label{
+  background: rgba(255,255,255,.18) !important; color:#fff !important;
+}
+/* Enlaces: texto e icono BLANCOS, sin caja ni borde */
+.sidebar .sidebar-link, html.dark .sidebar .sidebar-link{
+  color:#fff !important; background:transparent !important;
+  box-shadow:none !important; border:none !important;
+}
+.sidebar .sidebar-link i, html.dark .sidebar .sidebar-link i{ color:#fff !important; }
+/* Hover: leve realce translúcido (afordancia), sin borde neumórfico */
+.sidebar .sidebar-link:hover, html.dark .sidebar .sidebar-link:hover{
+  background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
+}
+/* ACTIVO: solo el icono en verde, sin caja/borde. Texto en blanco fuerte. */
+.sidebar .sidebar-link.active, html.dark .sidebar .sidebar-link.active{
+  background: rgba(255,255,255,.14) !important; box-shadow:none !important;
+  color:#fff !important; font-weight:700 !important;
+}
+.sidebar .sidebar-link.active i, html.dark .sidebar .sidebar-link.active i{
+  color:#2FE486 !important;   /* verde InnoTech */
+}
+/* Botón "ocultar menú" y flechas en blanco */
+.sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{ color:#fff !important; box-shadow:none !important; }
+.sidebar .sidebar-toggle:hover{ color:#eafff5 !important; }
+/* Chip "Ver como" translúcido sobre celeste */
+.sidebar .vc-abrir, html.dark .sidebar .vc-abrir{
+  background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
+}
+.sidebar .vc-abrir *{ color:#fff !important; }
+.sidebar .vc-quitar{ color:#fff !important; }
+/* Contador de proyectos (grupo plegado) */
+html.sb-collapsed .nav-grupo-n{ background:#2FE486 !important; color:#06324a !important; }
+/* Pie: iconos blancos */
+.sidebar .sidebar-foot i, html.dark .sidebar .sidebar-foot i{ color:#eafff5 !important; }
+/* Menú de cuenta (abajo): texto/roles/avatar legibles sobre celeste */
+.sidebar .sesion-chip, .sidebar .cuenta-menu .sidebar-link{ color:#fff !important; box-shadow:none !important; background:transparent !important; }
+.sidebar .sesion-chip *, .sidebar .cuenta-menu .sidebar-link i{ color:#fff !important; }
+.sidebar .sesion-info small{ color:rgba(255,255,255,.75) !important; }
+.sidebar .sesion-chip:hover, .sidebar .cuenta-menu .sidebar-link:hover{ background:rgba(255,255,255,.16) !important; }
+/* "Nuevo proyecto" (borde punteado) → blanco translúcido */
+.sidebar .sidebar-link-new{ border:1px dashed rgba(255,255,255,.5) !important; color:#fff !important; }
+.sidebar .sidebar-link-new:hover{ border-color:#2FE486 !important; color:#2FE486 !important; background:transparent !important; }
+.sidebar .sidebar-link-new:hover i{ color:#2FE486 !important; }
