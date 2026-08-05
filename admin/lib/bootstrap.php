@@ -372,8 +372,13 @@ function sembrarDatos(): void
     $miembros->crear(['nombre' => 'Carlos Rodriguez','rol' => 'Developer',            'git_user' => 'carlosrodriguez','color' => 5,  'equipo' => 'programacion']);
     $ronny = $miembros->crear(['nombre' => 'Ronny Arellano', 'rol' => 'Tech Lead',    'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
 
-    // Ronny es el administrador del panel (queda fijo en el seed).
-    $miembros->actualizar((int)$ronny['id'], ['acceso' => 'admin']);
+    // Ronny es el administrador del panel (queda fijo en el seed), con acceso
+    // por correo+contraseña listo desde el primer arranque (sin usar la shell).
+    $miembros->actualizar((int)$ronny['id'], [
+        'acceso'    => 'admin',
+        'email'     => 'ronnyareu22@gmail.com',
+        'pass_hash' => Auth::hash('academico2026'),
+    ]);
 
     // Equipo de analistas
     $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas']);
