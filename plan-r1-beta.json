@@ -1,0 +1,282 @@
+{
+  "tareas": [
+    {
+      "ref": "r1-b01-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B01 · Conectar el expediente con los datos que llegan del portal",
+      "descripcion": "R1-B01 · Estudiantes — Expediente digital del aspirante · estado del módulo: CONSTRUIDO. Código: admission_service/applicant_record + student_record.  Subtareas: Mapear los campos del contrato publico al expediente; Verificar que no se dupliquen aspirantes que ya vinieron del portal.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b01-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B01 · Ficha socioeconomica llenada por el aspirante, no por el analista",
+      "descripcion": "R1-B01 · Estudiantes — Expediente digital del aspirante · estado del módulo: CONSTRUIDO. Código: admission_service/applicant_record + student_record.  Subtareas: Exponer la ficha en la pagina del aspirante; Dejar el llenado asistido como respaldo para casos presenciales.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b01-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B01 · Trazabilidad inscripcion -> matricula",
+      "descripcion": "R1-B01 · Estudiantes — Expediente digital del aspirante · estado del módulo: CONSTRUIDO. Código: admission_service/applicant_record + student_record.  Subtareas: Validar la SAGA de conversion Applicant -> Student; Revisar ConversionIncidencia: que toda falla quede conciliable.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b02-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B02 · Arreglar el test roto de NEE",
+      "descripcion": "R1-B02 · Admisiones — Valoracion NEE y decision de homologacion · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/special_needs.  Subtareas: Configurar FIELD_ENCRYPTION_KEY en el entorno de tests; Correr special_needs/tests/test_business.py hasta verde.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b02-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B02 · Gateway discapacidad -> valoracion NEE",
+      "descripcion": "R1-B02 · Admisiones — Valoracion NEE y decision de homologacion · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/special_needs.  Subtareas: Disparar la valoracion desde la declaracion del aspirante; Confirmar que la seccion confidencial solo la ve el rol autorizado; Verificar que el rol aspirante NO accede a los campos cifrados.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b02-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B02 · Gate: aplica homologacion?",
+      "descripcion": "R1-B02 · Admisiones — Valoracion NEE y decision de homologacion · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/special_needs.  Subtareas: Consumir applies_credit_transfer que ya llega del portal; Encadenar con la solicitud de homologacion.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b03-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B03 · Arreglar los 3 tests rotos de homologacion",
+      "descripcion": "R1-B03 · Homologacion — Validacion de requisitos y resoluciones · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/credit_transfer.  Subtareas: EvaluateSubjectBusiness.process() exige el argumento decision y los tests no lo pasan; Definir si el bug esta en la firma o en el test, y corregir el lado correcto; Correr credit_transfer/tests hasta verde.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b03-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B03 · Validacion documental",
+      "descripcion": "R1-B03 · Homologacion — Validacion de requisitos y resoluciones · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/credit_transfer.  Subtareas: Revisar HomologationDocument: tipos exigidos y estados de revision; Bloquear la resolucion si falta documentacion obligatoria.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b03-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B03 · Resolucion de aprobacion o rechazo con informe de novedades",
+      "descripcion": "R1-B03 · Homologacion — Validacion de requisitos y resoluciones · estado del módulo: CONSTRUIDO_CON_FALLOS. Código: admission_service/credit_transfer.  Subtareas: Verificar el PDF y la firma electronica de CreditTransferResolution; Redactar el informe de novedades para el rechazo; Notificar al aspirante.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b04-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B04 · Seleccion de asignaturas por malla",
+      "descripcion": "R1-B04 · Homologacion — Seleccion de asignaturas homologadas · estado del módulo: PARCIAL. Código: admission_service/credit_transfer (SubjectEvaluation).  Subtareas: Resolver target_subject_ref contra la malla de academic_service; Confirmar que aplica a todos los programas, grado y posgrado.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b04-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B04 · Acta de homologacion",
+      "descripcion": "R1-B04 · Homologacion — Seleccion de asignaturas homologadas · estado del módulo: PARCIAL. Código: admission_service/credit_transfer (SubjectEvaluation).  Subtareas: Generar el acta con las asignaturas aprobadas y rechazadas; Firmar y archivar.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b04-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B04 · Notificacion del resultado",
+      "descripcion": "R1-B04 · Homologacion — Seleccion de asignaturas homologadas · estado del módulo: PARCIAL. Código: admission_service/credit_transfer (SubjectEvaluation).  Subtareas: Enviar al aspirante el detalle por asignatura; Reflejar el resultado en la pagina del aspirante.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b05-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B05 · Matricula ordinaria del admitido",
+      "descripcion": "R1-B05 · Matriculas — Motor de prerrequisitos y matricula del aspirante · estado del módulo: CONSTRUIDO. Código: enrollment_service/prerequisites + enrollment_saga.  Subtareas: Validar que solo se matricule quien tiene admision emitida; Encadenar con la conversion a Student.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b05-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B05 · Validacion de pago previo",
+      "descripcion": "R1-B05 · Matriculas — Motor de prerrequisitos y matricula del aspirante · estado del módulo: CONSTRUIDO. Código: enrollment_service/prerequisites + enrollment_saga.  Subtareas: Bloquear la matricula sin el rubro pagado; Contrastar contra financial_management.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b05-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B05 · Poka-yoke de flujo",
+      "descripcion": "R1-B05 · Matriculas — Motor de prerrequisitos y matricula del aspirante · estado del módulo: CONSTRUIDO. Código: enrollment_service/prerequisites + enrollment_saga.  Subtareas: Impedir saltarse pasos del proceso; Mensajes que digan que falta y como resolverlo.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b06-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B06 · Decidir el servicio dueno del Preuniversitario",
+      "descripcion": "R1-B06 · Preuniversitario — Plan analitico y aula PRE · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo; solo un comentario en el menu de academic_service.  Subtareas: Evaluar academic_service vs admission_service vs servicio nuevo; Validar con el arquitecto antes de estimar.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b06-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B06 · Plan analitico del PRE",
+      "descripcion": "R1-B06 · Preuniversitario — Plan analitico y aula PRE · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo; solo un comentario en el menu de academic_service.  Subtareas: Modelo del plan y sus contenidos; Asociacion con el periodo y el programa.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b06-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B06 · Aula PRE",
+      "descripcion": "R1-B06 · Preuniversitario — Plan analitico y aula PRE · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo; solo un comentario en el menu de academic_service.  Subtareas: Clases presencial, virtual sincrona y asincrona; Taller, tarea y cuestionario; Registro de asistencia.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b06-4",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B06 · Menu y permisos federados",
+      "descripcion": "R1-B06 · Preuniversitario — Plan analitico y aula PRE · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo; solo un comentario en el menu de academic_service.  Subtareas: Catalogo de permisos del modulo; Registrar la seccion en el menu del servicio dueno.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b07-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B07 · Evaluacion final",
+      "descripcion": "R1-B07 · Preuniversitario — Evaluacion final, cierre y monitoreo · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo.  Subtareas: Cuestionario, exposicion y trabajo integrador; Ponderacion parciales 65% + examen 35% segun el prototipo; Nota minima 70/100.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b07-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B07 · Cierre del PRE",
+      "descripcion": "R1-B07 · Preuniversitario — Evaluacion final, cierre y monitoreo · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo.  Subtareas: Aprobar el PRE libera la matricula; Registrar el resultado en el expediente del aspirante.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b07-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B07 · Monitoreo y seguimiento",
+      "descripcion": "R1-B07 · Preuniversitario — Evaluacion final, cierre y monitoreo · estado del módulo: NO_EXISTE. Código: sin implementacion en el repo.  Subtareas: Tablero de avance por paralelo; Alerta de aspirantes en riesgo de no aprobar.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b08-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B08 · Contrato publico del portal",
+      "descripcion": "R1-B08 · Admisiones Digitales — Postulacion trazable y programa de referidos · estado del módulo: PARCIAL. Código: admission_service/api/v1/public/applications (contrato publico ya expuesto).  Marcada en la planificación como HECHO.  Subtareas: Endpoints de oferta, envio de solicitud y consulta de estado; Consentimiento bloqueante con la IP real del aspirante; Contrato documentado en docs/portal-contract.md.",
+      "estado": "hecho",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b08-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B08 · Nomenclatura de usuario y rol del aspirante",
+      "descripcion": "R1-B08 · Admisiones Digitales — Postulacion trazable y programa de referidos · estado del módulo: PARCIAL. Código: admission_service/api/v1/public/applications (contrato publico ya expuesto).  Subtareas: Agregar el token de segundo apellido a la plantilla de username; Endpoint en IAM que reciba la cascada jperez -> jperezg -> jperezg2; Crear el rol adm-aspirante y su catalogo de permisos.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b08-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B08 · Pagina del aspirante dentro de admission-sv",
+      "descripcion": "R1-B08 · Admisiones Digitales — Postulacion trazable y programa de referidos · estado del módulo: PARCIAL. Código: admission_service/api/v1/public/applications (contrato publico ya expuesto).  Subtareas: Seccion de menu propia filtrada por permisos; Mi ficha de inscripcion, reusando el wizard actual; Mi proceso: lo cumplido, lo pendiente y lo que debe pagar; Ocultar el paso de consentimiento a quien ya acepto en el portal.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b08-4",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B08 · Emision de credenciales al aprobar",
+      "descripcion": "R1-B08 · Admisiones Digitales — Postulacion trazable y programa de referidos · estado del módulo: PARCIAL. Código: admission_service/api/v1/public/applications (contrato publico ya expuesto).  Subtareas: Disparar la creacion del usuario desde la bandeja del analista; Correo con el usuario asignado; Forzar cambio de clave en el primer ingreso.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "r1-b08-5",
+      "proyecto": "Ms-Académico",
+      "titulo": "R1-B08 · Programa de referidos",
+      "descripcion": "R1-B08 · Admisiones Digitales — Postulacion trazable y programa de referidos · estado del módulo: PARCIAL. Código: admission_service/api/v1/public/applications (contrato publico ya expuesto).  Marcada en la planificación como SIN_ALCANCE_DEFINIDO.  Subtareas: Definir con el PO que es un referido y que premia; Modelo de referido y su trazabilidad hasta la matricula; Reporte de referidos por periodo.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "tr-1",
+      "proyecto": "Ms-Académico",
+      "titulo": "Transversal · Sanear la suite de tests de admission_service",
+      "descripcion": "Equipo Beta · release R1.  6 tests fallan hoy y son previos a los cambios de esta sesion.  Subtareas: credit_transfer: 3 fallos por la firma de EvaluateSubjectBusiness.process(); special_needs: 1 fallo por FIELD_ENCRYPTION_KEY ausente; panel: 1 fallo de base de datos en test_dashboard_kpis; scoring: 1 fallo en la regla del 30% de lista de espera.",
+      "prioridad": "alta",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "tr-2",
+      "proyecto": "Ms-Académico",
+      "titulo": "Transversal · Conciliar la numeracion de historias",
+      "descripcion": "Equipo Beta · release R1.  La numeracion de esta planificacion NO coincide con la del codigo. En el repo R1-B04 es Inscripcion de Aspirantes y R1-B05 es Homologacion. Conciliar antes de repartir.  Subtareas: La planificacion y el codigo usan codigos R1-B0x distintos; Definir cual manda y actualizar el otro lado.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    },
+    {
+      "ref": "tr-3",
+      "proyecto": "Ms-Académico",
+      "titulo": "Transversal · Coordinar con el equipo del portal",
+      "descripcion": "Equipo Beta · release R1.  Subtareas: Entregar docs/portal-contract.md; Definir como resuelven el tenant: cabecera X-Tenant-Id o dominio propio registrado; Pedir que el segundo apellido sea obligatorio en su formulario.",
+      "asignados": [
+        "Ronny Arellano"
+      ]
+    }
+  ]
+}
