@@ -4,8 +4,12 @@
 FROM php:8.2-apache
 
 # SQLite (PDO) + mod_rewrite. AllowOverride All para que los .htaccess manden.
-RUN docker-php-ext-install pdo_sqlite \
- && a2enmod rewrite
+# pdo_sqlite necesita las cabeceras libsqlite3-dev (la imagen base no las trae).
+RUN apt-get update \
+ && apt-get install -y --no-install-recommends libsqlite3-dev \
+ && docker-php-ext-install pdo_sqlite \
+ && a2enmod rewrite \
+ && rm -rf /var/lib/apt/lists/*
 
 # Seguridad a nivel de servidor, independiente de los .htaccess: aunque un
 # volumen de Railway tape el .htaccess de admin/data, la carpeta con las
