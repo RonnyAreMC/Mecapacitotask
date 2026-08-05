@@ -159,12 +159,20 @@ function logoPanel(): string
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
     }
-    // Marca de esta instancia: si está el logo de InnoTech Hub, se usa por
-    // defecto (sin tener que subirlo en Ajustes). Si no, el logo base.
-    if (is_file(__DIR__ . '/../../assets/innotech-hub-logo.png')) {
-        return '../assets/innotech-hub-logo.png';
+    // Marca de esta instancia: si está el logo de InnoTech Hub (SVG preferido,
+    // luego PNG), se usa por defecto sin tener que subirlo en Ajustes.
+    foreach (['innotech-hub-logo.svg', 'innotech-hub-logo.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
     }
     return '../assets/mecapacito-logo.png';
+}
+
+/** Tipo MIME del logo actual, para el favicon (soporta SVG y PNG). */
+function logoMime(): string
+{
+    return str_ends_with(strtolower(logoPanel()), '.svg') ? 'image/svg+xml' : 'image/png';
 }
 
 /**
