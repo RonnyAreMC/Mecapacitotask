@@ -83,6 +83,25 @@ class Mailer
     }
 
     /**
+     * Base del panel a partir de la URL de Ajustes, tolerante con lo que se
+     * pega: sobra una barra final o incluso un archivo ("…/admin/index.php").
+     * Si se deja el archivo, todo lo que se cuelgue detrás queda inservible:
+     * "…/index.php/logo.php" acaba redirigido al panel y la imagen sale rota.
+     */
+    private static function baseUrl(): string
+    {
+        $base = trim((string)(self::conf()['url_panel'] ?? ''));
+        $base = preg_replace('#/[^/]*\.php.*$#i', '', $base);
+        return rtrim((string)$base, '/');
+    }
+
+    /** URL del logo tal como se pone en los correos (vacía si no se puede). */
+    public static function logoUrlPublica(): string
+    {
+        return self::logoUrl();
+    }
+
+    /**
      * URL pública del logo para el correo ('' si no se puede construir).
      *
      * Se ENLAZA en vez de adjuntarse: incrustarlo con cid: dejaba el PNG como
@@ -91,7 +110,7 @@ class Mailer
      */
     private static function logoUrl(): string
     {
-        $base = rtrim((string)(self::conf()['url_panel'] ?? ''), '/');
+        $base = self::baseUrl();
         $file = self::logoPath();
         if ($base === '' || $file === '') {
             return '';
@@ -283,7 +302,7 @@ class Mailer
     /** URL absoluta a un proyecto (o '' si no hay url_panel). */
     private static function urlProyecto(int $pid): string
     {
-        $base = rtrim(self::conf()['url_panel'], '/');
+        $base = self::baseUrl();
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 

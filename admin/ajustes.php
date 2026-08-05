@@ -360,6 +360,17 @@ UI::cabecera(
           </label>
           <label class="campo"><span>URL del panel (botón "Ver tablero" del correo)</span>
             <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mchub.mecapacito.com/admin">
+            <?php $urlLogo = Mailer::logoUrlPublica(); ?>
+            <small class="campo-ayuda">
+              <?php if ($urlLogo !== ''): ?>
+                De aquí sale también la imagen de los correos:
+                <a href="<?= e($urlLogo) ?>" target="_blank" rel="noopener">abrirla en una pestaña</a>.
+                Si ahí no se ve el logo, tampoco se verá en el correo.
+              <?php else: ?>
+                Sin esta URL los correos salen sin logo y sin botón: no hay forma de
+                construir enlaces absolutos.
+              <?php endif; ?>
+            </small>
           </label>
         </div>
 
