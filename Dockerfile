@@ -11,8 +11,13 @@ FROM php:8.2-apache
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libsqlite3-dev \
  && docker-php-ext-install pdo_sqlite \
- && (a2dismod mpm_event mpm_worker 2>/dev/null || true) \
- && a2enmod mpm_prefork rewrite \
+ && a2dismod mpm_event mpm_worker 2>/dev/null || true
+# MPM: dejar SOLO prefork. Se hace en un paso aparte y se valida con
+# configtest: si por lo que sea quedaran dos MPM, el BUILD falla aquí (visible)
+# en vez de que Apache se caiga en runtime con "More than one MPM loaded".
+RUN a2dismod mpm_event mpm_worker 2>/dev/null; \
+    a2enmod mpm_prefork rewrite \
+ && apache2ctl configtest \
  && rm -rf /var/lib/apt/lists/*
 
 # Seguridad a nivel de servidor, independiente de los .htaccess: aunque un
