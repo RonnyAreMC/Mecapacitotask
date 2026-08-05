@@ -9,6 +9,74 @@ class UI
 {
     /* ---------- Layout ---------- */
 
+
+    /**
+     * Fondo decorativo del tablero: un grafo de ramas.
+     *
+     * Se pinta FUERA de <main> a propósito: ese contenedor lleva una animación
+     * con transform y, por dentro, un position:fixed se mide contra él y no
+     * contra la pantalla (el fondo acababa donde acababa el contenido).
+     *
+     * Los colores no van quemados: salen del color de cada proyecto y de los
+     * acentos de Ajustes, así el fondo sigue a la marca.
+     */
+    public static function fondoRamas(): void
+    {
+        $colores = array_values(array_unique(array_map(
+            fn($p) => ProyectoRepo::colorBase($p),
+            soloProyectosVisibles((new ProyectoRepo())->todos())
+        )));
+        foreach ([Config::get('color_secundario'), Config::get('color_acento')] as $extra) {
+            if (is_string($extra) && $extra !== '' && !in_array($extra, $colores, true)) {
+                $colores[] = $extra;
+            }
+        }
+        for ($i = 0; count($colores) < 6; $i++) {
+            $c = Catalogo::colorDe($i * 3);
+            if (!in_array($c, $colores, true)) $colores[] = $c;
+        }
+        $color = fn(int $i) => $colores[$i % count($colores)];
+
+        // Carriles de punta a punta y ramas que salen de uno y entran en otro:
+        // ninguna termina en el aire.
+        $trazos = [
+            ['c1', 'M-60 60 H1260'],   ['c2', 'M-60 230 H1260'],
+            ['c3', 'M-60 400 H1260'],  ['c4', 'M-60 560 H1260'],
+            ['r1', 'M120 60 C210 60 190 230 280 230'],
+            ['r2', 'M340 230 C430 230 410 60 500 60'],
+            ['r3', 'M560 60 C650 60 630 230 720 230'],
+            ['r4', 'M180 400 C270 400 250 230 340 230'],
+            ['r5', 'M420 400 C510 400 490 560 580 560'],
+            ['r6', 'M640 560 C730 560 710 400 800 400'],
+            ['r7', 'M860 230 C950 230 930 400 1020 400'],
+            ['r8', 'M900 400 C990 400 970 230 1060 230'],
+            ['r9', 'M1080 60 C1170 60 1150 230 1240 230'],
+            ['r10','M40 560 C130 560 110 400 200 400'],
+        ];
+        $nodos = [[120,60],[280,230],[340,230],[500,60],[560,60],[720,230],[180,400],
+                  [420,400],[580,560],[640,560],[800,400],[860,230],[1020,400],
+                  [1060,230],[1080,60],[200,400],[900,400],[40,560]];
+        ?>
+<svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <g class="fr-lineas">
+    <?php foreach ($trazos as $i => [$id, $d]): ?>
+    <path id="<?= $id ?>" pathLength="1" d="<?= $d ?>" style="color:<?= e($color($i)) ?>"/>
+    <?php endforeach; ?>
+  </g>
+  <g class="fr-pulsos">
+    <?php foreach ($trazos as $i => [$id, $d]): ?>
+    <use href="#<?= $id ?>" style="color:<?= e($color($i)) ?>"/>
+    <?php endforeach; ?>
+  </g>
+  <g class="fr-nodos">
+    <?php foreach ($nodos as $i => [$x, $y]): ?>
+    <circle cx="<?= $x ?>" cy="<?= $y ?>" r="<?= $i % 3 ? 7 : 9 ?>" style="color:<?= e($color($i)) ?>"/>
+    <?php endforeach; ?>
+  </g>
+</svg>
+        <?php
+    }
+
     public static function inicio(string $titulo, string $activo = ''): void
     {
         // El sidebar solo lista los proyectos que el usuario puede abrir:
@@ -55,6 +123,7 @@ class UI
 <?php self::estilosConfig(); ?>
 </head>
 <body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
+<?php if ($activo === 'dashboard') self::fondoRamas(); ?>
 <aside class="sidebar">
   <div class="sidebar-top">
     <a href="index.php" class="sidebar-brand">
