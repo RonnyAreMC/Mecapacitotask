@@ -159,6 +159,11 @@ function logoPanel(): string
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
     }
+    // Marca de esta instancia: si está el logo de InnoTech Hub, se usa por
+    // defecto (sin tener que subirlo en Ajustes). Si no, el logo base.
+    if (is_file(__DIR__ . '/../../assets/innotech-hub-logo.png')) {
+        return '../assets/innotech-hub-logo.png';
+    }
     return '../assets/mecapacito-logo.png';
 }
 

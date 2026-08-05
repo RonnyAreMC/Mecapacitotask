@@ -170,7 +170,7 @@ final class Config
     public static function defaults(): array
     {
         return [
-            'titulo'           => 'Mecapacito',
+            'titulo'           => 'InnoTech Hub',
             'subtitulo'        => 'Panel Dev',
             'logo'             => '',          // imagen subida; vacío = logo por defecto
             'github_token'     => '',
