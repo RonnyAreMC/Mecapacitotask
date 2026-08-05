@@ -1033,10 +1033,12 @@ html.dark .stat-card {
 }
 
 /* ---- Fondo del tablero: grafo de ramas ----
-   Decorativo y de fondo: carriles de punta a punta con ramas que salen de uno
-   y entran en otro. Fijo al viewport y detrás de todo (el contenedor del panel
-   se pinta fuera de <main>: ahí dentro, un fixed se mide contra el contenedor
-   —que lleva animación con transform— y no contra la pantalla. */
+   Decorativo y discreto: dos carriles de punta a punta y tres ramas que los
+   unen. Fijo al viewport y detrás de todo (el contenedor del panel se pinta
+   fuera de <main>: ahí dentro, un fixed se mide contra el contenedor —que
+   lleva animación con transform— y no contra la pantalla.
+   Va tenue a propósito: con más trazos, más grosor y todos los pulsos a la vez
+   el fondo competía con las tarjetas y cansaba la vista. */
 .fondo-ramas {
   /* Va suelto en el body: z-index 0 lo deja sobre el fondo de la página, y el
      contenido (que sí está posicionado y viene después) queda por encima. */
@@ -1044,48 +1046,32 @@ html.dark .stat-card {
   width: 100vw; height: 100vh; height: 100dvh;
   pointer-events: none;
   color: var(--c-secondary);
-  opacity: .3;
+  opacity: .16;
 }
-html.dark .fondo-ramas { opacity: .34; }
+html.dark .fondo-ramas { opacity: .2; }
 
 /* Los colores ya no viven aquí: cada trazo llega con el suyo desde index.php
    (color del proyecto o acento de Ajustes), así el fondo sigue a la marca. */
 .fr-lineas path {
-  fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  opacity: .72;
+  fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round;
 }
 
-/* El pulso: un tramo corto que recorre la misma rama. Da el movimiento sin que
-   la línea parezca cortada. pathLength="1" iguala el tamaño del pulso en
-   trazos de distinta longitud. */
+/* El pulso: un tramo corto que recorre el carril. Solo en los dos carriles
+   largos y muy lento, para que se note como respiración y no como tráfico.
+   pathLength="1" iguala el tamaño del pulso en trazos de distinta longitud. */
 .fr-pulsos use {
-  fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round;
-  stroke-dasharray: .08 1;
-  animation: fr-pulso 11s linear infinite;
+  fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round;
+  stroke-dasharray: .05 1;
+  animation: fr-pulso 34s linear infinite;
 }
-.fr-pulsos use:nth-child(2) { animation-duration: 12s; animation-delay: -10s; }
-.fr-pulsos use:nth-child(3) { animation-duration: 19s; animation-delay: -2s; }
-.fr-pulsos use:nth-child(4) { animation-duration: 15s; animation-delay: -7s; }
-.fr-pulsos use:nth-child(5) { animation-duration: 11s; animation-delay: -12s; }
-.fr-pulsos use:nth-child(6) { animation-duration: 18s; animation-delay: -4s; }
-.fr-pulsos use:nth-child(7) { animation-duration: 14s; animation-delay: -9s; }
-.fr-pulsos use:nth-child(8) { animation-duration: 10s; animation-delay: -1s; }
-.fr-pulsos use:nth-child(9) { animation-duration: 17s; animation-delay: -6s; }
-.fr-pulsos use:nth-child(10) { animation-duration: 13s; animation-delay: -11s; }
-.fr-pulsos use:nth-child(11) { animation-duration: 9s; animation-delay: -3s; }
-.fr-pulsos use:nth-child(12) { animation-duration: 16s; animation-delay: -8s; }
-.fr-pulsos use:nth-child(13) { animation-duration: 12s; animation-delay: 0s; }
-.fr-pulsos use:nth-child(14) { animation-duration: 19s; animation-delay: -5s; }
-@keyframes fr-pulso { from { stroke-dashoffset: 1.08; } to { stroke-dashoffset: 0; } }
+.fr-pulsos use:nth-child(2) { animation-duration: 42s; animation-delay: -20s; }
+@keyframes fr-pulso { from { stroke-dashoffset: 1.05; } to { stroke-dashoffset: 0; } }
 
-.fr-nodos circle { fill: currentColor; animation: fr-latido 5s ease-in-out infinite; }
-.fr-nodos circle:nth-child(even) { animation-delay: 1.6s; }
-.fr-nodos circle:nth-child(3n)   { animation-delay: 3.1s; }
-@keyframes fr-latido { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+/* Nodos quietos: el parpadeo de todos a destiempo era lo que más mareaba. */
+.fr-nodos circle { fill: currentColor; opacity: .8; }
 
 @media (prefers-reduced-motion: reduce) {
   .fr-pulsos { display: none; }
-  .fr-nodos circle { animation: none; }
 }
 
 /* El color del proyecto (--pc, el que se elige en «Editar proyecto») manda en
