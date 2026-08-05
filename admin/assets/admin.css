@@ -3009,6 +3009,9 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .inter-lista { display: flex; flex-direction: column; gap: 12px; padding: 14px 18px 18px; }
 .inter-item {
   padding: 14px 16px;
+  /* Rutas y nombres de clase largos, en notas o títulos, se parten en vez de
+     salirse de la tarjeta */
+  overflow-wrap: anywhere;
   border-radius: 16px;
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
@@ -3034,7 +3037,11 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .inter-fecha { margin-left: auto; font-size: .72rem; color: var(--c-text-soft); }
 
 .inter-cuerpo { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
-.inter-lado { display: flex; align-items: center; gap: 10px; flex: 1; min-width: 210px; }
+/* El ancho de 210px era un mínimo infranqueable: con dos lados, la flecha y
+   los huecos, en una tarjeta estrecha el texto se salía del recuadro. Ahora es
+   la medida a la que se reparten, pero pueden encogerse por debajo. */
+.inter-lado { display: flex; align-items: center; gap: 10px; flex: 1 1 210px; min-width: 0; }
+.inter-lado > div { min-width: 0; }
 .inter-lado small { display: block; font-size: .7rem; color: var(--c-text-soft); font-weight: 600; }
 .inter-lado b { display: block; font-size: .88rem; color: var(--c-text); }
 .inter-flecha { color: var(--c-secondary); font-size: 1rem; flex: none; }
@@ -3049,7 +3056,7 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 
 .inter-acciones { display: flex; align-items: center; gap: 10px; margin-top: 12px; flex-wrap: wrap; }
 .inter-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 0; }
-.inter-form .input-sm { padding: 8px 12px; font-size: .82rem; min-width: 200px; }
+.inter-form .input-sm { padding: 8px 12px; font-size: .82rem; min-width: 0; flex: 1 1 200px; max-width: 100%; }
 
 /* Chip de proyecto en la tabla de tareas de la ficha */
 .chip-proyecto {
