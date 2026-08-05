@@ -989,10 +989,34 @@ html.dark .btn-ghost.btn-meca:hover {
   position: fixed; inset: 0; z-index: -1;
   width: 100%; height: 100%;
   pointer-events: none;
+  /* Cada rama con su color, todos suaves: el azul único sobre un fondo azulado
+     se perdía. La opacidad general los mantiene de fondo. */
   color: var(--c-secondary);
-  opacity: .18;
+  opacity: .3;
 }
-html.dark .fondo-ramas { opacity: .26; }
+html.dark .fondo-ramas { opacity: .34; }
+
+/* Un color por rama (línea, pulso y nodo que le toca) */
+.fr-lineas path:nth-child(1), .fr-pulsos use:nth-child(1) { color: #2B76F7; }
+.fr-lineas path:nth-child(2), .fr-pulsos use:nth-child(2) { color: #2BB673; }
+.fr-lineas path:nth-child(3), .fr-pulsos use:nth-child(3) { color: #8E44AD; }
+.fr-lineas path:nth-child(4), .fr-pulsos use:nth-child(4) { color: #40CFFF; }
+.fr-lineas path:nth-child(5), .fr-pulsos use:nth-child(5) { color: #F7931E; }
+.fr-lineas path:nth-child(6), .fr-pulsos use:nth-child(6) { color: #7AC943; }
+.fr-lineas path:nth-child(7), .fr-pulsos use:nth-child(7) { color: #1A4B99; }
+.fr-lineas path:nth-child(8), .fr-pulsos use:nth-child(8) { color: #E91E8C; }
+.fr-lineas path:nth-child(9), .fr-pulsos use:nth-child(9) { color: #0E9594; }
+.fr-nodos circle:nth-child(1) { color: #2B76F7; }
+.fr-nodos circle:nth-child(2) { color: #2BB673; }
+.fr-nodos circle:nth-child(3) { color: #8E44AD; }
+.fr-nodos circle:nth-child(4) { color: #40CFFF; }
+.fr-nodos circle:nth-child(5) { color: #F7931E; }
+.fr-nodos circle:nth-child(6) { color: #7AC943; }
+.fr-nodos circle:nth-child(7) { color: #1A4B99; }
+.fr-nodos circle:nth-child(8) { color: #E91E8C; }
+.fr-nodos circle:nth-child(9) { color: #0E9594; }
+.fr-nodos circle:nth-child(n+10) { color: #6C5CE7; }
+
 .fr-lineas path {
   fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
   opacity: .72;                     /* la rama, continua y de fondo */
