@@ -936,7 +936,33 @@ html.dark .btn-ghost.btn-meca:hover {
   gap: 26px;
 }
 
-.proyecto-admin-card { overflow: hidden; display: flex; flex-direction: column; }
+/* El color del proyecto (--pc, el que se elige en «Editar proyecto») manda en
+   toda la tarjeta, no solo en el icono: franja superior, tinte de fondo y aro
+   al pasar por encima. Así el tablero se distingue de un vistazo. */
+.proyecto-admin-card {
+  overflow: hidden; display: flex; flex-direction: column;
+  position: relative; isolation: isolate;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--pc, var(--c-secondary)) 10%, transparent) 0%, transparent 60%),
+    var(--n-bg);
+  transition: transform .25s ease, box-shadow .25s ease;
+}
+/* Franja de color arriba: fina, pero suficiente para identificar el proyecto */
+.proyecto-admin-card::before {
+  content: ''; position: absolute; inset: 0 0 auto; height: 4px;
+  background: linear-gradient(90deg,
+    var(--pc, var(--c-secondary)),
+    color-mix(in srgb, var(--pc, var(--c-secondary)) 45%, #fff));
+}
+.proyecto-admin-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--sh-card), 0 0 0 1.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 40%, transparent);
+}
+html.dark .proyecto-admin-card {
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, transparent) 0%, transparent 60%),
+    var(--n-bg);
+}
 
 .pac-head {
   display: flex; align-items: center; justify-content: space-between;
@@ -991,6 +1017,20 @@ html.dark .btn-ghost.btn-meca:hover {
 }
 .pac-links { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-left: auto; }
 .pac-links .btn-meca { white-space: nowrap; }   /* nunca cortar el texto del botón */
+/* "Ver tablero" y el chip del repo también toman el color del proyecto */
+.pac-links .btn-outline {
+  color: var(--pc, var(--c-secondary));
+  box-shadow: var(--sh-mini), inset 0 0 0 1.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
+}
+.pac-links .btn-outline:hover {
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 10%, transparent);
+}
+.pac-repo:hover { color: var(--pc, var(--c-secondary)); }
+/* La barra de avance ya recibe el color por estilo en línea; el hueco se tiñe
+   un poco para que el 1% no parezca un fallo de pintado. */
+.pac-progress .progress-wrap {
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 8%, var(--n-bg));
+}
 .pac-repo {
   width: 38px; height: 38px; border-radius: 12px;
   display: inline-flex; align-items: center; justify-content: center;
