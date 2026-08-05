@@ -86,13 +86,6 @@ class Mailer
     }
 
     /**
-     * URL pública del logo para el correo ('' si no se puede construir).
-     *
-     * Se ENLAZA en vez de adjuntarse: incrustarlo con cid: dejaba el PNG como
-     * archivo adjunto del mensaje. Hace falta la URL del panel (Ajustes →
-     * Correo); sin ella no hay imagen y la plantilla usa la inicial de la marca.
-     */
-    /**
      * Base del panel a partir de la URL de Ajustes, tolerante con lo que se
      * pega: sobra una barra final o incluso un archivo ("…/admin/index.php").
      * Si se deja el archivo, todo lo que se cuelgue detrás queda inservible:
@@ -111,6 +104,13 @@ class Mailer
         return self::logoUrl();
     }
 
+    /**
+     * URL pública del logo para el correo ('' si no se puede construir).
+     *
+     * Se ENLAZA en vez de adjuntarse: incrustarlo con cid: dejaba el PNG como
+     * archivo adjunto del mensaje. Hace falta la URL del panel (Ajustes →
+     * Correo); sin ella no hay imagen y la plantilla usa la inicial de la marca.
+     */
     private static function logoUrl(): string
     {
         $base = self::baseUrl();
