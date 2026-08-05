@@ -4,6 +4,8 @@
       "ref": "m1-1",
       "proyecto": "Ms-Académico",
       "titulo": "Catálogo de tipos de período",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. Ordinario, extraordinario y anual para el campo de la salud. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -11,6 +13,8 @@
       "ref": "m1-2",
       "proyecto": "Ms-Académico",
       "titulo": "Configurador de año académico, lectivo y calendario",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. Los tres como ejes distintos. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -18,6 +22,8 @@
       "ref": "m1-3",
       "proyecto": "Ms-Académico",
       "titulo": "Bloques o subperíodos parametrizables",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. De 5 a 6 semanas dentro de un período. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -25,6 +31,8 @@
       "ref": "m1-4",
       "proyecto": "Ms-Académico",
       "titulo": "Fechas de inicio y fin por período y por bloque",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -32,6 +40,8 @@
       "ref": "m1-5",
       "proyecto": "Ms-Académico",
       "titulo": "Semanas por período y equivalencia en créditos",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. 1 crédito = 48 horas. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -39,6 +49,8 @@
       "ref": "m1-6",
       "proyecto": "Ms-Académico",
       "titulo": "Semana de trabajo académico",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. 45 horas en general, 50 en el campo de la salud. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -46,6 +58,8 @@
       "ref": "m1-7",
       "proyecto": "Ms-Académico",
       "titulo": "Validación de no solapamiento entre períodos",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. Y de bloque contenido en su período. Ref: RRA 2022, Arts. 9, 10, 113 y 114.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -53,6 +67,8 @@
       "ref": "m1-8",
       "proyecto": "Ms-Académico",
       "titulo": "Estados del período: planificado, abierto, en ejecución y cerrado",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 1 · Períodos académicos. Criterio de aceptación del módulo: crear un año con dos ordinarios más un extraordinario y bloques de 5 o 6 semanas, desde configuración, sin desplegar código.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -61,6 +77,8 @@
       "ref": "m2-1",
       "proyecto": "Ms-Académico",
       "titulo": "Sede matriz",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Unidad de mayor jerarquía; es el campus principal del instrumento legal de creación. Ref: RRA 2022, Arts. 6 y 61 · RPC-SE-16-No.043-2022.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -68,6 +86,8 @@
       "ref": "m2-2",
       "proyecto": "Ms-Académico",
       "titulo": "Sedes",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Funcionan en provincia distinta a la matriz; se notifican al CES para registro y aprobación. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -75,6 +95,8 @@
       "ref": "m2-3",
       "proyecto": "Ms-Académico",
       "titulo": "Extensiones",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Cantón distinto al de la matriz o sede, dentro de la misma provincia, por resolución del CES. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -82,6 +104,8 @@
       "ref": "m2-4",
       "proyecto": "Ms-Académico",
       "titulo": "Campus",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Espacio físico subordinado a matriz, sede o extensión; puede haber varios por unidad. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -89,6 +113,8 @@
       "ref": "m2-5",
       "proyecto": "Ms-Académico",
       "titulo": "Centros de apoyo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Soporte de procesos de aprendizaje; obligatorios en modalidad a distancia. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -96,6 +122,8 @@
       "ref": "m2-6",
       "proyecto": "Ms-Académico",
       "titulo": "Espacios: aula, laboratorio y taller con aforo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. El aforo sustenta el cupo por paralelo. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -103,6 +131,8 @@
       "ref": "m2-7",
       "proyecto": "Ms-Académico",
       "titulo": "Delegación de funciones a sedes, extensiones y campus",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Funciones académicas y administrativas. Ref: RRA 2022, Arts. 6 y 61.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -110,6 +140,8 @@
       "ref": "m2-8",
       "proyecto": "Ms-Académico",
       "titulo": "Revisar normas derogadas de estructura institucional",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 2 · Espacios físicos. Ya NO existe el tope de una sede por provincia ni el campus atado al cantón de su unidad: no implementar esas reglas. Requiere el catálogo DPA oficial del INEC.",
       "asignados": ["Eder Ordoñez"]
     },
@@ -118,6 +150,8 @@
       "ref": "m3-1",
       "proyecto": "Ms-Académico",
       "titulo": "Catálogo de nomenclatura",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Niveles de formación, tipos de titulación, títulos y campos de conocimiento. Ref: RRA 2022, Arts. 9, 15, 16, 19, 21 y 27 a 30.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -125,6 +159,8 @@
       "ref": "m3-2",
       "proyecto": "Ms-Académico",
       "titulo": "Duraciones de carreras y programas",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Con créditos mínimos y máximos por tipo de titulación. Ref: RRA 2022, Arts. 15, 16 y 19.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -132,6 +168,8 @@
       "ref": "m3-3",
       "proyecto": "Ms-Académico",
       "titulo": "Horas por actividad: ACD, APE y AA",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Con su distribución por nivel de estudio. Ref: RRA 2022, Arts. 27 a 30.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -139,6 +177,8 @@
       "ref": "m3-4",
       "proyecto": "Ms-Académico",
       "titulo": "Equivalencia crédito–hora",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. 1 crédito son 48 horas de actividad del estudiante. Ref: RRA 2022, Art. 21.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -146,6 +186,8 @@
       "ref": "m3-5",
       "proyecto": "Ms-Académico",
       "titulo": "Malla curricular",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Niveles, asignaturas, prerrequisitos, correquisitos y unidades de organización curricular. Ref: RRA 2022, Arts. 27 a 30.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -153,6 +195,8 @@
       "ref": "m3-6",
       "proyecto": "Ms-Académico",
       "titulo": "Itinerarios y menciones",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Con el tope de tres de cada uno. Ref: RRA 2022, Arts. 27 a 30.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -160,6 +204,8 @@
       "ref": "m3-7",
       "proyecto": "Ms-Académico",
       "titulo": "Prácticas preprofesionales y titulación en la malla",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Como componentes de la malla curricular. Ref: RRA 2022, Arts. 27 a 30.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -167,6 +213,8 @@
       "ref": "m3-8",
       "proyecto": "Ms-Académico",
       "titulo": "Duración de períodos en semanas y su conversión a créditos",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 3 · Currículo y malla. Criterio de aceptación del módulo: cargar una carrera completa con su malla, validar el rango de créditos del tipo de titulación y ver la distribución ACD/APE/AA cuadrada por nivel.",
       "asignados": ["Vanessa Murillo"]
     },
@@ -175,6 +223,8 @@
       "ref": "m4-1",
       "proyecto": "Ms-Académico",
       "titulo": "Catálogo de jornadas",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Matutina, vespertina, nocturna y fin de semana (sábado y domingo). Ref: autonomía institucional · RRA 2022, Art. 54.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -182,6 +232,8 @@
       "ref": "m4-2",
       "proyecto": "Ms-Académico",
       "titulo": "Franjas horarias y duración de la hora clase",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Franjas por jornada. Ref: RRA 2022, Art. 54.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -189,6 +241,8 @@
       "ref": "m4-3",
       "proyecto": "Ms-Académico",
       "titulo": "Restricción por aforo del espacio asignado al paralelo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Depende del inventario de aulas y aforo del módulo de Espacios físicos.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -196,6 +250,8 @@
       "ref": "m4-4",
       "proyecto": "Ms-Académico",
       "titulo": "Restricción por disponibilidad horaria del docente",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Depende del contrato de datos de Planta docente (Equipo Delta).",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -203,6 +259,8 @@
       "ref": "m4-5",
       "proyecto": "Ms-Académico",
       "titulo": "Detección de choques de horario",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Mismo docente, misma aula o mismo paralelo en la misma franja.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -210,6 +268,8 @@
       "ref": "m4-6",
       "proyecto": "Ms-Académico",
       "titulo": "Horario diferenciado por modalidad de estudio",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Ref: RRA 2022, Art. 54.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -217,6 +277,8 @@
       "ref": "m4-7",
       "proyecto": "Ms-Académico",
       "titulo": "Publicación del horario por paralelo, docente y espacio",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 4 · Horarios y jornadas. Criterio de aceptación del módulo: generar el horario de un paralelo completo sin choques de docente, aula ni franja, y publicarlo en las tres vistas.",
       "asignados": ["Carlos Rodríguez"]
     },
@@ -225,42 +287,56 @@
       "ref": "m5-1",
       "proyecto": "Ms-Académico",
       "titulo": "Titularidad del docente: titular u ocasional",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, backlog independiente, fuera del panel). Ref: Reglamento de Carrera y Escalafón · LOES."
     },
     {
       "ref": "m5-2",
       "proyecto": "Ms-Académico",
       "titulo": "Categoría del titular: principal, agregado y auxiliar",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Con sus niveles 1, 2 y 3. Ref: Reglamento de Carrera y Escalafón · LOES."
     },
     {
       "ref": "m5-3",
       "proyecto": "Ms-Académico",
       "titulo": "Dedicación: tiempo completo, medio tiempo y tiempo parcial",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Ref: Reglamento de Carrera y Escalafón · LOES."
     },
     {
       "ref": "m5-4",
       "proyecto": "Ms-Académico",
       "titulo": "Afinidad del docente con el área de conocimiento",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Relación entre el docente y el área o la asignatura."
     },
     {
       "ref": "m5-5",
       "proyecto": "Ms-Académico",
       "titulo": "Disponibilidad laboral y horaria del docente",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Hay docentes que solo pueden en la noche o los fines de semana."
     },
     {
       "ref": "m5-6",
       "proyecto": "Ms-Académico",
       "titulo": "Contratos vigentes y carga horaria máxima",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Ref: Reglamento de Carrera y Escalafón · LOES."
     },
     {
       "ref": "m5-7",
       "proyecto": "Ms-Académico",
       "titulo": "Publicar el contrato de datos de docentes para Beta",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 5 · Planta docente · responsable Jordy (Equipo Delta, fuera del panel). Servicio o vista que el Equipo Beta pueda consumir para asignar docentes. RIESGO ABIERTO DEL SPRINT: si se atrasa, Planificación Académica y Horarios quedan bloqueados. Se revisa en cada daily hasta cerrarlo.",
       "prioridad": "alta"
     },
@@ -269,6 +345,8 @@
       "ref": "m6-1",
       "proyecto": "Ms-Académico",
       "titulo": "Plan por carrera, nivel, asignatura y paralelo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Ref: RRA 2022, Arts. 27 a 30 y 96.",
       "asignados": ["Jaione"]
     },
@@ -276,6 +354,8 @@
       "ref": "m6-2",
       "proyecto": "Ms-Académico",
       "titulo": "Asignación de docente por asignatura y paralelo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Respetando afinidad y disponibilidad. Se arranca con datos simulados hasta que el Equipo Delta publique el contrato de datos.",
       "asignados": ["Jaione"],
       "depende_de": "m5-7"
@@ -284,6 +364,8 @@
       "ref": "m6-3",
       "proyecto": "Ms-Académico",
       "titulo": "Asignación de espacio físico y franja horaria a cada paralelo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Ref: RRA 2022, Arts. 27 a 30 y 96.",
       "asignados": ["Jaione"]
     },
@@ -291,6 +373,8 @@
       "ref": "m6-4",
       "proyecto": "Ms-Académico",
       "titulo": "Fechas de inicio y fin por asignatura dentro del período o bloque",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Ref: RRA 2022, Arts. 27 a 30 y 96.",
       "asignados": ["Jaione"]
     },
@@ -298,6 +382,8 @@
       "ref": "m6-5",
       "proyecto": "Ms-Académico",
       "titulo": "PEA, plan analítico y sílabo por asignatura y paralelo",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Aquí aterriza el micro currículo. Ref: RRA 2022, Arts. 27 a 30 y 96.",
       "asignados": ["Jaione"]
     },
@@ -305,6 +391,8 @@
       "ref": "m6-6",
       "proyecto": "Ms-Académico",
       "titulo": "Distribución de horas ACD, APE y AA en el período",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Por asignatura. Ref: RRA 2022, Arts. 27 a 30.",
       "asignados": ["Jaione"]
     },
@@ -312,6 +400,8 @@
       "ref": "m6-7",
       "proyecto": "Ms-Académico",
       "titulo": "Cupo por paralelo acotado al cupo de la cohorte",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. El cupo por cohorte lo aprueba el CES; los paralelos los define la IES.",
       "asignados": ["Jaione"]
     },
@@ -319,6 +409,8 @@
       "ref": "m6-8",
       "proyecto": "Ms-Académico",
       "titulo": "Vista consolidada del plan para el Product Owner",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 6 · Planificación académica. Criterio de aceptación del módulo: planificar un nivel completo con docente, aula y horario asignados, y generar el PEA de cada asignatura sin intervención manual.",
       "asignados": ["Jaione"]
     },
@@ -327,6 +419,8 @@
       "ref": "m7-1",
       "proyecto": "Ms-Académico",
       "titulo": "Postulación, cupos por cohorte y nivelación",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Ref: RRA 2022, Arts. 71, 73, 74, 76 y 96.",
       "asignados": ["Ronny Arellano"]
     },
@@ -334,6 +428,8 @@
       "ref": "m7-2",
       "proyecto": "Ms-Académico",
       "titulo": "Tipos de matrícula: ordinaria, extraordinaria y especial",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. La matrícula especial la otorga la IES, no un organismo externo. Ref: RRA 2022, Arts. 71, 73 y 74.",
       "asignados": ["Ronny Arellano"]
     },
@@ -341,6 +437,8 @@
       "ref": "m7-3",
       "proyecto": "Ms-Académico",
       "titulo": "Unicidad de matrícula por estudiante, carrera y período",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Ojo: no es por estudiante y período. Ref: RRA 2022, Art. 76.",
       "asignados": ["Ronny Arellano"]
     },
@@ -348,6 +446,8 @@
       "ref": "m7-4",
       "proyecto": "Ms-Académico",
       "titulo": "Conteo de primera, segunda y tercera matrícula por asignatura",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Ref: RRA 2022, Arts. 71, 73, 74, 76 y 96.",
       "asignados": ["Ronny Arellano"]
     },
@@ -355,6 +455,8 @@
       "ref": "m7-5",
       "proyecto": "Ms-Académico",
       "titulo": "Retiro voluntario o por fuerza mayor",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Sin que cuente para la tercera matrícula. Ref: RRA 2022, Arts. 71, 73, 74, 76 y 96.",
       "asignados": ["Ronny Arellano"]
     },
@@ -362,6 +464,8 @@
       "ref": "m7-6",
       "proyecto": "Ms-Académico",
       "titulo": "Condición de estudiante regular",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Al menos el 60% de los créditos del período. Ref: RRA 2022, Arts. 71, 73, 74, 76 y 96.",
       "asignados": ["Ronny Arellano"]
     },
@@ -369,6 +473,8 @@
       "ref": "m7-7",
       "proyecto": "Ms-Académico",
       "titulo": "Cupo por cohorte aprobado por el CES",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Con los paralelos definidos por la institución.",
       "asignados": ["Ronny Arellano"]
     },
@@ -376,6 +482,8 @@
       "ref": "m7-8",
       "proyecto": "Ms-Académico",
       "titulo": "Registro de la póliza de seguro del estudiante",
+      "fecha_inicio": "2026-08-05",
+      "fecha_limite": "2026-08-30",
       "descripcion": "Módulo 7 · Admisiones y matriculación. Criterio de aceptación del módulo: matricular un estudiante en un paralelo real, con validación de cupo, tipo de matrícula y número de matrícula por asignatura.",
       "asignados": ["Ronny Arellano"]
     }
