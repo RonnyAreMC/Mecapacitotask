@@ -117,6 +117,19 @@ function limiteSubidaBytes(): int
     return min($aBytes((string)ini_get('upload_max_filesize')), $aBytes((string)ini_get('post_max_size')));
 }
 
+/**
+ * Destino de vuelta que manda un formulario en el campo 'volver'.
+ *
+ * Solo se acepta una pagina del propio panel ("proyecto.php?id=3&estado=..."):
+ * asi conserva los filtros de la vista sin abrir la puerta a que alguien
+ * redirija a un sitio externo colando una URL absoluta.
+ */
+function volverAqui(string $defecto): string
+{
+    $v = trim((string)($_POST['volver'] ?? ''));
+    return preg_match('#^[\w.-]+\.php(\?[\w=&%.,+-]*)?$#', $v) ? $v : $defecto;
+}
+
 /** Pagina desde la que se envio el formulario (para volver con un error). */
 function paginaOrigen(): string
 {
