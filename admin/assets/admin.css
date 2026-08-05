@@ -982,21 +982,20 @@ html.dark .btn-ghost.btn-meca:hover {
 }
 
 /* ---- Fondo del tablero: grafo de ramas ----
-   Decorativo y muy tenue: sugiere el historial de un repositorio sin competir
-   con el contenido. Fijo al viewport y detrás de todo (el contenedor del panel
-   no pinta fondo, así que asoma). */
+   Decorativo y de fondo: carriles de punta a punta con ramas que salen de uno
+   y entran en otro. Fijo al viewport y detrás de todo (el contenedor del panel
+   crea su contexto de apilado, si no el fondo del body lo taparía). */
 .fondo-ramas {
   position: fixed; inset: 0; z-index: -1;
   width: 100%; height: 100%;
   pointer-events: none;
-  /* Cada rama con su color, todos suaves: el azul único sobre un fondo azulado
-     se perdía. La opacidad general los mantiene de fondo. */
   color: var(--c-secondary);
   opacity: .3;
 }
 html.dark .fondo-ramas { opacity: .34; }
 
-/* Un color por rama (línea, pulso y nodo que le toca) */
+/* Un color por trazo (línea, pulso y nodo), repitiendo la paleta: con un solo
+   azul sobre fondo azulado no se distinguía nada. */
 .fr-lineas path:nth-child(1), .fr-pulsos use:nth-child(1) { color: #2B76F7; }
 .fr-lineas path:nth-child(2), .fr-pulsos use:nth-child(2) { color: #2BB673; }
 .fr-lineas path:nth-child(3), .fr-pulsos use:nth-child(3) { color: #8E44AD; }
@@ -1006,6 +1005,11 @@ html.dark .fondo-ramas { opacity: .34; }
 .fr-lineas path:nth-child(7), .fr-pulsos use:nth-child(7) { color: #1A4B99; }
 .fr-lineas path:nth-child(8), .fr-pulsos use:nth-child(8) { color: #E91E8C; }
 .fr-lineas path:nth-child(9), .fr-pulsos use:nth-child(9) { color: #0E9594; }
+.fr-lineas path:nth-child(10), .fr-pulsos use:nth-child(10) { color: #6C5CE7; }
+.fr-lineas path:nth-child(11), .fr-pulsos use:nth-child(11) { color: #2B76F7; }
+.fr-lineas path:nth-child(12), .fr-pulsos use:nth-child(12) { color: #2BB673; }
+.fr-lineas path:nth-child(13), .fr-pulsos use:nth-child(13) { color: #8E44AD; }
+.fr-lineas path:nth-child(14), .fr-pulsos use:nth-child(14) { color: #40CFFF; }
 .fr-nodos circle:nth-child(1) { color: #2B76F7; }
 .fr-nodos circle:nth-child(2) { color: #2BB673; }
 .fr-nodos circle:nth-child(3) { color: #8E44AD; }
@@ -1015,28 +1019,42 @@ html.dark .fondo-ramas { opacity: .34; }
 .fr-nodos circle:nth-child(7) { color: #1A4B99; }
 .fr-nodos circle:nth-child(8) { color: #E91E8C; }
 .fr-nodos circle:nth-child(9) { color: #0E9594; }
-.fr-nodos circle:nth-child(n+10) { color: #6C5CE7; }
+.fr-nodos circle:nth-child(10) { color: #6C5CE7; }
+.fr-nodos circle:nth-child(11) { color: #2B76F7; }
+.fr-nodos circle:nth-child(12) { color: #2BB673; }
+.fr-nodos circle:nth-child(13) { color: #8E44AD; }
+.fr-nodos circle:nth-child(14) { color: #40CFFF; }
+.fr-nodos circle:nth-child(15) { color: #F7931E; }
+.fr-nodos circle:nth-child(16) { color: #7AC943; }
+.fr-nodos circle:nth-child(17) { color: #1A4B99; }
+.fr-nodos circle:nth-child(18) { color: #E91E8C; }
 
 .fr-lineas path {
   fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
-  opacity: .72;                     /* la rama, continua y de fondo */
+  opacity: .72;
 }
 
-/* El pulso: un tramo corto que recorre la misma rama. Da el movimiento sin
-   que la línea parezca cortada. */
+/* El pulso: un tramo corto que recorre la misma rama. Da el movimiento sin que
+   la línea parezca cortada. pathLength="1" iguala el tamaño del pulso en
+   trazos de distinta longitud. */
 .fr-pulsos use {
   fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round;
   stroke-dasharray: .08 1;
   animation: fr-pulso 11s linear infinite;
 }
-.fr-pulsos use:nth-child(2) { animation-duration: 14s; animation-delay: -3s; }
-.fr-pulsos use:nth-child(3) { animation-duration:  9s; animation-delay: -6s; }
-.fr-pulsos use:nth-child(4) { animation-duration: 13s; animation-delay: -1s; }
-.fr-pulsos use:nth-child(5) { animation-duration: 16s; animation-delay: -8s; }
-.fr-pulsos use:nth-child(6) { animation-duration: 10s; animation-delay: -4s; }
-.fr-pulsos use:nth-child(7) { animation-duration: 15s; animation-delay: -2s; }
-.fr-pulsos use:nth-child(8) { animation-duration: 12s; animation-delay: -7s; }
-.fr-pulsos use:nth-child(9) { animation-duration: 17s; animation-delay: -5s; }
+.fr-pulsos use:nth-child(2) { animation-duration: 12s; animation-delay: -10s; }
+.fr-pulsos use:nth-child(3) { animation-duration: 19s; animation-delay: -2s; }
+.fr-pulsos use:nth-child(4) { animation-duration: 15s; animation-delay: -7s; }
+.fr-pulsos use:nth-child(5) { animation-duration: 11s; animation-delay: -12s; }
+.fr-pulsos use:nth-child(6) { animation-duration: 18s; animation-delay: -4s; }
+.fr-pulsos use:nth-child(7) { animation-duration: 14s; animation-delay: -9s; }
+.fr-pulsos use:nth-child(8) { animation-duration: 10s; animation-delay: -1s; }
+.fr-pulsos use:nth-child(9) { animation-duration: 17s; animation-delay: -6s; }
+.fr-pulsos use:nth-child(10) { animation-duration: 13s; animation-delay: -11s; }
+.fr-pulsos use:nth-child(11) { animation-duration: 9s; animation-delay: -3s; }
+.fr-pulsos use:nth-child(12) { animation-duration: 16s; animation-delay: -8s; }
+.fr-pulsos use:nth-child(13) { animation-duration: 12s; animation-delay: 0s; }
+.fr-pulsos use:nth-child(14) { animation-duration: 19s; animation-delay: -5s; }
 @keyframes fr-pulso { from { stroke-dashoffset: 1.08; } to { stroke-dashoffset: 0; } }
 
 .fr-nodos circle { fill: currentColor; animation: fr-latido 5s ease-in-out infinite; }

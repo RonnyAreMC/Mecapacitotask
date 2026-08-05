@@ -58,32 +58,39 @@ UI::cabecera(
 <!-- Fondo: un grafo de ramas, como el de un repositorio. Es decorativo, va
      detrás de todo y se apaga si el sistema pide menos animación. -->
 <svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-  <!-- Las ramas van completas; el movimiento lo da un pulso que las recorre
-       (los <use> de abajo), no una línea a trozos. pathLength normaliza cada
-       trazo a 1 para que el pulso mida igual en ramas de distinto largo. -->
+  <!-- Carriles de punta a punta y ramas que siempre salen de uno y entran en
+       otro: así ninguna se corta en el aire. El movimiento lo da un pulso que
+       recorre cada trazo (los <use>), no un punteado. -->
   <g class="fr-lineas">
-    <path id="fr1" pathLength="1" d="M-60 320 H1260"/>
-    <path id="fr2" pathLength="1" d="M170 320 C250 320 265 170 345 170 H820"/>
-    <path id="fr3" pathLength="1" d="M400 320 C480 320 495 470 575 470 H1010"/>
-    <path id="fr4" pathLength="1" d="M700 170 C780 170 795 320 875 320"/>
-    <path id="fr5" pathLength="1" d="M880 470 C960 470 975 320 1055 320"/>
-    <path id="fr6" pathLength="1" d="M250 470 C330 470 345 320 425 320"/>
-    <path id="fr7" pathLength="1" d="M-60 90 H420 C500 90 515 170 595 170"/>
-    <path id="fr8" pathLength="1" d="M520 560 C600 560 615 470 695 470 H1260"/>
-    <path id="fr9" pathLength="1" d="M60 170 C140 170 155 90 235 90"/>
+    <path id="c1" pathLength="1" d="M-60 60 H1260"/>
+    <path id="c2" pathLength="1" d="M-60 230 H1260"/>
+    <path id="c3" pathLength="1" d="M-60 400 H1260"/>
+    <path id="c4" pathLength="1" d="M-60 560 H1260"/>
+    <path id="r1" pathLength="1" d="M120 60 C210 60 190 230 280 230"/>
+    <path id="r2" pathLength="1" d="M340 230 C430 230 410 60 500 60"/>
+    <path id="r3" pathLength="1" d="M560 60 C650 60 630 230 720 230"/>
+    <path id="r4" pathLength="1" d="M180 400 C270 400 250 230 340 230"/>
+    <path id="r5" pathLength="1" d="M420 400 C510 400 490 560 580 560"/>
+    <path id="r6" pathLength="1" d="M640 560 C730 560 710 400 800 400"/>
+    <path id="r7" pathLength="1" d="M860 230 C950 230 930 400 1020 400"/>
+    <path id="r8" pathLength="1" d="M900 400 C990 400 970 230 1060 230"/>
+    <path id="r9" pathLength="1" d="M1080 60 C1170 60 1150 230 1240 230"/>
+    <path id="r10" pathLength="1" d="M40 560 C130 560 110 400 200 400"/>
   </g>
   <g class="fr-pulsos">
-    <use href="#fr1"/><use href="#fr2"/><use href="#fr3"/>
-    <use href="#fr4"/><use href="#fr5"/><use href="#fr6"/>
-    <use href="#fr7"/><use href="#fr8"/><use href="#fr9"/>
+    <use href="#c1"/><use href="#c2"/><use href="#c3"/>
+    <use href="#c4"/><use href="#r1"/><use href="#r2"/>
+    <use href="#r3"/><use href="#r4"/><use href="#r5"/>
+    <use href="#r6"/><use href="#r7"/><use href="#r8"/>
+    <use href="#r9"/><use href="#r10"/>
   </g>
   <g class="fr-nodos">
-    <circle cx="170" cy="320" r="9"/><circle cx="345" cy="170" r="7"/>
-    <circle cx="575" cy="470" r="7"/><circle cx="700" cy="170" r="9"/>
-    <circle cx="875" cy="320" r="7"/><circle cx="1055" cy="320" r="9"/>
-    <circle cx="425" cy="320" r="7"/><circle cx="880" cy="470" r="7"/>
-    <circle cx="235" cy="90" r="7"/><circle cx="595" cy="170" r="7"/>
-    <circle cx="695" cy="470" r="7"/><circle cx="60" cy="170" r="7"/>
+    <circle cx="120" cy="60" r="9"/><circle cx="280" cy="230" r="7"/><circle cx="340" cy="230" r="7"/>
+    <circle cx="500" cy="60" r="9"/><circle cx="560" cy="60" r="7"/><circle cx="720" cy="230" r="7"/>
+    <circle cx="180" cy="400" r="9"/><circle cx="420" cy="400" r="7"/><circle cx="580" cy="560" r="7"/>
+    <circle cx="640" cy="560" r="9"/><circle cx="800" cy="400" r="7"/><circle cx="860" cy="230" r="7"/>
+    <circle cx="1020" cy="400" r="9"/><circle cx="1060" cy="230" r="7"/><circle cx="1080" cy="60" r="7"/>
+    <circle cx="200" cy="400" r="9"/><circle cx="900" cy="400" r="7"/><circle cx="40" cy="560" r="7"/>
   </g>
 </svg>
 
