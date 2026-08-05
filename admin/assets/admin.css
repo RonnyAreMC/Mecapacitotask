@@ -4854,3 +4854,25 @@ html.sb-collapsed .nav-grupo-n{ background:#2FE486 !important; color:#06324a !im
 .sidebar .sidebar-link-new{ border:1px dashed rgba(255,255,255,.5) !important; color:#fff !important; }
 .sidebar .sidebar-link-new:hover{ border-color:#2FE486 !important; color:#2FE486 !important; background:transparent !important; }
 .sidebar .sidebar-link-new:hover i{ color:#2FE486 !important; }
+
+/* Marca en la barra celeste: sin caja/glow neumórfico detrás (se veía feo);
+   queda solo la pastilla blanca del logo. Y el botón de plegar, translúcido. */
+.sidebar .sidebar-brand, html.dark .sidebar .sidebar-brand{
+  background:transparent !important; box-shadow:none !important; border:none !important; padding:0 !important;
+}
+.sidebar .sidebar-brand:active{ box-shadow:none !important; }
+.sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{
+  background:rgba(255,255,255,.18) !important; box-shadow:none !important;
+}
+.sidebar .sidebar-toggle:hover{ background:rgba(255,255,255,.30) !important; color:#fff !important; }
+
+/* Títulos de página en azul marino InnoTech (#150089). Solo en claro:
+   en oscuro se mantienen claros para poder leerlos. */
+.page-title{ color:#150089 !important; }
+html.dark .page-title{ color:var(--c-text) !important; }
+
+/* "Ver como" en la barra celeste: borde translúcido (sin borde azul raro) */
+.sidebar .vc-abrir, html.dark .sidebar .vc-abrir{
+  border:1.5px solid rgba(255,255,255,.35) !important;
+}
+.sidebar .vc-abrir:hover{ border-color:#fff !important; }
