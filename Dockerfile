@@ -5,10 +5,14 @@ FROM php:8.2-apache
 
 # SQLite (PDO) + mod_rewrite. AllowOverride All para que los .htaccess manden.
 # pdo_sqlite necesita las cabeceras libsqlite3-dev (la imagen base no las trae).
+# Al instalar por apt, apache2 se actualiza y activa mpm_event encima del
+# mpm_prefork que ya trae la imagen; con dos MPM Apache no arranca. Dejamos
+# solo mpm_prefork (el que usa mod_php).
 RUN apt-get update \
  && apt-get install -y --no-install-recommends libsqlite3-dev \
  && docker-php-ext-install pdo_sqlite \
- && a2enmod rewrite \
+ && (a2dismod mpm_event mpm_worker 2>/dev/null || true) \
+ && a2enmod mpm_prefork rewrite \
  && rm -rf /var/lib/apt/lists/*
 
 # Seguridad a nivel de servidor, independiente de los .htaccess: aunque un
