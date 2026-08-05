@@ -86,6 +86,30 @@ class Mailer
     }
 
     /**
+     * URL pública del logo para el correo ('' si no se puede construir).
+     *
+     * Se ENLAZA en vez de adjuntarse: incrustarlo con cid: dejaba el PNG como
+     * archivo adjunto del mensaje. Hace falta la URL del panel (Ajustes →
+     * Correo); sin ella no hay imagen y la plantilla usa la inicial de la marca.
+     */
+    private static function logoUrl(): string
+    {
+        $base = rtrim((string)(self::conf()['url_panel'] ?? ''), '/');
+        $file = str_replace('\\', '/', self::logoPath());
+        if ($base === '' || $file === '') {
+            return '';
+        }
+        // url_panel apunta a la carpeta del panel (…/admin). Los assets de la
+        // marca viven un nivel arriba; lo subido en Ajustes, dentro del panel.
+        $pos = strrpos($file, '/assets/');
+        if ($pos !== false) {
+            return preg_replace('#/[^/]+$#', '', $base) . substr($file, $pos);
+        }
+        $pos = strrpos($file, '/uploads/');
+        return $pos !== false ? $base . substr($file, $pos) : '';
+    }
+
+    /**
      * Mezcla un color con blanco. $t=0 es el color puro, $t=1 blanco.
      * Se usa para los tintes claros de fondos y bordes: da un hex sólido de
      * 6 dígitos, que Outlook sí entiende (el hex de 8 con alfa no siempre).
@@ -102,36 +126,19 @@ class Mailer
     }
 
     /**
-     * Cuerpo MIME del correo. Si hay logo, arma un multipart/related con la
-     * imagen incrustada (cid:logo) para que se vea sin depender de una URL.
+     * Cuerpo MIME del correo: HTML y nada más.
+     *
+     * Antes armaba un multipart/related con el logo incrustado, pero eso deja
+     * el PNG colgando como adjunto del mensaje (y algún cliente lo mostraba
+     * roto). El logo ahora se enlaza por URL desde la plantilla.
      * Devuelve [ cabecerasContentType[], cuerpo ].
      */
     private static function cuerpoMime(string $html): array
     {
-        $logo = self::logoPath();
-        $htmlPart = rtrim(chunk_split(base64_encode($html), 76, "\r\n"));
-        if ($logo === '') {
-            return [['Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64'], $htmlPart];
-        }
-        $b = 'mc_' . bin2hex(random_bytes(8));
-        $img = rtrim(chunk_split(base64_encode((string)file_get_contents($logo)), 76, "\r\n"));
-        $cuerpo = implode("\r\n", [
-            '--' . $b,
-            'Content-Type: text/html; charset=UTF-8',
-            'Content-Transfer-Encoding: base64',
-            '',
-            $htmlPart,
-            '--' . $b,
-            'Content-Type: image/png',
-            'Content-Transfer-Encoding: base64',
-            'Content-ID: <logo>',
-            'Content-Disposition: inline; filename="logo.png"',
-            '',
-            $img,
-            '--' . $b . '--',
-            '',
-        ]);
-        return [['Content-Type: multipart/related; boundary="' . $b . '"'], $cuerpo];
+        return [
+            ['Content-Type: text/html; charset=UTF-8', 'Content-Transfer-Encoding: base64'],
+            rtrim(chunk_split(base64_encode($html), 76, "\r\n")),
+        ];
     }
 
     /* ---------- Modo Gmail API (OAuth de Google Cloud) ---------- */
@@ -299,14 +306,17 @@ class Mailer
         $anio     = date('Y');
         $fuente   = "Helvetica,Arial,sans-serif";
 
-        // Logo incrustado (cid:logo). Sin logo, se muestra la inicial de la marca.
-        $tieneLogo = self::logoPath() !== '';
+        // El logo se ENLAZA, no se adjunta: incrustarlo con cid: lo dejaba
+        // colgando como archivo adjunto del correo (y varios clientes lo
+        // mostraban roto). Sin URL pública no hay imagen: se usa la inicial.
+        $logoSrc   = self::logoUrl();
+        $tieneLogo = $logoSrc !== '';
         // Solo el ícono (cuadrado), en su pastilla, al lado de la marca.
         $logoHead = $tieneLogo
             ? '<td valign="middle" width="52" style="padding:0 14px 0 0;">
                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                    <td align="center" valign="middle" width="44" height="44" style="width:44px;height:44px;background:#f9fafb;border:1px solid #ececec;border-radius:11px;text-align:center;">
-                     <img src="cid:logo" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;">
+                     <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;">
                    </td>
                  </tr></table>
                </td>'
@@ -326,7 +336,7 @@ class Mailer
                    <td style="background:linear-gradient(135deg,' . $pri . ',' . $priLight . ');padding:3px;border-radius:16px;">
                      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                        <td style="background:#ffffff;border-radius:13px;padding:9px;">
-                         <img src="cid:logo" alt="' . $marca . '" width="64" height="64" style="display:block;border:0;width:64px;height:64px;border-radius:8px;">
+                         <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="64" height="64" style="display:block;border:0;width:64px;height:64px;border-radius:8px;">
                        </td>
                      </tr></table>
                    </td>
