@@ -793,6 +793,11 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
   padding: 36px clamp(16px, 3.5vw, 44px) 64px;
   max-width: 1560px;
   transition: margin-left .3s cubic-bezier(.2,.8,.2,1);
+  /* Contexto propio de apilado: así el fondo decorativo (z-index negativo)
+     queda por encima del color del body y por debajo del contenido. Sin esto
+     el body lo taparía por completo. */
+  position: relative;
+  isolation: isolate;
 }
 
 /* =========================================================
@@ -974,6 +979,40 @@ html.dark .btn-ghost.btn-meca:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
   gap: 26px;
+}
+
+/* ---- Fondo del tablero: grafo de ramas ----
+   Decorativo y muy tenue: sugiere el historial de un repositorio sin competir
+   con el contenido. Fijo al viewport y detrás de todo (el contenedor del panel
+   no pinta fondo, así que asoma). */
+.fondo-ramas {
+  position: fixed; inset: 0; z-index: -1;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  color: var(--c-secondary);
+  opacity: .15;
+}
+html.dark .fondo-ramas { opacity: .22; }
+.fr-lineas path {
+  fill: none; stroke: currentColor; stroke-width: 3.5; stroke-linecap: round;
+  stroke-dasharray: 16 12;
+  animation: fr-flujo 22s linear infinite;
+}
+/* Cada rama arranca desfasada: si van a la vez parece un solo bloque moviéndose */
+.fr-lineas path:nth-child(2) { animation-duration: 26s; animation-direction: reverse; }
+.fr-lineas path:nth-child(3) { animation-duration: 30s; }
+.fr-lineas path:nth-child(4) { animation-duration: 24s; animation-direction: reverse; }
+.fr-lineas path:nth-child(5) { animation-duration: 34s; }
+.fr-lineas path:nth-child(6) { animation-duration: 28s; animation-direction: reverse; }
+@keyframes fr-flujo { to { stroke-dashoffset: -280; } }
+
+.fr-nodos circle { fill: currentColor; animation: fr-latido 5s ease-in-out infinite; }
+.fr-nodos circle:nth-child(even) { animation-delay: 1.6s; }
+.fr-nodos circle:nth-child(3n)   { animation-delay: 3.1s; }
+@keyframes fr-latido { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+@media (prefers-reduced-motion: reduce) {
+  .fr-lineas path, .fr-nodos circle { animation: none; }
 }
 
 /* El color del proyecto (--pc, el que se elige en «Editar proyecto») manda en
