@@ -90,6 +90,16 @@ class Mailer
      */
     private static function baseUrl(): string
     {
+        // Cuando el correo sale de un clic en el panel, la URL real del
+        // navegador es más fiable que la escrita a mano en Ajustes: es la que
+        // el administrador está usando ahora mismo y no puede estar mal.
+        // Para los envíos por consola (recordatorios) no hay petición y se cae
+        // a la de Ajustes.
+        if (PHP_SAPI !== 'cli' && !empty($_SERVER['HTTP_HOST']) && function_exists('rutaPanelBase')) {
+            $esquema = (!empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+                ? 'https' : 'http';
+            return $esquema . '://' . $_SERVER['HTTP_HOST'] . rutaPanelBase();
+        }
         $base = trim((string)(self::conf()['url_panel'] ?? ''));
         $base = preg_replace('#/[^/]*\.php.*$#i', '', $base);
         return rtrim((string)$base, '/');
