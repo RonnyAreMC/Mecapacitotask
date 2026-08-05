@@ -86,7 +86,20 @@ if (!$miembro && !empty(GoogleLogin::conf()['vincular_por_nombre'])) {
     }
 }
 
+// 3) No lo reconoció: le preguntamos "¿quién eres?" y que se elija a sí mismo
+//    de entre las fichas que todavía no tienen correo (y que no son admin).
+//    Guardamos el correo YA verificado por Google en sesión para vincularlo
+//    cuando confirme (no se puede repetir GoogleLogin::procesar, el code es de un solo uso).
 if (!$miembro) {
+    $sinVincular = array_filter($equipo, fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin');
+    if ($sinVincular) {
+        $_SESSION['identificar'] = [
+            'email'   => $correo,
+            'nombre'  => $nombreG,
+            'refresh' => $r['refresh_token'] ?? '',
+        ];
+        redirigir('login.php', 'No reconocimos tu correo. Dinos quién eres para vincularlo a tu ficha.', 'info');
+    }
     redirigir('login.php',
         'El correo ' . $correo . ' no está registrado en el equipo' . ($nombreG !== '' ? ' y tampoco encontré a nadie llamado "' . $nombreG . '"' : '') . '. Pídele al administrador que lo agregue.',
         'error');

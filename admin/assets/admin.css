@@ -724,6 +724,25 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 }
 .login-pie i { color: var(--c-secondary); margin-right: 5px; }
 
+/* --- "¿Quién eres?": elegir la propia ficha tras entrar con Google --- */
+.login-identificar { display: flex; flex-direction: column; gap: 10px; margin-top: 4px; }
+.ident-persona {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  padding: 10px 14px; text-align: left; cursor: pointer;
+  background: #fff; border: 1px solid #e6e9ef; border-radius: 14px;
+  transition: border-color .15s, box-shadow .15s, transform .05s;
+}
+.ident-persona:hover {
+  border-color: var(--c-secondary);
+  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--c-secondary) 80%, #000);
+}
+.ident-persona:active { transform: translateY(1px); }
+.ident-persona .avatar { flex-shrink: 0; }
+.ident-datos { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.ident-datos strong { font-weight: 600; color: #1f2430; }
+.ident-datos small { color: #667085; font-size: .78rem; }
+.ident-persona > i { margin-left: auto; color: var(--c-secondary); }
+
 /* Responsive: el arte se convierte en una franja superior y luego desaparece */
 @media (max-width: 1040px) {
   .login-split { grid-template-columns: 1fr; }

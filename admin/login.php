@@ -14,6 +14,18 @@ if (Auth::usuario()) {
 }
 $marca      = Config::all();
 $primerUso  = !Auth::hayAdmin();
+
+// ¿Volvemos de Google sin reconocer el correo? Mostramos "¿Quién eres?" con
+// las fichas que aún no tienen correo (y no son admin) para que se autoelija.
+$identificar = $_SESSION['identificar'] ?? null;
+$sinVincular = [];
+if ($identificar) {
+    $sinVincular = array_values(array_filter(
+        (new MiembroRepo())->todos(),
+        fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin'
+    ));
+    if (!$sinVincular) { unset($_SESSION['identificar']); $identificar = null; }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -84,6 +96,29 @@ $primerUso  = !Auth::hayAdmin();
         </div>
       </div>
 
+        <?php if ($identificar): ?>
+        <!-- ¿Quién eres? — vincular el correo de Google a una ficha del equipo -->
+        <h1 class="font-display">¿Quién eres?</h1>
+        <p class="login-sub">Vamos a vincular <strong><?= e($identificar['email']) ?></strong> a tu ficha. Elige tu nombre:</p>
+        <form method="post" action="actions.php" class="login-identificar">
+          <input type="hidden" name="accion" value="auth_identificar">
+          <?php foreach ($sinVincular as $m): ?>
+          <button class="ident-persona" name="miembro" value="<?= (int)$m['id'] ?>" type="submit">
+            <?= UI::avatar($m, 40) ?>
+            <span class="ident-datos">
+              <strong><?= e($m['nombre']) ?></strong>
+              <small><?= e($m['rol'] ?? '') ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          </button>
+          <?php endforeach; ?>
+        </form>
+        <p class="login-pie">
+          <i class="fa-solid fa-circle-info"></i> ¿No estás en la lista?
+          <a href="<?= e(urlPanel('login.php')) ?>">Volver</a> y pídele al administrador que te agregue.
+        </p>
+        <?php else: ?>
+
         <h1 class="font-display">Entrar al panel</h1>
         <p class="login-sub"><?= GoogleLogin::listo() ? 'Entra con tu cuenta de Google o con tu contraseña.' : 'Usa tu correo o tu usuario de Git.' ?></p>
 
@@ -120,6 +155,7 @@ $primerUso  = !Auth::hayAdmin();
         <?php else: ?>
         <p class="login-pie"><i class="fa-solid fa-circle-info"></i> ¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
         <?php endif; ?>
+        <?php endif; /* $identificar */ ?>
     </div>
   </main>
 

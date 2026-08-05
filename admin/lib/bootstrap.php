@@ -351,30 +351,25 @@ function sembrarDatos(): void
 
     if (count($miembros->todos()) > 0 || count($proyectos->todos()) > 0) return;
 
-    // Equipo de programadores
-    $miembros->crear(['nombre' => 'Kevin',           'rol' => 'Frontend Dev',        'git_user' => 'kevin',          'color' => 1,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',           'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Dulce Villacis',  'rol' => 'Backend Dev',         'git_user' => 'dulcevillacis', 'color' => 12, 'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer','git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Jordy Pincay',    'rol' => 'Backend Dev',         'git_user' => 'jordypincay',    'color' => 2,  'equipo' => 'programacion']);
+    // Equipo de programadores (InnoTech Académico)
+    $miembros->crear(['nombre' => 'Eder Ordoñez',    'rol' => 'Developer',            'git_user' => 'ederordonez',   'color' => 1,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer', 'git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Miller Moran',    'rol' => 'Developer',            'git_user' => 'millermoran',    'color' => 2,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Vanessa Murillo', 'rol' => 'Developer',            'git_user' => 'vanessamurillo', 'color' => 12, 'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Carlos Rodriguez','rol' => 'Developer',            'git_user' => 'carlosrodriguez','color' => 5,  'equipo' => 'programacion']);
+    $ronny = $miembros->crear(['nombre' => 'Ronny Arellano', 'rol' => 'Tech Lead',    'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
+
+    // Ronny es el administrador del panel (queda fijo en el seed).
+    $miembros->actualizar((int)$ronny['id'], ['acceso' => 'admin']);
 
     // Equipo de analistas
     $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas']);
-    $miembros->crear(['nombre' => 'Erick Pastrano',  'rol' => 'Analista de Datos',   'git_user' => 'erickpastrano',  'color' => 7,  'equipo' => 'analistas']);
-    $miembros->crear(['nombre' => 'Ronald',          'rol' => 'Analista Funcional',  'git_user' => 'ronald',         'color' => 5,  'equipo' => 'analistas']);
+    $miembros->crear(['nombre' => 'Gabriel Alavera', 'rol' => 'Analista Funcional',  'git_user' => 'gabrielalavera', 'color' => 7,  'equipo' => 'analistas']);
 
-    // Proyectos
+    // Único proyecto: SIGE Académico (lo ve todo el equipo por no fijar miembros).
     $proyectos->crear([
-        'nombre' => 'SIGE', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
-        'descripcion' => 'Sistema integrado de gestión educativa.',
-    ]);
-    $proyectos->crear([
-        'nombre' => 'TPV', 'icono' => 'fa-store', 'color' => 3, 'estado' => 'activo',
-        'descripcion' => 'Terminal punto de venta.',
-    ]);
-    $proyectos->crear([
-        'nombre' => 'CONTABILIDAD', 'icono' => 'fa-money-bill-wave', 'color' => 2, 'estado' => 'activo',
-        'descripcion' => 'Módulo de contabilidad y finanzas.',
+        'nombre' => 'SIGE Académico', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
+        'descripcion' => 'Sistema integrado de gestión educativa — módulo académico.',
     ]);
 }
 
