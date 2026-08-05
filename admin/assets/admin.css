@@ -199,11 +199,17 @@ html.sb-collapsed .sidebar-brand { padding: 8px; border-radius: 16px; }
   width: auto; height: 32px; max-width: 100%;
   border-radius: 10px; padding: 6px 11px;
 }
+.sidebar-brand img { object-fit: contain; }
 .sidebar-brand > div,
 .login-marca > div,
 .arte-marca > div { display: none; }
-/* Barra plegada: el rail es angosto, encoge el wordmark para que quepa. */
-html.sb-collapsed .sidebar-brand img { height: 24px; max-width: 44px; padding: 5px 6px; }
+/* Barra plegada: el rail es angosto y el wordmark no cabe (se cortaba). Se
+   muestra SOLO el ícono del logo recortando a la izquierda del SVG. */
+html.sb-collapsed .sidebar-brand img {
+  width: 38px; height: 38px; max-width: 38px;
+  object-fit: cover; object-position: left center;
+  padding: 4px;
+}
 
 /* Chip global "Ver como" en el sidebar */
 .ver-como {
@@ -4735,12 +4741,12 @@ img[src$="claude.svg"] {
   --it-tinta:#0f2b32;   --it-borde:#e2e8f0;
 }
 
-/* Lado marca: degradado celeste→verde (profundo para que el canvas se lea) */
+/* Lado marca: verde (degradado mono suave, profundo para que el canvas se lea) */
 .login-arte{
-  background: linear-gradient(158deg,#06283a 0%,#075e78 36%,#0e7a5f 70%,#128140 100%) !important;
-  background-color:#06283a !important;
+  background: linear-gradient(165deg,#053d2e 0%,#0a7350 55%,#0e8a5b 100%) !important;
+  background-color:#064e3b !important;
 }
-.login-arte::after{ background: linear-gradient(to top, rgba(6,40,58,.92), transparent 55%) !important; }
+.login-arte::after{ background: linear-gradient(to top, rgba(5,50,40,.92), transparent 55%) !important; }
 
 /* Wordmark arriba, grande, sobre pastilla blanca (contraste garantizado) */
 .arte-marca{
@@ -4774,13 +4780,13 @@ img[src$="claude.svg"] {
 }
 .login-caja .input-prefijo > i{ color:var(--it-celeste) !important; }
 
-/* Botón Entrar: celeste→verde, plano */
+/* Botón Entrar: celeste sólido, plano (sin degradado) */
 .login-btn{
-  background:linear-gradient(100deg,var(--it-celeste) 0%,var(--it-verde) 100%) !important;
+  background:var(--it-celeste) !important;
   border:none !important;
-  box-shadow:0 10px 22px -12px color-mix(in srgb, var(--it-verde) 75%, #000) !important;
+  box-shadow:0 10px 22px -12px color-mix(in srgb, var(--it-celeste) 75%, #000) !important;
 }
-.login-btn:hover{ filter:brightness(1.04); }
+.login-btn:hover{ background:#0b93d1 !important; }
 
 /* Google y separador: planos, acento celeste */
 .btn-google{ box-shadow:none !important; border:1.5px solid var(--it-borde) !important; border-radius:12px !important; }
