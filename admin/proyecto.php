@@ -1475,6 +1475,10 @@ $comData = json_encode([
   <form method="post" action="actions.php" class="dlg-form">
     <input type="hidden" name="accion" value="tareas_avisar">
     <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+    <?php
+      $avisoConCorreo = 0;
+      foreach ($avisoPersonas as $per) if (!empty($per['miembro']['email'])) $avisoConCorreo++;
+    ?>
     <header class="av-head">
       <div>
         <h3 class="font-display"><i class="fa-solid fa-paper-plane text-secondary"></i> Avisar al equipo</h3>
@@ -1483,33 +1487,72 @@ $comData = json_encode([
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
 
+    <?php if ($avisoConCorreo === 0): ?>
+    <!-- Sin correos no hay nada que hacer: se dice antes de que lo descubra a base de clics -->
+    <p class="av-alerta">
+      <i class="fa-solid fa-triangle-exclamation"></i>
+      <span>Nadie del equipo tiene correo registrado, así que todavía no se puede enviar.
+        Añádelos en <a href="equipo.php">Equipo</a> y vuelve aquí.</span>
+    </p>
+    <?php endif; ?>
+
     <label class="campo">
       <span>Mensaje para el equipo (opcional)</span>
       <textarea class="input-meca" name="nota" rows="2" maxlength="400"
                 placeholder="Ej. Arrancamos el sprint hoy; cualquier duda, en la daily de las 10:00."></textarea>
     </label>
 
+    <div class="av-barra">
+      <span class="av-barra-tit">Destinatarios</span>
+      <button type="button" class="av-marcar" data-marcar="1">Marcar todo</button>
+      <button type="button" class="av-marcar" data-marcar="0">Ninguno</button>
+    </div>
+
     <div class="av-lista" data-avisar>
       <?php foreach ($avisoPersonas as $mid => $per):
         $m = $per['miembro'];
         $sinCorreo = empty($m['email']);
+        $n = count($per['tareas']);
+        // La fecha más próxima resume la urgencia sin desplegar la lista
+        $proxima = '';
+        foreach ($per['tareas'] as $t) {
+            if (!empty($t['fecha_limite'])) { $proxima = $t['fecha_limite']; break; }
+        }
       ?>
       <section class="av-persona <?= $sinCorreo ? 'av-sincorreo' : '' ?>">
-        <label class="av-cab">
-          <input type="checkbox" class="av-todo" <?= $sinCorreo ? 'disabled' : 'checked' ?>>
-          <?= UI::avatar($m, 30) ?>
+        <div class="av-cab">
+          <label class="av-marca">
+            <input type="checkbox" class="av-todo" <?= $sinCorreo ? 'disabled' : 'checked' ?>>
+            <span class="av-marca-caja"><i class="fa-solid fa-check"></i></span>
+          </label>
+          <?= UI::avatar($m, 34) ?>
           <span class="av-quien">
             <b><?= e($m['nombre']) ?></b>
-            <small><?= $sinCorreo ? 'sin correo registrado · no se le puede enviar' : e($m['email']) ?></small>
+            <small>
+              <?php if ($sinCorreo): ?>
+                <i class="fa-solid fa-circle-exclamation"></i> sin correo · <a href="equipo.php">añádelo en Equipo</a>
+              <?php else: ?>
+                <?= e($m['email']) ?>
+              <?php endif; ?>
+            </small>
           </span>
-          <span class="av-n"><?= count($per['tareas']) ?></span>
-        </label>
-        <ul class="av-tareas">
+          <span class="av-meta">
+            <span class="av-n"><?= $n ?> <?= $n === 1 ? 'tarea' : 'tareas' ?></span>
+            <?php if ($proxima !== ''): ?><small>hasta <?= e($proxima) ?></small><?php endif; ?>
+          </span>
+          <button type="button" class="av-abrir" title="Ver y elegir sus tareas">
+            <i class="fa-solid fa-chevron-down"></i>
+          </button>
+        </div>
+        <ul class="av-tareas" hidden>
           <?php foreach ($per['tareas'] as $t): ?>
           <li>
             <label>
-              <input type="checkbox" name="avisar[<?= (int)$mid ?>][]" value="<?= (int)$t['id'] ?>"
-                     <?= $sinCorreo ? 'disabled' : 'checked' ?>>
+              <span class="av-marca">
+                <input type="checkbox" name="avisar[<?= (int)$mid ?>][]" value="<?= (int)$t['id'] ?>"
+                       <?= $sinCorreo ? 'disabled' : 'checked' ?>>
+                <span class="av-marca-caja"><i class="fa-solid fa-check"></i></span>
+              </span>
               <span class="av-t-titulo"><?= e($t['titulo']) ?></span>
               <small><?= e($t['fecha_limite'] ?? '') ?: 'sin fecha' ?></small>
             </label>
