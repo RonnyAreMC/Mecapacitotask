@@ -213,7 +213,13 @@ const MecaSelect = {
     search.addEventListener('input', () => filtrar(search.value));
     search.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
     document.addEventListener('click', (e) => { if (abierto && !panel.contains(e.target) && !wrap.contains(e.target)) cerrar(); });
-    addEventListener('scroll', () => cerrar(), true);
+    // El panel es fixed: si la página se mueve, se cierra para no quedar
+    // suelto. Pero con captura llegan también los scrolls de DENTRO del panel,
+    // y con ellos la lista de opciones no había manera de recorrerla.
+    addEventListener('scroll', (e) => {
+      if (e.target instanceof Node && panel.contains(e.target)) return;
+      cerrar();
+    }, true);
     addEventListener('resize', () => cerrar());
     // Sincroniza si el valor cambia por JS (p. ej. al editar en un modal)
     sel.addEventListener('ms-sync', () => { renderLabel(); });
@@ -770,6 +776,53 @@ document.querySelectorAll('[data-repos-editor]').forEach((editor) => {
     if (url) url.focus();
   };
 
+  // Ramas del repo: el <select> arranca con lo guardado y pide la lista real a
+  // ramas.php (cacheada una hora en el servidor). Se hace por fila y solo una
+  // vez por URL, para no consultar la API en cada clic.
+  const cargarRamas = (fila) => {
+    const sel = fila.querySelector('.repo-rama');
+    const url = (fila.querySelector('.repo-url')?.value || '').trim();
+    if (!sel || !url || sel.dataset.url === url) return;
+    sel.dataset.url = url;
+    const guardada = sel.value;
+    fila.classList.add('repo-cargando');
+    fetch('ramas.php?url=' + encodeURIComponent(url))
+      .then((r) => r.json())
+      .then((j) => {
+        const ramas = (j && j.ramas) || [];
+        // Sin lista (repo privado sin token, host desconocido) se deja lo que
+        // ya había: no se le borra la rama al guardar.
+        if (!ramas.length) { sel.dataset.url = ''; return; }
+        sel.innerHTML = '';
+        sel.add(new Option('Rama por defecto', ''));
+        ramas.forEach((rn) => sel.add(new Option(rn, rn)));
+        if (guardada && !ramas.includes(guardada)) sel.add(new Option(guardada + ' (ya no existe)', guardada));
+        sel.value = guardada;
+      })
+      .catch(() => { sel.dataset.url = ''; })
+      .finally(() => fila.classList.remove('repo-cargando'));
+  };
+  const cargarTodas = () => filas.querySelectorAll('.repo-fila').forEach(cargarRamas);
+
+  // Al abrir el modal de proyecto (o al entrar en la página, si el editor no
+  // vive en un diálogo) ya están las ramas listas cuando se despliega.
+  const dlg = editor.closest('dialog');
+  if (dlg) {
+    new MutationObserver(() => { if (dlg.hasAttribute('open')) cargarTodas(); })
+      .observe(dlg, { attributes: true, attributeFilter: ['open'] });
+  } else {
+    cargarTodas();
+  }
+  // Respaldo: si se pega la URL después, la lista se rehace al salir del campo
+  editor.addEventListener('change', (e) => {
+    const f = e.target.closest('.repo-fila');
+    if (f && e.target.classList.contains('repo-url')) cargarRamas(f);
+  });
+  editor.addEventListener('mousedown', (e) => {
+    const f = e.target.closest('.repo-fila');
+    if (f && e.target.classList.contains('repo-rama')) cargarRamas(f);
+  });
+
   editor.querySelector('.repo-agregar').addEventListener('click', agregar);
   editor.addEventListener('click', (e) => {
     const quitar = e.target.closest('.repo-quitar');
@@ -1213,6 +1266,28 @@ function abrirDetalleTarea(t) {
   else { fechas = 'Sin fechas'; }
   set('.dt-fechas', fechas);
 
+  // Cuánto queda (o cuánto lleva vencida): es lo primero que uno mira
+  const restante = dlg.querySelector('.dt-restante');
+  if (restante) {
+    const lim = t.fecha_limite ? new Date(t.fecha_limite + 'T12:00') : null;
+    const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
+    const dd = lim ? Math.round((lim - hoy) / 86400000) : null;
+    restante.hidden = dd === null;
+    if (dd !== null) {
+      restante.textContent = dd > 1 ? 'Faltan ' + dd + ' días'
+        : dd === 1 ? 'Falta 1 día'
+        : dd === 0 ? 'Vence hoy'
+        : dd === -1 ? 'Venció ayer' : 'Venció hace ' + (-dd) + ' días';
+      restante.classList.toggle('urgente', dd <= 0);
+    }
+  }
+
+  const filaCreada = dlg.querySelector('.dt-fila-creada');
+  if (filaCreada) {
+    filaCreada.hidden = !t.creado;
+    if (t.creado) set('.dt-creada', t.creado);
+  }
+
   const filaDep = dlg.querySelector('.dt-fila-dep');
   if (filaDep) {
     filaDep.hidden = !t.dep;
@@ -1226,9 +1301,175 @@ function abrirDetalleTarea(t) {
     filaObs.hidden = !t.obs;
     if (t.obs) set('.dt-obs', t.obs + ' observación' + (t.obs === 1 ? '' : 'es') + ' pendiente' + (t.obs === 1 ? '' : 's'));
   }
+  // Documentos de respaldo: se listan a la izquierda y el primero ya se
+  // previsualiza a la derecha, sin tener que pulsar nada.
+  const filaAdj = dlg.querySelector('.dt-fila-adj');
+  if (filaAdj) {
+    dtAdjuntos = t.adjuntos || [];
+    filaAdj.hidden = dtAdjuntos.length === 0;
+    const cajaAdj = dlg.querySelector('.dt-adjuntos');
+    cajaAdj.innerHTML = dtAdjuntos.map((a, i) => {
+      const ver = previsualizable(a.ext);
+      // El que no se puede previsualizar es un enlace de descarga normal
+      return '<a class="adj-chip' + (ver ? '' : ' adj-bajar') + '" href="' + esc(a.ruta) + '"' +
+        (ver ? ' data-i="' + i + '"' : ' download') + ' target="_blank" rel="noopener"' +
+        ' title="' + (ver ? 'Ver ' : 'Descargar ') + esc(a.nombre) + '">' +
+        '<i class="fa-solid ' + iconoAdjunto(a.ext) + '"></i><span>' + esc(a.nombre) + '</span>' +
+        '<i class="fa-solid ' + (ver ? 'fa-eye' : 'fa-download') + ' adj-chip-acc"></i></a>';
+    }).join('');
+
+    // La previsualización solo aparece si hay algo que enseñar
+    const verIdx = dtAdjuntos.findIndex((a) => previsualizable(a.ext));
+    dlg.classList.toggle('dt-con-docs', verIdx >= 0);
+    dlg.querySelector('.dt-previa').hidden = verIdx < 0;
+    dlg.querySelector('.dt-previa-cuerpo').innerHTML = '';
+    if (verIdx >= 0) dtVerDoc(verIdx);
+  }
   dlg.showModal();
 }
-function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+// Escapa para texto Y para atributos. Ojo con las comillas: sin ellas, un
+// nombre de archivo o un mensaje de commit que las lleve rompe el atributo
+// donde se interpola (que es como se perdían los datos de los adjuntos).
+function esc(s) {
+  return String(s ?? '')
+    .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+// Icono por extensión (mismo criterio que iconoAdjunto() en PHP)
+function iconoAdjunto(ext) {
+  const e = String(ext || '').toLowerCase();
+  if (e === 'pdf') return 'fa-file-pdf';
+  if (e === 'doc' || e === 'docx') return 'fa-file-word';
+  if (e === 'xls' || e === 'xlsx' || e === 'csv') return 'fa-file-excel';
+  if (e === 'ppt' || e === 'pptx') return 'fa-file-powerpoint';
+  if (e === 'txt') return 'fa-file-lines';
+  if (['jpg', 'jpeg', 'png', 'webp', 'gif'].includes(e)) return 'fa-file-image';
+  return 'fa-paperclip';
+}
+
+/* ---------- Previsualización de un documento ---------- */
+// Imágenes, PDF y texto se ven en el panel. Word/Excel/PowerPoint no se pueden
+// mostrar sin mandar el archivo a un servicio de terceros, así que en esos se
+// ofrece la descarga y se dice por qué.
+// Solo el PDF se previsualiza. Todo lo demás —imágenes incluidas— se descarga
+// desde su chip: menos elementos moviéndose en la ficha y una regla sola.
+const previsualizable = (ext) => String(ext || '').toLowerCase() === 'pdf';
+
+function pintarPrevia(cont, a) {
+  if (!cont || !a || !previsualizable(a.ext)) return;
+  cont.innerHTML = '<iframe class="adj-visor-frame" src="' + esc(a.ruta) +
+    '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
+}
+
+/* ---------- Previsualización dentro del detalle de la tarea ---------- */
+let dtAdjuntos = [], dtIdx = 0;
+
+function dtVerDoc(i) {
+  const dlg = document.getElementById('dlg-detalle-tarea');
+  const a = dtAdjuntos[i];
+  if (!dlg || !a || !previsualizable(a.ext)) return;
+  dtIdx = i;
+  dlg.querySelectorAll('.dt-adjuntos .adj-chip').forEach((el) =>
+    el.classList.toggle('activo', parseInt(el.dataset.i, 10) === i));
+  dlg.querySelector('.dt-previa-nom b').textContent = a.nombre || '';
+  dlg.querySelector('.dt-previa-nom i').className = 'fa-solid ' + iconoAdjunto(a.ext);
+  // Sin botón de descarga aquí: el visor de PDF ya trae el suyo
+  pintarPrevia(dlg.querySelector('.dt-previa-cuerpo'), a);
+}
+
+const dlgDetalle = document.getElementById('dlg-detalle-tarea');
+if (dlgDetalle) {
+  // Al cerrar se descarga el visor: si no, el PDF se queda vivo por detrás
+  dlgDetalle.addEventListener('close', () => {
+    dlgDetalle.querySelector('.dt-previa-cuerpo').innerHTML = '';
+    dtAdjuntos = [];
+  });
+  dlgDetalle.addEventListener('click', (e) => {
+    // Pulsar un documento cambia el de la derecha; con Ctrl/Cmd, pestaña nueva
+    const chip = e.target.closest('.dt-adjuntos .adj-chip[data-i]');
+    if (!chip || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    dtVerDoc(parseInt(chip.dataset.i, 10));
+  });
+}
+
+/* ---------- Documentos de respaldo de una tarea (campo de los modales) ---------- */
+document.querySelectorAll('[data-adjuntos-tarea]').forEach((campo) => {
+  const lista  = campo.querySelector('.adj-lista');
+  const nuevos = campo.querySelector('.adj-nuevos');
+  const input  = campo.querySelector('input[type="file"]');
+
+  // Los que ya tiene la tarea: se marcan para quitar, y solo se borran al
+  // guardar. Aquí NO se abre el visor (esto es el formulario de edición): el
+  // nombre abre el archivo en una pestaña y ya está.
+  campo.pintarAdjuntos = (adj) => {
+    const items = adj || [];
+    lista.hidden = items.length === 0;
+    lista.innerHTML = items.map((a) =>
+      '<li class="adj-item"><i class="fa-solid ' + iconoAdjunto(a.ext) + '"></i>' +
+      '<a href="' + esc(a.ruta) + '" target="_blank" rel="noopener"' +
+      ' title="Abrir ' + esc(a.nombre) + ' en una pestaña">' + esc(a.nombre) + '</a>' +
+      '<input type="checkbox" name="quitar_adjunto[]" value="' + esc(a.ruta) + '" hidden>' +
+      '<button type="button" class="adj-quitar" title="Quitar al guardar">' +
+      '<i class="fa-solid fa-xmark"></i></button></li>').join('');
+  };
+  campo.pintarAdjuntos([]);
+
+  lista.addEventListener('click', (e) => {
+    const btn = e.target.closest('.adj-quitar');
+    if (!btn) return;
+    const li = btn.closest('.adj-item');
+    const chk = li.querySelector('input[type="checkbox"]');
+    chk.checked = !chk.checked;
+    li.classList.toggle('adj-fuera', chk.checked);
+    btn.title = chk.checked ? 'Recuperar' : 'Quitar al guardar';
+    btn.innerHTML = '<i class="fa-solid ' + (chk.checked ? 'fa-rotate-left' : 'fa-xmark') + '"></i>';
+  });
+
+  // El input nativo REEMPLAZA lo elegido en cada pasada, así que eligiendo de
+  // uno en uno solo sobrevivía el último. Se acumulan aparte y se le devuelven
+  // al input, que es lo que se envía.
+  const cola = new DataTransfer();
+  const peso = (n) => (n < 1024 * 1024 ? Math.max(1, Math.round(n / 1024)) + ' KB'
+                                       : (n / 1048576).toFixed(1) + ' MB');
+
+  const pintarNuevos = () => {
+    // Se pinta lo que el input lleva de verdad, no la cola: si algún navegador
+    // no dejara reescribir input.files, la lista no promete lo que no se envía.
+    const arch = [...input.files];
+    nuevos.hidden = arch.length === 0;
+    nuevos.innerHTML = arch.map((f, i) =>
+      '<li class="adj-item adj-nuevo"><i class="fa-solid ' + iconoAdjunto(f.name.split('.').pop()) + '"></i>' +
+      '<span>' + esc(f.name) + '</span><small class="adj-peso">' + peso(f.size) + '</small>' +
+      '<button type="button" class="adj-quitar" data-i="' + i + '" title="Quitar de la lista">' +
+      '<i class="fa-solid fa-xmark"></i></button></li>').join('');
+  };
+
+  campo.limpiarNuevos = () => {
+    while (cola.items.length) cola.items.remove(0);
+    input.value = '';
+    pintarNuevos();
+  };
+
+  input.addEventListener('change', () => {
+    [...input.files].forEach((f) => {
+      // Mismo nombre y tamaño = el mismo archivo elegido dos veces
+      const repetido = [...cola.files].some((x) => x.name === f.name && x.size === f.size);
+      if (!repetido) cola.items.add(f);
+    });
+    input.files = cola.files;
+    pintarNuevos();
+  });
+
+  nuevos.addEventListener('click', (e) => {
+    const btn = e.target.closest('.adj-quitar');
+    if (!btn) return;
+    cola.items.remove(parseInt(btn.dataset.i, 10));
+    input.files = cola.files;
+    pintarNuevos();
+  });
+});
 
 // Clic en una tarea (fila, kanban, flujo, calendario) → detalle de solo lectura
 document.addEventListener('click', (e) => {
@@ -1271,7 +1512,10 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const proyecto = caja.dataset.proyecto;
   const ramaWrap = selRama ? selRama.closest('.ms') : null;
   let ramasListas = false, cargado = false;
-  let dias = 182;   // rango de fechas activo
+  let dias = 182;        // rango de fechas activo
+  let ramaDefecto = '';  // la fijada en Editar proyecto → Repos (vacía = la del repo)
+  let truncado = false;  // ¿se alcanzó el tope de commits que se leen del repo?
+  let diasCargados = 0;  // rango que se pidió al servidor la última vez
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
   const avatarHtml = (m, sz) => {
@@ -1295,28 +1539,98 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid)) && (c.fecha || '') >= min);
   };
 
-  // Heatmap tipo GitHub (verde): una celda por día, tantas semanas como el rango
-  const heatmap = (visibles) => {
+  const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+
+  // Ancho por semana segun el rango: con pocas columnas las celdas crecen, y en
+  // un año se quedan pequeñas para que el mapa entre sin scroll.
+  const pasoRango = () => (dias <= 30 ? 34 : dias <= 90 ? 26 : 20);
+
+  // Heatmap tipo GitHub (verde): una celda por día, una columna por semana, con
+  // el mes rotulado arriba para saber qué se está mirando. 'paso' es el ancho
+  // máximo por semana: las celdas no pasan de ahí porque un mapa de calor se
+  // lee por la mancha, no por el tamaño del cuadro.
+  const heatmap = (visibles, paso) => {
     const cont = {};
     visibles.forEach((c) => { if (c.fecha) cont[c.fecha] = (cont[c.fecha] || 0) + 1; });
     const hoy = hoy0();
     const semanas = Math.ceil(dias / 7);
     const ini = new Date(hoy); ini.setDate(ini.getDate() - ((semanas - 1) * 7 + hoy.getDay()));
     let max = 1; Object.values(cont).forEach((v) => { if (v > max) max = v; });
-    let celdas = '';
+    let celdas = '', meses = '', col = 0, mesPrev = -1, colRotulo = -9;
     for (let d = new Date(ini); d <= hoy; d.setDate(d.getDate() + 1)) {
+      if (d.getDay() === 0) {
+        col++;
+        // Un rótulo al empezar mes, y solo si cabe desde el anterior
+        if (d.getMonth() !== mesPrev && col - colRotulo >= 3) {
+          meses += '<span style="grid-column:' + col + '">' + MESES[d.getMonth()] + '</span>';
+          colRotulo = col;
+        }
+        mesPrev = d.getMonth();
+      }
       const k = iso(d), n = cont[k] || 0;
       const nivel = n === 0 ? 0 : Math.ceil(n / max * 4);
       celdas += '<span class="hm-celda hm-' + nivel + '" title="' + n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k + '"></span>';
     }
-    // max-width en proporción a las semanas: las celdas llenan el ancho sin
-    // pasarse de tamaño en rangos cortos, y sin scroll en los largos.
-    return '<div class="hm-grid hm-verde hm-grande" style="max-width:' + (semanas * 30) + 'px">' + celdas + '</div>';
+    // Ancho exacto (no solo maximo) para que la columna del mapa se ajuste a el
+    // y las cifras de al lado se queden con el resto del ancho.
+    return '<div class="hm-envoltura" style="width:' + (semanas * (paso || 30)) + 'px">' +
+      '<div class="hm-meses" style="grid-template-columns:repeat(' + semanas + ',1fr)">' + meses + '</div>' +
+      '<div class="hm-grid hm-verde hm-grande">' + celdas + '</div></div>';
+  };
+
+  // Un mes en rejilla de 7 filas queda diminuto, y en tira de cuadros todos los
+  // días parecen iguales. Para «30 d» van barras: la altura es el número de
+  // commits, que se entiende de un vistazo. Los rangos largos siguen con mapa.
+  const tira = (visibles) => {
+    const cont = {};
+    visibles.forEach((c) => { if (c.fecha) cont[c.fecha] = (cont[c.fecha] || 0) + 1; });
+    let max = 1; Object.values(cont).forEach((v) => { if (v > max) max = v; });
+    const hoy = hoy0();
+    let barras = '', dias30 = '';
+    for (let i = dias - 1; i >= 0; i--) {
+      const d = new Date(hoy); d.setDate(d.getDate() - i);
+      const k = iso(d), n = cont[k] || 0;
+      const titulo = n + ' commit' + (n === 1 ? '' : 's') + ' · ' + k;
+      barras += '<span class="ap-barra' + (n === 0 ? ' cero' : '') + '"' +
+                ' style="--h:' + Math.round(n / max * 100) + '%" title="' + titulo + '">' +
+                '<b>' + (n || '') + '</b></span>';
+      // Un número cada cinco días para ubicarse, y siempre el de hoy
+      dias30 += '<span>' + (i % 5 === 0 ? d.getDate() : '') + '</span>';
+    }
+    const cols = 'grid-template-columns:repeat(' + dias + ',1fr)';
+    return '<div class="ap-tira">' +
+      '<div class="ap-tira-eje"><small>' + max + '</small><small>0</small></div>' +
+      '<div class="ap-tira-datos">' +
+        '<div class="ap-barras" style="' + cols + '">' + barras + '</div>' +
+        '<div class="ap-tira-dias" style="' + cols + '">' + dias30 + '</div>' +
+      '</div></div>';
+  };
+
+  // Con un solo repo sobra ancho al lado del mapa: se llena con las cifras que
+  // uno querría saber, en vez de estirar las celdas hasta parecer un tablero.
+  const resumen = (cs) => {
+    const porDia = {};
+    cs.forEach((c) => { if (c.fecha) porDia[c.fecha] = (porDia[c.fecha] || 0) + 1; });
+    const d7 = hoy0(); d7.setDate(d7.getDate() - 6);
+    const ultimos = cs.filter((c) => (c.fecha || '') >= iso(d7)).length;
+    let pico = 0, diaPico = '';
+    Object.keys(porDia).forEach((f) => { if (porDia[f] > pico) { pico = porDia[f]; diaPico = f; } });
+    const gente = new Set(cs.map((c) => (c.miembro ? c.miembro.n : c.nombre) || '?')).size;
+    const dato = (k, v, sub) => '<div class="ap-dato"><small>' + k + '</small><b>' + v + '</b>' +
+      (sub ? '<span>' + esc(sub) + '</span>' : '') + '</div>';
+
+    // Solo las cifras: el detalle de quién hizo qué está a un clic en "Ver
+    // commits", y meterlo aquí siempre alargaba la tarjeta de más.
+    return '<div class="ap-resumen">' +
+      dato('Últimos 7 días', ultimos, '') +
+      dato('Días con commits', Object.keys(porDia).length, '') +
+      dato('Mejor día', pico || '—', diaPico) +
+      dato('Personas', gente, '') +
+      '</div>';
   };
 
   const render = () => {
     if (skel) skel.hidden = true;
-    lb.hidden = false;
     const pid = parseInt(sel.value, 10) || 0;
 
     const vis = filtrar();
@@ -1332,21 +1646,40 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
       avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
+    // Sin nadie reconocido (logins que no calzan con el equipo) el ranking
+    // vacío solo dejaba un hueco: se esconde.
+    lb.hidden = rank.length === 0;
 
     // Un mapa por repositorio, con lo filtrado por persona y fechas
     vacio.hidden = vis.length > 0;
     mapas.hidden = vis.length === 0;
+    const ramaActiva = (selRama && selRama.value) || ramaDefecto;
     const lista = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    // Con uno o dos repos la rejilla automática los dejaba en una columna
+    // estrecha con medio panel vacío: se reparten el ancho completo.
+    const uno = lista.length === 1;
+    const corto = uno && dias <= 30;      // un mes: tira de días, no rejilla
+    mapas.classList.toggle('ap-uno', uno);
+    mapas.classList.toggle('ap-corto', corto);
+    mapas.classList.toggle('ap-dos', lista.length === 2);
     mapas.innerHTML = lista.map((repo) => {
       const cs = vis.filter((c) => (c.repo || '') === repo);
       return '<div class="ap-repo">' +
-        '<div class="ap-repo-cab"><span class="ap-repo-nom"><i class="fa-solid fa-code-branch"></i> ' + esc(repo) + '</span>' +
-        '<b class="ap-repo-n">' + cs.length + '</b></div>' + heatmap(cs) + '</div>';
+        '<div class="ap-repo-cab"><span class="ap-repo-nom"><i class="fa-solid fa-code-branch"></i> ' + esc(repo) +
+        (ramaActiva ? '<span class="ap-repo-rama">' + esc(ramaActiva) + '</span>' : '') + '</span>' +
+        '<b class="ap-repo-n">' + cs.length + '</b></div>' +
+        (corto ? tira(cs) : heatmap(cs, uno ? pasoRango() : 30)) +
+        (uno ? resumen(cs) : '') + '</div>';
     }).join('') +
       '<div class="hm-leyenda"><small>Menos</small>' +
       '<span class="hm-celda hm-0 hm-verde"></span><span class="hm-celda hm-1 hm-verde"></span>' +
       '<span class="hm-celda hm-2 hm-verde"></span><span class="hm-celda hm-3 hm-verde"></span>' +
-      '<span class="hm-celda hm-4 hm-verde"></span><small>Más</small></div>';
+      '<span class="hm-celda hm-4 hm-verde"></span><small>Más</small></div>' +
+      // Si se alcanzó el tope de lectura, decirlo: si no, el mapa aparenta que
+      // eso es todo lo que hay en el rango.
+      (truncado ? '<p class="ap-tope"><i class="fa-solid fa-circle-info"></i> ' +
+        'El repositorio tiene más commits de los que se leen de una vez en este rango: se trajeron ' +
+        'los más recientes, así que el tramo más antiguo puede quedar corto. Acorta el rango para verlo completo.</p>' : '');
   };
 
   sel.addEventListener('change', render);
@@ -1361,31 +1694,46 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     const b = e.target.closest('[data-dias]'); if (!b) return;
     dias = parseInt(b.dataset.dias, 10);
     caja.querySelectorAll('.ap-rango [data-dias]').forEach((x) => x.classList.toggle('active', x === b));
-    render();
+    // Si el rango nuevo cabe en lo ya traído, se filtra en el navegador; solo
+    // se vuelve a pedir cuando hace falta más historial del que hay.
+    if (dias <= diasCargados) render();
+    else cargar(selRama ? selRama.value : '');
   });
 
-  // Rellena el selector de ramas una vez que GitHub las devuelve (solo si hay >1)
+  // Rellena el selector de ramas una vez que el proveedor las devuelve (solo si
+  // hay >1). La opción vacía es "la del proyecto": si hay una rama fijada en
+  // Editar → Repos, se dice cuál, para no dejar dudas de qué se está mirando.
   const rellenarRamas = (ramas) => {
     if (ramasListas || !selRama) return;
     ramasListas = true;
-    if (!ramas || ramas.length < 2) return;
+    if (ramaDefecto) {
+      const op0 = selRama.querySelector('option[value=""]');
+      if (op0) op0.textContent = ramaDefecto + ' (del proyecto)';
+    }
+    if (!ramas || ramas.length < 2) { selRama.dispatchEvent(new Event('ms-sync')); return; }
     ramas.forEach((rn) => {
+      if (rn === ramaDefecto) return;   // ya es la opción de arriba
       const o = document.createElement('option');
       o.value = rn; o.textContent = rn;
       selRama.appendChild(o);
     });
+    selRama.dispatchEvent(new Event('ms-sync'));
     if (ramaWrap) ramaWrap.hidden = false;   // MecaSelect relee las opciones al abrir
   };
 
   // Trae por AJAX los commits (y ramas) del repo/rama, sin recargar la página
   const cargar = (rama) => {
     cargandoEl.hidden = false;
-    return fetch('aportes.php?id=' + proyecto + '&rama=' + encodeURIComponent(rama || ''))
+    const pedidos = dias;
+    return fetch('aportes.php?id=' + proyecto + '&rama=' + encodeURIComponent(rama || '') + '&dias=' + pedidos)
       .then((r) => r.json())
       .then((j) => {
         if (j) {
           commits = j.commits || [];
           mapear(commits);
+          diasCargados = pedidos;
+          ramaDefecto = j.rama_defecto || '';
+          truncado = !!j.truncado;
           rellenarRamas(j.ramas);
           cargado = true;
           render();
@@ -1462,6 +1810,12 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
       // Una tarea no puede depender de si misma
       [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
       setSelect(dep, t.depende_de || 0);
+    }
+    // Documentos que ya tiene: se listan para poder abrirlos o quitarlos
+    const campoAdj = dlg.querySelector('[data-adjuntos-tarea]');
+    if (campoAdj && campoAdj.pintarAdjuntos) {
+      campoAdj.pintarAdjuntos(t.adjuntos || []);
+      campoAdj.limpiarNuevos();          // sin arrastrar lo elegido para otra tarea
     }
     actualizarDuracion(dlg.querySelector('form'));
     dlg.showModal();

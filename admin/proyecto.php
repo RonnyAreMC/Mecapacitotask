@@ -121,6 +121,8 @@ $verTareaAttr = function (array $t) use ($miembros, $tareasPorId, $finales, $obs
         'dep'          => $dep['titulo'] ?? '',
         'dep_lista'    => $dep ? in_array($dep['estado'] ?? '', $finales, true) : false,
         'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
+        'adjuntos'     => TareaRepo::adjuntosDe($t),
+        'creado'       => $t['creado'] ?? '',
     ], JSON_UNESCAPED_UNICODE));
 };
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
@@ -227,8 +229,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
     <div class="ph-actions">
       <?php foreach (ProyectoRepo::repos($proyecto) as $repo): ?>
-      <a class="btn-meca btn-sm btn-github" href="<?= e($repo['url']) ?>" target="_blank" rel="noopener" title="Repositorio <?= e($repo['label']) ?>">
-        <i class="fa-brands fa-github"></i> <i class="fa-solid <?= e($repo['icono']) ?>"></i> <?= e($repo['label']) ?>
+      <a class="btn-meca btn-sm <?= e(Repos::clase($repo['url'])) ?>" href="<?= e($repo['url']) ?>" target="_blank" rel="noopener"
+         title="Repositorio <?= e($repo['label']) ?> en <?= e(Repos::etiqueta($repo['url'])) ?>">
+        <i class="<?= e(Repos::icono($repo['url'])) ?>"></i> <i class="fa-solid <?= e($repo['icono']) ?>"></i> <?= e($repo['label']) ?>
       </a>
       <?php endforeach; ?>
       <button class="btn-ghost btn-meca btn-sm solo-admin" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
@@ -407,6 +410,11 @@ foreach ($tareas as $t) {
                 <i class="fa-solid fa-comment-dots"></i> <?= $nObs ?> observación<?= $nObs === 1 ? '' : 'es' ?>
               </a>
               <?php endif; ?>
+              <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
+              <small class="dep-tag adj-tag" title="Ábrelos desde el detalle de la tarea">
+                <i class="fa-solid fa-paperclip"></i> <?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?>
+              </small>
+              <?php endif; ?>
             </div>
           </td>
           <td>
@@ -457,6 +465,7 @@ foreach ($tareas as $t) {
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '',
                   'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
             </button>
@@ -504,6 +513,9 @@ foreach ($tareas as $t) {
               <?php endif; ?>
               <?php if ((int)($t['depende_de'] ?? 0)): ?>
               <small title="Tiene dependencia"><i class="fa-solid fa-link"></i></small>
+              <?php endif; ?>
+              <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
+              <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
               <?php endif; ?>
             </div>
           </div>
@@ -621,6 +633,7 @@ foreach ($tareas as $t) {
                   'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE));
               // Tooltip con el rango real de la tarea
               $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
@@ -1017,8 +1030,15 @@ foreach ($tareas as $t) {
 // Un solo gráfico de aportes: commits de TODOS los repos del proyecto,
 // filtrables por persona, por rama y por rango de fechas.
 // Los commits y las ramas se traen por AJAX (aportes.php) al abrir esta vista,
-// para no frenar la carga de la página con llamadas a la API de GitHub.
+// para no frenar la carga de la página con llamadas a la API del proveedor.
 $commitsProyecto = [];
+
+// Icono del bloque: la marca del proveedor cuando todos los repos son del
+// mismo, y uno neutro si el proyecto mezcla GitHub con GitLab.
+$provsProyecto = array_unique(array_map(fn($rp) => Repos::proveedor($rp['url']), $reposProyecto));
+$iconoAportes  = count($provsProyecto) === 1
+    ? Repos::icono($reposProyecto[array_key_first($reposProyecto)]['url'])
+    : 'fa-solid fa-code-branch';
 
 $comMiembros = [];
 foreach ($miembros as $m) {
@@ -1043,7 +1063,7 @@ $comData = json_encode([
 <?php if (!empty($comMiembros) && $reposProyecto): ?>
 <section class="card-base tabla-card met-aportes" style="--pc:<?= $color ?>" data-aportes data-aportes-lazy="1" data-proyecto="<?= $id ?>">
   <div class="tabla-toolbar">
-    <h2 class="font-display"><i class="fa-brands fa-github"></i> Aportes del equipo
+    <h2 class="font-display"><i class="<?= e($iconoAportes) ?>"></i> Aportes del equipo
       <span class="ap-total"></span>
       <span class="ap-cargando" hidden><i class="fa-solid fa-circle-notch fa-spin"></i></span>
     </h2>
@@ -1087,7 +1107,7 @@ $comData = json_encode([
   <dialog class="dlg-meca dlg-commits ap-dialogo">
     <div class="dlg-form">
       <header>
-        <h3 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Commits <span class="apc-sub"></span></h3>
+        <h3 class="font-display"><i class="<?= e($iconoAportes) ?> text-secondary"></i> Commits <span class="apc-sub"></span></h3>
         <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
       </header>
       <ol class="apc-lista"></ol>
@@ -1289,7 +1309,7 @@ $comData = json_encode([
 
 <!-- Modal: nueva tarea (asistente por pasos) -->
 <dialog id="dlg-nueva-tarea" class="dlg-meca dlg-wizard">
-  <form method="post" action="actions.php" class="dlg-form wz">
+  <form method="post" action="actions.php" class="dlg-form wz" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="tarea_crear">
     <input type="hidden" name="proyecto_id" value="<?= $id ?>">
     <?= UI::wizardRiel('fa-circle-plus', 'Nueva tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
@@ -1328,6 +1348,7 @@ $comData = json_encode([
           <?= UI::select('depende_de', $opcionesDependencia, '0') ?>
           <small class="campo-ayuda">La tarea quedará "en espera" hasta que su dependencia se complete.</small>
         </label>
+        <?= UI::adjuntosTarea() ?>
       </section>
 
       <section class="wz-panel">
@@ -1360,7 +1381,7 @@ $comData = json_encode([
 
 <!-- Modal: editar tarea (se rellena por JS) -->
 <dialog id="dlg-editar-tarea" class="dlg-meca dlg-wizard">
-  <form method="post" action="actions.php" class="dlg-form wz">
+  <form method="post" action="actions.php" class="dlg-form wz" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="tarea_editar">
     <input type="hidden" name="id" id="et-id">
     <?= UI::wizardRiel('fa-pen', 'Editar tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
@@ -1393,6 +1414,7 @@ $comData = json_encode([
           <?= UI::select('depende_de', $opcionesDependencia, '0', false, 'js-et-depende') ?>
           <small class="campo-ayuda">No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
         </label>
+        <?= UI::adjuntosTarea() ?>
       </section>
 
       <section class="wz-panel">
@@ -1426,6 +1448,8 @@ $comData = json_encode([
 <!-- Modal: detalle de tarea (solo lectura, lo abre cualquiera) -->
 <dialog id="dlg-detalle-tarea" class="dlg-meca dlg-detalle">
   <div class="dlg-form dt-body">
+   <div class="dt-cols">
+    <div class="dt-info">
     <header class="dt-head">
       <div class="dt-head-txt">
         <span class="dt-proyecto"></span>
@@ -1434,16 +1458,29 @@ $comData = json_encode([
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
     <div class="dt-chips"></div>
+    <span class="dt-restante" hidden></span>
     <p class="dt-desc"></p>
     <dl class="dt-datos">
       <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
       <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
       <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Dependencia</dt><dd class="dt-dep"></dd></div>
       <div class="dt-fila-obs" hidden><dt><i class="fa-solid fa-comment-dots"></i> Observaciones</dt><dd class="dt-obs"></dd></div>
+      <div class="dt-fila-creada" hidden><dt><i class="fa-regular fa-clock"></i> Creada</dt><dd class="dt-creada"></dd></div>
+      <div class="dt-fila-adj" hidden><dt><i class="fa-solid fa-paperclip"></i> Documentos</dt><dd class="dt-adjuntos"></dd></div>
     </dl>
     <footer class="dt-foot">
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cerrar</button>
     </footer>
+    </div>
+
+    <!-- Con documentos, el primero ya se ve aqui al abrir la tarea -->
+    <aside class="dt-previa" hidden>
+      <header class="dt-previa-cab">
+        <span class="dt-previa-nom"><i class="fa-solid fa-paperclip"></i> <b></b></span>
+      </header>
+      <div class="dt-previa-cuerpo"></div>
+    </aside>
+   </div>
   </div>
 </dialog>
 
@@ -1481,7 +1518,7 @@ $comData = json_encode([
 
       <section class="wz-panel">
         <div class="campo" data-sin-resumen>
-          <span><i class="fa-brands fa-github"></i> Repositorios</span>
+          <span><i class="fa-solid fa-code-branch"></i> Repositorios</span>
           <?= UI::reposEditor($proyecto) ?>
         </div>
         <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosProyecto()), $proyecto['estado']) ?></label>

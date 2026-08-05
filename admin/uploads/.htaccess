@@ -1,0 +1,19 @@
+# Aquí solo viven archivos que sube el equipo (fotos, PDF, Word…): se
+# descargan, nunca se ejecutan. El panel ya limita las extensiones que puede
+# escribir, esto es el segundo cerrojo por si esa lista cambiara.
+<IfModule mod_php.c>
+  php_flag engine off
+</IfModule>
+<IfModule mod_php7.c>
+  php_flag engine off
+</IfModule>
+
+<FilesMatch "\.(php|phps|phtml|phar|cgi|pl|py|sh|htaccess)$">
+  <IfModule mod_authz_core.c>
+    Require all denied
+  </IfModule>
+  <IfModule !mod_authz_core.c>
+    Order allow,deny
+    Deny from all
+  </IfModule>
+</FilesMatch>

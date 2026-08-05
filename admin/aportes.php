@@ -10,6 +10,8 @@ header('Content-Type: application/json; charset=utf-8');
 
 $id = (int)($_GET['id'] ?? 0);
 $rama = trim($_GET['rama'] ?? '');
+// Rango visible en Métricas: se lee solo ese tramo del historial
+$dias = max(7, min(400, (int)($_GET['dias'] ?? 182)));
 $proyecto = (new ProyectoRepo())->buscar($id);
 if (!$proyecto || !puedeVerProyecto($id)) {
     http_response_code(403);
@@ -22,15 +24,29 @@ $repos = ProyectoRepo::repos($proyecto);
 // Ramas disponibles (unión de todos los repos) para el filtro del panel.
 $ramas = [];
 foreach ($repos as $rp) {
-    foreach (GitHub::ramas($rp['url']) as $rn) $ramas[$rn] = true;
+    foreach (Repos::ramas($rp['url']) as $rn) $ramas[$rn] = true;
 }
 $ramas = array_keys($ramas);
 if ($rama !== '' && !in_array($rama, $ramas, true)) $rama = '';   // rama pedida ya no existe
 
-$commits = [];
+// Rama que trae cada repo cuando no se pidió ninguna: la configurada en el
+// proyecto, y si está vacía la que el repositorio tenga por defecto. Se informa
+// al panel para que el selector diga con cuál está mirando.
+$ramaDefecto = '';
 foreach ($repos as $rp) {
-    $cr = GitHub::commitsRecientes($rp['url'], 100, $rama);
+    if (trim($rp['rama'] ?? '') !== '') { $ramaDefecto = trim($rp['rama']); break; }
+}
+
+// Hasta 3000 commits por repo dentro del rango pedido (o lo que entre en unos
+// segundos). Con una sola página, un equipo activo veía el mapa cortado sin
+// saberlo.
+$commits = [];
+$truncado = false;
+foreach ($repos as $rp) {
+    $ramaRepo = $rama !== '' ? $rama : trim($rp['rama'] ?? '');
+    $cr = Repos::commitsRecientes($rp['url'], 3000, $ramaRepo, $dias);
     if (($cr['estado'] ?? '') !== 'ok') continue;
+    $truncado = $truncado || !empty($cr['truncado']);
     foreach ($cr['commits'] as $c) {
         $c['repo'] = $rp['label'];
         $commits[] = $c;
@@ -38,4 +54,9 @@ foreach ($repos as $rp) {
 }
 usort($commits, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 
-echo json_encode(['commits' => $commits, 'ramas' => $ramas], JSON_UNESCAPED_UNICODE);
+echo json_encode([
+    'commits'      => $commits,
+    'ramas'        => $ramas,
+    'rama_defecto' => $ramaDefecto,
+    'truncado'     => $truncado,
+], JSON_UNESCAPED_UNICODE);

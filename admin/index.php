@@ -166,7 +166,7 @@ UI::cabecera(
 
       <section class="wz-panel">
         <div class="campo" data-sin-resumen>
-          <span><i class="fa-brands fa-github"></i> Repositorios</span>
+          <span><i class="fa-solid fa-code-branch"></i> Repositorios</span>
           <?= UI::reposEditor() ?>
         </div>
         <label class="campo">

@@ -322,7 +322,11 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
         }
         fechasTarea($_POST, 'proyecto.php?id=' . $pid);   // corta si el inicio va después del límite
-        $t = $tareas->crear($_POST);
+        // Documentos de respaldo: van con la tarea desde que se asigna
+        $rechazados = [];
+        $datosTarea = $_POST;
+        $datosTarea['adjuntos'] = guardarAdjuntos('adjuntos', 'tarea_', $rechazados);
+        $t = $tareas->crear($datosTarea);
         $dep = $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), $pid);
         if ($dep !== (int)$t['depende_de']) {
             $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
@@ -330,6 +334,7 @@ switch ($accion) {
         [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
         sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
         chequearEntrega($pid, $proyectos, $tareas);
+        [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
 
     case 'tarea_estado':
@@ -374,7 +379,19 @@ switch ($accion) {
         }
         $asignadosAntes = TareaRepo::asignadosDe($t);
         [$fIni, $fLim] = fechasTarea($_POST, 'proyecto.php?id=' . $t['proyecto_id']);
+
+        // Adjuntos: se quitan los marcados (y se borran del disco), se suman
+        // los nuevos y el resto se queda como estaba.
+        $previos = TareaRepo::adjuntosDe($t);
+        $quitar  = array_map('strval', (array)($_POST['quitar_adjunto'] ?? []));
+        $fuera   = array_values(array_filter($previos, fn($a) => in_array((string)($a['ruta'] ?? ''), $quitar, true)));
+        $quedan  = array_values(array_filter($previos, fn($a) => !in_array((string)($a['ruta'] ?? ''), $quitar, true)));
+        $rechazados = [];
+        $nuevos  = guardarAdjuntos('adjuntos', 'tarea_', $rechazados);
+        borrarAdjuntos($fuera);
+
         $tareas->actualizar((int)$t['id'], [
+            'adjuntos'     => array_merge($quedan, $nuevos),
             'titulo'       => trim($_POST['titulo'] ?? ''),
             'descripcion'  => trim($_POST['descripcion'] ?? ''),
             'prioridad'    => $_POST['prioridad'] ?? 'media',
@@ -387,6 +404,7 @@ switch ($accion) {
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
+        [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
         redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tarea_eliminar':
@@ -399,6 +417,7 @@ switch ($accion) {
                     if ($m) GoogleCalendar::borrar($m, (string)$eid);
                 }
             }
+            borrarAdjuntos(TareaRepo::adjuntosDe($t));   // no dejar archivos huérfanos
             $tareas->eliminar((int)$t['id']);
             chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
             redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea eliminada.');
@@ -1081,6 +1100,8 @@ switch ($accion) {
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
             'logo'             => $logo,
             'github_token'     => $secreto($_POST['github_token'] ?? '', $prev['github_token'] ?? ''),
+            'gitlab_token'     => $secreto($_POST['gitlab_token'] ?? '', $prev['gitlab_token'] ?? ''),
+            'gitlab_host'      => trim($_POST['gitlab_host'] ?? ''),
             'google_login'     => [
                 'activo'              => !empty($_POST['google_login']['activo']),
                 'vincular_por_nombre' => !empty($_POST['google_login']['vincular_por_nombre']),

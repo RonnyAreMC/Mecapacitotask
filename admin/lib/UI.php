@@ -576,11 +576,19 @@ class UI
             // nombre: solo si difiere de la etiqueta por defecto del tipo
             $etiquetaDef = $tipos[$tipoActual][0] ?? '';
             $nombre = ($r['label'] ?? '') !== $etiquetaDef ? ($r['label'] ?? '') : '';
+            $ramaActual = trim($r['rama'] ?? '');
             $n = 'repos[' . $idx . ']';
             return '<div class="repo-fila">'
                 . '<select class="select-meca repo-tipo" name="' . $n . '[tipo]" data-ms="1">' . $opts . '</select>'
                 . '<input class="input-meca repo-nombre" name="' . $n . '[nombre]" maxlength="60" value="' . e($nombre) . '" placeholder="Nombre (ej. Sede Norte)">'
-                . '<input class="input-meca repo-url" type="url" name="' . $n . '[url]" value="' . e($r['url'] ?? '') . '" placeholder="https://github.com/…">'
+                . '<input class="input-meca repo-url" type="url" name="' . $n . '[url]" value="' . e($r['url'] ?? '') . '" placeholder="https://github.com/… o https://gitlab.com/…">'
+                // Rama: arranca solo con lo guardado y admin.js pide la lista
+                // real a ramas.php al abrir el editor (cacheada 1h en servidor)
+                . '<select class="select-meca repo-rama" name="' . $n . '[rama]" data-ms="1"'
+                . ' title="Rama con la que abre Métricas. «Rama por defecto» = la del repositorio.">'
+                . '<option value="">Rama por defecto</option>'
+                . ($ramaActual !== '' ? '<option value="' . e($ramaActual) . '" selected>' . e($ramaActual) . '</option>' : '')
+                . '</select>'
                 . '<button type="button" class="repo-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>'
                 . '</div>';
         };
@@ -599,7 +607,35 @@ class UI
             . '<button type="button" class="btn-outline btn-meca btn-sm repo-agregar">'
             . '<i class="fa-solid fa-plus"></i> Agregar repositorio</button>'
             . $plantilla
-            . '<small class="campo-ayuda">Elige el tipo y, si tienes varios del mismo (p. ej. dos instituciones), ponle un nombre para distinguirlos.</small>'
+            . '<small class="campo-ayuda">Elige el tipo y, si tienes varios del mismo (p. ej. dos instituciones), ponle un nombre para distinguirlos. '
+            . 'La <b>rama</b> es con la que abre Métricas: déjala vacía para usar la del repositorio (normalmente <code>main</code>) '
+            . 'o escribe otra si el equipo trabaja fuera de ahí.</small>'
+            . '</div>';
+    }
+
+    /** Extensiones que acepta el input de archivos (mismo criterio que el servidor). */
+    public const ACEPTA_ADJUNTOS = '.jpg,.jpeg,.png,.webp,.gif,.pdf,.txt,.csv,.doc,.docx,.xls,.xlsx,.ppt,.pptx';
+
+    /**
+     * Campo de documentos de respaldo de una tarea: van con ella desde que se
+     * asigna, para que quien la ejecute tenga el material a mano.
+     *
+     * La lista de los que ya tiene la rellena admin.js al abrir el modal de
+     * edicion; en el de nueva tarea sale vacia.
+     */
+    public static function adjuntosTarea(): string
+    {
+        return '<div class="campo campo-adjuntos" data-adjuntos-tarea>'
+            . '<span>Documentos de respaldo</span>'
+            . '<ul class="adj-lista" hidden></ul>'
+            . '<label class="adj-elegir">'
+            . '<input type="file" name="adjuntos[]" multiple accept="' . e(self::ACEPTA_ADJUNTOS) . '">'
+            . '<i class="fa-solid fa-paperclip"></i><span>Añadir archivos…</span>'
+            . '</label>'
+            . '<ul class="adj-nuevos" hidden></ul>'
+            . '<small class="campo-ayuda">Puedes añadir varios, de golpe o de uno en uno. '
+            . 'Los verá quien tenga la tarea asignada, en el detalle de la tarea. '
+            . 'Imágenes, PDF, Word, Excel, PowerPoint, TXT o CSV.</small>'
             . '</div>';
     }
 

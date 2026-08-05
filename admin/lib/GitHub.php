@@ -8,6 +8,15 @@ require_once __DIR__ . '/Models.php';
 
 class GitHub
 {
+    /** Tope de commits que se leen de un repo (30 paginas de la API). */
+    public const MAX_COMMITS = 3000;
+
+    /** Y tope de tiempo: antes de agotarlo se corta y se marca 'truncado'. */
+    public const MAX_SEGUNDOS = 12;
+
+    /** Entradas que se conservan en el archivo de cache. */
+    private const MAX_CACHE = 8;
+
     /** 'https://github.com/owner/repo(.git)' => ['owner', 'repo'] o null. */
     public static function parsearRepo(?string $url): ?array
     {
@@ -32,8 +41,7 @@ class GitHub
         $urlWeb = "https://github.com/$owner/$nombre";
 
         // Cache
-        $cacheFile = __DIR__ . '/../data/cache_github.json';
-        $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
+        $cache = self::cache();
         $entrada = $cache[$clave] ?? null;
         $ttl = ($entrada['estado'] ?? '') === 'ok' ? 3600 : 180;
         if ($entrada && (time() - ($entrada['t'] ?? 0)) < $ttl) {
@@ -54,58 +62,95 @@ class GitHub
             $resultado['estado'] = 'pendiente';
         }
 
-        $cache[$clave] = $resultado;
-        file_put_contents($cacheFile, json_encode($cache));
+        self::guardar($clave, $resultado);
         return $resultado + ['url' => $urlWeb];
     }
 
     /**
      * Commits recientes de un repo (para ver "quién subió qué"), cacheado 1h.
-     * Devuelve ['estado'=>'ok'|'error'|'vacio'|'sin_repo', 'commits'=>[
-     *   ['sha'=>, 'msg'=>, 'login'=>, 'nombre'=>, 'fecha'=>, 'url'=>], ... ]]
+     * Devuelve ['estado'=>'ok'|'error'|'vacio'|'sin_repo', 'truncado'=>bool,
+     *   'commits'=>[ ['sha'=>, 'msg'=>, 'login'=>, 'nombre'=>, 'fecha'=>, 'url'=>], ... ]]
+     *
+     * La API da 100 por pagina como mucho: se pagina hasta juntar $limite y
+     * 'truncado' avisa si quedaron commits sin leer.
      */
-    public static function commitsRecientes(?string $repoUrl, int $limite = 60, string $rama = ''): array
+    public static function commitsRecientes(?string $repoUrl, int $limite = 60, string $rama = '', int $dias = 400): array
     {
         $repo = self::parsearRepo($repoUrl);
         if (!$repo) {
-            return ['estado' => 'sin_repo', 'commits' => []];
+            return ['estado' => 'sin_repo', 'commits' => [], 'truncado' => false];
         }
         [$owner, $nombre] = $repo;
-        $clave = 'commits:' . strtolower("$owner/$nombre") . ($rama !== '' ? '@' . $rama : '');
+        $clave = 'commits:' . strtolower("$owner/$nombre") . ($rama !== '' ? '@' . $rama : '')
+               . '#' . $limite . 'd' . $dias;
 
-        $cacheFile = __DIR__ . '/../data/cache_github.json';
-        $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
+        $cache = self::cache();
         $entrada = $cache[$clave] ?? null;
-        $ttl = ($entrada['estado'] ?? '') === 'ok' ? 3600 : 180;
+        // Una lectura que se quedo a medias por un fallo no merece una hora de
+        // cache: se reintenta pronto, como los errores.
+        $ttl = ($entrada['estado'] ?? '') === 'ok' && empty($entrada['parcial']) ? 3600 : 180;
         if ($entrada && (time() - ($entrada['t'] ?? 0)) < $ttl) {
             return $entrada;
         }
 
-        $qs = 'per_page=' . max(1, min(100, $limite)) . ($rama !== '' ? '&sha=' . rawurlencode($rama) : '');
-        [$codigo, $cuerpo] = self::api("/repos/$owner/$nombre/commits?$qs");
-        $resultado = ['t' => time(), 'estado' => 'error', 'commits' => []];
+        $limite    = max(1, min(self::MAX_COMMITS, $limite));
+        $porPagina = min(100, $limite);
+        $paginas   = (int)ceil($limite / $porPagina);
+        // Solo el tramo que se va a pintar (el rango elegido en Métricas)
+        $desde = gmdate('Y-m-d\TH:i:s\Z', time() - max(1, min(400, $dias)) * 86400);
 
-        if ($codigo === 200) {
+        $commits = [];
+        $truncado = false;
+        $parcial = false;
+        $codigo = 0;
+        $t0 = microtime(true);
+        for ($p = 1; $p <= $paginas; $p++) {
+            $qs = 'per_page=' . $porPagina . '&page=' . $p . '&since=' . rawurlencode($desde)
+                . ($rama !== '' ? '&sha=' . rawurlencode($rama) : '');
+            [$c, $cuerpo] = self::api("/repos/$owner/$nombre/commits?$qs");
+            // Una pagina suelta puede fallar (limite de peticiones, hipo del
+            // servidor): se reintenta una vez antes de rendirse.
+            if ($c !== 200 && $p > 1) {
+                usleep(400000);
+                [$c, $cuerpo] = self::api("/repos/$owner/$nombre/commits?$qs");
+            }
+            if ($p === 1) $codigo = $c;
+            if ($c !== 200) {
+                // A mitad del recorrido: lo que hay esta incompleto y hay que
+                // decirlo, ademas de no cachearlo como bueno una hora entera.
+                if ($p > 1) { $truncado = true; $parcial = true; }
+                break;
+            }
             $lista = json_decode($cuerpo, true) ?: [];
-            $commits = [];
-            foreach ($lista as $c) {
-                $msg = (string)($c['commit']['message'] ?? '');
+            foreach ($lista as $x) {
+                $msg = (string)($x['commit']['message'] ?? '');
                 $commits[] = [
-                    'sha'    => substr((string)($c['sha'] ?? ''), 0, 7),
+                    'sha'    => substr((string)($x['sha'] ?? ''), 0, 7),
                     'msg'    => trim(strtok($msg, "\n")),          // primera línea
-                    'login'  => strtolower((string)($c['author']['login'] ?? '')),
-                    'nombre' => (string)($c['commit']['author']['name'] ?? ''),
-                    'fecha'  => substr((string)($c['commit']['author']['date'] ?? ''), 0, 10),
-                    'url'    => (string)($c['html_url'] ?? ''),
+                    'login'  => strtolower((string)($x['author']['login'] ?? '')),
+                    'nombre' => (string)($x['commit']['author']['name'] ?? ''),
+                    'fecha'  => substr((string)($x['commit']['author']['date'] ?? ''), 0, 10),
+                    'url'    => (string)($x['html_url'] ?? ''),
                 ];
             }
-            $resultado = ['t' => time(), 'estado' => $commits ? 'ok' : 'vacio', 'commits' => $commits];
+            if (count($lista) < $porPagina) break;      // no hay mas
+            // Se para por tope de paginas o de tiempo: mas vale una vista
+            // incompleta y avisada que una pagina que nunca carga.
+            if ($p === $paginas || microtime(true) - $t0 > self::MAX_SEGUNDOS) {
+                $truncado = true;
+                break;
+            }
+        }
+
+        $resultado = ['t' => time(), 'estado' => 'error', 'commits' => [], 'truncado' => false];
+        if ($codigo === 200) {
+            $resultado = ['t' => time(), 'estado' => $commits ? 'ok' : 'vacio',
+                          'commits' => $commits, 'truncado' => $truncado, 'parcial' => $parcial];
         } elseif ($codigo === 409) {
             $resultado['estado'] = 'vacio';   // repo sin commits
         }
 
-        $cache[$clave] = $resultado;
-        file_put_contents($cacheFile, json_encode($cache));
+        self::guardar($clave, $resultado);
         return $resultado;
     }
 
@@ -117,10 +162,12 @@ class GitHub
         [$owner, $nombre] = $repo;
         $clave = 'ramas:' . strtolower("$owner/$nombre");
 
-        $cacheFile = __DIR__ . '/../data/cache_github.json';
-        $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
+        $cache = self::cache();
         $entrada = $cache[$clave] ?? null;
-        if ($entrada && (time() - ($entrada['t'] ?? 0)) < 3600) {
+        // Igual que en GitLab: una lista vacia es casi siempre un fallo
+        // pasajero, asi que no se cachea una hora entera.
+        $ttl = !empty($entrada['ramas']) ? 3600 : 180;
+        if ($entrada && (time() - ($entrada['t'] ?? 0)) < $ttl) {
             return $entrada['ramas'] ?? [];
         }
 
@@ -131,9 +178,40 @@ class GitHub
                 if (!empty($b['name'])) $ramas[] = $b['name'];
             }
         }
-        $cache[$clave] = ['t' => time(), 'ramas' => $ramas];
-        file_put_contents($cacheFile, json_encode($cache));
+        self::guardar($clave, ['t' => time(), 'ramas' => $ramas]);
         return $ramas;
+    }
+
+    /* ---------- Cache en disco (mismo esquema que GitLab) ---------- */
+
+    private static function archivoCache(): string
+    {
+        return __DIR__ . '/../data/cache_github.json';
+    }
+
+    private static function cache(): array
+    {
+        $f = self::archivoCache();
+        return file_exists($f) ? (json_decode((string)file_get_contents($f), true) ?: []) : [];
+    }
+
+    /**
+     * Guarda una entrada y poda las viejas. Cada combinacion de rama y rango
+     * cachea su propia lista de commits, asi que con muchas ramas el archivo
+     * crecia sin freno: se quedan solo las ultimas MAX_CACHE.
+     */
+    private static function guardar(string $clave, array $valor): void
+    {
+        $cache = self::cache();
+        $cache[$clave] = $valor;
+        // Lo caducado ya no sirve a nadie, y cada lista de commits pesa
+        $viejo = time() - 3600;
+        $cache = array_filter($cache, fn($v) => ($v['t'] ?? 0) > $viejo);
+        if (count($cache) > self::MAX_CACHE) {
+            uasort($cache, fn($a, $b) => ($b['t'] ?? 0) <=> ($a['t'] ?? 0));
+            $cache = array_slice($cache, 0, self::MAX_CACHE, true);
+        }
+        file_put_contents(self::archivoCache(), json_encode($cache));
     }
 
     /** GET a la API de GitHub. Devuelve [codigoHttp, cuerpo]. */

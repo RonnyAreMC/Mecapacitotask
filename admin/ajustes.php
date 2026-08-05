@@ -613,14 +613,41 @@ UI::cabecera(
       </section>
 
       <section class="card-base ajuste-card">
-        <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Integración con GitHub</h2>
+        <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Repositorios (GitHub y GitLab)</h2>
+        <p class="ajuste-ayuda">
+          El panel reconoce el proveedor por la dirección del repositorio, así que basta
+          con pegar el enlace en cada proyecto. Los tokens son opcionales: sirven para leer
+          repos privados y para no quedarse sin cuota de la API.
+        </p>
         <label class="campo">
-          <span>Token de GitHub (opcional)</span>
+          <span><i class="fa-brands fa-github"></i> Token de GitHub (opcional)</span>
           <input class="input-meca" type="password" name="github_token" value="" placeholder="<?= !empty($cfg['github_token']) ? '•••••••• guardado' : 'ghp_...' ?>">
         </label>
         <small class="campo-ayuda">
           Para el mapa de actividad de repos privados y más cuota de la API.
           Créalo en <a href="https://github.com/settings/tokens" target="_blank" rel="noopener">github.com/settings/tokens</a> con permiso de solo lectura de repos.
+        </small>
+
+        <label class="campo">
+          <span><i class="fa-brands fa-gitlab"></i> Token de GitLab (opcional)</span>
+          <input class="input-meca" type="password" name="gitlab_token" value="" placeholder="<?= !empty($cfg['gitlab_token']) ? '•••••••• guardado' : 'glpat-...' ?>">
+        </label>
+        <small class="campo-ayuda">
+          Token personal con permiso <code>read_api</code>. Créalo en tu propio GitLab, en
+          <code>/-/user_settings/personal_access_tokens</code> (Preferencias → Access tokens);
+          si usas <a href="https://gitlab.com/-/user_settings/personal_access_tokens" target="_blank" rel="noopener">gitlab.com</a>,
+          ahí mismo. Sin token solo se leen repos públicos: los privados contestan
+          «404 Project Not Found» y el gráfico de aportes se queda vacío.
+        </small>
+
+        <label class="campo">
+          <span>Instancia propia de GitLab (opcional)</span>
+          <input class="input-meca" name="gitlab_host" value="<?= e($cfg['gitlab_host'] ?? '') ?>" placeholder="git.miempresa.com">
+        </label>
+        <small class="campo-ayuda">
+          Solo si tu GitLab está en un dominio que no lleva «gitlab» en el nombre; si no,
+          se detecta solo. Puedes poner varios separados por coma. El token de arriba se
+          usa para todos, así que si son instancias distintas usa una sola aquí.
         </small>
       </section>
 
