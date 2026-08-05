@@ -58,16 +58,24 @@ UI::cabecera(
 <!-- Fondo: un grafo de ramas, como el de un repositorio. Es decorativo, va
      detrás de todo y se apaga si el sistema pide menos animación. -->
 <svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <!-- Las ramas van completas; el movimiento lo da un pulso que las recorre
+       (los <use> de abajo), no una línea a trozos. pathLength normaliza cada
+       trazo a 1 para que el pulso mida igual en ramas de distinto largo. -->
   <g class="fr-lineas">
-    <path d="M-60 320 H1260"/>
-    <path d="M170 320 C250 320 265 170 345 170 H820"/>
-    <path d="M400 320 C480 320 495 470 575 470 H1010"/>
-    <path d="M700 170 C780 170 795 320 875 320"/>
-    <path d="M880 470 C960 470 975 320 1055 320"/>
-    <path d="M250 470 C330 470 345 320 425 320"/>
-    <path d="M-60 90 H420 C500 90 515 170 595 170"/>
-    <path d="M520 560 C600 560 615 470 695 470 H1260"/>
-    <path d="M60 170 C140 170 155 90 235 90"/>
+    <path id="fr1" pathLength="1" d="M-60 320 H1260"/>
+    <path id="fr2" pathLength="1" d="M170 320 C250 320 265 170 345 170 H820"/>
+    <path id="fr3" pathLength="1" d="M400 320 C480 320 495 470 575 470 H1010"/>
+    <path id="fr4" pathLength="1" d="M700 170 C780 170 795 320 875 320"/>
+    <path id="fr5" pathLength="1" d="M880 470 C960 470 975 320 1055 320"/>
+    <path id="fr6" pathLength="1" d="M250 470 C330 470 345 320 425 320"/>
+    <path id="fr7" pathLength="1" d="M-60 90 H420 C500 90 515 170 595 170"/>
+    <path id="fr8" pathLength="1" d="M520 560 C600 560 615 470 695 470 H1260"/>
+    <path id="fr9" pathLength="1" d="M60 170 C140 170 155 90 235 90"/>
+  </g>
+  <g class="fr-pulsos">
+    <use href="#fr1"/><use href="#fr2"/><use href="#fr3"/>
+    <use href="#fr4"/><use href="#fr5"/><use href="#fr6"/>
+    <use href="#fr7"/><use href="#fr8"/><use href="#fr9"/>
   </g>
   <g class="fr-nodos">
     <circle cx="170" cy="320" r="9"/><circle cx="345" cy="170" r="7"/>

@@ -990,21 +990,30 @@ html.dark .btn-ghost.btn-meca:hover {
   width: 100%; height: 100%;
   pointer-events: none;
   color: var(--c-secondary);
-  opacity: .15;
+  opacity: .18;
 }
-html.dark .fondo-ramas { opacity: .22; }
+html.dark .fondo-ramas { opacity: .26; }
 .fr-lineas path {
-  fill: none; stroke: currentColor; stroke-width: 3.5; stroke-linecap: round;
-  stroke-dasharray: 16 12;
-  animation: fr-flujo 22s linear infinite;
+  fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
+  opacity: .72;                     /* la rama, continua y de fondo */
 }
-/* Cada rama arranca desfasada: si van a la vez parece un solo bloque moviéndose */
-.fr-lineas path:nth-child(2) { animation-duration: 26s; animation-direction: reverse; }
-.fr-lineas path:nth-child(3) { animation-duration: 30s; }
-.fr-lineas path:nth-child(4) { animation-duration: 24s; animation-direction: reverse; }
-.fr-lineas path:nth-child(5) { animation-duration: 34s; }
-.fr-lineas path:nth-child(6) { animation-duration: 28s; animation-direction: reverse; }
-@keyframes fr-flujo { to { stroke-dashoffset: -280; } }
+
+/* El pulso: un tramo corto que recorre la misma rama. Da el movimiento sin
+   que la línea parezca cortada. */
+.fr-pulsos use {
+  fill: none; stroke: currentColor; stroke-width: 4.5; stroke-linecap: round;
+  stroke-dasharray: .08 1;
+  animation: fr-pulso 11s linear infinite;
+}
+.fr-pulsos use:nth-child(2) { animation-duration: 14s; animation-delay: -3s; }
+.fr-pulsos use:nth-child(3) { animation-duration:  9s; animation-delay: -6s; }
+.fr-pulsos use:nth-child(4) { animation-duration: 13s; animation-delay: -1s; }
+.fr-pulsos use:nth-child(5) { animation-duration: 16s; animation-delay: -8s; }
+.fr-pulsos use:nth-child(6) { animation-duration: 10s; animation-delay: -4s; }
+.fr-pulsos use:nth-child(7) { animation-duration: 15s; animation-delay: -2s; }
+.fr-pulsos use:nth-child(8) { animation-duration: 12s; animation-delay: -7s; }
+.fr-pulsos use:nth-child(9) { animation-duration: 17s; animation-delay: -5s; }
+@keyframes fr-pulso { from { stroke-dashoffset: 1.08; } to { stroke-dashoffset: 0; } }
 
 .fr-nodos circle { fill: currentColor; animation: fr-latido 5s ease-in-out infinite; }
 .fr-nodos circle:nth-child(even) { animation-delay: 1.6s; }
@@ -1012,7 +1021,8 @@ html.dark .fondo-ramas { opacity: .22; }
 @keyframes fr-latido { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
 
 @media (prefers-reduced-motion: reduce) {
-  .fr-lineas path, .fr-nodos circle { animation: none; }
+  .fr-pulsos { display: none; }
+  .fr-nodos circle { animation: none; }
 }
 
 /* El color del proyecto (--pc, el que se elige en «Editar proyecto») manda en
