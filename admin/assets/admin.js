@@ -183,8 +183,12 @@ const MecaSelect = {
     };
     const posicionar = () => {
       const r = trigger.getBoundingClientRect();
-      panel.style.left = r.left + 'px';
-      panel.style.width = r.width + 'px';
+      // El panel copiaba el ancho del disparador y en los filtros estrechos los
+      // nombres salían cortados ("Carlos …"). Se le da un mínimo, sin pasarse
+      // del borde de la ventana.
+      const ancho = Math.min(Math.max(r.width, 260), innerWidth - 20);
+      panel.style.width = ancho + 'px';
+      panel.style.left = Math.max(10, Math.min(r.left, innerWidth - ancho - 10)) + 'px';
       panel.style.top = (r.bottom + 6) + 'px';
       const h = panel.offsetHeight;
       if (r.bottom + 6 + h > innerHeight && r.top - 6 - h > 0) panel.style.top = (r.top - 6 - h) + 'px';
