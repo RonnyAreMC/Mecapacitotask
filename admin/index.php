@@ -55,35 +55,76 @@ UI::cabecera(
 );
 ?>
 
-<!-- Fondo: un grafo de ramas, como el de un repositorio. Es decorativo, va
-     detrás de todo y se apaga si el sistema pide menos animación. -->
+<?php
+// Fondo: grafo de ramas. Los colores NO van quemados: salen de los propios
+// proyectos (el que cada uno tiene configurado) y, si faltan, de los acentos
+// del panel en Ajustes. Así el fondo cambia cuando cambia la marca.
+$coloresFondo = array_values(array_unique(array_map(
+    fn($p) => ProyectoRepo::colorBase($p), $proyectos)));
+foreach ([Config::get('color_secundario'), Config::get('color_acento')] as $extra) {
+    if (is_string($extra) && $extra !== '' && !in_array($extra, $coloresFondo, true)) {
+        $coloresFondo[] = $extra;
+    }
+}
+// Con pocos proyectos, se completa con la paleta del catálogo para que las
+// ramas no salgan todas del mismo tono.
+for ($i = 0; count($coloresFondo) < 6; $i++) {
+    $c = Catalogo::colorDe($i * 3);
+    if (!in_array($c, $coloresFondo, true)) $coloresFondo[] = $c;
+}
+$colorFondo = fn(int $i) => $coloresFondo[$i % count($coloresFondo)];
+
+$fondoTrazos = [
+    ['c1', 'M-60 60 H1260'],
+    ['c2', 'M-60 230 H1260'],
+    ['c3', 'M-60 400 H1260'],
+    ['c4', 'M-60 560 H1260'],
+    ['r1', 'M120 60 C210 60 190 230 280 230'],
+    ['r2', 'M340 230 C430 230 410 60 500 60'],
+    ['r3', 'M560 60 C650 60 630 230 720 230'],
+    ['r4', 'M180 400 C270 400 250 230 340 230'],
+    ['r5', 'M420 400 C510 400 490 560 580 560'],
+    ['r6', 'M640 560 C730 560 710 400 800 400'],
+    ['r7', 'M860 230 C950 230 930 400 1020 400'],
+    ['r8', 'M900 400 C990 400 970 230 1060 230'],
+    ['r9', 'M1080 60 C1170 60 1150 230 1240 230'],
+    ['r10', 'M40 560 C130 560 110 400 200 400'],
+];
+$fondoNodos = [
+    [120, 60],
+    [280, 230],
+    [340, 230],
+    [500, 60],
+    [560, 60],
+    [720, 230],
+    [180, 400],
+    [420, 400],
+    [580, 560],
+    [640, 560],
+    [800, 400],
+    [860, 230],
+    [1020, 400],
+    [1060, 230],
+    [1080, 60],
+    [200, 400],
+    [900, 400],
+    [40, 560],
+]; ?>
 <svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
-  <!-- Las ramas van completas; el movimiento lo da un pulso que las recorre
-       (los <use> de abajo), no una línea a trozos. pathLength normaliza cada
-       trazo a 1 para que el pulso mida igual en ramas de distinto largo. -->
   <g class="fr-lineas">
-    <path id="fr1" pathLength="1" d="M-60 320 H1260"/>
-    <path id="fr2" pathLength="1" d="M170 320 C250 320 265 170 345 170 H820"/>
-    <path id="fr3" pathLength="1" d="M400 320 C480 320 495 470 575 470 H1010"/>
-    <path id="fr4" pathLength="1" d="M700 170 C780 170 795 320 875 320"/>
-    <path id="fr5" pathLength="1" d="M880 470 C960 470 975 320 1055 320"/>
-    <path id="fr6" pathLength="1" d="M250 470 C330 470 345 320 425 320"/>
-    <path id="fr7" pathLength="1" d="M-60 90 H420 C500 90 515 170 595 170"/>
-    <path id="fr8" pathLength="1" d="M520 560 C600 560 615 470 695 470 H1260"/>
-    <path id="fr9" pathLength="1" d="M60 170 C140 170 155 90 235 90"/>
+    <?php foreach ($fondoTrazos as $i => [$fid, $fd]): ?>
+    <path id="<?= $fid ?>" pathLength="1" d="<?= $fd ?>" style="color:<?= e($colorFondo($i)) ?>"/>
+    <?php endforeach; ?>
   </g>
   <g class="fr-pulsos">
-    <use href="#fr1"/><use href="#fr2"/><use href="#fr3"/>
-    <use href="#fr4"/><use href="#fr5"/><use href="#fr6"/>
-    <use href="#fr7"/><use href="#fr8"/><use href="#fr9"/>
+    <?php foreach ($fondoTrazos as $i => [$fid, $fd]): ?>
+    <use href="#<?= $fid ?>" style="color:<?= e($colorFondo($i)) ?>"/>
+    <?php endforeach; ?>
   </g>
   <g class="fr-nodos">
-    <circle cx="170" cy="320" r="9"/><circle cx="345" cy="170" r="7"/>
-    <circle cx="575" cy="470" r="7"/><circle cx="700" cy="170" r="9"/>
-    <circle cx="875" cy="320" r="7"/><circle cx="1055" cy="320" r="9"/>
-    <circle cx="425" cy="320" r="7"/><circle cx="880" cy="470" r="7"/>
-    <circle cx="235" cy="90" r="7"/><circle cx="595" cy="170" r="7"/>
-    <circle cx="695" cy="470" r="7"/><circle cx="60" cy="170" r="7"/>
+    <?php foreach ($fondoNodos as $i => [$fx, $fy]): ?>
+    <circle cx="<?= $fx ?>" cy="<?= $fy ?>" r="<?= $i % 3 ? 7 : 9 ?>" style="color:<?= e($colorFondo($i)) ?>"/>
+    <?php endforeach; ?>
   </g>
 </svg>
 
