@@ -448,18 +448,24 @@ switch ($accion) {
             redirigir($volver, 'El correo no está configurado. Revisa Ajustes → Correo.', 'error');
         }
 
-        // Solo lo que sigue pendiente: recordar lo ya terminado no aporta
-        $finalesAviso = Catalogo::estadosFinales();
+        // Lo que eligió el administrador en el modal: [miembro => [tarea, …]].
+        // Se vuelve a validar aquí: cada tarea debe ser de este proyecto y
+        // estar realmente a nombre de esa persona.
+        $seleccion = (array)($_POST['avisar'] ?? []);
         $porPersona = [];
-        foreach ($tareas->delProyecto($pid) as $t) {
-            if (in_array($t['estado'] ?? '', $finalesAviso, true)) continue;
-            foreach (TareaRepo::asignadosDe($t) as $mid) {
+        foreach ($seleccion as $mid => $ids) {
+            $mid = (int)$mid;
+            foreach ((array)$ids as $tid) {
+                $t = $tareas->buscar((int)$tid);
+                if (!$t || (int)$t['proyecto_id'] !== $pid) continue;
+                if (!TareaRepo::tieneAsignado($t, $mid)) continue;
                 $porPersona[$mid][] = $t;
             }
         }
         if (!$porPersona) {
-            redirigir($volver, 'No hay tareas pendientes con responsable en este proyecto.', 'error');
+            redirigir($volver, 'No marcaste ninguna tarea, así que no se envió nada.', 'error');
         }
+        $nota = mb_substr(trim((string)($_POST['nota'] ?? '')), 0, 400);
 
         $enviados = [];
         $sinCorreo = [];
@@ -473,7 +479,7 @@ switch ($accion) {
             }
             // Las más urgentes primero; las que no tienen fecha, al final
             usort($suyas, fn($a, $b) => (($a['fecha_limite'] ?? '') ?: '9999') <=> (($b['fecha_limite'] ?? '') ?: '9999'));
-            $r = Mailer::resumenTareas($m, $p, $suyas);
+            $r = Mailer::resumenTareas($m, $p, $suyas, $nota);
             if ($r === true) {
                 $enviados[] = explode(' ', $m['nombre'])[0] . ' (' . count($suyas) . ')';
             } else {

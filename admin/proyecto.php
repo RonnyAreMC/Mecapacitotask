@@ -127,6 +127,23 @@ $verTareaAttr = function (array $t) use ($miembros, $tareasPorId, $finales, $obs
 };
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
 
+// Para el modal "Avisar al equipo": quién tiene tareas PENDIENTES aquí y
+// cuáles. El administrador elige a quién le llega y con qué tareas dentro.
+$avisoPersonas = [];
+foreach ($tareas as $t) {
+    if (in_array($t['estado'] ?? '', $finales, true)) continue;
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        if (!isset($miembros[$mid])) continue;
+        $avisoPersonas[$mid]['miembro'] = $miembros[$mid];
+        $avisoPersonas[$mid]['tareas'][] = $t;
+    }
+}
+// Las más urgentes primero; las que no tienen fecha, al final
+foreach ($avisoPersonas as &$_per) {
+    usort($_per['tareas'], fn($a, $b) => (($a['fecha_limite'] ?? '') ?: '9999') <=> (($b['fecha_limite'] ?? '') ?: '9999'));
+}
+unset($_per);
+
 // Intercambios de tareas
 $interRepo      = new IntercambioRepo();
 $intercambios   = $interRepo->delProyecto($id);
@@ -358,17 +375,13 @@ foreach ($tareas as $t) {
           <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
         </button>
       </form>
-      <!-- Un correo por persona con TODAS sus tareas pendientes aquí. Pensado
-           para después de cargar una planificación en lote. -->
-      <form method="post" action="actions.php" class="inline-form solo-admin"
-            data-confirmar="Se enviará un correo a cada responsable con la lista de sus tareas pendientes de este proyecto. Un solo correo por persona, no uno por tarea."
-            data-confirmar-titulo="¿Avisar al equipo por correo?" data-confirmar-ok="Sí, enviar">
-        <input type="hidden" name="accion" value="tareas_avisar">
-        <input type="hidden" name="proyecto_id" value="<?= $id ?>">
-        <button class="accion-btn" data-tip="Manda a cada responsable un resumen con sus tareas pendientes de este proyecto">
-          <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
-        </button>
-      </form>
+      <?php if ($avisoPersonas): ?>
+      <!-- Un correo por persona con las tareas que el admin elija en el modal -->
+      <button type="button" class="accion-btn solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
+              data-tip="Elige a quién avisar y con qué tareas; se manda un correo por persona">
+        <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
+      </button>
+      <?php endif; ?>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
@@ -1455,6 +1468,68 @@ $comData = json_encode([
     </div>
   </form>
 </dialog>
+
+<?php if ($avisoPersonas): ?>
+<!-- Modal: avisar al equipo. Se elige a quién le llega y con qué tareas dentro. -->
+<dialog id="dlg-avisar" class="dlg-meca dlg-avisar">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="tareas_avisar">
+    <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+    <header class="av-head">
+      <div>
+        <h3 class="font-display"><i class="fa-solid fa-paper-plane text-secondary"></i> Avisar al equipo</h3>
+        <p>Un correo por persona con las tareas que marques. Nadie recibe un correo por cada tarea.</p>
+      </div>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+
+    <label class="campo">
+      <span>Mensaje para el equipo (opcional)</span>
+      <textarea class="input-meca" name="nota" rows="2" maxlength="400"
+                placeholder="Ej. Arrancamos el sprint hoy; cualquier duda, en la daily de las 10:00."></textarea>
+    </label>
+
+    <div class="av-lista" data-avisar>
+      <?php foreach ($avisoPersonas as $mid => $per):
+        $m = $per['miembro'];
+        $sinCorreo = empty($m['email']);
+      ?>
+      <section class="av-persona <?= $sinCorreo ? 'av-sincorreo' : '' ?>">
+        <label class="av-cab">
+          <input type="checkbox" class="av-todo" <?= $sinCorreo ? 'disabled' : 'checked' ?>>
+          <?= UI::avatar($m, 30) ?>
+          <span class="av-quien">
+            <b><?= e($m['nombre']) ?></b>
+            <small><?= $sinCorreo ? 'sin correo registrado · no se le puede enviar' : e($m['email']) ?></small>
+          </span>
+          <span class="av-n"><?= count($per['tareas']) ?></span>
+        </label>
+        <ul class="av-tareas">
+          <?php foreach ($per['tareas'] as $t): ?>
+          <li>
+            <label>
+              <input type="checkbox" name="avisar[<?= (int)$mid ?>][]" value="<?= (int)$t['id'] ?>"
+                     <?= $sinCorreo ? 'disabled' : 'checked' ?>>
+              <span class="av-t-titulo"><?= e($t['titulo']) ?></span>
+              <small><?= e($t['fecha_limite'] ?? '') ?: 'sin fecha' ?></small>
+            </label>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </section>
+      <?php endforeach; ?>
+    </div>
+
+    <footer class="av-pie">
+      <span class="av-resumen"></span>
+      <div class="av-acciones">
+        <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+        <button class="btn-primary btn-meca"><i class="fa-solid fa-paper-plane"></i> Enviar</button>
+      </div>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <!-- Modal: detalle de tarea (solo lectura, lo abre cualquiera) -->
 <dialog id="dlg-detalle-tarea" class="dlg-meca dlg-detalle">

@@ -1352,6 +1352,44 @@ function iconoAdjunto(ext) {
   return 'fa-paperclip';
 }
 
+/* ---------- Avisar al equipo: a quién y con qué tareas ---------- */
+document.querySelectorAll('[data-avisar]').forEach((caja) => {
+  const form = caja.closest('form');
+  const resumen = form.querySelector('.av-resumen');
+  const enviar = form.querySelector('button[type="submit"], .btn-primary');
+
+  const contar = () => {
+    let personas = 0, tareas = 0;
+    caja.querySelectorAll('.av-persona').forEach((p) => {
+      const marcadas = p.querySelectorAll('.av-tareas input:checked').length;
+      if (marcadas) { personas++; tareas += marcadas; }
+      // El "todas" de la persona refleja el estado real de sus tareas
+      const todo = p.querySelector('.av-todo');
+      const total = p.querySelectorAll('.av-tareas input:not(:disabled)').length;
+      if (todo && !todo.disabled) {
+        todo.checked = marcadas > 0;
+        todo.indeterminate = marcadas > 0 && marcadas < total;
+      }
+      p.classList.toggle('av-fuera', total > 0 && marcadas === 0);
+    });
+    resumen.textContent = personas === 0
+      ? 'No se enviará ningún correo'
+      : personas + (personas === 1 ? ' correo' : ' correos') + ' · ' + tareas + (tareas === 1 ? ' tarea' : ' tareas');
+    if (enviar) enviar.disabled = personas === 0;
+  };
+
+  caja.addEventListener('change', (e) => {
+    // La casilla de la persona marca o desmarca todas las suyas
+    if (e.target.classList.contains('av-todo')) {
+      const on = e.target.checked;
+      e.target.closest('.av-persona').querySelectorAll('.av-tareas input:not(:disabled)')
+        .forEach((c) => { c.checked = on; });
+    }
+    contar();
+  });
+  contar();
+});
+
 /* ---------- Previsualización de un documento ---------- */
 // Imágenes, PDF y texto se ven en el panel. Word/Excel/PowerPoint no se pueden
 // mostrar sin mandar el archivo a un servicio de terceros, así que en esos se

@@ -504,18 +504,18 @@ class Mailer
      * A diferencia del aviso de asignación, este no depende de
      * 'avisar_asignacion': lo dispara un administrador a mano.
      */
-    public static function resumenTareas(array $miembro, array $proyecto, array $tareas): true|string|null
+    public static function resumenTareas(array $miembro, array $proyecto, array $tareas, string $nota = ''): true|string|null
     {
         if (!self::listo() || empty($miembro['email']) || !$tareas) {
             return null;
         }
         return self::enviar($miembro['email'],
             'Tus tareas en ' . $proyecto['nombre'] . ' (' . count($tareas) . ')',
-            self::htmlResumen($miembro, $proyecto, $tareas));
+            self::htmlResumen($miembro, $proyecto, $tareas, $nota));
     }
 
     /** HTML del correo de resumen (aparte, para poder revisarlo sin enviarlo). */
-    private static function htmlResumen(array $miembro, array $proyecto, array $tareas): string
+    private static function htmlResumen(array $miembro, array $proyecto, array $tareas, string $nota = ''): string
     {
         $acento = Config::all()['color_secundario'] ?? '#2B76F7';
         $n = count($tareas);
@@ -537,6 +537,11 @@ class Mailer
         $cuerpo = self::encabezado($acento, '&#9776;', 'Tus tareas en ' . e($proyecto['nombre']),
                     'Hola ' . e($miembro['nombre']) . ', esto es lo que quedó a tu nombre en la planificación: '
                     . $n . ($n === 1 ? ' tarea.' : ' tareas.'))
+            // Nota que escribe quien envía, tal cual, antes de la lista
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#fbfbfd;'
+                  . 'color:#1d1d1f;font-size:14px;line-height:1.55;">' . nl2br(e($nota)) . '</div>'
+                : '')
             . '<div class="mc-det" style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:6px 18px 14px;">'
             . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' . $filas . '</table>'
             . '</div>'
