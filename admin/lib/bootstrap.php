@@ -507,6 +507,26 @@ function sembrarDatos(): void
         'nombre' => 'SIGE Académico', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
         'descripcion' => 'Sistema integrado de gestión educativa — módulo académico.',
     ]);
+
+    // Correos institucionales de InnoTech (cPanel), sembrados SIN vincular a
+    // nombres todavía. Quedan como catálogo para asignarlos a cada ficha más
+    // adelante (miembro_id = null = disponible). Dominio innotech-solutions.com.ec.
+    $correos = new JsonStore('correos_innotech');
+    $dominio = '@innotech-solutions.com.ec';
+    $usuarios = [
+        'aamariduenal', 'aavilesn', 'admin.claude1', 'admin.claude2', 'bavitev',
+        'bgbarcom', 'celockem', 'clrodriguezn', 'contacto', 'crm-uniebec',
+        'cscoelloa', 'dsuarezs', 'elordonezg', 'evramirezc', 'fearevaloc',
+        'fwbravor', 'gasalazarc', 'htramireza', 'info', 'innotech',
+        'its.itb', 'its.ube', 'jdbrioness', 'jdpincaym', 'jecherresc',
+        'jgalaverac', 'jjcaverog', 'kbastudilloc', 'mrmorana', 'nsolmedom',
+        'oaguzmana', 'pgnoboar', 'prueba.unidadeducativa', 'regonzalezr',
+        'requerimiento', 'reramirezc', 'riarellanou', 'riramireza', 'safreirel',
+        'slsalanc', 'vmgomezd', 'wlvelezd',
+    ];
+    foreach ($usuarios as $u) {
+        $correos->insert(['email' => $u . $dominio, 'miembro_id' => null]);
+    }
 }
 
 sembrarDatos();
