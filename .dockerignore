@@ -1,0 +1,19 @@
+# Nunca copiar al build datos/credenciales locales de otro entorno.
+# (Railway construye desde git, donde ya están ignorados, pero esto blinda
+#  también las construcciones locales de la imagen.)
+.git
+.DS_Store
+DEPLOY.md
+
+admin/data/*.sqlite
+admin/data/*.sqlite-wal
+admin/data/*.sqlite-shm
+admin/data/config.json
+admin/data/config.json.*
+admin/data/*.json
+admin/data/*.bak
+admin/data/.seeded
+admin/uploads/*
+!admin/uploads/.gitkeep
+!admin/data/.gitkeep
+!admin/data/.htaccess
