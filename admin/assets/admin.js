@@ -1373,8 +1373,9 @@ document.querySelectorAll('[data-avisar]').forEach((caja) => {
       p.classList.toggle('av-fuera', total > 0 && marcadas === 0);
     });
     resumen.textContent = personas === 0
-      ? 'No se enviará ningún correo'
+      ? 'Nada marcado: no se enviará ningún correo'
       : personas + (personas === 1 ? ' correo' : ' correos') + ' · ' + tareas + (tareas === 1 ? ' tarea' : ' tareas');
+    resumen.classList.toggle('av-nada', personas === 0);
     if (enviar) enviar.disabled = personas === 0;
   };
 
@@ -1387,6 +1388,27 @@ document.querySelectorAll('[data-avisar]').forEach((caja) => {
     }
     contar();
   });
+
+  // Las tareas van plegadas: con diez por persona, la lista entera abierta era
+  // un muro. Se despliega solo a quien quieras afinar.
+  caja.addEventListener('click', (e) => {
+    const btn = e.target.closest('.av-abrir');
+    if (!btn) return;
+    const p = btn.closest('.av-persona');
+    const abierto = p.classList.toggle('av-abierta');
+    p.querySelector('.av-tareas').hidden = !abierto;
+    btn.title = abierto ? 'Ocultar sus tareas' : 'Ver y elegir sus tareas';
+  });
+
+  // Marcar todo / ninguno
+  form.querySelectorAll('[data-marcar]').forEach((b) => {
+    b.addEventListener('click', () => {
+      const on = b.dataset.marcar === '1';
+      caja.querySelectorAll('input[type="checkbox"]:not(:disabled)').forEach((c) => { c.checked = on; });
+      contar();
+    });
+  });
+
   contar();
 });
 

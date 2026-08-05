@@ -2521,41 +2521,110 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
    ========================================================= */
 /* ---- Modal "Avisar al equipo": a quién y con qué tareas ---- */
 .dlg-avisar { width: min(720px, calc(100vw - 40px)); }
-.dlg-avisar .dlg-form { display: flex; flex-direction: column; gap: 16px; padding: 24px 26px 22px; }
+.dlg-avisar .dlg-form { display: flex; flex-direction: column; gap: 14px; padding: 24px 26px 20px; }
 .av-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
 .av-head h3 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--c-text); }
 .av-head p { margin: 5px 0 0; font-size: .84rem; color: var(--c-text-soft); }
-.av-lista { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
-.av-persona { border-radius: 16px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); padding: 12px 14px; }
-/* Nadie marcado: la ficha se apaga, para ver de un vistazo quién queda fuera */
-.av-persona.av-fuera { opacity: .5; }
-.av-persona.av-sincorreo { opacity: .55; }
-.av-cab { display: flex; align-items: center; gap: 10px; cursor: pointer; }
-.av-persona.av-sincorreo .av-cab { cursor: default; }
+
+/* Sin correos no se puede enviar: se avisa arriba, no tras varios clics */
+.av-alerta {
+  display: flex; align-items: flex-start; gap: 10px; margin: 0;
+  padding: 12px 14px; border-radius: 14px;
+  background: color-mix(in srgb, var(--c-terracota) 12%, transparent);
+  color: var(--c-text); font-size: .82rem; line-height: 1.5;
+}
+.av-alerta i { color: var(--c-terracota); margin-top: 2px; }
+.av-alerta a { color: var(--c-secondary); font-weight: 700; }
+
+.av-barra { display: flex; align-items: center; gap: 8px; }
+.av-barra-tit {
+  flex: 1; font-size: .7rem; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; color: var(--c-text-soft);
+}
+.av-marcar {
+  border: 0; border-radius: 999px; padding: 5px 12px; cursor: pointer;
+  background: rgba(var(--c-secondary-rgb), .1); color: var(--c-secondary);
+  font-family: 'Inter', sans-serif; font-size: .74rem; font-weight: 700;
+  transition: background .2s ease;
+}
+.av-marcar:hover { background: rgba(var(--c-secondary-rgb), .2); }
+
+.av-lista { display: flex; flex-direction: column; gap: 8px; max-height: 44vh; overflow-y: auto; padding-right: 4px; }
+.av-persona {
+  border-radius: 16px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  transition: box-shadow .2s ease, opacity .2s ease;
+}
+/* Elegido: aro de acento. Descartado: se apaga, para verlo de un vistazo. */
+.av-persona:has(.av-todo:checked) { box-shadow: var(--sh-inset-mini), 0 0 0 1.5px rgba(var(--c-secondary-rgb), .35); }
+.av-persona.av-fuera { opacity: .45; }
+.av-persona.av-sincorreo { opacity: .6; }
+.av-cab { display: flex; align-items: center; gap: 11px; padding: 11px 13px; }
 .av-quien { flex: 1; min-width: 0; display: flex; flex-direction: column; }
 .av-quien b { font-size: .9rem; color: var(--c-text); }
 .av-quien small { font-size: .74rem; color: var(--c-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-quien small i { color: var(--c-terracota); margin-right: 3px; }
+.av-quien small a { color: var(--c-secondary); font-weight: 700; }
+.av-meta { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 2px; }
 .av-n {
-  flex: none; min-width: 26px; padding: 2px 8px; border-radius: 999px;
+  padding: 3px 10px; border-radius: 999px;
   background: rgba(var(--c-secondary-rgb), .12); color: var(--c-secondary);
-  font-size: .74rem; font-weight: 800; text-align: center;
+  font-size: .72rem; font-weight: 800; white-space: nowrap;
 }
-.av-tareas { list-style: none; margin: 10px 0 0; padding: 0 0 0 34px; display: flex; flex-direction: column; gap: 4px; }
+.av-meta small { font-size: .68rem; color: var(--c-text-soft); font-variant-numeric: tabular-nums; }
+.av-abrir {
+  flex: none; width: 30px; height: 30px; border: 0; border-radius: 10px; cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: transparent; color: var(--c-text-soft); font-size: .78rem;
+  transition: color .2s ease, background .2s ease, transform .2s ease;
+}
+.av-abrir:hover { color: var(--c-secondary); background: rgba(var(--c-secondary-rgb), .1); }
+.av-persona.av-abierta .av-abrir { transform: rotate(180deg); color: var(--c-secondary); }
+
+.av-tareas {
+  list-style: none; margin: 0; padding: 2px 13px 12px 52px;
+  display: flex; flex-direction: column; gap: 3px;
+}
+.av-tareas[hidden] { display: none; }
 .av-tareas label {
-  display: flex; align-items: center; gap: 9px; cursor: pointer;
-  padding: 5px 8px; border-radius: 10px; font-size: .82rem; color: var(--c-text);
+  display: flex; align-items: center; gap: 10px; cursor: pointer;
+  padding: 6px 9px; border-radius: 10px; font-size: .82rem; color: var(--c-text);
 }
 .av-tareas label:hover { background: rgba(var(--c-secondary-rgb), .07); }
 .av-t-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.av-tareas small { flex: none; color: var(--c-text-soft); font-size: .74rem; font-variant-numeric: tabular-nums; }
-.av-lista input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--c-secondary); cursor: pointer; }
+.av-tareas small { flex: none; color: var(--c-text-soft); font-size: .72rem; font-variant-numeric: tabular-nums; }
+
+/* Casilla propia: la nativa desentona con el resto del panel */
+.av-marca { position: relative; display: inline-flex; flex: none; }
+.av-marca input { position: absolute; opacity: 0; width: 100%; height: 100%; margin: 0; cursor: pointer; }
+.av-marca-caja {
+  width: 19px; height: 19px; border-radius: 6px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: #fff; font-size: .62rem;
+  transition: background .18s ease, box-shadow .18s ease;
+}
+.av-marca-caja i { opacity: 0; transform: scale(.6); transition: opacity .15s ease, transform .15s ease; }
+.av-marca input:checked + .av-marca-caja { background: var(--c-secondary); box-shadow: none; }
+.av-marca input:checked + .av-marca-caja i { opacity: 1; transform: scale(1); }
+.av-marca input:indeterminate + .av-marca-caja {
+  background: rgba(var(--c-secondary-rgb), .28);
+  box-shadow: inset 0 0 0 2px var(--c-secondary);
+}
+.av-marca input:disabled + .av-marca-caja { opacity: .4; }
+.av-marca input:focus-visible + .av-marca-caja { box-shadow: 0 0 0 2.5px rgba(var(--c-secondary-rgb), .35); }
+
 .av-pie {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
-  padding-top: 16px; border-top: 1px solid var(--c-border-soft);
+  padding-top: 14px; border-top: 1px solid var(--c-border-soft);
 }
-.av-resumen { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); }
+.av-resumen {
+  padding: 6px 13px; border-radius: 999px;
+  background: rgba(var(--c-secondary-rgb), .1); color: var(--c-secondary);
+  font-size: .8rem; font-weight: 700;
+}
+.av-resumen.av-nada { background: color-mix(in srgb, var(--c-text-soft) 14%, transparent); color: var(--c-text-soft); }
 .av-acciones { display: flex; gap: 10px; margin-left: auto; }
-.av-acciones .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+.av-acciones .btn-primary:disabled { opacity: .45; cursor: not-allowed; transform: none; }
 
 /* Marca en la fila de la tarea: lleva documentos adjuntos */
 .adj-tag {
