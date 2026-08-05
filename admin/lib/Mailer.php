@@ -92,18 +92,21 @@ class Mailer
     private static function logoUrl(): string
     {
         $base = rtrim((string)(self::conf()['url_panel'] ?? ''), '/');
-        $file = str_replace('\\', '/', self::logoPath());
+        $file = self::logoPath();
         if ($base === '' || $file === '') {
             return '';
         }
-        // url_panel apunta a la carpeta del panel (…/admin). Los assets de la
-        // marca viven un nivel arriba; lo subido en Ajustes, dentro del panel.
-        $pos = strrpos($file, '/assets/');
-        if ($pos !== false) {
-            return preg_replace('#/[^/]+$#', '', $base) . substr($file, $pos);
-        }
-        $pos = strrpos($file, '/uploads/');
-        return $pos !== false ? $base . substr($file, $pos) : '';
+        // Se sirve desde el propio panel (logo.php) en vez de deducir dónde
+        // queda la carpeta assets: la estructura de carpetas cambia según cómo
+        // esté desplegado y así el enlace no depende de adivinarla.
+        // La fecha del archivo evita que un cliente sirva una versión vieja.
+        return $base . '/logo.php?v=' . (@filemtime($file) ?: 1);
+    }
+
+    /** Archivo del logo, para que logo.php sirva el mismo que usa el correo. */
+    public static function logoArchivo(): string
+    {
+        return self::logoPath();
     }
 
     /**
