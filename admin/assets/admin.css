@@ -2479,6 +2479,44 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 /* =========================================================
    Editor de repositorios (crear / editar proyecto)
    ========================================================= */
+/* ---- Modal "Avisar al equipo": a quién y con qué tareas ---- */
+.dlg-avisar { width: min(720px, calc(100vw - 40px)); }
+.dlg-avisar .dlg-form { display: flex; flex-direction: column; gap: 16px; padding: 24px 26px 22px; }
+.av-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.av-head h3 { margin: 0; font-size: 1.1rem; font-weight: 800; color: var(--c-text); }
+.av-head p { margin: 5px 0 0; font-size: .84rem; color: var(--c-text-soft); }
+.av-lista { display: flex; flex-direction: column; gap: 10px; max-height: 46vh; overflow-y: auto; padding-right: 4px; }
+.av-persona { border-radius: 16px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); padding: 12px 14px; }
+/* Nadie marcado: la ficha se apaga, para ver de un vistazo quién queda fuera */
+.av-persona.av-fuera { opacity: .5; }
+.av-persona.av-sincorreo { opacity: .55; }
+.av-cab { display: flex; align-items: center; gap: 10px; cursor: pointer; }
+.av-persona.av-sincorreo .av-cab { cursor: default; }
+.av-quien { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.av-quien b { font-size: .9rem; color: var(--c-text); }
+.av-quien small { font-size: .74rem; color: var(--c-text-soft); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-n {
+  flex: none; min-width: 26px; padding: 2px 8px; border-radius: 999px;
+  background: rgba(var(--c-secondary-rgb), .12); color: var(--c-secondary);
+  font-size: .74rem; font-weight: 800; text-align: center;
+}
+.av-tareas { list-style: none; margin: 10px 0 0; padding: 0 0 0 34px; display: flex; flex-direction: column; gap: 4px; }
+.av-tareas label {
+  display: flex; align-items: center; gap: 9px; cursor: pointer;
+  padding: 5px 8px; border-radius: 10px; font-size: .82rem; color: var(--c-text);
+}
+.av-tareas label:hover { background: rgba(var(--c-secondary-rgb), .07); }
+.av-t-titulo { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.av-tareas small { flex: none; color: var(--c-text-soft); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.av-lista input[type="checkbox"] { flex: none; width: 16px; height: 16px; accent-color: var(--c-secondary); cursor: pointer; }
+.av-pie {
+  display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
+  padding-top: 16px; border-top: 1px solid var(--c-border-soft);
+}
+.av-resumen { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); }
+.av-acciones { display: flex; gap: 10px; margin-left: auto; }
+.av-acciones .btn-primary:disabled { opacity: .5; cursor: not-allowed; transform: none; }
+
 /* Marca en la fila de la tarea: lleva documentos adjuntos */
 .adj-tag {
   color: var(--c-secondary) !important;

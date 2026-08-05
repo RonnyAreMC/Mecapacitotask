@@ -407,6 +407,66 @@ switch ($accion) {
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
         redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
 
+    case 'tareas_avisar':
+        // Un correo POR PERSONA con todas sus tareas del proyecto, no uno por
+        // tarea: tras cargar una planificación en lote, avisar tarea a tarea
+        // sería una lluvia de correos por la misma noticia.
+        $pid = (int)($_POST['proyecto_id'] ?? 0);
+        $p = $proyectos->buscar($pid);
+        $volver = 'proyecto.php?id=' . $pid;
+        if (!$p) {
+            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        }
+        if (!Mailer::listo()) {
+            redirigir($volver, 'El correo no está configurado. Revisa Ajustes → Correo.', 'error');
+        }
+
+        // Lo que eligió el administrador en el modal: [miembro => [tarea, …]].
+        // Se vuelve a validar aquí: cada tarea debe ser de este proyecto y
+        // estar realmente a nombre de esa persona.
+        $seleccion = (array)($_POST['avisar'] ?? []);
+        $porPersona = [];
+        foreach ($seleccion as $mid => $ids) {
+            $mid = (int)$mid;
+            foreach ((array)$ids as $tid) {
+                $t = $tareas->buscar((int)$tid);
+                if (!$t || (int)$t['proyecto_id'] !== $pid) continue;
+                if (!TareaRepo::tieneAsignado($t, $mid)) continue;
+                $porPersona[$mid][] = $t;
+            }
+        }
+        if (!$porPersona) {
+            redirigir($volver, 'No marcaste ninguna tarea, así que no se envió nada.', 'error');
+        }
+        $nota = mb_substr(trim((string)($_POST['nota'] ?? '')), 0, 400);
+
+        $enviados = [];
+        $sinCorreo = [];
+        $fallos = [];
+        foreach ($porPersona as $mid => $suyas) {
+            $m = $miembros->buscar((int)$mid);
+            if (!$m) continue;
+            if (empty($m['email'])) {
+                $sinCorreo[] = explode(' ', $m['nombre'])[0];
+                continue;
+            }
+            // Las más urgentes primero; las que no tienen fecha, al final
+            usort($suyas, fn($a, $b) => (($a['fecha_limite'] ?? '') ?: '9999') <=> (($b['fecha_limite'] ?? '') ?: '9999'));
+            $r = Mailer::resumenTareas($m, $p, $suyas, $nota);
+            if ($r === true) {
+                $enviados[] = explode(' ', $m['nombre'])[0] . ' (' . count($suyas) . ')';
+            } else {
+                $fallos[] = explode(' ', $m['nombre'])[0];
+            }
+        }
+
+        $msg = $enviados
+            ? 'Resumen enviado a ' . count($enviados) . ' persona(s): ' . implode(', ', $enviados) . '.'
+            : 'No se envió ningún correo.';
+        if ($sinCorreo) $msg .= ' Sin correo registrado: ' . implode(', ', $sinCorreo) . '.';
+        if ($fallos)    $msg .= ' Falló el envío a: ' . implode(', ', $fallos) . '.';
+        redirigir($volver, $msg, $enviados && !$fallos ? 'success' : 'error');
+
     case 'tarea_eliminar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if ($t) {
