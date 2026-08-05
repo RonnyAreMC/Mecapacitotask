@@ -69,6 +69,15 @@ class Mailer
         // logo de InnoTech (rasterizado del SVG) si existe.
         // En el correo va SOLO el ícono (sin el texto del wordmark), al lado de
         // la marca. Preferimos el ícono; si no, cae al wordmark o al logo base.
+
+        // Antes que nada, el logo que se haya subido en Ajustes: es el de esta
+        // instalación. Solo si es rasterizado; un SVG no se vería.
+        $propio = trim((string)(Config::get('logo') ?? ''));
+        if ($propio !== '' && preg_match('/\.(png|jpe?g|gif|webp)$/i', $propio)) {
+            $ruta = __DIR__ . '/../' . $propio;
+            if (is_file($ruta)) return $ruta;
+        }
+
         $base = __DIR__ . '/../../assets/';
         foreach (['innotech-hub-icon-email.png', 'innotech-hub-logo-email.png', 'mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
             if (is_file($base . $f)) return $base . $f;
@@ -485,6 +494,57 @@ class Mailer
             . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Nueva tarea asignada: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
+    }
+
+    /**
+     * Resumen de TODAS las tareas que alguien tiene en un proyecto, en un solo
+     * correo. Es lo que se manda tras cargar una planificación en lote: avisar
+     * tarea por tarea sería una lluvia de correos por la misma noticia.
+     *
+     * A diferencia del aviso de asignación, este no depende de
+     * 'avisar_asignacion': lo dispara un administrador a mano.
+     */
+    public static function resumenTareas(array $miembro, array $proyecto, array $tareas): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email']) || !$tareas) {
+            return null;
+        }
+        return self::enviar($miembro['email'],
+            'Tus tareas en ' . $proyecto['nombre'] . ' (' . count($tareas) . ')',
+            self::htmlResumen($miembro, $proyecto, $tareas));
+    }
+
+    /** HTML del correo de resumen (aparte, para poder revisarlo sin enviarlo). */
+    private static function htmlResumen(array $miembro, array $proyecto, array $tareas): string
+    {
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $n = count($tareas);
+        $prioridades = Catalogo::prioridades();
+
+        $filas = '';
+        foreach ($tareas as $t) {
+            $prio = $prioridades[$t['prioridad'] ?? '']['0'] ?? ($t['prioridad'] ?? '');
+            $meta = [];
+            if ($prio !== '')                 $meta[] = 'Prioridad ' . e($prio);
+            if (!empty($t['fecha_limite']))   $meta[] = 'Hasta el ' . e($t['fecha_limite']);
+            elseif (!empty($t['fecha_inicio'])) $meta[] = 'Desde el ' . e($t['fecha_inicio']);
+            $filas .= '<tr><td style="padding:9px 0;border-top:1px solid #e5e5ea;">'
+                . '<div style="color:#1d1d1f;font-size:14px;font-weight:600;line-height:1.4;">' . e($t['titulo'] ?? '') . '</div>'
+                . ($meta ? '<div style="color:#86868b;font-size:12px;margin-top:3px;">' . implode(' · ', $meta) . '</div>' : '')
+                . '</td></tr>';
+        }
+
+        $cuerpo = self::encabezado($acento, '&#9776;', 'Tus tareas en ' . e($proyecto['nombre']),
+                    'Hola ' . e($miembro['nombre']) . ', esto es lo que quedó a tu nombre en la planificación: '
+                    . $n . ($n === 1 ? ' tarea.' : ' tareas.'))
+            . '<div class="mc-det" style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:6px 18px 14px;">'
+            . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">' . $filas . '</table>'
+            . '</div>'
+            . '<div style="color:#86868b;font-size:13px;line-height:1.5;margin-top:14px;">'
+            . 'El detalle de cada una (descripción, dependencias y documentos de respaldo) está en el panel.'
+            . '</div>';
+
+        return self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver mis tareas');
     }
 
     /** Aviso de entrada al equipo de un proyecto (a quien se acaba de sumar). */

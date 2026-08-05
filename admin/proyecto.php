@@ -358,6 +358,17 @@ foreach ($tareas as $t) {
           <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
         </button>
       </form>
+      <!-- Un correo por persona con TODAS sus tareas pendientes aquí. Pensado
+           para después de cargar una planificación en lote. -->
+      <form method="post" action="actions.php" class="inline-form solo-admin"
+            data-confirmar="Se enviará un correo a cada responsable con la lista de sus tareas pendientes de este proyecto. Un solo correo por persona, no uno por tarea."
+            data-confirmar-titulo="¿Avisar al equipo por correo?" data-confirmar-ok="Sí, enviar">
+        <input type="hidden" name="accion" value="tareas_avisar">
+        <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+        <button class="accion-btn" data-tip="Manda a cada responsable un resumen con sus tareas pendientes de este proyecto">
+          <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
+        </button>
+      </form>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
