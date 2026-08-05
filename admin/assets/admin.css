@@ -986,7 +986,29 @@ html.dark .btn-ghost.btn-meca:hover {
   gap: 16px;
   margin-bottom: 26px;
 }
-.stat-card { display: flex; align-items: center; gap: 12px; padding: 15px 17px; }
+/* Los KPI comparten .card-base con las tarjetas de proyecto y se confundían
+   con ellas. Se aplanan: sin relieve, fondo teñido de su color y una barra
+   lateral. Quedan como una tira de resumen, no como una tarjeta más. */
+.stat-card {
+  display: flex; align-items: center; gap: 12px;
+  padding: 13px 15px 13px 13px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 9%, var(--n-bg));
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
+  border-left: 4px solid var(--pc, var(--c-secondary));
+  box-shadow: none;
+}
+.stat-card:hover { transform: none; box-shadow: none; }
+html.dark .stat-card {
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, var(--n-bg));
+}
+/* El icono deja de ser un bloque de color: basta el tono sobre el fondo */
+.stat-card .stat-icon {
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, transparent);
+  color: var(--pc, var(--c-secondary));
+  box-shadow: none;
+  width: 36px; height: 36px; border-radius: 11px; font-size: .95rem;
+}
 .stat-icon {
   width: 42px; height: 42px; border-radius: 13px; flex-shrink: 0;
   display: flex; align-items: center; justify-content: center;
@@ -1004,6 +1026,10 @@ html.dark .btn-ghost.btn-meca:hover {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(310px, 1fr));
   gap: 18px;
+}
+/* Como mucho tres por fila: con auto-fill entraban cuatro y quedaban estrechas */
+@media (min-width: 1080px) {
+  .proyectos-admin-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 
 /* ---- Fondo del tablero: grafo de ramas ----
