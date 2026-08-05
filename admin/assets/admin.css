@@ -854,8 +854,33 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
   gap: 20px; flex-wrap: wrap;
   margin-bottom: 30px;
 }
-.page-title { margin: 0; font-size: 1.9rem; font-weight: 800; color: var(--c-text); }
-.page-sub { margin: 6px 0 0; color: var(--c-text-soft); font-size: .95rem; }
+/* El título tiene que ganarle al fondo animado: más cuerpo, y una barra de
+   acento a la izquierda que lo separa del grafo. */
+.page-title {
+  margin: 0;
+  font-size: clamp(1.9rem, 1.4rem + 1.6vw, 2.6rem);
+  font-weight: 800; letter-spacing: -.02em; line-height: 1.15;
+  color: var(--c-text);
+}
+.page-head > div:first-child { position: relative; padding-left: 18px; }
+.page-head > div:first-child::before {
+  content: ''; position: absolute; left: 0; top: 4px; bottom: 4px; width: 5px;
+  border-radius: 999px;
+  background: linear-gradient(180deg, var(--c-secondary), var(--c-verde-esmeralda));
+}
+.page-sub { margin: 8px 0 0; color: var(--c-text-soft); font-size: 1rem; }
+/* Detrás del título, un velo del color del panel: el fondo no se le cruza */
+.page-head {
+  position: relative; isolation: isolate;
+}
+.page-head::after {
+  content: ''; position: absolute; inset: -14px -18px; z-index: -1;
+  border-radius: 20px;
+  background: radial-gradient(80% 120% at 0% 50%,
+    color-mix(in srgb, var(--n-bg) 92%, transparent) 0%,
+    color-mix(in srgb, var(--n-bg) 55%, transparent) 55%,
+    transparent 100%);
+}
 
 /* =========================================================
    Botones
@@ -994,41 +1019,8 @@ html.dark .btn-ghost.btn-meca:hover {
 }
 html.dark .fondo-ramas { opacity: .34; }
 
-/* Un color por trazo (línea, pulso y nodo), repitiendo la paleta: con un solo
-   azul sobre fondo azulado no se distinguía nada. */
-.fr-lineas path:nth-child(1), .fr-pulsos use:nth-child(1) { color: #2B76F7; }
-.fr-lineas path:nth-child(2), .fr-pulsos use:nth-child(2) { color: #2BB673; }
-.fr-lineas path:nth-child(3), .fr-pulsos use:nth-child(3) { color: #8E44AD; }
-.fr-lineas path:nth-child(4), .fr-pulsos use:nth-child(4) { color: #40CFFF; }
-.fr-lineas path:nth-child(5), .fr-pulsos use:nth-child(5) { color: #F7931E; }
-.fr-lineas path:nth-child(6), .fr-pulsos use:nth-child(6) { color: #7AC943; }
-.fr-lineas path:nth-child(7), .fr-pulsos use:nth-child(7) { color: #1A4B99; }
-.fr-lineas path:nth-child(8), .fr-pulsos use:nth-child(8) { color: #E91E8C; }
-.fr-lineas path:nth-child(9), .fr-pulsos use:nth-child(9) { color: #0E9594; }
-.fr-lineas path:nth-child(10), .fr-pulsos use:nth-child(10) { color: #6C5CE7; }
-.fr-lineas path:nth-child(11), .fr-pulsos use:nth-child(11) { color: #2B76F7; }
-.fr-lineas path:nth-child(12), .fr-pulsos use:nth-child(12) { color: #2BB673; }
-.fr-lineas path:nth-child(13), .fr-pulsos use:nth-child(13) { color: #8E44AD; }
-.fr-lineas path:nth-child(14), .fr-pulsos use:nth-child(14) { color: #40CFFF; }
-.fr-nodos circle:nth-child(1) { color: #2B76F7; }
-.fr-nodos circle:nth-child(2) { color: #2BB673; }
-.fr-nodos circle:nth-child(3) { color: #8E44AD; }
-.fr-nodos circle:nth-child(4) { color: #40CFFF; }
-.fr-nodos circle:nth-child(5) { color: #F7931E; }
-.fr-nodos circle:nth-child(6) { color: #7AC943; }
-.fr-nodos circle:nth-child(7) { color: #1A4B99; }
-.fr-nodos circle:nth-child(8) { color: #E91E8C; }
-.fr-nodos circle:nth-child(9) { color: #0E9594; }
-.fr-nodos circle:nth-child(10) { color: #6C5CE7; }
-.fr-nodos circle:nth-child(11) { color: #2B76F7; }
-.fr-nodos circle:nth-child(12) { color: #2BB673; }
-.fr-nodos circle:nth-child(13) { color: #8E44AD; }
-.fr-nodos circle:nth-child(14) { color: #40CFFF; }
-.fr-nodos circle:nth-child(15) { color: #F7931E; }
-.fr-nodos circle:nth-child(16) { color: #7AC943; }
-.fr-nodos circle:nth-child(17) { color: #1A4B99; }
-.fr-nodos circle:nth-child(18) { color: #E91E8C; }
-
+/* Los colores ya no viven aquí: cada trazo llega con el suyo desde index.php
+   (color del proyecto o acento de Ajustes), así el fondo sigue a la marca. */
 .fr-lineas path {
   fill: none; stroke: currentColor; stroke-width: 3; stroke-linecap: round;
   opacity: .72;
