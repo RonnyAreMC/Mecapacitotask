@@ -55,6 +55,30 @@ UI::cabecera(
 );
 ?>
 
+<!-- Fondo: un grafo de ramas, como el de un repositorio. Es decorativo, va
+     detrás de todo y se apaga si el sistema pide menos animación. -->
+<svg class="fondo-ramas" viewBox="0 0 1200 620" preserveAspectRatio="xMidYMid slice" aria-hidden="true" focusable="false">
+  <g class="fr-lineas">
+    <path d="M-60 320 H1260"/>
+    <path d="M170 320 C250 320 265 170 345 170 H820"/>
+    <path d="M400 320 C480 320 495 470 575 470 H1010"/>
+    <path d="M700 170 C780 170 795 320 875 320"/>
+    <path d="M880 470 C960 470 975 320 1055 320"/>
+    <path d="M250 470 C330 470 345 320 425 320"/>
+    <path d="M-60 90 H420 C500 90 515 170 595 170"/>
+    <path d="M520 560 C600 560 615 470 695 470 H1260"/>
+    <path d="M60 170 C140 170 155 90 235 90"/>
+  </g>
+  <g class="fr-nodos">
+    <circle cx="170" cy="320" r="9"/><circle cx="345" cy="170" r="7"/>
+    <circle cx="575" cy="470" r="7"/><circle cx="700" cy="170" r="9"/>
+    <circle cx="875" cy="320" r="7"/><circle cx="1055" cy="320" r="9"/>
+    <circle cx="425" cy="320" r="7"/><circle cx="880" cy="470" r="7"/>
+    <circle cx="235" cy="90" r="7"/><circle cx="595" cy="170" r="7"/>
+    <circle cx="695" cy="470" r="7"/><circle cx="60" cy="170" r="7"/>
+  </g>
+</svg>
+
 <section class="stats-grid">
   <?= UI::stat('fa-folder-open', '#1A4B99', (string)count($proyectos), 'Proyectos') ?>
   <?= UI::stat('fa-bolt', '#2B76F7', (string)$activos, 'Activos') ?>
