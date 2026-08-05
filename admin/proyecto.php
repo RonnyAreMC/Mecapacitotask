@@ -30,6 +30,14 @@ $color    = ProyectoRepo::colorBase($proyecto);
 $verComo   = verComo();
 $fEstado   = $_GET['estado'] ?? '';
 $fAsignado = $verComo ? (int)$verComo['id'] : (int)($_GET['asignado'] ?? 0);
+// URL de esta misma vista con sus filtros. Los formularios que redirigen
+// (borrar o editar una tarea) la mandan para volver aquí en vez de a la lista
+// sin filtrar: si no, tras borrar una hay que volver a filtrar cada vez.
+// El filtro de "ver como" no va en la URL (vive en la sesión), así que se omite.
+$urlConFiltros = 'proyecto.php?id=' . $id
+    . ($fEstado !== '' ? '&estado=' . urlencode($fEstado) : '')
+    . (!$verComo && $fAsignado ? '&asignado=' . $fAsignado : '');
+
 $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     if ($fEstado !== '' && $t['estado'] !== $fEstado) return false;
     if ($fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado)) return false;
@@ -498,6 +506,7 @@ foreach ($tareas as $t) {
                   data-confirmar-titulo="¿Eliminar tarea?" data-confirmar-ok="Sí, eliminar">
               <input type="hidden" name="accion" value="tarea_eliminar">
               <input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
+              <input type="hidden" name="volver" value="<?= e($urlConFiltros) ?>">
               <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
             </form>
           </td>
@@ -1408,6 +1417,7 @@ $comData = json_encode([
   <form method="post" action="actions.php" class="dlg-form wz" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="tarea_editar">
     <input type="hidden" name="id" id="et-id">
+    <input type="hidden" name="volver" value="<?= e($urlConFiltros) ?>">
     <?= UI::wizardRiel('fa-pen', 'Editar tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
     <div class="wz-cuerpo">
       <header>

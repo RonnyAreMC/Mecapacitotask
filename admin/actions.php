@@ -301,7 +301,7 @@ switch ($accion) {
     case 'proyecto_estado':
         $id = (int)($_POST['id'] ?? 0);
         $proyectos->actualizar($id, ['estado' => $_POST['estado'] ?? 'activo']);
-        redirigir($_POST['volver'] ?? 'index.php', 'Estado del proyecto actualizado.');
+        redirigir(volverAqui('index.php'), 'Estado del proyecto actualizado.');
 
     case 'proyecto_eliminar':
         $id = (int)($_POST['id'] ?? 0);
@@ -405,7 +405,7 @@ switch ($accion) {
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
-        redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea actualizada.' . $msg, $tipo);
+        redirigir(volverAqui('proyecto.php?id=' . $t['proyecto_id']), 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tareas_avisar':
         // Un correo POR PERSONA con todas sus tareas del proyecto, no uno por
@@ -480,7 +480,9 @@ switch ($accion) {
             borrarAdjuntos(TareaRepo::adjuntosDe($t));   // no dejar archivos huérfanos
             $tareas->eliminar((int)$t['id']);
             chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
-            redirigir('proyecto.php?id=' . $t['proyecto_id'], 'Tarea eliminada.');
+            // Vuelve a la vista tal como estaba (con sus filtros), para poder
+            // seguir borrando sin tener que volver a filtrar cada vez.
+            redirigir(volverAqui('proyecto.php?id=' . $t['proyecto_id']), 'Tarea eliminada.');
         }
         redirigir('index.php', 'Tarea no encontrada.', 'error');
 
@@ -1009,7 +1011,7 @@ switch ($accion) {
     case 'miembro_acceso_set':
         // Select de acceso en la tabla de equipo (admin / solo lectura)
         $m = $miembros->buscar((int)($_POST['id'] ?? 0));
-        $volver = $_POST['volver'] ?? 'equipo.php';
+        $volver = volverAqui('equipo.php');
         if (!$m) {
             redirigir($volver, 'Colaborador no encontrado.', 'error');
         }
