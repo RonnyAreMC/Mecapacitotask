@@ -2360,3 +2360,69 @@ document.addEventListener('change', (e) => {
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
   addEventListener('resize', () => { if (innerWidth > 900) cerrar(); });
 })();
+
+/* Registro: medidor de fuerza de la contraseña y aviso de "no coinciden".
+   Se valida en el servidor igual; esto solo evita el viaje en balde. */
+(() => {
+  const clave = document.querySelector('[data-fuerza]');
+  const repe  = document.querySelector('[data-fuerza-repetir]');
+  const caja  = document.querySelector('[data-fuerza-barra]');
+  if (!clave || !caja) return;
+
+  const barra = caja.querySelector('span');
+  const txt   = caja.querySelector('.rf-txt');
+  const min   = parseInt(clave.getAttribute('minlength') || '8', 10);
+
+  // Puntaje simple: largo + variedad de caracteres. Sin librerías.
+  const puntuar = (v) => {
+    let p = 0;
+    if (v.length >= min) p++;
+    if (v.length >= min + 4) p++;
+    if (/[a-z]/.test(v) && /[A-Z]/.test(v)) p++;
+    if (/\d/.test(v)) p++;
+    if (/[^\w\s]/.test(v)) p++;
+    return Math.min(p, 4);
+  };
+  const NIVELES = [
+    ['Muy corta', '#E63946'],
+    ['Débil', '#E63946'],
+    ['Aceptable', '#F7931E'],
+    ['Buena', '#2BB673'],
+    ['Fuerte', '#2BB673'],
+  ];
+
+  const pintar = () => {
+    const v = clave.value;
+    caja.hidden = v === '';
+    if (v === '') return;
+    const p = v.length < min ? 0 : puntuar(v);
+    const [etiqueta, color] = NIVELES[p];
+    barra.style.width = ((p + 1) / 5 * 100) + '%';
+    barra.style.background = color;
+    txt.textContent = v.length < min
+      ? `Te faltan ${min - v.length} caracteres`
+      : etiqueta;
+    txt.style.color = color;
+  };
+
+  const comparar = () => {
+    if (!repe) return;
+    repe.setCustomValidity(repe.value && repe.value !== clave.value ? 'Las contraseñas no coinciden.' : '');
+  };
+
+  clave.addEventListener('input', () => { pintar(); comparar(); });
+  repe?.addEventListener('input', comparar);
+})();
+
+/* Equipo: rechazar una solicitud de acceso (rellena el modal con su nombre) */
+(() => {
+  const dlg = document.getElementById('dlg-rechazar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rechazar]');
+    if (!btn) return;
+    dlg.querySelector('#rc-id').value = btn.dataset.rechazar;
+    dlg.querySelector('#rc-nombre').textContent = btn.dataset.nombre || '';
+    dlg.showModal();
+  });
+})();

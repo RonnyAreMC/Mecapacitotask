@@ -194,7 +194,15 @@ class UI
       </div>
     </div>
 
-    <span class="sidebar-label">Equipos</span>
+    <?php
+    // Solicitudes de acceso sin resolver. No cuelgan de un equipo concreto
+    // (el admin decide cual al aprobar), asi que el contador va en el titulo
+    // de la seccion y no en un equipo cualquiera.
+    $nSol = Auth::esAdmin() ? (new SolicitudRepo())->cuantas() : 0;
+    ?>
+    <span class="sidebar-label">Equipos
+      <?php if ($nSol): ?><span class="nav-badge" title="<?= $nSol ?> solicitud(es) de acceso por revisar"><?= $nSol ?></span><?php endif; ?>
+    </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
     <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
       <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>

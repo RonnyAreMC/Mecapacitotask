@@ -56,9 +56,9 @@ if ($identificar) {
           <span><?= e($marca['subtitulo']) ?></span>
         </div>
       </div>
-      <h2>Del backlog al deploy,<br><em>todo el equipo</em> en un tablero.</h2>
+      <h2>Del backlog al deploy,<br><em>todo el equipo</em> en un tablero</h2>
       <p>Proyectos con tareas encadenadas, observaciones de revisión, reuniones y
-         el avance real de cada persona, actualizado al instante.</p>
+         el avance real de cada persona, actualizado al instante</p>
       <?php
       // Chips que desfilan: la lista se imprime dos veces para que el
       // desplazamiento sea continuo y sin salto.
@@ -152,6 +152,13 @@ if ($identificar) {
           <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
           Créalo por terminal: <code>php admin/crear_admin.php</code>
         </p>
+        <?php elseif (Auth::registroAbierto()): ?>
+        <div class="login-pie">
+          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
+          <p class="lp-cta">¿Todavía no tienes cuenta?
+            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-solid fa-user-plus"></i> Crear una</a>
+          </p>
+        </div>
         <?php else: ?>
         <p class="login-pie"><i class="fa-solid fa-circle-info"></i> ¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
         <?php endif; ?>

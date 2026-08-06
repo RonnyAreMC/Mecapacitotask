@@ -340,7 +340,7 @@ function iconoAdjunto(string $ext): string
 // logo.php sirve la imagen de marca a los correos: los clientes la piden sin
 // sesión, así que no puede exigir login (no expone nada privado).
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
+if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
     Auth::requiereLogin();
 }
 

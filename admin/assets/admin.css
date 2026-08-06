@@ -279,13 +279,19 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
 /* Si la lista desborda, un degradado al pie avisa de que sigue.
    Va con position:sticky y NO con mask-image: una mascara convertiria el
    nav en bloque contenedor y recortaria el panel flotante de proyectos,
-   que es position:fixed. La clase la pone admin.js cuando hace falta. */
+   que es position:fixed. La clase la pone admin.js cuando hace falta.
+
+   El color sale de --sb-fade, que cada tema fija al color REAL del pie de la
+   barra. Cuando estaba clavado a --n-bg, sobre la barra celeste se veia una
+   mancha blanca encima del ultimo enlace. */
 .sidebar-nav::after {
   content: '';
   position: sticky; bottom: 0;
   flex: none;
-  height: 24px; margin-top: -24px;
-  background: linear-gradient(to bottom, transparent, var(--n-bg));
+  height: 18px; margin-top: -18px;
+  background: linear-gradient(to bottom,
+              color-mix(in srgb, var(--sb-fade, var(--n-bg)) 0%, transparent),
+              var(--sb-fade, var(--n-bg)));
   opacity: 0;
   transition: opacity .2s ease;
   pointer-events: none;
@@ -764,6 +770,77 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 .ident-datos small { color: #667085; font-size: .78rem; }
 .ident-persona > i { margin-left: auto; color: var(--c-secondary); }
 
+/* --- Crear cuenta (registro.php) ---
+   Misma pantalla partida que el login, pero con más campos: la caja se
+   ensancha y los pares que van juntos (equipo/rol, clave/repetir) comparten
+   fila para que el formulario no se convierta en una columna interminable. */
+.caja-registro { max-width: 30rem; }
+.caja-registro h1 { margin-bottom: 5px; }
+.caja-registro .login-sub { margin-bottom: 22px; }
+.form-registro .campo-ayuda { margin-top: 6px; font-size: .74rem; color: #98a2b3; }
+.form-registro .campo > span small { font-weight: 500; color: #98a2b3; }
+
+.reg-doble { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 480px) { .reg-doble { grid-template-columns: 1fr; } }
+
+/* Trampa para bots: fuera de la vista pero sin display:none (algunos
+   rellenadores automáticos ignoran los campos ocultos del todo). */
+.reg-trampa {
+  position: absolute; left: -9999px; width: 1px; height: 1px;
+  overflow: hidden; opacity: 0;
+}
+
+/* Medidor de fuerza de la contraseña */
+.reg-fuerza { margin-top: -6px; }
+.rf-barra {
+  height: 5px; border-radius: 99px; background: #eceff4; overflow: hidden;
+}
+.rf-barra span {
+  display: block; height: 100%; width: 0;
+  border-radius: 99px;
+  background: #E63946;
+  transition: width .25s ease, background .25s ease;
+}
+.rf-txt { display: block; margin-top: 5px; font-size: .74rem; font-weight: 600; }
+
+/* Sin dominios configurados no hay subtítulo, y el formulario quedaba pegado
+   al título: el aire lo pone entonces el propio formulario. */
+.caja-registro h1 + .login-form { margin-top: 20px; }
+
+/* Los tres pasos, en el lado oscuro */
+.reg-pasos {
+  list-style: none; margin: 6px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.reg-pasos li {
+  display: flex; align-items: center; gap: 12px;
+  font-size: .9rem; color: rgba(255,255,255,.78);
+}
+.reg-pasos span {
+  flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: .78rem; font-weight: 800; color: #fff;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.2);
+}
+/* Pie del login y del registro: un solo bloque con su línea, la nota primero
+   y la llamada a la acción debajo. Con dos <p class="login-pie"> seguidos
+   salían dos líneas divisorias, como si fueran dos secciones distintas. */
+.login-pie p { margin: 0; }
+.lp-nota { display: flex; gap: 7px; align-items: flex-start; }
+.lp-nota i { margin: 3px 0 0; }              /* alineado con la primera línea */
+.lp-cta { margin-top: 12px !important; font-size: .84rem; }
+.lp-cta a {
+  display: inline-flex; align-items: center; gap: 6px;
+  margin-left: 3px;
+  font-weight: 700; color: var(--c-secondary); text-decoration: none;
+}
+/* Sin esto el navegador lo pinta morado tras la primera visita */
+.lp-cta a:visited { color: var(--c-secondary); }
+.lp-cta a:hover { text-decoration: underline; }
+.lp-cta a i { margin: 0; font-size: .8rem; }
+
 /* Responsive: el arte se convierte en una franja superior y luego desaparece */
 @media (max-width: 1040px) {
   .login-split { grid-template-columns: 1fr; }
@@ -775,6 +852,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
   .arte-txt h2 { font-size: 1.45rem; }
   .arte-txt p { margin-bottom: 18px; font-size: .88rem; }
   .login-panel { padding: 44px 26px 56px; }
+  .reg-pasos { display: none; }   /* en franja no cabe: el paso a paso ya se explica abajo */
 }
 @media (max-width: 560px) {
   .login-arte { min-height: 11.5rem; padding: 26px 22px; }
@@ -4808,6 +4886,63 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 }
 .acceso-yo i { font-size: .74rem; }
 
+/* ---------- Solicitudes de acceso (registro público) ----------
+   Va antes de la tabla y con su propio aire: quien se registró todavía NO es
+   del equipo, así que no debe leerse como una fila más de colaboradores. */
+.sol-card {
+  padding: 20px 22px 22px;
+  margin-bottom: 22px;
+  border-left: 4px solid var(--c-warning);
+}
+.sol-card .tabla-toolbar { margin-bottom: 14px; }
+.sol-lista { display: flex; flex-direction: column; gap: 12px; }
+.sol-item {
+  display: flex; align-items: flex-start; justify-content: space-between;
+  gap: 18px; flex-wrap: wrap;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--c-warning) 7%, var(--n-bg));
+  border: 1px solid color-mix(in srgb, var(--c-warning) 22%, transparent);
+}
+.sol-quien { display: flex; gap: 13px; min-width: 0; flex: 1 1 22rem; }
+.sol-quien .avatar { flex-shrink: 0; }
+.sol-datos { min-width: 0; display: flex; flex-direction: column; gap: 3px; }
+.sol-datos strong { font-size: .98rem; font-weight: 700; color: var(--c-text); }
+.sol-datos > small { font-size: .76rem; color: var(--c-text-soft); }
+.sol-chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 5px; }
+.sol-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 4px 10px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .76rem; color: var(--c-text-soft);
+  max-width: 100%; overflow-wrap: anywhere;
+}
+.sol-chip i { color: var(--c-secondary); font-size: .72rem; }
+
+/* Equipo, rol y acceso los elige el admin aquí mismo, antes de aprobar */
+.sol-acciones { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.sol-campo { display: flex; flex-direction: column; gap: 5px; min-width: 8.5rem; }
+.sol-campo > span {
+  font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.sol-botones { display: flex; align-items: center; gap: 8px; }
+.sol-no, .sol-no i { color: var(--c-danger); }
+.sol-no:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-danger) 45%, transparent) inset; }
+
+/* Contador de solicitudes en el título "Equipos" del menú lateral */
+.sidebar-label:has(.nav-badge) { display: flex; align-items: center; gap: 8px; }
+.nav-badge {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 19px; height: 19px; padding: 0 6px;
+  border-radius: 999px;
+  background: var(--c-warning); color: #fff;
+  font-size: .68rem; font-weight: 800; letter-spacing: 0;
+}
+/* Plegada, la barra reduce los títulos a una rayita: ahí el contador estorba
+   (y no cabe). El aviso sigue estando al desplegarla y en el correo. */
+html.sb-collapsed .nav-badge { display: none; }
+
 /* ---------- Modal de detalle de tarea (solo lectura) ---------- */
 .dlg-detalle { max-width: 520px; width: 92vw; }
 /* Con documentos, la ficha se ensancha y el primero se ve ya a la derecha.
@@ -5366,6 +5501,9 @@ img[src$="claude.svg"] {
 .sidebar, html.dark .sidebar{
   background: linear-gradient(180deg,#4C97EE 0%,#3A81DF 100%) !important;
   box-shadow: 8px 0 30px -20px rgba(2,40,70,.55) !important;
+  /* Color al que funde el aviso de "hay mas abajo": el azul del pie de la
+     barra, no el fondo del panel (si no, sale una mancha blanca). */
+  --sb-fade: #3B83E0;
 }
 /* Rótulos de sección */
 .sidebar .sidebar-label, html.dark .sidebar .sidebar-label{

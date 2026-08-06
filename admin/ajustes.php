@@ -624,6 +624,41 @@ UI::cabecera(
       </section>
 
       <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-solid fa-user-plus text-secondary"></i> Registro de cuentas</h2>
+        <?php $rg = Auth::registro(); ?>
+        <label class="chk-linea">
+          <input type="checkbox" name="registro[abierto]" <?= $rg['abierto'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Dejar que alguien cree su cuenta desde el login
+        </label>
+        <p class="ajuste-ayuda">
+          Registrarse <b>no da acceso</b>: queda una solicitud que apruebas o rechazas en
+          <a href="equipo.php">Equipo</a>. Hasta que la apruebes, esa persona no existe como
+          colaborador (no sale en tareas, proyectos ni selectores).
+        </p>
+        <label class="campo">
+          <span>Dominios de correo permitidos</span>
+          <input class="input-meca" name="registro[dominios]" value="<?= e($rg['dominios']) ?>"
+                 placeholder="itb.edu.ec, innotech.ec">
+        </label>
+        <small class="campo-ayuda">
+          Separados por comas. Se aceptan también sus subdominios (<code>mail.itb.edu.ec</code>).
+          Déjalo vacío para admitir cualquier correo.
+        </small>
+        <label class="chk-linea">
+          <input type="checkbox" name="registro[avisar]" <?= $rg['avisar'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisarme por correo de cada solicitud nueva
+        </label>
+        <small class="campo-ayuda">
+          Se envía a todos los administradores con correo registrado
+          <?php $ae = trim((string)($cfg['correo']['admin_email'] ?? '')); ?>
+          <?= $ae !== '' ? 'y a ' . e($ae) . '.' : '(y al correo de contacto, si lo pones en Correo).' ?>
+          Necesita el correo del panel configurado.
+        </small>
+      </section>
+
+      <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Repositorios (GitHub y GitLab)</h2>
         <p class="ajuste-ayuda">
           El panel reconoce el proveedor por la dirección del repositorio, así que basta

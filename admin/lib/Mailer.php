@@ -319,6 +319,13 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
+    /** URL absoluta a una página del panel (o '' si no hay url_panel). */
+    private static function urlPagina(string $pagina): string
+    {
+        $base = self::baseUrl();
+        return $base !== '' ? $base . '/' . ltrim($pagina, '/') : '';
+    }
+
     /**
      * Envoltura del correo. Diseño minimalista: tarjeta blanca con borde
      * sutil, cabecera con logo + chip, título con barra de acento, chip de
@@ -609,6 +616,71 @@ class Mailer
             . self::detalle($proyecto['nombre'], $filas, $proyecto['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Ahora participas en ' . $proyecto['nombre'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
+    /* ---------- Registro público ---------- */
+
+    /**
+     * Avisa a un administrador de que alguien pidió acceso al panel.
+     * No depende de los interruptores de "avisar_*": es un aviso de
+     * seguridad, se rige por Ajustes → Registro.
+     */
+    public static function solicitudNueva(array $solicitud, string $paraEmail): true|string|null
+    {
+        if (!self::listo() || trim($paraEmail) === '') {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = [
+            'Correo'     => e($solicitud['email'] ?? ''),
+            'Solicitado' => e($solicitud['creado'] ?? date('Y-m-d H:i')),
+        ];
+
+        $cuerpo = self::encabezado($acento, '&#9679;', 'Alguien pide acceso al panel',
+                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> creó una cuenta y espera tu aprobación. '
+                    . 'Hasta que la apruebes no ve nada del panel. Al aprobarla eliges tú su equipo y su rol.')
+            . self::detalle($solicitud['nombre'] ?? '', $filas);
+
+        return self::enviar($paraEmail, 'Solicitud de acceso: ' . ($solicitud['nombre'] ?? ''),
+            self::plantilla($cuerpo, self::urlPagina('equipo.php'), 'Revisar la solicitud'));
+    }
+
+    /** Avisa a la persona de que ya puede entrar. */
+    public static function solicitudAprobada(array $miembro): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2BB673';
+        $rol = ($miembro['acceso'] ?? 'lector') === 'admin' ? 'Administrador' : 'Solo lectura';
+        $cuerpo = self::encabezado($acento, '&#10003;', 'Tu acceso está aprobado',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', ya puedes entrar al panel '
+                    . 'con el correo y la contraseña que registraste.')
+            . self::detalle('Tu cuenta', [
+                'Correo' => e($miembro['email']),
+                'Equipo' => e(Catalogo::equipos()[MiembroRepo::equipoDe($miembro)][0] ?? ''),
+                'Rol'    => e($miembro['rol'] ?? ''),
+                'Perfil' => e($rol),
+            ])
+            . '<div style="color:#86868b;font-size:13px;line-height:1.5;margin-top:14px;">'
+            . 'Cuando entres, completa tu foto y tu usuario de Git en <b>Mi perfil</b>: con el usuario de Git '
+            . 'tus commits aparecen en las métricas de cada proyecto.'
+            . '</div>';
+        return self::enviar($miembro['email'], 'Ya tienes acceso al panel',
+            self::plantilla($cuerpo, self::urlPagina('login.php'), 'Entrar al panel'));
+    }
+
+    /** Avisa de que la solicitud no fue aceptada (con el motivo, si lo hay). */
+    public static function solicitudRechazada(array $solicitud, string $motivo = ''): true|string|null
+    {
+        if (!self::listo() || empty($solicitud['email'])) {
+            return null;
+        }
+        $cuerpo = self::encabezado('#86868b', '&#8212;', 'Tu solicitud no fue aprobada',
+                    'Hola ' . e(explode(' ', trim($solicitud['nombre'] ?? ''))[0] ?: '') . ', por ahora no se te dio '
+                    . 'acceso al panel. Si crees que es un error, responde a este correo.')
+            . ($motivo !== '' ? self::detalle('Motivo', [], $motivo) : '');
+        return self::enviar($solicitud['email'], 'Sobre tu solicitud de acceso', self::plantilla($cuerpo));
     }
 
     /** Invitación a una reunión de Zoom (a cada invitado). */

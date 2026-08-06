@@ -14,6 +14,9 @@ class Auth
 {
     public const ROLES = ['admin' => 'Administrador', 'lector' => 'Solo lectura'];
 
+    /** Largo minimo de una contraseña creada desde el registro publico. */
+    public const MIN_CLAVE = 8;
+
     /** Colaborador con la sesión iniciada, o null. */
     public static function usuario(): ?array
     {
@@ -81,6 +84,70 @@ class Auth
     public static function hash(string $clave): string
     {
         return password_hash($clave, PASSWORD_DEFAULT);
+    }
+
+    /* ---------- Registro público ---------- */
+
+    /** Config del registro, ya normalizada. */
+    public static function registro(): array
+    {
+        $r = (array)(Config::get('registro') ?? []);
+        return [
+            'abierto'  => !empty($r['abierto']),
+            'dominios' => trim((string)($r['dominios'] ?? '')),
+            'avisar'   => !empty($r['avisar']),
+        ];
+    }
+
+    /**
+     * ¿Se puede crear una cuenta desde login? Mientras no exista el primer
+     * administrador no tiene sentido: no habría quién apruebe la solicitud.
+     */
+    public static function registroAbierto(): bool
+    {
+        return self::registro()['abierto'] && self::hayAdmin();
+    }
+
+    /** Lista de dominios permitidos (vacía = cualquier correo). */
+    public static function dominiosPermitidos(): array
+    {
+        $txt = self::registro()['dominios'];
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', $txt) as $d) {
+            $d = ltrim(strtolower(trim($d)), '@');
+            if ($d !== '') $out[] = $d;
+        }
+        return $out;
+    }
+
+    /** ¿El correo pertenece a un dominio permitido? */
+    public static function dominioPermitido(string $email): bool
+    {
+        $dominios = self::dominiosPermitidos();
+        if (!$dominios) return true;
+        $host = strtolower(substr(strrchr($email, '@') ?: '', 1));
+        foreach ($dominios as $d) {
+            // Acepta el dominio y sus subdominios (mail.itb.edu.ec)
+            if ($host === $d || str_ends_with($host, '.' . $d)) return true;
+        }
+        return false;
+    }
+
+    /** Correos de los administradores, para avisarles de una solicitud. */
+    public static function correosAdmin(): array
+    {
+        $out = [];
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if (($m['acceso'] ?? '') === 'admin' && !empty($m['email'])) {
+                $out[strtolower($m['email'])] = $m['email'];
+            }
+        }
+        // El correo de contacto de Ajustes, si está configurado y no repetido
+        $extra = trim((string)(Config::get('correo')['admin_email'] ?? ''));
+        if ($extra !== '' && !isset($out[strtolower($extra)])) {
+            $out[strtolower($extra)] = $extra;
+        }
+        return array_values($out);
     }
 
     /** Exige sesión iniciada; si no, manda al login. */

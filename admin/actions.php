@@ -25,7 +25,7 @@ $accion = $_POST['accion'] ?? '';
    públicas      : sin sesión (login y primer acceso)
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
-$accionesPublicas   = ['auth_login', 'auth_identificar'];
+$accionesPublicas   = ['auth_login', 'auth_identificar', 'auth_registro'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
@@ -241,7 +241,150 @@ switch ($accion) {
         if (Auth::login($_POST['usuario'] ?? '', $_POST['clave'] ?? '')) {
             redirigir('index.php', '¡Bienvenido, ' . (Auth::usuario()['nombre'] ?? '') . '!');
         }
+        // Si se registró y todavía no lo aprueban, decírselo: si no, parece
+        // que su contraseña está mal y la vuelve a pedir una y otra vez.
+        if ((new SolicitudRepo())->porLogin($_POST['usuario'] ?? '')) {
+            redirigir('login.php', 'Tu solicitud de acceso sigue pendiente. Te avisaremos por correo en cuanto un administrador la apruebe.', 'info');
+        }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
+
+    case 'auth_registro':
+        // Registro público: NO crea un colaborador, deja una solicitud que un
+        // administrador aprueba. Nada de esto da acceso al panel todavía.
+        $solicitudes = new SolicitudRepo();
+        // Aquí solo se pide quién eres y con qué contraseña entrarás. El equipo
+        // y el rol los pone el administrador al aprobar (es quien sabe dónde
+        // encaja) y el usuario de Git lo completa cada quien en su perfil.
+        $datosReg = [
+            'nombre' => trim((string)($_POST['nombre'] ?? '')),
+            'email'  => trim((string)($_POST['email'] ?? '')),
+        ];
+        // Al volver con un error, que no tenga que teclearlo todo otra vez
+        // (las contraseñas nunca se devuelven al formulario).
+        $errorReg = function (string $msg) use ($datosReg): never {
+            $_SESSION['form_registro'] = $datosReg;
+            redirigir('registro.php', $msg, 'error');
+        };
+
+        if (!Auth::registroAbierto()) {
+            redirigir('login.php', 'El registro de cuentas nuevas está cerrado.', 'error');
+        }
+        // Token de la pantalla de registro (un solo uso)
+        $tokenReg = (string)($_SESSION['registro_token'] ?? '');
+        unset($_SESSION['registro_token']);
+        if ($tokenReg === '' || !hash_equals($tokenReg, (string)($_POST['token'] ?? ''))) {
+            redirigir('registro.php', 'El formulario caducó. Vuelve a enviarlo, por favor.', 'error');
+        }
+        // Trampa para bots: el campo va oculto, una persona lo deja vacío.
+        if (trim((string)($_POST['web'] ?? '')) !== '') {
+            redirigir('login.php', 'Solicitud recibida.');   // respuesta neutra
+        }
+        // Tope por sesión: que un script no llene la tabla de solicitudes
+        $_SESSION['registro_intentos'] = (int)($_SESSION['registro_intentos'] ?? 0) + 1;
+        if ($_SESSION['registro_intentos'] > 5) {
+            redirigir('login.php', 'Demasiadas solicitudes seguidas. Inténtalo más tarde.', 'error');
+        }
+
+        if (mb_strlen($datosReg['nombre']) < 3) {
+            $errorReg('Escribe tu nombre y tu apellido.');
+        }
+        $emailReg = filter_var($datosReg['email'], FILTER_VALIDATE_EMAIL);
+        if (!$emailReg) {
+            $errorReg('Ese correo no es válido.');
+        }
+        if (!Auth::dominioPermitido($emailReg)) {
+            $errorReg('Solo se aceptan correos de: @' . implode(', @', Auth::dominiosPermitidos()) . '.');
+        }
+        $claveReg = (string)($_POST['clave'] ?? '');
+        if (strlen($claveReg) < Auth::MIN_CLAVE) {
+            $errorReg('La contraseña debe tener al menos ' . Auth::MIN_CLAVE . ' caracteres.');
+        }
+        if ($claveReg !== (string)($_POST['clave_repetir'] ?? '')) {
+            $errorReg('Las contraseñas no coinciden.');
+        }
+        // ¿Ese correo ya está en el equipo?
+        foreach ($miembros->todos() as $m) {
+            if (strcasecmp($m['email'] ?? '', $emailReg) === 0) {
+                $errorReg('Ese correo ya pertenece a alguien del equipo. Entra con tu contraseña o pídele al administrador que te la restablezca.');
+            }
+        }
+        if ($solicitudes->porEmail($emailReg)) {
+            $errorReg('Ya hay una solicitud con ese correo esperando aprobación.');
+        }
+
+        $datosReg['email']     = $emailReg;
+        $datosReg['pass_hash'] = Auth::hash($claveReg);
+        $solicitud = $solicitudes->crear($datosReg);
+
+        // Aviso a los administradores (si el correo del panel está configurado)
+        $avisadosReg = 0;
+        if (Auth::registro()['avisar']) {
+            foreach (Auth::correosAdmin() as $correoAdmin) {
+                if (Mailer::solicitudNueva($solicitud, $correoAdmin) === true) $avisadosReg++;
+            }
+        }
+        redirigir('login.php',
+            '¡Listo, ' . explode(' ', $solicitud['nombre'])[0] . '! Tu solicitud quedó registrada'
+            . ($avisadosReg > 0 ? ' y ya avisamos al administrador.' : '. Un administrador la revisará.')
+            . ' Te escribiremos a ' . $solicitud['email'] . ' cuando la aprueben.');
+
+    case 'solicitud_aprobar':
+        // Convierte la solicitud en colaborador de verdad (con su contraseña).
+        $solicitudes = new SolicitudRepo();
+        $s = $solicitudes->buscar((int)($_POST['id'] ?? 0));
+        $volver = volverAqui('equipo.php');
+        if (!$s) {
+            redirigir($volver, 'Esa solicitud ya no existe.', 'error');
+        }
+        // Entre la solicitud y la aprobación pudieron dar de alta a esa persona
+        foreach ($miembros->todos() as $m) {
+            if (strcasecmp($m['email'] ?? '', $s['email'] ?? '') === 0) {
+                $solicitudes->eliminar((int)$s['id']);
+                redirigir($volver, 'Ese correo ya es de ' . $m['nombre'] . '. Descarté la solicitud.', 'info');
+            }
+        }
+        // El equipo y el rol los pone el administrador aquí, no quien se registró
+        $equipoNuevoMiembro = MiembroRepo::equipoValido($_POST['equipo'] ?? '');
+        $rolesValidos = (array)Config::get('roles');
+        $rolNuevo = trim((string)($_POST['rol'] ?? ''));
+        if (!in_array($rolNuevo, $rolesValidos, true)) {
+            $rolNuevo = (string)($rolesValidos[0] ?? 'Developer');
+        }
+        // Sin usuario de Git: cada quien lo pone luego en Mi perfil
+        $nuevo = $miembros->crear([
+            'nombre'   => $s['nombre'],
+            'rol'      => $rolNuevo,
+            'email'    => $s['email'],
+            'equipo'   => $equipoNuevoMiembro,
+            // Color de la paleta, rotando para que no salgan todos iguales
+            'color'    => count($miembros->todos()) % count(Catalogo::COLORES),
+        ]);
+        $miembros->actualizar((int)$nuevo['id'], [
+            'acceso'    => ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector',
+            'pass_hash' => (string)($s['pass_hash'] ?? ''),
+        ]);
+        $solicitudes->eliminar((int)$s['id']);
+        // Si el correo del panel no está configurado, la persona no se entera
+        // de que ya puede entrar: hay que decírselo al admin, no callarlo.
+        $envio = Mailer::solicitudAprobada($miembros->buscar((int)$nuevo['id']));
+        $avisoAprob = $envio === true
+            ? ' Le avisamos por correo.'
+            : ' Avísale tú: no salió el correo (' . (is_string($envio) ? $envio : 'el correo del panel no está configurado') . ').';
+        redirigir('equipo.php?e=' . $equipoNuevoMiembro,
+            $nuevo['nombre'] . ' ya forma parte del equipo y puede entrar con su contraseña.' . $avisoAprob,
+            $envio === true ? 'success' : 'info');
+
+    case 'solicitud_rechazar':
+        $solicitudes = new SolicitudRepo();
+        $s = $solicitudes->buscar((int)($_POST['id'] ?? 0));
+        $volver = volverAqui('equipo.php');
+        if (!$s) {
+            redirigir($volver, 'Esa solicitud ya no existe.', 'error');
+        }
+        $motivoRech = trim((string)($_POST['motivo'] ?? ''));
+        $avisoRech = Mailer::solicitudRechazada($s, $motivoRech) === true ? ' Le avisamos por correo.' : '';
+        $solicitudes->eliminar((int)$s['id']);
+        redirigir($volver, 'Rechazaste la solicitud de ' . ($s['nombre'] ?? '') . '.' . $avisoRech, 'info');
 
     case 'auth_identificar':
         // Confirma "¿quién eres?": vincula el correo de Google (ya verificado y
@@ -1197,6 +1340,15 @@ switch ($accion) {
                 'calendario'          => !empty($_POST['google_login']['calendario']),
                 'client_id'     => trim($_POST['google_login']['client_id'] ?? ''),
                 'client_secret' => $secreto($_POST['google_login']['client_secret'] ?? '', $prev['google_login']['client_secret'] ?? ''),
+            ],
+            'registro'         => [
+                'abierto'  => !empty($_POST['registro']['abierto']),
+                // Solo dominios con forma de dominio; lo demás se descarta
+                'dominios' => implode(', ', array_filter(
+                    array_map(fn($d) => strtolower(ltrim(trim($d), '@')), preg_split('/[\s,;]+/', (string)($_POST['registro']['dominios'] ?? ''))),
+                    fn($d) => $d !== '' && preg_match('/^[a-z0-9.-]+\.[a-z]{2,}$/', $d)
+                )),
+                'avisar'   => !empty($_POST['registro']['avisar']),
             ],
             'color_secundario' => $hex($_POST['color_secundario'] ?? '', $def['color_secundario']),
             'color_acento'     => $hex($_POST['color_acento'] ?? '', $def['color_acento']),

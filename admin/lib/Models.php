@@ -241,6 +241,13 @@ final class Config
                 'vincular_por_nombre' => true,
                 'calendario'          => false,   // enviar tareas al Google Calendar del responsable
             ],
+            // Registro publico: quien se registra NO entra al panel, deja una
+            // solicitud que un administrador aprueba o rechaza desde Equipo.
+            'registro' => [
+                'abierto'  => true,
+                'dominios' => '',     // "itb.edu.ec, innotech.ec"; vacio = cualquier correo
+                'avisar'   => true,   // avisar por correo a los administradores
+            ],
         ];
     }
 
@@ -599,6 +606,81 @@ class MiembroRepo
             $ini .= mb_strtoupper(mb_substr(end($partes), 0, 1));
         }
         return $ini;
+    }
+}
+
+/* =========================================================
+   Solicitudes de acceso (registro publico)
+
+   Quien se registra en registro.php NO se convierte en colaborador: queda
+   aqui, en una coleccion aparte. Asi no aparece en los selectores de tareas
+   ni en el equipo mientras un administrador no lo apruebe, y rechazarlo es
+   borrar una fila y no deshacer una ficha a medio crear.
+   ========================================================= */
+class SolicitudRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('solicitudes');
+    }
+
+    /** Solicitudes pendientes, de la mas reciente a la mas antigua. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($b['creado'] ?? '', $a['creado'] ?? ''));
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function cuantas(): int
+    {
+        return count($this->store->all());
+    }
+
+    /** Solicitud que corresponde a lo que se escribió en el login, o null. */
+    public function porLogin(string $usuario): ?array
+    {
+        $usuario = trim($usuario);
+        return $usuario === '' ? null : $this->porEmail($usuario);
+    }
+
+    /** ¿Ese correo ya dejó una solicitud? (para no duplicarlas) */
+    public function porEmail(string $email): ?array
+    {
+        foreach ($this->store->all() as $s) {
+            if (strcasecmp($s['email'] ?? '', trim($email)) === 0) return $s;
+        }
+        return null;
+    }
+
+    /**
+     * Guarda la solicitud: solo quién es y cómo entrará. El equipo y el rol los
+     * decide el administrador al aprobarla; el usuario de Git y la foto los
+     * completa cada quien desde Mi perfil una vez dentro.
+     *
+     * La contraseña llega ya hasheada: nunca se guarda en claro, ni siquiera
+     * mientras espera aprobación.
+     */
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'nombre'    => trim($datos['nombre'] ?? ''),
+            'email'     => trim($datos['email'] ?? ''),
+            'pass_hash' => (string)($datos['pass_hash'] ?? ''),
+            'ip'        => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
+        ]);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
     }
 }
 

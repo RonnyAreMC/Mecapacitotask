@@ -49,6 +49,12 @@ foreach ($tareasRepo->todas() as $t) {
     }
 }
 
+// Solicitudes de acceso pendientes (solo las ve el admin). No están atadas a
+// un equipo: quien se registra solo deja su nombre, correo y contraseña, y es
+// el administrador quien decide aquí a qué equipo y con qué rol entra.
+$solicitudes = esAdmin() ? (new SolicitudRepo())->todas() : [];
+$rolesCat = (array)Config::get('roles');
+
 UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
@@ -58,6 +64,84 @@ UI::cabecera(
      </button>'
 );
 ?>
+
+<?php if ($solicitudes): ?>
+<!-- Solicitudes de acceso: gente que se registró y espera aprobación.
+     Todavía no es del equipo, por eso va en su propia tarjeta y no en la tabla. -->
+<section class="card-base sol-card">
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-solid fa-user-clock text-secondary"></i> Solicitudes de acceso
+      <span class="tabla-count"><?= count($solicitudes) ?></span>
+    </h2>
+    <span class="ajuste-ayuda">Tú decides el equipo y el rol. Entra con la contraseña que ella misma eligió.</span>
+  </div>
+
+  <div class="sol-lista">
+    <?php foreach ($solicitudes as $s): $sid = (int)$s['id']; ?>
+    <article class="sol-item">
+      <div class="sol-quien">
+        <?= UI::avatar(['nombre' => $s['nombre'], 'color' => 5], 42) ?>
+        <div class="sol-datos">
+          <strong><?= e($s['nombre']) ?></strong>
+          <small>Pidió acceso el <?= e($s['creado'] ?? '') ?></small>
+          <div class="sol-chips">
+            <span class="sol-chip"><i class="fa-solid fa-envelope"></i> <?= e($s['email']) ?></span>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" action="actions.php" class="sol-acciones">
+        <input type="hidden" name="accion" value="solicitud_aprobar">
+        <input type="hidden" name="id" value="<?= $sid ?>">
+        <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+        <label class="sol-campo">
+          <span>Equipo</span>
+          <?= UI::select('equipo', array_map(fn($v) => $v[0], $equipos), $eq, false, 'select-sm') ?>
+        </label>
+        <label class="sol-campo">
+          <span>Rol</span>
+          <?= UI::select('rol', array_combine($rolesCat, $rolesCat), $rolesCat[0] ?? '', false, 'select-sm') ?>
+        </label>
+        <label class="sol-campo">
+          <span>Acceso</span>
+          <?= UI::select('acceso', Auth::ROLES, 'lector', false, 'select-sm') ?>
+        </label>
+        <div class="sol-botones">
+          <button class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-check"></i> Aprobar</button>
+          <button type="button" class="btn-outline btn-meca btn-sm sol-no"
+                  data-rechazar="<?= $sid ?>" data-nombre="<?= e($s['nombre']) ?>">
+            <i class="fa-solid fa-xmark"></i> Rechazar
+          </button>
+        </div>
+      </form>
+    </article>
+    <?php endforeach; ?>
+  </div>
+</section>
+
+<!-- Modal: rechazar (el motivo viaja en el correo de aviso) -->
+<dialog id="dlg-rechazar" class="dlg-meca">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="solicitud_rechazar">
+    <input type="hidden" name="id" id="rc-id">
+    <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-user-xmark text-secondary"></i> Rechazar solicitud</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <p class="ajuste-ayuda">Se borrará la solicitud de <b id="rc-nombre"></b>. Si el correo del panel está
+       configurado, se le avisa con el motivo que escribas (puedes dejarlo vacío).</p>
+    <label class="campo"><span>Motivo (opcional)</span>
+      <textarea class="input-meca" name="motivo" rows="2" maxlength="300"
+                placeholder="Ej. No reconocemos esta cuenta; escríbenos desde tu correo institucional."></textarea>
+    </label>
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-peligro btn-meca"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <?php if (empty($equipo)): ?>
   <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', 'Agrega al primer colaborador con el botón de arriba.') ?>
