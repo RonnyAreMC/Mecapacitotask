@@ -1320,7 +1320,18 @@ switch ($accion) {
             redirigir('ajustes.php', 'Escribe un correo de destino válido para la prueba.', 'error');
         }
         if (!Mailer::listo()) {
-            redirigir('ajustes.php', 'Primero guarda la configuración de correo (activo, usuario y contraseña).', 'error');
+            // Decir QUÉ falta: "revisa la configuración" no ayuda a nadie.
+            $cCorreo = Mailer::config();
+            $falta = match (true) {
+                empty($cCorreo['activo']) => 'marca «Activar envío de correos»',
+                ($cCorreo['modo'] ?? '') === 'gmail_api' && trim($cCorreo['refresh_token'] ?? '') === ''
+                    => 'falta conectar la cuenta de envío con Google (el botón está aquí abajo, en «API de Gmail»)',
+                ($cCorreo['modo'] ?? '') === 'gmail_api'
+                    => 'faltan el Client ID y el Client Secret de Google Cloud',
+                trim($cCorreo['usuario'] ?? '') === '' => 'falta el correo remitente',
+                default => 'falta la contraseña de aplicación del SMTP',
+            };
+            redirigir('ajustes.php', 'Todavía no se puede enviar: ' . $falta . '.', 'error');
         }
         $marcaCorreo = Config::get('titulo');
         $r = Mailer::enviar($para, 'Prueba de correo — ' . $marcaCorreo,

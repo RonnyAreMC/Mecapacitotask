@@ -436,6 +436,34 @@ UI::cabecera(
           </label>
         </div>
 
+        <!-- El refresh token no hay que buscarlo a mano: se consigue autorizando
+             con la cuenta que enviará (Gmail manda desde quien autoriza). -->
+        <div class="conectar-envio <?= !empty($co['refresh_token']) ? 'ok' : '' ?>">
+          <div class="ce-txt">
+            <?php if (!empty($co['refresh_token'])): ?>
+              <strong><i class="fa-solid fa-circle-check"></i> Cuenta de envío conectada</strong>
+              <small>Los correos salen desde <b><?= e($co['usuario'] ?: '—') ?></b>. Vuelve a conectar si cambias de cuenta.</small>
+            <?php else: ?>
+              <strong><i class="fa-solid fa-triangle-exclamation"></i> Falta conectar la cuenta de envío</strong>
+              <small>Guarda primero el Client ID y el Secret. Luego autoriza <b>con la cuenta que enviará</b>
+                     (no con la tuya): Gmail siempre manda desde quien autoriza.</small>
+            <?php endif; ?>
+          </div>
+          <?php if (Mailer::puedeConectar()): ?>
+          <a class="btn-google btn-sm" href="<?= e(Mailer::urlConectar()) ?>">
+            <img src="../assets/google.svg" alt="" width="17" height="17">
+            <?= !empty($co['refresh_token']) ? 'Volver a conectar' : 'Conectar cuenta de envío' ?>
+          </a>
+          <?php else: ?>
+          <span class="ajuste-ayuda">Pon el Client ID y el Client Secret, guarda, y aquí aparecerá el botón.</span>
+          <?php endif; ?>
+        </div>
+        <small class="campo-ayuda">
+          En Google Cloud, la pantalla de consentimiento necesita el permiso <code>gmail.send</code>, y si el
+          proyecto está en modo <b>Prueba</b> hay que añadir esa cuenta como <b>usuario de prueba</b>
+          (si no, el permiso caduca a los 7 días y los correos dejan de salir).
+        </small>
+
         <div class="correo-prueba">
           <input class="input-meca" type="email" name="para" form="frm-correo-prueba" placeholder="tucorreo@gmail.com" required>
           <button class="btn-outline btn-meca btn-sm" form="frm-correo-prueba">

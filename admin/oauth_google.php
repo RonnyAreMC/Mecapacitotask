@@ -14,11 +14,31 @@ if (!GoogleLogin::listo()) {
     redirigir('login.php', 'El acceso con Google no está configurado.', 'error');
 }
 
-// ¿Es el retorno de "conectar mi calendario", el de "crear cuenta" o el de entrar?
+// ¿De qué flujo volvemos: calendario, cuenta de envío, crear cuenta o entrar?
 $esCalendario = !empty($_SESSION['oauth_calendario']);
+$esCorreo     = !empty($_SESSION['oauth_correo']);
 $esRegistro   = !empty($_SESSION['oauth_registro']);
-unset($_SESSION['oauth_calendario'], $_SESSION['oauth_registro']);
-$volver = $esCalendario ? 'perfil.php' : ($esRegistro ? 'registro.php' : 'login.php');
+unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro']);
+$volver = match (true) {
+    $esCalendario => 'perfil.php',
+    $esCorreo     => 'ajustes.php#tab-correo',
+    $esRegistro   => 'registro.php',
+    default       => 'login.php',
+};
+
+// --- Conectar la cuenta que envía los correos (solo el administrador) ---
+if ($esCorreo) {
+    Auth::requiereAdmin();
+    if (!empty($_GET['error'])) {
+        redirigir('ajustes.php', 'Cancelaste la conexión de la cuenta de envío.', 'info');
+    }
+    $res = Mailer::guardarConexion($_GET['code'] ?? '', $_GET['state'] ?? '');
+    if (is_string($res)) {
+        redirigir('ajustes.php', $res, 'error');
+    }
+    redirigir('ajustes.php',
+        'Cuenta de envío conectada: ' . $res['email'] . '. Los correos del panel saldrán desde ahí; pruébalo con «Probar envío».');
+}
 
 if (!empty($_GET['error'])) {
     redirigir($volver, $esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.', 'info');

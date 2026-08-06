@@ -4046,6 +4046,26 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 }
 .ajuste-ayuda { margin: -4px 0 2px; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
 .ajuste-ayuda a { color: var(--c-secondary); }
+/* Conectar la cuenta que envía los correos (API de Gmail) */
+.conectar-envio {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap;
+  margin: 4px 0 6px; padding: 13px 15px;
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--c-warning) 9%, transparent);
+  border-left: 3px solid var(--c-warning);
+}
+.conectar-envio.ok {
+  background: color-mix(in srgb, var(--c-success) 9%, transparent);
+  border-left-color: var(--c-success);
+}
+.ce-txt { display: flex; flex-direction: column; gap: 3px; min-width: 0; flex: 1 1 18rem; }
+.ce-txt strong { font-size: .88rem; color: var(--c-text); display: flex; align-items: center; gap: 7px; }
+.ce-txt strong i { color: var(--c-warning); }
+.conectar-envio.ok .ce-txt strong i { color: var(--c-success); }
+.ce-txt small { font-size: .78rem; line-height: 1.5; color: var(--c-text-soft); }
+.conectar-envio .btn-google { width: auto; padding: 9px 15px; font-size: .84rem; white-space: nowrap; }
+
 /* Aviso de que a un ajuste le falta otro para funcionar */
 .ajuste-aviso {
   padding: 9px 12px; border-radius: 11px;

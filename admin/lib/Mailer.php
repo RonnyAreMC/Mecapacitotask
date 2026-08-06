@@ -48,6 +48,104 @@ class Mailer
         return $c['clave'] !== '';
     }
 
+    /* ---------- Conectar la cuenta que envia (modo API de Gmail) ----------
+       El refresh token no se teclea a mano: se consigue autorizando UNA vez
+       con la cuenta que va a enviar. Ojo, tiene que ser esa cuenta y no la
+       del administrador: Gmail manda desde quien autoriza. */
+
+    /** Credenciales OAuth del envio: las del correo o, si faltan, las del acceso. */
+    private static function credOauth(): array
+    {
+        $c = self::conf();
+        $g = GoogleLogin::conf();
+        return [
+            'client_id'     => $c['client_id']     !== '' ? $c['client_id']     : $g['client_id'],
+            'client_secret' => $c['client_secret'] !== '' ? $c['client_secret'] : $g['client_secret'],
+        ];
+    }
+
+    /** ¿Hay credenciales de Google Cloud para poder conectar la cuenta? */
+    public static function puedeConectar(): bool
+    {
+        $o = self::credOauth();
+        return $o['client_id'] !== '' && $o['client_secret'] !== '';
+    }
+
+    /**
+     * URL para autorizar el envio. access_type=offline + prompt=consent son
+     * imprescindibles: sin ellos Google NO devuelve refresh token (y sin
+     * refresh token el panel solo podria enviar durante una hora).
+     */
+    public static function urlConectar(): string
+    {
+        $o = self::credOauth();
+        $_SESSION['oauth_state']  = bin2hex(random_bytes(16));
+        $_SESSION['oauth_correo'] = true;
+        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_registro']);
+        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+            'client_id'     => $o['client_id'],
+            'redirect_uri'  => GoogleLogin::redirectUri(),
+            'response_type' => 'code',
+            'scope'         => 'openid email https://www.googleapis.com/auth/gmail.send',
+            'state'         => $_SESSION['oauth_state'],
+            'access_type'   => 'offline',
+            'prompt'        => 'consent select_account',
+        ]);
+    }
+
+    /**
+     * Canjea el código y guarda el refresh token junto con la cuenta que
+     * autorizó (esa pasa a ser el remitente: cualquier otra la rechaza Gmail).
+     * Devuelve el correo conectado, o un string con el error.
+     */
+    public static function guardarConexion(string $code, string $state): array|string
+    {
+        if ($code === '' || !hash_equals((string)($_SESSION['oauth_state'] ?? ''), $state)) {
+            return 'La respuesta de Google no es válida. Intenta de nuevo.';
+        }
+        unset($_SESSION['oauth_state']);
+        $o = self::credOauth();
+
+        [$codigo, $cuerpo] = self::httpPost('https://oauth2.googleapis.com/token', [
+            'code'          => $code,
+            'client_id'     => $o['client_id'],
+            'client_secret' => $o['client_secret'],
+            'redirect_uri'  => GoogleLogin::redirectUri(),
+            'grant_type'    => 'authorization_code',
+        ]);
+        $tok = json_decode($cuerpo, true) ?: [];
+        if ($codigo !== 200 || empty($tok['access_token'])) {
+            return 'Google no autorizó el envío: ' . ($tok['error_description'] ?? $tok['error'] ?? ('HTTP ' . $codigo));
+        }
+        if (empty($tok['refresh_token'])) {
+            // Pasa cuando ya habías concedido el permiso antes: hay que quitar
+            // el acceso a la app en la cuenta de Google y volver a conectar.
+            return 'Google no devolvió el token de larga duración. Entra a myaccount.google.com/permissions con esa cuenta, quita el acceso a esta app y vuelve a conectar.';
+        }
+
+        // ¿Qué cuenta autorizó? Es la que va a aparecer como remitente.
+        $ctx = stream_context_create(['http' => [
+            'method' => 'GET', 'timeout' => 15, 'ignore_errors' => true,
+            'header' => 'Authorization: Bearer ' . $tok['access_token'],
+        ]]);
+        $info  = json_decode((string)@file_get_contents('https://www.googleapis.com/oauth2/v3/userinfo', false, $ctx), true) ?: [];
+        $email = strtolower(trim($info['email'] ?? ''));
+        if ($email === '') {
+            return 'No se pudo leer el correo de la cuenta que autorizó.';
+        }
+
+        $cfg = Config::all();
+        $cfg['correo']['modo']          = 'gmail_api';
+        $cfg['correo']['activo']        = true;
+        $cfg['correo']['usuario']       = $email;
+        $cfg['correo']['refresh_token'] = $tok['refresh_token'];
+        $cfg['correo']['client_id']     = $o['client_id'];
+        $cfg['correo']['client_secret'] = $o['client_secret'];
+        Config::guardar($cfg);
+
+        return ['email' => $email];
+    }
+
     /**
      * Envia un correo HTML. Devuelve true si salio bien,
      * o un string con el motivo del fallo (para mostrarlo en un toast).
