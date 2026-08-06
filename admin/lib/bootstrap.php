@@ -35,6 +35,7 @@ require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/GoogleLogin.php';
 require_once __DIR__ . '/GoogleCalendar.php';
 require_once __DIR__ . '/ImportadorTareas.php';
+require_once __DIR__ . '/ImportadorEquipo.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/GitHub.php';
 require_once __DIR__ . '/GitLab.php';

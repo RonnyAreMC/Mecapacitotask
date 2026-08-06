@@ -1045,6 +1045,48 @@ switch ($accion) {
 
     /* ---------- Miembros ---------- */
 
+    case 'equipo_importar':
+        // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.
+        // No escribe nada todavía: cargar 20 fichas a ciegas no se deshace.
+        $volver = volverAqui('equipo.php');
+        $err = $_FILES['archivo']['error'] ?? UPLOAD_ERR_NO_FILE;
+        if ($err === UPLOAD_ERR_NO_FILE) {
+            redirigir($volver, 'Elige el archivo con la lista del equipo.', 'error');
+        }
+        if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+            redirigir($volver, 'El archivo supera el límite del servidor (' . ini_get('upload_max_filesize') . ').', 'error');
+        }
+        if ($err !== UPLOAD_ERR_OK || empty($_FILES['archivo']['tmp_name'])) {
+            redirigir($volver, 'No se pudo subir el archivo (código ' . $err . ').', 'error');
+        }
+        $nombreArchivo = (string)($_FILES['archivo']['name'] ?? '');
+        $extArchivo = strtolower(pathinfo($nombreArchivo, PATHINFO_EXTENSION));
+        if (!in_array($extArchivo, ImportadorEquipo::EXTENSIONES, true)) {
+            redirigir($volver, 'Formato no admitido (.' . $extArchivo . '). Sube el Excel en .xlsx o guárdalo como CSV.', 'error');
+        }
+        try {
+            $filasEquipo = ImportadorEquipo::leer($_FILES['archivo']['tmp_name'], $nombreArchivo);
+        } catch (Throwable $e) {
+            redirigir($volver, $e->getMessage(), 'error');
+        }
+        $_SESSION['import_equipo'] = ['archivo' => $nombreArchivo, 'filas' => $filasEquipo];
+        redirigir($volver, 'Leí ' . count($filasEquipo) . ' filas de ' . $nombreArchivo . '. Revisa el resumen y confirma.', 'info');
+
+    case 'equipo_importar_confirmar':
+        $volver = volverAqui('equipo.php');
+        $pend = $_SESSION['import_equipo'] ?? null;
+        if (!$pend || empty($pend['filas'])) {
+            redirigir($volver, 'Ya no hay ninguna carga pendiente. Vuelve a subir el archivo.', 'error');
+        }
+        $res = ImportadorEquipo::aplicar($pend['filas'], false);
+        unset($_SESSION['import_equipo']);
+        redirigir($volver, 'Equipo cargado: ' . $res['nuevos'] . ' nuevos, ' . $res['actualizados']
+            . ' actualizados, ' . $res['iguales'] . ' sin cambios. Nadie tiene acceso al panel todavía.');
+
+    case 'equipo_importar_cancelar':
+        unset($_SESSION['import_equipo']);
+        redirigir(volverAqui('equipo.php'), 'Carga descartada. No se tocó nada.', 'info');
+
     case 'miembro_crear':
         if (trim($_POST['nombre'] ?? '') === '') {
             redirigir('equipo.php', 'El nombre del colaborador es obligatorio.', 'error');

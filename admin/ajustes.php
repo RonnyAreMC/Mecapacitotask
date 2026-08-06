@@ -458,9 +458,21 @@ UI::cabecera(
           <span class="ajuste-ayuda">Pon el Client ID y el Client Secret, guarda, y aquí aparecerá el botón.</span>
           <?php endif; ?>
         </div>
+        <!-- La URI se calcula desde la URL con la que estás navegando ahora: si
+             entras por localhost es la de localhost, y esa TAMBIÉN hay que
+             registrarla en Google Cloud o sale redirect_uri_mismatch. -->
+        <p class="ajuste-ayuda">
+          URI de redirección que está usando este panel <b>ahora mismo</b> — regístrala en Google Cloud
+          (Credenciales → tu ID de cliente → URIs de redireccionamiento autorizados):
+        </p>
+        <div class="chip-copiar" style="margin-bottom:6px">
+          <code><?= e(GoogleLogin::redirectUri()) ?></code>
+          <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e(GoogleLogin::redirectUri()) ?>" title="Copiar"><i class="fa-regular fa-copy"></i></button>
+        </div>
         <small class="campo-ayuda">
-          En Google Cloud, la pantalla de consentimiento necesita el permiso <code>gmail.send</code>, y si el
-          proyecto está en modo <b>Prueba</b> hay que añadir esa cuenta como <b>usuario de prueba</b>
+          Puedes tener varias registradas (la de local y la del servidor). Además, la pantalla de
+          consentimiento necesita el permiso <code>gmail.send</code> y la <b>Gmail API habilitada</b> en el
+          proyecto; si está en modo <b>Prueba</b>, añade esa cuenta como <b>usuario de prueba</b>
           (si no, el permiso caduca a los 7 días y los correos dejan de salir).
         </small>
 

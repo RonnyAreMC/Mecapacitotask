@@ -4909,6 +4909,64 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 }
 .acceso-yo i { font-size: .74rem; }
 
+/* ---------- Carga del equipo desde Excel: previsualización ---------- */
+.imp-card { padding: 20px 22px 18px; margin-bottom: 22px; border-left: 4px solid var(--c-secondary); }
+.imp-resumen { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 14px; }
+.imp-chip {
+  padding: 5px 12px; border-radius: 999px;
+  font-size: .78rem; color: var(--c-text-soft);
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+}
+.imp-chip b { color: var(--c-text); }
+.imp-nuevo b     { color: var(--c-success); }
+.imp-actualiza b { color: var(--c-secondary); }
+.imp-aviso       { color: var(--c-warning); }
+.imp-aviso b     { color: var(--c-warning); }
+.imp-proy i      { color: var(--c-secondary); margin-right: 5px; font-size: .72rem; }
+/* Nota de "ese proyecto no existe": informa, no bloquea */
+.imp-nota {
+  margin: 0 0 12px; padding: 10px 13px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-secondary) 8%, transparent);
+  font-size: .81rem; line-height: 1.5; color: var(--c-text-soft);
+}
+.imp-nota i { color: var(--c-secondary); margin-right: 5px; }
+/* Con 20 filas la tarjeta se comía la pantalla: la tabla scrollea dentro */
+.imp-scroll { max-height: 22rem; overflow-y: auto; }
+.imp-tag {
+  display: inline-block; min-width: 4.6rem; text-align: center;
+  padding: 3px 9px; border-radius: 7px;
+  font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+}
+.imp-tag.imp-nuevo     { background: color-mix(in srgb, var(--c-success) 15%, transparent); color: var(--c-success); }
+.imp-tag.imp-actualiza { background: color-mix(in srgb, var(--c-secondary) 15%, transparent); color: var(--c-secondary); }
+.imp-tag.imp-igual     { background: var(--n-bg); color: var(--c-text-soft); box-shadow: var(--sh-inset-mini); }
+.imp-avisos { list-style: none; margin: 12px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.imp-avisos li { font-size: .8rem; color: var(--c-text-soft); }
+.imp-avisos i { color: var(--c-warning); margin-right: 5px; }
+.imp-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-top: 16px;
+}
+.imp-botones { display: flex; gap: 10px; }
+.imp-botones .inline-form { margin: 0; }
+/* Modal de carga: las columnas esperadas, como fichas. Iban en una tabla de
+   ejemplo y no cabía — desbordaba el modal a lo ancho. */
+.imp-cols { display: flex; flex-wrap: wrap; gap: 7px; }
+.imp-col {
+  display: inline-flex; align-items: baseline; gap: 5px;
+  padding: 5px 11px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .78rem; font-weight: 600; color: var(--c-text);
+}
+.imp-col em { font-style: normal; font-weight: 500; font-size: .7rem; color: var(--c-text-soft); }
+/* El control de archivo viene de Ajustes, donde va en fila y crece a lo ancho
+   (flex:1). Aquí el formulario es una columna, así que ese flex-grow lo
+   estiraba a lo alto y dejaba un hueco enorme bajo el recuadro. */
+.imp-archivo { flex: none; margin-top: 2px; }
+/* Nada dentro del modal puede forzar más ancho del que hay */
+#dlg-importar .dlg-form > * { min-width: 0; max-width: 100%; }
+
 /* ---------- Solicitudes de acceso (registro público) ----------
    Va antes de la tabla y con su propio aire: quien se registró todavía NO es
    del equipo, así que no debe leerse como una fila más de colaboradores. */

@@ -2250,9 +2250,11 @@ document.addEventListener('change', (e) => {
   const txt   = label.querySelector('span');
   const f     = input.files && input.files[0];
   label.classList.toggle('tiene-archivo', !!f);
+  // El texto de "sin archivo" lo pone cada pantalla: este control lo usan el
+  // respaldo (.json) y la carga del equipo (.xlsx / .csv).
   txt.innerHTML = f
     ? '<i class="fa-solid fa-file-circle-check"></i> ' + f.name
-    : '<i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .json';
+    : '<i class="fa-solid fa-file-arrow-up"></i> ' + (label.dataset.vacio || 'Elegir archivo .json');
 });
 
 /* =========================================================

@@ -2,6 +2,8 @@
 admin/data/*.json
 admin/data/*.json.importado
 admin/data/.seeded
+# La semilla del equipo lleva nombres y correos reales: se queda fuera del repo
+admin/data/*.csv
 # Cualquier respaldo o copia de la config: lleva credenciales en texto plano
 admin/data/config.json.*
 admin/data/*.bak
