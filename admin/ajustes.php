@@ -632,10 +632,18 @@ UI::cabecera(
           Dejar que alguien cree su cuenta desde el login
         </label>
         <p class="ajuste-ayuda">
-          Registrarse <b>no da acceso</b>: queda una solicitud que apruebas o rechazas en
+          La cuenta se crea <b>con Google</b>, que verifica el correo, y registrarse
+          <b>no da acceso</b>: queda una solicitud que apruebas o rechazas en
           <a href="equipo.php">Equipo</a>. Hasta que la apruebes, esa persona no existe como
           colaborador (no sale en tareas, proyectos ni selectores).
         </p>
+        <?php if (!GoogleLogin::listo()): ?>
+        <p class="ajuste-ayuda ajuste-aviso">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Necesita el <b>acceso con Google</b> de aquí arriba: sin él, la pantalla de registro
+          avisa de que no está disponible.
+        </p>
+        <?php endif; ?>
         <label class="campo">
           <span>Dominios de correo permitidos</span>
           <input class="input-meca" name="registro[dominios]" value="<?= e($rg['dominios']) ?>"
@@ -643,7 +651,7 @@ UI::cabecera(
         </label>
         <small class="campo-ayuda">
           Separados por comas. Se aceptan también sus subdominios (<code>mail.itb.edu.ec</code>).
-          Déjalo vacío para admitir cualquier correo.
+          Déjalo vacío para admitir cualquier cuenta de Google.
         </small>
         <label class="chk-linea">
           <input type="checkbox" name="registro[avisar]" <?= $rg['avisar'] ? 'checked' : '' ?>>

@@ -19,15 +19,6 @@ if (Auth::usuario()) {
 $marca    = Config::all();
 $abierto  = Auth::registroAbierto();
 $dominios = Auth::dominiosPermitidos();
-
-// Lo que se escribió antes de un error de validación, para no volver a teclearlo
-$prev = $_SESSION['form_registro'] ?? [];
-unset($_SESSION['form_registro']);
-$val = fn(string $k) => e((string)($prev[$k] ?? ''));
-
-// Token de un solo uso: un POST de registro solo se acepta si viene de esta
-// pantalla (evita que un formulario ajeno dispare altas contra el panel).
-$_SESSION['registro_token'] = bin2hex(random_bytes(16));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -61,9 +52,9 @@ $_SESSION['registro_token'] = bin2hex(random_bytes(16));
       <h2>Pide tu acceso y<br><em>súmate al tablero</em> del equipo</h2>
 
       <ol class="reg-pasos">
-        <li><span>1</span> Completas tus datos</li>
+        <li><span>1</span> Autorizas con tu cuenta de Google</li>
         <li><span>2</span> Un administrador te aprueba</li>
-        <li><span>3</span> Entras con tu correo y contraseña</li>
+        <li><span>3</span> Entras con esa misma cuenta</li>
       </ol>
     </div>
   </aside>
@@ -82,9 +73,14 @@ $_SESSION['registro_token'] = bin2hex(random_bytes(16));
       <?php if (!$abierto): ?>
         <h1 class="font-display">Registro cerrado</h1>
         <p class="login-sub">
-          <?= Auth::hayAdmin()
-              ? 'Ahora mismo el panel no acepta cuentas nuevas. Pídele al administrador que te dé de alta.'
-              : 'Este panel todavía no tiene administrador, así que no hay quién apruebe una solicitud.' ?>
+          <?php if (!GoogleLogin::listo()): ?>
+            Las cuentas nuevas se crean con Google, y el acceso con Google todavía no está
+            configurado en este panel. Pídele al administrador que te dé de alta.
+          <?php elseif (!Auth::hayQuienApruebe()): ?>
+            Este panel todavía no tiene administrador, así que no hay quién apruebe una solicitud.
+          <?php else: ?>
+            Ahora mismo el panel no acepta cuentas nuevas. Pídele al administrador que te dé de alta.
+          <?php endif; ?>
         </p>
         <a class="btn-primary btn-meca login-btn" href="<?= e(urlPanel('login.php')) ?>">
           <i class="fa-solid fa-arrow-left"></i> Volver a entrar
@@ -92,61 +88,28 @@ $_SESSION['registro_token'] = bin2hex(random_bytes(16));
       <?php else: ?>
 
         <h1 class="font-display">Crear cuenta</h1>
-        <?php if ($dominios): ?>
-        <p class="login-sub">Solo se aceptan correos <b><?= e('@' . implode(', @', $dominios)) ?></b>.</p>
-        <?php endif; ?>
+        <p class="login-sub">
+          Usa tu cuenta de Google: así tu correo queda verificado y no tienes que
+          inventarte otra contraseña.
+          <?php if ($dominios): ?>
+          Solo se aceptan cuentas <b><?= e('@' . implode(', @', $dominios)) ?></b>.
+          <?php endif; ?>
+        </p>
 
-        <form method="post" action="actions.php" class="login-form form-registro" autocomplete="on">
-          <input type="hidden" name="accion" value="auth_registro">
-          <input type="hidden" name="token" value="<?= e($_SESSION['registro_token']) ?>">
-          <!-- Trampa para bots: es invisible, una persona nunca lo rellena -->
-          <div class="reg-trampa" aria-hidden="true">
-            <label>No rellenes esto <input type="text" name="web" tabindex="-1" autocomplete="off"></label>
-          </div>
+        <a class="btn-google btn-google-registro" href="<?= e(GoogleLogin::urlAutorizacion(true)) ?>">
+          <img src="../assets/google.svg" alt="" width="19" height="19">
+          Crear cuenta con Google
+        </a>
 
-          <label class="campo"><span>Nombre y apellido *</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-user"></i>
-              <input class="input-meca" name="nombre" required maxlength="80" autofocus
-                     autocomplete="name" value="<?= $val('nombre') ?>">
-            </div>
-          </label>
-
-          <label class="campo"><span>Correo *</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-envelope"></i>
-              <input class="input-meca" type="email" name="email" required maxlength="120"
-                     autocomplete="email" placeholder="tucorreo@<?= e($dominios[0] ?? 'gmail.com') ?>" value="<?= $val('email') ?>">
-            </div>
-          </label>
-
-          <div class="reg-doble">
-            <label class="campo"><span>Contraseña *</span>
-              <div class="input-prefijo">
-                <i class="fa-solid fa-lock"></i>
-                <input class="input-meca" type="password" name="clave" required
-                       minlength="<?= Auth::MIN_CLAVE ?>" autocomplete="new-password" data-fuerza>
-              </div>
-            </label>
-            <label class="campo"><span>Repite la contraseña *</span>
-              <div class="input-prefijo">
-                <i class="fa-solid fa-lock"></i>
-                <input class="input-meca" type="password" name="clave_repetir" required
-                       minlength="<?= Auth::MIN_CLAVE ?>" autocomplete="new-password" data-fuerza-repetir>
-              </div>
-            </label>
-          </div>
-          <div class="reg-fuerza" data-fuerza-barra hidden>
-            <div class="rf-barra"><span></span></div>
-            <small class="rf-txt"></small>
-          </div>
-
-          <button class="btn-primary btn-meca login-btn"><i class="fa-solid fa-paper-plane"></i> Enviar solicitud</button>
-        </form>
+        <ul class="reg-detalle">
+          <li><i class="fa-solid fa-shield-halved"></i> Google confirma quién eres; el panel solo guarda tu nombre y tu correo.</li>
+          <li><i class="fa-solid fa-user-clock"></i> Un administrador revisa la solicitud y decide tu equipo y tu rol.</li>
+          <li><i class="fa-solid fa-arrow-right-to-bracket"></i> Cuando te apruebe, entras con el mismo botón de Google.</li>
+        </ul>
 
         <div class="login-pie">
-          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Al enviarla no entras todavía:
-             te avisamos por correo en cuanto un administrador la apruebe.</p>
+          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Autorizar con Google no te mete al panel:
+             solo deja tu solicitud. Te avisamos por correo cuando la aprueben.</p>
           <p class="lp-cta">¿Ya tienes cuenta?
             <a href="<?= e(urlPanel('login.php')) ?>"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar al panel</a>
           </p>

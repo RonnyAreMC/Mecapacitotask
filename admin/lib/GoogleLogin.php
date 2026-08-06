@@ -116,11 +116,18 @@ class GoogleLogin
      * es un permiso "sensible" que en modo prueba bloquea el acceso a todo el
      * equipo. Se pide aparte y de forma opcional con urlCalendario().
      */
-    public static function urlAutorizacion(): string
+    public static function urlAutorizacion(bool $registro = false): string
     {
         $c = self::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
         unset($_SESSION['oauth_calendario']);   // este flujo es solo de acceso
+        // Marca de por dónde entró: al volver, "crear cuenta" deja una solicitud
+        // en vez de mandar a "¿quién eres?" o a un error de no registrado.
+        if ($registro) {
+            $_SESSION['oauth_registro'] = true;
+        } else {
+            unset($_SESSION['oauth_registro']);
+        }
         $params = [
             'client_id'     => $c['client_id'],
             'redirect_uri'  => self::redirectUri(),

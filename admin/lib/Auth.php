@@ -9,13 +9,12 @@
  * entran con su correo o su usuario de Git + contraseña (hash bcrypt).
  */
 require_once __DIR__ . '/Models.php';
+// El registro publico depende de Google (es quien verifica el correo)
+require_once __DIR__ . '/GoogleLogin.php';
 
 class Auth
 {
     public const ROLES = ['admin' => 'Administrador', 'lector' => 'Solo lectura'];
-
-    /** Largo minimo de una contraseña creada desde el registro publico. */
-    public const MIN_CLAVE = 8;
 
     /** Colaborador con la sesión iniciada, o null. */
     public static function usuario(): ?array
@@ -99,13 +98,25 @@ class Auth
         ];
     }
 
+    /** ¿Hay alguien que pueda aprobar una solicitud? */
+    public static function hayQuienApruebe(): bool
+    {
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if (($m['acceso'] ?? '') === 'admin') return true;
+        }
+        return false;
+    }
+
     /**
-     * ¿Se puede crear una cuenta desde login? Mientras no exista el primer
-     * administrador no tiene sentido: no habría quién apruebe la solicitud.
+     * ¿Se puede crear una cuenta desde el login?
+     *
+     * Hace falta que esté abierto en Ajustes, que el acceso con Google esté
+     * configurado (es la única forma de registrarse: Google verifica el correo)
+     * y que exista algún administrador que apruebe la solicitud.
      */
     public static function registroAbierto(): bool
     {
-        return self::registro()['abierto'] && self::hayAdmin();
+        return self::registro()['abierto'] && GoogleLogin::listo() && self::hayQuienApruebe();
     }
 
     /** Lista de dominios permitidos (vacía = cualquier correo). */

@@ -73,7 +73,7 @@ UI::cabecera(
     <h2 class="font-display"><i class="fa-solid fa-user-clock text-secondary"></i> Solicitudes de acceso
       <span class="tabla-count"><?= count($solicitudes) ?></span>
     </h2>
-    <span class="ajuste-ayuda">Tú decides el equipo y el rol. Entra con la contraseña que ella misma eligió.</span>
+    <span class="ajuste-ayuda">Tú decides el equipo y el rol. Entrará con la cuenta de Google con la que se registró.</span>
   </div>
 
   <div class="sol-lista">
@@ -86,6 +86,9 @@ UI::cabecera(
           <small>Pidió acceso el <?= e($s['creado'] ?? '') ?></small>
           <div class="sol-chips">
             <span class="sol-chip"><i class="fa-solid fa-envelope"></i> <?= e($s['email']) ?></span>
+            <span class="sol-chip sol-chip-ok" title="El correo lo verificó Google al autorizar">
+              <i class="fa-brands fa-google"></i> verificado
+            </span>
           </div>
         </div>
       </div>

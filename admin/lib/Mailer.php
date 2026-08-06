@@ -637,8 +637,9 @@ class Mailer
         ];
 
         $cuerpo = self::encabezado($acento, '&#9679;', 'Alguien pide acceso al panel',
-                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> creó una cuenta y espera tu aprobación. '
-                    . 'Hasta que la apruebes no ve nada del panel. Al aprobarla eliges tú su equipo y su rol.')
+                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con su cuenta de Google '
+                    . '(correo ya verificado) y espera tu aprobación. Hasta que la apruebes no ve nada '
+                    . 'del panel. Al aprobarla eliges tú su equipo y su rol.')
             . self::detalle($solicitud['nombre'] ?? '', $filas);
 
         return self::enviar($paraEmail, 'Solicitud de acceso: ' . ($solicitud['nombre'] ?? ''),
@@ -655,7 +656,7 @@ class Mailer
         $rol = ($miembro['acceso'] ?? 'lector') === 'admin' ? 'Administrador' : 'Solo lectura';
         $cuerpo = self::encabezado($acento, '&#10003;', 'Tu acceso está aprobado',
                     'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', ya puedes entrar al panel '
-                    . 'con el correo y la contraseña que registraste.')
+                    . 'con el botón «Continuar con Google», usando la misma cuenta con la que te registraste.')
             . self::detalle('Tu cuenta', [
                 'Correo' => e($miembro['email']),
                 'Equipo' => e(Catalogo::equipos()[MiembroRepo::equipoDe($miembro)][0] ?? ''),

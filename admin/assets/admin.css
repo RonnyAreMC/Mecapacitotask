@@ -771,41 +771,36 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 .ident-persona > i { margin-left: auto; color: var(--c-secondary); }
 
 /* --- Crear cuenta (registro.php) ---
-   Misma pantalla partida que el login, pero con más campos: la caja se
-   ensancha y los pares que van juntos (equipo/rol, clave/repetir) comparten
-   fila para que el formulario no se convierta en una columna interminable. */
-.caja-registro { max-width: 30rem; }
+   No hay formulario: la cuenta se crea con Google, que es quien verifica el
+   correo. La pantalla es el botón, lo que va a pasar y el pie. */
+.caja-registro { max-width: 27rem; }
 .caja-registro h1 { margin-bottom: 5px; }
 .caja-registro .login-sub { margin-bottom: 22px; }
-.form-registro .campo-ayuda { margin-top: 6px; font-size: .74rem; color: #98a2b3; }
-.form-registro .campo > span small { font-weight: 500; color: #98a2b3; }
 
-.reg-doble { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-@media (max-width: 480px) { .reg-doble { grid-template-columns: 1fr; } }
-
-/* Trampa para bots: fuera de la vista pero sin display:none (algunos
-   rellenadores automáticos ignoran los campos ocultos del todo). */
-.reg-trampa {
-  position: absolute; left: -9999px; width: 1px; height: 1px;
-  overflow: hidden; opacity: 0;
+/* Botón de Google como acción principal: aquí no compite con un formulario */
+.btn-google-registro {
+  padding: 15px;
+  font-size: .95rem; font-weight: 700;
+  border-color: #cfd6e0;
 }
 
-/* Medidor de fuerza de la contraseña */
-.reg-fuerza { margin-top: -6px; }
-.rf-barra {
-  height: 5px; border-radius: 99px; background: #eceff4; overflow: hidden;
+/* Qué va a pasar, en tres líneas: quita la duda de "¿ya entré?" */
+.reg-detalle {
+  list-style: none; margin: 22px 0 0; padding: 0;
+  display: flex; flex-direction: column; gap: 12px;
 }
-.rf-barra span {
-  display: block; height: 100%; width: 0;
-  border-radius: 99px;
-  background: #E63946;
-  transition: width .25s ease, background .25s ease;
+.reg-detalle li {
+  display: flex; gap: 11px; align-items: flex-start;
+  font-size: .84rem; line-height: 1.5; color: #667085;
 }
-.rf-txt { display: block; margin-top: 5px; font-size: .74rem; font-weight: 600; }
-
-/* Sin dominios configurados no hay subtítulo, y el formulario quedaba pegado
-   al título: el aire lo pone entonces el propio formulario. */
-.caja-registro h1 + .login-form { margin-top: 20px; }
+.reg-detalle i {
+  flex-shrink: 0;
+  width: 26px; height: 26px; border-radius: 9px;
+  display: grid; place-items: center;
+  font-size: .76rem;
+  color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 11%, #fff);
+}
 
 /* Los tres pasos, en el lado oscuro */
 .reg-pasos {
@@ -4051,6 +4046,14 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 }
 .ajuste-ayuda { margin: -4px 0 2px; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
 .ajuste-ayuda a { color: var(--c-secondary); }
+/* Aviso de que a un ajuste le falta otro para funcionar */
+.ajuste-aviso {
+  padding: 9px 12px; border-radius: 11px;
+  background: color-mix(in srgb, var(--c-warning) 10%, transparent);
+  border-left: 3px solid var(--c-warning);
+  color: var(--c-text);
+}
+.ajuste-aviso i { color: var(--c-warning); margin-right: 5px; }
 .ajuste-ayuda code {
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
@@ -4918,6 +4921,11 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   max-width: 100%; overflow-wrap: anywhere;
 }
 .sol-chip i { color: var(--c-secondary); font-size: .72rem; }
+.sol-chip-ok {
+  background: color-mix(in srgb, var(--c-success) 12%, transparent);
+  box-shadow: none; color: var(--c-success); font-weight: 600;
+}
+.sol-chip-ok i { color: var(--c-success); }
 
 /* Equipo, rol y acceso los elige el admin aquí mismo, antes de aprobar */
 .sol-acciones { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
