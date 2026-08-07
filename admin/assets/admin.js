@@ -1051,22 +1051,30 @@ function dibujarFlujo() {
   svg.setAttribute('width', wrap.scrollWidth);
   svg.setAttribute('height', wrap.scrollHeight);
   const color = getComputedStyle(wrap).getPropertyValue('--pc').trim() || '#2B76F7';
-  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">' +
-               '<path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="' + color + '"/></marker></defs>';
+  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6" markerHeight="6" orient="auto">' +
+               '<path d="M 0.5 1 L 8.5 5 L 0.5 9 Q 3 5 0.5 1 z" fill="' + color + '"/></marker></defs>';
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
-    depsDe(nodo).forEach((depId) => {
-      const origen = document.getElementById('fn-' + depId);
-      if (!origen) return;
+    // Todas las dependencias que apuntan a ESTE nodo, ordenadas por la altura
+    // de su origen para que las flechas no se crucen.
+    const origenes = depsDe(nodo)
+      .map((id) => document.getElementById('fn-' + id))
+      .filter(Boolean)
+      .sort((a, c) => a.getBoundingClientRect().top - c.getBoundingClientRect().top);
+    if (!origenes.length) return;
+    const b = nodo.getBoundingClientRect();
+    const x2 = b.left - caja.left + wrap.scrollLeft - 9;
+    origenes.forEach((origen, i) => {
       const a = origen.getBoundingClientRect();
-      const b = nodo.getBoundingClientRect();
       const x1 = a.right - caja.left + wrap.scrollLeft + 2;
       const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
-      const x2 = b.left - caja.left + wrap.scrollLeft - 8;
-      const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
-      const cx = Math.max(34, (x2 - x1) * 0.55);
-      trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="4" fill="' + color + '"/>' +
+      // Reparte los puntos de llegada a lo alto del nodo destino (abanico), así
+      // varias dependencias no chocan en el mismo punto.
+      const frac = origenes.length === 1 ? 0.5 : 0.28 + 0.44 * (i / (origenes.length - 1));
+      const y2 = b.top + b.height * frac - caja.top + wrap.scrollTop;
+      const cx = Math.max(42, (x2 - x1) * 0.5);
+      trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="3.5" fill="' + color + '"/>' +
                 '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
-                ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".8" stroke-linecap="round" marker-end="url(#flecha)"/>';
+                ' fill="none" stroke="' + color + '" stroke-width="2.2" stroke-opacity=".9" stroke-linecap="round" marker-end="url(#flecha)"/>';
     });
   });
   svg.innerHTML = trazos;
