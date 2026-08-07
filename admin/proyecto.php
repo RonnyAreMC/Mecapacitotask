@@ -368,28 +368,28 @@ foreach ($tareas as $t) {
 ?>
 <div class="vista-fila">
   <div class="vista-toggle">
-    <button type="button" class="tab-btn" data-vista="calendario"><i class="fa-solid fa-calendar-days"></i> Calendario</button>
-    <button type="button" class="tab-btn" data-vista="tareas"><i class="fa-solid fa-list-check"></i> Tareas
+    <button type="button" class="tab-btn" data-vista="calendario" data-tip="Calendario"><i class="fa-solid fa-calendar-days"></i> <span class="tab-txt">Calendario</span></button>
+    <button type="button" class="tab-btn" data-vista="tareas" data-tip="Tareas"><i class="fa-solid fa-list-check"></i> <span class="tab-txt">Tareas</span>
       <span class="tab-badge tab-badge-neutro"><?= count($tareas) ?></span>
     </button>
-    <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
+    <button type="button" class="tab-btn" data-vista="observaciones" data-tip="Observaciones"><i class="fa-solid fa-comment-dots"></i> <span class="tab-txt">Observaciones</span>
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="intercambios"><i class="fa-solid fa-right-left"></i> Intercambios
+    <button type="button" class="tab-btn" data-vista="intercambios" data-tip="Intercambios"><i class="fa-solid fa-right-left"></i> <span class="tab-txt">Intercambios</span>
       <?php if ($interPendientes > 0): ?><span class="tab-badge"><?= $interPendientes ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="reuniones"><i class="fa-solid fa-video"></i> Reuniones
+    <button type="button" class="tab-btn" data-vista="reuniones" data-tip="Reuniones"><i class="fa-solid fa-video"></i> <span class="tab-txt">Reuniones</span>
       <?php if (count($reuniones)): ?><span class="tab-badge tab-badge-zoom"><?= count($reuniones) ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
+    <button type="button" class="tab-btn" data-vista="metricas" data-tip="Métricas"><i class="fa-solid fa-chart-simple"></i> <span class="tab-txt">Métricas</span></button>
   </div>
 
   <!-- Subvistas de "Tareas": la misma lista vista como tabla, kanban o flujo -->
   <div class="subvista-toggle" hidden>
     <span class="subvista-tit">Ver como</span>
-    <button type="button" class="subvista-btn active" data-subvista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
-    <button type="button" class="subvista-btn" data-subvista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
-    <button type="button" class="subvista-btn" data-subvista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+    <button type="button" class="subvista-btn active" data-subvista="tabla" data-tip="Tabla"><i class="fa-solid fa-table-list"></i> <span class="tab-txt">Tabla</span></button>
+    <button type="button" class="subvista-btn" data-subvista="kanban" data-tip="Kanban"><i class="fa-solid fa-table-columns"></i> <span class="tab-txt">Kanban</span></button>
+    <button type="button" class="subvista-btn" data-subvista="flujo" data-tip="Flujo"><i class="fa-solid fa-diagram-project"></i> <span class="tab-txt">Flujo</span></button>
   </div>
 </div>
 

@@ -2333,9 +2333,14 @@ document.addEventListener('change', (e) => {
   const candidato = (target) => {
     const el = target.closest?.(SEL);
     if (!el) return null;
-    // Un data-tip explícito siempre muestra el tooltip (aunque el botón tenga
-    // texto). El title nativo solo se convierte en botones de solo icono.
-    if (el.hasAttribute('data-tip')) return el;
+    // Un data-tip explícito muestra el tooltip. Pero si el botón lleva su
+    // etiqueta (.tab-txt) VISIBLE, no hace falta: el tooltip solo sale cuando el
+    // texto está oculto (p. ej. pestañas en pantallas pequeñas).
+    if (el.hasAttribute('data-tip')) {
+      const etq = el.querySelector('.tab-txt');
+      if (etq && etq.offsetParent !== null) return null;
+      return el;
+    }
     if (el.hasAttribute('title') && iconoSolo(el)) return el;
     return null;
   };

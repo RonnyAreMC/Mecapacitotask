@@ -1597,6 +1597,17 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   color: var(--c-secondary);
 }
 .tab-badge-neutro { background: var(--c-text-soft) !important; }
+/* Pantallas pequeñas: pestañas y subvistas SOLO icono; el texto queda
+   únicamente en la opción activa. El resto se explica con su tooltip. */
+@media (max-width: 900px) {
+  .subvista-tit { display: none; }
+  .vista-toggle .tab-btn .tab-txt,
+  .subvista-toggle .subvista-btn .tab-txt { display: none; }
+  .vista-toggle .tab-btn.active .tab-txt,
+  .subvista-toggle .subvista-btn.active .tab-txt { display: inline; }
+  .vista-toggle .tab-btn:not(.active) { padding-left: 13px; padding-right: 13px; }
+  .subvista-toggle .subvista-btn:not(.active) { padding-left: 11px; padding-right: 11px; }
+}
 @media (max-width: 620px) {
   .subvista-tit { display: none; }
 }
