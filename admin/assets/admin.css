@@ -5466,7 +5466,12 @@ img[src$="claude.svg"] {
 .gcal-icono-svg img { filter: drop-shadow(0 6px 14px rgba(60,144,255,.35)); }
 
 /* Grid de cards */
-.pf-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; align-items: start; margin-top: 22px; }
+/* Masonry con columnas CSS: las tarjetas tienen alturas muy distintas (Cuentas
+   para entrar es alta por los correos de Git). Con grid rígido, la fila alta
+   dejaba un hueco enorme bajo la tarjeta corta de al lado. Así se acomodan sin
+   huecos. */
+.pf-grid { columns: 2; column-gap: 28px; margin-top: 22px; }
+.pf-grid > .pf-card { break-inside: avoid; margin: 0 0 28px; }
 .pf-card { padding: 20px 22px; }
 .pf-card-tit { display: flex; align-items: center; gap: 9px; margin: 0 0 14px; font-size: 1rem; font-weight: 700; font-family: var(--f-display, inherit); color: var(--c-text); }
 
@@ -5529,7 +5534,7 @@ img[src$="claude.svg"] {
 .pf-guardar-txt i { color: var(--c-warning); margin-right: 6px; }
 .pf-guardar-acc { display: flex; gap: 8px; }
 
-@media (max-width: 860px) { .pf-grid { grid-template-columns: 1fr; } }
+@media (max-width: 860px) { .pf-grid { columns: 1; } }
 @media (max-width: 560px) {
   .pf-hero { padding: 20px; }
   .pf-hero-stats { width: 100%; }
