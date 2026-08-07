@@ -92,9 +92,12 @@ foreach ($tareas as $t) {
 }
 uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
 
-// Para el selector de responsables (múltiple): sin la opción "sin asignar"
+// Responsables de tareas: SOLO desarrolladores (los analistas no ejecutan
+// tareas de código, así que no se ofrecen aquí). El filtro y las reuniones sí
+// los incluyen (más abajo), porque en eso sí participan.
 $opcionesAsignar = [];
 foreach ($delProyecto as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') continue;
     $opcionesAsignar[$m['id']] = $m['nombre'] . ' (@' . $m['git_user'] . ')';
 }
 
