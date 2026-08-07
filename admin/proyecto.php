@@ -59,9 +59,27 @@ $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
 // Equipo del proyecto: si esta definido, los selectores de tareas y reuniones
 // solo ofrecen a esas personas (null = proyecto abierto a todo el equipo).
 $equipoProyecto = ProyectoRepo::miembrosDe($proyecto);
-$delProyecto = $equipoProyecto === null
-    ? $miembros
-    : array_filter($miembros, fn($m) => in_array((int)$m['id'], $equipoProyecto, true));
+if ($equipoProyecto !== null) {
+    // El proyecto tiene su equipo definido: solo esas personas se asignan.
+    $delProyecto = array_filter($miembros, fn($m) => in_array((int)$m['id'], $equipoProyecto, true));
+} else {
+    // Proyecto abierto: se ofrece SOLO a quien ya participa aquí (tiene tarea,
+    // está invitado a una reunión o escribió una observación). Si aún no hay
+    // nadie (proyecto nuevo), se ofrece a todo el equipo para poder empezar.
+    $participan = [];
+    foreach ($tareas as $t) {
+        foreach (TareaRepo::asignadosDe($t) as $mid) $participan[(int)$mid] = true;
+    }
+    foreach ((new JsonStore('reuniones'))->where('proyecto_id', $id) as $r) {
+        foreach (array_map('intval', (array)($r['invitados'] ?? [])) as $mid) $participan[$mid] = true;
+    }
+    foreach ((new JsonStore('observaciones'))->where('proyecto_id', $id) as $o) {
+        $participan[(int)($o['autor_id'] ?? 0)] = true;
+    }
+    $delProyecto = $participan
+        ? array_filter($miembros, fn($m) => isset($participan[(int)$m['id']]))
+        : $miembros;
+}
 
 // Quien ya tiene tareas aqui pero salio del equipo: se sigue ofreciendo para
 // no perder la asignacion existente al editar la tarea.
