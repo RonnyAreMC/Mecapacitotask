@@ -1886,6 +1886,19 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
   });
 });
 
+// Calendario: chip "+N" que abre el resto de eventos del día en un desplegable
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-cal-mas]');
+  // Cierra los abiertos (menos el que corresponde al chip pulsado)
+  document.querySelectorAll('.cal-mas-lista:not([hidden])').forEach((l) => {
+    if (!chip || l !== chip.nextElementSibling) l.hidden = true;
+  });
+  if (chip) {
+    const lista = chip.nextElementSibling;
+    if (lista && lista.classList.contains('cal-mas-lista')) lista.hidden = !lista.hidden;
+  }
+});
+
 // Toggle de plataforma (Zoom / Meet) en "Nueva reunión"
 document.querySelectorAll('.nr-plat').forEach((tg) => {
   const campo = tg.closest('.campo');

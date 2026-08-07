@@ -214,6 +214,21 @@ function fechasTarea(array $post, string $volver): array
 }
 
 /**
+ * Campos para registrar CUÁNDO se completó una tarea. Se guarda al entrar a un
+ * estado final y se limpia al salir. Con esa fecha, las completadas se ocultan
+ * del tablero una semana después (pero siguen guardadas).
+ */
+function completadaEn(string $nuevo, string $antes): array
+{
+    $finales  = Catalogo::estadosFinales();
+    $esFinal  = in_array($nuevo, $finales, true);
+    $eraFinal = in_array($antes, $finales, true);
+    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d')];
+    if (!$esFinal && $eraFinal) return ['completada_en' => ''];
+    return [];
+}
+
+/**
  * Avisa por correo a cada responsable NUEVO de la tarea (los que no estaban
  * antes). Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
@@ -450,7 +465,9 @@ switch ($accion) {
         if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
             $respEstado(false, 'Solo puedes cambiar el estado de tus tareas.');
         }
-        $tareas->actualizar((int)$t['id'], ['estado' => $_POST['estado'] ?? 'pendiente']);
+        $estadoNuevo = $_POST['estado'] ?? 'pendiente';
+        $tareas->actualizar((int)$t['id'],
+            ['estado' => $estadoNuevo] + completadaEn($estadoNuevo, $t['estado'] ?? 'pendiente'));
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         // Contadores por estado del proyecto, para que el kanban, los tiles de
         // resumen y la barra de avance se actualicen sin recargar. El avance se
@@ -492,7 +509,8 @@ switch ($accion) {
             'fecha_inicio' => $fIni,
             'fecha_limite' => $fLim,
             'depende_de'   => $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), (int)$t['proyecto_id']),
-        ] + TareaRepo::camposAsignado($_POST));
+        ] + completadaEn($_POST['estado'] ?? 'pendiente', $t['estado'] ?? 'pendiente')
+          + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);

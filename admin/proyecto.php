@@ -38,6 +38,18 @@ $urlConFiltros = 'proyecto.php?id=' . $id
     . ($fEstado !== '' ? '&estado=' . urlencode($fEstado) : '')
     . (!$verComo && $fAsignado ? '&asignado=' . $fAsignado : '');
 
+// Completadas viejas (más de una semana): salen del tablero por defecto, pero
+// siguen guardadas (métricas y avance las cuentan igual). ?arch=1 las muestra;
+// y si filtras justo por un estado final, también aparecen.
+$verArchivadas = !empty($_GET['arch']) || in_array($fEstado, $finales, true);
+$limiteArch    = date('Y-m-d', strtotime('-7 days'));
+$esArchivada   = fn($t) => in_array($t['estado'] ?? '', $finales, true)
+    && (string)($t['completada_en'] ?? '') !== '' && (string)($t['completada_en'] ?? '') < $limiteArch;
+$nArchivadas   = count(array_filter($tareas, $esArchivada));
+if (!$verArchivadas) {
+    $tareas = array_values(array_filter($tareas, fn($t) => !$esArchivada($t)));
+}
+
 $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     if ($fEstado !== '' && $t['estado'] !== $fEstado) return false;
     if ($fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado)) return false;
@@ -376,6 +388,13 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
+      <?php if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)): ?>
+        <?php if ($verArchivadas): ?>
+        <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-eye-slash"></i> Ocultar archivadas</a>
+        <?php else: ?>
+        <a href="?id=<?= $id ?>&arch=1" class="filtro-clear" title="Completadas hace más de una semana (siguen guardadas)"><i class="fa-solid fa-box-archive"></i> Ver archivadas (<?= $nArchivadas ?>)</a>
+        <?php endif; ?>
+      <?php endif; ?>
       <form method="post" action="actions.php" class="inline-form" data-descarga>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
@@ -644,6 +663,40 @@ foreach ($tareas as $t) {
       </div>
     </div>
     <div class="cal-scroll">
+      <?php
+      // Pinta un evento del calendario (tarea con su barra, o reunión). Se usa
+      // en la celda y en el desplegable "+N" para no duplicar el HTML.
+      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr) {
+          if ($ev['tipo'] === 'tarea') {
+              $t = $ev['dato']; $pos = $ev['pos'];
+              $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
+              $datos = e(json_encode([
+                  'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
+                  'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
+                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
+                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'adjuntos' => TareaRepo::adjuntosDe($t),
+              ], JSON_UNESCAPED_UNICODE));
+              $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
+              $attr = esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'";
+              if ($pos === 'inicio' || $pos === 'solo') {
+                  echo '<button type="button" class="cal-ev cal-ev-tarea cal-' . $pos . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · ' . e($rango) . '" ' . $attr . '>'
+                     . '<span class="prio-dot prio-' . e($t['prioridad'] ?? 'media') . '"></span>'
+                     . e(mb_strimwidth($t['titulo'], 0, 22, '…')) . '</button>';
+              } else {
+                  echo '<button type="button" class="cal-ev cal-ev-linea cal-' . $pos . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · hasta ' . e($ev['fin']) . '" ' . $attr . '>'
+                     . ($pos === 'fin' ? '<i class="fa-solid fa-flag-checkered"></i>' : '') . '</button>';
+              }
+          } else {
+              $r = $ev['dato'];
+              echo '<a class="cal-ev cal-ev-reunion" href="?id=' . $id . '#vista-reuniones" title="' . e($r['topic']) . '">'
+                 . '<i class="fa-solid fa-video"></i> ' . e(substr($r['inicio'], 11, 5)) . ' '
+                 . e(mb_strimwidth($r['topic'], 0, 16, '…')) . '</a>';
+          }
+      };
+      ?>
       <div class="cal-dows">
         <?php foreach (['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'] as $d): ?><span class="cal-dow"><?= $d ?></span><?php endforeach; ?>
       </div>
@@ -657,36 +710,17 @@ foreach ($tareas as $t) {
         ?>
         <div class="cal-cell <?= $iso === $hoyIso ? 'hoy' : '' ?>">
           <span class="cal-num"><?= $d ?></span>
-          <?php foreach ($evs as $ev): if ($ev['tipo'] === 'tarea'):
-              $t = $ev['dato'];
-              $pos = $ev['pos'];
-              $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
-              $datos = e(json_encode([
-                  'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
-                  'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
-                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
-                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
-                  'adjuntos' => TareaRepo::adjuntosDe($t),
-              ], JSON_UNESCAPED_UNICODE));
-              // Tooltip con el rango real de la tarea
-              $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
-          ?>
-          <?php if ($pos === 'inicio' || $pos === 'solo'): ?>
-          <button type="button" class="cal-ev cal-ev-tarea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · <?= e($rango) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
-            <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
-          </button>
-          <?php else: ?>
-          <button type="button" class="cal-ev cal-ev-linea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · hasta <?= e($ev['fin']) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
-            <?php if ($pos === 'fin'): ?><i class="fa-solid fa-flag-checkered"></i><?php endif; ?>
-          </button>
+          <?php
+          // Para no romper el estilo con días llenos: se muestran pocas y el
+          // resto se guarda tras un chip "+N" que se abre al pulsarlo.
+          $CAL_MAX = 4;
+          $nEv = count($evs);
+          $vis = $nEv > $CAL_MAX ? $CAL_MAX - 1 : $nEv;
+          foreach (array_slice($evs, 0, $vis) as $ev) $pintarEv($ev);
+          if ($nEv > $CAL_MAX): $resto = $nEv - $vis; ?>
+          <button type="button" class="cal-mas" data-cal-mas title="Ver <?= $resto ?> más de este día">+<?= $resto > 99 ? '99+' : $resto ?></button>
+          <div class="cal-mas-lista" hidden><?php foreach (array_slice($evs, $vis) as $ev) $pintarEv($ev); ?></div>
           <?php endif; ?>
-          <?php else: $r = $ev['dato']; ?>
-          <a class="cal-ev cal-ev-reunion" href="?id=<?= $id ?>#vista-reuniones" title="<?= e($r['topic']) ?>">
-            <i class="fa-solid fa-video"></i> <?= e(substr($r['inicio'], 11, 5)) ?> <?= e(mb_strimwidth($r['topic'], 0, 16, '…')) ?>
-          </a>
-          <?php endif; endforeach; ?>
         </div>
         <?php endfor; ?>
       </div>
