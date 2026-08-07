@@ -240,8 +240,13 @@ $hoyIso    = date('Y-m-d');
 $eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>, 'dato'=>, 'pos'=>], ... ]
 $mesIni = $mesCal . '-01';
 $mesFin = sprintf('%s-%02d', $mesCal, $calDias);
+// El calendario es PERSONAL: cada quien ve solo sus tareas/reuniones; el admin
+// las ve todas (general). "Ver como X" muestra las de X.
+$calScope = $verComo ? (int)$verComo['id'] : (esAdmin() ? 0 : $miId);
+$tareasCal = $calScope > 0
+    ? array_values(array_filter($tareas, fn($t) => TareaRepo::tieneAsignado($t, $calScope)))
+    : $tareas;
 // Ordenar por inicio para que las barras se apilen parejas entre días
-$tareasCal = $tareas;
 usort($tareasCal, fn($a, $b) =>
     strcmp($a['fecha_inicio'] ?: ($a['fecha_limite'] ?? ''), $b['fecha_inicio'] ?: ($b['fecha_limite'] ?? '')));
 foreach ($tareasCal as $t) {
@@ -260,6 +265,8 @@ foreach ($tareasCal as $t) {
     }
 }
 foreach ($reuniones as $r) {
+    // Calendario personal: solo las reuniones donde participa (el admin, todas)
+    if ($calScope > 0 && !in_array($calScope, array_map('intval', (array)($r['invitados'] ?? [])), true)) continue;
     $dia = substr($r['inicio'] ?? '', 0, 10);
     if ($dia === '') continue;
     if (!Reuniones::esRecurrente($r)) {
