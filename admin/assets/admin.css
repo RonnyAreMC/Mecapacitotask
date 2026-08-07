@@ -5500,6 +5500,12 @@ img[src$="claude.svg"] {
 .pf-fila.editando .pf-ic { background: color-mix(in srgb, var(--c-secondary) 18%, transparent); }
 .pf-fila-color { align-items: flex-start; }
 .pf-fila-color .pf-cuerpo { gap: 8px; }
+/* Correos de Git en Mi perfil: bloque de varias filas, alineado arriba */
+.pf-fila-emails { align-items: flex-start; }
+.pf-fila-emails .pf-ic { margin-top: 2px; }
+.pf-fila-emails .pf-cuerpo { gap: 8px; }
+.pf-fila-emails .git-emails { margin: 4px 0 0; }
+.pf-fila-emails .git-email-agregar { align-self: flex-start; }
 .pf-nota { margin: 12px 0 0; font-size: .8rem; color: var(--c-text-soft); line-height: 1.5; }
 .pf-nota i { color: var(--c-secondary); margin-right: 4px; }
 

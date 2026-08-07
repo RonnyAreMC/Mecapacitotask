@@ -1025,11 +1025,12 @@ switch ($accion) {
         }
 
         $cambios = [
-            'nombre'   => trim($_POST['nombre']),
-            'rol'      => trim($_POST['rol'] ?? ''),
-            'git_user' => $gitNuevo,
-            'email'    => $correoNuevo,
-            'color'    => Catalogo::colorEntrada($_POST),
+            'nombre'     => trim($_POST['nombre']),
+            'rol'        => trim($_POST['rol'] ?? ''),
+            'git_user'   => $gitNuevo,
+            'git_emails' => MiembroRepo::gitEmailsEntrada($_POST['git_emails'] ?? ''),
+            'email'      => $correoNuevo,
+            'color'      => Catalogo::colorEntrada($_POST),
         ];
 
         // Contrasena: solo si la piden, y comprobando siempre la actual

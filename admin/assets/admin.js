@@ -2037,6 +2037,7 @@ document.querySelectorAll('.form-persona').forEach((form) => {
       f.querySelector('input').value = '';
       cont.appendChild(f);
       f.querySelector('input').focus();
+      cont.dispatchEvent(new Event('input', { bubbles: true }));   // que se note el cambio
       return;
     }
     const quitar = e.target.closest('.git-email-quitar');
@@ -2045,6 +2046,7 @@ document.querySelectorAll('.form-persona').forEach((form) => {
       const filas = cont.querySelectorAll('.git-email-fila');
       if (filas.length > 1) quitar.closest('.git-email-fila').remove();
       else quitar.closest('.git-email-fila').querySelector('input').value = '';   // la última solo se vacía
+      cont.dispatchEvent(new Event('input', { bubbles: true }));
     }
   });
   // Para el modal de editar: rellena las filas con una lista de correos

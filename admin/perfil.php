@@ -150,6 +150,28 @@ UI::inicio('Mi perfil', 'perfil');
         <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
       </div>
 
+      <div class="pf-fila pf-fila-emails">
+        <div class="pf-ic"><i class="fa-solid fa-code-branch"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Correos de Git (para contar tus commits)</span>
+          <?php
+          $misGitMails = array_values(array_filter(array_map('trim', explode(',', (string)($yo['git_emails'] ?? '')))));
+          if (!$misGitMails) $misGitMails = [''];
+          ?>
+          <div class="git-emails" data-git-emails>
+            <?php foreach ($misGitMails as $ge): ?>
+            <div class="git-email-fila">
+              <div class="input-prefijo"><i class="fa-solid fa-envelope"></i>
+                <input class="input-meca" type="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com" value="<?= e($ge) ?>"></div>
+              <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <button type="button" class="btn-ghost btn-meca btn-sm git-email-agregar"><i class="fa-solid fa-plus"></i> Agregar otro correo</button>
+          <small class="campo-ayuda">El correo con el que commiteas en cada cuenta (GitHub, GitLab…). Así se te cuentan todos tus commits aunque cambies de usuario o de máquina.</small>
+        </div>
+      </div>
+
       <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Con cualquiera de los dos entras al panel<?= $googleOn ? '; con el correo, también con «Continuar con Google»' : '' ?>.</p>
     </section>
 
