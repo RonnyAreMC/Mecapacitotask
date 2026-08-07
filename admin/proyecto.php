@@ -241,11 +241,27 @@ $eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>, 'dato'=>, 'pos'=>], ... ]
 $mesIni = $mesCal . '-01';
 $mesFin = sprintf('%s-%02d', $mesCal, $calDias);
 // El calendario es PERSONAL: cada quien ve solo sus tareas/reuniones; el admin
-// las ve todas (general). "Ver como X" muestra las de X.
+// las ve todas (general). "Ver como X" muestra las de X. Además, se incluyen
+// las tareas de las que DEPENDEN las mías (aunque sean de otro), para saber
+// cuándo terminan y arranca la mía.
 $calScope = $verComo ? (int)$verComo['id'] : (esAdmin() ? 0 : $miId);
-$tareasCal = $calScope > 0
-    ? array_values(array_filter($tareas, fn($t) => TareaRepo::tieneAsignado($t, $calScope)))
-    : $tareas;
+$depSolo = [];   // ids de tareas ajenas que aparecen solo por ser dependencia
+if ($calScope > 0) {
+    $depIds = [];
+    foreach ($tareas as $t) {
+        if (TareaRepo::tieneAsignado($t, $calScope)) {
+            foreach (TareaRepo::dependenciasDe($t) as $d) $depIds[(int)$d] = true;
+        }
+    }
+    $tareasCal = array_values(array_filter($tareas, function ($t) use ($calScope, $depIds, &$depSolo) {
+        $mia   = TareaRepo::tieneAsignado($t, $calScope);
+        $esDep = isset($depIds[(int)$t['id']]);
+        if ($esDep && !$mia) $depSolo[(int)$t['id']] = true;
+        return $mia || $esDep;
+    }));
+} else {
+    $tareasCal = $tareas;
+}
 // Ordenar por inicio para que las barras se apilen parejas entre días
 usort($tareasCal, fn($a, $b) =>
     strcmp($a['fecha_inicio'] ?: ($a['fecha_limite'] ?? ''), $b['fecha_inicio'] ?: ($b['fecha_limite'] ?? '')));
@@ -696,9 +712,12 @@ foreach ($tareas as $t) {
       <?php
       // Pinta un evento del calendario (tarea con su barra, o reunión). Se usa
       // en la celda y en el desplegable "+N" para no duplicar el HTML.
-      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr) {
+      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo) {
           if ($ev['tipo'] === 'tarea') {
               $t = $ev['dato']; $pos = $ev['pos'];
+              $esDep = isset($depSolo[(int)$t['id']]);   // ajena, incluida por ser dependencia de una mía
+              $clsDep = $esDep ? ' cal-ev-dep' : '';
+              $notaDep = $esDep ? ' · (de la que depende la tuya)' : '';
               $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
               $datos = e(json_encode([
                   'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
@@ -710,13 +729,13 @@ foreach ($tareas as $t) {
               $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
               $attr = esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'";
               if ($pos === 'inicio' || $pos === 'solo') {
-                  echo '<button type="button" class="cal-ev cal-ev-tarea cal-' . $pos . ' ' . ($venc ? 'cal-venc' : '') . '"'
-                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · ' . e($rango) . '" ' . $attr . '>'
+                  echo '<button type="button" class="cal-ev cal-ev-tarea cal-' . $pos . $clsDep . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · ' . e($rango) . e($notaDep) . '" ' . $attr . '>'
                      . '<span class="prio-dot prio-' . e($t['prioridad'] ?? 'media') . '"></span>'
                      . e(mb_strimwidth($t['titulo'], 0, 22, '…')) . '</button>';
               } else {
-                  echo '<button type="button" class="cal-ev cal-ev-linea cal-' . $pos . ' ' . ($venc ? 'cal-venc' : '') . '"'
-                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · hasta ' . e($ev['fin']) . '" ' . $attr . '>'
+                  echo '<button type="button" class="cal-ev cal-ev-linea cal-' . $pos . $clsDep . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · hasta ' . e($ev['fin']) . e($notaDep) . '" ' . $attr . '>'
                      . ($pos === 'fin' ? '<i class="fa-solid fa-flag-checkered"></i>' : '') . '</button>';
               }
           } else {

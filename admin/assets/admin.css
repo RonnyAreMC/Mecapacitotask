@@ -1908,6 +1908,15 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   background: var(--n-bg); color: var(--c-text);
   border-left: 3px solid var(--tc, var(--c-secondary));   /* arranque de la barra */
 }
+/* Tarea AJENA que aparece solo por ser dependencia de una mía: se distingue
+   con contorno punteado y atenuada (referencia, no es mía). */
+.cal-ev-dep { opacity: .7; }
+.cal-ev-tarea.cal-ev-dep {
+  background: transparent;
+  border: 1.5px dashed color-mix(in srgb, var(--tc, var(--c-secondary)) 55%, var(--c-border));
+  border-left-width: 3px; border-left-style: solid; color: var(--c-text-muted);
+}
+.cal-ev-linea.cal-ev-dep { opacity: .5; }
 .cal-ev-tarea.cal-venc { color: var(--c-terracota); box-shadow: var(--sh-mini), inset 0 0 0 1.5px color-mix(in srgb, var(--c-terracota) 40%, transparent); }
 html.dark .cal-ev-tarea.cal-venc { color: #ff9d5c; }
 
