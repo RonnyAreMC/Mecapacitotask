@@ -211,6 +211,37 @@ html.sb-collapsed .sidebar-brand img {
   padding: 4px;
 }
 
+/* --- Marca del sidebar con ÍCONO (no wordmark): el ícono cuadrado de InnoTech
+   junto al título, sobre un fondo suave que resalta del celeste del fondo, y con
+   un giro al abrir la página. --- */
+.sidebar-brand-icono {
+  background: linear-gradient(135deg, #ffffff, #e9eff9);   /* suave, no se mezcla con el celeste */
+}
+html.dark .sidebar-brand-icono {
+  background: linear-gradient(135deg, #2f3648, #262c3a);
+  border-color: rgba(255, 255, 255, .07);
+}
+.sidebar-brand-icono .sidebar-logo {
+  width: 44px; height: 44px; max-width: 44px;
+  object-fit: contain; object-position: center;
+  background: #fff; border-radius: 13px; padding: 6px;
+  box-shadow: 0 4px 10px -4px rgba(15, 23, 42, .25);
+  animation: sb-logo-giro .8s cubic-bezier(.34, 1.56, .5, 1) backwards;   /* da la vuelta al abrir */
+}
+.sidebar-brand-icono > div { display: block; }   /* mostrar el título junto al ícono */
+html.sb-collapsed .sidebar-brand-icono .sidebar-logo {
+  width: 38px; height: 38px; max-width: 38px;
+  object-fit: contain; object-position: center; padding: 5px;
+}
+@keyframes sb-logo-giro {
+  0%   { transform: rotate(-360deg) scale(.5); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-brand-icono .sidebar-logo { animation: none; }
+}
+
 /* Chip global "Ver como" en el sidebar */
 .ver-como {
   display: flex; align-items: center; gap: 8px;

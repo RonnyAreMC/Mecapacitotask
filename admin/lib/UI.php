@@ -118,8 +118,8 @@ class UI
 <?php if ($activo === 'dashboard') self::fondoRamas(); ?>
 <aside class="sidebar">
   <div class="sidebar-top">
-    <a href="index.php" class="sidebar-brand">
-      <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
+    <a href="index.php" class="sidebar-brand sidebar-brand-icono">
+      <img class="sidebar-logo" src="<?= e(faviconPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
       <div>
         <strong><?= e($marca['titulo']) ?></strong>
         <span><?= e($marca['subtitulo']) ?></span>
