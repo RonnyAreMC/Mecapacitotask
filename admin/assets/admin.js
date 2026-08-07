@@ -1722,7 +1722,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     const maxN = Math.max(1, ...rank.map((x) => x.n));
     lb.innerHTML = rank.map((x) =>
       '<button type="button" class="ap-lb-fila' + (pid === x.m.id ? ' activo' : '') + '" data-persona="' + x.m.id + '">' +
-      avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
+      avatarHtml(x.m, 30) + '<span class="ap-lb-n" title="' + esc(x.m.n) + '">' + esc(x.m.n) + '</span>' +
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
     // Sin nadie reconocido (logins que no calzan con el equipo) el ranking
