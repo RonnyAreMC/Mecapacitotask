@@ -1158,8 +1158,9 @@ $iconoAportes  = count($provsProyecto) === 1
 
 $comMiembros = [];
 // Aportes del equipo: solo los participantes de ESTE proyecto (no toda la
-// empresa). $delProyecto ya es el equipo del proyecto (o quienes participan).
+// empresa) y SOLO desarrolladores (los analistas no aportan al git).
 foreach ($delProyecto as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') continue;
     // Una persona puede tener VARIOS usuarios de Git (una máquina distinta, otro
     // nombre) y/o validar por correo. Se juntan todas sus identidades para cruzar
     // los commits: usuarios (git_user, separados por coma), correo y su parte local.
