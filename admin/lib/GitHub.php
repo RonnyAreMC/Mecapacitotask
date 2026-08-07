@@ -129,6 +129,7 @@ class GitHub
                     'msg'    => trim(strtok($msg, "\n")),          // primera línea
                     'login'  => strtolower((string)($x['author']['login'] ?? '')),
                     'nombre' => (string)($x['commit']['author']['name'] ?? ''),
+                    'email'  => strtolower((string)($x['commit']['author']['email'] ?? '')),
                     'fecha'  => substr((string)($x['commit']['author']['date'] ?? ''), 0, 10),
                     'url'    => (string)($x['html_url'] ?? ''),
                 ];

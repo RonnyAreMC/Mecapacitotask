@@ -35,11 +35,12 @@ if (!function_exists('camposPersona')) {
         </div>
         <div class="campo-doble">
           <label class="campo">
-            <span>Usuario de Git</span>
+            <span>Usuario(s) de Git</span>
             <div class="input-prefijo">
               <i class="fa-brands fa-github"></i>
-              <input class="input-meca" name="git_user" maxlength="40" placeholder="usuario-github">
+              <input class="input-meca" name="git_user" maxlength="200" placeholder="usuario-github, otro-usuario">
             </div>
+            <small class="campo-ayuda">Si commitea con varios usuarios (otra máquina, otro nombre), sepáralos con coma. También se cruza por su <b>correo</b>, así se le cuentan todos sus commits.</small>
           </label>
           <label class="campo">
             <span>Equipo</span>

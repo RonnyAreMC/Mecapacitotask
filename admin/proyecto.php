@@ -1157,10 +1157,25 @@ $iconoAportes  = count($provsProyecto) === 1
     : 'fa-solid fa-code-branch';
 
 $comMiembros = [];
-foreach ($miembros as $m) {
-    if (empty($m['git_user'])) continue;
+// Aportes del equipo: solo los participantes de ESTE proyecto (no toda la
+// empresa). $delProyecto ya es el equipo del proyecto (o quienes participan).
+foreach ($delProyecto as $m) {
+    // Una persona puede tener VARIOS usuarios de Git (una máquina distinta, otro
+    // nombre) y/o validar por correo. Se juntan todas sus identidades para cruzar
+    // los commits: usuarios (git_user, separados por coma), correo y su parte local.
+    $ids = [];
+    foreach (preg_split('/[,;]+/', (string)($m['git_user'] ?? '')) as $u) {
+        $u = mb_strtolower(preg_replace('/\s+/', ' ', trim($u, " \t@")), 'UTF-8');
+        if ($u !== '') $ids[] = $u;
+    }
+    $mail = trim((string)($m['email'] ?? ''));
+    if ($mail !== '') {
+        $ids[] = mb_strtolower($mail, 'UTF-8');
+        $ids[] = mb_strtolower((string)strtok($mail, '@'), 'UTF-8');
+    }
+    if (!$ids) continue;   // sin ninguna identidad de Git no se pueden cruzar sus commits
     $comMiembros[] = [
-        'id' => (int)$m['id'], 'git' => strtolower($m['git_user']), 'n' => $m['nombre'],
+        'id' => (int)$m['id'], 'gits' => array_values(array_unique($ids)), 'n' => $m['nombre'],
         'c' => Catalogo::colorDe($m['color'] ?? 0), 'ini' => MiembroRepo::iniciales($m), 'foto' => $m['foto'] ?? '',
     ];
 }

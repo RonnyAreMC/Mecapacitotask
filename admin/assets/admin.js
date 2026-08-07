@@ -1566,11 +1566,16 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const tareas = data.tareas || {};
   const repos = data.repos || [];
 
-  // A cada commit le asigna el miembro del panel (por login o por nombre de git)
+  // A cada commit le asigna el miembro del panel cruzando por CUALQUIERA de sus
+  // identidades de Git: usuario(s), correo o nombre del autor. Así una persona
+  // con varios usernames (misma cuenta) igual suma sus commits.
+  const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
   const porGit = {};
-  miembros.forEach((m) => { porGit[m.git] = m; });
-  const norm = (s) => (s || '').toLowerCase().trim();
-  const mapear = (cs) => { cs.forEach((c) => { c.miembro = porGit[norm(c.login)] || porGit[norm(c.nombre)] || null; }); };
+  miembros.forEach((m) => { (m.gits || (m.git ? [m.git] : [])).forEach((g) => { const k = norm(g); if (k) porGit[k] = m; }); });
+  const mapear = (cs) => { cs.forEach((c) => {
+    const local = (c.email || '').split('@')[0];
+    c.miembro = porGit[norm(c.login)] || porGit[norm(c.email)] || porGit[norm(local)] || porGit[norm(c.nombre)] || null;
+  }); };
   mapear(commits);
 
   const sel = caja.querySelector('.ap-persona');

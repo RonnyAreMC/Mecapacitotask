@@ -175,6 +175,7 @@ class GitLab
             // panel cae al nombre del autor.
             'login'  => strtolower((string)strtok($correo, '@')),
             'nombre' => (string)($c['author_name'] ?? ''),
+            'email'  => strtolower($correo),
             'fecha'  => substr((string)($c['created_at'] ?? ''), 0, 10),
             'url'    => (string)($c['web_url'] ?? ''),
         ];
