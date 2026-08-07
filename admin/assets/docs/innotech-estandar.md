@@ -1,4 +1,4 @@
-# Estándar del equipo — MChub
+# Estándar del equipo — InnoTech Hub
 
 Cómo escribimos **tareas** y **commits** para que el tablero se enlace y se
 actualice **solo**. Si todos seguimos esto, cada commit aparece bajo su tarea y

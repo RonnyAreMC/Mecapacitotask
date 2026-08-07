@@ -145,7 +145,7 @@ UI::inicio('Mi perfil', 'perfil');
         <div class="pf-cuerpo">
           <span class="pf-label">Correo</span>
           <span class="pf-valor js-valor"><?= !empty($yo['email']) ? e($yo['email']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
-          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@mecapacito.com" hidden>
+          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@innotech-solutions.com.ec" hidden>
         </div>
         <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
       </div>

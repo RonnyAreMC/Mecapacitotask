@@ -356,10 +356,10 @@ UI::cabecera(
         </div>
         <div class="campo-doble">
           <label class="campo"><span>Correo remitente (cuenta que envía)</span>
-            <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
+            <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="tucorreo@gmail.com">
           </label>
           <label class="campo"><span>URL del panel (botón "Ver tablero" del correo)</span>
-            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mchub.mecapacito.com/admin">
+            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://panel.innotech-solutions.com.ec/admin">
             <?php $urlLogo = Mailer::logoUrlPublica(); ?>
             <small class="campo-ayuda">
               <?php if ($urlLogo !== ''): ?>

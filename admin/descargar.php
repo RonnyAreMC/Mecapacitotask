@@ -10,10 +10,10 @@ require_once __DIR__ . '/lib/bootstrap.php';
 
 // Lista blanca: nada de rutas que vengan del usuario.
 $archivos = [
-    'estandar-pdf'    => ['assets/docs/mchub-estandar.pdf',    'application/pdf'],
-    'estandar-md'     => ['assets/docs/mchub-estandar.md',     'text/markdown'],
-    'guia-claude-pdf' => ['assets/docs/mchub-guia-claude.pdf', 'application/pdf'],
-    'guia-claude-md'  => ['assets/docs/mchub-guia-claude.md',  'text/markdown'],
+    'estandar-pdf'    => ['assets/docs/innotech-estandar.pdf',    'application/pdf'],
+    'estandar-md'     => ['assets/docs/innotech-estandar.md',     'text/markdown'],
+    'guia-claude-pdf' => ['assets/docs/innotech-guia-claude.pdf', 'application/pdf'],
+    'guia-claude-md'  => ['assets/docs/innotech-guia-claude.md',  'text/markdown'],
 ];
 
 $clave = preg_replace('/[^a-z0-9\-]/', '', strtolower($_GET['d'] ?? ''));

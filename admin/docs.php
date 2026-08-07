@@ -13,16 +13,16 @@ $docs = [
         'titulo' => 'Estándar del equipo',
         'desc'  => 'Cómo escribimos tareas y commits para que el tablero se enlace y avance solo.',
         'icono' => 'fa-diagram-project',
-        'pdf'   => 'assets/docs/mchub-estandar.pdf',
-        'md'    => 'assets/docs/mchub-estandar.md',
+        'pdf'   => 'assets/docs/innotech-estandar.pdf',
+        'md'    => 'assets/docs/innotech-estandar.md',
     ],
     [
         'clave' => 'guia-claude',
         'titulo' => 'Guía para Claude',
         'desc'  => 'Lo que cada dev ingresa en su proyecto (o guarda como CLAUDE.md) para coordinarse.',
         'icono' => 'claude',
-        'pdf'   => 'assets/docs/mchub-guia-claude.pdf',
-        'md'    => 'assets/docs/mchub-guia-claude.md',
+        'pdf'   => 'assets/docs/innotech-guia-claude.pdf',
+        'md'    => 'assets/docs/innotech-guia-claude.md',
     ],
 ];
 

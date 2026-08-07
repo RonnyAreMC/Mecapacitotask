@@ -1,7 +1,7 @@
 # Prompt para tu Claude (o Claude Code)
 
 Copia **todo** el bloque de abajo y pégalo a tu Claude al empezar a trabajar en
-un repo del equipo. Con esto, tus commits y ramas salen al estándar de MChub
+un repo del equipo. Con esto, tus commits y ramas salen al estándar de InnoTech Hub
 sin que tengas que acordarte del formato.
 
 > Tip: si usas Claude Code, guarda este texto como `CLAUDE.md` en la raíz del
@@ -10,8 +10,8 @@ sin que tengas que acordarte del formato.
 ---
 
 ```
-Trabajo en el equipo de Mecapacito. Seguimos un estándar para que nuestro
-tablero (MChub) enlace los commits con las tareas automáticamente. Respétalo
+Trabajo en el equipo de InnoTech. Seguimos un estándar para que nuestro
+tablero (InnoTech Hub) enlace los commits con las tareas automáticamente. Respétalo
 SIEMPRE que me ayudes con git en este repo.
 
 CADA TAREA tiene un número, por ejemplo #42. Yo te lo doy. Si no te lo di,
@@ -57,7 +57,7 @@ Si planificas tareas y quieres que tu Claude te arme el JSON de importación,
 pásale además esto:
 
 ```
-Cuando te pida planificar tareas para MChub, devuélveme un JSON con este
+Cuando te pida planificar tareas para InnoTech Hub, devuélveme un JSON con este
 formato, listo para pegar en "Planificar → Importar":
 
 {
