@@ -21,10 +21,16 @@ if (!$proyecto || !puedeVerProyecto($id)) {
 
 $repos = ProyectoRepo::repos($proyecto);
 
-// Ramas disponibles (unión de todos los repos) para el filtro del panel.
+// Ramas disponibles: la unión (para "Todos los repos") y también por repo, para
+// que al elegir un repo el selector de ramas muestre solo las suyas.
 $ramas = [];
+$ramasRepo = [];
+$labelsRepo = [];
 foreach ($repos as $rp) {
-    foreach (Repos::ramas($rp['url']) as $rn) $ramas[$rn] = true;
+    $labelsRepo[] = $rp['label'];
+    $suyas = array_values(Repos::ramas($rp['url']));
+    $ramasRepo[$rp['label']] = $suyas;
+    foreach ($suyas as $rn) $ramas[$rn] = true;
 }
 $ramas = array_keys($ramas);
 if ($rama !== '' && !in_array($rama, $ramas, true)) $rama = '';   // rama pedida ya no existe
@@ -57,6 +63,8 @@ usort($commits, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 echo json_encode([
     'commits'      => $commits,
     'ramas'        => $ramas,
+    'ramas_repo'   => $ramasRepo,
+    'repos'        => $labelsRepo,
     'rama_defecto' => $ramaDefecto,
     'truncado'     => $truncado,
 ], JSON_UNESCAPED_UNICODE);

@@ -1584,11 +1584,14 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const lazy = caja.dataset.aportesLazy === '1';
   const proyecto = caja.dataset.proyecto;
   const ramaWrap = selRama ? selRama.closest('.ms') : null;
-  let ramasListas = false, cargado = false;
+  let cargado = false;
   let dias = 182;        // rango de fechas activo
   let ramaDefecto = '';  // la fijada en Editar proyecto → Repos (vacía = la del repo)
   let truncado = false;  // ¿se alcanzó el tope de commits que se leen del repo?
   let diasCargados = 0;  // rango que se pidió al servidor la última vez
+  const selRepo = caja.querySelector('.ap-repo');   // filtro de repo (si hay varios)
+  let ramasRepo = {}, ramasUnion = [];
+  const repoSel = () => (selRepo ? selRepo.value : '');
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
   const avatarHtml = (m, sz) => {
@@ -1605,11 +1608,13 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   // Fecha límite del rango (los commits anteriores no cuentan)
   const desde = () => { const d = hoy0(); d.setDate(d.getDate() - dias + 1); return iso(d); };
 
-  // Commits dentro del filtro (persona + rango de fechas)
+  // Commits dentro del filtro (persona + rango de fechas + repo)
   const filtrar = () => {
     const pid = parseInt(sel.value, 10) || 0;
     const min = desde();
-    return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid)) && (c.fecha || '') >= min);
+    const rp = repoSel();
+    return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid))
+      && (c.fecha || '') >= min && (!rp || (c.repo || '') === rp));
   };
 
   const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -1708,8 +1713,9 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
 
     const vis = filtrar();
     totalEl.textContent = vis.length + ' commits';
-    // Leaderboard según el rango de fechas (no según la persona filtrada)
-    const enRango = commits.filter((c) => (c.fecha || '') >= desde());
+    const rp = repoSel();
+    // Leaderboard según el rango de fechas y el repo (no según la persona filtrada)
+    const enRango = commits.filter((c) => (c.fecha || '') >= desde() && (!rp || (c.repo || '') === rp));
     const cuenta = {};
     enRango.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
     const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
@@ -1727,7 +1733,8 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     vacio.hidden = vis.length > 0;
     mapas.hidden = vis.length === 0;
     const ramaActiva = (selRama && selRama.value) || ramaDefecto;
-    const lista = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    const todosRepos = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    const lista = rp ? [rp] : todosRepos;   // con un repo elegido, solo su mapa
     // Con uno o dos repos la rejilla automática los dejaba en una columna
     // estrecha con medio panel vacío: se reparten el ancho completo.
     const uno = lista.length === 1;
@@ -1776,22 +1783,23 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   // Rellena el selector de ramas una vez que el proveedor las devuelve (solo si
   // hay >1). La opción vacía es "la del proyecto": si hay una rama fijada en
   // Editar → Repos, se dice cuál, para no dejar dudas de qué se está mirando.
-  const rellenarRamas = (ramas) => {
-    if (ramasListas || !selRama) return;
-    ramasListas = true;
-    if (ramaDefecto) {
-      const op0 = selRama.querySelector('option[value=""]');
-      if (op0) op0.textContent = ramaDefecto + ' (del proyecto)';
-    }
-    if (!ramas || ramas.length < 2) { selRama.dispatchEvent(new Event('ms-sync')); return; }
-    ramas.forEach((rn) => {
-      if (rn === ramaDefecto) return;   // ya es la opción de arriba
+  const actualizarRamas = () => {
+    if (!selRama) return;
+    const rp = repoSel();
+    const lista = rp ? (ramasRepo[rp] || []) : ramasUnion;
+    // Deja solo la opción vacía ("por defecto") y re-agrega el resto
+    [...selRama.querySelectorAll('option')].forEach((o) => { if (o.value !== '') o.remove(); });
+    const op0 = selRama.querySelector('option[value=""]');
+    if (op0) op0.textContent = (!rp && ramaDefecto) ? ramaDefecto + ' (del proyecto)' : 'Rama por defecto';
+    lista.forEach((rn) => {
+      if (!rn || (!rp && rn === ramaDefecto)) return;   // la del proyecto ya es la de arriba
       const o = document.createElement('option');
       o.value = rn; o.textContent = rn;
       selRama.appendChild(o);
     });
-    selRama.dispatchEvent(new Event('ms-sync'));
-    if (ramaWrap) ramaWrap.hidden = false;   // MecaSelect relee las opciones al abrir
+    selRama.value = '';
+    selRama.dispatchEvent(new Event('ms-sync'));   // MecaSelect relee las opciones
+    if (ramaWrap) ramaWrap.hidden = lista.length < 2;   // sin ramas que elegir, se oculta
   };
 
   // Trae por AJAX los commits (y ramas) del repo/rama, sin recargar la página
@@ -1807,7 +1815,9 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
           diasCargados = pedidos;
           ramaDefecto = j.rama_defecto || '';
           truncado = !!j.truncado;
-          rellenarRamas(j.ramas);
+          ramasUnion = j.ramas || [];
+          ramasRepo = j.ramas_repo || {};
+          actualizarRamas();
           cargado = true;
           render();
         }
@@ -1817,6 +1827,8 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   };
 
   if (selRama) selRama.addEventListener('change', () => cargar(selRama.value));
+  // Cambiar de repo: reconstruye las ramas de ese repo y re-filtra (sin recargar)
+  if (selRepo) selRepo.addEventListener('change', () => { actualizarRamas(); render(); });
 
   /* ----- Commits a pantalla completa, paginados de 25 en 25 ----- */
   const dlg = caja.querySelector('.ap-dialogo');

@@ -1190,6 +1190,15 @@ $comData = json_encode([
         <option value="<?= $cm['id'] ?>"><?= e($cm['n']) ?></option>
         <?php endforeach; ?>
       </select>
+      <?php if (count($comReposLabels) > 1): ?>
+      <!-- Con varios repos: elige cuál ver (filtra commits, mapa y ramas) -->
+      <select class="select-meca select-sm ap-repo">
+        <option value="">Todos los repos</option>
+        <?php foreach ($comReposLabels as $rl): ?>
+        <option value="<?= e($rl) ?>"><?= e($rl) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
       <!-- La lista de ramas la rellena el JS tras traerlas por AJAX -->
       <select class="select-meca select-sm ap-rama" hidden>
         <option value="">Rama por defecto</option>
