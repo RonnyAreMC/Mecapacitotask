@@ -2024,6 +2024,44 @@ document.querySelectorAll('.form-persona').forEach((form) => {
   refrescar();
 });
 
+// Correos de Git: campo repetible (un input por cuenta) con agregar / quitar
+(() => {
+  const MAX = 5;
+  document.addEventListener('click', (e) => {
+    const add = e.target.closest('.git-email-agregar');
+    if (add) {
+      const cont = add.parentElement.querySelector('[data-git-emails]');
+      if (!cont) return;
+      if (cont.querySelectorAll('.git-email-fila').length >= MAX) return;
+      const f = cont.querySelector('.git-email-fila').cloneNode(true);
+      f.querySelector('input').value = '';
+      cont.appendChild(f);
+      f.querySelector('input').focus();
+      return;
+    }
+    const quitar = e.target.closest('.git-email-quitar');
+    if (quitar) {
+      const cont = quitar.closest('[data-git-emails]');
+      const filas = cont.querySelectorAll('.git-email-fila');
+      if (filas.length > 1) quitar.closest('.git-email-fila').remove();
+      else quitar.closest('.git-email-fila').querySelector('input').value = '';   // la última solo se vacía
+    }
+  });
+  // Para el modal de editar: rellena las filas con una lista de correos
+  window.setGitEmails = (cont, lista) => {
+    if (!cont) return;
+    const filas = [...cont.querySelectorAll('.git-email-fila')];
+    filas.slice(1).forEach((f) => f.remove());
+    const arr = (lista || []).filter(Boolean);
+    cont.querySelector('.git-email-fila input').value = arr[0] || '';
+    arr.slice(1, MAX).forEach((v) => {
+      const f = filas[0].cloneNode(true);
+      f.querySelector('input').value = v;
+      cont.appendChild(f);
+    });
+  };
+})();
+
 // Rellenar y abrir el modal de edicion de miembro
 document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -2034,8 +2072,10 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="nombre"]').value = m.nombre;
     form.querySelector('[name="rol"]').value = m.rol;
     form.querySelector('[name="git_user"]').value = m.git_user;
-    const gEmails = form.querySelector('[name="git_emails"]');
-    if (gEmails) gEmails.value = m.git_emails || '';
+    if (window.setGitEmails) {
+      window.setGitEmails(form.querySelector('[data-git-emails]'),
+        (m.git_emails || '').split(',').map((s) => s.trim()).filter(Boolean));
+    }
     form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);

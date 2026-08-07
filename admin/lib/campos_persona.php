@@ -42,14 +42,20 @@ if (!function_exists('camposPersona')) {
             </div>
             <small class="campo-ayuda">Su usuario de GitHub/GitLab. Si usa varios, sepáralos con coma.</small>
           </label>
-          <label class="campo">
+          <div class="campo">
             <span>Correos de Git (para cruzar sus commits)</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-envelope"></i>
-              <input class="input-meca" name="git_emails" maxlength="200" placeholder="correo-github@x.com, correo-gitlab@x.com">
+            <div class="git-emails" data-git-emails>
+              <div class="git-email-fila">
+                <div class="input-prefijo">
+                  <i class="fa-solid fa-envelope"></i>
+                  <input class="input-meca" type="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com">
+                </div>
+                <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+              </div>
             </div>
-            <small class="campo-ayuda">El <b>correo</b> con el que commitea en cada cuenta (GitHub/GitLab). Es lo más seguro para contarle sus commits, porque el usuario cambia entre máquinas. Hasta 3, separados por coma.</small>
-          </label>
+            <button type="button" class="btn-ghost btn-meca btn-sm git-email-agregar"><i class="fa-solid fa-plus"></i> Agregar otro correo</button>
+            <small class="campo-ayuda">El <b>correo</b> con el que commitea en cada cuenta (GitHub, GitLab…). Agrega uno por cuenta: es lo más seguro para contarle sus commits, porque el usuario cambia entre máquinas.</small>
+          </div>
           <label class="campo">
             <span>Equipo</span>
             <?= UI::select('equipo', $opcionesEquipo, $eqActual) ?>

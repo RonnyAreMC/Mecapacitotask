@@ -572,14 +572,17 @@ class MiembroRepo
      */
     public static function gitEmailsEntrada($valor): string
     {
+        // Acepta un arreglo (campos "git_emails[]") o una cadena separada por
+        // coma/;/espacio. Válidos, minúscula, sin repetir, hasta 5.
+        $tokens = is_array($valor) ? $valor : preg_split('/[\s,;]+/', (string)$valor);
         $out = [];
-        foreach (preg_split('/[\s,;]+/', (string)$valor) as $e) {
-            $e = strtolower(trim($e));
+        foreach ($tokens as $e) {
+            $e = strtolower(trim((string)$e));
             if ($e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL) && !in_array($e, $out, true)) {
                 $out[] = $e;
             }
         }
-        return implode(', ', array_slice($out, 0, 3));
+        return implode(', ', array_slice($out, 0, 5));
     }
 
     /** Correos de Git de un miembro: los del campo + su correo de acceso. */

@@ -3908,6 +3908,12 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 }
 .input-prefijo .input-meca { padding-left: 40px; }
 
+/* Correos de Git: lista de campos repetibles (un correo por cuenta) */
+.git-emails { display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+.git-email-fila { display: flex; align-items: center; gap: 8px; }
+.git-email-fila .input-prefijo { flex: 1; min-width: 0; }
+.git-email-quitar { flex: none; }
+
 /* Selector de iconos */
 .icon-picker { display: flex; flex-wrap: wrap; gap: 8px; }
 .icon-picker label { cursor: pointer; }
