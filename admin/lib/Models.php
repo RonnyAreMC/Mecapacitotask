@@ -776,7 +776,8 @@ class TareaRepo
             'prioridad'   => $datos['prioridad'] ?? 'media',
             'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
             'fecha_limite'=> ProyectoRepo::fecha($datos['fecha_limite'] ?? ''),
-            'depende_de'  => (int)($datos['depende_de'] ?? 0),
+            'dependencias'=> ($deps = self::dependenciasEntrada($datos)),
+            'depende_de'  => $deps[0] ?? 0,   // compat con lecturas antiguas
             // Documentos de respaldo para quien la ejecute (los sube actions.php)
             'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
         ] + self::camposAsignado($datos));
@@ -866,34 +867,67 @@ class TareaRepo
     }
 
     /**
-     * Valida una dependencia: debe existir, ser del mismo proyecto,
-     * no ser la propia tarea y no formar un ciclo. Devuelve el id
-     * validado o 0 si no es valida.
+     * Ids de las tareas de las que depende (pueden ser VARIAS). Compatible con
+     * el campo antiguo 'depende_de' (una sola): si no hay 'dependencias', se usa.
      */
+    public static function dependenciasDe(array $t): array
+    {
+        $deps = $t['dependencias'] ?? null;
+        if (is_array($deps)) {
+            return array_values(array_unique(array_filter(array_map('intval', $deps), fn($x) => $x > 0)));
+        }
+        $uno = (int)($t['depende_de'] ?? 0);
+        return $uno > 0 ? [$uno] : [];
+    }
+
+    /** Normaliza la lista de dependencias que llega de un formulario/JSON. */
+    public static function dependenciasEntrada(array $datos): array
+    {
+        $raw = $datos['dependencias'] ?? $datos['depende_de'] ?? [];
+        if (!is_array($raw)) $raw = ($raw === '' || $raw === null) ? [] : [$raw];
+        return array_values(array_unique(array_filter(array_map('intval', $raw), fn($x) => $x > 0)));
+    }
+
+    /** Compatibilidad: una sola dependencia (usado por el importador). */
     public function dependenciaValida(int $tareaId, int $dependeDe, int $proyectoId): int
     {
-        if ($dependeDe <= 0 || $dependeDe === $tareaId) {
-            return 0;
-        }
-        $dep = $this->buscar($dependeDe);
-        if (!$dep || (int)$dep['proyecto_id'] !== $proyectoId) {
-            return 0;
-        }
-        // Anti-ciclos: subir por la cadena de dependencias
-        $actual = $dep;
-        $saltos = 0;
-        while ($actual && $saltos++ < 100) {
-            $padre = (int)($actual['depende_de'] ?? 0);
-            if ($padre === 0) break;
-            if ($padre === $tareaId) return 0;   // formaria un ciclo
-            $actual = $this->buscar($padre);
-        }
-        return $dependeDe;
+        return $this->dependenciasValidas($tareaId, [$dependeDe], $proyectoId)[0] ?? 0;
     }
 
     /**
-     * Nivel de cada tarea segun su cadena de dependencias
-     * (0 = sin dependencias). Para la vista de flujo.
+     * Valida una lista de dependencias: cada una debe existir, ser del mismo
+     * proyecto, no ser la propia tarea y no formar un ciclo. Devuelve las
+     * válidas, únicas.
+     */
+    public function dependenciasValidas(int $tareaId, array $deps, int $proyectoId): array
+    {
+        $ok = [];
+        foreach (array_values(array_unique(array_map('intval', $deps))) as $d) {
+            if ($d <= 0 || $d === $tareaId) continue;
+            $dep = $this->buscar($d);
+            if (!$dep || (int)$dep['proyecto_id'] !== $proyectoId) continue;
+            // Anti-ciclo: ¿$tareaId es alcanzable subiendo por las dependencias
+            // de $d? Si sí, agregarla cerraría un ciclo.
+            $pila = self::dependenciasDe($dep);
+            $visto = [];
+            $ciclo = false;
+            $saltos = 0;
+            while ($pila && $saltos++ < 1000) {
+                $cur = (int)array_pop($pila);
+                if ($cur === $tareaId) { $ciclo = true; break; }
+                if (isset($visto[$cur])) continue;
+                $visto[$cur] = true;
+                $ct = $this->buscar($cur);
+                if ($ct) foreach (self::dependenciasDe($ct) as $p) $pila[] = $p;
+            }
+            if (!$ciclo) $ok[] = $d;
+        }
+        return array_values(array_unique($ok));
+    }
+
+    /**
+     * Nivel de cada tarea segun su cadena de dependencias (0 = sin
+     * dependencias). Con varias, manda la más profunda. Para la vista de flujo.
      */
     public function niveles(array $tareas): array
     {
@@ -905,8 +939,11 @@ class TareaRepo
         $nivel = function (int $id) use (&$nivel, &$memo, $porId): int {
             if (isset($memo[$id])) return $memo[$id];
             $memo[$id] = 0;   // corta ciclos accidentales
-            $dep = (int)($porId[$id]['depende_de'] ?? 0);
-            return $memo[$id] = ($dep && isset($porId[$dep])) ? $nivel($dep) + 1 : 0;
+            $max = -1;
+            foreach (self::dependenciasDe($porId[$id] ?? []) as $dep) {
+                if (isset($porId[$dep])) $max = max($max, $nivel($dep));
+            }
+            return $memo[$id] = $max < 0 ? 0 : $max + 1;
         };
         $out = [];
         foreach ($porId as $id => $t) {

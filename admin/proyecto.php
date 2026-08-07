@@ -116,15 +116,17 @@ foreach ($miembros as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
 }
 
-// Dependencias: opciones (todas las tareas del proyecto) y mapa por id
+// Dependencias: opciones (todas las tareas del proyecto) y mapa por id.
 $tareasPorId = [];
-$opcionesDependencia = [0 => '— Ninguna —'];
+$opcionesDependencia = [0 => '— Ninguna —'];   // (lo usa también el compositor de observaciones)
+$opcionesDeps = [];                            // para el selector MÚLTIPLE de dependencias (sin "Ninguna")
 foreach ($tareas as $t) {
     $tareasPorId[(int)$t['id']] = $t;
     $opcionesDependencia[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 46, '…');
+    $opcionesDeps[(int)$t['id']]        = mb_strimwidth($t['titulo'], 0, 46, '…');
 }
 $nivelesFlujo = $tareasRepo->niveles($tareas);
-$hayDependencias = (bool)array_filter($tareas, fn($t) => (int)($t['depende_de'] ?? 0) > 0);
+$hayDependencias = (bool)array_filter($tareas, fn($t) => TareaRepo::dependenciasDe($t) !== []);
 
 // Repos del proyecto. Los datos de GitHub (commits, ramas) se cargan de forma
 // diferida al abrir la vista Métricas, así la página no espera a la API al abrir.
@@ -536,7 +538,7 @@ foreach ($tareas as $t) {
                   'asignados' => TareaRepo::asignadosDe($t),
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '',
-                  'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'depende_de' => (int)($t['depende_de'] ?? 0), 'dependencias' => TareaRepo::dependenciasDe($t),
                   'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
@@ -584,8 +586,8 @@ foreach ($tareas as $t) {
               <?php if (!empty($t['fecha_limite'])): ?>
               <small><i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?></small>
               <?php endif; ?>
-              <?php if ((int)($t['depende_de'] ?? 0)): ?>
-              <small title="Tiene dependencia"><i class="fa-solid fa-link"></i></small>
+              <?php $nDeps = count(TareaRepo::dependenciasDe($t)); if ($nDeps): ?>
+              <small title="Depende de <?= $nDeps ?> tarea<?= $nDeps === 1 ? '' : 's' ?>"><i class="fa-solid fa-link"></i><?= $nDeps > 1 ? ' ' . $nDeps : '' ?></small>
               <?php endif; ?>
               <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
               <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
@@ -631,7 +633,7 @@ foreach ($tareas as $t) {
         foreach ($columnas as $nivel => $lista) {
             if ($nivel > 0 && $posAnterior) {
                 usort($lista, fn($a, $b) =>
-                    ($posAnterior[(int)($a['depende_de'] ?? 0)] ?? 99) <=> ($posAnterior[(int)($b['depende_de'] ?? 0)] ?? 99));
+                    ($posAnterior[TareaRepo::dependenciasDe($a)[0] ?? 0] ?? 99) <=> ($posAnterior[TareaRepo::dependenciasDe($b)[0] ?? 0] ?? 99));
                 $columnas[$nivel] = $lista;
             }
             $posAnterior = [];
@@ -646,7 +648,7 @@ foreach ($tareas as $t) {
               $esFinalF = in_array($t['estado'] ?? '', $finales, true);
           ?>
           <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado) ? 'nodo-ajeno' : '' ?>"
-               id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+               id="fn-<?= (int)$t['id'] ?>" data-deps="<?= e(implode(',', TareaRepo::dependenciasDe($t))) ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <b><?= e($t['titulo']) ?></b>
             <div class="fn-meta">
               <?= UI::avatarsAsignados($t, $miembros, 24) ?>
@@ -695,7 +697,7 @@ foreach ($tareas as $t) {
                   'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
                   'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
-                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0), 'dependencias' => TareaRepo::dependenciasDe($t),
                   'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE));
               $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
@@ -1433,8 +1435,8 @@ $comData = json_encode([
         </label>
         <label class="campo">
           <span>Depende de (opcional)</span>
-          <?= UI::select('depende_de', $opcionesDependencia, '0') ?>
-          <small class="campo-ayuda">La tarea quedará "en espera" hasta que su dependencia se complete.</small>
+          <?= UI::select('dependencias', $opcionesDeps, [], false, '', true) ?>
+          <small class="campo-ayuda">Puedes elegir varias. La tarea queda "en espera" hasta que TODAS se completen.</small>
         </label>
         <?= UI::adjuntosTarea() ?>
       </section>
@@ -1500,8 +1502,8 @@ $comData = json_encode([
         </label>
         <label class="campo">
           <span>Depende de (opcional)</span>
-          <?= UI::select('depende_de', $opcionesDependencia, '0', false, 'js-et-depende') ?>
-          <small class="campo-ayuda">No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
+          <?= UI::select('dependencias', $opcionesDeps, [], false, 'js-et-depende', true) ?>
+          <small class="campo-ayuda">Puedes elegir varias. No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
         </label>
         <?= UI::adjuntosTarea() ?>
       </section>

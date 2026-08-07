@@ -435,10 +435,8 @@ switch ($accion) {
         $datosTarea = $_POST;
         $datosTarea['adjuntos'] = guardarAdjuntos('adjuntos', 'tarea_', $rechazados);
         $t = $tareas->crear($datosTarea);
-        $dep = $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), $pid);
-        if ($dep !== (int)$t['depende_de']) {
-            $tareas->actualizar((int)$t['id'], ['depende_de' => $dep]);
-        }
+        $deps = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), $pid);
+        $tareas->actualizar((int)$t['id'], ['dependencias' => $deps, 'depende_de' => $deps[0] ?? 0]);
         [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
         sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
         chequearEntrega($pid, $proyectos, $tareas);
@@ -508,7 +506,8 @@ switch ($accion) {
             'estado'       => $_POST['estado'] ?? 'pendiente',
             'fecha_inicio' => $fIni,
             'fecha_limite' => $fLim,
-            'depende_de'   => $tareas->dependenciaValida((int)$t['id'], (int)($_POST['depende_de'] ?? 0), (int)$t['proyecto_id']),
+            'dependencias' => ($depsEd = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), (int)$t['proyecto_id'])),
+            'depende_de'   => $depsEd[0] ?? 0,
         ] + completadaEn($_POST['estado'] ?? 'pendiente', $t['estado'] ?? 'pendiente')
           + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);

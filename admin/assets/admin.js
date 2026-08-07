@@ -1035,12 +1035,13 @@ function dibujarFlujo() {
   const svg = document.getElementById('flujo-lineas');
   if (!wrap || !svg) return;
 
-  // Alinear cada nodo a la altura de su dependencia (flechas casi rectas)
+  const depsDe = (nodo) => (nodo.dataset.deps || nodo.dataset.dep || '').split(',').map((s) => s.trim()).filter((s) => s && s !== '0');
+  // Alinear cada nodo a la altura de su PRIMERA dependencia (flechas casi rectas)
   wrap.querySelectorAll('.flujo-nodo').forEach((n) => { n.style.marginTop = ''; });
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
-    const depId = nodo.dataset.dep;
-    if (!depId || depId === '0') return;
-    const origen = document.getElementById('fn-' + depId);
+    const deps = depsDe(nodo);
+    if (!deps.length) return;
+    const origen = document.getElementById('fn-' + deps[0]);
     if (!origen) return;
     const delta = origen.getBoundingClientRect().top - nodo.getBoundingClientRect().top;
     if (delta > 0) nodo.style.marginTop = delta + 'px';
@@ -1053,20 +1054,20 @@ function dibujarFlujo() {
   let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">' +
                '<path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="' + color + '"/></marker></defs>';
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
-    const depId = nodo.dataset.dep;
-    if (!depId || depId === '0') return;
-    const origen = document.getElementById('fn-' + depId);
-    if (!origen) return;
-    const a = origen.getBoundingClientRect();
-    const b = nodo.getBoundingClientRect();
-    const x1 = a.right - caja.left + wrap.scrollLeft + 2;
-    const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
-    const x2 = b.left - caja.left + wrap.scrollLeft - 8;
-    const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
-    const cx = Math.max(34, (x2 - x1) * 0.55);
-    trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="4" fill="' + color + '"/>' +
-              '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
-              ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".8" stroke-linecap="round" marker-end="url(#flecha)"/>';
+    depsDe(nodo).forEach((depId) => {
+      const origen = document.getElementById('fn-' + depId);
+      if (!origen) return;
+      const a = origen.getBoundingClientRect();
+      const b = nodo.getBoundingClientRect();
+      const x1 = a.right - caja.left + wrap.scrollLeft + 2;
+      const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
+      const x2 = b.left - caja.left + wrap.scrollLeft - 8;
+      const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
+      const cx = Math.max(34, (x2 - x1) * 0.55);
+      trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="4" fill="' + color + '"/>' +
+                '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
+                ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".8" stroke-linecap="round" marker-end="url(#flecha)"/>';
+    });
   });
   svg.innerHTML = trazos;
 }
@@ -1873,7 +1874,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     if (dep) {
       // Una tarea no puede depender de si misma
       [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
-      setSelect(dep, t.depende_de || 0);
+      setSelect(dep, t.dependencias || (t.depende_de ? [t.depende_de] : []));
     }
     // Documentos que ya tiene: se listan para poder abrirlos o quitarlos
     const campoAdj = dlg.querySelector('[data-adjuntos-tarea]');
