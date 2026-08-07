@@ -48,7 +48,7 @@ if (!function_exists('camposPersona')) {
               <div class="git-email-fila">
                 <div class="input-prefijo">
                   <i class="fa-solid fa-envelope"></i>
-                  <input class="input-meca" type="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com">
+                  <input class="input-meca" type="text" inputmode="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com">
                 </div>
                 <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
               </div>

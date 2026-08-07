@@ -95,7 +95,7 @@ UI::inicio('Mi perfil', 'perfil');
   </div>
 </section>
 
-<form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data">
+<form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data" novalidate>
   <input type="hidden" name="accion" value="perfil_guardar">
 
   <div class="pf-grid">
@@ -162,7 +162,7 @@ UI::inicio('Mi perfil', 'perfil');
             <?php foreach ($misGitMails as $ge): ?>
             <div class="git-email-fila">
               <div class="input-prefijo"><i class="fa-solid fa-envelope"></i>
-                <input class="input-meca" type="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com" value="<?= e($ge) ?>"></div>
+                <input class="input-meca" type="text" inputmode="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com" value="<?= e($ge) ?>"></div>
               <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
             </div>
             <?php endforeach; ?>
