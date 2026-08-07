@@ -14,7 +14,11 @@ require_once __DIR__ . '/GoogleLogin.php';
 
 class Auth
 {
-    public const ROLES = ['admin' => 'Administrador', 'lector' => 'Solo lectura'];
+    public const ROLES = [
+        'admin'  => 'Administrador',
+        'scrum'  => 'Scrum Master',
+        'lector' => 'Solo lectura',
+    ];
 
     /** Colaborador con la sesión iniciada, o null. */
     public static function usuario(): ?array
@@ -34,6 +38,24 @@ class Auth
     public static function esAdmin(): bool
     {
         return self::rol() === 'admin';
+    }
+
+    /** Scrum Master: gestiona (planifica, reuniones, métricas) SUS proyectos. */
+    public static function esScrum(): bool
+    {
+        return self::rol() === 'scrum';
+    }
+
+    /** ¿Puede gestionar (admin o scrum)? El alcance por proyecto se ve aparte. */
+    public static function esGestor(): bool
+    {
+        return self::esAdmin() || self::esScrum();
+    }
+
+    /** Normaliza el nivel de acceso que llega de un formulario. */
+    public static function accesoValido(?string $v): string
+    {
+        return isset(self::ROLES[(string)$v]) ? (string)$v : 'lector';
     }
 
     /** ¿Ya existe al menos un administrador con contraseña? */
@@ -178,6 +200,16 @@ class Auth
         self::requiereLogin();
         if (!self::esAdmin()) {
             redirigir('index.php', 'Tu cuenta es de solo lectura: no puedes hacer esa acción.', 'error');
+        }
+    }
+
+    /** Exige gestor (admin o scrum). El scope por proyecto lo revisa cada acción. */
+    public static function requiereGestor(): void
+    {
+        if (PHP_SAPI === 'cli') return;
+        self::requiereLogin();
+        if (!self::esGestor()) {
+            redirigir('index.php', 'No tienes permiso para esa acción.', 'error');
         }
     }
 }

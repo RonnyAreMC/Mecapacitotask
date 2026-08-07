@@ -5,9 +5,12 @@
  * sin crear nada, y al importar se crean todas las tareas de una.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
-Auth::requiereAdmin();
+Auth::requiereGestor();   // admin (todo) o Scrum Master (sus proyectos)
 
-$proyectos = (new ProyectoRepo())->todos();
+// El Scrum Master solo planifica en los proyectos donde participa.
+$alcancePlan = Auth::esAdmin() ? null : array_keys(alcanceProyectos() ?? []);
+// La lista de proyectos que ve (para el ejemplo y las notas) también se limita.
+$proyectos = soloProyectosVisibles((new ProyectoRepo())->todos());
 $miembros  = (new MiembroRepo())->todos();
 
 $reporte = null;
@@ -31,7 +34,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'errores' => ['El texto no es un JSON válido. Revisa que no falten comas o comillas. (' . json_last_error_msg() . ')']];
     } else {
         $imp = new ImportadorTareas(new ProyectoRepo(), new MiembroRepo(), new TareaRepo());
-        $reporte = $imp->procesar($datos, $modo !== 'importar', $actualizar);
+        $reporte = $imp->procesar($datos, $modo !== 'importar', $actualizar, $alcancePlan);
     }
 }
 

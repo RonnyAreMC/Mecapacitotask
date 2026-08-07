@@ -875,7 +875,7 @@ foreach ($tareas as $t) {
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
       <?php if ($reunionesOn): ?>
-      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
+      <button class="btn-primary btn-meca solo-gestor" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
       <?php else: ?>
@@ -970,8 +970,8 @@ foreach ($tareas as $t) {
               'dias'      => array_map('intval', (array)($r['dias'] ?? [])),
               'hasta'     => (string)($r['hasta'] ?? ''),
           ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
-          <button type="button" class="accion-btn solo-admin js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
-          <form method="post" action="actions.php" class="inline-form solo-admin"
+          <button type="button" class="accion-btn solo-gestor js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
+          <form method="post" action="actions.php" class="inline-form solo-gestor"
                 data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de <?= $esMeet ? 'Google Calendar' : 'Zoom' ?>."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
             <input type="hidden" name="accion" value="reunion_eliminar">

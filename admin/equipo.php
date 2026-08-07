@@ -312,7 +312,7 @@ UI::cabecera(
                 <input type="hidden" name="accion" value="miembro_acceso_set">
                 <input type="hidden" name="id" value="<?= $mid ?>">
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso ' . ($esAdm ? 'es-admin' : 'es-lector')) ?>
+                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
               </form>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
                 <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>

@@ -438,7 +438,11 @@ html.dark .theme-toggle .tt-sol  { color: var(--c-text-soft); }
    Sesión y control de acceso
    ========================================================= */
 /* A los usuarios de solo lectura se les ocultan las acciones de edición */
-body[data-rol="lector"] .solo-admin { display: none !important; }
+/* solo-admin: únicamente el administrador (oculto para scrum y lector) */
+body[data-rol="lector"] .solo-admin,
+body[data-rol="scrum"]  .solo-admin { display: none !important; }
+/* solo-gestor: administrador y Scrum Master (oculto solo para lector) */
+body[data-rol="lector"] .solo-gestor { display: none !important; }
 
 .sesion-chip {
   display: flex; align-items: center; gap: 10px;
@@ -4900,6 +4904,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 /* ---------- Select de acceso en la tabla de equipo ---------- */
 .celda-acceso .inline-form { display: inline-block; margin: 0; }
 .select-acceso.es-admin + .ms-trigger .ms-label { color: var(--c-success); font-weight: 700; }
+.select-acceso.es-scrum + .ms-trigger .ms-label { color: var(--c-secondary); font-weight: 700; }
 .select-acceso.es-lector + .ms-trigger .ms-label { color: var(--c-text-soft); }
 .acceso-yo {
   display: inline-flex; align-items: center; gap: 6px;

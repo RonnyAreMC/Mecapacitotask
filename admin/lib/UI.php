@@ -209,11 +209,15 @@ class UI
     </a>
     <?php endforeach; ?>
 
-    <?php if (Auth::esAdmin()): ?>
+    <?php if (Auth::esGestor()): ?>
     <span class="sidebar-label">Configuración</span>
+    <?php endif; ?>
+    <?php if (Auth::esGestor()): /* Planificar: admin y Scrum Master */ ?>
     <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
       <i class="fa-solid fa-list-check"></i> <span class="truncate">Planificar</span>
     </a>
+    <?php endif; ?>
+    <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
       <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
     </a>

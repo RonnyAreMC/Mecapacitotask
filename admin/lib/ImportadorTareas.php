@@ -117,7 +117,11 @@ final class ImportadorTareas
      * @return array{ok:bool, creadas:int, filas:array, errores:array}
      *   filas: por cada tarea [titulo, proyecto, asignados[], avisos[], error]
      */
-    public function procesar(array $json, bool $soloValidar, bool $actualizar = false): array
+    /**
+     * @param ?array $soloProyectoIds null = sin restricción (admin). Si es una
+     *   lista de ids, solo se aceptan tareas de esos proyectos (Scrum Master).
+     */
+    public function procesar(array $json, bool $soloValidar, bool $actualizar = false, ?array $soloProyectoIds = null): array
     {
         $lista = $json['tareas'] ?? $json;
         if (!is_array($lista) || $lista === [] || array_is_list($lista) === false && isset($lista['titulo'])) {
@@ -158,6 +162,10 @@ final class ImportadorTareas
             if (!$proyecto) {
                 $error = $error ? $error . ' y proyecto «' . $nomProy . '» no existe'
                                 : 'el proyecto «' . ($nomProy ?: '(vacío)') . '» no existe';
+            } elseif ($soloProyectoIds !== null && !in_array((int)$proyecto['id'], $soloProyectoIds, true)) {
+                // Scrum Master: solo puede planificar en sus propios proyectos.
+                $error = $error ? $error . ' y no participas en «' . $proyecto['nombre'] . '»'
+                                : 'no participas en el proyecto «' . $proyecto['nombre'] . '», no puedes planificar ahí';
             }
 
             // Asignados por nombre (los que no existan solo avisan)

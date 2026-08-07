@@ -351,6 +351,20 @@ function esAdmin(): bool
     return Auth::esAdmin();
 }
 
+/** Atajos de plantilla para el rol Scrum Master. */
+function esScrum(): bool  { return Auth::esScrum(); }
+function esGestor(): bool { return Auth::esGestor(); }   // admin o scrum
+
+/**
+ * ¿Puede GESTIONAR este proyecto (planificar, reuniones, métricas)?
+ * El admin en todos; el Scrum Master solo en los suyos; el lector en ninguno.
+ */
+function puedeGestionar(int $proyectoId): bool
+{
+    if (Auth::esAdmin()) return true;
+    return Auth::esScrum() && puedeVerProyecto($proyectoId);
+}
+
 /* ---------- Alcance: que proyectos puede ver cada quien ---------- */
 
 /**

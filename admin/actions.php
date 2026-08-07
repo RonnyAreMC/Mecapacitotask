@@ -31,6 +31,9 @@ $accionesPublicas   = ['auth_login', 'auth_identificar'];
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
     'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear',
+    // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
+    // puedeGestionar por dentro; un lector queda fuera igual).
+    'reunion_crear', 'reunion_editar', 'reunion_eliminar',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
 ];
 
@@ -281,7 +284,7 @@ switch ($accion) {
             'color'    => count($miembros->todos()) % count(Catalogo::COLORES),
         ]);
         $miembros->actualizar((int)$nuevo['id'], [
-            'acceso' => ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector',
+            'acceso' => Auth::accesoValido($_POST['acceso'] ?? ''),
         ]);
         $solicitudes->eliminar((int)$s['id']);
         // Si el correo del panel no está configurado, la persona no se entera
@@ -1095,7 +1098,7 @@ switch ($accion) {
         $datos['foto'] = guardarFoto('foto');
         $m = $miembros->crear($datos);
         // Acceso al panel (rol + contraseña opcional)
-        $accesoNuevo = ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector';
+        $accesoNuevo = Auth::accesoValido($_POST['acceso'] ?? '');
         $cambiosAcceso = ['acceso' => $accesoNuevo];
         if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
             $cambiosAcceso['pass_hash'] = Auth::hash($_POST['clave']);
@@ -1116,7 +1119,7 @@ switch ($accion) {
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
-            'acceso'   => ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector',
+            'acceso'   => Auth::accesoValido($_POST['acceso'] ?? ''),
         ];
         // Contraseña: solo se cambia si escribieron una nueva
         if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
@@ -1147,13 +1150,15 @@ switch ($accion) {
         if (!$m) {
             redirigir($volver, 'Colaborador no encontrado.', 'error');
         }
-        $nuevo = ($_POST['acceso'] ?? '') === 'admin' ? 'admin' : 'lector';
-        $eraAdmin = ($m['acceso'] ?? 'lector') === 'admin';
-        if ($eraAdmin === ($nuevo === 'admin')) {
+        $nuevo   = Auth::accesoValido($_POST['acceso'] ?? '');
+        $actual  = $m['acceso'] ?? 'lector';
+        $eraAdmin = $actual === 'admin';
+        if ($nuevo === $actual) {
             redirigir($volver);   // sin cambios
         }
-        if ($eraAdmin && $nuevo === 'lector') {
-            // Nunca dejar el panel sin ningun administrador, ni quitarse uno mismo
+        // Al dejar de ser admin (a scrum o a lector): nunca dejar el panel sin
+        // administrador, ni quitarse uno mismo el acceso.
+        if ($eraAdmin && $nuevo !== 'admin') {
             $otros = array_filter($miembros->todos(), fn($x) =>
                 (int)$x['id'] !== (int)$m['id'] && ($x['acceso'] ?? '') === 'admin');
             if (!$otros) {
@@ -1164,13 +1169,14 @@ switch ($accion) {
             }
         }
         $miembros->actualizar((int)$m['id'], ['acceso' => $nuevo]);
+        $etiqueta = Auth::ROLES[$nuevo] ?? 'Solo lectura';
         if ($nuevo === 'lector') {
             redirigir($volver, $m['nombre'] . ' vuelve a solo lectura.');
         }
         $falta = empty($m['pass_hash'])
             ? ' Todavía no tiene contraseña: pónsela al editar su ficha o que entre con Google.'
             : '';
-        redirigir($volver, $m['nombre'] . ' ahora es administrador.' . $falta, $falta ? 'info' : 'success');
+        redirigir($volver, $m['nombre'] . ' ahora es ' . $etiqueta . '.' . $falta, $falta ? 'info' : 'success');
 
     case 'miembro_eliminar':
         $id = (int)($_POST['id'] ?? 0);
@@ -1432,6 +1438,9 @@ switch ($accion) {
         if (!$proyectos->buscar($pid)) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
+        if (!puedeGestionar($pid)) {
+            redirigir('proyecto.php?id=' . $pid, 'Solo puedes crear reuniones en tus proyectos.', 'error');
+        }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
         // La plataforma la decide el proyecto (si tiene una propia) o Ajustes;
         // lo que pida el formulario solo cuenta si el admin dejo elegir.
@@ -1542,6 +1551,9 @@ switch ($accion) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
         }
         $pid = (int)$reu['proyecto_id'];
+        if (!puedeGestionar($pid)) {
+            redirigir('proyecto.php?id=' . $pid, 'Solo puedes editar reuniones de tus proyectos.', 'error');
+        }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
         $topic = trim($_POST['topic'] ?? '');
         $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));
@@ -1676,6 +1688,9 @@ switch ($accion) {
     case 'reunion_eliminar':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
+        if ($reu && !puedeGestionar((int)$reu['proyecto_id'])) {
+            redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'], 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
+        }
         if ($reu) {
             // Las copias en los calendarios de los invitados se van con ella
             borrarCopiasReunion($reu, $miembros);
