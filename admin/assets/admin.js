@@ -2081,6 +2081,8 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
+    const selAcceso = form.querySelector('[name="acceso"]');
+    if (selAcceso && m.acceso) setSelect(selAcceso, m.acceso);   // sin esto el admin editado se degradaba a lector
     form.querySelector('.pp-file').value = '';
     if (String(m.color).startsWith('#')) {
       form.querySelector('.color-picker input[value="custom"]').checked = true;

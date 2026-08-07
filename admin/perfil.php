@@ -288,6 +288,23 @@ UI::inicio('Mi perfil', 'perfil');
   form.addEventListener('input', mostrar);
   form.addEventListener('change', mostrar);
   document.getElementById('pf-descartar')?.addEventListener('click', () => location.reload());
+
+  // Foto: el input vive en la cabecera, FUERA del form (asociado con form="…"),
+  // así que su change no llega al form solo. Aquí se previsualiza la imagen
+  // elegida y se muestra la barra para poder guardarla.
+  const file = document.querySelector('.pf-file');
+  file?.addEventListener('change', () => {
+    const f = file.files && file.files[0];
+    if (!f) return;
+    const img = document.querySelector('.pf-img');
+    const ini = document.querySelector('.pf-iniciales');
+    if (img) {
+      img.src = URL.createObjectURL(f);
+      img.hidden = false;
+      if (ini) ini.hidden = true;
+    }
+    mostrar();
+  });
 })();
 </script>
 
