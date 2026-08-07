@@ -83,7 +83,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
       <button class="btn-outline btn-meca btn-sm solo-admin" title="Editar"
         data-editar-miembro='<?= e(json_encode([
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
-            'git_user' => $m['git_user'], 'email' => $m['email'] ?? '',
+            'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '',
             'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq,
         ], JSON_UNESCAPED_UNICODE)) ?>'>
         <i class="fa-solid fa-pen"></i> Editar

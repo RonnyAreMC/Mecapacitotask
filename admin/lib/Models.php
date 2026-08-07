@@ -553,14 +553,46 @@ class MiembroRepo
     public function crear(array $datos): array
     {
         return $this->store->insert([
-            'nombre'   => trim($datos['nombre'] ?? ''),
-            'rol'      => trim($datos['rol'] ?? 'Developer'),
-            'git_user' => ltrim(trim($datos['git_user'] ?? ''), '@'),
-            'email'    => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
-            'foto'     => $datos['foto'] ?? '',
-            'color'    => Catalogo::colorEntrada($datos),
-            'equipo'   => self::equipoValido($datos['equipo'] ?? ''),
+            'nombre'     => trim($datos['nombre'] ?? ''),
+            'rol'        => trim($datos['rol'] ?? 'Developer'),
+            'git_user'   => ltrim(trim($datos['git_user'] ?? ''), '@'),
+            'git_emails' => self::gitEmailsEntrada($datos['git_emails'] ?? ''),
+            'email'      => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
+            'foto'       => $datos['foto'] ?? '',
+            'color'      => Catalogo::colorEntrada($datos),
+            'equipo'     => self::equipoValido($datos['equipo'] ?? ''),
         ]);
+    }
+
+    /**
+     * Normaliza los CORREOS de Git para cruzar commits (una persona puede tener
+     * varias cuentas GitHub/GitLab; el correo es la identidad estable aunque el
+     * usuario cambie entre máquinas). Coma/;/espacio, válidos, minúscula, sin
+     * repetir, hasta 3. Devuelve una cadena separada por comas.
+     */
+    public static function gitEmailsEntrada($valor): string
+    {
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', (string)$valor) as $e) {
+            $e = strtolower(trim($e));
+            if ($e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL) && !in_array($e, $out, true)) {
+                $out[] = $e;
+            }
+        }
+        return implode(', ', array_slice($out, 0, 3));
+    }
+
+    /** Correos de Git de un miembro: los del campo + su correo de acceso. */
+    public static function gitEmailsDe(array $m): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', (string)($m['git_emails'] ?? '')) as $e) {
+            $e = strtolower(trim($e));
+            if ($e !== '') $out[] = $e;
+        }
+        $login = strtolower(trim((string)($m['email'] ?? '')));
+        if ($login !== '') $out[] = $login;
+        return array_values(array_unique($out));
     }
 
     /** Clave de equipo valida (si no existe, el primero del catalogo). */

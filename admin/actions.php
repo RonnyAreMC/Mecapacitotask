@@ -1130,9 +1130,10 @@ switch ($accion) {
             redirigir('equipo.php', 'Colaborador no encontrado.', 'error');
         }
         $cambios = [
-            'nombre'   => trim($_POST['nombre'] ?? ''),
-            'rol'      => trim($_POST['rol'] ?? ''),
-            'git_user' => ltrim(trim($_POST['git_user'] ?? ''), '@'),
+            'nombre'     => trim($_POST['nombre'] ?? ''),
+            'rol'        => trim($_POST['rol'] ?? ''),
+            'git_user'   => ltrim(trim($_POST['git_user'] ?? ''), '@'),
+            'git_emails' => MiembroRepo::gitEmailsEntrada($_POST['git_emails'] ?? ''),
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),

@@ -1169,10 +1169,9 @@ foreach ($delProyecto as $m) {
         $u = mb_strtolower(preg_replace('/\s+/', ' ', trim($u, " \t@")), 'UTF-8');
         if ($u !== '') $ids[] = $u;
     }
-    $mail = trim((string)($m['email'] ?? ''));
-    if ($mail !== '') {
-        $ids[] = mb_strtolower($mail, 'UTF-8');
-        $ids[] = mb_strtolower((string)strtok($mail, '@'), 'UTF-8');
+    foreach (MiembroRepo::gitEmailsDe($m) as $mail) {   // correos de Git + correo de acceso
+        $ids[] = $mail;
+        $ids[] = (string)strtok($mail, '@');            // parte local (el login de GitLab suele serlo)
     }
     if (!$ids) continue;   // sin ninguna identidad de Git no se pueden cruzar sus commits
     $comMiembros[] = [

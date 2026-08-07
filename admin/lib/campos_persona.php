@@ -40,7 +40,15 @@ if (!function_exists('camposPersona')) {
               <i class="fa-brands fa-github"></i>
               <input class="input-meca" name="git_user" maxlength="200" placeholder="usuario-github, otro-usuario">
             </div>
-            <small class="campo-ayuda">Si commitea con varios usuarios (otra máquina, otro nombre), sepáralos con coma. También se cruza por su <b>correo</b>, así se le cuentan todos sus commits.</small>
+            <small class="campo-ayuda">Su usuario de GitHub/GitLab. Si usa varios, sepáralos con coma.</small>
+          </label>
+          <label class="campo">
+            <span>Correos de Git (para cruzar sus commits)</span>
+            <div class="input-prefijo">
+              <i class="fa-solid fa-envelope"></i>
+              <input class="input-meca" name="git_emails" maxlength="200" placeholder="correo-github@x.com, correo-gitlab@x.com">
+            </div>
+            <small class="campo-ayuda">El <b>correo</b> con el que commitea en cada cuenta (GitHub/GitLab). Es lo más seguro para contarle sus commits, porque el usuario cambia entre máquinas. Hasta 3, separados por coma.</small>
           </label>
           <label class="campo">
             <span>Equipo</span>

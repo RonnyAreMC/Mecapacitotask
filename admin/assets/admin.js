@@ -2034,6 +2034,8 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="nombre"]').value = m.nombre;
     form.querySelector('[name="rol"]').value = m.rol;
     form.querySelector('[name="git_user"]').value = m.git_user;
+    const gEmails = form.querySelector('[name="git_emails"]');
+    if (gEmails) gEmails.value = m.git_emails || '';
     form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
