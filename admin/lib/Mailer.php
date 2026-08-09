@@ -18,7 +18,7 @@ class Mailer
             'puerto'    => 587,
             'usuario'   => '',
             'clave'     => '',
-            'remitente' => 'InnoTech Hub',
+            'remitente' => 'Panel Mecapacito',
             'url_panel' => '',
             // Modo gmail_api (OAuth de un proyecto de Google Cloud)
             'client_id'     => '',
@@ -162,11 +162,8 @@ class Mailer
     private static function logoPath(): string
     {
         // Versión chica y liviana para el correo (el logo grande, 167 KB, se
-        // veía "cargando"). Si no está, cae al logo normal.
-        // Los clientes de correo NO renderizan SVG: siempre PNG. Preferimos el
-        // logo de InnoTech (rasterizado del SVG) si existe.
-        // En el correo va SOLO el ícono (sin el texto del wordmark), al lado de
-        // la marca. Preferimos el ícono; si no, cae al wordmark o al logo base.
+        // veía "cargando"). Si no está, cae al logo normal. Los clientes de
+        // correo NO renderizan SVG: siempre PNG.
 
         // Antes que nada, el logo que se haya subido en Ajustes: es el de esta
         // instalación. Solo si es rasterizado; un SVG no se vería.
@@ -177,7 +174,7 @@ class Mailer
         }
 
         $base = __DIR__ . '/../../assets/';
-        foreach (['innotech-hub-icon-email.png', 'innotech-hub-logo-email.png', 'mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
+        foreach (['mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
             if (is_file($base . $f)) return $base . $f;
         }
         return '';

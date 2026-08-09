@@ -170,7 +170,7 @@ final class Config
     public static function defaults(): array
     {
         return [
-            'titulo'           => 'InnoTech Hub',
+            'titulo'           => 'Mecapacito',
             'subtitulo'        => 'Panel Dev',
             'logo'             => '',          // imagen subida; vacío = logo por defecto
             'github_token'     => '',
@@ -221,7 +221,7 @@ final class Config
                 'puerto'    => 587,
                 'usuario'   => '',
                 'clave'     => '',
-                'remitente' => 'InnoTech Hub',
+                'remitente' => 'Panel Mecapacito',
                 'url_panel' => '',
                 'client_id'     => '',
                 'client_secret' => '',

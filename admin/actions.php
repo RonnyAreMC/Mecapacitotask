@@ -925,7 +925,7 @@ switch ($accion) {
         $salida = json_encode([
             'persona'   => $yo['nombre'],
             'total'     => count($mias),
-            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id (ver estándar del equipo).',
+            'nota'      => 'Mis tareas en Mecapacito. Cada commit referencia su tarea con el #id (ver estándar del equipo).',
             'tareas'    => $mias,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -979,7 +979,7 @@ switch ($accion) {
         $salida = json_encode([
             'proyecto' => $p['nombre'],
             'total'    => count($out),
-            'nota'     => 'Tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id> (ver estándar del equipo).',
+            'nota'     => 'Tareas del proyecto «' . $p['nombre'] . '» en Mecapacito. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id> (ver estándar del equipo).',
             'tareas'   => $out,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -1412,7 +1412,7 @@ switch ($accion) {
 
     case 'config_exportar':
         $json = json_encode(Config::all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $nombre = 'innotech-config-' . date('Y-m-d') . '.json';
+        $nombre = 'mecapacito-config-' . date('Y-m-d') . '.json';
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $nombre . '"');
         header('Content-Length: ' . strlen($json));
@@ -1695,7 +1695,7 @@ switch ($accion) {
             . 'Fecha: ' . ($reu['inicio'] ?? '') . "\n"
             . ($nombres ? 'Participantes: ' . implode(', ', $nombres) . "\n" : '')
             . "\nContexto para Claude: esto es la transcripción automática (Zoom) de una reunión "
-            . "del equipo de InnoTech Hub. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
+            . "del equipo de Mecapacito. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
             . "Las tareas del panel se referencian con su #id.\n\n---\n\n";
         $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($reu['topic'] ?? 'reunion'));
         header('Content-Type: text/markdown; charset=utf-8');

@@ -175,13 +175,6 @@ function logoPanel(): string
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
     }
-    // Marca de esta instancia: si está el logo de InnoTech Hub (SVG preferido,
-    // luego PNG), se usa por defecto sin tener que subirlo en Ajustes.
-    foreach (['innotech-hub-logo.svg', 'innotech-hub-logo.png'] as $arch) {
-        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
-            return '../assets/' . $arch;
-        }
-    }
     return '../assets/mecapacito-logo.png';
 }
 
@@ -196,11 +189,6 @@ function faviconPanel(): string
     $logo = trim((string)(Config::get('logo') ?? ''));
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
-    }
-    foreach (['innotech-hub-icon.svg', 'innotech-hub-icon.png'] as $arch) {
-        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
-            return '../assets/' . $arch;
-        }
     }
     return logoPanel();          // sin icono propio, mejor el logo que nada
 }
@@ -497,62 +485,31 @@ function sembrarDatos(): void
 
     if (count($miembros->todos()) > 0 || count($proyectos->todos()) > 0) return;
 
-    // Equipo de programadores (InnoTech Académico), ya con su correo institucional.
-    $dominio = '@innotech-solutions.com.ec';
-    $eder    = $miembros->crear(['nombre' => 'Eder Ordoñez',    'rol' => 'Developer',            'git_user' => 'ederordonez',    'color' => 1,  'equipo' => 'programacion', 'email' => 'elordonezg' . $dominio]);
-    $jaione  = $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer', 'git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion', 'email' => 'jecherresc' . $dominio]);
-    $miller  = $miembros->crear(['nombre' => 'Miller Moran',    'rol' => 'Developer',            'git_user' => 'millermoran',    'color' => 2,  'equipo' => 'programacion', 'email' => 'mrmorana' . $dominio]);
-    // Vanessa: su correo institucional aún no está confirmado (no hay "murillo"
-    // en el listado de cPanel), así que queda sin vincular por ahora.
-    $vanessa = $miembros->crear(['nombre' => 'Vanessa Murillo', 'rol' => 'Developer',            'git_user' => 'vanessamurillo', 'color' => 12, 'equipo' => 'programacion']);
-    $carlos  = $miembros->crear(['nombre' => 'Carlos Rodriguez','rol' => 'Developer',            'git_user' => 'carlosrodriguez','color' => 5,  'equipo' => 'programacion', 'email' => 'clrodriguezn' . $dominio]);
-    // Ronny mantiene su Gmail como correo de acceso (a pedido), no el institucional.
-    $ronny   = $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',            'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
-
-    // Ronny es el administrador del panel (queda fijo en el seed), con acceso
-    // por correo+contraseña listo desde el primer arranque (sin usar la shell).
-    $miembros->actualizar((int)$ronny['id'], [
-        'acceso'    => 'admin',
-        'email'     => 'ronnyareu22@gmail.com',
-        'pass_hash' => Auth::hash('academico2026'),
-    ]);
+    // Equipo de programadores
+    $miembros->crear(['nombre' => 'Kevin',           'rol' => 'Frontend Dev',        'git_user' => 'kevin',          'color' => 1,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',           'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Dulce Villacis',  'rol' => 'Backend Dev',         'git_user' => 'dulcevillacis', 'color' => 12, 'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer','git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion']);
+    $miembros->crear(['nombre' => 'Jordy Pincay',    'rol' => 'Backend Dev',         'git_user' => 'jordypincay',    'color' => 2,  'equipo' => 'programacion']);
 
     // Equipo de analistas
-    $felipe  = $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas', 'email' => 'fearevaloc' . $dominio]);
-    $gabriel = $miembros->crear(['nombre' => 'Gabriel Alavera', 'rol' => 'Analista Funcional',  'git_user' => 'gabrielalavera', 'color' => 7,  'equipo' => 'analistas', 'email' => 'jgalaverac' . $dominio]);
+    $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas']);
+    $miembros->crear(['nombre' => 'Erick Pastrano',  'rol' => 'Analista de Datos',   'git_user' => 'erickpastrano',  'color' => 7,  'equipo' => 'analistas']);
+    $miembros->crear(['nombre' => 'Ronald',          'rol' => 'Analista Funcional',  'git_user' => 'ronald',         'color' => 5,  'equipo' => 'analistas']);
 
-    // Único proyecto: SIGE Académico (lo ve todo el equipo por no fijar miembros).
+    // Proyectos
     $proyectos->crear([
-        'nombre' => 'SIGE Académico', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
-        'descripcion' => 'Sistema integrado de gestión educativa — módulo académico.',
+        'nombre' => 'SIGE', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
+        'descripcion' => 'Sistema integrado de gestión educativa.',
     ]);
-
-    // Catálogo de correos institucionales de InnoTech (cPanel). Los de las
-    // fichas quedan vinculados (miembro_id); el resto disponibles (null).
-    // Dominio innotech-solutions.com.ec.
-    $correos = new JsonStore('correos_innotech');
-    $vinculos = [
-        'elordonezg'  => (int)$eder['id'],
-        'jecherresc'  => (int)$jaione['id'],
-        'mrmorana'    => (int)$miller['id'],
-        'clrodriguezn'=> (int)$carlos['id'],
-        'fearevaloc'  => (int)$felipe['id'],
-        'jgalaverac'  => (int)$gabriel['id'],
-    ];
-    $usuarios = [
-        'aamariduenal', 'aavilesn', 'admin.claude1', 'admin.claude2', 'bavitev',
-        'bgbarcom', 'celockem', 'clrodriguezn', 'contacto', 'crm-uniebec',
-        'cscoelloa', 'dsuarezs', 'elordonezg', 'evramirezc', 'fearevaloc',
-        'fwbravor', 'gasalazarc', 'htramireza', 'info', 'innotech',
-        'its.itb', 'its.ube', 'jdbrioness', 'jdpincaym', 'jecherresc',
-        'jgalaverac', 'jjcaverog', 'kbastudilloc', 'mrmorana', 'nsolmedom',
-        'oaguzmana', 'pgnoboar', 'prueba.unidadeducativa', 'regonzalezr',
-        'requerimiento', 'reramirezc', 'riarellanou', 'riramireza', 'safreirel',
-        'slsalanc', 'vmgomezd', 'wlvelezd',
-    ];
-    foreach ($usuarios as $u) {
-        $correos->insert(['email' => $u . $dominio, 'miembro_id' => $vinculos[$u] ?? null]);
-    }
+    $proyectos->crear([
+        'nombre' => 'TPV', 'icono' => 'fa-store', 'color' => 3, 'estado' => 'activo',
+        'descripcion' => 'Terminal punto de venta.',
+    ]);
+    $proyectos->crear([
+        'nombre' => 'CONTABILIDAD', 'icono' => 'fa-money-bill-wave', 'color' => 2, 'estado' => 'activo',
+        'descripcion' => 'Módulo de contabilidad y finanzas.',
+    ]);
 }
 
 sembrarDatos();
