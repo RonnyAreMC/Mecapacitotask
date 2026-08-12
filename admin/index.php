@@ -31,8 +31,12 @@ if ($verComo) {
 
 // Equipo completo, para elegir participantes al crear un proyecto
 $opcionesEquipo = [];
+$opcionesAnalistas = [0 => '— Sin PO —'];
 foreach ($miembrosRepo->todos() as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    if (MiembroRepo::equipoDe($m) === 'analistas') {
+        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
 }
 
 $finales     = Catalogo::estadosFinales();
@@ -161,6 +165,11 @@ UI::cabecera(
           <span>Participantes del proyecto</span>
           <?= UI::select('miembros', $opcionesEquipo, [], false, '', true) ?>
           <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
+          <?= UI::select('po', $opcionesAnalistas, 0) ?>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
         </label>
       </section>
 

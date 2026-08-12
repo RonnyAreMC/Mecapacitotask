@@ -30,7 +30,7 @@ $accionesPublicas   = ['auth_login', 'auth_identificar'];
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
-    'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear',
+    'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
@@ -229,6 +229,17 @@ function completadaEn(string $nuevo, string $antes): array
 }
 
 /**
+ * Product Owner válido: el id solo cuenta si es un miembro del equipo de
+ * ANALISTAS (el PO se elige entre los analistas). Si no, 0 (sin PO).
+ */
+function poAnalistaValido(int $id, MiembroRepo $miembros): int
+{
+    if ($id <= 0) return 0;
+    $m = $miembros->buscar($id);
+    return ($m && MiembroRepo::equipoDe($m) === 'analistas') ? $id : 0;
+}
+
+/**
  * Avisa por correo a cada responsable NUEVO de la tarea (los que no estaban
  * antes). Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
@@ -361,6 +372,7 @@ switch ($accion) {
         if (trim($_POST['nombre'] ?? '') === '') {
             redirigir('index.php', 'El nombre del proyecto es obligatorio.', 'error');
         }
+        $_POST['po'] = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
         $p = $proyectos->crear($_POST);
         $avisoEquipo = avisarNuevosDelProyecto([], (array)($p['miembros'] ?? []), $p, $miembros);
         redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.' . $avisoEquipo);
@@ -400,6 +412,7 @@ switch ($accion) {
             'color'         => Catalogo::colorEntrada($_POST),
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
+            'po'            => poAnalistaValido((int)($_POST['po'] ?? 0), $miembros),
             'plataforma'    => ProyectoRepo::plataformaEntrada($_POST['plataforma'] ?? ''),
         ]);
         $pAhora = $proyectos->buscar($id);
@@ -421,10 +434,10 @@ switch ($accion) {
 
     case 'tarea_crear':
         $pid = (int)($_POST['proyecto_id'] ?? 0);
-        // Cualquier participante del proyecto puede registrar tareas; nadie
-        // ajeno (aunque mande el id del proyecto a mano).
-        if (!puedeVerProyecto($pid)) {
-            redirigir('index.php', 'No participas en ese proyecto.', 'error');
+        // El backlog lo arman el Product Owner y el Scrum Master del proyecto (y
+        // el admin). Los demás participantes ejecutan, no crean tareas.
+        if (!puedeGestionarTareas($pid)) {
+            redirigir('proyecto.php?id=' . $pid, 'Solo el Product Owner o el Scrum Master pueden crear tareas.', 'error');
         }
         if (trim($_POST['titulo'] ?? '') === '') {
             redirigir('proyecto.php?id=' . $pid, 'El título de la tarea es obligatorio.', 'error');
@@ -484,6 +497,11 @@ switch ($accion) {
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
         if (!$t) {
             redirigir('index.php', 'Tarea no encontrada.', 'error');
+        }
+        // Editar la tarea (título, asignados, fechas…) es del PO y el Scrum
+        // Master del proyecto (y el admin). El resto solo mueve su estado.
+        if (!puedeGestionarTareas((int)$t['proyecto_id'])) {
+            redirigir('proyecto.php?id=' . (int)$t['proyecto_id'], 'Solo el Product Owner o el Scrum Master pueden editar tareas.', 'error');
         }
         $asignadosAntes = TareaRepo::asignadosDe($t);
         [$fIni, $fLim] = fechasTarea($_POST, 'proyecto.php?id=' . $t['proyecto_id']);
@@ -1163,19 +1181,14 @@ switch ($accion) {
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
-            'acceso'   => Auth::accesoValido($_POST['acceso'] ?? ''),
+            // OJO: editar los datos NO toca el 'acceso'. Se conserva el que ya
+            // tenía; el acceso se cambia solo desde la columna «Acceso» de la
+            // tabla (miembro_acceso_set). Antes, al no venir bien en el form, un
+            // admin editado se degradaba a "solo lectura" sin querer.
         ];
         // Contraseña: solo se cambia si escribieron una nueva
         if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
             $cambios['pass_hash'] = Auth::hash($_POST['clave']);
-        }
-        // No permitir quedarse sin ningún administrador
-        if ($cambios['acceso'] !== 'admin' && ($m['acceso'] ?? '') === 'admin') {
-            $otrosAdmins = array_filter($miembros->todos(), fn($x) =>
-                (int)$x['id'] !== $id && ($x['acceso'] ?? '') === 'admin' && !empty($x['pass_hash']));
-            if (!$otrosAdmins) {
-                redirigir('equipo.php', 'No puedes quitar el último administrador del panel.', 'error');
-            }
         }
         $foto = guardarFoto('foto');
         if ($foto !== '') {

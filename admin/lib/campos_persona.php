@@ -68,6 +68,7 @@ if (!function_exists('camposPersona')) {
             <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@innotech-solutions.com.ec">
           </div>
         </label>
+<?php if (!$esEdicion): ?>
         <div class="campo-doble">
           <label class="campo">
             <span>Acceso al panel</span>
@@ -75,13 +76,23 @@ if (!function_exists('camposPersona')) {
             <small class="campo-ayuda">"Solo lectura" ve todo pero no edita nada.</small>
           </label>
           <label class="campo">
-            <span>Contraseña <?= $esEdicion ? '(dejar vacío para no cambiarla)' : '(opcional)' ?></span>
+            <span>Contraseña (opcional)</span>
             <div class="input-prefijo">
               <i class="fa-solid fa-lock"></i>
               <input class="input-meca" type="password" name="clave" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
             </div>
           </label>
         </div>
+<?php else: ?>
+        <label class="campo">
+          <span>Contraseña (dejar vacío para no cambiarla)</span>
+          <div class="input-prefijo">
+            <i class="fa-solid fa-lock"></i>
+            <input class="input-meca" type="password" name="clave" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+          </div>
+          <small class="campo-ayuda">El <b>acceso al panel</b> (admin / Scrum / solo lectura) se cambia desde la columna «Acceso» de la tabla del equipo, no aquí. Así editar los datos no baja permisos sin querer.</small>
+        </label>
+<?php endif; ?>
         <div class="campo">
           <span>Color del avatar</span>
           <?= UI::colorPicker($esEdicion ? null : 0) ?>

@@ -116,6 +116,17 @@ foreach ($miembros as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
 }
 
+// Analistas, para elegir el Product Owner del proyecto (el PO sale de ahí)
+$opcionesAnalistas = [0 => '— Sin PO —'];
+foreach ($miembros as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') {
+        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
+}
+$poProyecto = ProyectoRepo::poDe($proyecto);
+// Crear/editar tareas: solo el PO, el Scrum Master del proyecto y el admin.
+$puedeTareas = puedeGestionarTareas($id);
+
 // Dependencias: opciones (todas las tareas del proyecto) y mapa por id.
 $tareasPorId = [];
 $opcionesDependencia = [0 => '— Ninguna —'];   // (lo usa también el compositor de observaciones)
@@ -347,6 +358,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php if ($equipoProyecto !== null): ?>
         <span class="ph-fecha"><i class="fa-solid fa-user-group"></i> <?= count($equipoProyecto) ?> participante<?= count($equipoProyecto) === 1 ? '' : 's' ?></span>
         <?php endif; ?>
+        <?php if ($poProyecto && isset($miembros[$poProyecto])): ?>
+        <span class="ph-fecha ph-po"><i class="fa-solid fa-user-tie"></i> PO: <b><?= e($miembros[$poProyecto]['nombre']) ?></b></span>
+        <?php endif; ?>
         <span class="ph-fecha"><i class="fa-regular fa-calendar"></i> Creado <?= e($proyecto['creado'] ?? '') ?></span>
       </div>
       <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
@@ -455,9 +469,11 @@ foreach ($tareas as $t) {
         <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
       </button>
       <?php endif; ?>
+      <?php if ($puedeTareas): ?>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -551,7 +567,8 @@ foreach ($tareas as $t) {
             <?php endif; ?>
           </td>
           <td class="celda-acciones">
-            <button class="accion-btn solo-admin" title="Editar"
+            <?php if ($puedeTareas): ?>
+            <button class="accion-btn" title="Editar"
               data-editar-tarea='<?= e(json_encode([
                   'id' => (int)$t['id'],
                   'titulo' => $t['titulo'],
@@ -566,6 +583,7 @@ foreach ($tareas as $t) {
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
             </button>
+            <?php endif; ?>
             <form method="post" action="actions.php" class="inline-form solo-admin"
                   data-confirmar="Se eliminará la tarea «<?= e($t['titulo']) ?>»."
                   data-confirmar-titulo="¿Eliminar tarea?" data-confirmar-ok="Sí, eliminar">
@@ -727,7 +745,7 @@ foreach ($tareas as $t) {
                   'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE));
               $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
-              $attr = esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'";
+              $attr = $puedeTareas ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'";
               if ($pos === 'inicio' || $pos === 'solo') {
                   echo '<button type="button" class="cal-ev cal-ev-tarea cal-' . $pos . $clsDep . ' ' . ($venc ? 'cal-venc' : '') . '"'
                      . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · ' . e($rango) . e($notaDep) . '" ' . $attr . '>'
@@ -1759,6 +1777,11 @@ $comData = json_encode([
           <span>Participantes del proyecto</span>
           <?= UI::select('miembros', $opcionesEquipo, $equipoProyecto ?? [], false, '', true) ?>
           <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
+          <?= UI::select('po', $opcionesAnalistas, $poProyecto) ?>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
         </label>
       </section>
 
