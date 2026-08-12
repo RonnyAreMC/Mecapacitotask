@@ -1601,10 +1601,13 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const tareas = data.tareas || {};
   const repos = data.repos || [];
 
-  // A cada commit le asigna el miembro del panel según el PROVEEDOR del repo:
-  //  - por CORREO del commit (GitHub y GitLab; es la identidad estable), o
-  //  - por USUARIO de GitHub (solo commits de GitHub; en GitLab el "login" es la
-  //    parte local del correo, cruzarla juntaba gente distinta e inflaba).
+  // A cada commit le asigna el miembro del panel por IDENTIDAD EXACTA:
+  //  - por CORREO del commit (GitHub y GitLab; la identidad más estable), o
+  //  - por USUARIO: el login del commit contra los usuarios registrados. En
+  //    GitHub el login ES el usuario; en GitLab es la parte local del correo,
+  //    que casi siempre es el usuario (por eso también sirve).
+  // No se cruza por la parte local del correo suelta ni por el nombre del autor:
+  // esas dos eran claves flojas que juntaban a personas distintas e inflaban.
   const norm = (s) => (s || '').toLowerCase().trim();
   const porUsuario = {}, porCorreo = {};
   miembros.forEach((m) => {
@@ -1612,9 +1615,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     (m.correos  || []).forEach((e) => { const k = norm(e); if (k) porCorreo[k] = m; });
   });
   const mapear = (cs) => { cs.forEach((c) => {
-    let m = porCorreo[norm(c.email)] || null;
-    if (!m && c.prov === 'github') m = porUsuario[norm(c.login)] || null;
-    c.miembro = m;
+    c.miembro = porCorreo[norm(c.email)] || porUsuario[norm(c.login)] || null;
   }); };
   mapear(commits);
 
