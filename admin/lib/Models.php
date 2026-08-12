@@ -382,9 +382,18 @@ class ProyectoRepo
             'color'         => Catalogo::colorEntrada($datos),
             'fecha_inicio'  => self::fecha($datos['fecha_inicio'] ?? ''),
             'miembros'      => self::miembrosEntrada($datos['miembros'] ?? []),
+            // Product Owner del proyecto (id de un analista; 0 = sin PO). La acción
+            // valida que sea analista; aquí solo se guarda el id ya saneado.
+            'po'            => max(0, (int)($datos['po'] ?? 0)),
             // Plataforma de reuniones propia del proyecto ('' = la del panel)
             'plataforma'    => self::plataformaEntrada($datos['plataforma'] ?? ''),
         ]);
+    }
+
+    /** Product Owner del proyecto (id de miembro, 0 si no tiene). */
+    public static function poDe(array $p): int
+    {
+        return max(0, (int)($p['po'] ?? 0));
     }
 
     /** Plataforma de reuniones valida para un proyecto: 'zoom', 'meet' o '' (heredar). */

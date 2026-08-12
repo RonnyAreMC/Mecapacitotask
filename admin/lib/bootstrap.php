@@ -389,6 +389,20 @@ function puedeGestionar(int $proyectoId): bool
     return Auth::esScrum() && puedeVerProyecto($proyectoId);
 }
 
+/**
+ * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
+ * Master del proyecto y su Product Owner. Los demás participantes ejecutan
+ * (mueven sus tareas por el tablero) pero no arman el backlog.
+ */
+function puedeGestionarTareas(int $proyectoId): bool
+{
+    if (puedeGestionar($proyectoId)) return true;   // admin o Scrum del proyecto
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p && ProyectoRepo::poDe($p) === $yo;
+}
+
 /* ---------- Alcance: que proyectos puede ver cada quien ---------- */
 
 /**
@@ -415,6 +429,9 @@ function alcanceProyectos(): ?array
         foreach ((new ProyectoRepo())->todos() as $p) {
             $suEquipo = ProyectoRepo::miembrosDe($p);
             if ($suEquipo !== null && in_array($yo, $suEquipo, true)) {
+                $ids[(int)$p['id']] = true;
+            }
+            if (ProyectoRepo::poDe($p) === $yo) {   // el Product Owner también ve su proyecto
                 $ids[(int)$p['id']] = true;
             }
         }
