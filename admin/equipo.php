@@ -317,12 +317,12 @@ UI::cabecera(
                 <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
               </form>
               <?php if (($m['acceso'] ?? '') === 'supervisor'): ?>
-                <button type="button" class="btn-ghost btn-meca btn-sm sw-config"
+                <button type="button" class="accion-btn sw-config" title="Configurar los proyectos que ve"
                         data-config-super='<?= e(json_encode([
                             'id' => $mid, 'nombre' => $m['nombre'],
                             'proyectos' => array_map('intval', (array)($m['proyectos_sup'] ?? [])),
                         ], JSON_UNESCAPED_UNICODE)) ?>'>
-                  <i class="fa-solid fa-sliders"></i> Configurar proyectos
+                  <i class="fa-solid fa-gear"></i>
                 </button>
               <?php endif; ?>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
