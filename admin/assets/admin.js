@@ -1573,7 +1573,16 @@ function aplicarMovidasEnTabla(movidas) {
       const fila = idi.closest('.fila-tarea');
       if (fila) fila.classList.toggle('fila-hecha', mv.a === 'hecho');
     }
+    // Kanban: mover la tarjeta a la columna del nuevo estado
+    const card = document.querySelector('.kb-card[data-tarea="' + mv.tarea + '"]');
+    const destino = document.querySelector('.kb-cards[data-estado-drop="' + mv.a + '"]');
+    if (card && destino && card.parentElement !== destino) destino.appendChild(card);
     n++;
+  });
+  // Recontar las columnas del kanban tras mover
+  document.querySelectorAll('.kb-cards[data-estado-drop]').forEach((z) => {
+    const head = z.closest('.kb-col') ? z.closest('.kb-col').querySelector('.kb-count') : null;
+    if (head) head.textContent = z.querySelectorAll('.kb-card').length;
   });
   if (n && window.MC && MC.toast) {
     MC.toast(n === 1 ? 'Una tarea avanzó según los commits.'
@@ -1592,15 +1601,20 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const tareas = data.tareas || {};
   const repos = data.repos || [];
 
-  // A cada commit le asigna el miembro del panel cruzando por CUALQUIERA de sus
-  // identidades de Git: usuario(s), correo o nombre del autor. Así una persona
-  // con varios usernames (misma cuenta) igual suma sus commits.
-  const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
-  const porGit = {};
-  miembros.forEach((m) => { (m.gits || (m.git ? [m.git] : [])).forEach((g) => { const k = norm(g); if (k) porGit[k] = m; }); });
+  // A cada commit le asigna el miembro del panel según el PROVEEDOR del repo:
+  //  - por CORREO del commit (GitHub y GitLab; es la identidad estable), o
+  //  - por USUARIO de GitHub (solo commits de GitHub; en GitLab el "login" es la
+  //    parte local del correo, cruzarla juntaba gente distinta e inflaba).
+  const norm = (s) => (s || '').toLowerCase().trim();
+  const porUsuario = {}, porCorreo = {};
+  miembros.forEach((m) => {
+    (m.usuarios || []).forEach((u) => { const k = norm(u); if (k) porUsuario[k] = m; });
+    (m.correos  || []).forEach((e) => { const k = norm(e); if (k) porCorreo[k] = m; });
+  });
   const mapear = (cs) => { cs.forEach((c) => {
-    const local = (c.email || '').split('@')[0];
-    c.miembro = porGit[norm(c.login)] || porGit[norm(c.email)] || porGit[norm(local)] || porGit[norm(c.nombre)] || null;
+    let m = porCorreo[norm(c.email)] || null;
+    if (!m && c.prov === 'github') m = porUsuario[norm(c.login)] || null;
+    c.miembro = m;
   }); };
   mapear(commits);
 
@@ -1898,11 +1912,14 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
 
   if (ramaWrap) ramaWrap.hidden = true;   // se muestra solo si hay varias ramas
   if (lazy) {
-    // Cargar los commits al abrir la vista Métricas (cuando la card se hace visible)
-    const io = new IntersectionObserver((entradas) => {
-      if (!cargado && entradas.some((e) => e.isIntersecting)) { io.disconnect(); cargar(''); }
-    });
-    io.observe(caja);
+    // Se cargan los commits al abrir el PROYECTO (en segundo plano, tras pintar la
+    // página), no solo al ver Métricas: así el flujo del estándar mueve las tareas
+    // aunque nadie abra esa pestaña. El fetch usa caché, y el render va a una
+    // sección oculta hasta que se elige Métricas. Los movimientos se reflejan en
+    // la tabla y el kanban (aplicarMovidasEnTabla).
+    const arranque = () => { if (!cargado) cargar(''); };
+    if ('requestIdleCallback' in window) requestIdleCallback(arranque, { timeout: 2500 });
+    else setTimeout(arranque, 1200);
   } else {
     render();
   }

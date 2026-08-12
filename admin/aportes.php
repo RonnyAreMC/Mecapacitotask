@@ -54,8 +54,10 @@ foreach ($repos as $rp) {
     $cr = Repos::commitsRecientes($rp['url'], 3000, $ramaRepo, $dias);
     if (($cr['estado'] ?? '') !== 'ok') continue;
     $truncado = $truncado || !empty($cr['truncado']);
+    $prov = Repos::proveedor($rp['url']);   // 'github' | 'gitlab' — el cruce depende de esto
     foreach ($cr['commits'] as $c) {
         $c['repo'] = $rp['label'];
+        $c['prov'] = $prov;
         $commits[] = $c;
     }
 }
