@@ -701,6 +701,7 @@ switch ($accion) {
         // Solo se anota en proyectos propios (un lector no puede escribir
         // en un tablero ajeno mandando el id a mano).
         if (!puedeVerProyecto($pid)) $fallar('No participas en ese proyecto.');
+        if (Auth::esSupervisor()) $fallar('Un supervisor solo observa el tablero, no anota observaciones.');
         $adjuntos = guardarAdjuntos('adjuntos');
         if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
             $fallar('Escribe la observación o adjunta un archivo.');
@@ -1199,6 +1200,23 @@ switch ($accion) {
         }
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
+
+    case 'supervisor_proyectos':
+        // El admin define qué proyectos ve un supervisor (solo esos, nada más).
+        $id = (int)($_POST['id'] ?? 0);
+        $m  = $miembros->buscar($id);
+        if (!$m) {
+            redirigir('equipo.php', 'Colaborador no encontrado.', 'error');
+        }
+        $existentes = array_map(fn($p) => (int)$p['id'], $proyectos->todos());
+        $ids = array_values(array_intersect(
+            ProyectoRepo::miembrosEntrada($_POST['proyectos'] ?? []),   // ids únicos y positivos
+            $existentes
+        ));
+        $miembros->actualizar($id, ['proyectos_sup' => $ids]);
+        redirigir('equipo.php?e=' . MiembroRepo::equipoDe($m),
+            $ids ? ($m['nombre'] . ' verá ' . count($ids) . ' proyecto(s).')
+                 : ($m['nombre'] . ' no verá ningún proyecto hasta que elijas alguno.'));
 
     case 'miembro_acceso_set':
         // Select de acceso en la tabla de equipo (admin / solo lectura)

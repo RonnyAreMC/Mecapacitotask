@@ -355,6 +355,7 @@ function esAdmin(): bool
 /** Atajos de plantilla para el rol Scrum Master. */
 function esScrum(): bool  { return Auth::esScrum(); }
 function esGestor(): bool { return Auth::esGestor(); }   // admin o scrum
+function esSupervisor(): bool { return Auth::esSupervisor(); }
 
 /**
  * ¿Puede GESTIONAR este proyecto (planificar, reuniones, métricas)?
@@ -401,6 +402,17 @@ function alcanceProyectos(): ?array
     }
 
     $yo  = (int)(Auth::usuario()['id'] ?? 0);
+
+    // Supervisor: ve EXCLUSIVAMENTE los proyectos que el admin le asignó. No
+    // hereda visibilidad por tareas, reuniones ni observaciones.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
     $ids = [];
     if ($yo > 0) {
         foreach ((new ProyectoRepo())->todos() as $p) {

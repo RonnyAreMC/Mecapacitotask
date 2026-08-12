@@ -17,6 +17,8 @@ $eq = MiembroRepo::equipoValido($_GET['e'] ?? '');
 // equipo de analistas: son los jefes que pueden editar el panel.
 $puedeAcceso = esAdmin();
 $yoId = (int)(Auth::usuario()['id'] ?? 0);
+// Todos los proyectos, para el modal donde el admin elige cuáles ve un supervisor
+$proyectosTodos = (new ProyectoRepo())->todos();
 
 $equipo = array_values(array_filter(
     $miembrosRepo->todos(),
@@ -314,6 +316,15 @@ UI::cabecera(
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
                 <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
               </form>
+              <?php if (($m['acceso'] ?? '') === 'supervisor'): ?>
+                <button type="button" class="btn-ghost btn-meca btn-sm sw-config"
+                        data-config-super='<?= e(json_encode([
+                            'id' => $mid, 'nombre' => $m['nombre'],
+                            'proyectos' => array_map('intval', (array)($m['proyectos_sup'] ?? [])),
+                        ], JSON_UNESCAPED_UNICODE)) ?>'>
+                  <i class="fa-solid fa-sliders"></i> Configurar proyectos
+                </button>
+              <?php endif; ?>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
                 <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
               <?php endif; ?>
@@ -416,6 +427,38 @@ UI::cabecera(
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Modal: proyectos que puede ver un Supervisor (se rellena por JS) -->
+<dialog id="dlg-config-super" class="dlg-meca dlg-persona">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="supervisor_proyectos">
+    <input type="hidden" name="id" id="cs-id">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-user-shield text-secondary"></i> Proyectos de <span id="cs-nombre">…</span></h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dlg-cuerpo">
+      <p class="campo-ayuda">Marca los proyectos que este supervisor podrá ver. Solo verá esos, y dentro solo el <b>Kanban</b> y el <b>detalle</b> de las tareas.</p>
+      <?php if (!$proyectosTodos): ?>
+        <p class="cs-vacio">Aún no hay proyectos que asignar.</p>
+      <?php else: ?>
+      <div class="cs-lista">
+        <?php foreach ($proyectosTodos as $p): ?>
+        <label class="cs-item">
+          <input type="checkbox" name="proyectos[]" value="<?= (int)$p['id'] ?>">
+          <i class="fa-solid <?= e($p['icono'] ?? 'fa-folder') ?>"></i>
+          <span class="truncate"><?= e($p['nombre']) ?></span>
+        </label>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>
 </dialog>

@@ -13,7 +13,8 @@ $rama = trim($_GET['rama'] ?? '');
 // Rango visible en Métricas: se lee solo ese tramo del historial
 $dias = max(7, min(400, (int)($_GET['dias'] ?? 182)));
 $proyecto = (new ProyectoRepo())->buscar($id);
-if (!$proyecto || !puedeVerProyecto($id)) {
+if (!$proyecto || !puedeVerProyecto($id) || Auth::esSupervisor()) {
+    // El supervisor solo ve el Kanban y el detalle: nada de métricas/aportes.
     http_response_code(403);
     echo json_encode(['error' => 'Proyecto no disponible.']);
     exit;

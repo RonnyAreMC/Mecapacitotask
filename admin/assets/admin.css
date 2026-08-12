@@ -3956,6 +3956,29 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .git-email-fila .input-prefijo { flex: 1; min-width: 0; }
 .git-email-quitar { flex: none; }
 
+/* Supervisor: elegir qué proyectos ve (modal + botón en la tabla) */
+.sw-config { margin-top: 6px; }
+.cs-lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; margin-top: 10px; padding-right: 2px; }
+.cs-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  cursor: pointer; font-size: .9rem; color: var(--c-text);
+}
+.cs-item i { color: var(--c-secondary); flex: none; }
+.cs-item .truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-item input { flex: none; width: 16px; height: 16px; accent-color: var(--c-secondary); }
+.cs-item:has(input:checked) { box-shadow: 0 0 0 1.5px var(--c-secondary) inset; }
+.cs-vacio { color: var(--c-text-muted); font-size: .9rem; }
+
+/* Título del Kanban para el Supervisor (no tiene la barra de pestañas) */
+.sup-kanban-tit {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.15rem; font-weight: 800; color: var(--c-text);
+  margin: 6px 0 14px; display: flex; align-items: center; gap: 10px;
+}
+.sup-kanban-tit i { color: var(--c-secondary); }
+
 /* Selector de iconos */
 .icon-picker { display: flex; flex-wrap: wrap; gap: 8px; }
 .icon-picker label { cursor: pointer; }
@@ -4997,6 +5020,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 .celda-acceso .inline-form { display: inline-block; margin: 0; }
 .select-acceso.es-admin + .ms-trigger .ms-label { color: var(--c-success); font-weight: 700; }
 .select-acceso.es-scrum + .ms-trigger .ms-label { color: var(--c-secondary); font-weight: 700; }
+.select-acceso.es-supervisor + .ms-trigger .ms-label { color: var(--c-morado, #7c3aed); font-weight: 700; }
 .select-acceso.es-lector + .ms-trigger .ms-label { color: var(--c-text-soft); }
 .acceso-yo {
   display: inline-flex; align-items: center; gap: 6px;

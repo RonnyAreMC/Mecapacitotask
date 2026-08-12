@@ -15,9 +15,10 @@ require_once __DIR__ . '/GoogleLogin.php';
 class Auth
 {
     public const ROLES = [
-        'admin'  => 'Administrador',
-        'scrum'  => 'Scrum Master',
-        'lector' => 'Solo lectura',
+        'admin'      => 'Administrador',
+        'scrum'      => 'Scrum Master',
+        'supervisor' => 'Supervisor',
+        'lector'     => 'Solo lectura',
     ];
 
     /** Colaborador con la sesión iniciada, o null. */
@@ -44,6 +45,16 @@ class Auth
     public static function esScrum(): bool
     {
         return self::rol() === 'scrum';
+    }
+
+    /**
+     * Supervisor: rol de solo-observación de ALTO nivel. Ve únicamente los
+     * proyectos que el admin le asigna, y dentro de ellos solo el Kanban y el
+     * detalle de las tareas. No edita nada.
+     */
+    public static function esSupervisor(): bool
+    {
+        return self::rol() === 'supervisor';
     }
 
     /** ¿Puede gestionar (admin o scrum)? El alcance por proyecto se ve aparte. */

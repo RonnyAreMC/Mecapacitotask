@@ -2128,6 +2128,23 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
   });
 });
 
+// Supervisor: el admin elige qué proyectos ve (rellena el modal con los suyos)
+document.querySelectorAll('[data-config-super]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    let d;
+    try { d = JSON.parse(btn.dataset.configSuper); } catch (_) { return; }
+    const dlg = document.getElementById('dlg-config-super');
+    if (!dlg) return;
+    dlg.querySelector('#cs-id').value = d.id;
+    dlg.querySelector('#cs-nombre').textContent = d.nombre || 'supervisor';
+    const marcados = new Set((d.proyectos || []).map(Number));
+    dlg.querySelectorAll('input[name="proyectos[]"]').forEach((c) => {
+      c.checked = marcados.has(Number(c.value));
+    });
+    dlg.showModal();
+  });
+});
+
 // Al usar el picker de color personalizado, marcar su radio automaticamente
 document.querySelectorAll('.color-picker .cp-custom input[type="color"]').forEach((inp) => {
   const marcar = () => {

@@ -18,6 +18,9 @@ if (!$proyecto) {
 // aunque escriba el id a mano en la URL.
 exigirProyecto($id);
 
+// Supervisor: dentro del proyecto solo ve el Kanban y el detalle de las tareas.
+$esSupervisor = esSupervisor();
+
 $miembros = $miembrosRepo->mapa();
 $tareas   = $tareasRepo->delProyecto($id);
 $resumen  = $tareasRepo->resumen($id);
@@ -403,6 +406,7 @@ foreach ($tareas as $t) {
     }
 }
 ?>
+<?php if (!$esSupervisor): /* el supervisor solo ve el Kanban: sin pestañas ni tabla */ ?>
 <div class="vista-fila">
   <div class="vista-toggle">
     <button type="button" class="tab-btn" data-vista="calendario" data-tip="Calendario"><i class="fa-solid fa-calendar-days"></i> <span class="tab-txt">Calendario</span></button>
@@ -602,8 +606,13 @@ foreach ($tareas as $t) {
 </section>
 </div>
 
+<?php endif; /* fin: tab bar + tabla (ocultos al supervisor) */ ?>
+
+<?php if ($esSupervisor): ?>
+<h2 class="sup-kanban-tit"><i class="fa-solid fa-table-columns text-secondary"></i> Tablero — <?= e($proyecto['nombre']) ?></h2>
+<?php endif; ?>
 <!-- Vista Kanban: columnas por estado, arrastra para cambiar -->
-<div data-vista-panel="kanban" hidden>
+<div data-vista-panel="kanban"<?= $esSupervisor ? '' : ' hidden' ?>>
   <section class="card-base tabla-card">
     <div class="tabla-toolbar">
       <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban</h2>
@@ -648,6 +657,7 @@ foreach ($tareas as $t) {
   </form>
 </div>
 
+<?php if (!$esSupervisor): /* flujo, calendario, intercambios, reuniones, observaciones y métricas: ocultos al supervisor */ ?>
 <!-- Vista de flujo: tareas conectadas por dependencias -->
 <div data-vista-panel="flujo" hidden>
   <section class="card-base tabla-card flujo-card">
@@ -1333,6 +1343,7 @@ $comData = json_encode([
 
 
 </div><!-- /metricas -->
+<?php endif; /* fin de las vistas ocultas al supervisor */ ?>
 
 <?php if ($reunionesOn): ?>
 <!-- Modal: nueva reunión (Zoom o Google Meet) -->
