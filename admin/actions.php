@@ -925,7 +925,7 @@ switch ($accion) {
         $salida = json_encode([
             'persona'   => $yo['nombre'],
             'total'     => count($mias),
-            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id (ver estándar del equipo).',
+            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id; el estado lo mueves tú en el panel (ver estándar del equipo).',
             'tareas'    => $mias,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -937,8 +937,13 @@ switch ($accion) {
         exit;
 
     case 'proyecto_tareas_json':
-        // Exporta TODAS las tareas de un proyecto como JSON (con su #id), para
-        // que cualquier participante se lo pase a su Claude con contexto.
+        // Exporta MIS tareas de un proyecto como JSON (con su #id y las tareas de
+        // las que dependen), para pasárselo a mi Claude con contexto. Solo las
+        // mías, no las de todo el equipo.
+        $yoJson = Auth::usuario();
+        if (!$yoJson) {
+            redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        }
         $pid = (int)($_POST['id'] ?? 0);
         $p = $proyectos->buscar($pid);
         if (!$p) {
@@ -947,6 +952,7 @@ switch ($accion) {
         if (!puedeVerProyecto($pid)) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
+        $miIdJson = (int)$yoJson['id'];
         $estCat  = Catalogo::estadosTarea();
         $priCat  = Catalogo::prioridades();
         $memNom  = [];
@@ -955,14 +961,13 @@ switch ($accion) {
         $porId   = [];
         foreach ($lista as $t) { $porId[(int)$t['id']] = $t; }
 
-        $out = [];
-        foreach ($lista as $t) {
+        $fmtTarea = function ($t) use ($estCat, $priCat, $porId, $memNom, $p) {
             $resp = [];
             foreach (TareaRepo::asignadosDe($t) as $mid) {
                 if (isset($memNom[$mid])) $resp[] = $memNom[$mid];
             }
             $depId = (int)($t['depende_de'] ?? 0);
-            $out[] = [
+            return [
                 'id'           => (int)$t['id'],
                 'ref'          => '#' . (int)$t['id'],
                 'proyecto'     => $p['nombre'],
@@ -975,17 +980,37 @@ switch ($accion) {
                 'responsables' => $resp,
                 'depende_de'   => $depId && isset($porId[$depId]) ? ('#' . $depId . ' · ' . ($porId[$depId]['titulo'] ?? '')) : '',
             ];
+        };
+
+        // Solo mis tareas del proyecto
+        $out = [];
+        $mias = [];
+        $depIds = [];
+        foreach ($lista as $t) {
+            if (!TareaRepo::tieneAsignado($t, $miIdJson)) continue;
+            $mias[(int)$t['id']] = true;
+            $out[] = $fmtTarea($t);
+            $d = (int)($t['depende_de'] ?? 0);
+            if ($d && isset($porId[$d])) $depIds[$d] = true;
         }
+        // Contexto: las tareas de las que dependen las mías (aunque no sean mías)
+        $deps = [];
+        foreach (array_keys($depIds) as $d) {
+            if (empty($mias[$d])) $deps[] = $fmtTarea($porId[$d]);
+        }
+
         $salida = json_encode([
-            'proyecto' => $p['nombre'],
-            'total'    => count($out),
-            'nota'     => 'Tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id> (ver estándar del equipo).',
-            'tareas'   => $out,
+            'proyecto'     => $p['nombre'],
+            'persona'      => $yoJson['nombre'],
+            'total'        => count($out),
+            'nota'         => 'Mis tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id>. El #id solo enlaza: el estado lo mueves tú en el panel (ver estándar del equipo). En "dependencias" van las tareas de las que dependen las mías, como contexto.',
+            'tareas'       => $out,
+            'dependencias' => $deps,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($p['nombre']));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($p['nombre'] . '-' . MiembroRepo::iniciales($yoJson)));
         header('Content-Type: application/json; charset=utf-8');
-        header('Content-Disposition: attachment; filename="tareas-' . trim($slug, '-') . '.json"');
+        header('Content-Disposition: attachment; filename="mis-tareas-' . trim($slug, '-') . '.json"');
         header('Cache-Control: no-store');
         echo $salida;
         exit;

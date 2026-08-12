@@ -444,8 +444,8 @@ foreach ($tareas as $t) {
       <form method="post" action="actions.php" class="inline-form" data-descarga>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="accion-btn accion-claude" data-tip="Descarga las tareas de este proyecto en JSON (con sus #id) para pasárselas a Claude">
-          <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
+        <button class="accion-btn accion-claude" data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
+          <img src="assets/claude.svg" alt="" width="16" height="16"> Mis tareas
         </button>
       </form>
       <?php if ($avisoPersonas): ?>
@@ -488,7 +488,7 @@ foreach ($tareas as $t) {
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
-              <b><?= e($t['titulo']) ?></b>
+              <b><button type="button" class="tarea-id btn-copiar" data-copiar="#<?= (int)$t['id'] ?>" title="Copiar #<?= (int)$t['id'] ?> para tus commits">#<?= (int)$t['id'] ?></button> <?= e($t['titulo']) ?></b>
               <?php if (!empty($t['descripcion'])): ?><small><?= e($t['descripcion']) ?></small><?php endif; ?>
               <?php
               $depId = (int)($t['depende_de'] ?? 0);

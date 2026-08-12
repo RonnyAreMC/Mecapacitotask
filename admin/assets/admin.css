@@ -2440,6 +2440,17 @@ html.dark .filtro-clear { color: #ff9d5c; }
 
 .celda-tarea { display: flex; gap: 11px; align-items: flex-start; min-width: 240px; }
 .celda-tarea b { color: var(--c-text); font-weight: 700; display: block; }
+/* #id de la tarea: el número que va en los commits. Clic para copiarlo. */
+.tarea-id {
+  display: inline-block; vertical-align: middle;
+  font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  font-size: .72rem; font-weight: 700; line-height: 1;
+  color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  border: 0; border-radius: 7px; padding: 3px 7px; margin-right: 6px;
+  cursor: pointer; transition: background .15s ease;
+}
+.tarea-id:hover { background: color-mix(in srgb, var(--c-secondary) 22%, transparent); }
 .celda-tarea small {
   color: var(--c-text-soft); display: block; margin-top: 2px; line-height: 1.4;
   max-width: 340px;

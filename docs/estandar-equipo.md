@@ -1,8 +1,8 @@
 # Estándar del equipo — InnoTech Hub
 
-Cómo escribimos **tareas** y **commits** para que el tablero se enlace y se
-actualice **solo**. Si todos seguimos esto, cada commit aparece bajo su tarea y
-el avance se mueve sin que nadie lo toque a mano.
+Cómo escribimos **tareas** y **commits** para que todo quede enlazado por el
+**`#id`** de la tarea. Si todos seguimos esto, cada commit dice a qué tarea
+pertenece; el **estado lo mueves tú en el panel** (el commit no lo cambia solo).
 
 > Regla de oro: **cada commit apunta a una tarea con `#<número>`**.
 
@@ -41,15 +41,15 @@ fix(cxc): corrige el cálculo de anticipos  #17
 refactor(nomina): separa el rol de pagos en su módulo  #88
 ```
 
-### Palabras que mueven la tarea sola
+### El `#id` solo enlaza (no cambia el estado)
 
-Al inicio del `#id` puedes poner una palabra clave y el panel cambia el estado:
+El `#<id>` sirve para **referenciar** la tarea: deja claro a qué pertenece el
+commit. **No cambia el estado por sí solo** — eso lo haces tú moviendo la tarea
+en el panel cuando corresponde.
 
-| Escribes | El panel hace |
-|---|---|
-| `#42` (a secas) | Enlaza el commit y pasa la tarea a **En progreso** |
-| `wip #42` | La deja **En progreso** (trabajo en curso) |
-| `closes #42` / `fixes #42` / `cierra #42` | La manda a **Revisión** (o Hecho si no tiene observaciones pendientes) |
+Puedes escribir `closes #42` / `fixes #42` / `cierra #42` como costumbre (por
+ejemplo, para que GitHub/GitLab cierren su propio issue), pero **el panel no
+mueve la tarea**: el estado siempre lo decides tú.
 
 > Un commit puede referenciar varias tareas: `… #42 #43`.
 
@@ -70,7 +70,8 @@ Así, con solo ver la rama sabes de qué tarea es, y el panel también.
 ## 4. Pull Requests (si usan PR)
 
 - **Título**: igual que un commit → `feat(login): … #42`.
-- **Descripción**: incluye `Closes #42` para que al mergear la tarea se cierre.
+- **Descripción**: menciona la tarea con `#42`. El estado de la tarea lo mueves
+  tú en el panel; el merge no lo cambia.
 
 ---
 
@@ -114,5 +115,5 @@ El admin carga tareas en lote en *Planificar → Importar*. Referencia por
 1. Tomo mi tarea del panel → anoto su **`#id`**.
 2. Creo la rama `tipo/id-slug`.
 3. Cada commit lleva `tipo(área): descripción #id`.
-4. Al terminar: `closes #id`.
-5. El tablero se actualiza solo: commits bajo la tarea y estado al día.
+4. Muevo la tarea en el panel según avanzo (En progreso, Revisión, Hecho).
+5. El `#id` mantiene todo enlazado; el estado siempre lo pongo yo.
