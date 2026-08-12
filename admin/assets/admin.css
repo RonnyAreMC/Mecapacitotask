@@ -3276,6 +3276,20 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .ap-lb-barra > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-verde-lima), var(--c-verde-esmeralda)); }
 .ap-lb-num { flex: none; font-size: .9rem; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
 
+/* "Sin asignar": commits que no calzan con ninguna ficha (correo/usuario a registrar) */
+.ap-sin { margin-top: 12px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); padding: 4px 14px; }
+.ap-sin summary { cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--c-text-muted); display: flex; align-items: center; gap: 8px; padding: 9px 0; }
+.ap-sin summary::-webkit-details-marker { display: none; }
+.ap-sin summary i { color: #e0803a; }
+.ap-sin-ayuda { font-size: .78rem; color: var(--c-text-muted); margin: 2px 0 10px; line-height: 1.5; }
+.ap-sin-lista { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; padding-bottom: 10px; }
+.ap-sin-fila { display: flex; align-items: center; gap: 10px; font-size: .82rem; padding: 6px 8px; border-radius: 8px; }
+.ap-sin-fila:hover { background: color-mix(in srgb, var(--c-secondary) 7%, transparent); }
+.ap-sin-id { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-text); }
+.ap-sin-id b { color: var(--c-secondary); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .95em; font-weight: 700; }
+.ap-sin-prov { font-size: .66rem; text-transform: uppercase; color: var(--c-text-soft); letter-spacing: .05em; }
+.ap-sin-num { flex: none; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
+
 /* Avatares chicos */
 .ap-av {
   flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;

@@ -1195,22 +1195,21 @@ $comMiembros = [];
 // empresa) y SOLO desarrolladores (los analistas no aportan al git).
 foreach ($delProyecto as $m) {
     if (MiembroRepo::equipoDe($m) === 'analistas') continue;
-    // El cruce se hace por identidad EXACTA, según el proveedor:
-    //  - por CORREO del commit (sirve para GitHub y GitLab; es lo estable),
-    //  - o por USUARIO de GitHub (solo en commits de GitHub; en GitLab el "login"
-    //    es la parte local del correo, no un usuario, y cruzarlo colapsaría gente
-    //    distinta —eso inflaba los conteos—).
-    $usuarios = [];
+    // Una persona puede tener VARIOS usuarios de Git (otra máquina, otro nombre)
+    // y/o validar por correo. Se juntan todas sus identidades para cruzar los
+    // commits: usuarios (git_user), correo y su parte local (el login de GitLab).
+    $ids = [];
     foreach (preg_split('/[,;]+/', (string)($m['git_user'] ?? '')) as $u) {
         $u = mb_strtolower(preg_replace('/\s+/', ' ', trim($u, " \t@")), 'UTF-8');
-        if ($u !== '') $usuarios[] = $u;
+        if ($u !== '') $ids[] = $u;
     }
-    $correos = array_map('strtolower', MiembroRepo::gitEmailsDe($m));   // correos de Git + correo de acceso
-    if (!$usuarios && !$correos) continue;   // sin identidad no se puede cruzar
+    foreach (MiembroRepo::gitEmailsDe($m) as $mail) {   // correos de Git + correo de acceso
+        $ids[] = $mail;
+        $ids[] = (string)strtok($mail, '@');            // parte local (el login de GitLab suele serlo)
+    }
+    if (!$ids) continue;   // sin ninguna identidad de Git no se pueden cruzar sus commits
     $comMiembros[] = [
-        'id' => (int)$m['id'], 'n' => $m['nombre'],
-        'usuarios' => array_values(array_unique($usuarios)),
-        'correos'  => array_values(array_unique($correos)),
+        'id' => (int)$m['id'], 'gits' => array_values(array_unique($ids)), 'n' => $m['nombre'],
         'c' => Catalogo::colorDe($m['color'] ?? 0), 'ini' => MiembroRepo::iniciales($m), 'foto' => $m['foto'] ?? '',
     ];
 }

@@ -1601,21 +1601,16 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const tareas = data.tareas || {};
   const repos = data.repos || [];
 
-  // A cada commit le asigna el miembro del panel por IDENTIDAD EXACTA:
-  //  - por CORREO del commit (GitHub y GitLab; la identidad más estable), o
-  //  - por USUARIO: el login del commit contra los usuarios registrados. En
-  //    GitHub el login ES el usuario; en GitLab es la parte local del correo,
-  //    que casi siempre es el usuario (por eso también sirve).
-  // No se cruza por la parte local del correo suelta ni por el nombre del autor:
-  // esas dos eran claves flojas que juntaban a personas distintas e inflaban.
-  const norm = (s) => (s || '').toLowerCase().trim();
-  const porUsuario = {}, porCorreo = {};
-  miembros.forEach((m) => {
-    (m.usuarios || []).forEach((u) => { const k = norm(u); if (k) porUsuario[k] = m; });
-    (m.correos  || []).forEach((e) => { const k = norm(e); if (k) porCorreo[k] = m; });
-  });
+  // A cada commit le asigna el miembro del panel cruzando por CUALQUIERA de sus
+  // identidades de Git: usuario(s), correo, parte local del correo o nombre del
+  // autor. Así una persona con varios usuarios (misma cuenta) igual suma sus
+  // commits, y GitLab (cuyo login es la parte local del correo) también cuadra.
+  const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
+  const porGit = {};
+  miembros.forEach((m) => { (m.gits || (m.git ? [m.git] : [])).forEach((g) => { const k = norm(g); if (k) porGit[k] = m; }); });
   const mapear = (cs) => { cs.forEach((c) => {
-    c.miembro = porCorreo[norm(c.email)] || porUsuario[norm(c.login)] || null;
+    const local = (c.email || '').split('@')[0];
+    c.miembro = porGit[norm(c.login)] || porGit[norm(c.email)] || porGit[norm(local)] || porGit[norm(c.nombre)] || null;
   }); };
   mapear(commits);
 
@@ -1766,14 +1761,45 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     enRango.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
     const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
     const maxN = Math.max(1, ...rank.map((x) => x.n));
-    lb.innerHTML = rank.map((x) =>
+    const rankHtml = rank.map((x) =>
       '<button type="button" class="ap-lb-fila' + (pid === x.m.id ? ' activo' : '') + '" data-persona="' + x.m.id + '">' +
       avatarHtml(x.m, 30) + '<span class="ap-lb-n" title="' + esc(x.m.n) + '">' + esc(x.m.n) + '</span>' +
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
-    // Sin nadie reconocido (logins que no calzan con el equipo) el ranking
-    // vacío solo dejaba un hueco: se esconde.
-    lb.hidden = rank.length === 0;
+
+    // "Sin asignar": commits que no calzan con ninguna ficha, agrupados por su
+    // identidad real (correo / usuario) para saber QUÉ registrar. Es la clave
+    // para cuadrar a quien no sale: se copia ese correo/usuario a su ficha.
+    const grupos = {};
+    enRango.forEach((c) => {
+      if (c.miembro) return;
+      const key = (c.email || c.login || c.nombre || '?').toLowerCase();
+      if (!grupos[key]) grupos[key] = { nombre: c.nombre || '', email: c.email || '', login: c.login || '', prov: c.prov || '', n: 0 };
+      grupos[key].n++;
+    });
+    const sinList = Object.values(grupos).sort((a, b) => b.n - a.n);
+    const sinTotal = sinList.reduce((s, g) => s + g.n, 0);
+    let sinHtml = '';
+    if (sinList.length) {
+      const filas = sinList.slice(0, 15).map((g) =>
+        '<div class="ap-sin-fila">' +
+          '<span class="ap-sin-id">' + esc(g.nombre || '(sin nombre)') +
+            (g.email ? ' · <b>' + esc(g.email) + '</b>'
+                     : (g.login ? ' · <b>@' + esc(g.login) + '</b>' : '')) +
+            (g.prov ? ' <span class="ap-sin-prov">' + esc(g.prov) + '</span>' : '') +
+          '</span>' +
+          '<b class="ap-sin-num">' + g.n + '</b>' +
+        '</div>').join('');
+      sinHtml = '<details class="ap-sin">' +
+        '<summary><i class="fa-solid fa-user-slash"></i> Sin asignar: ' + sinTotal +
+        ' commit' + (sinTotal === 1 ? '' : 's') + ' de ' + sinList.length + ' identidad' + (sinList.length === 1 ? '' : 'es') + '</summary>' +
+        '<p class="ap-sin-ayuda">No calzan con ninguna ficha. Copia el <b>correo</b> (o el usuario) tal cual sale aquí a "Correos de Git" / "Usuario(s) de Git" de esa persona y volverán a contarse.</p>' +
+        '<div class="ap-sin-lista">' + filas + '</div></details>';
+    }
+
+    lb.innerHTML = rankHtml + sinHtml;
+    // Se esconde solo si no hay nada que mostrar (ni ranking ni sin-asignar).
+    lb.hidden = rank.length === 0 && sinList.length === 0;
 
     // Un mapa por repositorio, con lo filtrado por persona y fechas
     vacio.hidden = vis.length > 0;
