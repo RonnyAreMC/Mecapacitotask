@@ -171,6 +171,12 @@ if (!empty($r['refresh_token'])) {
 }
 
 Auth::iniciarSesion((int)$miembro['id']);
+// Primer ingreso de alguien recién aprobado: a Mi perfil a completar sus datos.
+if (!empty($miembro['perfil_pendiente'])) {
+    $repo->actualizar((int)$miembro['id'], ['perfil_pendiente' => false]);
+    redirigir('perfil.php',
+        '¡Bienvenido, ' . explode(' ', $miembro['nombre'])[0] . '! Completa tus datos (usuario de Git, correos y foto) para que se cuenten tus commits.' . $avisoCal);
+}
 redirigir(
     'index.php',
     '¡Bienvenido, ' . explode(' ', $miembro['nombre'])[0] . '!'

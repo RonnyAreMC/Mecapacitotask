@@ -268,7 +268,15 @@ switch ($accion) {
 
     case 'auth_login':
         if (Auth::login($_POST['usuario'] ?? '', $_POST['clave'] ?? '')) {
-            redirigir('index.php', '¡Bienvenido, ' . (Auth::usuario()['nombre'] ?? '') . '!');
+            $yoLogin = $miembros->buscar((int)($_SESSION['uid'] ?? 0)) ?? [];
+            $nombre1 = explode(' ', (string)($yoLogin['nombre'] ?? ''))[0];
+            // Primer ingreso de alguien recién aprobado: a Mi perfil a completar
+            // sus datos (usuario de Git, correos, foto). Se limpia la marca.
+            if (!empty($yoLogin['perfil_pendiente'])) {
+                $miembros->actualizar((int)$yoLogin['id'], ['perfil_pendiente' => false]);
+                redirigir('perfil.php', '¡Bienvenido, ' . $nombre1 . '! Completa tus datos (usuario de Git, correos y foto) para que se cuenten tus commits.');
+            }
+            redirigir('index.php', '¡Bienvenido, ' . $nombre1 . '!');
         }
         // Si se registró y todavía no lo aprueban, decírselo: si no, parece
         // que su contraseña está mal y la vuelve a pedir una y otra vez.
@@ -364,7 +372,12 @@ switch ($accion) {
             // Color de la paleta, rotando para que no salgan todos iguales
             'color'    => count($miembros->todos()) % count(Catalogo::COLORES),
         ]);
-        $cambiosAprob = ['acceso' => Auth::accesoValido($_POST['acceso'] ?? '')];
+        $cambiosAprob = [
+            'acceso' => Auth::accesoValido($_POST['acceso'] ?? ''),
+            // Su primer ingreso lo lleva a Mi perfil para completar sus datos
+            // (usuario de Git, correos, foto). Se limpia al entrar esa vez.
+            'perfil_pendiente' => true,
+        ];
         // Si se registró con correo y clave, se conserva su clave para que pueda
         // entrar con correo+contraseña (además de Google). Si se registró con
         // Google, no hay clave: entra con Google.
