@@ -114,11 +114,13 @@ UI::cabecera(
       <div class="pac-foot">
         <?= UI::avatarStack(array_values($equipo)) ?>
         <div class="pac-links">
+          <?php if (!esSupervisor()): /* el supervisor no ve los repositorios */ ?>
           <?php foreach (ProyectoRepo::repos($p) as $repo): ?>
           <a href="<?= e($repo['url']) ?>" target="_blank" rel="noopener" class="pac-repo" title="Repositorio <?= e($repo['label']) ?>">
             <i class="fa-solid <?= e($repo['icono']) ?>"></i>
           </a>
           <?php endforeach; ?>
+          <?php endif; ?>
           <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-sm">
             Ver tablero <i class="fa-solid fa-arrow-right"></i>
           </a>
