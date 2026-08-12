@@ -409,31 +409,12 @@ switch ($accion) {
         redirigir($volver, 'Rechazaste la solicitud de ' . ($s['nombre'] ?? '') . '.' . $avisoRech, 'info');
 
     case 'auth_identificar':
-        // Confirma "¿quién eres?": vincula el correo de Google (ya verificado y
-        // guardado en sesión) a la ficha que la persona eligió, y la deja dentro.
-        $pend = $_SESSION['identificar'] ?? null;
-        if (!$pend || empty($pend['email'])) {
-            redirigir('login.php', 'La sesión de identificación expiró. Entra de nuevo con Google.', 'error');
-        }
-        $repo = new MiembroRepo();
-        $elegido = $repo->buscar((int)($_POST['miembro'] ?? 0));
-        // Solo fichas sin correo y que no sean admin (no se puede reclamar al admin).
-        if (!$elegido || !empty($elegido['email']) || ($elegido['acceso'] ?? '') === 'admin') {
-            redirigir('login.php', 'Esa ficha no está disponible para vincular.', 'error');
-        }
-        // Que ese correo no lo tenga ya otra persona.
-        foreach ($repo->todos() as $m) {
-            if (strcasecmp($m['email'] ?? '', $pend['email']) === 0) {
-                unset($_SESSION['identificar']);
-                redirigir('login.php', 'Ese correo ya está vinculado a otra ficha. Avisa al administrador.', 'error');
-            }
-        }
-        $cambios = ['email' => $pend['email']];
-        if (!empty($pend['refresh'])) $cambios['gcal_refresh'] = $pend['refresh'];
-        $repo->actualizar((int)$elegido['id'], $cambios);
+        // Flujo RETIRADO: "reclamar" una ficha sin correo permitía asociar
+        // cualquier correo de Google a una ficha ajena (entrar como otra persona).
+        // El acceso es por el correo exacto; si no calza, se pide acceso o el
+        // admin pone el correo en la ficha.
         unset($_SESSION['identificar']);
-        Auth::iniciarSesion((int)$elegido['id']);
-        redirigir('index.php', '¡Bienvenido, ' . explode(' ', $elegido['nombre'])[0] . '! Vinculé tu cuenta de Google (' . $pend['email'] . ') a tu ficha.');
+        redirigir('login.php', 'Entra con el correo que ya está registrado en tu ficha, o pide acceso desde «Crear una cuenta».', 'error');
 
     case 'auth_logout':
         Auth::salir();

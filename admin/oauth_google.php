@@ -139,26 +139,17 @@ if (!$miembro && $esRegistro) {
         . ' Cuando la aprueben, entra con el botón de Google.');
 }
 
-// 3b) No lo reconoció: le preguntamos "¿quién eres?" y que se elija a sí mismo
-//    de entre las fichas que todavía no tienen correo (y que no son admin).
-//    Guardamos el correo YA verificado por Google en sesión para vincularlo
-//    cuando confirme (no se puede repetir GoogleLogin::procesar, el code es de un solo uso).
+// 3b) No lo reconoció por su correo. El acceso es por el correo EXACTO: NO se
+//    ofrece "reclamar" una ficha sin correo, porque eso dejaba que cualquier
+//    correo se asociara a una ficha ajena (entrar como "Kevin" con cualquier
+//    cuenta). Si el correo no calza, se pide acceso o que el admin lo agregue.
 if (!$miembro) {
-    $sinVincular = array_filter($equipo, fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin');
-    if ($sinVincular) {
-        $_SESSION['identificar'] = [
-            'email'   => $correo,
-            'nombre'  => $nombreG,
-            'refresh' => $r['refresh_token'] ?? '',
-        ];
-        redirigir('login.php', 'No reconocimos tu correo. Dinos quién eres para vincularlo a tu ficha.', 'info');
-    }
+    $puedePedir = Auth::registro()['abierto'] && Auth::hayQuienApruebe();
     redirigir('login.php',
-        'El correo ' . $correo . ' no está registrado en el equipo'
-            . ($nombreG !== '' ? ' y tampoco encontré a nadie llamado "' . $nombreG . '"' : '') . '. '
-            . (Auth::registroAbierto()
+        'El correo ' . $correo . ' no está registrado en el equipo. '
+            . ($puedePedir
                 ? 'Puedes pedir acceso desde «Crear una cuenta».'
-                : 'Pídele al administrador que lo agregue.'),
+                : 'Pídele al administrador que te agregue (o que ponga ese correo en tu ficha).'),
         'error');
 }
 

@@ -15,17 +15,12 @@ if (Auth::usuario()) {
 $marca      = Config::all();
 $primerUso  = !Auth::hayAdmin();
 
-// ¿Volvemos de Google sin reconocer el correo? Mostramos "¿Quién eres?" con
-// las fichas que aún no tienen correo (y no son admin) para que se autoelija.
-$identificar = $_SESSION['identificar'] ?? null;
+// Flujo "¿quién eres?" RETIRADO: reclamar una ficha sin correo dejaba asociar
+// cualquier correo a una ficha ajena. El acceso es por el correo exacto. Si
+// quedó algo en sesión de antes, se descarta.
+unset($_SESSION['identificar']);
+$identificar = null;
 $sinVincular = [];
-if ($identificar) {
-    $sinVincular = array_values(array_filter(
-        (new MiembroRepo())->todos(),
-        fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin'
-    ));
-    if (!$sinVincular) { unset($_SESSION['identificar']); $identificar = null; }
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
