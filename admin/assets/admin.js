@@ -1555,6 +1555,32 @@ document.addEventListener('click', (e) => {
   try { abrirDetalleTarea(JSON.parse(el.dataset.verTarea)); } catch (_) {}
 });
 
+/* El flujo del estándar movió tareas según los commits (lo hace el servidor al
+   traer los aportes). Refleja el nuevo estado en la tabla —sin re-guardar, porque
+   fijar .value no dispara el onchange— y avisa con un toast. */
+function aplicarMovidasEnTabla(movidas) {
+  let n = 0;
+  movidas.forEach((mv) => {
+    const idi = [...document.querySelectorAll('form.inline-form input[name="id"]')]
+      .find((el) => el.value == mv.tarea && el.form && el.form.querySelector('[name="accion"]') &&
+                    el.form.querySelector('[name="accion"]').value === 'tarea_estado');
+    if (idi) {
+      const sel = idi.form.querySelector('select[name="estado"]');
+      if (sel && sel.value !== mv.a) {
+        sel.value = mv.a;
+        sel.className = sel.className.replace(/\bestado-[a-z0-9_]+/gi, '').replace(/\s+/g, ' ').trim() + ' estado-' + mv.a;
+      }
+      const fila = idi.closest('.fila-tarea');
+      if (fila) fila.classList.toggle('fila-hecha', mv.a === 'hecho');
+    }
+    n++;
+  });
+  if (n && window.MC && MC.toast) {
+    MC.toast(n === 1 ? 'Una tarea avanzó según los commits.'
+                     : n + ' tareas avanzaron según los commits.', 'success');
+  }
+}
+
 /* ---------- Aportes del equipo: commits por persona (Métricas) ---------- */
 document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const dataEl = caja.querySelector('[data-aportes-data]');
@@ -1825,6 +1851,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
           actualizarRamas();
           cargado = true;
           render();
+          if (Array.isArray(j.movidas) && j.movidas.length) aplicarMovidasEnTabla(j.movidas);
         }
       })
       .catch(() => { if (skel) skel.hidden = true; lb.hidden = false; vacio.hidden = false; })

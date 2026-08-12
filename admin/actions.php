@@ -925,7 +925,7 @@ switch ($accion) {
         $salida = json_encode([
             'persona'   => $yo['nombre'],
             'total'     => count($mias),
-            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id; el estado lo mueves tú en el panel (ver estándar del equipo).',
+            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id; con una palabra clave pegada (closes/fixes/cierra #id) el panel la avanza de estado solo (ver estándar del equipo).',
             'tareas'    => $mias,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -1003,7 +1003,7 @@ switch ($accion) {
             'proyecto'     => $p['nombre'],
             'persona'      => $yoJson['nombre'],
             'total'        => count($out),
-            'nota'         => 'Mis tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id>. El #id solo enlaza: el estado lo mueves tú en el panel (ver estándar del equipo). En "dependencias" van las tareas de las que dependen las mías, como contexto.',
+            'nota'         => 'Mis tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id>. Con una palabra clave pegada (closes/fixes/cierra #id) el panel avanza la tarea de estado solo (ver estándar del equipo). En "dependencias" van las tareas de las que dependen las mías, como contexto.',
             'tareas'       => $out,
             'dependencias' => $deps,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);

@@ -60,6 +60,15 @@ foreach ($repos as $rp) {
 }
 usort($commits, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
 
+// Flujo del estándar: los commits mueven la tarea (#id + palabra clave). Se
+// procesa aquí, al traer los commits, sin romper las métricas si algo falla.
+$movidas = [];
+try {
+    $movidas = AutoEstado::aplicar($id, $commits);
+} catch (\Throwable $e) {
+    // que un fallo al mover tareas no deje sin gráfico de aportes
+}
+
 echo json_encode([
     'commits'      => $commits,
     'ramas'        => $ramas,
@@ -67,4 +76,5 @@ echo json_encode([
     'repos'        => $labelsRepo,
     'rama_defecto' => $ramaDefecto,
     'truncado'     => $truncado,
+    'movidas'      => $movidas,
 ], JSON_UNESCAPED_UNICODE);
