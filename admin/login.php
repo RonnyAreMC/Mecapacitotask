@@ -152,11 +152,11 @@ if ($identificar) {
           <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
           Créalo por terminal: <code>php admin/crear_admin.php</code>
         </p>
-        <?php elseif (Auth::registroAbierto()): ?>
+        <?php elseif (Auth::registro()['abierto'] && Auth::hayQuienApruebe()): ?>
         <div class="login-pie">
           <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
           <p class="lp-cta">¿Todavía no tienes cuenta?
-            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-brands fa-google"></i> Crear una con Google</a>
+            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-solid fa-user-plus"></i> Crear una cuenta</a>
           </p>
         </div>
         <?php else: ?>

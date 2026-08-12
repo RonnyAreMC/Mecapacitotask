@@ -735,9 +735,9 @@ class Mailer
         ];
 
         $cuerpo = self::encabezado($acento, '&#9679;', 'Alguien pide acceso al panel',
-                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con su cuenta de Google '
-                    . '(correo ya verificado) y espera tu aprobación. Hasta que la apruebes no ve nada '
-                    . 'del panel. Al aprobarla eliges tú su equipo y su rol.')
+                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con el correo de arriba '
+                    . 'y espera tu aprobación. Hasta que la apruebes no ve nada del panel. Al aprobarla '
+                    . 'eliges tú su equipo y su rol.')
             . self::detalle($solicitud['nombre'] ?? '', $filas);
 
         return self::enviar($paraEmail, 'Solicitud de acceso: ' . ($solicitud['nombre'] ?? ''),

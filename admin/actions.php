@@ -25,7 +25,7 @@ $accion = $_POST['accion'] ?? '';
    públicas      : sin sesión (login y primer acceso)
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
-$accionesPublicas   = ['auth_login', 'auth_identificar'];
+$accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
@@ -277,6 +277,61 @@ switch ($accion) {
         }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
 
+    case 'solicitud_registrar':
+        // Registro por CORREO: la persona deja su correo + datos + clave. No
+        // entra: queda una solicitud que el administrador aprueba o rechaza.
+        // El correo ES su usuario; luego podrá entrar con esa clave o con Google.
+        $volver = 'registro.php';
+        if (!(Auth::registro()['abierto'] && Auth::hayQuienApruebe())) {
+            redirigir($volver, 'El registro de cuentas nuevas está cerrado ahora mismo.', 'error');
+        }
+        $nombreReg = trim($_POST['nombre'] ?? '');
+        $emailReg  = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '';
+        $claveReg  = (string)($_POST['clave'] ?? '');
+        $clave2Reg = (string)($_POST['clave2'] ?? '');
+        if ($nombreReg === '') {
+            redirigir($volver, 'Escribe tu nombre y apellido.', 'error');
+        }
+        if ($emailReg === '') {
+            redirigir($volver, 'Escribe un correo válido: ese será tu usuario para entrar.', 'error');
+        }
+        if (!Auth::dominioPermitido($emailReg)) {
+            redirigir($volver, 'Solo se aceptan correos de: @' . implode(', @', Auth::dominiosPermitidos()) . '.', 'error');
+        }
+        if (strlen($claveReg) < 6) {
+            redirigir($volver, 'La contraseña debe tener al menos 6 caracteres.', 'error');
+        }
+        if ($claveReg !== $clave2Reg) {
+            redirigir($volver, 'Las dos contraseñas no coinciden.', 'error');
+        }
+        // El correo EXACTO no puede repetirse: ni de un colaborador ni de otra
+        // solicitud. (Antes bastaba con algo "parecido"; ahora es el correo tal cual.)
+        foreach ($miembros->todos() as $m) {
+            if (strcasecmp((string)($m['email'] ?? ''), $emailReg) === 0) {
+                redirigir($volver, 'Ese correo ya tiene una cuenta en el panel. Entra desde el login (o pídele al administrador que te ayude).', 'error');
+            }
+        }
+        $solicitudesReg = new SolicitudRepo();
+        if ($solicitudesReg->porEmail($emailReg)) {
+            redirigir($volver, 'Ya hay una solicitud con ese correo esperando aprobación. Te avisaremos cuando la revisen.', 'info');
+        }
+        $solReg = $solicitudesReg->crear([
+            'nombre'    => $nombreReg,
+            'email'     => $emailReg,
+            'pass_hash' => Auth::hash($claveReg),   // se guarda hasheada, nunca en claro
+        ]);
+        $avisadosReg = 0;
+        if (Auth::registro()['avisar']) {
+            foreach (Auth::correosAdmin() as $correoAdmin) {
+                if (Mailer::solicitudNueva($solReg, $correoAdmin) === true) $avisadosReg++;
+            }
+        }
+        redirigir('login.php',
+            '¡Listo, ' . explode(' ', $nombreReg)[0] . '! Tu solicitud quedó registrada con ' . $emailReg
+            . ($avisadosReg > 0 ? ' y ya avisamos al administrador.' : '. Un administrador la revisará.')
+            . ' Cuando la aprueben, entra con tu correo y contraseña'
+            . (GoogleLogin::listo() ? ' o con Google.' : '.'));
+
     case 'solicitud_aprobar':
         // Convierte la solicitud en colaborador de verdad. Entrará con la misma
         // cuenta de Google con la que se registró: no lleva contraseña.
@@ -309,9 +364,14 @@ switch ($accion) {
             // Color de la paleta, rotando para que no salgan todos iguales
             'color'    => count($miembros->todos()) % count(Catalogo::COLORES),
         ]);
-        $miembros->actualizar((int)$nuevo['id'], [
-            'acceso' => Auth::accesoValido($_POST['acceso'] ?? ''),
-        ]);
+        $cambiosAprob = ['acceso' => Auth::accesoValido($_POST['acceso'] ?? '')];
+        // Si se registró con correo y clave, se conserva su clave para que pueda
+        // entrar con correo+contraseña (además de Google). Si se registró con
+        // Google, no hay clave: entra con Google.
+        if (!empty($s['pass_hash'])) {
+            $cambiosAprob['pass_hash'] = $s['pass_hash'];
+        }
+        $miembros->actualizar((int)$nuevo['id'], $cambiosAprob);
         $solicitudes->eliminar((int)$s['id']);
         // Si el correo del panel no está configurado, la persona no se entera
         // de que ya puede entrar: hay que decírselo al admin, no callarlo.

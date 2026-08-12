@@ -17,8 +17,11 @@ if (Auth::usuario()) {
 }
 
 $marca    = Config::all();
-$abierto  = Auth::registroAbierto();
-$dominios = Auth::dominiosPermitidos();
+// El registro por CORREO solo necesita que esté abierto y que haya un admin que
+// apruebe; Google es un extra si además está configurado.
+$puedeRegistrar = Auth::registro()['abierto'] && Auth::hayQuienApruebe();
+$conGoogle      = $puedeRegistrar && GoogleLogin::listo();
+$dominios       = Auth::dominiosPermitidos();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -52,9 +55,9 @@ $dominios = Auth::dominiosPermitidos();
       <h2>Pide tu acceso y<br><em>súmate al tablero</em> del equipo</h2>
 
       <ol class="reg-pasos">
-        <li><span>1</span> Autorizas con tu cuenta de Google</li>
+        <li><span>1</span> Te registras con tu correo</li>
         <li><span>2</span> Un administrador te aprueba</li>
-        <li><span>3</span> Entras con esa misma cuenta</li>
+        <li><span>3</span> Entras con tu correo o con Google</li>
       </ol>
     </div>
   </aside>
@@ -70,13 +73,10 @@ $dominios = Auth::dominiosPermitidos();
         </div>
       </div>
 
-      <?php if (!$abierto): ?>
+      <?php if (!$puedeRegistrar): ?>
         <h1 class="font-display">Registro cerrado</h1>
         <p class="login-sub">
-          <?php if (!GoogleLogin::listo()): ?>
-            Las cuentas nuevas se crean con Google, y el acceso con Google todavía no está
-            configurado en este panel. Pídele al administrador que te dé de alta.
-          <?php elseif (!Auth::hayQuienApruebe()): ?>
+          <?php if (!Auth::hayQuienApruebe()): ?>
             Este panel todavía no tiene administrador, así que no hay quién apruebe una solicitud.
           <?php else: ?>
             Ahora mismo el panel no acepta cuentas nuevas. Pídele al administrador que te dé de alta.
@@ -89,27 +89,54 @@ $dominios = Auth::dominiosPermitidos();
 
         <h1 class="font-display">Crear cuenta</h1>
         <p class="login-sub">
-          Usa tu cuenta de Google: así tu correo queda verificado y no tienes que
-          inventarte otra contraseña.
-          <?php if ($dominios): ?>
-          Solo se aceptan cuentas <b><?= e('@' . implode(', @', $dominios)) ?></b>.
-          <?php endif; ?>
+          Tu <b>correo</b> será tu usuario para entrar.
+          <?php if ($dominios): ?>Solo se aceptan cuentas <b><?= e('@' . implode(', @', $dominios)) ?></b>.<?php endif; ?>
         </p>
 
+        <form method="post" action="actions.php" class="login-form reg-form" autocomplete="on">
+          <input type="hidden" name="accion" value="solicitud_registrar">
+          <label class="campo">
+            <span>Nombre y apellido</span>
+            <div class="input-prefijo"><i class="fa-solid fa-user"></i>
+              <input class="input-meca" name="nombre" required maxlength="60" placeholder="Tu nombre" value="<?= e($_GET['nombre'] ?? '') ?>">
+            </div>
+          </label>
+          <label class="campo">
+            <span>Correo (tu usuario)</span>
+            <div class="input-prefijo"><i class="fa-solid fa-envelope"></i>
+              <input class="input-meca" type="email" name="email" required maxlength="80" placeholder="nombre@empresa.com" value="<?= e($_GET['email'] ?? '') ?>">
+            </div>
+          </label>
+          <div class="campo-doble">
+            <label class="campo">
+              <span>Contraseña</span>
+              <div class="input-prefijo"><i class="fa-solid fa-lock"></i>
+                <input class="input-meca" type="password" name="clave" required minlength="6" autocomplete="new-password" placeholder="mínimo 6">
+              </div>
+            </label>
+            <label class="campo">
+              <span>Repetir</span>
+              <div class="input-prefijo"><i class="fa-solid fa-lock"></i>
+                <input class="input-meca" type="password" name="clave2" required minlength="6" autocomplete="new-password" placeholder="otra vez">
+              </div>
+            </label>
+          </div>
+          <button type="submit" class="btn-primary btn-meca login-btn">
+            <i class="fa-solid fa-user-plus"></i> Pedir acceso
+          </button>
+        </form>
+
+        <?php if ($conGoogle): ?>
+        <div class="login-sep"><span>o</span></div>
         <a class="btn-google btn-google-registro" href="<?= e(GoogleLogin::urlAutorizacion(true)) ?>">
           <img src="../assets/google.svg" alt="" width="19" height="19">
           Crear cuenta con Google
         </a>
-
-        <ul class="reg-detalle">
-          <li><i class="fa-solid fa-shield-halved"></i> Google confirma quién eres; el panel solo guarda tu nombre y tu correo.</li>
-          <li><i class="fa-solid fa-user-clock"></i> Un administrador revisa la solicitud y decide tu equipo y tu rol.</li>
-          <li><i class="fa-solid fa-arrow-right-to-bracket"></i> Cuando te apruebe, entras con el mismo botón de Google.</li>
-        </ul>
+        <?php endif; ?>
 
         <div class="login-pie">
-          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Autorizar con Google no te mete al panel:
-             solo deja tu solicitud. Te avisamos por correo cuando la aprueben.</p>
+          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Registrarte no te mete al panel: deja una
+             solicitud que un administrador aprueba. Te avisamos por correo cuando la acepten.</p>
           <p class="lp-cta">¿Ya tienes cuenta?
             <a href="<?= e(urlPanel('login.php')) ?>"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar al panel</a>
           </p>
