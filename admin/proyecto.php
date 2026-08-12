@@ -325,12 +325,14 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
     <div class="ph-actions">
+      <?php if (!$esSupervisor): /* el supervisor no ve los repositorios */ ?>
       <?php foreach (ProyectoRepo::repos($proyecto) as $repo): ?>
       <a class="btn-meca btn-sm <?= e(Repos::clase($repo['url'])) ?>" href="<?= e($repo['url']) ?>" target="_blank" rel="noopener"
          title="Repositorio <?= e($repo['label']) ?> en <?= e(Repos::etiqueta($repo['url'])) ?>">
         <i class="<?= e(Repos::icono($repo['url'])) ?>"></i> <i class="fa-solid <?= e($repo['icono']) ?>"></i> <?= e($repo['label']) ?>
       </a>
       <?php endforeach; ?>
+      <?php endif; ?>
       <button class="btn-ghost btn-meca btn-sm solo-admin" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
@@ -609,7 +611,11 @@ foreach ($tareas as $t) {
 <?php endif; /* fin: tab bar + tabla (ocultos al supervisor) */ ?>
 
 <?php if ($esSupervisor): ?>
-<h2 class="sup-kanban-tit"><i class="fa-solid fa-table-columns text-secondary"></i> Tablero — <?= e($proyecto['nombre']) ?></h2>
+<div class="sup-toggle">
+  <span class="sup-toggle-tit"><i class="fa-solid fa-eye"></i> <?= e($proyecto['nombre']) ?></span>
+  <button type="button" class="sup-tab active" data-sup-vista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
+  <button type="button" class="sup-tab" data-sup-vista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+</div>
 <?php endif; ?>
 <!-- Vista Kanban: columnas por estado, arrastra para cambiar -->
 <div data-vista-panel="kanban"<?= $esSupervisor ? '' : ' hidden' ?>>
@@ -657,8 +663,7 @@ foreach ($tareas as $t) {
   </form>
 </div>
 
-<?php if (!$esSupervisor): /* flujo, calendario, intercambios, reuniones, observaciones y métricas: ocultos al supervisor */ ?>
-<!-- Vista de flujo: tareas conectadas por dependencias -->
+<!-- Vista de flujo: tareas conectadas por dependencias (el supervisor también la ve) -->
 <div data-vista-panel="flujo" hidden>
   <section class="card-base tabla-card flujo-card">
     <div class="tabla-toolbar">
@@ -716,6 +721,7 @@ foreach ($tareas as $t) {
   </section>
 </div>
 
+<?php if (!$esSupervisor): /* calendario, intercambios, reuniones, observaciones y métricas: ocultos al supervisor */ ?>
 <!-- Vista Calendario: fechas límite de tareas + reuniones -->
 <div data-vista-panel="calendario" hidden>
   <section class="card-base tabla-card" style="--pc:<?= $color ?>">

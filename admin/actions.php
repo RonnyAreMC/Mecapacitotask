@@ -472,6 +472,10 @@ switch ($accion) {
         if (!$t) {
             $respEstado(false, 'Tarea no encontrada.');
         }
+        // El supervisor es solo vista: nunca cambia estados.
+        if (Auth::esSupervisor()) {
+            $respEstado(false, 'El supervisor solo observa el tablero.');
+        }
         // Cada quien puede mover SUS tareas por el tablero; los demás, solo admin.
         if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
             $respEstado(false, 'Solo puedes cambiar el estado de tus tareas.');

@@ -2145,6 +2145,22 @@ document.querySelectorAll('[data-config-super]').forEach((btn) => {
   });
 });
 
+// Supervisor: alterna entre Kanban y Flujo (sus únicas dos vistas, solo lectura)
+document.querySelectorAll('.sup-toggle').forEach((tog) => {
+  const paneles = {
+    kanban: document.querySelector('[data-vista-panel="kanban"]'),
+    flujo:  document.querySelector('[data-vista-panel="flujo"]'),
+  };
+  tog.querySelectorAll('[data-sup-vista]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.supVista;
+      tog.querySelectorAll('[data-sup-vista]').forEach((b) => b.classList.toggle('active', b === btn));
+      Object.keys(paneles).forEach((k) => { if (paneles[k]) paneles[k].hidden = k !== v; });
+      if (v === 'flujo' && typeof dibujarFlujo === 'function') dibujarFlujo();
+    });
+  });
+});
+
 // Al usar el picker de color personalizado, marcar su radio automaticamente
 document.querySelectorAll('.color-picker .cp-custom input[type="color"]').forEach((inp) => {
   const marcar = () => {

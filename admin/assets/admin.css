@@ -3980,13 +3980,23 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .cs-item:has(input:checked) { box-shadow: 0 0 0 1.5px var(--c-secondary) inset; }
 .cs-vacio { color: var(--c-text-muted); font-size: .9rem; }
 
-/* Título del Kanban para el Supervisor (no tiene la barra de pestañas) */
-.sup-kanban-tit {
+/* Supervisor: toggle Kanban / Flujo (no tiene la barra de pestañas normal) */
+.sup-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 16px; }
+.sup-toggle-tit {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.15rem; font-weight: 800; color: var(--c-text);
-  margin: 6px 0 14px; display: flex; align-items: center; gap: 10px;
+  font-weight: 800; font-size: 1.05rem; color: var(--c-text);
+  display: inline-flex; align-items: center; gap: 8px; margin-right: 6px;
 }
-.sup-kanban-tit i { color: var(--c-secondary); }
+.sup-toggle-tit i { color: var(--c-morado, #7c3aed); }
+.sup-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border: 0; border-radius: 12px;
+  background: transparent; box-shadow: var(--sh-soft);
+  color: var(--c-text-soft); font-weight: 700; font-size: .86rem; cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.sup-tab:hover { color: var(--c-text); }
+.sup-tab.active { color: var(--c-secondary); box-shadow: var(--sh-inset-mini); }
 
 /* Selector de iconos */
 .icon-picker { display: flex; flex-wrap: wrap; gap: 8px; }
