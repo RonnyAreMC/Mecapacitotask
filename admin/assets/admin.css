@@ -3957,7 +3957,16 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .git-email-quitar { flex: none; }
 
 /* Supervisor: elegir qué proyectos ve (modal + botón en la tabla) */
-.sw-config { margin-top: 6px; }
+.sw-config {
+  margin-top: 0;
+  padding: 5px 11px;
+  font-size: .76rem; font-weight: 700;
+  gap: 6px; white-space: nowrap;
+  color: var(--c-morado, #7c3aed);
+  border-radius: 9px;
+}
+.sw-config i { font-size: .82em; }
+.sw-config:hover { background: color-mix(in srgb, var(--c-morado, #7c3aed) 12%, transparent); }
 .cs-lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; margin-top: 10px; padding-right: 2px; }
 .cs-item {
   display: flex; align-items: center; gap: 10px;
@@ -5017,6 +5026,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 @media (max-width: 900px) { .plan-grid { grid-template-columns: 1fr; } }
 
 /* ---------- Select de acceso en la tabla de equipo ---------- */
+.celda-acceso { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; }
 .celda-acceso .inline-form { display: inline-block; margin: 0; }
 .select-acceso.es-admin + .ms-trigger .ms-label { color: var(--c-success); font-weight: 700; }
 .select-acceso.es-scrum + .ms-trigger .ms-label { color: var(--c-secondary); font-weight: 700; }
