@@ -95,7 +95,8 @@ html.dark .select-meca {
 }
 html.dark .input-meca:focus,
 html.dark .select-meca:focus {
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .45);
+  /* Igual que en claro: por dentro, para que no lo recorte ningún contenedor */
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .7);
 }
 html.dark .persona-preview,
 html.dark .icon-galeria,
@@ -2218,7 +2219,7 @@ html.dark .obs-tag { color: #ffb35c !important; }
 }
 html.dark .oc-texto { background: var(--c-bg-soft); }
 .oc-texto::placeholder { color: var(--c-text-soft); }
-.oc-texto:focus { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 30%, transparent); }
+.oc-texto:focus { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px color-mix(in srgb, var(--pc, var(--c-secondary)) 55%, transparent); }
 
 .oc-previews { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .oc-previews:empty { display: none; }
@@ -2509,9 +2510,15 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   border-radius: 12px;
   color: var(--c-text);
 }
+/* El aviso de foco va por DENTRO del campo, no como un halo alrededor.
+   Alrededor era un box-shadow de 3px hacia fuera, y cualquier contenedor con
+   scroll u overflow:hidden lo recortaba: el panel de un asistente, una tarjeta
+   de tabla, una lista larga... y al pulsar el campo parecia que se cortaba.
+   Por dentro no hay nada que recortar, en ningun sitio y tampoco en los que
+   vengan despues. */
 .input-meca:focus {
   border: 0;
-  box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
 }
 .input-meca::placeholder { color: var(--c-text-soft); }
 
@@ -2531,7 +2538,16 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
 }
 .select-meca:focus {
   outline: none;
-  box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
+}
+/* Los dos controles que el panel sustituye por uno propio (el selector con
+   buscador y el calendario) no tenían aviso de foco: se quedaban con el
+   outline del navegador, que además se recorta igual que el halo. Van con el
+   mismo por dentro, así se navega con teclado y se ve dónde estás. */
+.ms-trigger:focus-visible,
+.md-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
 }
 .select-sm { padding: 9px 32px 9px 13px; font-size: .8rem; }
 
@@ -2551,7 +2567,8 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   cursor: pointer; text-align: left;
 }
 html.dark .md-trigger { background: var(--c-bg-soft); }
-.md-open .md-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+/* Abierto, por dentro: fuera se lo comía el borde del panel con scroll */
+.md-open .md-trigger { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .md-ph { color: var(--c-text-soft); font-weight: 500; }
 .md-ico { color: var(--c-secondary); flex-shrink: 0; }
 
@@ -2640,7 +2657,8 @@ html.dark .md-time { background: var(--c-bg-soft); color-scheme: dark; }
 }
 html.dark .ms-trigger { background: var(--c-bg-soft); }
 .ms-sm .ms-trigger { padding: 9px 12px; font-size: .8rem; }
-.ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+/* Idem: el selector abierto se marca por dentro y ya no se corta */
+.ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .ms-label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; overflow: hidden; }
 /* Con muchas opciones marcadas, las fichas crecían hacia abajo sin tope y
    estiraban el modal entero. El campo se queda a tres filas y hace su propio
@@ -2695,7 +2713,7 @@ html.dark .ms-trigger { background: var(--c-bg-soft); }
   color: var(--c-text); font-family: 'Inter', sans-serif; font-size: .82rem;
 }
 html.dark .ms-search input { background: var(--c-bg-soft); }
-.ms-search input:focus { outline: none; box-shadow: var(--sh-inset-mini), 0 0 0 2px rgba(var(--c-secondary-rgb), .3); }
+.ms-search input:focus { outline: none; box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .ms-opts { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ms-opt {
   display: flex; align-items: center; gap: 8px;
@@ -2876,7 +2894,8 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   transition: box-shadow .2s ease, opacity .2s ease;
 }
 /* Elegido: aro de acento. Descartado: se apaga, para verlo de un vistazo. */
-.av-persona:has(.av-todo:checked) { box-shadow: var(--sh-inset-mini), 0 0 0 1.5px rgba(var(--c-secondary-rgb), .35); }
+/* Esta fila vive en una lista con scroll (.av-lista): por dentro también */
+.av-persona:has(.av-todo:checked) { box-shadow: var(--sh-inset-mini), inset 0 0 0 1.5px rgba(var(--c-secondary-rgb), .5); }
 .av-persona.av-fuera { opacity: .45; }
 .av-persona.av-sincorreo { opacity: .6; }
 .av-cab { display: flex; align-items: center; gap: 11px; padding: 11px 13px; }
@@ -2932,7 +2951,9 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   box-shadow: inset 0 0 0 2px var(--c-secondary);
 }
 .av-marca input:disabled + .av-marca-caja { opacity: .4; }
-.av-marca input:focus-visible + .av-marca-caja { box-shadow: 0 0 0 2.5px rgba(var(--c-secondary-rgb), .35); }
+/* La casilla es de 19px y vive en una lista con scroll: el aviso de foco va
+   por dentro, que fuera se lo comía el borde de la lista. */
+.av-marca input:focus-visible + .av-marca-caja { box-shadow: inset 0 0 0 2px rgba(var(--c-secondary-rgb), .8); }
 
 .av-pie {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
