@@ -94,14 +94,17 @@ foreach ($tareas as $t) {
     }
 }
 
-// Los analistas entran en TODOS los proyectos, esten o no en su equipo. No
-// pertenecen a un equipo de desarrollo concreto: van donde hace falta a hacer
-// analisis, documentacion y aceptacion. Darlos de alta proyecto por proyecto
-// solo para poder asignarles algo era papeleo sin sentido — y dejaba fuera
-// hasta al Product Owner de su PROPIO proyecto, que sale de los analistas.
-foreach ($miembros as $mid => $m) {
-    if (MiembroRepo::equipoDe($m) === 'analistas' && !isset($delProyecto[$mid])) {
-        $delProyecto[$mid] = $m;
+// Quien LLEVA el proyecto entra siempre: su Product Owner y su Scrum Master.
+// No son gente de fuera que se cuela, son de este proyecto por definicion, y
+// sin esto no habia forma de asignarles el analisis o la documentacion de su
+// propio proyecto sin meterlos antes en el equipo a mano.
+//
+// Y solo ellos: los demas tienen que participar aqui. Ofrecer a TODOS los
+// analistas en TODOS los proyectos llenaba el selector de gente que no pinta
+// nada en este tablero.
+foreach ([ProyectoRepo::poDe($proyecto), ProyectoRepo::scrumDe($proyecto)] as $mid) {
+    if ($mid > 0 && isset($miembros[$mid]) && !isset($delProyecto[$mid])) {
+        $delProyecto[$mid] = $miembros[$mid];
     }
 }
 uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
