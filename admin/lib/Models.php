@@ -120,6 +120,14 @@ final class Catalogo
         return $out ?: self::PRIORIDADES;
     }
 
+    /** Prioridad del catalogo; si no existe, la del medio (o la primera). */
+    public static function prioridadValida(?string $v): string
+    {
+        $claves = array_keys(self::prioridades());
+        if (in_array($v, $claves, true)) return (string)$v;
+        return $claves[(int)floor((count($claves) - 1) / 2)] ?? 'media';
+    }
+
     /** Estados de proyecto (dinamicos): clave => [etiqueta, icono]. */
     public static function estadosProyecto(): array
     {
@@ -385,6 +393,10 @@ class ProyectoRepo
             // Product Owner del proyecto (id de un analista; 0 = sin PO). La acción
             // valida que sea analista; aquí solo se guarda el id ya saneado.
             'po'            => max(0, (int)($datos['po'] ?? 0)),
+            // Scrum Master DE ESTE proyecto (id de un miembro con rol scrum;
+            // 0 = sin asignar). El rol es global, pero mandar en un proyecto
+            // no: esto es lo que dice en cual.
+            'scrum'         => max(0, (int)($datos['scrum'] ?? 0)),
             // Plataforma de reuniones propia del proyecto ('' = la del panel)
             'plataforma'    => self::plataformaEntrada($datos['plataforma'] ?? ''),
         ]);
@@ -394,6 +406,19 @@ class ProyectoRepo
     public static function poDe(array $p): int
     {
         return max(0, (int)($p['po'] ?? 0));
+    }
+
+    /** Scrum Master del proyecto (id de miembro, 0 si no tiene). */
+    public static function scrumDe(array $p): int
+    {
+        return max(0, (int)($p['scrum'] ?? 0));
+    }
+
+    /** Hora 'HH:MM' valida; '' si no lo es. La usa el horario de reuniones. */
+    public static function hora(?string $v): string
+    {
+        $v = trim((string)$v);
+        return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : '';
     }
 
     /** Plataforma de reuniones valida para un proyecto: 'zoom', 'meet' o '' (heredar). */
@@ -724,6 +749,176 @@ class SolicitudRepo
 
     public function eliminar(int $id): bool
     {
+        return $this->store->delete($id);
+    }
+}
+
+/* =========================================================
+   Requerimientos sueltos
+
+   Peticiones que llegan y no caen en ningun proyecto. Las gestiona SOLO el
+   administrador: las registra y las reparte entre una o varias personas
+   poniendole a cada encargo su fecha de inicio y de entrega. Para decidir a
+   quien, mira la carga que ya tiene cada quien (ver la carga en el picker de
+   requerimientos.php). El resto del equipo las ve en su bandeja (bandeja.php).
+   ========================================================= */
+class RequerimientoRepo
+{
+    /** clave => [etiqueta, icono, ¿cerrado?] */
+    public const ESTADOS = [
+        'pendiente'  => ['Sin asignar', 'fa-inbox',        false],
+        'asignado'   => ['Asignado',    'fa-user-check',   false],
+        'hecho'      => ['Resuelto',    'fa-circle-check', true],
+        'descartado' => ['Descartado',  'fa-ban',          true],
+    ];
+
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('requerimientos');
+    }
+
+    /** Los abiertos primero y, dentro, el mas reciente arriba. */
+    public function todos(): array
+    {
+        $items = $this->store->all();
+        usort($items, function ($a, $b) {
+            $ca = self::cerrado($a) ? 1 : 0;
+            $cb = self::cerrado($b) ? 1 : 0;
+            if ($ca !== $cb) return $ca <=> $cb;
+            return strcmp($b['creado'] ?? '', $a['creado'] ?? '');
+        });
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public static function estadoValido(?string $v): string
+    {
+        return isset(self::ESTADOS[$v]) ? $v : 'pendiente';
+    }
+
+    /** ¿Está cerrado (resuelto o descartado)? */
+    public static function cerrado(array $r): bool
+    {
+        return self::ESTADOS[self::estadoValido($r['estado'] ?? '')][2];
+    }
+
+    /**
+     * Responsables de un requerimiento. Puede ir a varias personas a la vez;
+     * 'asignado_a' es el formato viejo (una sola) y se sigue leyendo.
+     */
+    public static function asignadosDe(array $r): array
+    {
+        $ids = isset($r['asignados']) ? (array)$r['asignados'] : [(int)($r['asignado_a'] ?? 0)];
+        return array_values(array_unique(array_filter(array_map('intval', $ids), fn($n) => $n > 0)));
+    }
+
+    public static function tieneAsignado(array $r, int $miembroId): bool
+    {
+        return in_array($miembroId, self::asignadosDe($r), true);
+    }
+
+    /** Fecha de entrega ('fecha_limite' es como se llamaba antes). */
+    public static function fechaFin(array $r): string
+    {
+        return trim((string)($r['fecha_fin'] ?? $r['fecha_limite'] ?? ''));
+    }
+
+    public static function fechaInicio(array $r): string
+    {
+        return trim((string)($r['fecha_inicio'] ?? ''));
+    }
+
+    /**
+     * ¿Se le paso la fecha de entrega y sigue abierto? Es lo unico que el
+     * administrador necesita ver de un vistazo en la lista: lo demas son
+     * fechas, esto es un aviso.
+     */
+    public static function vencido(array $r): bool
+    {
+        $fin = self::fechaFin($r);
+        return $fin !== '' && !self::cerrado($r) && $fin < date('Y-m-d');
+    }
+
+    /** Requerimientos sin asignar todavia: es el numero que urge al admin. */
+    public function sinAsignar(): int
+    {
+        $n = 0;
+        foreach ($this->store->all() as $r) {
+            if (!self::cerrado($r) && !self::asignadosDe($r)) $n++;
+        }
+        return $n;
+    }
+
+    /** Abiertos que tiene encima una persona (lo que suma a su carga). */
+    public function abiertosDe(int $miembroId): int
+    {
+        $n = 0;
+        foreach ($this->store->all() as $r) {
+            if (!self::cerrado($r) && self::tieneAsignado($r, $miembroId)) $n++;
+        }
+        return $n;
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'titulo'      => trim($datos['titulo'] ?? ''),
+            'detalle'     => trim($datos['detalle'] ?? ''),
+            'solicitante' => trim($datos['solicitante'] ?? ''),
+            'prioridad'   => Catalogo::prioridadValida($datos['prioridad'] ?? ''),
+            'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
+            'fecha_fin'   => ProyectoRepo::fecha($datos['fecha_fin'] ?? ''),
+            'estado'      => 'pendiente',
+            'asignados'   => [],
+            'asignado_en' => '',
+            'creado_por'  => (int)($datos['creado_por'] ?? 0),
+            'adjuntos'    => array_values((array)($datos['adjuntos'] ?? [])),
+        ]);
+    }
+
+    public function actualizar(int $id, array $datos): bool
+    {
+        return $this->store->update($id, $datos);
+    }
+
+    /**
+     * Asigna a una o varias personas CON las fechas del encargo: asignar y
+     * poner plazo son la misma decision, asi que se guardan juntas y no en
+     * dos pasos (antes las fechas solo se podian escribir al registrarlo).
+     *
+     * $fechas puede traer 'fecha_inicio' y 'fecha_fin'; la clave que no venga
+     * se deja como estaba. Con la lista de personas vacia vuelve a pendiente.
+     *
+     * Escribe tambien 'asignado_a' en 0 para que no quede el dato viejo (una
+     * sola persona) contradiciendo a la lista nueva.
+     */
+    public function asignar(int $id, array $miembroIds, array $fechas = []): bool
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $miembroIds), fn($n) => $n > 0)));
+        $cambios = [
+            'asignados'   => $ids,
+            'asignado_a'  => 0,
+            'asignado_en' => $ids ? date('Y-m-d H:i') : '',
+            'estado'      => $ids ? 'asignado' : 'pendiente',
+        ];
+        foreach (['fecha_inicio', 'fecha_fin'] as $campo) {
+            if (array_key_exists($campo, $fechas)) {
+                $cambios[$campo] = ProyectoRepo::fecha($fechas[$campo]);
+            }
+        }
+        return $this->store->update($id, $cambios);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $r = $this->buscar($id);
+        if ($r && !empty($r['adjuntos'])) borrarAdjuntos((array)$r['adjuntos']);
         return $this->store->delete($id);
     }
 }
@@ -1198,6 +1393,74 @@ class IntercambioRepo
 /* =========================================================
    Reuniones - videollamadas de Zoom vinculadas a un proyecto.
    ========================================================= */
+/* =========================================================
+   Reuniones fijas (las "dailies")
+
+   El horario que cada equipo ya tiene: "todos los dias a las 9". No son
+   reuniones de verdad (no crean nada en Zoom ni en el calendario, no se
+   invita a nadie): son el cuadro de horarios, para saber a que hora le toca
+   a cada quien. Las escribe su Scrum Master desde el propio horario.
+
+   Se guardan aparte del proyecto a proposito: un equipo tiene VARIAS fijas
+   (la daily, el refinamiento, la retro), asi que no cabian en un campo del
+   proyecto.
+   ========================================================= */
+class ReunionFijaRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('reuniones_fijas');
+    }
+
+    /** Todas, de la mas temprana a la mas tardia: es un horario. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($a['hora'] ?? '', $b['hora'] ?? '')
+            ?: strcmp($a['titulo'] ?? '', $b['titulo'] ?? ''));
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert(self::campos($datos) + ['creador_id' => (int)($datos['creador_id'] ?? 0)]);
+    }
+
+    public function actualizar(int $id, array $datos): bool
+    {
+        return $this->store->update($id, self::campos($datos));
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
+    }
+
+    /** Campos saneados. El titulo por defecto es el caso normal: la daily. */
+    private static function campos(array $d): array
+    {
+        return [
+            'proyecto_id' => max(0, (int)($d['proyecto_id'] ?? 0)),
+            'titulo'      => trim($d['titulo'] ?? '') !== '' ? mb_substr(trim($d['titulo']), 0, 60) : 'Daily',
+            'hora'        => ProyectoRepo::hora($d['hora'] ?? ''),
+            'dias'        => Reuniones::diasValidos($d['dias'] ?? []) ?: [1, 2, 3, 4, 5],
+        ];
+    }
+
+    /** Dias de una fija (nunca vacio: sin dias, un horario no dice nada). */
+    public static function diasDe(array $r): array
+    {
+        return Reuniones::diasValidos($r['dias'] ?? []) ?: [1, 2, 3, 4, 5];
+    }
+}
+
 class ReunionRepo
 {
     private JsonStore $store;

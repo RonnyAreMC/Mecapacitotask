@@ -35,6 +35,9 @@ $accionesDeCualquiera = [
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
+    // El horario de reuniones fijas lo escribe quien lleva cada proyecto (su
+    // Scrum Master o su PO); dentro se comprueba con puedeHorarioDelProyecto().
+    'rfija_crear', 'rfija_editar', 'rfija_eliminar',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -53,6 +56,60 @@ $tareas    = new TareaRepo();
  * Revisa si el proyecto acaba de completarse (100% y con tareas) y, si es
  * la primera vez, avisa al administrador. Si baja de 100%, reinicia el flag.
  */
+/**
+ * Asigna un requerimiento a una o varias personas, con las fechas del
+ * encargo, y avisa por correo a cada una. Devuelve la coletilla para el flash
+ * ('' si la lista quedó vacía, o sea que vuelve a «sin asignar»).
+ */
+/**
+ * Fechas del encargo, ya normalizadas. Una entrega ANTES del inicio es un
+ * error de dedo que no se ve hasta que alguien se queja del plazo, asi que se
+ * corta aqui en vez de guardarlo.
+ */
+function fechasRequerimiento(array $post): array
+{
+    $ini = ProyectoRepo::fecha($post['fecha_inicio'] ?? '');
+    $fin = ProyectoRepo::fecha($post['fecha_fin'] ?? '');
+    if ($ini !== '' && $fin !== '' && $fin < $ini) {
+        redirigir('requerimientos.php', 'La fecha de entrega no puede ser anterior a la de inicio.', 'error');
+    }
+    return ['fecha_inicio' => $ini, 'fecha_fin' => $fin];
+}
+
+function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, MiembroRepo $miembros, array $fechas = []): string
+{
+    $validos = [];
+    foreach ($ids as $id) {
+        if ($m = $miembros->buscar((int)$id)) $validos[(int)$m['id']] = $m;
+    }
+    $repo->asignar($reqId, array_keys($validos), $fechas);
+    if (!$validos) {
+        return '';
+    }
+    $req = $repo->buscar($reqId) ?? [];
+    $avisados = 0;
+    $fallo = '';
+    foreach ($validos as $mid => $m) {
+        // A cada quien se le dice con quien lo comparte: si no, dos personas
+        // se ponen a hacer lo mismo sin saberlo.
+        $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validos, [$mid => true]));
+        $r = Mailer::notificarRequerimiento($req, $m, array_values($otros));
+        if ($r === true) $avisados++;
+        elseif (is_string($r)) $fallo = $r;
+    }
+    $nombres = implode(', ', array_map(fn($m) => explode(' ', trim($m['nombre']))[0], $validos));
+    $cuantos = count($validos);
+    // Con varios destinatarios el aviso puede salir a medias: se dice cuántos
+    $correo = match (true) {
+        $avisados === $cuantos && $cuantos === 1 => ' Le avisamos por correo.',
+        $avisados === $cuantos                   => ' Les avisamos por correo.',
+        $avisados === 0 && $fallo === ''         => ' Avísales tú: el correo del panel no está configurado o no tienen correo registrado.',
+        default => ' Avisados por correo: ' . $avisados . ' de ' . $cuantos
+                 . ($fallo !== '' ? ' (' . $fallo . ')' : '') . '.',
+    };
+    return $nombres . '.' . $correo;
+}
+
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
 {
     $p = $proyectos->buscar($proyectoId);
@@ -237,6 +294,18 @@ function poAnalistaValido(int $id, MiembroRepo $miembros): int
     if ($id <= 0) return 0;
     $m = $miembros->buscar($id);
     return ($m && MiembroRepo::equipoDe($m) === 'analistas') ? $id : 0;
+}
+
+/**
+ * Scrum Master válido para un proyecto: el id solo cuenta si esa persona tiene
+ * el rol de Scrum Master en el panel. Si no, 0 (el proyecto se queda sin SM y
+ * solo el administrador toca su horario).
+ */
+function scrumValido(int $id, MiembroRepo $miembros): int
+{
+    if ($id <= 0) return 0;
+    $m = $miembros->buscar($id);
+    return ($m && ($m['acceso'] ?? '') === 'scrum') ? $id : 0;
 }
 
 /**
@@ -445,6 +514,50 @@ switch ($accion) {
         redirigir('proyecto.php?id=' . $id, ($equipoNuevo
             ? 'Equipo del proyecto actualizado: ' . count($equipoNuevo) . ' persona(s).'
             : 'El proyecto queda abierto a todo el equipo.') . $avisoEquipo);
+
+    /* ---------- Horario de reuniones fijas (las "dailies") ---------- */
+    // Lo escribe el Scrum Master de cada proyecto (y el admin en todos). No
+    // crea nada en Zoom ni en el calendario: es solo el cuadro de horarios.
+
+    case 'rfija_crear':
+        $pidFija = (int)($_POST['proyecto_id'] ?? 0);
+        if (!puedeHorarioDelProyecto($pidFija)) {
+            redirigir('index.php', 'Solo quien lleva ese proyecto (su Scrum Master o su Product Owner) pone su horario.', 'error');
+        }
+        if (ProyectoRepo::hora($_POST['hora'] ?? '') === '') {
+            redirigir('index.php', 'Pon la hora de la reunión.', 'error');
+        }
+        (new ReunionFijaRepo())->crear($_POST + ['creador_id' => (int)(Auth::usuario()['id'] ?? 0)]);
+        redirigir('index.php', 'Reunión añadida al horario.');
+
+    case 'rfija_editar':
+        $fijas = new ReunionFijaRepo();
+        $rf = $fijas->buscar((int)($_POST['id'] ?? 0));
+        if (!$rf) {
+            redirigir('index.php', 'Esa reunión ya no existe.', 'error');
+        }
+        // Puede quien manda en el proyecto de ANTES y en el de después: si no,
+        // se podría mover una reunión ajena a un proyecto propio, o al revés.
+        if (!puedeHorarioDelProyecto((int)$rf['proyecto_id']) || !puedeHorarioDelProyecto((int)($_POST['proyecto_id'] ?? 0))) {
+            redirigir('index.php', 'Esa reunión no es de un proyecto tuyo.', 'error');
+        }
+        if (ProyectoRepo::hora($_POST['hora'] ?? '') === '') {
+            redirigir('index.php', 'Pon la hora de la reunión.', 'error');
+        }
+        $fijas->actualizar((int)$rf['id'], $_POST);
+        redirigir('index.php', 'Horario actualizado.');
+
+    case 'rfija_eliminar':
+        $fijas = new ReunionFijaRepo();
+        $rf = $fijas->buscar((int)($_POST['id'] ?? 0));
+        if (!$rf) {
+            redirigir('index.php', 'Esa reunión ya no existe.', 'error');
+        }
+        if (!puedeHorarioDelProyecto((int)$rf['proyecto_id'])) {
+            redirigir('index.php', 'Esa reunión no es de un proyecto tuyo.', 'error');
+        }
+        $fijas->eliminar((int)$rf['id']);
+        redirigir('index.php', 'Reunión quitada del horario.');
 
     case 'proyecto_editar':
         $id = (int)($_POST['id'] ?? 0);
@@ -1168,6 +1281,52 @@ switch ($accion) {
 
     /* ---------- Miembros ---------- */
 
+    /* ---------- Requerimientos sueltos (solo administrador) ---------- */
+    // (asigna con fechas y avisa; devuelve la coletilla para el flash — '' si
+    //  no se marcó a nadie)
+
+    case 'req_crear':
+        if (trim($_POST['titulo'] ?? '') === '') {
+            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
+        }
+        $fechasReq = fechasRequerimiento($_POST);
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->crear($_POST + ['creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
+        // Se puede asignar de una vez, sin pasar dos veces por el formulario
+        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
+        redirigir('requerimientos.php', $avisoReq === ''
+            ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
+            : 'Requerimiento registrado y asignado a ' . $avisoReq);
+
+    case 'req_asignar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $aviso = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []),
+                                      $miembros, fechasRequerimiento($_POST));
+        if ($aviso === '') {
+            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».', 'info');
+        }
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso);
+
+    case 'req_estado':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
+        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
+
+    case 'req_eliminar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $reqRepo->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
+
     case 'equipo_importar':
         // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.
         // No escribe nada todavía: cargar 20 fichas a ciegas no se deshace.
@@ -1571,7 +1730,7 @@ switch ($accion) {
         if (!$proyectos->buscar($pid)) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
-        if (!puedeGestionar($pid)) {
+        if (!puedeReunionesDelProyecto($pid)) {
             redirigir('proyecto.php?id=' . $pid, 'Solo puedes crear reuniones en tus proyectos.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
@@ -1684,7 +1843,7 @@ switch ($accion) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
         }
         $pid = (int)$reu['proyecto_id'];
-        if (!puedeGestionar($pid)) {
+        if (!puedeReunionesDelProyecto($pid)) {
             redirigir('proyecto.php?id=' . $pid, 'Solo puedes editar reuniones de tus proyectos.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
@@ -1821,7 +1980,7 @@ switch ($accion) {
     case 'reunion_eliminar':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
-        if ($reu && !puedeGestionar((int)$reu['proyecto_id'])) {
+        if ($reu && !puedeReunionesDelProyecto((int)$reu['proyecto_id'])) {
             redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'], 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
         }
         if ($reu) {

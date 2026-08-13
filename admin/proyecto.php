@@ -93,22 +93,37 @@ foreach ($tareas as $t) {
         }
     }
 }
+
+// Los analistas entran en TODOS los proyectos, esten o no en su equipo. No
+// pertenecen a un equipo de desarrollo concreto: van donde hace falta a hacer
+// analisis, documentacion y aceptacion. Darlos de alta proyecto por proyecto
+// solo para poder asignarles algo era papeleo sin sentido — y dejaba fuera
+// hasta al Product Owner de su PROPIO proyecto, que sale de los analistas.
+foreach ($miembros as $mid => $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas' && !isset($delProyecto[$mid])) {
+        $delProyecto[$mid] = $m;
+    }
+}
 uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
 
-// Responsables de tareas: SOLO desarrolladores (los analistas no ejecutan
-// tareas de código, así que no se ofrecen aquí). El filtro y las reuniones sí
-// los incluyen (más abajo), porque en eso sí participan.
-$opcionesAsignar = [];
-foreach ($delProyecto as $m) {
-    if (MiembroRepo::equipoDe($m) === 'analistas') continue;
-    $opcionesAsignar[$m['id']] = $m['nombre'] . ' (@' . $m['git_user'] . ')';
-}
+/**
+ * Etiqueta de una persona en los selectores de tarea. El usuario de Git solo
+ * se pone si lo tiene: los analistas suelen no tenerlo y salia un "(@)" suelto.
+ */
+$etiquetaMiembro = fn(array $m) => trim($m['nombre'])
+    . (trim((string)($m['git_user'] ?? '')) !== '' ? ' (@' . $m['git_user'] . ')' : '');
 
-$opcionesMiembros = [0 => '— Sin asignar —'];
-$opcionesFiltro   = [0 => 'Todo el equipo'];
+// Responsables de tareas: TODO el que participe en el proyecto, analistas
+// incluidos. No todas las tareas son de codigo (analisis, documentacion,
+// pruebas, actas) y dejarlos fuera obligaba a asignarselas a un programador
+// que no las iba a hacer.
+$opcionesAsignar   = [];
+$opcionesMiembros  = [0 => '— Sin asignar —'];
+$opcionesFiltro    = [0 => 'Todo el equipo'];
 $opcionesInvitados = [];
 foreach ($delProyecto as $m) {
-    $opcionesMiembros[$m['id']]  = $m['nombre'] . ' (@' . $m['git_user'] . ')';
+    $opcionesAsignar[$m['id']]   = $etiquetaMiembro($m);
+    $opcionesMiembros[$m['id']]  = $etiquetaMiembro($m);
     $opcionesFiltro[$m['id']]    = $m['nombre'];
     $opcionesInvitados[$m['id']] = $m['nombre'] . (!empty($m['email']) ? ' · ' . $m['email'] : '');
 }
@@ -121,14 +136,25 @@ foreach ($miembros as $m) {
 
 // Analistas, para elegir el Product Owner del proyecto (el PO sale de ahí)
 $opcionesAnalistas = [0 => '— Sin PO —'];
+// Y quienes tienen rol de Scrum Master, para decir cuál manda AQUÍ: el rol es
+// global, pero el horario de reuniones lo pone el SM de cada proyecto.
+$opcionesScrum = [0 => '— Sin Scrum Master —'];
 foreach ($miembros as $m) {
     if (MiembroRepo::equipoDe($m) === 'analistas') {
         $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     }
+    if (($m['acceso'] ?? '') === 'scrum') {
+        $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
 }
+$scrumProyecto = ProyectoRepo::scrumDe($proyecto);
 $poProyecto = ProyectoRepo::poDe($proyecto);
 // Crear/editar tareas: solo el PO, el Scrum Master del proyecto y el admin.
 $puedeTareas = puedeGestionarTareas($id);
+// Reuniones: además del admin y el Scrum Master, el Product Owner del proyecto.
+// No vale la clase .solo-gestor de siempre: esa se apaga por el ROL del panel, y
+// un PO puede entrar como solo lectura y aun así mandar aquí.
+$puedeReuniones = puedeReunionesDelProyecto($id);
 
 // Dependencias: opciones (todas las tareas del proyecto) y mapa por id.
 $tareasPorId = [];
@@ -444,7 +470,20 @@ foreach ($tareas as $t) {
       <span class="tabla-count"><?= count($visibles) ?></span>
     </h2>
     <div class="tabla-filtros">
-      <?php if (!$verComo): ?>
+      <?php if ($verComo): ?>
+      <!-- "Ver como" filtra la lista a las tareas de esa persona, y el aviso
+           vivía solo en la barra lateral: se asignaba una tarea a otro, no
+           aparecía, y parecía que la asignación no había funcionado. El aviso
+           va donde se mira, y se puede quitar desde aquí. -->
+      <a class="filtro-vercomo" href="?id=<?= $id ?>&amp;ver_como=0"
+         title="Volver a tu vista y ver todas las tareas">
+        <i class="fa-solid fa-eye"></i>
+        <!-- El texto va en un solo hijo: si no, el gap del flex mete aire
+             entre el nombre y los dos puntos. -->
+        <span>Viendo como <b><?= e(explode(' ', trim($verComo['nombre']))[0]) ?></b>: solo sus tareas</span>
+        <i class="fa-solid fa-xmark"></i>
+      </a>
+      <?php else: ?>
       <form method="get" class="inline-form">
         <input type="hidden" name="id" value="<?= $id ?>">
         <?php if ($fEstado): ?><input type="hidden" name="estado" value="<?= e($fEstado) ?>"><?php endif; ?>
@@ -484,7 +523,14 @@ foreach ($tareas as $t) {
   </div>
 
   <?php if (empty($visibles)): ?>
-    <?= UI::vacio('fa-clipboard-list', 'Sin tareas aquí', $fEstado || $fAsignado ? 'No hay tareas con esos filtros.' : 'Agrega la primera tarea de este proyecto.') ?>
+    <?= UI::vacio('fa-clipboard-list', 'Sin tareas aquí', match (true) {
+          // Decir CUÁL es el filtro: "no hay tareas con esos filtros" a secas
+          // deja pensando que la tarea que acabas de crear no se guardó.
+          (bool)$verComo => 'Estás viendo el panel como ' . explode(' ', trim($verComo['nombre']))[0]
+                            . ', y aquí solo salen las tareas suyas. Quita «Viendo como» para verlas todas.',
+          $fEstado || $fAsignado => 'No hay tareas con esos filtros.',
+          default => 'Agrega la primera tarea de este proyecto.',
+        }) ?>
   <?php endif; ?>
   <?php if (!empty($visibles)): ?>
   <div class="tabla-scroll">
@@ -746,7 +792,11 @@ foreach ($tareas as $t) {
       <?php
       // Pinta un evento del calendario (tarea con su barra, o reunión). Se usa
       // en la celda y en el desplegable "+N" para no duplicar el HTML.
-      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo) {
+      // $puedeTareas faltaba en el use: dentro del cierre valia null, asi que
+      // el calendario abria SIEMPRE el detalle de solo lectura — ni el admin
+      // podia editar una tarea desde ahi — y ademas PHP avisaba por cada
+      // evento pintado, reventando la rejilla del mes.
+      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo, $puedeTareas) {
           if ($ev['tipo'] === 'tarea') {
               $t = $ev['dato']; $pos = $ev['pos'];
               $esDep = isset($depSolo[(int)$t['id']]);   // ajena, incluida por ser dependencia de una mía
@@ -992,9 +1042,11 @@ foreach ($tareas as $t) {
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
       <?php if ($reunionesOn): ?>
-      <button class="btn-primary btn-meca solo-gestor" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
+      <?php if ($puedeReuniones): ?>
+      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
+      <?php endif; ?>
       <?php else: ?>
       <a class="btn-outline btn-meca btn-sm" href="ajustes.php#tab-reuniones"><i class="fa-solid fa-gear"></i> Configurar reuniones</a>
       <?php endif; ?>
@@ -1087,14 +1139,16 @@ foreach ($tareas as $t) {
               'dias'      => array_map('intval', (array)($r['dias'] ?? [])),
               'hasta'     => (string)($r['hasta'] ?? ''),
           ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
-          <button type="button" class="accion-btn solo-gestor js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
-          <form method="post" action="actions.php" class="inline-form solo-gestor"
+          <?php if ($puedeReuniones): ?>
+          <button type="button" class="accion-btn js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
+          <form method="post" action="actions.php" class="inline-form"
                 data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de <?= $esMeet ? 'Google Calendar' : 'Zoom' ?>."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
             <input type="hidden" name="accion" value="reunion_eliminar">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
             <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
           </form>
+          <?php endif; ?>
         </div>
       </article>
       <?php endforeach; ?>
@@ -1798,7 +1852,12 @@ $comData = json_encode([
         <label class="campo">
           <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
           <?= UI::select('po', $opcionesAnalistas, $poProyecto) ?>
-          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, crea y edita las tareas y pone el horario de reuniones.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-gear"></i> Scrum Master</span>
+          <?= UI::select('scrum', $opcionesScrum, $scrumProyecto) ?>
+          <small class="campo-ayuda">Quién lleva ESTE proyecto. Junto con el Product Owner, es quien pone su horario de reuniones diarias.</small>
         </label>
       </section>
 

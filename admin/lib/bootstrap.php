@@ -368,6 +368,54 @@ function puedeGestionar(int $proyectoId): bool
 }
 
 /**
+ * ¿Es el Scrum Master DE ESTE proyecto (o el administrador)?
+ *
+ * Distinto de puedeGestionar(): aquel se conforma con "tiene el rol scrum y
+ * participa aqui", que es demasiado ancho para lo que manda de verdad —con una
+ * tarea suelta en otro proyecto ya podia tocarlo. Esto exige estar puesto como
+ * Scrum Master de ese proyecto.
+ */
+/** ¿Es el Product Owner de este proyecto? ("ver como" contesta por esa persona) */
+function esPODelProyecto(int $proyectoId): bool
+{
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p !== null && ProyectoRepo::poDe($p) === (int)$yo['id'];
+}
+
+/**
+ * ¿Puede crear y editar las REUNIONES de este proyecto (las de Zoom/Meet)?
+ *
+ * Lo de siempre —el administrador y el Scrum Master— más el Product Owner del
+ * proyecto: convoca al equipo tanto como el SM, y tenía que pedirle a otro que
+ * agendara sus propias reuniones. Se suma a puedeGestionar() en vez de
+ * sustituirlo para no quitarle permiso a nadie que ya lo tuviera.
+ */
+function puedeReunionesDelProyecto(int $proyectoId): bool
+{
+    return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
+}
+
+function puedeHorarioDelProyecto(int $proyectoId): bool
+{
+    // Con "ver como" activo se contesta por ESA persona. Si no, el panel
+    // enseñaba lo que puede el administrador mientras dice estar mirando con
+    // los ojos de otro, y parecía que la restricción no existía.
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    if (($yo['acceso'] ?? '') === 'admin') return true;
+
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    if ($p === null) return false;
+    // Manda quien LLEVA el proyecto: su Scrum Master y su Product Owner. Son
+    // los dos que convocan al equipo, así que los dos ponen el horario. Basta
+    // con estar puesto como tal: el rol ya se valida al guardar el proyecto.
+    $id = (int)$yo['id'];
+    return ProyectoRepo::scrumDe($p) === $id || ProyectoRepo::poDe($p) === $id;
+}
+
+/**
  * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
  * Master del proyecto y su Product Owner. Los demás participantes ejecutan
  * (mueven sus tareas por el tablero) pero no arman el backlog.
