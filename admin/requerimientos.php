@@ -381,10 +381,11 @@ UI::cabecera(
 </dialog>
 
 <?php if ($soyAdmin): ?>
-<!-- Modal: nuevo requerimiento. Mismo componente que el resto de modales del
-     panel (.dlg-meca + .dlg-form): sin alturas propias ni scrolls a medida,
-     que es de donde salían los huecos en blanco. -->
-<dialog id="dlg-req-nuevo" class="dlg-meca dlg-req-form">
+<!-- Modal: nuevo requerimiento. MISMA estructura que el de derivar (clase
+     .dlg-derivar): alto fijo, el diálogo no scrollea y solo la lista de
+     personas se desplaza por dentro. Los campos van en su propia zona, que
+     scrollea si no cabe. -->
+<dialog id="dlg-req-nuevo" class="dlg-meca dlg-derivar dlg-req-form">
   <form method="post" action="actions.php" class="dlg-form">
     <input type="hidden" name="accion" value="req_crear">
     <header>
@@ -392,41 +393,40 @@ UI::cabecera(
       <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
 
-    <label class="campo"><span>¿Qué piden? *</span>
-      <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
-    </label>
-    <label class="campo"><span>Detalle</span>
-      <textarea class="input-meca" name="detalle" rows="3" placeholder="Contexto, con quién hablar, qué se espera de entrega…"></textarea>
+    <div class="req-campos">
+      <label class="campo"><span>¿Qué piden? *</span>
+        <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
+      </label>
+      <label class="campo"><span>Detalle</span>
+        <textarea class="input-meca" name="detalle" rows="2" placeholder="Contexto, con quién hablar, qué se espera de entrega…"></textarea>
+      </label>
+      <div class="campo-doble">
+        <label class="campo"><span>¿Quién lo pide?</span>
+          <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica">
+        </label>
+        <label class="campo"><span>Prioridad</span>
+          <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida('')) ?>
+        </label>
+      </div>
+      <div class="campo-doble">
+        <label class="campo"><span>Fecha de inicio</span>
+          <input class="input-meca" type="date" name="fecha_inicio">
+        </label>
+        <label class="campo"><span>Fecha de entrega</span>
+          <input class="input-meca" type="date" name="fecha_fin">
+        </label>
+      </div>
+    </div>
+
+    <label class="carga-filtro dv-filtro">
+      <span>Derivar a</span>
+      <?= UI::select('nr_rol', $opcionesRol, '', false, 'js-nr-rol') ?>
     </label>
 
-    <div class="campo-doble">
-      <label class="campo"><span>¿Quién lo pide?</span>
-        <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica">
-      </label>
-      <label class="campo"><span>Prioridad</span>
-        <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida('')) ?>
-      </label>
-    </div>
-    <div class="campo-doble">
-      <label class="campo"><span>Fecha de inicio</span>
-        <input class="input-meca" type="date" name="fecha_inicio">
-      </label>
-      <label class="campo"><span>Fecha de entrega</span>
-        <input class="input-meca" type="date" name="fecha_fin">
-      </label>
-    </div>
-
-    <div class="campo" data-sin-resumen>
-      <span>Derivar a <small>(uno o varios; puedes dejarlo para después)</small></span>
-      <label class="carga-filtro dv-filtro">
-        <span>Rol</span>
-        <?= UI::select('nr_rol', $opcionesRol, '', false, 'js-nr-rol') ?>
-      </label>
-      <?php pickerPersonas($carga, 'asignados[]', 'nr'); ?>
-      <small class="campo-ayuda"><span data-nr-n>0</span> seleccionados · si no marcas a nadie, queda en la bandeja.</small>
-    </div>
+    <?php pickerPersonas($carga, 'asignados[]', 'nr'); ?>
 
     <footer>
+      <span class="dv-pie ajuste-ayuda"><span data-nr-n>0</span> seleccionados · si no marcas a nadie, queda en la bandeja</span>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Registrar</button>
     </footer>
