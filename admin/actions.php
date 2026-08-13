@@ -35,9 +35,6 @@ $accionesDeCualquiera = [
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
-    // Cerrar un requerimiento lo puede hacer quien lo tiene asignado (se
-    // comprueba dentro); registrarlo y derivarlo, solo el administrador.
-    'req_estado',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -56,42 +53,6 @@ $tareas    = new TareaRepo();
  * Revisa si el proyecto acaba de completarse (100% y con tareas) y, si es
  * la primera vez, avisa al administrador. Si baja de 100%, reinicia el flag.
  */
-/**
- * Deriva un requerimiento a una o varias personas y avisa a cada una.
- * Devuelve la coletilla para el flash ('' si la lista quedó vacía, o sea
- * que vuelve a la bandeja).
- */
-function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, MiembroRepo $miembros): string
-{
-    $validos = [];
-    foreach ($ids as $id) {
-        if ($m = $miembros->buscar((int)$id)) $validos[(int)$m['id']] = $m;
-    }
-    $repo->asignar($reqId, array_keys($validos));
-    if (!$validos) {
-        return '';
-    }
-    $req = $repo->buscar($reqId) ?? [];
-    $avisados = 0;
-    $fallo = '';
-    foreach ($validos as $m) {
-        $r = Mailer::notificarRequerimiento($req, $m);
-        if ($r === true) $avisados++;
-        elseif (is_string($r)) $fallo = $r;
-    }
-    $nombres = implode(', ', array_map(fn($m) => explode(' ', trim($m['nombre']))[0], $validos));
-    $cuantos = count($validos);
-    // Con varios destinatarios el aviso puede salir a medias: se dice cuántos
-    $correo = match (true) {
-        $avisados === $cuantos && $cuantos === 1 => ' Le avisamos por correo.',
-        $avisados === $cuantos                   => ' Les avisamos por correo.',
-        $avisados === 0 && $fallo === ''         => ' Avísales tú: el correo del panel no está configurado o no tienen correo registrado.',
-        default => ' Avisados por correo: ' . $avisados . ' de ' . $cuantos
-                 . ($fallo !== '' ? ' (' . $fallo . ')' : '') . '.',
-    };
-    return $nombres . '.' . $correo;
-}
-
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
 {
     $p = $proyectos->buscar($proyectoId);
@@ -1152,54 +1113,6 @@ switch ($accion) {
             : 'Perfil actualizado.');
 
     /* ---------- Miembros ---------- */
-
-    /* ---------- Requerimientos sueltos ---------- */
-    // (deriva y avisa; devuelve la coletilla para el flash — '' si no hay nadie)
-
-    case 'req_crear':
-        if (trim($_POST['titulo'] ?? '') === '') {
-            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
-        }
-        $reqRepo = new RequerimientoRepo();
-        $req = $reqRepo->crear($_POST + ['creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
-        // Se puede derivar de una vez, sin pasar dos veces por el formulario
-        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros);
-        redirigir('requerimientos.php', $avisoReq === ''
-            ? 'Requerimiento registrado. Queda en la bandeja hasta que lo derives.'
-            : 'Requerimiento registrado y derivado a ' . $avisoReq);
-
-    case 'req_asignar':
-        $reqRepo = new RequerimientoRepo();
-        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
-        if (!$req) {
-            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
-        }
-        $aviso = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros);
-        if ($aviso === '') {
-            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a la bandeja, sin derivar.', 'info');
-        }
-        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso);
-
-    case 'req_estado':
-        // Lo cierra el administrador o la persona que lo tiene encima
-        $reqRepo = new RequerimientoRepo();
-        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
-        if (!$req) {
-            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
-        }
-        $miIdReq = (int)(Auth::usuario()['id'] ?? 0);
-        if (!esAdmin() && (int)($req['asignado_a'] ?? 0) !== $miIdReq) {
-            redirigir('requerimientos.php', 'Ese requerimiento no es tuyo.', 'error');
-        }
-        $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
-        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
-        redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
-
-    case 'req_eliminar':
-        $reqRepo = new RequerimientoRepo();
-        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
-        $reqRepo->eliminar((int)($_POST['id'] ?? 0));
-        redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
 
     case 'equipo_importar':
         // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.

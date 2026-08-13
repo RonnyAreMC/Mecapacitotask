@@ -716,28 +716,6 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
     }
 
-    /** Requerimiento suelto que el administrador acaba de derivar a alguien. */
-    public static function notificarRequerimiento(array $req, array $miembro): true|string|null
-    {
-        if (!self::listo() || empty($miembro['email'])) {
-            return null;
-        }
-        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
-        $prioridades = Catalogo::prioridades();
-        $filas = [];
-        if (!empty($req['solicitante']))  $filas['Lo pide']       = e($req['solicitante']);
-        if (isset($prioridades[$req['prioridad'] ?? ''])) $filas['Prioridad'] = e($prioridades[$req['prioridad']][0]);
-        if (!empty($req['fecha_limite'])) $filas['Fecha límite']  = e($req['fecha_limite']);
-
-        $cuerpo = self::encabezado($acento, '&#9679;', 'Te derivaron un requerimiento',
-                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', esto no pertenece a '
-                    . 'ningún proyecto: llegó suelto y te lo asignaron.')
-            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '');
-
-        return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
-            self::plantilla($cuerpo, self::urlPagina('requerimientos.php'), 'Ver en el panel'));
-    }
-
     /* ---------- Registro público ---------- */
 
     /**
