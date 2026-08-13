@@ -132,6 +132,22 @@ function volverAqui(string $defecto): string
     return preg_match('#^[\w.-]+\.php(\?[\w=&%.,+-]*)?$#', $v) ? $v : $defecto;
 }
 
+/**
+ * Coletilla para el flash segun como fue el envio de un correo.
+ *
+ * Callar que el aviso no salio deja a la persona esperando un correo que no
+ * existe: si no se pudo mandar, se dice y se pide avisar a mano.
+ */
+function avisoEnvio(true|string|null $r, string $quien = ''): string
+{
+    $nombre = trim($quien) !== '' ? explode(' ', trim($quien))[0] : 'esa persona';
+    return match (true) {
+        $r === true   => ' Le avisamos por correo.',
+        is_string($r) => ' No salió el correo (' . $r . '): avísale tú a ' . $nombre . '.',
+        default       => ' Avísale tú a ' . $nombre . ': el correo del panel no está configurado o esa ficha no tiene correo.',
+    };
+}
+
 /** Pagina desde la que se envio el formulario (para volver con un error). */
 function paginaOrigen(): string
 {

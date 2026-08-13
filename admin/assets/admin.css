@@ -2628,7 +2628,21 @@ html.dark .ms-trigger { background: var(--c-bg-soft); }
 .ms-sm .ms-trigger { padding: 9px 12px; font-size: .8rem; }
 .ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
 .ms-label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; overflow: hidden; }
-.ms-multi .ms-label { padding: 1px 0; }
+/* Con muchas opciones marcadas, las fichas crecían hacia abajo sin tope y
+   estiraban el modal entero. El campo se queda a tres filas y hace su propio
+   scroll; overscroll-behavior evita que al llegar al final arrastre el modal. */
+.ms-multi .ms-label {
+  padding: 1px 0;
+  align-items: flex-start; align-content: flex-start;
+  max-height: 5.4rem; overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.ms-multi .ms-label::-webkit-scrollbar { width: 6px; }
+.ms-multi .ms-label::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-text-soft) 35%, transparent);
+  border-radius: 99px;
+}
 .ms-label > :not(.ms-chip):not(.ms-ph) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ms-ph { color: var(--c-text-soft); font-weight: 500; }
 .ms-caret { color: var(--c-text-soft); font-size: .72rem; transition: transform .2s ease; flex-shrink: 0; }
@@ -6011,3 +6025,357 @@ html.dark .sidebar .theme-toggle .tt-luna{ color: var(--c-cian) !important; }
 .mc-bar-track{ height:12px; border-radius:7px; background:color-mix(in srgb,var(--c-text) 8%, transparent); overflow:hidden; }
 .mc-bar-fill{ display:block; height:100%; border-radius:7px; min-width:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
 .mc-bar-val{ font-size:.84rem; font-weight:700; color:var(--c-text); min-width:20px; text-align:right; }
+
+/* =========================================================
+   Requerimientos sueltos / bandeja de entrada
+   ========================================================= */
+
+/* Carga del equipo: barras comparables de un vistazo, ordenadas de menos a
+   más. Es lo que el admin mira justo antes de derivar, así que se lee grande:
+   con cuatro columnas los nombres salían cortados y las barras eran hilos. */
+.carga-card { padding: 20px 22px 18px; margin-bottom: 22px; }
+.carga-lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(25rem, 1fr));
+  gap: 4px 26px;
+}
+.carga-fila {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  padding: 9px 10px; border-radius: 14px;
+  transition: background .15s ease;
+}
+/* La paginación esconde filas con [hidden], y un display propio le gana al
+   atributo: sin esto se veían las 23 aunque dijera "1 / 4". */
+.carga-fila[hidden] { display: none; }
+.carga-fila:hover { background: color-mix(in srgb, var(--c-secondary) 7%, transparent); }
+.carga-fila .avatar { flex-shrink: 0; }
+
+.carga-info { flex: 1 1 9rem; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.carga-info strong { font-size: .92rem; font-weight: 600; color: var(--c-text); }
+.carga-info small { font-size: .76rem; color: var(--c-text-soft); }
+
+.carga-medida { flex: 0 0 8.5rem; display: flex; flex-direction: column; gap: 5px; }
+.carga-medida small { font-size: .72rem; color: var(--c-text-soft); }
+.carga-barra {
+  height: 9px; border-radius: 99px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  overflow: hidden;
+}
+.carga-barra span {
+  display: block; height: 100%; border-radius: 99px;
+  background: var(--c-secondary);
+  transition: width .3s ease;
+}
+/* Verde = libre, ámbar = a tope. Sirve para elegir sin leer los números. */
+.carga-baja  .carga-barra span { background: var(--c-success); }
+.carga-media .carga-barra span { background: var(--c-secondary); }
+.carga-alta  .carga-barra span { background: var(--c-warning); }
+.carga-n {
+  flex: 0 0 2.2rem; text-align: right;
+  font-size: 1.05rem; font-weight: 800; color: var(--c-text);
+}
+.carga-baja .carga-n { color: var(--c-text-soft); }
+.carga-alta .carga-n { color: var(--c-warning); }
+
+@media (max-width: 620px) {
+  .carga-medida { flex-basis: 6rem; }
+  .carga-info strong { font-size: .86rem; }
+}
+
+.req-bloque { margin-bottom: 26px; }
+.req-titulo {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; color: var(--c-text);
+}
+.req-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(20rem, 1fr)); gap: 14px; }
+
+.req-item {
+  display: flex; flex-direction: column; gap: 9px;
+  padding: 15px 17px;
+  border-radius: 18px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-card);
+  border-left: 4px solid var(--c-text-soft);
+}
+/* Sin derivar = lo que hay que mover; asignado a mí = lo que me toca */
+.req-item.req-pendiente { border-left-color: var(--c-warning); }
+.req-item.req-asignado  { border-left-color: var(--c-secondary); }
+.req-item.req-hecho,
+.req-item.req-descartado { opacity: .62; }
+.req-item.req-hecho     { border-left-color: var(--c-success); }
+.req-item.req-mio {
+  background: color-mix(in srgb, var(--c-secondary) 6%, var(--n-bg));
+}
+
+.req-cab { display: flex; flex-wrap: wrap; align-items: center; gap: 7px; font-size: .74rem; }
+.req-estado, .req-prio, .req-fecha {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text-soft);
+}
+.req-e-pendiente { color: var(--c-warning); }
+.req-e-asignado  { color: var(--c-secondary); }
+.req-e-hecho     { color: var(--c-success); }
+.req-creado {
+  margin-left: auto; flex-shrink: 0;
+  font-size: .72rem; color: var(--c-text-soft); opacity: .85;
+}
+
+.req-item h3 { margin: 0; font-size: .98rem; font-weight: 700; color: var(--c-text); line-height: 1.35; }
+.req-detalle {
+  margin: 0; font-size: .84rem; line-height: 1.55; color: var(--c-text-soft);
+  overflow-wrap: anywhere;
+}
+.req-de { margin: 0; font-size: .78rem; color: var(--c-text-soft); }
+.req-de i { margin-right: 5px; color: var(--c-secondary); }
+
+.req-pie {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 10px; flex-wrap: wrap;
+  margin-top: auto; padding-top: 10px;
+  border-top: 1px solid color-mix(in srgb, var(--c-text-soft) 15%, transparent);
+}
+.req-quien { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--c-text); min-width: 0; }
+.req-libre { color: var(--c-warning); font-weight: 600; }
+.req-libre i { margin-right: 5px; }
+.req-acciones { display: flex; align-items: center; gap: 7px; }
+.req-acciones .inline-form { margin: 0; }
+
+/* Modal de derivar: alto FIJO. Con 23 personas la lista estiraba el modal
+   más allá de la pantalla y había que scrollear el diálogo entero; ahora solo
+   scrollea la lista y la cabecera, el filtro y el pie quedan siempre a la vista. */
+.dlg-derivar {
+  width: min(560px, calc(100vw - 40px));
+  height: min(78dvh, 620px);
+  overflow: hidden;              /* el scroll es de la lista, no del diálogo */
+}
+.dlg-derivar .dlg-form { height: 100%; display: flex; flex-direction: column; gap: 12px; }
+.dlg-derivar header, .dlg-derivar footer, .dlg-derivar .ajuste-ayuda, .dlg-derivar .carga-filtro { flex: none; }
+.dv-lista {
+  flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-right: 4px;            /* que la sombra de la fila no toque la barra */
+}
+.dv-persona {
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 13px; border-radius: 14px; cursor: pointer;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  transition: box-shadow .15s ease, background .15s ease;
+}
+.dv-persona input { position: absolute; opacity: 0; pointer-events: none; }
+.dv-persona:hover { box-shadow: var(--sh-card); }
+.dv-persona:has(input:checked) {
+  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg));
+  box-shadow: 0 0 0 2px var(--c-secondary) inset;
+}
+.dv-datos { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.dv-datos strong { font-size: .9rem; font-weight: 600; color: var(--c-text); }
+.dv-datos small { font-size: .75rem; color: var(--c-text-soft); }
+.dv-carga {
+  flex: 0 0 2.1rem;
+  padding: 4px 8px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .82rem; font-weight: 800; color: var(--c-text-soft); text-align: center;
+}
+/* Mismo código de color que la carga del equipo: verde libre, ámbar a tope */
+.dv-persona.carga-baja  .dv-barra span { background: var(--c-success); }
+.dv-persona.carga-media .dv-barra span { background: var(--c-secondary); }
+.dv-persona.carga-alta  .dv-barra span { background: var(--c-warning); }
+.dv-persona.carga-alta  .dv-carga { color: var(--c-warning); }
+.dv-medida { flex: 0 0 7.5rem; display: flex; flex-direction: column; gap: 4px; }
+.dv-medida small { font-size: .7rem; color: var(--c-text-soft); }
+.dv-barra {
+  display: block; height: 7px; border-radius: 99px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); overflow: hidden;
+}
+.dv-barra span { display: block; height: 100%; border-radius: 99px; background: var(--c-secondary); }
+.dv-datos { flex: 1 1 8rem; }
+.dv-sinav {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--c-text-soft);
+}
+/* El contador de la bandeja no urge tanto como el de solicitudes */
+.nav-badge-fin { background: var(--c-secondary); }
+
+/* Filtro por rol + paginación de la carga (una fila de nueve botones ocupaba
+   más que la lista, así que el filtro es un select y se ven 6 por página) */
+.carga-barra-sup {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 14px; flex-wrap: wrap; margin-bottom: 12px;
+}
+.carga-filtro { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.carga-filtro > span {
+  font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.carga-filtro .select-meca, .carga-filtro .ms-trigger { min-width: 13rem; }
+.carga-pag { display: flex; align-items: center; gap: 8px; font-size: .82rem; color: var(--c-text-soft); }
+.carga-pag .accion-btn:disabled { opacity: .35; cursor: default; }
+.carga-pag [data-pag-txt] { min-width: 3rem; text-align: center; font-weight: 700; }
+/* Lo esconde el filtro del modal, no el estado del dato */
+.dv-persona.filtrado { display: none; }
+
+/* Selección múltiple en el modal de derivar */
+.dv-check {
+  flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: transparent; font-size: .7rem;
+}
+.dv-persona:has(input:checked) .dv-check { background: var(--c-secondary); color: #fff; box-shadow: none; }
+.dv-pie { margin-right: auto; max-width: 15rem; line-height: 1.35; }
+
+/* Modal de nuevo requerimiento: el componente estándar del panel
+   (.dlg-meca + .dlg-form). Lo único propio es el ancho y que la lista de
+   personas tenga su tope; nada de alturas ni scrolls a medida en el diálogo,
+   que es de donde salían los huecos en blanco. */
+.dlg-req-form {
+  width: min(620px, calc(100vw - 40px));
+  /* El que scrollea es el formulario, no el diálogo. Si scrollea el diálogo,
+     los paneles flotantes de los selects (position:fixed, colgados del propio
+     diálogo) alargan su área desplazable y se puede arrastrar hasta una zona
+     sin contenido: el modal se veía en blanco. */
+  max-height: calc(100dvh - 48px);
+  overflow: hidden;
+}
+.dlg-req-form .dlg-form { max-height: calc(100dvh - 48px); overflow-y: auto; overscroll-behavior: contain; }
+.dlg-req-form textarea.input-meca { font-family: inherit; resize: vertical; }
+.dlg-req-form .campo > span small { font-weight: 500; color: var(--c-text-soft); }
+.dlg-req-form [data-picker] { max-height: 15rem; margin-top: 8px; }
+.dv-filtro { margin: 6px 0 2px; }
+
+/* ---------- Lista de requerimientos: filas + ficha ----------
+   Antes cada requerimiento era una tarjeta que intentaba mostrarlo todo
+   (detalle, quién lo pide, fechas, avatares y tres botones) y no se sabía
+   dónde mirar. La lista ahora dice lo justo y el detalle vive en la ficha. */
+.req-lista { display: flex; flex-direction: column; gap: 8px; }
+
+.req-fila {
+  display: flex; align-items: center; gap: 14px; width: 100%;
+  padding: 12px 16px;
+  border: 0; border-left: 4px solid var(--c-text-soft);
+  border-radius: 14px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  font-family: inherit; text-align: left; cursor: pointer;
+  transition: box-shadow .16s ease, transform .06s ease;
+}
+.req-fila:hover { box-shadow: var(--sh-card); }
+.req-fila:active { transform: translateY(1px); }
+.req-fila.req-e-pendiente  { border-left-color: var(--c-warning); }
+.req-fila.req-e-asignado   { border-left-color: var(--c-secondary); }
+.req-fila.req-e-hecho      { border-left-color: var(--c-success); opacity: .72; }
+.req-fila.req-e-descartado { opacity: .6; }
+.req-fila-mia { background: color-mix(in srgb, var(--c-secondary) 7%, var(--n-bg)); }
+
+.req-f-estado {
+  flex: none; width: 32px; height: 32px; border-radius: 10px;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text-soft); font-size: .85rem;
+}
+.req-e-pendiente .req-f-estado { color: var(--c-warning); }
+.req-e-asignado  .req-f-estado { color: var(--c-secondary); }
+.req-e-hecho     .req-f-estado { color: var(--c-success); }
+
+.req-f-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.req-f-txt strong { font-size: .94rem; font-weight: 600; color: var(--c-text); }
+.req-f-txt small { font-size: .76rem; color: var(--c-text-soft); }
+
+.req-f-prio {
+  flex: none; padding: 3px 10px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .72rem; font-weight: 700; color: var(--c-text-soft);
+}
+.req-f-fecha { flex: 0 0 6rem; text-align: right; font-size: .78rem; color: var(--c-text-soft); }
+.req-f-gente { flex: 0 0 5rem; display: flex; justify-content: flex-end; }
+.req-f-mas { color: var(--c-text-soft); font-size: .8rem; flex: none; }
+
+@media (max-width: 820px) {
+  .req-f-prio, .req-f-fecha { display: none; }
+}
+
+/* Ficha del requerimiento */
+.dlg-ficha { width: min(620px, calc(100vw - 40px)); }
+.dlg-ficha .dlg-form { gap: 16px; }
+.fq-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.fq-chip {
+  padding: 4px 11px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .76rem; font-weight: 700; color: var(--c-text-soft);
+}
+.fq-chip.fq-pendiente { color: var(--c-warning); }
+.fq-chip.fq-asignado  { color: var(--c-secondary); }
+.fq-chip.fq-hecho     { color: var(--c-success); }
+.fq-chip.fq-mio { background: color-mix(in srgb, var(--c-secondary) 15%, transparent); color: var(--c-secondary); box-shadow: none; }
+
+.fq-bloque h4 {
+  margin: 0 0 6px;
+  font-size: .72rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.fq-bloque p { margin: 0; font-size: .9rem; line-height: 1.6; color: var(--c-text); overflow-wrap: anywhere; }
+.fq-bloque p.vacio { color: var(--c-text-soft); font-style: italic; }
+
+.fq-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(9rem, 1fr)); gap: 12px; }
+.fq-datos > div { display: flex; flex-direction: column; gap: 2px; }
+.fq-datos span { font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text-soft); }
+.fq-datos b { font-size: .88rem; font-weight: 600; color: var(--c-text); }
+
+.fq-personas { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 8px; }
+.fq-personas li {
+  display: flex; flex-direction: column; line-height: 1.25;
+  padding: 7px 13px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+}
+.fq-personas li b { font-size: .85rem; font-weight: 600; color: var(--c-text); }
+.fq-personas li small { font-size: .72rem; color: var(--c-text-soft); }
+.fq-personas li.vacio { color: var(--c-text-soft); font-style: italic; box-shadow: none; padding-left: 0; }
+
+/* ---------- Resumen en gráficos de Requerimientos ---------- */
+.req-resumen { padding: 20px 22px 18px; margin-bottom: 22px; }
+.req-graficos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(19rem, 1fr));
+  gap: 18px;
+  align-items: stretch;
+}
+/* Cada gráfico en su propia caja: alineados por arriba y separados por una
+   línea. Sueltos en una rejilla, los títulos y las barras no casaban entre
+   columnas y el bloque se leía como un revoltijo. */
+.req-grafico {
+  min-width: 0;
+  display: flex; flex-direction: column;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: color-mix(in srgb, var(--c-secondary) 4%, transparent);
+}
+.req-grafico h3 {
+  margin: 0 0 14px; padding-bottom: 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-text-soft) 18%, transparent);
+  font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+/* Las barras se estiran hasta el pie de su caja para que las tres columnas
+   terminen a la misma altura */
+.req-grafico .mc-bars { flex: 1; justify-content: center; gap: 10px; }
+.req-grafico .mc-donut-wrap { flex: 1; align-items: center; }
+.req-pendiente-nota {
+  margin: 12px 0 0; padding: 8px 12px; border-radius: 11px;
+  background: color-mix(in srgb, var(--c-warning) 10%, transparent);
+  font-size: .8rem; color: var(--c-text);
+}
+.req-pendiente-nota i { color: var(--c-warning); margin-right: 6px; }
+
+/* Barras dentro del resumen de requerimientos: la etiqueta ocupa lo que
+   necesita (los nombres son largos) y la barra el resto, así las tres cajas
+   se leen alineadas entre sí. */
+.req-grafico .mc-bar-row { grid-template-columns: minmax(5rem, 8rem) 1fr 1.4rem; gap: 10px; }
+.req-grafico .mc-bar-track { height: 10px; }
+.req-grafico .mc-bar-lab, .req-grafico .mc-bar-val { font-size: .8rem; }
+.req-grafico .mc-donut { width: 128px; height: 128px; }
+.req-grafico .mc-legend { gap: 7px; }
+.req-grafico .mc-legend li { font-size: .82rem; }

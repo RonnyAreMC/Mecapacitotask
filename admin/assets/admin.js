@@ -2542,3 +2542,136 @@ document.addEventListener('change', (e) => {
     dlg.showModal();
   });
 })();
+
+/* Requerimientos: el modal de derivar se rellena con la tarjeta pulsada
+   (id, título y a quién está asignado ahora, para dejarlo marcado). */
+(() => {
+  const dlg = document.getElementById('dlg-req-derivar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-derivar]');
+    if (!btn) return;
+    dlg.querySelector('#dv-id').value = btn.dataset.derivar;
+    dlg.querySelector('#dv-titulo').textContent = btn.dataset.titulo || '';
+    // Deja marcados a los que ya lo tienen (data-actual = "3,7")
+    const actuales = (btn.dataset.actual || '').split(',').filter(Boolean);
+    dlg.querySelectorAll('input[name="asignados[]"]').forEach(c => {
+      c.checked = actuales.includes(c.value);
+    });
+    contar();
+    dlg.showModal();
+  });
+
+  // Contador del pie: sin marcar a nadie, "Derivar" devuelve a la bandeja
+  const contar = () => {
+    const n = dlg.querySelectorAll('input[name="asignados[]"]:checked').length;
+    const salida = dlg.querySelector('#dv-n');
+    if (salida) salida.textContent = n;
+  };
+  dlg.addEventListener('change', (e) => {
+    if (e.target.name === 'asignados[]') contar();
+  });
+})();
+
+/* Requerimientos: filtro por rol + paginación de la carga del equipo.
+   Con 23 personas la lista se comía la pantalla: se ven 6 por página y el
+   select de rol acota. El filtro del modal de derivar solo esconde filas. */
+(() => {
+  const POR_PAGINA = 6;
+  const lista = document.querySelector('[data-carga-lista]');
+  const pag   = document.querySelector('[data-carga-pag]');
+  const selRol = document.querySelector('.js-carga-rol');
+
+  if (lista && pag) {
+    const filas = [...lista.querySelectorAll('.carga-fila')];
+    const txt   = pag.querySelector('[data-pag-txt]');
+    let rol = '', pagina = 0;
+
+    const pintar = () => {
+      const visibles = filas.filter(f => rol === '' || f.dataset.rol === rol);
+      const paginas  = Math.max(1, Math.ceil(visibles.length / POR_PAGINA));
+      pagina = Math.min(pagina, paginas - 1);
+      const desde = pagina * POR_PAGINA;
+
+      filas.forEach(f => { f.hidden = true; });
+      visibles.slice(desde, desde + POR_PAGINA).forEach(f => { f.hidden = false; });
+
+      pag.hidden = visibles.length <= POR_PAGINA;
+      txt.textContent = `${pagina + 1} / ${paginas}`;
+      pag.querySelector('[data-pag="-1"]').disabled = pagina === 0;
+      pag.querySelector('[data-pag="1"]').disabled  = pagina >= paginas - 1;
+    };
+
+    pag.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-pag]');
+      if (!b || b.disabled) return;
+      pagina += parseInt(b.dataset.pag, 10);
+      pintar();
+    });
+    selRol?.addEventListener('change', () => { rol = selRol.value; pagina = 0; pintar(); });
+    pintar();
+  }
+
+  // Los dos modales (nuevo y derivar) usan el mismo selector de personas:
+  // cada uno filtra SOLO su propia lista, por eso se busca dentro del diálogo.
+  const filtrar = (sel, picker) => {
+    document.querySelectorAll(`[data-picker="${picker}"] .dv-persona`).forEach(fila => {
+      fila.classList.toggle('filtrado', sel.value !== '' && fila.dataset.rol !== sel.value);
+    });
+  };
+  document.querySelector('.js-dv-rol')?.addEventListener('change', function () { filtrar(this, 'dv'); });
+  document.querySelector('.js-nr-rol')?.addEventListener('change', function () { filtrar(this, 'nr'); });
+
+  // Contador de seleccionados del modal de "nuevo requerimiento"
+  const nr = document.querySelector('[data-picker="nr"]');
+  const nrN = document.querySelector('[data-nr-n]');
+  nr?.addEventListener('change', () => {
+    if (nrN) nrN.textContent = nr.querySelectorAll('input:checked').length;
+  });
+})();
+
+/* Requerimientos: la ficha completa se abre al pulsar una fila. La lista solo
+   muestra lo justo; aquí se ve todo y están las acciones. */
+(() => {
+  const dlg = document.getElementById('dlg-req-ficha');
+  if (!dlg) return;
+  const $ = (id) => dlg.querySelector('#' + id);
+
+  document.addEventListener('click', (e) => {
+    const fila = e.target.closest('.req-fila');
+    if (!fila) return;
+    const r = JSON.parse(fila.dataset.req);
+
+    $('fq-titulo').textContent = r.titulo;
+    $('fq-detalle').textContent = r.detalle || 'Sin detalle.';
+    $('fq-detalle').classList.toggle('vacio', !r.detalle);
+    $('fq-solicitante').textContent = r.solicitante || '—';
+    $('fq-inicio').textContent = r.inicio || '—';
+    $('fq-fin').textContent = r.fin || '—';
+    $('fq-creado').textContent = r.creado || '—';
+
+    $('fq-chips').innerHTML =
+      `<span class="fq-chip fq-${r.estado}">${r.estadoTxt}</span>` +
+      (r.prioridad ? `<span class="fq-chip">Prioridad ${r.prioridad}</span>` : '') +
+      (r.mio ? '<span class="fq-chip fq-mio">Es tuyo</span>' : '');
+
+    $('fq-personas').innerHTML = r.personas.length
+      ? r.personas.map(p => `<li><b>${p.nombre}</b><small>${p.rol || ''}</small></li>`).join('')
+      : '<li class="vacio">Todavía no está derivado a nadie.</li>';
+
+    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    // Resolver solo si está abierto y es mío (o soy admin, que lo controla el back)
+    const resolver = $('fq-resolver');
+    if (resolver) resolver.hidden = r.cerrado;
+
+    // "Derivar" reutiliza el modal de siempre, con lo que ya tiene marcado
+    const derivar = $('fq-derivar');
+    if (derivar) {
+      derivar.dataset.derivar = r.id;
+      derivar.dataset.titulo = r.titulo;
+      derivar.dataset.actual = r.asignados;
+      derivar.onclick = () => { dlg.close(); };
+    }
+    dlg.showModal();
+  });
+})();

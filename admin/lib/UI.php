@@ -195,6 +195,22 @@ class UI
     </div>
 
     <?php
+    // Requerimientos sueltos: el administrador los reparte; el resto los ve
+    // como bandeja. El contador marca lo que le toca a cada quien — al admin,
+    // lo que falta derivar; a los demás, lo que tienen encima.
+    $reqRepo = new RequerimientoRepo();
+    $nReq = Auth::esAdmin()
+        ? $reqRepo->sinAsignar()
+        : $reqRepo->abiertosDe((int)(Auth::usuario()['id'] ?? 0));
+    ?>
+    <a href="requerimientos.php" class="sidebar-link <?= $activo === 'requerimientos' ? 'active' : '' ?>"
+       title="<?= Auth::esAdmin() ? 'Requerimientos sueltos' : 'Bandeja de entrada' ?>">
+      <i class="fa-solid fa-inbox"></i>
+      <span class="truncate"><?= Auth::esAdmin() ? 'Requerimientos' : 'Bandeja de entrada' ?></span>
+      <?php if ($nReq): ?><span class="nav-badge nav-badge-fin"><?= $nReq ?></span><?php endif; ?>
+    </a>
+
+    <?php
     // Solicitudes de acceso sin resolver. No cuelgan de un equipo concreto
     // (el admin decide cual al aprobar), asi que el contador va en el titulo
     // de la seccion y no en un equipo cualquiera.
@@ -602,12 +618,58 @@ class UI
         ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.'],
     ];
 
+    public const PASOS_REQUERIMIENTO = [
+        ['Petición', 'Qué están pidiendo',       'El título es lo que verá el equipo en su bandeja.'],
+        ['Plazos',   'Prioridad y fechas',       'Desde cuándo se puede empezar y para cuándo lo esperan.'],
+        ['A quién',  'Elige a los responsables', 'El número de cada persona es lo que ya tiene abierto.'],
+    ];
+
     public const PASOS_PROYECTO = [
         ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
         ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],
         ['Repos',      'Código y estado',         'Enlaza los repositorios para ver la actividad de commits.'],
         ['Aspecto',    'Ícono y color',           'Cómo se distingue el proyecto en el panel.'],
     ];
+
+    /**
+     * Donut SVG a partir de segmentos [[valor, color], ...] con un numero
+     * grande en el centro. Lo usan las metricas personales y el resumen de
+     * requerimientos, para que los graficos del panel se vean iguales.
+     */
+    public static function donut(array $segs, string $centro, string $sub): string
+    {
+        $total = array_sum(array_map(fn($s) => $s[0], $segs));
+        $r = 54; $circ = 2 * M_PI * $r; $off = 0;
+        $svg = '<svg viewBox="0 0 140 140" class="mc-donut" role="img">'
+             . '<circle cx="70" cy="70" r="' . $r . '" fill="none" class="mc-donut-track" stroke-width="15"/>';
+        if ($total > 0) {
+            foreach ($segs as [$v, $col]) {
+                if ($v <= 0) continue;
+                $len = $circ * $v / $total;
+                $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" stroke="' . e($col) . '"'
+                      . ' stroke-width="15" stroke-dasharray="' . round($len, 2) . ' ' . round($circ - $len, 2) . '"'
+                      . ' stroke-dashoffset="' . round(-$off, 2) . '" transform="rotate(-90 70 70)"/>';
+                $off += $len;
+            }
+        }
+        return $svg . '<text x="70" y="68" class="mc-donut-num">' . e($centro) . '</text>'
+             . '<text x="70" y="88" class="mc-donut-sub">' . e($sub) . '</text></svg>';
+    }
+
+    /** Barras horizontales a partir de [[etiqueta, valor, color], ...]. */
+    public static function barras(array $items): string
+    {
+        $vals = array_map(fn($i) => $i[1], $items);
+        $max = $vals ? max(1, max($vals)) : 1;
+        $h = '<div class="mc-bars">';
+        foreach ($items as [$lab, $val, $col]) {
+            $pct = (int)round($val * 100 / $max);
+            $h .= '<div class="mc-bar-row"><span class="mc-bar-lab">' . e($lab) . '</span>'
+                . '<span class="mc-bar-track"><span class="mc-bar-fill" style="width:' . $pct . '%;background:' . e($col) . '"></span></span>'
+                . '<span class="mc-bar-val">' . (int)$val . '</span></div>';
+        }
+        return $h . '</div>';
+    }
 
     /** Riel lateral con la marca del modal y la lista de pasos. */
     public static function wizardRiel(string $icono, string $titulo, string $sub, array $pasos): string
