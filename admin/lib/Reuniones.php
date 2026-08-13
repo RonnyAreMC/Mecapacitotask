@@ -32,6 +32,31 @@ class Reuniones
         7 => ['D', 'Domingo'],
     ];
 
+    /**
+     * Los dias en cristiano: "De lunes a viernes", "Solo los jueves",
+     * "L · X · V". Siete letras con cinco encendidas obligan a descifrar en
+     * cada fila lo que se puede decir de una vez.
+     */
+    public static function diasTexto(array $dias): string
+    {
+        $d = self::diasValidos($dias);
+        return match (true) {
+            !$d                  => 'Sin días',
+            $d === [1,2,3,4,5]   => 'De lunes a viernes',
+            $d === [1,2,3,4,5,6,7] => 'Todos los días',
+            $d === [6,7]         => 'Fines de semana',
+            // "lunes" ya es plural; "sábado" y "domingo" piden la -s
+            count($d) === 1      => 'Solo los ' . self::enPlural(self::DIAS[$d[0]][1]),
+            default              => implode(' · ', array_map(fn($i) => self::DIAS[$i][0], $d)),
+        };
+    }
+
+    private static function enPlural(string $dia): string
+    {
+        $d = mb_strtolower($dia);
+        return mb_substr($d, -1) === 's' ? $d : $d . 's';
+    }
+
     /** Codigo de dia para la RRULE de Google, por dia ISO. */
     private const RRULE_DIAS = [1 => 'MO', 2 => 'TU', 3 => 'WE', 4 => 'TH', 5 => 'FR', 6 => 'SA', 7 => 'SU'];
 

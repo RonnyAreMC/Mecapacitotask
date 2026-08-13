@@ -195,6 +195,38 @@ class UI
     </div>
 
     <?php
+    // Requerimientos sueltos. El administrador tiene el modulo entero, donde
+    // los reparte, y su contador es lo que le falta por asignar. El resto del
+    // equipo tiene su bandeja, y el contador es lo que tiene encima. Con "ver
+    // como" activo se muestra la bandeja de esa persona, que es lo que ella
+    // vería.
+    $reqVerComo = verComo();
+    $reqAdmin   = Auth::esAdmin() && !$reqVerComo;
+    $reqRepoNav = new RequerimientoRepo();
+    if ($reqAdmin) {
+        $reqHref  = 'requerimientos.php';
+        $reqClave = 'requerimientos';
+        $reqTexto = 'Requerimientos';
+        $reqTitle = 'Requerimientos sueltos';
+        $nReq     = $reqRepoNav->sinAsignar();
+        $reqTitleN = $nReq . ' sin asignar todavía';
+    } else {
+        $reqHref  = 'bandeja.php';
+        $reqClave = 'bandeja';
+        $reqTexto = 'Bandeja de entrada';
+        $reqTitle = 'Requerimientos que te asignaron';
+        $nReq     = $reqRepoNav->abiertosDe((int)($reqVerComo['id'] ?? Auth::usuario()['id'] ?? 0));
+        $reqTitleN = $nReq . ' sin cerrar';
+    }
+    ?>
+    <a href="<?= $reqHref ?>" class="sidebar-link <?= $activo === $reqClave ? 'active' : '' ?>"
+       title="<?= e($reqTitle) ?>">
+      <i class="fa-solid fa-inbox"></i>
+      <span class="truncate"><?= e($reqTexto) ?></span>
+      <?php if ($nReq): ?><span class="nav-badge nav-badge-fin" title="<?= e($reqTitleN) ?>"><?= $nReq ?></span><?php endif; ?>
+    </a>
+
+    <?php
     // Solicitudes de acceso sin resolver. No cuelgan de un equipo concreto
     // (el admin decide cual al aprobar), asi que el contador va en el titulo
     // de la seccion y no en un equipo cualquiera.
@@ -602,6 +634,24 @@ class UI
         ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.'],
     ];
 
+    /**
+     * Los dos asistentes de requerimientos comparten el orden de "Nueva
+     * tarea" (qué → quién → cuándo → revisar) para que el administrador no
+     * tenga que aprender dos flujos distintos.
+     */
+    public const PASOS_REQUERIMIENTO = [
+        ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.'],
+        ['Responsables', 'Quién lo saca adelante',  'El número de cada persona es lo que ya tiene abierto: elige a quien esté más libre.'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
+    ];
+
+    public const PASOS_ASIGNAR = [
+        ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.'],
+    ];
+
     public const PASOS_PROYECTO = [
         ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
         ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],
@@ -742,6 +792,7 @@ class UI
         $html .= '<button type="button" class="chip-atajo chip-atajo-off" data-limpiar="1">Sin fecha</button></div>';
         return $html . '<p class="campo-ayuda wz-duracion"></p>';
     }
+
 
     /* ---------- Varios ---------- */
 

@@ -32,10 +32,16 @@ if ($verComo) {
 // Equipo completo, para elegir participantes al crear un proyecto
 $opcionesEquipo = [];
 $opcionesAnalistas = [0 => '— Sin PO —'];
+// Quienes tienen rol de Scrum Master: el del proyecto es el único (además del
+// administrador) que pone su horario de reuniones.
+$opcionesScrum = [0 => '— Sin Scrum Master —'];
 foreach ($miembrosRepo->todos() as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     if (MiembroRepo::equipoDe($m) === 'analistas') {
         $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
+    if (($m['acceso'] ?? '') === 'scrum') {
+        $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     }
 }
 
@@ -53,10 +59,61 @@ UI::cabecera(
         : ($alcance !== null
             ? 'Estos son los proyectos en los que participas.'
             : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.'),
-    '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
+    '<button class="btn-outline btn-meca" onclick="document.getElementById(\'dlg-dailies\').showModal()"
+             title="A qué hora se junta cada equipo">
+       <i class="fa-solid fa-mug-hot"></i> Dailies
+     </button>
+     <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
 );
+
+/* ---------- Horario de reuniones fijas ("dailies") ----------
+   VER lo puede todo el mundo: un cuadro de horarios se comparte, y por eso se
+   listan todos los proyectos y no solo los de cada quien. AÑADIR es otra cosa:
+   solo el Scrum Master de ESE proyecto (y el administrador).
+
+   El horario no sale del proyecto: se escribe aquí, porque un equipo tiene
+   varias fijas (la daily, el refinamiento…) y porque lo que se consulta es la
+   agenda del día, no el listado por proyecto. */
+$hoyIso    = (int)date('N');
+$ahora     = date('H:i');
+$fijasRepo = new ReunionFijaRepo();
+$mapaProy  = [];
+foreach ($proyectosRepo->todos() as $p) {
+    $mapaProy[(int)$p['id']] = $p;
+}
+
+$fijas = [];
+foreach ($fijasRepo->todas() as $r) {
+    $pid = (int)$r['proyecto_id'];
+    if (!isset($mapaProy[$pid])) continue;   // proyecto borrado: la fija ya no dice nada
+    $dias = ReunionFijaRepo::diasDe($r);
+    $hoy  = in_array($hoyIso, $dias, true);
+    $fijas[] = [
+        'r'        => $r,
+        'proyecto' => $mapaProy[$pid],
+        'dias'     => $dias,
+        'hoy'      => $hoy,
+        'pasada'   => $hoy && ($r['hora'] ?? '') < $ahora,
+        'mia'      => puedeHorarioDelProyecto($pid),
+    ];
+}
+
+// La siguiente de hoy: la primera que toca y todavía no ha pasado
+$siguiente = null;
+foreach ($fijas as $f) {
+    if ($f['hoy'] && !$f['pasada']) { $siguiente = $f; break; }
+}
+
+// Proyectos donde ESTA persona puede poner horario (para el formulario):
+// los que lleva como Scrum Master o como Product Owner.
+$misProyectosScrum = [];
+foreach ($mapaProy as $pid => $p) {
+    if (puedeHorarioDelProyecto($pid)) {
+        $misProyectosScrum[$pid] = $p['nombre'];
+    }
+}
 ?>
 
 <section class="stats-grid">
@@ -171,7 +228,12 @@ UI::cabecera(
         <label class="campo">
           <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
           <?= UI::select('po', $opcionesAnalistas, 0) ?>
-          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, crea y edita las tareas y pone el horario de reuniones.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-gear"></i> Scrum Master</span>
+          <?= UI::select('scrum', $opcionesScrum, 0) ?>
+          <small class="campo-ayuda">Quién lleva este proyecto. Junto con el Product Owner, es quien pone su horario de reuniones diarias.</small>
         </label>
       </section>
 
@@ -215,5 +277,7 @@ UI::cabecera(
     </div>
   </form>
 </dialog>
+
+<?php require __DIR__ . '/lib/modal_dailies.php'; ?>
 
 <?php UI::fin(); ?>

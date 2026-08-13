@@ -525,9 +525,11 @@ function actualizarDuracion(form) {
   const txt = form.querySelector('.wz-duracion');
   if (!txt) return;
   const ini = form.querySelector('input[name="fecha_inicio"]')?.value || '';
-  const fin = form.querySelector('input[name="fecha_limite"]')?.value || '';
+  // Las tareas la llaman fecha_limite y los requerimientos fecha_fin: es la
+  // misma fecha de cierre y el aviso vale igual para las dos.
+  const fin = form.querySelector('input[name="fecha_limite"], input[name="fecha_fin"]')?.value || '';
   txt.classList.remove('duracion-mal');
-  if (!ini && !fin) { txt.textContent = 'Sin fechas: la tarea no aparecerá en el calendario.'; return; }
+  if (!ini && !fin) { txt.textContent = 'Sin fechas: no aparecerá en el calendario.'; return; }
   if (!ini || !fin) {
     txt.textContent = ini ? 'Arranca el ' + ini + ', sin fecha límite.' : 'Con fecha límite el ' + fin + ', sin fecha de inicio.';
     return;
@@ -571,7 +573,7 @@ document.addEventListener('click', (e) => {
 // Recalcular el aviso cuando se toca cualquiera de las dos fechas
 document.addEventListener('change', (e) => {
   const inp = e.target;
-  if (inp.name !== 'fecha_inicio' && inp.name !== 'fecha_limite') return;
+  if (!['fecha_inicio', 'fecha_limite', 'fecha_fin'].includes(inp.name)) return;
   const form = inp.closest('form');
   if (form) actualizarDuracion(form);
 });
@@ -2541,4 +2543,173 @@ document.addEventListener('change', (e) => {
     dlg.querySelector('#rc-nombre').textContent = btn.dataset.nombre || '';
     dlg.showModal();
   });
+})();
+
+/* Requerimientos: el selector de personas de los dos asistentes (el de alta,
+   'nr', y el de asignar, 'dv'). Cada uno filtra SOLO su propia lista, lleva su
+   contador y mantiene un espejo con los nombres marcados para que el paso de
+   Revisión los liste: el asistente resume campos, y un montón de casillas no
+   lo es. */
+(() => {
+  const sincronizar = (picker) => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    const marcados = [...lista.querySelectorAll('input:checked')]
+      .map(c => c.closest('.dv-persona')?.dataset.nombre || '');
+    const n = document.querySelector(`[data-picker-n="${picker}"]`);
+    if (n) n.textContent = marcados.length;
+    const espejo = document.querySelector(`[data-picker-resumen="${picker}"]`);
+    if (espejo) espejo.value = marcados.join(', ');
+  };
+
+  ['nr', 'dv'].forEach(picker => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    lista.addEventListener('change', () => sincronizar(picker));
+    document.querySelector(`.js-${picker}-rol`)?.addEventListener('change', function () {
+      lista.querySelectorAll('.dv-persona').forEach(fila => {
+        fila.classList.toggle('filtrado', this.value !== '' && fila.dataset.rol !== this.value);
+      });
+    });
+    sincronizar(picker);
+  });
+
+  /* El asistente de asignar se rellena con el requerimiento pulsado: id,
+     título, quién lo tiene ahora y su plazo actual. Las fechas van rellenas
+     porque asignar y mover el plazo son la misma operación: si salieran
+     vacías, guardar borraría el plazo que ya había. */
+  const dlg = document.getElementById('dlg-req-derivar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-derivar]');
+    if (!btn) return;
+    dlg.querySelector('#dv-id').value = btn.dataset.derivar;
+    dlg.querySelector('#dv-titulo').textContent = btn.dataset.titulo || '';
+    // setFecha (y no .value) porque MecaDate sustituye el input por su propio
+    // selector: sin avisarle, la fecha se guardaría pero no se vería.
+    setFecha(dlg.querySelector('[data-req-fecha="dv-inicio"]'), btn.dataset.inicio);
+    setFecha(dlg.querySelector('[data-req-fecha="dv-fin"]'), btn.dataset.fin);
+    // Deja marcados a los que ya lo tienen (data-actual = "3,7")
+    const actuales = (btn.dataset.actual || '').split(',').filter(Boolean);
+    dlg.querySelectorAll('input[name="asignados[]"]').forEach(c => {
+      c.checked = actuales.includes(c.value);
+    });
+    sincronizar('dv');
+    actualizarDuracion(dlg.querySelector('form'));
+    dlg.showModal();
+  });
+})();
+
+/* Requerimientos: la ficha completa se abre al pulsar una fila. La lista solo
+   muestra lo justo; aquí se ve todo y están las acciones. */
+(() => {
+  const dlg = document.getElementById('dlg-req-ficha');
+  if (!dlg) return;
+  const $ = (id) => dlg.querySelector('#' + id);
+
+  document.addEventListener('click', (e) => {
+    const fila = e.target.closest('.req-fila');
+    if (!fila) return;
+    const r = JSON.parse(fila.dataset.req);
+
+    $('fq-titulo').textContent = r.titulo;
+    $('fq-detalle').textContent = r.detalle || 'Sin detalle.';
+    $('fq-detalle').classList.toggle('vacio', !r.detalle);
+    $('fq-solicitante').textContent = r.solicitante || '—';
+    $('fq-inicio').textContent = r.inicio || '—';
+    $('fq-fin').textContent = r.fin || '—';
+    $('fq-creado').textContent = r.creado || '—';
+
+    $('fq-chips').innerHTML =
+      `<span class="fq-chip fq-${r.estado}">${r.estadoTxt}</span>` +
+      (r.prioridad ? `<span class="fq-chip">Prioridad ${r.prioridad}</span>` : '') +
+      (r.vencido ? '<span class="fq-chip fq-vencido">Pasado de fecha</span>' : '');
+
+    // Los nombres se pintan con textContent: vienen del equipo, pero un
+    // nombre con "<" no tiene por qué romper la ficha.
+    const personas = $('fq-personas');
+    personas.textContent = '';
+    if (r.personas.length) {
+      r.personas.forEach(p => {
+        const li = document.createElement('li');
+        const b = document.createElement('b');
+        b.textContent = p.nombre;
+        const s = document.createElement('small');
+        s.textContent = p.rol || '';
+        li.append(b, s);
+        personas.append(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.className = 'vacio';
+      li.textContent = 'Todavía no está asignado a nadie.';
+      personas.append(li);
+    }
+
+    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    // Cerrarlo solo tiene sentido mientras siga abierto
+    const resolver = $('fq-resolver');
+    if (resolver) resolver.hidden = r.cerrado;
+
+    // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
+    // y con su plazo actual en las fechas
+    const derivar = $('fq-derivar');
+    if (derivar) {
+      derivar.dataset.derivar = r.id;
+      derivar.dataset.titulo = r.titulo;
+      derivar.dataset.actual = r.asignados;
+      derivar.dataset.inicio = r.inicio || '';
+      derivar.dataset.fin = r.fin || '';
+      derivar.onclick = () => { dlg.close(); };
+    }
+    dlg.showModal();
+  });
+})();
+
+/* Horario de reuniones fijas: el mismo formulario sirve para añadir y para
+   editar. Al pulsar el lápiz de una fila se rellena con sus datos y cambia la
+   acción; "Cancelar" lo devuelve a modo alta. Tener dos formularios para lo
+   mismo solo daría dos sitios donde arreglar cada cosa. */
+(() => {
+  const form = document.getElementById('form-rfija');
+  if (!form) return;
+  const $ = (id) => document.getElementById(id);
+
+  const modoAlta = () => {
+    form.classList.remove('editando');
+    $('rf-accion').value = 'rfija_crear';
+    $('rf-id').value = '';
+    $('rf-titulo-form').textContent = 'Añadir al horario';
+    $('rf-guardar').textContent = 'Añadir';
+    $('rf-cancelar').hidden = true;
+    form.reset();
+  };
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rfija-editar]');
+    if (!btn) return;
+    const r = JSON.parse(btn.dataset.rfijaEditar);
+    form.classList.add('editando');
+    $('rf-accion').value = 'rfija_editar';
+    $('rf-id').value = r.id;
+    $('rf-titulo').value = r.titulo;
+    $('rf-hora').value = r.hora;
+    $('rf-titulo-form').textContent = 'Cambiando «' + r.titulo + '»';
+    $('rf-guardar').textContent = 'Guardar';
+    $('rf-cancelar').hidden = false;
+    // El select de proyecto es el personalizado del panel: se le avisa
+    const sel = form.querySelector('select[name="proyecto_id"]');
+    if (sel) {
+      sel.value = String(r.pid);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    form.querySelectorAll('#rf-dias input').forEach((c) => {
+      c.checked = r.dias.includes(parseInt(c.value, 10));
+    });
+    // Desplegar el formulario, que arranca cerrado
+    document.getElementById('det-rfija')?.setAttribute('open', '');
+    form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  $('rf-cancelar')?.addEventListener('click', modoAlta);
 })();
