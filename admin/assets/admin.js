@@ -3178,6 +3178,25 @@ document.addEventListener('change', (e) => {
       const el = document.getElementById(id);
       if (el) el.innerHTML = '<p class="rd-vacio">' + msg + '</p>';
     };
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    /* Cuando solo hay UNA categoría no hay nada que comparar: una dona de una
+       porción es un aro y una barra de una categoría es una raya de lado a
+       lado. En ese caso el número es el gráfico, así que se escribe y ya.
+       Cuando entren más datos, cada uno vuelve solo a su forma. */
+    const cifra = (id, valor, etiqueta, color) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML =
+        '<div class="rd-cifra">' +
+          '<b>' + esc(valor) + '</b>' +
+          '<span>' +
+            (color ? '<i class="rd-punto" style="background:' + esc(color) + '"></i>' : '') +
+            esc(etiqueta) +
+          '</span>' +
+        '</div>';
+    };
     const pintar = (id, opts) => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -3196,7 +3215,9 @@ document.addEventListener('change', (e) => {
        barra entera mide el total, así que ya no hace falta la etiqueta "1/3"
        encima de una barra que medía otra cosa. */
     const inst = D.inst || [];
-    if (inst.length) {
+    if (inst.length === 1) {
+      cifra('rd-inst', inst[0].cumplidos + '/' + inst[0].total, 'cumplidos en ' + inst[0].nombre, inst[0].color);
+    } else if (inst.length) {
       pintar('rd-inst', {
         ...base,
         chart: { ...base.chart, type: 'bar', stacked: true, height: altoBarras(inst.length, 104) },
@@ -3224,10 +3245,12 @@ document.addEventListener('change', (e) => {
 
     /* 2) Reparto por institución. Único gráfico donde manda el color propio
        de cada institución, porque aquí el dato ES la institución. */
-    if (inst.length) {
+    if (inst.length === 1) {
+      cifra('rd-inst-dona', inst[0].total, 'todos de ' + inst[0].nombre, inst[0].color);
+    } else if (inst.length) {
       pintar('rd-inst-dona', {
         ...base,
-        chart: { ...base.chart, type: 'donut', height: 300 },
+        chart: { ...base.chart, type: 'donut', height: 260 },
         series: inst.map((i) => i.total),
         labels: inst.map((i) => i.nombre),
         colors: inst.map((i) => i.color || P.serie),
@@ -3247,11 +3270,15 @@ document.addEventListener('change', (e) => {
        asignar → en curso → cerrado), así que van en una rampa de un solo
        tono: el orden se lee por lo oscuro, no por el tono. */
     const sit = (D.sit || []).filter((s) => s[1] > 0);
-    if (sit.length) {
-      const orden = ['Sin asignar', 'En curso', 'Cerrados'];
+    const ordenSit = ['Sin asignar', 'En curso', 'Cerrados'];
+    if (sit.length === 1) {
+      cifra('rd-sit', sit[0][1], 'todos en "' + sit[0][0] + '"',
+            P.situacion[Math.max(0, ordenSit.indexOf(sit[0][0]))]);
+    } else if (sit.length) {
+      const orden = ordenSit;
       pintar('rd-sit', {
         ...base,
-        chart: { ...base.chart, type: 'donut', height: 300 },
+        chart: { ...base.chart, type: 'donut', height: 260 },
         series: sit.map((s) => s[1]),
         labels: sit.map((s) => s[0]),
         colors: sit.map((s) => P.situacion[Math.max(0, orden.indexOf(s[0]))]),
@@ -3270,7 +3297,10 @@ document.addEventListener('change', (e) => {
     /* 4) Por prioridad. Era un radial de tres anillos que no se podía
        comparar: tres barras sobre la misma línea se leen de un vistazo. */
     const prio = (D.prio || []).filter((p) => p[1] > 0);
-    if (prio.length) {
+    if (prio.length === 1) {
+      cifra('rd-prio', prio[0][1], 'todos de prioridad ' + prio[0][0].toLowerCase(),
+            P.prioridad[prio[0][0]] || P.serie);
+    } else if (prio.length) {
       pintar('rd-prio', {
         ...base,
         chart: { ...base.chart, type: 'bar', height: altoBarras(prio.length) },
@@ -3291,10 +3321,12 @@ document.addEventListener('change', (e) => {
        tarjeta vacía, así que hasta el tercer mes se cuentan en columnas. */
     const meses = D.meses || [];
     const hayTendencia = meses.length >= 3;
-    if (meses.length) {
+    if (meses.length === 1) {
+      cifra('rd-meses', meses[0][1], 'recibidos en ' + meses[0][0], P.serie);
+    } else if (meses.length) {
       pintar('rd-meses', {
         ...base,
-        chart: { ...base.chart, type: hayTendencia ? 'area' : 'bar', height: 300, zoom: { enabled: false } },
+        chart: { ...base.chart, type: hayTendencia ? 'area' : 'bar', height: 280, zoom: { enabled: false } },
         series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
         colors: [P.serie],
         plotOptions: { bar: {
@@ -3329,7 +3361,9 @@ document.addEventListener('change', (e) => {
     /* 6) Quién los cumplió. Una sola serie, un solo color: pintar cada
        persona de un color distinto no añadía información. */
     const quien = D.quien || [];
-    if (quien.length) {
+    if (quien.length === 1) {
+      cifra('rd-quien', quien[0][1], 'cumplidos por ' + quien[0][0], P.serie);
+    } else if (quien.length) {
       pintar('rd-quien', {
         ...base,
         chart: { ...base.chart, type: 'bar', height: altoBarras(quien.length) },
@@ -3350,7 +3384,14 @@ document.addEventListener('change', (e) => {
        total de cada institución y su mezcla, con la misma rampa que el
        gráfico de prioridad. */
     const heat = (D.heat || []).filter((s) => (s.data || []).length);
-    if (heat.length && heat.some((s) => s.data.some((d) => d.y > 0))) {
+    const hayHeat = heat.length && heat.some((s) => s.data.some((d) => d.y > 0));
+    if (hayHeat && heat[0].data.length === 1) {
+      // Una sola institución: cruzarla contra la prioridad no cruza nada.
+      const mezcla = heat.filter((s) => s.data[0].y > 0)
+                         .map((s) => s.data[0].y + ' ' + s.name.toLowerCase());
+      cifra('rd-heat', heat.reduce((a, s) => a + s.data[0].y, 0),
+            heat[0].data[0].x + ' · ' + mezcla.join(', '));
+    } else if (hayHeat) {
       const cats = heat[0].data.map((d) => d.x);
       const totales = cats.map((_, i) => heat.reduce((a, s) => a + (s.data[i] ? s.data[i].y : 0), 0));
       pintar('rd-heat', {
@@ -3380,7 +3421,9 @@ document.addEventListener('change', (e) => {
        bloques enormes de colores que parecían un semáforo. En barras se
        compara de verdad quién lleva más. */
     const carga = D.carga || [];
-    if (carga.length) {
+    if (carga.length === 1) {
+      cifra('rd-carga', carga[0][1], 'abiertos, todos de ' + carga[0][0], P.pendiente);
+    } else if (carga.length) {
       pintar('rd-carga', {
         ...base,
         chart: { ...base.chart, type: 'bar', height: altoBarras(carga.length) },
@@ -3402,16 +3445,19 @@ document.addEventListener('change', (e) => {
       const col = D.pct >= 66 ? P.estado.bien : (D.pct >= 33 ? P.estado.ojo : P.estado.mal);
       pintar('rd-pct', {
         ...base,
-        chart: { ...base.chart, type: 'radialBar', height: 320 },
+        chart: { ...base.chart, type: 'radialBar', height: 270 },
         series: [D.pct],
         labels: ['Cumplimiento'],
         colors: [col],
         fill: { type: 'solid' },
-        stroke: { lineCap: 'round' },
+        // A 0% la punta redondeada deja igualmente su media caña dibujada, y
+        // se ve una pastilla suelta al inicio del canal que no significa nada.
+        stroke: { lineCap: D.pct > 0 ? 'round' : 'butt' },
         plotOptions: {
           radialBar: {
             startAngle: -135, endAngle: 135,
-            hollow: { size: '68%' },
+            // Aro fino: el protagonista es el número del centro, no la rosca.
+            hollow: { size: '76%' },
             track: { background: P.pista, strokeWidth: '100%', margin: 0 },
             dataLabels: {
               name: { color: cMuted, fontSize: '13px', fontWeight: 600, offsetY: 26 },

@@ -3475,13 +3475,40 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .req-dash-card {
   background: var(--n-bg); border-radius: 16px; padding: 14px 14px 6px;
   box-shadow: var(--sh-inset-mini); min-width: 0;
+  /* La rejilla estira todas las tarjetas de la fila a la más alta. En columna,
+     el área del gráfico se queda ese alto sobrante y centra lo que lleve
+     dentro, en vez de dejar el hueco muerto debajo. */
+  display: flex; flex-direction: column;
 }
 .req-dash-card h3 {
   margin: 0 0 6px; font-size: .82rem; font-weight: 700; letter-spacing: .02em;
   color: var(--c-text-muted); text-transform: uppercase;
 }
-.req-dash-chart { min-height: 260px; }
-.rd-vacio { color: var(--c-text-soft); font-style: italic; font-size: .86rem; padding: 40px 8px; text-align: center; }
+.req-dash-chart { min-height: 200px; flex: 1 1 auto; }
+.rd-vacio {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 160px; margin: 0; padding: 20px 8px;
+  color: var(--c-text-soft); font-style: italic; font-size: .86rem; text-align: center;
+}
+
+/* Cifra suelta: lo que se dibuja cuando solo hay una categoría y un gráfico
+   sería una dona de una porción o una barra de lado a lado. Cifras
+   proporcionales (no tabulares): a este tamaño el "11" tabular queda suelto. */
+.rd-cifra {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 190px; height: 100%; padding: 12px;
+  text-align: center;
+}
+.rd-cifra b {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 3rem; font-weight: 700; line-height: 1;
+  color: var(--c-text);
+}
+.rd-cifra span {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: .88rem; font-weight: 600; color: var(--c-text-muted);
+}
+.rd-cifra .rd-punto { width: 9px; height: 9px; border-radius: 999px; flex: none; }
 /* ApexCharts hereda mal algunos colores en oscuro: forzamos texto legible */
 .req-dash-card .apexcharts-text tspan,
 .req-dash-card .apexcharts-legend-text { fill: var(--c-text); color: var(--c-text) !important; }
