@@ -194,10 +194,18 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo): v
              Sin name, así que no se envía; los ids van en asignados[]. -->
         <input type="hidden" data-md="1" data-picker-resumen="<?= e($prefijo) ?>">
 
-        <label class="carga-filtro dv-filtro">
-          <span>Filtrar por rol</span>
-          <?= UI::select($prefijo . '_rol', $opcionesRol, '', false, 'js-' . $prefijo . '-rol') ?>
-        </label>
+        <div class="dv-controles">
+          <label class="dv-buscar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" class="input-meca js-<?= e($prefijo) ?>-buscar" placeholder="Buscar por nombre…" autocomplete="off">
+          </label>
+          <label class="carga-filtro dv-filtro">
+            <span>Filtrar por rol</span>
+            <?= UI::select($prefijo . '_rol', $opcionesRol, '', false, 'js-' . $prefijo . '-rol') ?>
+          </label>
+        </div>
+
+        <p class="dv-sinresultados" data-picker-vacio="<?= e($prefijo) ?>" hidden>Nadie coincide con la búsqueda.</p>
 
         <div class="dv-lista" data-picker="<?= e($prefijo) ?>">
           <?php foreach ($carga as $c):

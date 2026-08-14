@@ -2703,11 +2703,27 @@ document.addEventListener('change', (e) => {
     const lista = document.querySelector(`[data-picker="${picker}"]`);
     if (!lista) return;
     lista.addEventListener('change', () => sincronizar(picker));
-    document.querySelector(`.js-${picker}-rol`)?.addEventListener('change', function () {
+
+    const rolSel = document.querySelector(`.js-${picker}-rol`);
+    const buscar = document.querySelector(`.js-${picker}-buscar`);
+    const vacio  = document.querySelector(`[data-picker-vacio="${picker}"]`);
+    // Filtro combinado: por rol Y por nombre. Una fila se oculta (.filtrado) si
+    // no cumple ambos.
+    const aplicar = () => {
+      const rol = rolSel ? rolSel.value : '';
+      const q = (buscar ? buscar.value : '').trim().toLowerCase();
+      let visibles = 0;
       lista.querySelectorAll('.dv-persona').forEach(fila => {
-        fila.classList.toggle('filtrado', this.value !== '' && fila.dataset.rol !== this.value);
+        const okRol = !rol || fila.dataset.rol === rol;
+        const okQ = !q || (fila.dataset.nombre || '').toLowerCase().includes(q);
+        const oculto = !(okRol && okQ);
+        fila.classList.toggle('filtrado', oculto);
+        if (!oculto) visibles++;
       });
-    });
+      if (vacio) vacio.hidden = visibles > 0;
+    };
+    rolSel?.addEventListener('change', aplicar);
+    buscar?.addEventListener('input', aplicar);
     sincronizar(picker);
   });
 

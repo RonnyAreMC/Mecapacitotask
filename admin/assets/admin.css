@@ -2539,6 +2539,9 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   box-shadow: var(--sh-inset-mini);
   border-radius: 12px;
   color: var(--c-text);
+  /* Los <textarea> caen a fuente monoespaciada por defecto del navegador; se
+     fuerza la del panel para que se vean como el resto de campos. */
+  font-family: inherit;
 }
 /* El aviso de foco va por DENTRO del campo, no como un halo alrededor.
    Alrededor era un box-shadow de 3px hacia fuera, y cualquier contenedor con
@@ -6643,7 +6646,9 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .dlg-ficha footer .inline-form { margin: 0; }
 
 /* Formulario "marcar terminado" (bandeja del responsable): ocupa todo el ancho
-   del pie, con la observación arriba y el botón alineado a la derecha. */
+   del pie, con la observación arriba y el botón alineado a la derecha. El pie
+   envuelve para que "Cerrar" caiga debajo en vez de compartir fila. */
+.dlg-ficha footer:has(.fq-terminar) { flex-wrap: wrap; }
 .dlg-ficha footer .fq-terminar {
   flex: 1 1 100%; display: flex; flex-direction: column; gap: 10px; margin: 0;
 }
@@ -6773,6 +6778,15 @@ html.sb-collapsed .nav-badge-fin {
 .wz-panel > .campo:has(.dv-lista) { flex: 1 1 auto; min-height: 0; }
 .dv-filtro { margin-bottom: 2px; }
 .dv-filtro > span { flex: none; }
+/* Buscador + filtro de rol del selector de personas: en fila, el buscador crece */
+.dv-controles { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.dv-controles .dv-filtro { margin-bottom: 0; }
+.dv-buscar { position: relative; display: flex; align-items: center; flex: 1 1 12rem; min-width: 0; }
+.dv-buscar > i {
+  position: absolute; left: 12px; color: var(--c-text-soft); font-size: .85rem; pointer-events: none;
+}
+.dv-buscar .input-meca { width: 100%; padding-left: 34px; }
+.dv-sinresultados { margin: 2px 0 8px; color: var(--c-text-soft); font-style: italic; font-size: .86rem; }
 /* De qué requerimiento va el asistente de asignar, bajo el título del paso */
 .wz-sobre { margin: 6px 0 0; font-size: .82rem; color: var(--c-text); }
 
