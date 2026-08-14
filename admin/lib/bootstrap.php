@@ -471,6 +471,9 @@ function alcanceProyectos(): ?array
             if (ProyectoRepo::poDe($p) === $yo) {   // el Product Owner también ve su proyecto
                 $ids[(int)$p['id']] = true;
             }
+            if (ProyectoRepo::scrumDe($p) === $yo) {   // y el Scrum Master que lo lleva
+                $ids[(int)$p['id']] = true;
+            }
         }
         foreach ((new TareaRepo())->todas() as $t) {
             if (TareaRepo::tieneAsignado($t, $yo)) {
