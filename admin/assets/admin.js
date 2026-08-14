@@ -2997,3 +2997,170 @@ document.addEventListener('change', (e) => {
     },
   };
 })();
+
+/* =========================================================
+   Dashboard de requerimientos (ApexCharts). Los datos llegan en
+   window.REQ_DASH desde requerimientos.php; la librería se carga antes que
+   este archivo. Cada gráfico se salta si no hay contenedor o no hay datos.
+   ========================================================= */
+(() => {
+  const D = window.REQ_DASH;
+  if (!D || typeof ApexCharts === 'undefined' || !document.getElementById('rd-inst')) return;
+
+  const css = getComputedStyle(document.documentElement);
+  const v = (n, d) => (css.getPropertyValue(n).trim() || d);
+  const cText = v('--c-text', '#1e2430');
+  const cGrid = v('--c-border', '#e6e9ef');
+  const cSec  = v('--c-secondary', '#1A85FF');
+  const cSucc = v('--c-success', '#1BC059');
+  const cWarn = v('--c-warning', '#E68A00');
+  const cDang = v('--c-danger', '#E63939');
+  const cMuted = v('--c-text-muted', '#9aa4b2');
+  const oscuro = document.documentElement.classList.contains('dark');
+
+  const base = {
+    chart: { fontFamily: 'inherit', foreColor: cText, toolbar: { show: false }, animations: { speed: 500 } },
+    grid: { borderColor: cGrid, strokeDashArray: 4 },
+    dataLabels: { enabled: false },
+    tooltip: { theme: oscuro ? 'dark' : 'light' },
+    legend: { position: 'bottom', labels: { colors: cText } },
+    noData: { text: 'Sin datos todavía', style: { color: cMuted } },
+  };
+  const pintar = (id, opts) => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    try { new ApexCharts(el, opts).render(); } catch (e) { el.innerHTML = '<p class="rd-vacio">No se pudo dibujar el gráfico.</p>'; }
+  };
+
+  // 1) Cumplidos por institución (barras apiladas: cumplidos + pendientes)
+  const inst = (D.inst || []);
+  if (inst.length) {
+    pintar('rd-inst', {
+      ...base,
+      series: [
+        { name: 'Cumplidos', data: inst.map((i) => i.cumplidos) },
+        { name: 'Pendientes', data: inst.map((i) => Math.max(0, i.total - i.cumplidos)) },
+      ],
+      chart: { ...base.chart, type: 'bar', height: 280, stacked: true },
+      colors: [cSucc, cWarn],
+      plotOptions: { bar: { horizontal: false, borderRadius: 5, columnWidth: '55%' } },
+      xaxis: { categories: inst.map((i) => i.nombre) },
+      yaxis: { labels: { formatter: (n) => Math.round(n) } },
+    });
+  } else {
+    document.getElementById('rd-inst').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas todavía.</p>';
+  }
+
+  // 1b) Reparto por institución (dona): cada una en SU color configurado.
+  if (document.getElementById('rd-inst-dona') && inst.length) {
+    pintar('rd-inst-dona', {
+      ...base,
+      series: inst.map((i) => i.total),
+      labels: inst.map((i) => i.nombre),
+      chart: { ...base.chart, type: 'donut', height: 280 },
+      colors: inst.map((i) => i.color || cSec),
+      plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Requerim.', color: cText } } } } },
+    });
+  } else if (document.getElementById('rd-inst-dona')) {
+    document.getElementById('rd-inst-dona').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas.</p>';
+  }
+
+  // 2) Situación de la carga (dona)
+  const sit = (D.sit || []).filter((s) => s[1] > 0);
+  if (sit.length) {
+    pintar('rd-sit', {
+      ...base,
+      series: sit.map((s) => s[1]),
+      labels: sit.map((s) => s[0]),
+      chart: { ...base.chart, type: 'donut', height: 280 },
+      colors: sit.map((s) => ({ 'Sin asignar': cMuted, 'En curso': cSec, 'Cerrados': cSucc }[s[0]] || cSec)),
+      plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total', color: cText } } } } },
+    });
+  } else {
+    document.getElementById('rd-sit').innerHTML = '<p class="rd-vacio">Sin requerimientos.</p>';
+  }
+
+  // 3) Quién los cumplió (barras horizontales)
+  const quien = (D.quien || []);
+  if (quien.length) {
+    pintar('rd-quien', {
+      ...base,
+      series: [{ name: 'Cumplidos', data: quien.map((q) => q[1]) }],
+      chart: { ...base.chart, type: 'bar', height: Math.max(200, quien.length * 42 + 60) },
+      colors: [cSec],
+      plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '60%' } },
+      xaxis: { categories: quien.map((q) => q[0]), labels: { formatter: (n) => Math.round(n) } },
+      legend: { show: false },
+    });
+  } else {
+    document.getElementById('rd-quien').innerHTML = '<p class="rd-vacio">Nadie ha resuelto requerimientos todavía.</p>';
+  }
+
+  // 4) Por prioridad (dona)
+  const prio = (D.prio || []).filter((p) => p[1] > 0);
+  if (prio.length) {
+    pintar('rd-prio', {
+      ...base,
+      series: prio.map((p) => p[1]),
+      labels: prio.map((p) => p[0]),
+      chart: { ...base.chart, type: 'donut', height: 280 },
+      colors: prio.map((p) => ({ Alta: cDang, Media: cWarn, Baja: cSec }[p[0]] || cSec)),
+    });
+  } else {
+    document.getElementById('rd-prio').innerHTML = '<p class="rd-vacio">Sin prioridades registradas.</p>';
+  }
+
+  // 5) Requerimientos entrantes por mes (área)
+  const meses = (D.meses || []);
+  if (document.getElementById('rd-meses') && meses.length) {
+    pintar('rd-meses', {
+      ...base,
+      series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
+      chart: { ...base.chart, type: 'area', height: 300 },
+      colors: [cSec],
+      stroke: { curve: 'smooth', width: 3 },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05 } },
+      xaxis: { categories: meses.map((m) => m[0]) },
+      yaxis: { labels: { formatter: (n) => Math.round(n) } },
+      legend: { show: false },
+    });
+  } else if (document.getElementById('rd-meses')) {
+    document.getElementById('rd-meses').innerHTML = '<p class="rd-vacio">Sin histórico todavía.</p>';
+  }
+
+  // 6) Carga abierta por persona (barras)
+  const carga = (D.carga || []);
+  if (document.getElementById('rd-carga') && carga.length) {
+    pintar('rd-carga', {
+      ...base,
+      series: [{ name: 'Abiertos', data: carga.map((c) => c[1]) }],
+      chart: { ...base.chart, type: 'bar', height: Math.max(220, carga.length * 40 + 60) },
+      colors: [cWarn],
+      plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '58%' } },
+      xaxis: { categories: carga.map((c) => c[0]), labels: { formatter: (n) => Math.round(n) } },
+      legend: { show: false },
+    });
+  } else if (document.getElementById('rd-carga')) {
+    document.getElementById('rd-carga').innerHTML = '<p class="rd-vacio">Nadie tiene requerimientos abiertos.</p>';
+  }
+
+  // 7) % de cumplimiento global (radial)
+  if (document.getElementById('rd-pct') && typeof D.pct === 'number') {
+    pintar('rd-pct', {
+      ...base,
+      series: [D.pct],
+      labels: ['Cumplimiento'],
+      chart: { ...base.chart, type: 'radialBar', height: 300 },
+      colors: [D.pct >= 66 ? cSucc : (D.pct >= 33 ? cWarn : cDang)],
+      plotOptions: {
+        radialBar: {
+          hollow: { size: '62%' },
+          dataLabels: {
+            name: { color: cMuted, fontSize: '13px' },
+            value: { color: cText, fontSize: '30px', fontWeight: 800, formatter: (n) => Math.round(n) + '%' },
+          },
+        },
+      },
+    });
+  }
+})();

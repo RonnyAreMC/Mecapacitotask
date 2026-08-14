@@ -259,7 +259,10 @@ UI::inicio('Requerimientos', 'requerimientos');
 UI::cabecera(
     'Requerimientos <span class="text-secondary">sueltos</span>',
     'Peticiones que no pertenecen a ningún proyecto. Repártelas con su plazo, mirando cuánto tiene encima cada persona.',
-    '<a class="btn-outline btn-meca" href="instituciones.php" title="Catálogo de instituciones">
+    '<a class="btn-outline btn-meca" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
+       <i class="fa-solid fa-chart-column"></i> Panel
+     </a>
+     <a class="btn-outline btn-meca" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> Instituciones
      </a>
      <button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">

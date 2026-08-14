@@ -976,12 +976,21 @@ class InstitucionRepo
         return $this->store->insert([
             'nombre' => trim($d['nombre'] ?? ''),
             'imagen' => trim($d['imagen'] ?? ''),
+            // Color propio de la institución (índice de la paleta o hex custom).
+            // Se usa para identificarla en los gráficos del panel.
+            'color'  => Catalogo::colorEntrada($d),
         ]);
     }
 
     public function actualizar(int $id, array $d): bool
     {
         return $this->store->update($id, $d);
+    }
+
+    /** Color de la institución resuelto a hex, para pintarla en los gráficos. */
+    public static function colorBase(array $i): string
+    {
+        return Catalogo::colorDe($i['color'] ?? 0);
     }
 
     public function eliminar(int $id): bool

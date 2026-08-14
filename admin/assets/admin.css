@@ -3400,6 +3400,61 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .req-inst-chip .truncate { min-width: 0; }
 
 /* Métrica por institución (requerimientos.php) */
+/* Dashboard de requerimientos (ApexCharts): rejilla de tarjetas de gráfico. */
+.req-dash { padding: 18px 20px; margin-bottom: 18px; }
+.req-dash-cab { margin-bottom: 14px; }
+.req-dash-cab h2 { display: inline-flex; align-items: center; gap: 9px; margin: 0; font-size: 1.05rem; color: var(--c-text); }
+.req-dash-cab .ajuste-ayuda { margin: 4px 0 0; }
+.req-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.req-dash-card {
+  background: var(--n-bg); border-radius: 16px; padding: 14px 14px 6px;
+  box-shadow: var(--sh-inset-mini); min-width: 0;
+}
+.req-dash-card h3 {
+  margin: 0 0 6px; font-size: .82rem; font-weight: 700; letter-spacing: .02em;
+  color: var(--c-text-muted); text-transform: uppercase;
+}
+.req-dash-chart { min-height: 260px; }
+.rd-vacio { color: var(--c-text-soft); font-style: italic; font-size: .86rem; padding: 40px 8px; text-align: center; }
+/* ApexCharts hereda mal algunos colores en oscuro: forzamos texto legible */
+.req-dash-card .apexcharts-text tspan,
+.req-dash-card .apexcharts-legend-text { fill: var(--c-text); color: var(--c-text) !important; }
+.req-dash-card h3 i { margin-right: 6px; color: var(--c-secondary); }
+
+/* Panel de requerimientos como pantalla aparte: KPIs + rejilla de gráficos */
+.rd-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.rd-kpi {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 15px;
+  background: var(--n-bg); box-shadow: var(--sh-card); border: 1.5px solid var(--c-border-soft);
+}
+.rd-kpi-ico {
+  width: 42px; height: 42px; flex: none; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.05rem;
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary);
+  box-shadow: var(--sh-inset-mini);
+}
+.rd-kpi-datos { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.rd-kpi-datos b { font-size: 1.5rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.rd-kpi-datos small { font-size: .78rem; color: var(--c-text-muted); font-weight: 600; }
+.rd-kpi.kpi-ok .rd-kpi-ico     { background: color-mix(in srgb, var(--c-success) 16%, transparent); color: var(--c-success); }
+.rd-kpi.kpi-info .rd-kpi-ico   { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); }
+.rd-kpi.kpi-alerta .rd-kpi-ico { background: color-mix(in srgb, var(--c-danger) 15%, transparent); color: var(--c-danger); }
+.rd-kpi.kpi-neutro .rd-kpi-ico { background: var(--c-bg-hundido); color: var(--c-text-muted); }
+
+.rd-grid-pagina { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 22px; }
+.rd-grid-pagina .rd-ancho-2 { grid-column: span 2; }
+@media (max-width: 1100px) {
+  .rd-grid-pagina { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .rd-grid-pagina { grid-template-columns: 1fr; }
+  .rd-grid-pagina .rd-ancho-2 { grid-column: span 1; }
+}
+
 .inst-metrica { padding: 16px 18px; margin-bottom: 18px; }
 .inst-metrica-tit { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: .95rem; color: var(--c-text); margin-bottom: 12px; }
 .inst-metrica-tit span { display: inline-flex; align-items: center; gap: 8px; }

@@ -58,7 +58,7 @@ UI::cabecera(
     </div>
     <div class="inst-acciones">
       <button type="button" class="accion-btn" title="Editar"
-        data-editar-inst='<?= e(json_encode(['id' => (int)$i['id'], 'nombre' => $i['nombre'] ?? '', 'imagen' => $i['imagen'] ?? ''], JSON_UNESCAPED_UNICODE)) ?>'>
+        data-editar-inst='<?= e(json_encode(['id' => (int)$i['id'], 'nombre' => $i['nombre'] ?? '', 'imagen' => $i['imagen'] ?? '', 'color' => $i['color'] ?? 0], JSON_UNESCAPED_UNICODE)) ?>'>
         <i class="fa-solid fa-pen"></i>
       </button>
       <form method="post" action="actions.php" class="inline-form"
@@ -91,6 +91,11 @@ UI::cabecera(
         <?= UI::archivo(['name' => 'imagen', 'variante' => 'zona', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
         <small class="campo-ayuda">Se muestra en cada requerimiento de esta institución.</small>
       </div>
+      <div class="campo">
+        <span><i class="fa-solid fa-palette"></i> Color</span>
+        <?= UI::colorPicker(count($instituciones) % count(Catalogo::COLORES)) ?>
+        <small class="campo-ayuda">Identifica a la institución en los gráficos del panel.</small>
+      </div>
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
@@ -119,6 +124,11 @@ UI::cabecera(
         <span>Cambiar logo (opcional)</span>
         <?= UI::archivo(['name' => 'imagen', 'variante' => 'zona', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
       </div>
+      <div class="campo">
+        <span><i class="fa-solid fa-palette"></i> Color</span>
+        <?= UI::colorPicker(null) ?>
+        <small class="campo-ayuda">Identifica a la institución en los gráficos del panel.</small>
+      </div>
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
@@ -137,6 +147,18 @@ document.querySelectorAll('[data-editar-inst]').forEach((btn) => {
     const img = dlg.querySelector('#ie-img'), noimg = dlg.querySelector('#ie-noimg');
     if (d.imagen) { img.src = d.imagen; img.hidden = false; noimg.hidden = true; }
     else { img.hidden = true; noimg.hidden = false; }
+    // Color guardado (índice de la paleta o hex custom) → marcar en el picker
+    const cp = dlg.querySelector('.color-picker');
+    if (cp) {
+      if (String(d.color).startsWith('#')) {
+        const rc = cp.querySelector('input[value="custom"]'); if (rc) rc.checked = true;
+        const ci = cp.querySelector('input[type="color"]'); if (ci) ci.value = d.color;
+      } else {
+        const radio = cp.querySelector('input[value="' + d.color + '"]');
+        if (radio) { radio.checked = true; const mas = radio.closest('details'); if (mas) mas.open = true; }
+      }
+      cp.querySelector('input:checked')?.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     dlg.showModal();
   });
 });

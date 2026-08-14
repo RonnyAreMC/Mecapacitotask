@@ -1433,8 +1433,12 @@ switch ($accion) {
             redirigir('instituciones.php', 'Ponle un nombre a la institución.', 'error');
         }
         (new InstitucionRepo())->crear([
-            'nombre' => $nombreI,
-            'imagen' => guardarFoto('imagen', 'inst_', 'imagen'),
+            'nombre'    => $nombreI,
+            'imagen'    => guardarFoto('imagen', 'inst_', 'imagen'),
+            // El color del formulario (índice de paleta o "custom" + hex) lo
+            // normaliza el propio repo con Catalogo::colorEntrada.
+            'color'     => $_POST['color'] ?? 0,
+            'color_hex' => $_POST['color_hex'] ?? '',
         ]);
         redirigir('instituciones.php', 'Institución «' . $nombreI . '» agregada al catálogo.');
 
@@ -1444,7 +1448,10 @@ switch ($accion) {
         if (!$inst) {
             redirigir('instituciones.php', 'Esa institución ya no existe.', 'error');
         }
-        $cambiosInst = ['nombre' => trim($_POST['nombre'] ?? '')];
+        $cambiosInst = [
+            'nombre' => trim($_POST['nombre'] ?? ''),
+            'color'  => Catalogo::colorEntrada($_POST),
+        ];
         $imgInst = guardarFoto('imagen', 'inst_', 'imagen');
         if ($imgInst !== '') {   // reemplaza la imagen y borra la anterior
             if (!empty($inst['imagen']) && is_file(__DIR__ . '/' . $inst['imagen'])) {
