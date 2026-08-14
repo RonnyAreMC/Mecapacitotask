@@ -110,6 +110,53 @@ function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, M
     return $nombres . '.' . $correo;
 }
 
+/**
+ * UUID de la ocurrencia de $fecha (Y-m-d) de una reunión recurrente, leyendo
+ * las instancias pasadas en Zoom. Devuelve '' y llena $error con un diagnóstico
+ * útil (qué días SÍ tiene Zoom, o el error de la API) cuando no la encuentra.
+ * Tolera ±1 día de desfase por zona horaria.
+ */
+function resolverUuidOcurrencia(array $reu, string $fecha, string &$error): string
+{
+    $error = '';
+    $inst  = Zoom::instancias((string)($reu['zoom_id'] ?? ''));
+    if (($inst['estado'] ?? '') !== 'ok') {
+        $error = 'No se pudieron leer las ocurrencias en Zoom: ' . ($inst['msg'] ?? 'error')
+               . ' — necesita que la reunión se grabara en la nube y los permisos meeting:read y recording:read en la app de Zoom.';
+        return '';
+    }
+    $items = $inst['items'] ?? [];
+    // Coincidencia exacta por fecha; si no, la instancia más cercana (±1 día).
+    $mejor = null; $mejorDif = 2.0;
+    foreach ($items as $it) {
+        if (($it['fecha'] ?? '') === $fecha) return (string)$it['uuid'];
+        $dif = abs((strtotime((string)($it['fecha'] ?? '')) - strtotime($fecha)) / 86400);
+        if ($dif < $mejorDif) { $mejorDif = $dif; $mejor = $it; }
+    }
+    if ($mejor && $mejorDif <= 1.0) return (string)$mejor['uuid'];
+
+    $dias = array_values(array_filter(array_map(fn($i) => (string)($i['fecha'] ?? ''), $items)));
+    $error = $dias
+        ? 'Zoom no tiene una grabación del ' . $fecha . '. Días con grabación en Zoom: ' . implode(', ', $dias) . '.'
+        : 'Zoom todavía no reporta ninguna ocurrencia grabada de esta reunión (aparecen cuando termina de procesarlas, y solo si se grabó en la nube).';
+    return '';
+}
+
+/**
+ * ¿$fecha (Y-m-d) es el ÚLTIMO día ya pasado de la serie? Para ese, Zoom
+ * devuelve la grabación en el endpoint normal de la reunión (sin UUID), así que
+ * se puede recuperar aunque no haya permiso para listar instancias.
+ */
+function esUltimaOcurrencia(array $reu, string $fecha): bool
+{
+    $ocs = Reuniones::fechasOcurrencias((string)($reu['inicio'] ?? ''), (array)($reu['dias'] ?? []), (string)($reu['hasta'] ?? ''));
+    $ultima = '';
+    foreach ($ocs as $oc) {
+        if (strtotime($oc) <= time()) $ultima = substr($oc, 0, 10);
+    }
+    return $ultima !== '' && $ultima === $fecha;
+}
+
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
 {
     $p = $proyectos->buscar($proyectoId);
@@ -2012,13 +2059,15 @@ switch ($accion) {
         $ocurrencia = trim((string)($_POST['ocurrencia'] ?? ''));
         $uuidOc = '';
         if ($ocurrencia !== '' && Reuniones::esRecurrente($reu)) {
-            $inst = Zoom::instancias((string)$reu['zoom_id']);
-            foreach (($inst['items'] ?? []) as $it) {
-                if (($it['fecha'] ?? '') === $ocurrencia) { $uuidOc = $it['uuid']; break; }
+            $errOc  = '';
+            $uuidOc = resolverUuidOcurrencia($reu, $ocurrencia, $errOc);
+            if ($uuidOc === '' && !esUltimaOcurrencia($reu, $ocurrencia)) {
+                // No es el último día y no se pudo resolver su UUID: sin el UUID
+                // no se puede pedir la grabación de un día anterior.
+                redirigir($volver, $errOc, 'info');
             }
-            if ($uuidOc === '') {
-                redirigir($volver, 'Zoom todavía no tiene la grabación de la reunión del ' . $ocurrencia . ' (aparece cuando termina de procesarla).', 'info');
-            }
+            // Si es el último día ya pasado, seguimos con $uuidOc='' y se lee el
+            // endpoint normal de la reunión (Zoom devuelve ahí la última).
         }
 
         $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''), $uuidOc);
@@ -2071,13 +2120,12 @@ switch ($accion) {
         $ocurrenciaT = trim((string)($_POST['ocurrencia'] ?? ''));
         $uuidT = '';
         if ($ocurrenciaT !== '' && Reuniones::esRecurrente($reu)) {
-            $inst = Zoom::instancias((string)$reu['zoom_id']);
-            foreach (($inst['items'] ?? []) as $it) {
-                if (($it['fecha'] ?? '') === $ocurrenciaT) { $uuidT = $it['uuid']; break; }
+            $errT  = '';
+            $uuidT = resolverUuidOcurrencia($reu, $ocurrenciaT, $errT);
+            if ($uuidT === '' && !esUltimaOcurrencia($reu, $ocurrenciaT)) {
+                redirigir($volver, $errT, 'info');
             }
-            if ($uuidT === '') {
-                redirigir($volver, 'Zoom todavía no tiene la transcripción de la reunión del ' . $ocurrenciaT . '.', 'info');
-            }
+            // Último día pasado: se lee el endpoint normal (Zoom da ahí la última).
         }
 
         $tr = Zoom::transcripcion((string)$reu['zoom_id'], $uuidT);

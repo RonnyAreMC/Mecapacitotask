@@ -199,7 +199,13 @@ class Zoom
         if (preg_match('/^\d+$/', $idOuuid)) {
             return '/meetings/' . $idOuuid . '/recordings';
         }
-        return '/meetings/' . rawurlencode(rawurlencode($idOuuid)) . '/recordings';
+        // UUID: Zoom pide DOBLE codificación SOLO si empieza por '/' o lleva
+        // '//'; en el resto, codificación simple. Doble-codificar un UUID normal
+        // (con '=' o '+') lo rompe y la API responde 404.
+        $enc = (str_starts_with($idOuuid, '/') || str_contains($idOuuid, '//'))
+            ? rawurlencode(rawurlencode($idOuuid))
+            : rawurlencode($idOuuid);
+        return '/meetings/' . $enc . '/recordings';
     }
 
     /**
