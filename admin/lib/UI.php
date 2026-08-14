@@ -181,7 +181,7 @@ class UI
            class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
            title="<?= e($p['nombre']) ?>"
            style="--pc:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>">
-          <i class="fa-solid <?= e($p['icono']) ?>"></i>
+          <?= UI::icono($p['icono'] ?? 'FolderOpen') ?>
           <span class="truncate"><?= e($p['nombre']) ?></span>
         </a>
         <?php endforeach; ?>
@@ -252,7 +252,7 @@ class UI
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
-      <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
+      <?= UI::icono('SettingsGear') ?> <span class="truncate">Ajustes</span>
     </a>
     <?php endif; ?>
   </nav>
@@ -889,6 +889,76 @@ class UI
     {
         return '<svg class="ico-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
             . '<path d="M5.60328 4.15504C5.60348 1.85664 7.45992 0.000196182 9.75832 0H16.0347C16.1134 2.78423e-05 16.189 0.0123772 16.2608 0.0337437C16.5369 -0.0469334 16.8377 0.0260256 17.0442 0.232558L23.7674 6.95577C23.9163 7.10463 24 7.30703 24 7.51756V14.4542C24 16.6296 22.2329 18.3967 20.0575 18.3967C19.6191 18.3967 19.264 18.0417 19.264 17.6033C19.264 17.1649 19.6191 16.8099 20.0575 16.8098C21.3561 16.8098 22.4131 15.7528 22.4131 14.4542V8.31099H19.845C18.5402 8.31099 17.4174 8.10408 16.6566 7.34337C15.8959 6.58265 15.689 5.45975 15.689 4.15504V1.58687H9.75832C8.33673 1.58706 7.19035 2.73344 7.19015 4.15504C7.19015 4.59344 6.83512 4.94938 6.39672 4.94938C5.95831 4.94938 5.60328 4.59344 5.60328 4.15504ZM18.3967 16.9311C18.3967 19.2506 17.938 21.0807 16.7077 22.311C15.4775 23.5412 13.6473 24 11.3279 24H7.06886C4.74937 24 2.91926 23.5412 1.68901 22.311C0.458763 21.0807 3.36065e-05 19.2506 0 16.9311V12.6721C3.38416e-05 10.3527 0.458764 8.52254 1.68901 7.29229C2.91926 6.06205 4.74937 5.60332 7.06886 5.60328H10.4314L10.5098 5.60693C10.6914 5.62503 10.8621 5.70565 10.9922 5.83584L18.1642 13.0078C18.313 13.1565 18.3966 13.3582 18.3967 13.5686V16.9311ZM1.58687 16.9311C1.5869 19.094 2.02482 20.4015 2.81167 21.1883C3.59853 21.9752 4.90599 22.4131 7.06886 22.4131H11.3279C13.4907 22.4131 14.7982 21.9752 15.585 21.1883C16.3719 20.4015 16.8098 19.094 16.8098 16.9311V14.363H14.0173C12.6286 14.363 11.4496 14.1418 10.6539 13.3461C9.85816 12.5504 9.63703 11.3714 9.63703 9.98267V7.19015H7.06886C4.90599 7.19018 3.59853 7.6281 2.81167 8.41496C2.02481 9.20181 1.5869 10.5093 1.58687 12.6721V16.9311ZM11.2248 9.98267C11.2248 11.2835 11.4516 11.8985 11.7766 12.2234C12.1015 12.5484 12.7165 12.7752 14.0173 12.7752H15.6872L11.2248 8.31281V9.98267ZM17.2768 4.15504C17.2768 5.3718 17.4894 5.9308 17.7793 6.2207C18.0692 6.5106 18.6282 6.72321 19.845 6.72321H21.2905L17.2768 2.70953V4.15504Z" fill="currentColor"/></svg>';
+    }
+
+    /**
+     * Icono del design system (SVG de la carpeta /Interface). Devuelve el SVG
+     * ya normalizado: color heredado (currentColor), tamaño por CSS (.ico) y sin
+     * IDs de clip que choquen al repetirse. Si el nombre no existe pero es un
+     * "fa-…", cae a Font Awesome, así la migración es gradual y nada se rompe.
+     */
+    public static function icono(string $nombre, string $clase = ''): string
+    {
+        static $cache = [];
+        $mapa = self::mapaIconos();
+        $cls  = trim('ico ' . $clase);
+
+        if (!isset($mapa[$nombre])) {
+            // Compatibilidad: los iconos aún no migrados siguen siendo fa-*
+            if (str_starts_with($nombre, 'fa-')) {
+                return '<i class="fa-solid ' . e($nombre) . ($clase !== '' ? ' ' . e($clase) : '') . '"></i>';
+            }
+            return '';
+        }
+        if (!isset($cache[$nombre])) {
+            $cache[$nombre] = self::normalizarSvg($mapa[$nombre]);
+        }
+        // Inyecta la clase en el <svg> (para tamaño/alineación desde CSS).
+        return preg_replace('/<svg\b/', '<svg class="' . e($cls) . '"', $cache[$nombre], 1);
+    }
+
+    /** Mapa [nombreBase => rutaAbsoluta] de los SVG de /Interface (se cachea). */
+    private static function mapaIconos(): array
+    {
+        static $mapa = null;
+        if ($mapa !== null) {
+            return $mapa;
+        }
+        $mapa = [];
+        foreach (glob(__DIR__ . '/../../Interface/*/*.svg') ?: [] as $f) {
+            $mapa[basename($f, '.svg')] = $f;
+        }
+        return $mapa;
+    }
+
+    /** ¿Existe ese icono en el set del DS? */
+    public static function hayIcono(string $nombre): bool
+    {
+        return isset(self::mapaIconos()[$nombre]);
+    }
+
+    /**
+     * Deja un SVG listo para incrustar varias veces en la página:
+     *  - el color pasa a currentColor (para heredar del texto/estado),
+     *  - se quitan width/height del <svg> (el tamaño lo pone .ico por CSS),
+     *  - se eliminan <defs> y clip-path (evita IDs repetidos que colisionan).
+     */
+    private static function normalizarSvg(string $ruta): string
+    {
+        $svg = @file_get_contents($ruta);
+        if ($svg === false) {
+            return '';
+        }
+        // Color fijo → currentColor
+        $svg = str_ireplace(['fill="#334155"', 'fill="#292D32"'], 'fill="currentColor"', $svg);
+        // Quita <defs>…</defs> y los clip-path (solo unos pocos iconos los traen)
+        $svg = preg_replace('/<defs>.*?<\/defs>/s', '', $svg);
+        $svg = preg_replace('/\sclip-path="[^"]*"/', '', $svg);
+        // Quita width/height del <svg> de apertura (conserva viewBox)
+        $svg = preg_replace_callback('/<svg\b[^>]*>/', function ($m) {
+            return preg_replace('/\s(width|height)="[^"]*"/', '', $m[0]);
+        }, $svg, 1);
+        return trim($svg);
     }
 
     /** Texto de ayuda bajo el selector de asignado. */

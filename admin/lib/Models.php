@@ -31,10 +31,15 @@ final class Catalogo
     ];
 
     /** Iconos disponibles para proyectos */
+    // Iconos del design system (/Interface) que se ofrecen para los proyectos.
+    // Se guarda el NOMBRE del SVG; UI::icono() lo pinta (y cae a Font Awesome
+    // para los proyectos viejos que aún tengan un fa-*).
     public const ICONOS_PROYECTO = [
-        'fa-rocket', 'fa-store', 'fa-graduation-cap', 'fa-cart-shopping',
-        'fa-mobile-screen', 'fa-globe', 'fa-server', 'fa-robot',
-        'fa-truck-fast', 'fa-heart-pulse', 'fa-gamepad', 'fa-chart-line',
+        'Graduation', 'Book', 'ChalkboardTeacher', 'Bank',
+        'Wallet', 'CreditCard', 'Calculator', 'House',
+        'Global', 'Map', 'SuitCase', 'Monitor',
+        'Laptop', 'Task', 'Contracts', 'DocumentCloud',
+        'Settings', 'ShieldTick', 'Bell', 'FolderOpen',
     ];
 
     /**

@@ -350,7 +350,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 <!-- Cabecera del proyecto -->
 <header class="proyecto-hero" style="--pc:<?= $color ?>">
   <div class="ph-barra" title="Avance del proyecto: <?= $avance ?>%"><span style="width:<?= $avance ?>%"></span></div>
-  <i class="fa-solid <?= e($proyecto['icono']) ?> ph-watermark"></i>
+  <?= UI::icono($proyecto['icono'] ?? 'FolderOpen', 'ph-watermark') ?>
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
     <div class="ph-actions">
@@ -376,7 +376,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   </div>
 
   <div class="ph-main">
-    <div class="ph-icon"><i class="fa-solid <?= e($proyecto['icono']) ?>"></i></div>
+    <div class="ph-icon"><?= UI::icono($proyecto['icono'] ?? 'FolderOpen') ?></div>
     <div class="ph-info">
       <div class="ph-badges">
         <?= UI::badgeEstadoProyecto($proyecto['estado']) ?>
@@ -1993,8 +1993,8 @@ $comData = json_encode([
           <div class="icon-picker">
             <?php foreach (Catalogo::iconosProyecto() as $ic): ?>
             <label>
-              <input type="radio" name="icono" value="<?= $ic ?>" <?= $proyecto['icono'] === $ic ? 'checked' : '' ?>>
-              <i class="fa-solid <?= $ic ?>"></i>
+              <input type="radio" name="icono" value="<?= e($ic) ?>" <?= $proyecto['icono'] === $ic ? 'checked' : '' ?>>
+              <?= UI::icono($ic) ?>
             </label>
             <?php endforeach; ?>
           </div>

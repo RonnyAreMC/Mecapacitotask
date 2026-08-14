@@ -454,7 +454,7 @@ UI::cabecera(
         <?php foreach ($proyectosTodos as $p): ?>
         <label class="cs-item">
           <input type="checkbox" name="proyectos[]" value="<?= (int)$p['id'] ?>">
-          <i class="fa-solid <?= e($p['icono'] ?? 'fa-folder') ?>"></i>
+          <?= UI::icono($p['icono'] ?? 'FolderOpen') ?>
           <span class="truncate"><?= e($p['nombre']) ?></span>
         </label>
         <?php endforeach; ?>

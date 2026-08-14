@@ -9,10 +9,12 @@
   /* Variables que en el sitio inyecta SiteSettings; aqui las fijamos */
   --c-primary: var(--c-azul-cobalto);
   --c-primary-rgb: 26, 75, 153;
-  --c-secondary: var(--c-azul-electrico);
-  --c-secondary-rgb: 43, 118, 247;
-  --c-accent: var(--c-amarillo);
-  --c-accent-rgb: 255, 215, 0;
+  /* Acento del panel: VERDE del design system (#1BC059) y verde claro (#63E396).
+     La barra lateral usa su propio azul (#66B2FF), definido más abajo. */
+  --c-secondary: #1BC059;
+  --c-secondary-rgb: 27, 192, 89;
+  --c-accent: #63E396;
+  --c-accent-rgb: 99, 227, 150;
 
   --sidebar-w: 264px;
 
@@ -1018,12 +1020,13 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
 /* Primario: acento plano azul con relieve */
 /* Botón primario (guardar / crear / confirmar) — SIEMPRE en verde */
 .btn-primary.btn-meca {
-  background: var(--c-verde-esmeralda);
+  /* Botón primario del design system: azul marino #000080. */
+  background: #000080;
   color: #fff; font-weight: 700;
   box-shadow:
     var(--clay-pop);
 }
-.btn-primary.btn-meca:hover { background: #1e8f5c; transform: translateY(-1px); }
+.btn-primary.btn-meca:hover { background: #16169e; transform: translateY(-1px); }
 .btn-primary.btn-meca:active { box-shadow: var(--sh-inset-mini); transform: none; }
 
 /* Secundario: superficie neumorfica con texto de acento */
@@ -4341,24 +4344,30 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .sup-tab.active { color: var(--c-secondary); box-shadow: var(--sh-inset-mini); }
 
 /* Selector de iconos */
+/* Icono del design system (SVG /Interface): hereda color (currentColor) y su
+   tamaño es 1em, así lo controla el font-size del contenedor. */
+.ico { display: inline-block; width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+.pac-icon .ico { width: 1.55rem; height: 1.55rem; }
+.ph-icon .ico { width: 2.1rem; height: 2.1rem; }
+
 .icon-picker { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px; }
-.icon-picker label { cursor: pointer; }
 .icon-picker input { display: none; }
-.icon-picker i {
+.icon-picker label {
+  cursor: pointer;
   width: 50px; height: 50px;
   display: inline-flex; align-items: center; justify-content: center;
   border-radius: 14px;
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
   color: var(--c-text-muted);
-  font-size: 1.2rem;
   transition: color .18s ease, box-shadow .18s ease;
 }
-.icon-picker input:checked + i {
+.icon-picker .ico { width: 1.5rem; height: 1.5rem; }
+.icon-picker label:has(input:checked) {
   box-shadow: var(--sh-inset-mini);
   color: var(--c-secondary);
 }
-.icon-picker label:hover i { color: var(--c-secondary); }
+.icon-picker label:hover { color: var(--c-secondary); }
 
 /* Selector de colores (planos) */
 .color-picker { display: flex; flex-wrap: wrap; gap: 10px; padding: 5px; }
@@ -6142,12 +6151,12 @@ img[src$="claude.svg"] {
    blancos, activos SOLO con el icono en verde (sin cajas ni bordes).
    ============================================================ */
 .sidebar, html.dark .sidebar{
-  background: linear-gradient(180deg,#4C97EE 0%,#3A81DF 100%) !important;
+  background: linear-gradient(180deg,#66B2FF 0%,#4FA3F5 100%) !important;
   /* Sin sombra al lado: el corte de color entre el azul y el panel ya separa */
   box-shadow: none !important;
   /* Color al que funde el aviso de "hay mas abajo": el azul del pie de la
      barra, no el fondo del panel (si no, sale una mancha blanca). */
-  --sb-fade: #3B83E0;
+  --sb-fade: #4FA3F5;
 }
 /* Marca (título + subtítulo) sobre la barra azul: el subtítulo usaba el azul
    de marca y quedaba azul-sobre-azul (ilegible). Se unifica en blanco como el
@@ -6171,10 +6180,14 @@ html.sb-collapsed .sidebar-label, html.sb-collapsed.dark .sidebar-label{
   box-shadow:none !important; border:none !important;
 }
 .sidebar .sidebar-link i, html.dark .sidebar .sidebar-link i{ color:#fff !important; }
+/* Iconos SVG del DS en la barra: tamaño uniforme (el color lo heredan del
+   enlace, que es blanco, vía currentColor). */
+.sidebar .sidebar-link .ico{ width: 1.2rem; height: 1.2rem; }
 /* Excepción: cada proyecto del grupo se identifica con SU color configurado
    (el mismo de la pantalla de proyectos), no en blanco. */
-.sidebar .sidebar-link-proyecto i,
-html.dark .sidebar .sidebar-link-proyecto i{ color: var(--pc, #fff) !important; }
+.sidebar .sidebar-link-proyecto i, .sidebar .sidebar-link-proyecto .ico,
+html.dark .sidebar .sidebar-link-proyecto i, html.dark .sidebar .sidebar-link-proyecto .ico{ color: var(--pc, #fff) !important; }
+.sidebar .sidebar-link-proyecto .ico{ width: 1.15rem; height: 1.15rem; }
 /* Hover: leve realce translúcido (afordancia), sin borde neumórfico */
 .sidebar .sidebar-link:hover, html.dark .sidebar .sidebar-link:hover{
   background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
@@ -6189,8 +6202,8 @@ html.dark .sidebar .sidebar-link-proyecto i{ color: var(--pc, #fff) !important; 
 }
 /* Proyecto activo: conserva SU color (el fondo resaltado + la negrita ya
    indican que está activo), no el verde genérico. */
-.sidebar .sidebar-link-proyecto.active i,
-html.dark .sidebar .sidebar-link-proyecto.active i{ color: var(--pc, #2FE486) !important; }
+.sidebar .sidebar-link-proyecto.active i, .sidebar .sidebar-link-proyecto.active .ico,
+html.dark .sidebar .sidebar-link-proyecto.active i, html.dark .sidebar .sidebar-link-proyecto.active .ico{ color: var(--pc, #2FE486) !important; }
 /* Botón "ocultar menú" y flechas en blanco */
 .sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{ color:#fff !important; box-shadow:none !important; }
 .sidebar .sidebar-toggle:hover{ color:#eafff5 !important; }
@@ -6313,6 +6326,9 @@ html.dark .sidebar .cuenta-panel .cuenta-salir:hover i{ color: #ff9d5c !importan
    en oscuro se mantienen claros para poder leerlos. */
 .page-title{ color:#150089 !important; }
 html.dark .page-title{ color:var(--c-text) !important; }
+/* El acento del título de página (p. ej. «InnoTech Hub») va en CELESTE, el
+   mismo azul de la barra lateral, no en el verde de acento general. */
+.page-title .text-secondary, html.dark .page-title .text-secondary{ color:#66B2FF !important; }
 
 /* "Ver como" en la barra celeste: borde translúcido (sin borde azul raro) */
 .sidebar .vc-abrir, html.dark .sidebar .vc-abrir{

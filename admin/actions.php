@@ -649,7 +649,7 @@ switch ($accion) {
             'repo'          => '',
             'repo_frontend' => '',
             'estado'        => $_POST['estado'] ?? 'activo',
-            'icono'         => $_POST['icono'] ?? 'fa-rocket',
+            'icono'         => $_POST['icono'] ?? 'FolderOpen',
             'color'         => Catalogo::colorEntrada($_POST),
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),

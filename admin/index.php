@@ -149,7 +149,7 @@ foreach ($mapaProy as $pid => $p) {
   ?>
   <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">
     <div class="pac-head">
-      <div class="pac-icon"><i class="fa-solid <?= e($p['icono']) ?>"></i></div>
+      <div class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></div>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>
     </div>
     <div class="pac-body">
@@ -254,8 +254,8 @@ foreach ($mapaProy as $pid => $p) {
           <div class="icon-picker">
             <?php foreach (Catalogo::iconosProyecto() as $i => $ic): ?>
             <label>
-              <input type="radio" name="icono" value="<?= $ic ?>" <?= $i === 0 ? 'checked' : '' ?>>
-              <i class="fa-solid <?= $ic ?>"></i>
+              <input type="radio" name="icono" value="<?= e($ic) ?>" <?= $i === 0 ? 'checked' : '' ?>>
+              <?= UI::icono($ic) ?>
             </label>
             <?php endforeach; ?>
           </div>
