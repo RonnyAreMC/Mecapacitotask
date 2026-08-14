@@ -278,16 +278,16 @@ class UI
           <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
         </span>
       </div>
-      <a href="perfil.php" class="sidebar-link <?= $activo === 'perfil' ? 'active' : '' ?>">
-        <i class="fa-solid fa-id-badge"></i> <span class="truncate">Mi perfil</span>
+      <a href="perfil.php" class="sidebar-link cuenta-perfil <?= $activo === 'perfil' ? 'active' : '' ?>">
+        <?= UI::icono('SecurityUser') ?> <span class="truncate">Mi perfil</span>
       </a>
-      <a href="docs.php" class="sidebar-link <?= $activo === 'docs' ? 'active' : '' ?>">
-        <i class="fa-solid fa-book-open"></i> <span class="truncate">Documentación</span>
+      <a href="docs.php" class="sidebar-link cuenta-docs <?= $activo === 'docs' ? 'active' : '' ?>">
+        <?= UI::icono('Book') ?> <span class="truncate">Documentación</span>
       </a>
       <form method="post" action="actions.php" class="cuenta-form">
         <input type="hidden" name="accion" value="auth_logout">
         <button class="sidebar-link cuenta-salir">
-          <i class="fa-solid fa-right-from-bracket"></i> <span class="truncate">Cerrar sesión</span>
+          <?= UI::icono('Door') ?> <span class="truncate">Cerrar sesión</span>
         </button>
       </form>
     </div>

@@ -6236,8 +6236,11 @@ html .sidebar .cuenta-panel .sidebar-link,
 html.dark .sidebar .cuenta-panel .sidebar-link{
   color: var(--c-text) !important; background: transparent !important;
 }
-html .sidebar .cuenta-panel .sidebar-link i,
-html.dark .sidebar .cuenta-panel .sidebar-link i{ color: var(--c-secondary) !important; }
+html .sidebar .cuenta-panel .sidebar-link i, html .sidebar .cuenta-panel .sidebar-link .ico,
+html.dark .sidebar .cuenta-panel .sidebar-link i, html.dark .sidebar .cuenta-panel .sidebar-link .ico{ color: var(--c-secondary) !important; }
+/* Cada opción del menú de cuenta con su color del DS */
+html .sidebar .cuenta-perfil .ico, html.dark .sidebar .cuenta-perfil .ico{ color:#66B2FF !important; }
+html .sidebar .cuenta-docs .ico,   html.dark .sidebar .cuenta-docs .ico{ color: var(--c-secondary) !important; }
 html .sidebar .cuenta-panel .sidebar-link:hover,
 html.dark .sidebar .cuenta-panel .sidebar-link:hover{
   background: color-mix(in srgb, var(--c-secondary) 12%, transparent) !important;
@@ -6252,11 +6255,11 @@ html .sidebar .cuenta-panel .sidebar-link.active i,
 html.dark .sidebar .cuenta-panel .sidebar-link.active i{ color: var(--c-secondary) !important; }
 /* Cerrar sesión: texto apagado pero ÍCONO en rojo (color del DS) */
 html .sidebar .cuenta-panel .cuenta-salir{ color: var(--c-text-muted) !important; }
-html .sidebar .cuenta-panel .cuenta-salir i{ color: var(--c-danger) !important; }
+html .sidebar .cuenta-panel .cuenta-salir i, html .sidebar .cuenta-panel .cuenta-salir .ico{ color: var(--c-danger) !important; }
 html .sidebar .cuenta-panel .cuenta-salir:hover,
-html .sidebar .cuenta-panel .cuenta-salir:hover i{ color: var(--c-danger) !important; }
+html .sidebar .cuenta-panel .cuenta-salir:hover i, html .sidebar .cuenta-panel .cuenta-salir:hover .ico{ color: var(--c-danger) !important; }
 html.dark .sidebar .cuenta-panel .cuenta-salir:hover,
-html.dark .sidebar .cuenta-panel .cuenta-salir:hover i{ color: #ff9d5c !important; }
+html.dark .sidebar .cuenta-panel .cuenta-salir:hover i, html.dark .sidebar .cuenta-panel .cuenta-salir:hover .ico{ color: #ff9d5c !important; }
 
 @media (max-width: 900px) {
   /* Móvil: el menú entero es un panel flotante claro, mismo problema */
