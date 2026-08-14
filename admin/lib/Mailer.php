@@ -599,8 +599,15 @@ class Mailer
             . '<div style="color:#6e6e73;font-size:15px;line-height:1.5;margin-top:12px;">' . $sub . '</div>';
     }
 
-    /** Caja de detalle minimalista con filas etiqueta / valor. */
-    private static function detalle(string $titulo, array $filas, string $desc = ''): string
+    /**
+     * Caja de detalle minimalista con filas etiqueta / valor.
+     *
+     * $descHtml = true cuando $desc es texto enriquecido (descripción de tarea o
+     * detalle de requerimiento): se saneia y se le ponen estilos en línea para
+     * que las TABLAS y el formato se vean bien en el correo. Con false, $desc es
+     * texto plano y se escapa.
+     */
+    private static function detalle(string $titulo, array $filas, string $desc = '', bool $descHtml = false): string
     {
         $rows = '';
         foreach ($filas as $k => $v) {
@@ -609,9 +616,20 @@ class Mailer
                 . '<td class="mc-val" style="padding:5px 0;color:#1d1d1f;font-size:13px;font-weight:600;text-align:right;">' . $v . '</td>'
                 . '</tr>';
         }
+        if ($descHtml) {
+            $acento  = Config::all()['color_secundario'] ?? '#2B76F7';
+            $descHtm = HtmlRico::paraCorreo($desc, $acento);
+            $bloqueDesc = $descHtm !== ''
+                ? '<div style="color:#4b5563;font-size:14px;line-height:1.5;margin-top:8px;">' . $descHtm . '</div>'
+                : '';
+        } else {
+            $bloqueDesc = $desc !== ''
+                ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>'
+                : '';
+        }
         return '<div class="mc-det" style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:16px 18px;">'
             . '<div style="color:#1d1d1f;font-size:16px;font-weight:600;letter-spacing:-.2px;">' . e($titulo) . '</div>'
-            . ($desc !== '' ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>' : '')
+            . $bloqueDesc
             . ($rows !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;">' . $rows . '</table>' : '')
             . '</div>';
     }
@@ -635,7 +653,7 @@ class Mailer
         $acento = Config::all()['color_secundario'] ?? '#2B76F7';
         $cuerpo = self::encabezado($acento, '&#43;', 'Nueva tarea asignada',
                     'Hola ' . e($miembro['nombre']) . ', se te asignó una tarea en ' . e($proyecto['nombre']) . '.')
-            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '', true);
         return self::enviar($miembro['email'], 'Nueva tarea asignada: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
@@ -711,6 +729,42 @@ class Mailer
             . self::detalle($proyecto['nombre'], $filas, $proyecto['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Ahora participas en ' . $proyecto['nombre'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
+    /**
+     * Requerimiento suelto que el administrador acaba de asignar a alguien.
+     *
+     * El modulo de requerimientos es solo del administrador, asi que este
+     * correo es lo UNICO que le llega a quien lo tiene que hacer: va con todo
+     * dentro (plazo, quien lo pide, con quien lo comparte) y sin boton al
+     * panel, que le rebotaria por no tener acceso a esa pagina.
+     *
+     * $companeros son los nombres de los demas responsables, si va a varios.
+     */
+    public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $prioridades = Catalogo::prioridades();
+        $inicio = RequerimientoRepo::fechaInicio($req);
+        $fin    = RequerimientoRepo::fechaFin($req);
+
+        $filas = [];
+        if (!empty($req['solicitante']))  $filas['Lo pide']   = e($req['solicitante']);
+        if (isset($prioridades[$req['prioridad'] ?? ''])) $filas['Prioridad'] = e($prioridades[$req['prioridad']][0]);
+        if ($inicio !== '') $filas['Empieza'] = e($inicio);
+        if ($fin !== '')    $filas['Entrega'] = e($fin);
+        if ($companeros)    $filas['Contigo'] = e(implode(', ', $companeros));
+
+        $cuerpo = self::encabezado($acento, '&#9679;', 'Te asignaron un requerimiento',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', esto no pertenece a '
+                    . 'ningún proyecto: llegó suelto y te lo asignaron.')
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true);
+
+        return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
+            self::plantilla($cuerpo));
     }
 
     /* ---------- Registro público ---------- */
@@ -861,7 +915,7 @@ class Mailer
         $cuando = $dias <= 0 ? 'vence hoy' : ('vence en ' . $dias . ' día' . ($dias === 1 ? '' : 's'));
         $cuerpo = self::encabezado('#ff9500', '!', 'Tarea por vencer',
                     'Hola ' . e($miembro['nombre']) . ', tu tarea ' . $cuando . '.')
-            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '', true);
         return self::enviar($miembro['email'], 'Recordatorio: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }

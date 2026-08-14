@@ -407,17 +407,33 @@ const MecaWizard = {
     form.querySelectorAll('.wz-panel .campo').forEach((campo) => {
       if (campo.hasAttribute('data-sin-resumen')) return;
       const etiqueta = campo.querySelector(':scope > span');
+      if (!etiqueta) return;
+
+      const dt = document.createElement('dt');
+      dt.textContent = etiqueta.textContent.replace('*', '').trim();
+      const dd = document.createElement('dd');
+      const fila = document.createElement('div');
+
+      // Editor de texto enriquecido: se muestra RENDERIZADO (con su tabla y
+      // formato), no como HTML crudo. Es lo mismo que se va a guardar.
+      const rico = campo.querySelector('[data-editor-rico]');
+      if (rico) {
+        const html = (rico.querySelector('.rt-fuente')?.value || '').trim();
+        if (html) { dd.innerHTML = html; dd.classList.add('rt-render', 'wz-rico'); }
+        else { dd.textContent = '— sin definir —'; dd.className = 'vacio'; }
+        fila.classList.add('wz-resumen-bloque');
+        fila.append(dt, dd);
+        caja.appendChild(fila);
+        return;
+      }
+
       // Los campos de fecha quedan como input[type=hidden] tras MecaDate,
       // asi que se reconocen por su marca data-md en vez de por el tipo.
       const ctrl = [...campo.querySelectorAll('select, textarea, input')].find((c) =>
         c.dataset.md !== undefined ||
         !['radio', 'checkbox', 'color', 'hidden', 'submit', 'button'].includes(c.type));
-      if (!etiqueta || !ctrl) return;
+      if (!ctrl) return;
       const valor = this.valorDe(ctrl);
-      const fila = document.createElement('div');
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-      dt.textContent = etiqueta.textContent.replace('*', '').trim();
       dd.textContent = valor || '— sin definir —';
       if (!valor) dd.className = 'vacio';
       fila.append(dt, dd);
@@ -1454,7 +1470,8 @@ function abrirDetalleTarea(t) {
   set('.dt-titulo', t.titulo || '');
 
   const desc = dlg.querySelector('.dt-desc');
-  if (desc) { desc.textContent = t.descripcion || ''; desc.hidden = !t.descripcion; }
+  // La descripción es HTML ya saneado en el servidor (tablas, formato): innerHTML.
+  if (desc) { desc.innerHTML = t.descripcion || ''; desc.hidden = !t.descripcion; }
 
   const chips = dlg.querySelector('.dt-chips');
   if (chips) {
@@ -2137,7 +2154,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     const dlg = document.getElementById('dlg-editar-tarea');
     dlg.querySelector('#et-id').value = t.id;
     dlg.querySelector('#et-titulo').value = t.titulo;
-    dlg.querySelector('#et-descripcion').value = t.descripcion;
+    window.MecaRT.set('et-descripcion', t.descripcion || '');
     setFecha(dlg.querySelector('#et-inicio'), t.fecha_inicio);
     setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
     dlg.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
@@ -2714,4 +2731,292 @@ document.addEventListener('change', (e) => {
     dlg.querySelector('#rc-nombre').textContent = btn.dataset.nombre || '';
     dlg.showModal();
   });
+})();
+
+/* Requerimientos: el selector de personas de los dos asistentes (el de alta,
+   'nr', y el de asignar, 'dv'). Cada uno filtra SOLO su propia lista, lleva su
+   contador y mantiene un espejo con los nombres marcados para que el paso de
+   Revisión los liste: el asistente resume campos, y un montón de casillas no
+   lo es. */
+(() => {
+  const sincronizar = (picker) => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    const marcados = [...lista.querySelectorAll('input:checked')]
+      .map(c => c.closest('.dv-persona')?.dataset.nombre || '');
+    const n = document.querySelector(`[data-picker-n="${picker}"]`);
+    if (n) n.textContent = marcados.length;
+    const espejo = document.querySelector(`[data-picker-resumen="${picker}"]`);
+    if (espejo) espejo.value = marcados.join(', ');
+  };
+
+  ['nr', 'dv'].forEach(picker => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    lista.addEventListener('change', () => sincronizar(picker));
+    document.querySelector(`.js-${picker}-rol`)?.addEventListener('change', function () {
+      lista.querySelectorAll('.dv-persona').forEach(fila => {
+        fila.classList.toggle('filtrado', this.value !== '' && fila.dataset.rol !== this.value);
+      });
+    });
+    sincronizar(picker);
+  });
+
+  /* El asistente de asignar se rellena con el requerimiento pulsado: id,
+     título, quién lo tiene ahora y su plazo actual. Las fechas van rellenas
+     porque asignar y mover el plazo son la misma operación: si salieran
+     vacías, guardar borraría el plazo que ya había. */
+  const dlg = document.getElementById('dlg-req-derivar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-derivar]');
+    if (!btn) return;
+    dlg.querySelector('#dv-id').value = btn.dataset.derivar;
+    dlg.querySelector('#dv-titulo').textContent = btn.dataset.titulo || '';
+    // setFecha (y no .value) porque MecaDate sustituye el input por su propio
+    // selector: sin avisarle, la fecha se guardaría pero no se vería.
+    setFecha(dlg.querySelector('[data-req-fecha="dv-inicio"]'), btn.dataset.inicio);
+    setFecha(dlg.querySelector('[data-req-fecha="dv-fin"]'), btn.dataset.fin);
+    // Deja marcados a los que ya lo tienen (data-actual = "3,7")
+    const actuales = (btn.dataset.actual || '').split(',').filter(Boolean);
+    dlg.querySelectorAll('input[name="asignados[]"]').forEach(c => {
+      c.checked = actuales.includes(c.value);
+    });
+    sincronizar('dv');
+    actualizarDuracion(dlg.querySelector('form'));
+    dlg.showModal();
+  });
+})();
+
+/* Requerimientos: la ficha completa se abre al pulsar una fila. La lista solo
+   muestra lo justo; aquí se ve todo y están las acciones. */
+(() => {
+  const dlg = document.getElementById('dlg-req-ficha');
+  if (!dlg) return;
+  const $ = (id) => dlg.querySelector('#' + id);
+
+  document.addEventListener('click', (e) => {
+    const fila = e.target.closest('.req-fila');
+    if (!fila) return;
+    const r = JSON.parse(fila.dataset.req);
+
+    $('fq-titulo').textContent = r.titulo;
+    // El detalle es HTML ya saneado en el servidor: se inyecta tal cual para
+    // que se vean las tablas y el formato. Vacío → nota en gris.
+    const detEl = $('fq-detalle');
+    if (r.detalle) { detEl.innerHTML = r.detalle; detEl.classList.remove('vacio'); }
+    else { detEl.textContent = 'Sin detalle.'; detEl.classList.add('vacio'); }
+    $('fq-solicitante').textContent = r.solicitante || '—';
+    $('fq-inicio').textContent = r.inicio || '—';
+    $('fq-fin').textContent = r.fin || '—';
+    $('fq-creado').textContent = r.creado || '—';
+
+    $('fq-chips').innerHTML =
+      `<span class="fq-chip fq-${r.estado}">${r.estadoTxt}</span>` +
+      (r.prioridad ? `<span class="fq-chip">Prioridad ${r.prioridad}</span>` : '') +
+      (r.vencido ? '<span class="fq-chip fq-vencido">Pasado de fecha</span>' : '');
+
+    // Los nombres se pintan con textContent: vienen del equipo, pero un
+    // nombre con "<" no tiene por qué romper la ficha.
+    const personas = $('fq-personas');
+    personas.textContent = '';
+    if (r.personas.length) {
+      r.personas.forEach(p => {
+        const li = document.createElement('li');
+        const b = document.createElement('b');
+        b.textContent = p.nombre;
+        const s = document.createElement('small');
+        s.textContent = p.rol || '';
+        li.append(b, s);
+        personas.append(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.className = 'vacio';
+      li.textContent = 'Todavía no está asignado a nadie.';
+      personas.append(li);
+    }
+
+    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    // Cerrarlo solo tiene sentido mientras siga abierto
+    const resolver = $('fq-resolver');
+    if (resolver) resolver.hidden = r.cerrado;
+
+    // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
+    // y con su plazo actual en las fechas
+    const derivar = $('fq-derivar');
+    if (derivar) {
+      derivar.dataset.derivar = r.id;
+      derivar.dataset.titulo = r.titulo;
+      derivar.dataset.actual = r.asignados;
+      derivar.dataset.inicio = r.inicio || '';
+      derivar.dataset.fin = r.fin || '';
+      derivar.onclick = () => { dlg.close(); };
+    }
+    dlg.showModal();
+  });
+})();
+
+/* Horario de reuniones fijas: el mismo formulario sirve para añadir y para
+   editar. Al pulsar el lápiz de una fila se rellena con sus datos y cambia la
+   acción; "Cancelar" lo devuelve a modo alta. Tener dos formularios para lo
+   mismo solo daría dos sitios donde arreglar cada cosa. */
+(() => {
+  const form = document.getElementById('form-rfija');
+  if (!form) return;
+  const $ = (id) => document.getElementById(id);
+
+  const modoAlta = () => {
+    form.classList.remove('editando');
+    $('rf-accion').value = 'rfija_crear';
+    $('rf-id').value = '';
+    $('rf-titulo-form').textContent = 'Añadir al horario';
+    $('rf-guardar').textContent = 'Añadir';
+    $('rf-cancelar').hidden = true;
+    form.reset();
+  };
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rfija-editar]');
+    if (!btn) return;
+    const r = JSON.parse(btn.dataset.rfijaEditar);
+    form.classList.add('editando');
+    $('rf-accion').value = 'rfija_editar';
+    $('rf-id').value = r.id;
+    $('rf-titulo').value = r.titulo;
+    $('rf-hora').value = r.hora;
+    $('rf-titulo-form').textContent = 'Cambiando «' + r.titulo + '»';
+    $('rf-guardar').textContent = 'Guardar';
+    $('rf-cancelar').hidden = false;
+    // El select de proyecto es el personalizado del panel: se le avisa
+    const sel = form.querySelector('select[name="proyecto_id"]');
+    if (sel) {
+      sel.value = String(r.pid);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    form.querySelectorAll('#rf-dias input').forEach((c) => {
+      c.checked = r.dias.includes(parseInt(c.value, 10));
+    });
+    // Desplegar el formulario, que arranca cerrado
+    document.getElementById('det-rfija')?.setAttribute('open', '');
+    form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  $('rf-cancelar')?.addEventListener('click', modoAlta);
+})();
+
+/* =========================================================
+   Editor de texto enriquecido (data-editor-rico). Un contenteditable con
+   barra mínima y un <textarea> oculto que lleva el HTML en el formulario.
+   Sirve para PEGAR contenido con formato y TABLAS (p. ej. un correo). Al
+   pegar se limpia a una lista blanca para que la edición se vea limpia; el
+   servidor vuelve a sanear siempre antes de guardar.
+   ========================================================= */
+(() => {
+  const OK = new Set(['P', 'BR', 'HR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE',
+    'SUB', 'SUP', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE',
+    'A', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'COL', 'COLGROUP',
+    'CODE', 'PRE', 'SPAN', 'DIV']);
+  const ATTRS = { A: ['href', 'title'], TD: ['colspan', 'rowspan'], TH: ['colspan', 'rowspan'], COL: ['span'], COLGROUP: ['span'] };
+  const FUERA = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT',
+    'TEXTAREA', 'BUTTON', 'SELECT', 'META', 'LINK', 'BASE', 'NOSCRIPT', 'SVG', 'MATH', 'TITLE', 'O:P']);
+
+  // Recorta un HTML pegado a la lista blanca (mismo criterio que el servidor).
+  function limpiarPegado(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const paso = (nodo) => {
+      [...nodo.childNodes].forEach((n) => {
+        if (n.nodeType === 8) { n.remove(); return; }          // comentario
+        if (n.nodeType !== 1) return;                          // texto: se queda
+        const tag = n.nodeName.toUpperCase();
+        if (FUERA.has(tag)) { n.remove(); return; }
+        paso(n);
+        if (!OK.has(tag)) {                                    // desconocida: desenvolver
+          const p = n.parentNode;
+          while (n.firstChild) p.insertBefore(n.firstChild, n);
+          p.removeChild(n);
+          return;
+        }
+        const keep = ATTRS[tag] || [];
+        [...n.attributes].forEach((a) => {
+          if (!keep.includes(a.name.toLowerCase())) n.removeAttribute(a.name);
+        });
+      });
+    };
+    paso(tpl.content);
+    return tpl.innerHTML;
+  }
+
+  const vacio = (area) => area.textContent.trim() === '' && !area.querySelector('table, img, hr');
+
+  function init(rt) {
+    const area = rt.querySelector('.rt-area');
+    const fuente = rt.querySelector('.rt-fuente');
+    if (!area || !fuente) return;
+
+    const sync = () => {
+      const vac = vacio(area);
+      fuente.value = vac ? '' : area.innerHTML;
+      rt.classList.toggle('rt-vacio', vac);
+    };
+
+    area.addEventListener('input', sync);
+    area.addEventListener('blur', sync);
+
+    // Pegado: se inserta el HTML ya limpio (conserva tablas y formato básico).
+    area.addEventListener('paste', (e) => {
+      const cb = e.clipboardData;
+      if (!cb) return;
+      const html = cb.getData('text/html');
+      if (html) {
+        e.preventDefault();
+        document.execCommand('insertHTML', false, limpiarPegado(html));
+        sync();
+      }
+      // Sin HTML en el portapapeles: se deja el pegado de texto normal.
+    });
+
+    // Barra de formato. mousedown + preventDefault para no perder la selección.
+    rt.querySelectorAll('.rt-b[data-cmd]').forEach((b) => {
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const cmd = b.dataset.cmd;
+        area.focus();
+        if (cmd === 'createLink') {
+          const url = prompt('URL del enlace (https://…):');
+          if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'formatBlock') {
+          // Alternar: si ya es ese bloque, se vuelve a párrafo.
+          const val = (b.dataset.val || 'p').toUpperCase();
+          const actual = (document.queryCommandValue('formatBlock') || '').toUpperCase();
+          document.execCommand('formatBlock', false, actual === val ? 'P' : val);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        sync();
+      });
+    });
+
+    const form = rt.closest('form');
+    if (form) form.addEventListener('submit', sync);
+    sync();
+  }
+
+  document.querySelectorAll('[data-editor-rico]').forEach(init);
+
+  // API para rellenar un editor por JS (formularios de edición que se llenan
+  // en el navegador): MecaRT.set('id-del-contenedor', htmlSaneado).
+  window.MecaRT = {
+    set(id, html) {
+      const rt = document.getElementById(id);
+      if (!rt) return;
+      const area = rt.querySelector('.rt-area');
+      const fuente = rt.querySelector('.rt-fuente');
+      if (!area || !fuente) return;
+      area.innerHTML = html || '';
+      fuente.value = html || '';
+      rt.classList.toggle('rt-vacio', vacio(area));
+    },
+  };
 })();

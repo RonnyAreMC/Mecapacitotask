@@ -3888,6 +3888,13 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .wz-resumen dt { flex: none; width: 130px; color: var(--c-text-soft); font-weight: 600; font-size: .78rem; }
 .wz-resumen dd { margin: 0; color: var(--c-text); font-weight: 600; }
 .wz-resumen dd.vacio { color: var(--c-text-soft); font-weight: 500; font-style: italic; }
+/* Fila de un campo enriquecido (detalle/descripción): se apila y la tabla
+   ocupa todo el ancho, con tope de alto para no estirar el modal. */
+.wz-resumen div.wz-resumen-bloque { flex-direction: column; gap: 6px; align-items: stretch; }
+.wz-resumen dd.wz-rico {
+  font-weight: 400; max-height: 240px; overflow: auto;
+  padding: 10px 12px; border-radius: 10px; background: var(--c-bg-hundido);
+}
 
 /* ----- Estrecho: el riel pasa a tira horizontal arriba ----- */
 /* Version en linea (pagina Mi perfil): el asistente vive dentro de una card */
@@ -5226,8 +5233,71 @@ html.sb-collapsed .nav-badge { display: none; }
 .dt-desc {
   margin: 16px 0 0; padding: 13px 15px;
   border-radius: 13px; background: var(--c-bg-hundido);
-  font-size: .9rem; line-height: 1.6; color: var(--c-text-muted); white-space: pre-wrap;
+  font-size: .9rem; line-height: 1.6; color: var(--c-text-muted);
 }
+
+/* =========================================================
+   Editor de texto enriquecido (data-editor-rico) y render de su contenido.
+   El render (.rt-render) es común al propio editor, a la ficha de
+   requerimiento (#fq-detalle) y al detalle de tarea (.dt-desc): así una
+   tabla pegada se ve igual al editarla y al consultarla.
+   ========================================================= */
+.rt { display: flex; flex-direction: column; gap: 8px; }
+.rt-barra { display: flex; flex-wrap: wrap; gap: 5px; }
+.rt-b {
+  width: 34px; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+  border: none; border-radius: 10px; cursor: pointer;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text-soft); font-size: .95rem;
+  transition: color .15s ease, box-shadow .15s ease;
+}
+.rt-b:hover { color: var(--c-secondary); }
+.rt-b:active { box-shadow: inset 0 2px 5px rgba(0, 0, 0, .16); }
+.rt-area {
+  min-height: 132px; max-height: 360px; overflow-y: auto;
+  padding: 12px 14px; border-radius: 14px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text); font-size: .92rem; line-height: 1.6;
+  outline: none; transition: box-shadow .2s ease;
+}
+.rt-area:focus {
+  box-shadow: var(--sh-inset-mini), 0 0 0 2px color-mix(in srgb, var(--c-secondary) 30%, transparent);
+}
+.rt.rt-vacio .rt-area::before {
+  content: attr(data-ph); color: var(--c-text-muted); pointer-events: none;
+}
+
+/* Contenido renderizado (común a editor, ficha y detalle) */
+.rt-render { overflow-x: auto; overflow-wrap: anywhere; }
+.rt-render > :first-child { margin-top: 0; }
+.rt-render > :last-child { margin-bottom: 0; }
+.rt-render p { margin: 0 0 .6em; }
+.rt-render h1, .rt-render h2, .rt-render h3, .rt-render h4 {
+  margin: .35em 0 .4em; line-height: 1.25; font-weight: 800;
+}
+.rt-render h3 { font-size: 1.02rem; }
+.rt-render ul, .rt-render ol { margin: 0 0 .6em; padding-left: 1.4em; }
+.rt-render li { margin: 0 0 .25em; }
+.rt-render a { color: var(--c-secondary); text-decoration: underline; }
+.rt-render blockquote {
+  margin: 0 0 .6em; padding: 4px 12px;
+  border-left: 3px solid var(--c-secondary); color: var(--c-text-muted);
+}
+.rt-render code {
+  background: var(--c-bg-hundido); padding: 1px 5px; border-radius: 5px; font-size: .88em;
+}
+.rt-render table {
+  border-collapse: collapse; width: 100%; margin: 8px 0; font-size: .88rem;
+}
+.rt-render th, .rt-render td {
+  border: 1px solid var(--c-border); padding: 6px 10px; text-align: left; vertical-align: top;
+}
+.rt-render th {
+  background: color-mix(in srgb, var(--c-secondary) 10%, var(--n-bg));
+  font-weight: 700; color: var(--c-text);
+}
+/* Nota "Sin detalle" cuando el requerimiento no trae detalle */
+#fq-detalle.vacio { color: var(--c-text-soft); font-style: italic; }
 .dt-datos { margin: 18px 0 0; display: flex; flex-direction: column; gap: 12px; }
 .dt-datos > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline; }
 .dt-datos > div[hidden] { display: none; }

@@ -449,6 +449,9 @@ switch ($accion) {
         // Documentos de respaldo: van con la tarea desde que se asigna
         $rechazados = [];
         $datosTarea = $_POST;
+        // La descripción es texto enriquecido (se puede pegar tablas): se sanea
+        // a lista blanca antes de guardar para que no entre HTML peligroso.
+        $datosTarea['descripcion'] = HtmlRico::limpiar($_POST['descripcion'] ?? '');
         $datosTarea['adjuntos'] = guardarAdjuntos('adjuntos', 'tarea_', $rechazados);
         $t = $tareas->crear($datosTarea);
         $deps = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), $pid);
@@ -525,7 +528,7 @@ switch ($accion) {
         $tareas->actualizar((int)$t['id'], [
             'adjuntos'     => array_merge($quedan, $nuevos),
             'titulo'       => trim($_POST['titulo'] ?? ''),
-            'descripcion'  => trim($_POST['descripcion'] ?? ''),
+            'descripcion'  => HtmlRico::limpiar($_POST['descripcion'] ?? ''),
             'prioridad'    => $_POST['prioridad'] ?? 'media',
             'estado'       => $_POST['estado'] ?? 'pendiente',
             'fecha_inicio' => $fIni,
@@ -1208,6 +1211,89 @@ switch ($accion) {
             : 'Perfil actualizado.');
 
     /* ---------- Miembros ---------- */
+
+    /* ---------- Requerimientos sueltos (solo administrador) ---------- */
+    // (asigna con fechas y avisa; devuelve la coletilla para el flash — '' si
+    //  no se marcó a nadie)
+
+    case 'req_crear':
+        if (trim($_POST['titulo'] ?? '') === '') {
+            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
+        }
+        $fechasReq = fechasRequerimiento($_POST);
+        // El detalle es texto enriquecido (se puede pegar un correo con su
+        // tabla): se sanea a lista blanca antes de guardar.
+        $_POST['detalle'] = HtmlRico::limpiar($_POST['detalle'] ?? '');
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->crear($_POST + ['creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
+        // Se puede asignar de una vez, sin pasar dos veces por el formulario
+        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
+        redirigir('requerimientos.php', $avisoReq === ''
+            ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
+            : 'Requerimiento registrado y asignado a ' . $avisoReq);
+
+    case 'req_asignar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $aviso = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []),
+                                      $miembros, fechasRequerimiento($_POST));
+        if ($aviso === '') {
+            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».', 'info');
+        }
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso);
+
+    case 'req_estado':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
+        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
+
+    case 'req_eliminar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $reqRepo->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
+
+    /* ---------- Catálogo de instituciones (solo admin) ---------- */
+
+    case 'institucion_crear':
+        $nombreI = trim($_POST['nombre'] ?? '');
+        if ($nombreI === '') {
+            redirigir('instituciones.php', 'Ponle un nombre a la institución.', 'error');
+        }
+        (new InstitucionRepo())->crear([
+            'nombre' => $nombreI,
+            'imagen' => guardarFoto('imagen', 'inst_', 'imagen'),
+        ]);
+        redirigir('instituciones.php', 'Institución «' . $nombreI . '» agregada al catálogo.');
+
+    case 'institucion_editar':
+        $instRepo = new InstitucionRepo();
+        $inst = $instRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$inst) {
+            redirigir('instituciones.php', 'Esa institución ya no existe.', 'error');
+        }
+        $cambiosInst = ['nombre' => trim($_POST['nombre'] ?? '')];
+        $imgInst = guardarFoto('imagen', 'inst_', 'imagen');
+        if ($imgInst !== '') {   // reemplaza la imagen y borra la anterior
+            if (!empty($inst['imagen']) && is_file(__DIR__ . '/' . $inst['imagen'])) {
+                @unlink(__DIR__ . '/' . $inst['imagen']);
+            }
+            $cambiosInst['imagen'] = $imgInst;
+        }
+        $instRepo->actualizar((int)$inst['id'], $cambiosInst);
+        redirigir('instituciones.php', 'Institución actualizada.');
+
+    case 'institucion_eliminar':
+        (new InstitucionRepo())->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('instituciones.php', 'Institución quitada del catálogo.');
 
     case 'equipo_importar':
         // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.

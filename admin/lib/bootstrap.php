@@ -66,6 +66,7 @@ if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
 
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
+require_once __DIR__ . '/HtmlRico.php';
 require_once __DIR__ . '/UI.php';
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/GoogleLogin.php';

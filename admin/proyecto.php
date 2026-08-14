@@ -713,8 +713,8 @@ foreach ($tareas as $t) {
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
-              <b><?= e($t['titulo']) ?></b>
-              <?php if (!empty($t['descripcion'])): ?><small><?= e($t['descripcion']) ?></small><?php endif; ?>
+              <b><button type="button" class="tarea-id btn-copiar" data-copiar="#<?= (int)$t['id'] ?>" title="Copiar #<?= (int)$t['id'] ?> para tus commits">#<?= (int)$t['id'] ?></button> <?= e($t['titulo']) ?></b>
+              <?php $descPrev = HtmlRico::texto($t['descripcion'] ?? '', 140); if ($descPrev !== ''): ?><small><?= e($descPrev) ?></small><?php endif; ?>
               <?php
               $depId = (int)($t['depende_de'] ?? 0);
               if ($depId && isset($tareasPorId[$depId])):
@@ -1782,10 +1782,10 @@ function depPicker(): void { ?>
           <span>Título *</span>
           <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google">
         </label>
-        <label class="campo">
+        <div class="campo">
           <span>Descripción</span>
-          <textarea class="input-meca" name="descripcion" rows="3" placeholder="Detalles, criterios de aceptación..."></textarea>
-        </label>
+          <?= UI::editorRico(['name' => 'descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas y texto con formato)']) ?>
+        </div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
           <label class="campo"><span>Estado inicial</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente') ?></label>
@@ -1848,7 +1848,7 @@ function depPicker(): void { ?>
 
       <section class="wz-panel">
         <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
-        <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" id="et-descripcion" rows="3"></textarea></label>
+        <div class="campo"><span>Descripción</span><?= UI::editorRico(['name' => 'descripcion', 'id' => 'et-descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas)']) ?></div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
           <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
@@ -2012,7 +2012,7 @@ function depPicker(): void { ?>
     </header>
     <div class="dt-chips"></div>
     <span class="dt-restante" hidden></span>
-    <p class="dt-desc"></p>
+    <div class="dt-desc rt-render"></div>
     <dl class="dt-datos">
       <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
       <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
