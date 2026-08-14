@@ -1760,7 +1760,9 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 }
 .kb-cards {
   display: flex; flex-direction: column; gap: 10px;
-  min-height: 70px;
+  /* Ocupa toda la altura de la columna: así se puede soltar en cualquier parte,
+     no solo en el pequeño margen entre tarjetas. */
+  flex: 1; min-height: 120px;
   padding: 5px;
   border-radius: 14px;
   border: 1.5px dashed transparent;
@@ -1782,6 +1784,46 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
   transition: transform .2s ease, border-color .2s ease;
 }
 .kb-card.kb-fija { cursor: default; }
+
+/* Botón "mover a otra columna" (⋮): aparece al pasar el ratón, en la esquina */
+.kb-mover {
+  position: absolute; top: 6px; right: 6px; z-index: 2;
+  width: 26px; height: 26px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--c-text-soft); cursor: pointer;
+  display: grid; place-items: center; font-size: .9rem;
+  opacity: 0; transition: opacity .15s ease, background .15s ease, color .15s ease;
+}
+.kb-card:hover .kb-mover, .kb-mover:focus-visible { opacity: 1; }
+.kb-mover:hover { background: var(--c-bg-hundido); color: var(--c-secondary); }
+.kb-card > b { padding-right: 26px; }
+/* La tarjeta recorta su contenido; al abrir el menú se deja ver (si no, el
+   popover queda cortado) y se eleva sobre las demás. */
+.kb-card:has(.kb-menu) { overflow: visible; z-index: 20; }
+
+/* Menú de columnas destino del "mover rápido" */
+.kb-menu {
+  position: absolute; top: 30px; right: 6px; z-index: 30;
+  min-width: 172px; padding: 6px;
+  background: var(--n-bg); border-radius: 12px;
+  box-shadow: var(--sh-card), 0 0 0 1px var(--c-border-soft);
+  display: flex; flex-direction: column; gap: 2px;
+  animation: kb-menu-in .12s ease;
+}
+@keyframes kb-menu-in { from { opacity: 0; transform: translateY(-5px); } }
+.kb-menu-tit {
+  font-size: .66rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft); padding: 4px 8px 3px;
+}
+.kb-menu-op {
+  display: flex; align-items: center; gap: 9px;
+  border: 0; background: transparent; cursor: pointer;
+  padding: 8px 10px; border-radius: 9px; text-align: left;
+  font-size: .84rem; font-weight: 600; color: var(--c-text);
+}
+.kb-menu-op:hover { background: var(--c-bg-hundido); color: var(--c-secondary); }
+.kb-menu-op i { width: 16px; text-align: center; color: var(--c-text-soft); }
+.kb-menu-op:hover i { color: var(--c-secondary); }
+
 .kb-card:hover { transform: translateY(-2px); border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 35%, var(--n-bg)); }
 .kb-card:active { cursor: grabbing; }
 .kb-card.dragging { opacity: .45; transform: rotate(2deg); }

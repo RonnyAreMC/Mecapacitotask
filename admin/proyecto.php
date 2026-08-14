@@ -591,7 +591,14 @@ foreach ($tareas as $t) {
       <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban</h2>
       <span class="ajuste-ayuda"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</span>
     </div>
-    <div class="kanban" style="--pc:<?= $color ?>">
+    <?php
+      // Lista de estados para el menú de "mover rápido" de cada tarjeta.
+      $kbEstados = [];
+      foreach (Catalogo::estadosTarea() as $ek => $ev) {
+          $kbEstados[] = ['k' => $ek, 'label' => $ev[0], 'icono' => $ev[1]];
+      }
+    ?>
+    <div class="kanban" style="--pc:<?= $color ?>" data-estados='<?= e(json_encode($kbEstados, JSON_UNESCAPED_UNICODE)) ?>'>
       <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
       <div class="kb-col">
         <div class="kb-head estado-<?= $k ?>">
@@ -602,6 +609,9 @@ foreach ($tareas as $t) {
           <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
           <?php $puedoMover = esAdmin() || TareaRepo::tieneAsignado($t, $miId); ?>
           <div class="kb-card <?= $puedoMover ? '' : 'kb-fija' ?>" draggable="<?= $puedoMover ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+            <?php if ($puedoMover): ?>
+            <button type="button" class="kb-mover" title="Mover a otra columna" aria-label="Mover a otra columna"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <?php endif; ?>
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>
