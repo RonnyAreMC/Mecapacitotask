@@ -3393,6 +3393,71 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .inst-metrica-datos small { font-size: .7rem; color: var(--c-text-muted); }
 .inst-metrica-num { flex: none; font-size: 1.05rem; font-weight: 800; color: var(--c-secondary); }
 
+/* =========================================================
+   Componente de subida de archivos (UI::archivo) — uno para todo
+   Estados: default · hover · focus · dragging · error · disabled · con-archivo
+   ========================================================= */
+.fx { display: flex; flex-direction: column; gap: 6px; }
+.fx-label { font-size: .8rem; font-weight: 700; color: var(--c-text); }
+.fx-req { color: var(--c-secondary); }
+.fx-error { margin: 2px 0 0; font-size: .78rem; font-weight: 600; color: #e05563; }
+.fx-disparo { border: 0; background: transparent; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
+.fx-off .fx-disparo, .fx-disparo:disabled { cursor: not-allowed; opacity: .55; }
+
+/* --- Drop zone --- */
+.fx-zona .fx-disparo {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: 26px 20px; border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--c-secondary) 32%, var(--c-border-soft));
+  background: color-mix(in srgb, var(--c-secondary) 3%, transparent);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.fx-zona .fx-disparo:hover { border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 9%, transparent); }
+.fx-zona .fx-disparo:focus-visible { outline: none; border-color: var(--c-secondary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-secondary) 22%, transparent); }
+.fx-zona.fx-drag .fx-disparo { border-style: solid; border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 15%, transparent); }
+.fx-up {
+  width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); color: var(--c-secondary); font-size: 1.1rem;
+}
+.fx-zona-txt { display: flex; flex-direction: column; gap: 2px; }
+.fx-zona-txt b { font-weight: 700; color: var(--c-text); font-size: .92rem; }
+.fx-zona-txt small { color: var(--c-text-muted); font-size: .76rem; }
+
+/* --- Inline (como un input) --- */
+.fx-inline .fx-disparo {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); transition: box-shadow .18s ease;
+}
+.fx-inline .fx-disparo:hover { box-shadow: var(--sh-inset-mini), inset 0 0 0 1px color-mix(in srgb, var(--c-secondary) 30%, transparent); }
+.fx-inline .fx-disparo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-inline.fx-drag .fx-disparo { box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-clip { color: var(--c-secondary); flex: none; }
+.fx-inline-txt { flex: 1; min-width: 0; color: var(--c-text-muted); font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-inline-hint { flex: none; font-size: .72rem; font-weight: 700; color: var(--c-text-soft); text-transform: uppercase; letter-spacing: .03em; }
+
+/* --- Error --- */
+.fx-err.fx-zona .fx-disparo { border-color: #e05563; background: color-mix(in srgb, #e05563 6%, transparent); }
+.fx-err.fx-zona .fx-up { background: color-mix(in srgb, #e05563 15%, transparent); color: #e05563; }
+.fx-err.fx-inline .fx-disparo { box-shadow: inset 0 0 0 1.5px #e05563; }
+
+/* --- Con archivo (filled): el chip reemplaza al disparador; en multi se queda para añadir más --- */
+.fx-lleno.fx-zona:not([data-multi]) .fx-disparo,
+.fx-lleno.fx-inline .fx-disparo { display: none; }
+.fx-lleno.fx-zona[data-multi] .fx-disparo { padding: 14px; margin-top: 6px; }
+.fx-files:empty { display: none; }
+.fx-files { display: flex; flex-direction: column; gap: 6px; }
+.fx-file {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--c-success) 9%, var(--n-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-success) 32%, transparent);
+}
+.fx-file-ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--c-success); font-size: .95rem; }
+.fx-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fx-file-info b { font-size: .85rem; font-weight: 700; color: var(--c-text); }
+.fx-file-info small { font-size: .72rem; color: var(--c-text-muted); }
+.fx-file-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-muted); cursor: pointer; }
+.fx-file-x:hover { background: color-mix(in srgb, #e05563 12%, transparent); color: #e05563; }
+
 /* Avatares chicos */
 .ap-av {
   flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;

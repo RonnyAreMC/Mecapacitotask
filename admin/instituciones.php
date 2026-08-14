@@ -86,10 +86,11 @@ UI::cabecera(
       <label class="campo"><span>Nombre</span>
         <input class="input-meca" name="nombre" required maxlength="80" placeholder="Ej. Universidad Estatal de …">
       </label>
-      <label class="campo"><span>Logo (opcional)</span>
-        <input class="input-meca" type="file" name="imagen" accept="<?= $aceptaImg ?>">
-        <small class="campo-ayuda">PNG, JPG, WebP o GIF. Se muestra en cada requerimiento de esta institución.</small>
-      </label>
+      <div class="campo">
+        <span>Logo (opcional)</span>
+        <?= UI::archivo(['name' => 'imagen', 'variante' => 'inline', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
+        <small class="campo-ayuda">Se muestra en cada requerimiento de esta institución.</small>
+      </div>
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
@@ -114,9 +115,10 @@ UI::cabecera(
       <div class="campo"><span>Logo actual</span>
         <div class="inst-logo inst-logo-prev"><img id="ie-img" alt="" hidden><i id="ie-noimg" class="fa-solid fa-building-columns"></i></div>
       </div>
-      <label class="campo"><span>Cambiar logo (opcional)</span>
-        <input class="input-meca" type="file" name="imagen" accept="<?= $aceptaImg ?>">
-      </label>
+      <div class="campo">
+        <span>Cambiar logo (opcional)</span>
+        <?= UI::archivo(['name' => 'imagen', 'variante' => 'inline', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
+      </div>
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>

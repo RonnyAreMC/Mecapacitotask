@@ -2097,6 +2097,99 @@ document.querySelectorAll('.form-persona').forEach((form) => {
   refrescar();
 });
 
+// Componente único de subida (UI::archivo): drag & drop, estado "con archivo"
+// (nombre + peso + quitar) y validación de tipo/tamaño (error). Envuelve un
+// <input type="file"> nativo, así el formulario se envía igual que siempre.
+(() => {
+  const humano = (b) => b < 1024 ? b + ' B'
+    : b < 1048576 ? Math.round(b / 1024) + ' KB'
+    : (b / 1048576).toFixed(1) + ' MB';
+  const iconoDe = (nombre) => {
+    const ext = (nombre.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return 'fa-file-pdf';
+    if (['doc', 'docx'].includes(ext)) return 'fa-file-word';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel';
+    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'fa-file-zipper';
+    return 'fa-file';
+  };
+  const aceptado = (file, accept) => {
+    if (!accept) return true;
+    const nom = file.name.toLowerCase(), tipo = (file.type || '').toLowerCase();
+    return accept.split(',').map((s) => s.trim().toLowerCase()).some((a) => {
+      if (!a) return false;
+      if (a.startsWith('.')) return nom.endsWith(a);
+      if (a.endsWith('/*')) return tipo.startsWith(a.slice(0, -1));
+      return tipo === a;
+    });
+  };
+
+  document.querySelectorAll('[data-archivo]').forEach((fx) => {
+    const input = fx.querySelector('.fx-input');
+    if (!input || fx.dataset.fxListo) return;
+    fx.dataset.fxListo = '1';
+    const disparo = fx.querySelector('.fx-disparo');
+    const cont    = fx.querySelector('.fx-files');
+    const errEl   = fx.querySelector('.fx-error');
+    const maxMB   = parseFloat(fx.dataset.max || '0');
+    const multi   = fx.dataset.multi === '1';
+    const off     = fx.classList.contains('fx-off') || input.disabled;
+
+    const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
+    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
+
+    const pintar = () => {
+      const files = [...input.files];
+      cont.innerHTML = '';
+      fx.classList.toggle('fx-lleno', files.length > 0);
+      files.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'fx-file';
+        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
+          + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
+          + '<small>' + humano(f.size) + '</small></span>'
+          + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        chip.querySelector('.fx-file-x').addEventListener('click', (e) => {
+          e.stopPropagation();
+          rebuild([...input.files].filter((_, j) => j !== i));
+          error(''); pintar();
+        });
+        cont.appendChild(chip);
+      });
+    };
+
+    const validar = (files) => {
+      for (const f of files) {
+        if (!aceptado(f, input.accept)) return 'Ese tipo de archivo no se admite aquí.';
+        if (maxMB > 0 && f.size > maxMB * 1048576) return f.name + ' pesa ' + humano(f.size) + ': el máximo es ' + maxMB + ' MB.';
+      }
+      return '';
+    };
+
+    const tomar = (lista) => {
+      let files = [...lista];
+      if (!multi) files = files.slice(0, 1);
+      const msg = validar(files);
+      if (msg) { error(msg); rebuild([]); pintar(); return; }
+      error(''); rebuild(files); pintar();
+    };
+
+    if (!off) {
+      disparo.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => tomar(input.files));
+      ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
+      ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
+        if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
+      }));
+      fx.addEventListener('drop', (e) => {
+        e.preventDefault(); fx.classList.remove('fx-drag');
+        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
+      });
+    }
+  });
+})();
+
 // Correos de Git: campo repetible (un input por cuenta) con agregar / quitar
 (() => {
   const MAX = 5;

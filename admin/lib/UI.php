@@ -762,6 +762,66 @@ class UI
             . '</div>';
     }
 
+    /**
+     * Componente ÚNICO de subida de archivos, reutilizable en todo el panel.
+     *
+     * Envuelve un <input type="file"> nativo (sigue enviándose con el formulario)
+     * y lo enriquece por JS (data-archivo): arrastrar y soltar, estado "con
+     * archivo" con nombre + peso + quitar, y validación de tipo/tamaño (error).
+     *
+     * $o admite:
+     *   name*     nombre del input (usa 'x[]' para varios)
+     *   variante  'zona' (drop-zone, por defecto) | 'inline'
+     *   accept    atributo accept ('application/pdf', '.pdf,.docx', 'image/*'…)
+     *   ayuda     formato corto (ej. 'PDF · máx 10 MB')
+     *   multiple / required / disabled  (bool)
+     *   maxMB     tope por archivo (validación en el navegador)
+     *   label     etiqueta encima (opcional)
+     */
+    public static function archivo(array $o): string
+    {
+        $name   = (string)($o['name'] ?? 'archivo');
+        $var    = ($o['variante'] ?? 'zona') === 'inline' ? 'inline' : 'zona';
+        $accept = (string)($o['accept'] ?? '');
+        $ayuda  = (string)($o['ayuda'] ?? '');
+        $mult   = !empty($o['multiple']);
+        $req    = !empty($o['required']);
+        $dis    = !empty($o['disabled']);
+        $maxMB  = (float)($o['maxMB'] ?? 0);
+        $label  = (string)($o['label'] ?? '');
+
+        // OJO: NADA de 'required' en el input (va oculto): un required en un input
+        // hidden bloquea el envío del form con "no es enfocable". Lo obligatorio se
+        // marca con el asterisco y se valida en el servidor.
+        $inp = '<input type="file" class="fx-input" name="' . e($name) . '"'
+             . ($accept !== '' ? ' accept="' . e($accept) . '"' : '')
+             . ($mult ? ' multiple' : '') . ($dis ? ' disabled' : '') . ' hidden>';
+
+        $h = '<div class="fx fx-' . $var . ($dis ? ' fx-off' : '') . '" data-archivo data-variante="' . $var . '"'
+           . ($maxMB > 0 ? ' data-max="' . e((string)$maxMB) . '"' : '') . ($mult ? ' data-multi="1"' : '') . '>';
+        if ($label !== '') {
+            $h .= '<span class="fx-label">' . e($label) . ($req ? ' <b class="fx-req">*</b>' : '') . '</span>';
+        }
+        $h .= $inp;
+        if ($var === 'zona') {
+            $h .= '<button type="button" class="fx-disparo fx-zona-btn"' . ($dis ? ' disabled' : '') . '>'
+               .  '<span class="fx-up"><i class="fa-solid fa-cloud-arrow-up"></i></span>'
+               .  '<span class="fx-zona-txt"><b>Arrastra tu archivo aquí</b>'
+               .  '<small>o haz clic para seleccionar' . ($ayuda !== '' ? ' · ' . e($ayuda) : '') . '</small></span>'
+               .  '</button>';
+        } else {
+            $h .= '<button type="button" class="fx-disparo fx-inline-btn"' . ($dis ? ' disabled' : '') . '>'
+               .  '<i class="fa-solid fa-paperclip fx-clip"></i>'
+               .  '<span class="fx-inline-txt">Seleccionar archivo…</span>'
+               .  ($ayuda !== '' ? '<span class="fx-inline-hint">' . e($ayuda) . '</span>' : '')
+               .  '</button>';
+        }
+        $h .= '<div class="fx-files"></div>';
+        $h .= '<p class="fx-error" hidden></p>';
+        $h .= '</div>';
+        return $h;
+    }
+
     /** Texto de ayuda bajo el selector de asignado. */
     public static function ayudaEquipoProyecto(?array $equipoProyecto): string
     {

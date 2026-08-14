@@ -381,10 +381,7 @@ UI::cabecera(
       También acepta un equipo (<?= e(implode(' · ', array_map(fn($v) => $v[0], $equipos))) ?>).
     </small>
 
-    <label class="respaldo-archivo imp-archivo" data-vacio="Elegir archivo .xlsx o .csv">
-      <input type="file" name="archivo" accept=".xlsx,.csv,text/csv" required>
-      <span><i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .xlsx o .csv</span>
-    </label>
+    <?= UI::archivo(['name' => 'archivo', 'variante' => 'zona', 'accept' => '.xlsx,.csv,text/csv', 'ayuda' => 'Excel .xlsx o .csv']) ?>
 
     <small class="campo-ayuda">
       <i class="fa-solid fa-circle-info"></i> No se guarda nada al subirlo: primero verás el

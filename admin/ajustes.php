@@ -101,7 +101,7 @@ UI::cabecera(
           <div class="logo-config">
             <span class="logo-prev"><img src="<?= e(logoPanel()) ?>" alt="Logo actual"></span>
             <div class="logo-config-txt">
-              <input type="file" name="logo" class="input-meca" accept="image/png,image/jpeg,image/webp">
+              <?= UI::archivo(['name' => 'logo', 'variante' => 'inline', 'accept' => 'image/png,image/jpeg,image/webp', 'ayuda' => 'PNG cuadrado · máx 5 MB', 'maxMB' => 5]) ?>
               <small class="campo-ayuda">PNG con fondo transparente, cuadrado (se ve en el menú, el login y la pestaña del navegador).</small>
               <?php if (!empty($cfg['logo'])): ?>
               <label class="logo-quitar"><input type="checkbox" name="logo_quitar" value="1"> Quitar y volver al logo por defecto</label>
