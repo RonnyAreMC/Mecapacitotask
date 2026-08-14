@@ -255,7 +255,6 @@ UI::cabecera(
         <i class="fa-solid fa-magnifying-glass"></i>
         <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por nombre, usuario o correo…" autocomplete="off">
       </label>
-      <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo<?= esAdmin() ? ' · <i class="fa-solid fa-eye"></i> abre su ficha.' : '.' ?></span>
     </div>
     <div class="tabla-scroll">
       <table class="tabla-meca tabla-equipo">
