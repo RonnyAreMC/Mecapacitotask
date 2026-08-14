@@ -3117,10 +3117,12 @@ document.addEventListener('change', (e) => {
       labels: prio.map((p) => p[0] + ' (' + p[1] + ')'),
       chart: { ...base.chart, type: 'radialBar', height: 300 },
       colors: prio.map((p) => ({ Alta: cDang, Media: cWarn, Baja: cSec }[p[0]] || cSec)),
+      fill: { type: 'gradient', gradient: { shade: 'light', shadeIntensity: 0.4, stops: [0, 100] } },
+      stroke: { lineCap: 'round' },
       plotOptions: {
         radialBar: {
-          hollow: { size: '32%' },
-          track: { background: oscuro ? '#2a2f3a' : '#eef2f7' },
+          hollow: { size: '30%' },
+          track: { background: oscuro ? '#2a2f3a' : '#eef2f7', margin: 8 },
           dataLabels: {
             name: { fontSize: '12px' },
             value: { fontSize: '15px', formatter: (n) => Math.round(n) + '%' },
@@ -3142,9 +3144,10 @@ document.addEventListener('change', (e) => {
       series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
       chart: { ...base.chart, type: 'area', height: 300 },
       colors: [cSec],
-      stroke: { curve: 'smooth', width: 3 },
-      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05 } },
-      xaxis: { categories: meses.map((m) => m[0]) },
+      stroke: { curve: 'smooth', width: 3, lineCap: 'round' },
+      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.02, stops: [0, 90, 100] } },
+      markers: { size: meses.length === 1 ? 5 : 0, hover: { size: 6 } },
+      xaxis: { categories: meses.map((m) => m[0]), axisBorder: { show: false }, axisTicks: { show: false } },
       yaxis: { labels: { formatter: (n) => Math.round(n) } },
       legend: { show: false },
     });
@@ -3171,25 +3174,15 @@ document.addEventListener('change', (e) => {
   // 8) Prioridad por institución (heatmap)
   const heat = (D.heat || []);
   if (document.getElementById('rd-heat') && heat.length && heat.some((s) => (s.data || []).length)) {
+    // Cada prioridad (fila) con su familia de color, sombreada por el conteo.
     pintar('rd-heat', {
       ...base,
       series: heat,
       chart: { ...base.chart, type: 'heatmap', height: 300 },
-      dataLabels: { enabled: true, style: { colors: [cText] } },
-      colors: [cSec],
-      plotOptions: {
-        heatmap: {
-          radius: 6, enableShades: false,
-          colorScale: {
-            ranges: [
-              { from: 0, to: 0, color: oscuro ? '#2a2f3a' : '#eef2f7', name: 'sin' },
-              { from: 1, to: 2, color: '#9ecbff' },
-              { from: 3, to: 5, color: cSec },
-              { from: 6, to: 99999, color: '#0b5cbf' },
-            ],
-          },
-        },
-      },
+      dataLabels: { enabled: true, style: { colors: [cText], fontWeight: 700 }, formatter: (v) => (v > 0 ? v : '') },
+      colors: [cDang, cWarn, cSec],   // Alta, Media, Baja (orden de las series)
+      stroke: { width: 3, colors: [oscuro ? '#20242c' : '#ffffff'] },
+      plotOptions: { heatmap: { radius: 8, enableShades: true, shadeIntensity: 0.55, distributed: false } },
     });
   } else if (document.getElementById('rd-heat')) {
     document.getElementById('rd-heat').innerHTML = '<p class="rd-vacio">Sin datos por institución y prioridad.</p>';
@@ -3197,18 +3190,24 @@ document.addEventListener('change', (e) => {
 
   // 7) % de cumplimiento global (radial)
   if (document.getElementById('rd-pct') && typeof D.pct === 'number') {
+    const cPct = D.pct >= 66 ? cSucc : (D.pct >= 33 ? cWarn : cDang);
+    const cPct2 = D.pct >= 66 ? '#7AC943' : (D.pct >= 33 ? '#FFD166' : '#FF7A7A');
     pintar('rd-pct', {
       ...base,
       series: [D.pct],
       labels: ['Cumplimiento'],
-      chart: { ...base.chart, type: 'radialBar', height: 300 },
-      colors: [D.pct >= 66 ? cSucc : (D.pct >= 33 ? cWarn : cDang)],
+      chart: { ...base.chart, type: 'radialBar', height: 320, sparkline: { enabled: false } },
+      colors: [cPct],
+      fill: { type: 'gradient', gradient: { shade: 'light', type: 'horizontal', shadeIntensity: 0.5, gradientToColors: [cPct2], stops: [0, 100] } },
+      stroke: { lineCap: 'round' },
       plotOptions: {
         radialBar: {
+          startAngle: -135, endAngle: 135,
           hollow: { size: '62%' },
+          track: { background: oscuro ? '#2a2f3a' : '#eef2f7', strokeWidth: '100%', margin: 6 },
           dataLabels: {
-            name: { color: cMuted, fontSize: '13px' },
-            value: { color: cText, fontSize: '30px', fontWeight: 800, formatter: (n) => Math.round(n) + '%' },
+            name: { color: cMuted, fontSize: '13px', offsetY: 24 },
+            value: { color: cText, fontSize: '36px', fontWeight: 800, offsetY: -8, formatter: (n) => Math.round(n) + '%' },
           },
         },
       },
