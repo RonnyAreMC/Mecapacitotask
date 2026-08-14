@@ -495,7 +495,8 @@ switch ($accion) {
         if (trim($_POST['nombre'] ?? '') === '') {
             redirigir('index.php', 'El nombre del proyecto es obligatorio.', 'error');
         }
-        $_POST['po'] = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
+        $_POST['po']    = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
+        $_POST['scrum'] = scrumValido((int)($_POST['scrum'] ?? 0), $miembros);
         $p = $proyectos->crear($_POST);
         $avisoEquipo = avisarNuevosDelProyecto([], (array)($p['miembros'] ?? []), $p, $miembros);
         redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.' . $avisoEquipo);
@@ -580,6 +581,7 @@ switch ($accion) {
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
             'po'            => poAnalistaValido((int)($_POST['po'] ?? 0), $miembros),
+            'scrum'         => scrumValido((int)($_POST['scrum'] ?? 0), $miembros),
             'plataforma'    => ProyectoRepo::plataformaEntrada($_POST['plataforma'] ?? ''),
         ]);
         $pAhora = $proyectos->buscar($id);
