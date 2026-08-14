@@ -938,6 +938,18 @@ class UI
     }
 
     /**
+     * Nombres de todos los iconos del set, ordenados. La galería de ajustes
+     * los saca de aquí en vez de una lista escrita a mano: al soltar un SVG
+     * nuevo en admin/iconos aparece solo, sin tocar código.
+     */
+    public static function nombresIconos(): array
+    {
+        $nombres = array_keys(self::mapaIconos());
+        sort($nombres, SORT_NATURAL | SORT_FLAG_CASE);
+        return $nombres;
+    }
+
+    /**
      * Deja un SVG listo para incrustar varias veces en la página:
      *  - el color pasa a currentColor (para heredar del texto/estado),
      *  - se quitan width/height del <svg> (el tamaño lo pone .ico por CSS),

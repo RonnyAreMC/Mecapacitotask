@@ -14,25 +14,10 @@ Auth::requiereAdmin();
 $cfg = Config::all();
 $co  = $cfg['correo'];
 
-// Galeria de iconos disponibles (los ya elegidos se agregan aunque no esten aqui)
-$galeriaIconos = [
-    'fa-rocket', 'fa-store', 'fa-graduation-cap', 'fa-cart-shopping', 'fa-mobile-screen',
-    'fa-globe', 'fa-server', 'fa-robot', 'fa-truck-fast', 'fa-heart-pulse',
-    'fa-gamepad', 'fa-chart-line', 'fa-database', 'fa-cloud', 'fa-code',
-    'fa-terminal', 'fa-bug', 'fa-shield-halved', 'fa-lock', 'fa-key',
-    'fa-credit-card', 'fa-money-bill-wave', 'fa-wallet', 'fa-building', 'fa-city',
-    'fa-house', 'fa-school', 'fa-book', 'fa-newspaper', 'fa-envelope',
-    'fa-comments', 'fa-phone', 'fa-camera', 'fa-image', 'fa-film',
-    'fa-music', 'fa-palette', 'fa-brush', 'fa-wand-magic-sparkles', 'fa-bolt',
-    'fa-fire', 'fa-leaf', 'fa-tree', 'fa-paw', 'fa-car',
-    'fa-plane', 'fa-ship', 'fa-bicycle', 'fa-utensils', 'fa-mug-hot',
-    'fa-pizza-slice', 'fa-stethoscope', 'fa-pills', 'fa-dumbbell', 'fa-futbol',
-    'fa-trophy', 'fa-gift', 'fa-bell', 'fa-calendar', 'fa-map-location-dot',
-    'fa-users', 'fa-user-tie', 'fa-briefcase', 'fa-boxes-stacked', 'fa-industry',
-    'fa-microchip', 'fa-network-wired', 'fa-satellite-dish', 'fa-flask', 'fa-dna',
-    'fa-atom', 'fa-brain', 'fa-puzzle-piece', 'fa-cubes', 'fa-gears',
-];
-$galeriaIconos = array_values(array_unique(array_merge($cfg['iconos'], $galeriaIconos)));
+// Galería: el set completo del design system (admin/iconos). Los ya elegidos
+// van primero y se conservan aunque sean de los viejos fa-*, para no dejar sin
+// ícono a un proyecto que se creó antes de la migración.
+$galeriaIconos = array_values(array_unique(array_merge($cfg['iconos'], UI::nombresIconos())));
 
 UI::inicio('Ajustes', 'ajustes');
 UI::cabecera(
@@ -288,18 +273,15 @@ UI::cabecera(
           <?php foreach ($galeriaIconos as $ic): ?>
           <button type="button" class="ig-btn <?= in_array($ic, $cfg['iconos'], true) ? 'sel' : '' ?>"
                   data-icono="<?= e($ic) ?>" title="<?= e($ic) ?>">
-            <i class="fa-solid <?= e($ic) ?>"></i>
+            <?= UI::icono($ic) ?>
           </button>
           <?php endforeach; ?>
         </div>
-        <p class="ajuste-ayuda"><span id="iconos-conteo"><?= count($cfg['iconos']) ?></span> seleccionados.
-          ¿Falta alguno? Busca su clase en <a href="https://fontawesome.com/search?ic=free" target="_blank" rel="noopener">Font Awesome</a>
-          y agrégala aquí:
+        <p class="ajuste-ayuda"><span id="iconos-conteo"><?= count($cfg['iconos']) ?></span> seleccionados
+          de <?= count($galeriaIconos) ?> disponibles. Aquí está el set entero del design
+          system: si falta alguno, se suelta su SVG en <code>admin/iconos</code> y aparece
+          en esta galería sin tocar nada más.
         </p>
-        <div class="icon-extra">
-          <input class="input-meca input-icono" id="icono-extra" placeholder="fa-nombre-del-icono">
-          <button type="button" class="btn-outline btn-meca btn-sm" id="icono-extra-btn"><i class="fa-solid fa-plus"></i> Agregar</button>
-        </div>
       </section>
     </div>
   </div>

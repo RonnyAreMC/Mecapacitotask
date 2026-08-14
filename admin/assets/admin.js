@@ -2463,33 +2463,12 @@ if (galeriaIconos) {
     if (conteo) conteo.textContent = sel.length;
   };
   galeriaIconos.addEventListener('click', (e) => {
+    // closest() desde el <path> del SVG: el clic casi nunca cae en el <button>.
     const btn = e.target.closest('.ig-btn');
     if (!btn) return;
     btn.classList.toggle('sel');
     sincronizar();
   });
-
-  // Agregar un icono que no este en la galeria (por clase FA)
-  const extraBtn = document.getElementById('icono-extra-btn');
-  const extraInp = document.getElementById('icono-extra');
-  if (extraBtn && extraInp) {
-    extraBtn.addEventListener('click', () => {
-      const ic = extraInp.value.trim();
-      if (!/^fa-[a-z0-9-]+$/.test(ic)) {
-        MC.toast('Escribe una clase válida de Font Awesome, ej. fa-rocket', 'error');
-        return;
-      }
-      let btn = galeriaIconos.querySelector('[data-icono="' + ic + '"]');
-      if (!btn) {
-        galeriaIconos.insertAdjacentHTML('afterbegin',
-          '<button type="button" class="ig-btn sel" data-icono="' + ic + '" title="' + ic + '"><i class="fa-solid ' + ic + '"></i></button>');
-      } else {
-        btn.classList.add('sel');
-      }
-      extraInp.value = '';
-      sincronizar();
-    });
-  }
 }
 
 // Stepper de catalogos: un paso a la vez con navegacion
