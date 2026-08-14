@@ -88,7 +88,7 @@ UI::cabecera(
       </label>
       <div class="campo">
         <span>Logo (opcional)</span>
-        <?= UI::archivo(['name' => 'imagen', 'variante' => 'inline', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
+        <?= UI::archivo(['name' => 'imagen', 'variante' => 'zona', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
         <small class="campo-ayuda">Se muestra en cada requerimiento de esta institución.</small>
       </div>
     </div>
@@ -117,7 +117,7 @@ UI::cabecera(
       </div>
       <div class="campo">
         <span>Cambiar logo (opcional)</span>
-        <?= UI::archivo(['name' => 'imagen', 'variante' => 'inline', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
+        <?= UI::archivo(['name' => 'imagen', 'variante' => 'zona', 'accept' => $aceptaImg, 'ayuda' => 'PNG/JPG · máx 5 MB', 'maxMB' => 5]) ?>
       </div>
     </div>
     <footer>
