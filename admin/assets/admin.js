@@ -3306,3 +3306,31 @@ document.addEventListener('change', (e) => {
     });
   }
 })();
+
+/* =========================================================
+   Buscador de tabla reutilizable (data-tabla-buscar). Filtra las filas del
+   <tbody> de su tarjeta por el texto tecleado, comparando contra data-buscar
+   (o el texto de la fila). Marca las filas que no coinciden con .fila-oculta
+   y muestra el aviso [data-buscar-vacio] si no queda ninguna.
+   ========================================================= */
+document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
+  const card = input.closest('.tabla-card') || document;
+  const tbody = card.querySelector('table tbody');
+  if (!tbody) return;
+  const vacio = card.querySelector('[data-buscar-vacio]');
+  const contador = card.querySelector('[data-buscar-count]');
+  const filtrar = () => {
+    const q = input.value.trim().toLowerCase();
+    let n = 0;
+    tbody.querySelectorAll('tr').forEach((tr) => {
+      if (tr.hasAttribute('data-no-buscar')) return;
+      const hay = (tr.dataset.buscar || tr.textContent || '').toLowerCase();
+      const ok = !q || hay.includes(q);
+      tr.classList.toggle('fila-oculta', !ok);
+      if (ok) n++;
+    });
+    if (vacio) vacio.hidden = n > 0;
+    if (contador) contador.textContent = n;
+  };
+  input.addEventListener('input', filtrar);
+});

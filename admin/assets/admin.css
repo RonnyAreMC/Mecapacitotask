@@ -2476,6 +2476,12 @@ html.dark .om-num-pend { color: #ffb35c; }
   border-bottom: 1px solid var(--c-border-soft);
 }
 .tabla-toolbar h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; align-items: center; gap: 10px; }
+/* Buscador de tabla reutilizable (data-tabla-buscar) */
+.tabla-buscar { position: relative; display: flex; align-items: center; flex: 1 1 15rem; min-width: 0; max-width: 24rem; }
+.tabla-buscar > i { position: absolute; left: 13px; color: var(--c-text-soft); font-size: .85rem; pointer-events: none; }
+.tabla-buscar .input-meca { width: 100%; padding: 9px 12px 9px 36px; font-size: .88rem; }
+.fila-oculta { display: none !important; }
+.tabla-buscar-vacio { text-align: center; padding: 26px 12px; color: var(--c-text-soft); font-style: italic; }
 .tabla-count {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 27px; height: 27px; padding: 0 9px;

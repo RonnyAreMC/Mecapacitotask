@@ -249,8 +249,12 @@ UI::cabecera(
   <div class="card-base tabla-card">
     <div class="tabla-toolbar">
       <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
-        <span class="tabla-count"><?= count($equipo) ?></span>
+        <span class="tabla-count" data-buscar-count><?= count($equipo) ?></span>
       </h2>
+      <label class="tabla-buscar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por nombre, usuario o correo…" autocomplete="off">
+      </label>
       <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo<?= esAdmin() ? ' · <i class="fa-solid fa-eye"></i> abre su ficha.' : '.' ?></span>
     </div>
     <div class="tabla-scroll">
@@ -274,6 +278,7 @@ UI::cabecera(
               $ficha = (esAdmin() || $mid === $yo) ? 'colaborador.php?id=' . $mid : '';
           ?>
           <tr class="fila-colab<?= $ficha ? '' : ' fila-sin-ficha' ?>" style="--av-c1:<?= $c1 ?>"
+              data-buscar="<?= e(mb_strtolower(($m['nombre'] ?? '') . ' ' . ($m['rol'] ?? '') . ' ' . ($m['git_user'] ?? '') . ' ' . ($m['email'] ?? ''))) ?>"
               <?php if ($ficha): ?>onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'"<?php endif; ?>>
             <td>
               <div class="celda-persona">
@@ -338,6 +343,9 @@ UI::cabecera(
             </td>
           </tr>
           <?php endforeach; ?>
+          <tr data-buscar-vacio data-no-buscar hidden>
+            <td colspan="<?= $puedeAcceso ? 6 : 5 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
+          </tr>
         </tbody>
       </table>
     </div>
