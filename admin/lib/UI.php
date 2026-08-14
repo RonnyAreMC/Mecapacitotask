@@ -178,8 +178,10 @@ class UI
         <div class="nav-grupo-cab"><i class="fa-solid fa-folder-open"></i> Proyectos</div>
         <?php foreach ($proyectos as $p): ?>
         <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
-           class="sidebar-link <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>" title="<?= e($p['nombre']) ?>">
-          <i class="fa-solid <?= e($p['icono']) ?>" style="color:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>"></i>
+           class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
+           title="<?= e($p['nombre']) ?>"
+           style="--pc:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>">
+          <i class="fa-solid <?= e($p['icono']) ?>"></i>
           <span class="truncate"><?= e($p['nombre']) ?></span>
         </a>
         <?php endforeach; ?>

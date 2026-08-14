@@ -5955,6 +5955,10 @@ html.sb-collapsed .sidebar-label, html.sb-collapsed.dark .sidebar-label{
   box-shadow:none !important; border:none !important;
 }
 .sidebar .sidebar-link i, html.dark .sidebar .sidebar-link i{ color:#fff !important; }
+/* Excepción: cada proyecto del grupo se identifica con SU color configurado
+   (el mismo de la pantalla de proyectos), no en blanco. */
+.sidebar .sidebar-link-proyecto i,
+html.dark .sidebar .sidebar-link-proyecto i{ color: var(--pc, #fff) !important; }
 /* Hover: leve realce translúcido (afordancia), sin borde neumórfico */
 .sidebar .sidebar-link:hover, html.dark .sidebar .sidebar-link:hover{
   background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
@@ -5967,6 +5971,10 @@ html.sb-collapsed .sidebar-label, html.sb-collapsed.dark .sidebar-label{
 .sidebar .sidebar-link.active i, html.dark .sidebar .sidebar-link.active i{
   color:#2FE486 !important;   /* verde InnoTech */
 }
+/* Proyecto activo: conserva SU color (el fondo resaltado + la negrita ya
+   indican que está activo), no el verde genérico. */
+.sidebar .sidebar-link-proyecto.active i,
+html.dark .sidebar .sidebar-link-proyecto.active i{ color: var(--pc, #2FE486) !important; }
 /* Botón "ocultar menú" y flechas en blanco */
 .sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{ color:#fff !important; box-shadow:none !important; }
 .sidebar .sidebar-toggle:hover{ color:#eafff5 !important; }
