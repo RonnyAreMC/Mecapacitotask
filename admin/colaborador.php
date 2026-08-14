@@ -162,7 +162,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
             data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
         <input type="hidden" name="accion" value="miembro_eliminar">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="btn-outline btn-meca btn-sm btn-peligro"><i class="fa-solid fa-user-minus"></i></button>
+        <button class="btn-outline btn-meca btn-rojo btn-sm btn-peligro"><i class="fa-solid fa-user-minus"></i></button>
       </form>
     </div>
   </div>
@@ -321,7 +321,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
     camposPersona(true, $eq, Catalogo::equipos());
     ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>

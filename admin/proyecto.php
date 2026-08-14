@@ -972,7 +972,7 @@ foreach ($tareas as $t) {
                 data-confirmar="Se retirará tu propuesta de intercambio." data-confirmar-titulo="¿Retirar propuesta?" data-confirmar-ok="Sí, retirar">
             <input type="hidden" name="accion" value="intercambio_cancelar">
             <input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
-            <button class="btn-outline btn-meca btn-sm"><i class="fa-solid fa-rotate-left"></i> Retirar propuesta</button>
+            <button class="btn-outline btn-meca btn-rojo btn-sm"><i class="fa-solid fa-rotate-left"></i> Retirar propuesta</button>
           </form>
           <?php else: ?>
           <span class="ajuste-ayuda">Esperando la respuesta de <?= e($mB['nombre'] ?? '') ?>.</span>
@@ -1037,7 +1037,7 @@ foreach ($tareas as $t) {
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-paper-plane"></i> Enviar propuesta</button>
         </div>
@@ -1061,7 +1061,7 @@ foreach ($tareas as $t) {
       </button>
       <?php endif; ?>
       <?php else: ?>
-      <a class="btn-outline btn-meca btn-sm" href="ajustes.php#tab-reuniones"><i class="fa-solid fa-gear"></i> Configurar reuniones</a>
+      <a class="btn-outline btn-meca btn-azul btn-sm" href="ajustes.php#tab-reuniones"><i class="fa-solid fa-gear"></i> Configurar reuniones</a>
       <?php endif; ?>
     </div>
 
@@ -1279,7 +1279,7 @@ foreach ($tareas as $t) {
           <button type="button" class="chip-filtro" data-filtro="pendiente">Pendientes <?php if ($obsPendientes): ?>· <?= $obsPendientes ?><?php endif; ?></button>
           <button type="button" class="chip-filtro" data-filtro="resuelta">Resueltas</button>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-sm" id="obs-add-nota" title="Abrir otro cuadro para anotar en paralelo">
+        <button type="button" class="btn-outline btn-meca btn-azul btn-sm" id="obs-add-nota" title="Abrir otro cuadro para anotar en paralelo">
           <i class="fa-solid fa-plus"></i> Otra nota
         </button>
       </div>
@@ -1449,9 +1449,9 @@ $comData = json_encode([
       </header>
       <ol class="apc-lista"></ol>
       <footer class="apc-pie">
-        <button type="button" class="btn-outline btn-meca btn-sm apc-prev"><i class="fa-solid fa-arrow-left"></i> Anterior</button>
+        <button type="button" class="btn-outline btn-meca btn-neutro btn-sm apc-prev"><i class="fa-solid fa-arrow-left"></i> Anterior</button>
         <span class="apc-pag"></span>
-        <button type="button" class="btn-outline btn-meca btn-sm apc-next">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+        <button type="button" class="btn-outline btn-meca btn-neutro btn-sm apc-next">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
       </footer>
     </div>
   </dialog>
@@ -1585,7 +1585,7 @@ $comData = json_encode([
       <small class="campo-ayuda">Se les enviará el enlace por correo si tienen uno registrado<?= Reuniones::agendaEnCalendarios() ? ', y se les agenda en su Google Calendar' : '' ?>.</small>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear reunión</button>
     </footer>
   </form>
@@ -1638,7 +1638,7 @@ $comData = json_encode([
       <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
     </footer>
   </form>
@@ -1708,7 +1708,7 @@ $comData = json_encode([
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear tarea</button>
         </div>
@@ -1775,7 +1775,7 @@ $comData = json_encode([
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>
@@ -1881,7 +1881,7 @@ $comData = json_encode([
     <footer class="av-pie">
       <span class="av-resumen"></span>
       <div class="av-acciones">
-        <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+        <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
         <button class="btn-primary btn-meca"><i class="fa-solid fa-paper-plane"></i> Enviar</button>
       </div>
     </footer>
@@ -1913,7 +1913,7 @@ $comData = json_encode([
       <div class="dt-fila-adj" hidden><dt><i class="fa-solid fa-paperclip"></i> Documentos</dt><dd class="dt-adjuntos"></dd></div>
     </dl>
     <footer class="dt-foot">
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cerrar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
     </footer>
     </div>
 
@@ -2008,7 +2008,7 @@ $comData = json_encode([
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
         </div>

@@ -1113,6 +1113,10 @@ html.dark {
 .btn-outline.btn-meca.btn-verde { --bc: var(--btn-verde); --bc-h: var(--btn-verde-h); }
 .btn-outline.btn-meca.btn-ambar { --bc: var(--btn-ambar); --bc-h: var(--btn-ambar-h); }
 .btn-outline.btn-meca.btn-navy  { --bc: var(--btn-navy);  --bc-h: var(--btn-navy-h); }
+/* Neutro: cancelar, cerrar, atrás, anterior/siguiente. No son acciones sobre
+   los datos, son salidas y pasos — pintarlas de color las hace competir con
+   el botón que sí hace algo. */
+.btn-outline.btn-meca.btn-neutro { --bc: var(--c-text-muted); --bc-h: var(--c-text); }
 /* Sin variante se queda el verde de acento de siempre, así que los botones
    que aún no se han repartido no cambian. */
 .btn-outline.btn-meca { color: var(--bc, var(--c-secondary)); }

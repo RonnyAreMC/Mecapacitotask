@@ -267,10 +267,10 @@ UI::inicio('Requerimientos', 'requerimientos');
 UI::cabecera(
     'Requerimientos <span class="text-secondary">sueltos</span>',
     'Peticiones que no pertenecen a ningún proyecto. Repártelas con su plazo, mirando cuánto tiene encima cada persona.',
-    '<a class="btn-outline btn-meca" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
+    '<a class="btn-outline btn-meca btn-azul" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
        <i class="fa-solid fa-chart-column"></i> Panel
      </a>
-     <a class="btn-outline btn-meca" href="instituciones.php" title="Catálogo de instituciones">
+     <a class="btn-outline btn-meca btn-azul" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> Instituciones
      </a>
      <button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
@@ -365,7 +365,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
               'nuevos'    => 'Los más recientes',
             ], $fOrden, true, 'select-sm') ?>
       </label>
-      <button class="btn-outline btn-meca req-buscar-btn"><i class="fa-solid fa-filter"></i> Filtrar</button>
+      <button class="btn-outline btn-meca btn-azul req-buscar-btn"><i class="fa-solid fa-filter"></i> Filtrar</button>
       <?php if ($hayFiltro): ?>
       <a class="req-limpiar" href="requerimientos.php"><i class="fa-solid fa-xmark"></i> Quitar filtros</a>
       <?php endif; ?>
@@ -493,7 +493,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Registrar</button>
         </div>
@@ -529,7 +529,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-paper-plane"></i> Asignar</button>
         </div>
@@ -596,7 +596,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>

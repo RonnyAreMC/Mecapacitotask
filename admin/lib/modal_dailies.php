@@ -139,7 +139,7 @@ $faltaPara = function (string $hora) use ($ahora): string {
           <?php endforeach; ?>
         </div>
         <div class="daily-alta-pie">
-          <button type="button" class="btn-outline btn-meca" id="rf-cancelar" hidden>Cancelar</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro" id="rf-cancelar" hidden>Cancelar</button>
           <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> <span id="rf-guardar">Añadir</span></button>
         </div>
       </form>

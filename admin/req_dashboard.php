@@ -141,7 +141,7 @@ UI::inicio('Panel de requerimientos', 'requerimientos');
 UI::cabecera(
     'Panel de <span class="text-secondary">requerimientos</span>',
     'Rendimiento de los requerimientos sueltos: cumplimiento por institución, quién resuelve y cómo evoluciona la carga.',
-    '<a class="btn-outline btn-meca" href="requerimientos.php"><i class="fa-solid fa-arrow-left"></i> Volver a la lista</a>'
+    '<a class="btn-outline btn-meca btn-azul" href="requerimientos.php"><i class="fa-solid fa-arrow-left"></i> Volver a la lista</a>'
 );
 ?>
 

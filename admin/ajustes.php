@@ -27,7 +27,7 @@ UI::cabecera(
            data-confirmar="Se perderán todos los ajustes personalizados y el panel volverá a sus valores por defecto."
            data-confirmar-titulo="¿Restaurar los defaults?" data-confirmar-ok="Sí, restaurar">
        <input type="hidden" name="accion" value="config_reset">
-       <button class="btn-outline btn-meca btn-verde"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
+       <button class="btn-outline btn-meca btn-rojo"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
      </form>'
 );
 ?>
@@ -244,11 +244,11 @@ UI::cabecera(
     </div>
 
     <div class="paso-nav">
-      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-prev" disabled>
+      <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" id="paso-prev" disabled>
         <i class="fa-solid fa-arrow-left"></i> Anterior
       </button>
       <span class="paso-indicador" id="paso-indicador">Paso 1 de 4</span>
-      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-next">
+      <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" id="paso-next">
         Siguiente <i class="fa-solid fa-arrow-right"></i>
       </button>
     </div>
@@ -460,7 +460,7 @@ UI::cabecera(
 
         <div class="correo-prueba">
           <input class="input-meca" type="email" name="para" form="frm-correo-prueba" placeholder="tucorreo@gmail.com" required>
-          <button class="btn-outline btn-meca btn-sm" form="frm-correo-prueba">
+          <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-correo-prueba">
             <i class="fa-solid fa-paper-plane"></i> Probar envío
           </button>
         </div>
@@ -584,7 +584,7 @@ UI::cabecera(
 
         <div class="correo-prueba">
           <span class="ajuste-ayuda" style="flex:1">Guarda primero; luego prueba la conexión con Zoom.</span>
-          <button class="btn-outline btn-meca btn-sm" form="frm-zoom-prueba">
+          <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-zoom-prueba">
             <i class="fa-solid fa-plug-circle-check"></i> Probar conexión
           </button>
         </div>
@@ -736,7 +736,7 @@ UI::cabecera(
           y bórralo cuando termines.
         </p>
         <div class="respaldo-acciones">
-          <button class="btn-outline btn-meca" form="frm-config-exportar">
+          <button class="btn-outline btn-meca btn-azul" form="frm-config-exportar">
             <i class="fa-solid fa-download"></i> Exportar configuración
           </button>
           <label class="respaldo-archivo">

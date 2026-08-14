@@ -728,7 +728,7 @@ class UI
 
         return '<div class="repos-editor" id="repos-editor" data-repos-editor data-repo-siguiente="' . $i . '">'
             . '<div class="repos-filas">' . $filas . '</div>'
-            . '<button type="button" class="btn-outline btn-meca btn-sm repo-agregar">'
+            . '<button type="button" class="btn-outline btn-meca btn-azul btn-sm repo-agregar">'
             . '<i class="fa-solid fa-plus"></i> Agregar repositorio</button>'
             . $plantilla
             . '<small class="campo-ayuda">Elige el tipo y, si tienes varios del mismo (p. ej. dos instituciones), ponle un nombre para distinguirlos. '

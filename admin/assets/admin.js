@@ -90,7 +90,7 @@ const MC = {
           '<h3 class="font-display"></h3>' +
           '<p></p>' +
           '<footer>' +
-            '<button type="button" class="btn-outline btn-meca mcc-no"></button>' +
+            '<button type="button" class="btn-outline btn-meca btn-neutro mcc-no"></button>' +
             '<button type="button" class="btn-meca mcc-si ' + (peligro ? 'btn-peligro-solido' : 'btn-primary') + '"></button>' +
           '</footer>' +
         '</div>';

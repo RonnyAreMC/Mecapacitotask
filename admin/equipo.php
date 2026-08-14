@@ -65,7 +65,7 @@ UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
-    '<button class="btn-outline btn-meca solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
+    '<button class="btn-outline btn-meca btn-azul solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
        <i class="fa-solid fa-file-arrow-up"></i> Cargar desde Excel
      </button>
      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
@@ -206,7 +206,7 @@ UI::cabecera(
         </label>
         <div class="sol-botones">
           <button class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-check"></i> Aprobar</button>
-          <button type="button" class="btn-outline btn-meca btn-sm sol-no"
+          <button type="button" class="btn-outline btn-meca btn-rojo btn-sm sol-no"
                   data-rechazar="<?= $sid ?>" data-nombre="<?= e($s['nombre']) ?>">
             <i class="fa-solid fa-xmark"></i> Rechazar
           </button>
@@ -234,7 +234,7 @@ UI::cabecera(
                 placeholder="Ej. No reconocemos esta cuenta; escríbenos desde tu correo institucional."></textarea>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-outline btn-meca btn-rojo"><i class="fa-solid fa-xmark"></i> Rechazar</button>
     </footer>
   </form>
@@ -396,7 +396,7 @@ UI::cabecera(
     </small>
 
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-eye"></i> Leer y revisar</button>
     </footer>
   </form>
@@ -412,7 +412,7 @@ UI::cabecera(
     </header>
     <?php camposPersona(false, $eq, $equipos); ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Agregar al equipo</button>
     </footer>
   </form>
@@ -429,7 +429,7 @@ UI::cabecera(
     </header>
     <?php camposPersona(true, $eq, $equipos); ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>
@@ -461,7 +461,7 @@ UI::cabecera(
       <?php endif; ?>
     </div>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>

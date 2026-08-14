@@ -59,7 +59,7 @@ UI::cabecera(
         : ($alcance !== null
             ? 'Estos son los proyectos en los que participas.'
             : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.'),
-    '<button class="btn-outline btn-meca" onclick="document.getElementById(\'dlg-dailies\').showModal()"
+    '<button class="btn-outline btn-meca btn-azul" onclick="document.getElementById(\'dlg-dailies\').showModal()"
              title="A qué hora se junta cada equipo">
        <i class="fa-solid fa-mug-hot"></i> Dailies
      </button>
@@ -178,7 +178,7 @@ foreach ($mapaProy as $pid => $p) {
           </a>
           <?php endforeach; ?>
           <?php endif; ?>
-          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-sm">
+          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-azul btn-sm">
             Ver tablero <i class="fa-solid fa-arrow-right"></i>
           </a>
         </div>
@@ -269,7 +269,7 @@ foreach ($mapaProy as $pid => $p) {
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
           <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
         </div>

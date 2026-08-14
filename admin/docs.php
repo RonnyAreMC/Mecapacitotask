@@ -75,7 +75,7 @@ UI::cabecera(
     <div class="docs-visor-top">
       <b id="doc-titulo" class="font-display"><?= e($docs[0]['titulo']) ?></b>
       <div class="docs-visor-acc">
-        <a id="doc-abrir" class="btn-outline btn-meca btn-sm" href="<?= e($docs[0]['pdf']) ?>" target="_blank" rel="noopener">
+        <a id="doc-abrir" class="btn-outline btn-meca btn-azul btn-sm" href="<?= e($docs[0]['pdf']) ?>" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Abrir en pestaña
         </a>
         <a id="doc-bajar" class="btn-primary btn-meca btn-sm" href="descargar.php?d=<?= e($docs[0]['clave']) ?>-pdf">

@@ -262,7 +262,7 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
             Lo reparte el administrador: si algo no cuadra (el plazo, o que no te toque a ti), díselo.
           </p>
           <?php endif; ?>
-          <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cerrar</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
           <?php endif; ?>
         </footer>
       </div>

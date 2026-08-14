@@ -32,7 +32,7 @@ UI::inicio('Instituciones', 'instituciones');
 UI::cabecera(
     'Catálogo de <span class="text-secondary">instituciones</span>',
     'Las instituciones que atienden los requerimientos sueltos. Cada una con su logo; con eso salen las métricas por institución.',
-    '<a class="btn-outline btn-meca" href="requerimientos.php"><i class="fa-solid fa-inbox"></i> Bandeja</a>
+    '<a class="btn-outline btn-meca btn-azul" href="requerimientos.php"><i class="fa-solid fa-inbox"></i> Bandeja</a>
      <button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-inst-nueva\').showModal()">
        <i class="fa-solid fa-plus"></i> Nueva institución
      </button>'
@@ -98,7 +98,7 @@ UI::cabecera(
       </div>
     </div>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Agregar</button>
     </footer>
   </form>
@@ -131,7 +131,7 @@ UI::cabecera(
       </div>
     </div>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>

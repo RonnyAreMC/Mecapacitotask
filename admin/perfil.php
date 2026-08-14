@@ -91,7 +91,7 @@ UI::inicio('Mi perfil', 'perfil');
       <input type="hidden" name="accion" value="mis_tareas_json">
       <button class="btn-primary btn-meca"><i class="fa-solid fa-file-arrow-down"></i> Descargar mis tareas (JSON)</button>
     </form>
-    <a href="docs.php" class="btn-outline btn-meca"><i class="fa-solid fa-book-open"></i> Ver el estándar</a>
+    <a href="docs.php" class="btn-outline btn-meca btn-azul"><i class="fa-solid fa-book-open"></i> Ver el estándar</a>
   </div>
 </section>
 
