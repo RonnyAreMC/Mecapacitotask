@@ -1074,6 +1074,68 @@ html.dark .btn-ghost.btn-meca:hover {
 .btn-peligro:hover { color: var(--c-terracota) !important; }
 
 /* =========================================================
+   Variantes de color del botón neumórfico
+
+   El relieve no cambia: sigue siendo la superficie del panel con su
+   sombra. Lo único que cambia es el color del texto y del icono (el SVG
+   hereda currentColor), que es lo que dice de qué va la acción:
+
+     btn-azul    editar, revisar, designar, ver
+     btn-rojo    rechazar, anular, eliminar, quitar
+     btn-verde   aceptar, aprobar, confirmar
+     btn-ambar   cambiar, reasignar — lo que pide mirar antes
+     btn-navy    registrar, la acción principal de la pantalla
+
+   Cada una lleva su paso por tema porque ningún hex pasa el contraste de
+   texto (4.5:1) sobre las dos superficies a la vez: los de claro se
+   pierden sobre #262c3a y los de oscuro se lavan sobre #e5eaf3. Todos los
+   valores de abajo están medidos contra su propia superficie.
+   ========================================================= */
+:root {
+  --btn-azul:  #1F63D6;  --btn-azul-h:  #1A4B99;
+  --btn-rojo:  #B4232F;  --btn-rojo-h:  #8E1A24;
+  --btn-verde: #0D7340;  --btn-verde-h: #0B6234;
+  --btn-ambar: #9C5511;  --btn-ambar-h: #7A420D;
+  --btn-navy:  #000080;  --btn-navy-h:  #16169E;
+  --btn-gris:  #6B7688;
+}
+html.dark {
+  --btn-azul:  #66B2FF;  --btn-azul-h:  #96CBFF;
+  --btn-rojo:  #F1707A;  --btn-rojo-h:  #FF9AA2;
+  --btn-verde: #35C078;  --btn-verde-h: #5FD396;
+  --btn-ambar: #F0A73F;  --btn-ambar-h: #F5BC6B;
+  --btn-navy:  #8FA8FF;  --btn-navy-h:  #B3C2FF;
+  --btn-gris:  #8E99AE;
+}
+
+.btn-outline.btn-meca.btn-azul  { --bc: var(--btn-azul);  --bc-h: var(--btn-azul-h); }
+.btn-outline.btn-meca.btn-rojo  { --bc: var(--btn-rojo);  --bc-h: var(--btn-rojo-h); }
+.btn-outline.btn-meca.btn-verde { --bc: var(--btn-verde); --bc-h: var(--btn-verde-h); }
+.btn-outline.btn-meca.btn-ambar { --bc: var(--btn-ambar); --bc-h: var(--btn-ambar-h); }
+.btn-outline.btn-meca.btn-navy  { --bc: var(--btn-navy);  --bc-h: var(--btn-navy-h); }
+/* Sin variante se queda el verde de acento de siempre, así que los botones
+   que aún no se han repartido no cambian. */
+.btn-outline.btn-meca { color: var(--bc, var(--c-secondary)); }
+.btn-outline.btn-meca:hover { color: var(--bc-h, var(--c-azul-cobalto)); }
+
+/* Deshabilitado: gris y sin relieve que invite a pulsarlo. El contraste
+   flojo aquí es a propósito — WCAG excluye los controles inactivos y es
+   justo lo que hace que se lea como "no disponible". */
+.btn-meca:disabled,
+.btn-meca[disabled],
+.btn-meca.btn-inactivo {
+  color: var(--btn-gris) !important;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini);
+  cursor: not-allowed;
+  transform: none;
+}
+.btn-primary.btn-meca:disabled,
+.btn-primary.btn-meca[disabled] {
+  background: color-mix(in srgb, var(--btn-gris) 22%, var(--n-bg));
+}
+
+/* =========================================================
    Cards base (override de mecapacito.css)
    ========================================================= */
 /* Neumorfismo + claymorphism: borde tintado con el color de la card
@@ -4841,10 +4903,9 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
 }
 .btn-peligro-solido:hover { background: #a85622; }
 
-/* Boton verde (Restaurar defaults) */
-.btn-verde { color: var(--c-verde-esmeralda) !important; }
-.btn-verde:hover { color: #1e8a5a !important; }
-html.dark .btn-verde:hover { color: #57d99a !important; }
+/* .btn-verde vivía aquí con !important y su propio esmeralda. Ahora es una
+   variante más de la familia de botones (ver "Variantes de color"), que ya
+   trae su paso por tema y su hover. */
 
 /* Fila de catalogo simple (roles): input + quitar */
 .fila-cat.fila-cat-2 { grid-template-columns: 1fr auto; }

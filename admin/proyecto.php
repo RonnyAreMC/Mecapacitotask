@@ -963,7 +963,7 @@ foreach ($tareas as $t) {
             <button class="btn-primary btn-meca btn-sm" name="respuesta" value="aceptar">
               <i class="fa-solid fa-check"></i> Aceptar
             </button>
-            <button class="btn-outline btn-meca btn-sm" name="respuesta" value="rechazar">
+            <button class="btn-outline btn-meca btn-sm btn-rojo" name="respuesta" value="rechazar">
               <i class="fa-solid fa-xmark"></i> Rechazar
             </button>
           </form>
@@ -1421,7 +1421,7 @@ $comData = json_encode([
         <button type="button" class="subvista-btn active" data-dias="182">6 m</button>
         <button type="button" class="subvista-btn" data-dias="365">1 año</button>
       </div>
-      <button type="button" class="btn-outline btn-meca btn-sm ap-ver-commits"><i class="fa-solid fa-list"></i> Ver commits</button>
+      <button type="button" class="btn-outline btn-meca btn-sm btn-azul ap-ver-commits"><i class="fa-solid fa-list"></i> Ver commits</button>
     </div>
   </div>
   <div class="metricas-cuerpo">

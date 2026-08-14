@@ -148,7 +148,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
       </div>
     </div>
     <div class="colab-acciones">
-      <button class="btn-outline btn-meca btn-sm solo-admin" title="Editar"
+      <button class="btn-outline btn-meca btn-sm btn-azul solo-admin" title="Editar"
         data-editar-miembro='<?= e(json_encode([
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
             'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '',

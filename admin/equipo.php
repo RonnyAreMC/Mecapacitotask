@@ -148,7 +148,7 @@ UI::cabecera(
       <form method="post" action="actions.php" class="inline-form">
         <input type="hidden" name="accion" value="equipo_importar_cancelar">
         <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-        <button class="btn-outline btn-meca">Descartar</button>
+        <button class="btn-outline btn-meca btn-rojo">Descartar</button>
       </form>
       <form method="post" action="actions.php" class="inline-form">
         <input type="hidden" name="accion" value="equipo_importar_confirmar">
@@ -235,7 +235,7 @@ UI::cabecera(
     </label>
     <footer>
       <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-peligro btn-meca"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+      <button type="submit" class="btn-outline btn-meca btn-rojo"><i class="fa-solid fa-xmark"></i> Rechazar</button>
     </footer>
   </form>
 </dialog>

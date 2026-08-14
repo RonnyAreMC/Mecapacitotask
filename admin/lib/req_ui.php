@@ -230,8 +230,8 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
             <input type="hidden" name="id" id="fq-id-borrar">
             <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
           </form>
-          <button type="button" class="btn-outline btn-meca" id="fq-editar"><i class="fa-solid fa-pen"></i> Editar</button>
-          <button type="button" class="btn-outline btn-meca" id="fq-derivar"><i class="fa-solid fa-user-plus"></i> Asignar</button>
+          <button type="button" class="btn-outline btn-meca btn-azul" id="fq-editar"><i class="fa-solid fa-pen"></i> Editar</button>
+          <button type="button" class="btn-outline btn-meca btn-azul" id="fq-derivar"><i class="fa-solid fa-user-plus"></i> Asignar</button>
           <form method="post" action="actions.php" class="inline-form" id="fq-resolver">
             <input type="hidden" name="accion" value="req_estado">
             <input type="hidden" name="id" id="fq-id-estado">
