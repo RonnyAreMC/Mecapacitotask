@@ -115,7 +115,6 @@ class UI
 <?php self::estilosConfig(); ?>
 </head>
 <body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
-<?php if ($activo === 'dashboard') self::fondoRamas(); ?>
 <aside class="sidebar">
   <div class="sidebar-top">
     <a href="index.php" class="sidebar-brand sidebar-brand-icono">
