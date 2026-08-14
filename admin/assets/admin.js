@@ -1202,6 +1202,63 @@ if (kanban) {
       });
     });
   });
+
+  /* Mover RÁPIDO sin arrastrar: el botón "⋮" de la tarjeta abre un menú con las
+     otras columnas; un clic la mueve. Imprescindible cuando una columna tiene
+     muchas tarjetas y arrastrar hasta otra es un suplicio. */
+  const kbEstados = (() => { try { return JSON.parse(kanban.dataset.estados || '[]'); } catch (_) { return []; } })();
+  const cerrarMenus = () => kanban.querySelectorAll('.kb-menu').forEach((m) => m.remove());
+
+  const moverTarjeta = (card, est) => {
+    const destino = kanban.querySelector('.kb-cards[data-estado-drop="' + est.k + '"]');
+    if (!destino) return;
+    const previo = card.parentElement;
+    destino.prepend(card);
+    card.classList.add('kb-guardando');
+    guardarEstadoTarea(card.dataset.tarea, est.k).then((res) => {
+      card.classList.remove('kb-guardando');
+      if (res.ok) MC?.toast?.('Movida a «' + est.label + '»', 'success', 1400);
+      else { previo.appendChild(card); MC?.toast?.(res.error || 'No se pudo mover la tarea', 'error'); }
+    });
+  };
+
+  kanban.addEventListener('click', (e) => {
+    const btn = e.target.closest('.kb-mover');
+    if (!btn) return;
+    e.stopPropagation();                 // no abrir el detalle de la tarjeta
+    const yaAbierto = btn.parentElement.querySelector('.kb-menu');
+    cerrarMenus();
+    if (yaAbierto) return;               // segundo clic: cerrar
+    const card = btn.closest('.kb-card');
+    const actual = card.closest('.kb-cards')?.dataset.estadoDrop;
+    const menu = document.createElement('div');
+    menu.className = 'kb-menu';
+    menu.innerHTML = '<span class="kb-menu-tit">Mover a…</span>';
+    kbEstados.filter((s) => s.k !== actual).forEach((s) => {
+      const op = document.createElement('button');
+      op.type = 'button';
+      op.className = 'kb-menu-op';
+      op.innerHTML = '<i class="fa-solid ' + s.icono + '"></i> ' + s.label;
+      op.addEventListener('click', (ev) => { ev.stopPropagation(); cerrarMenus(); moverTarjeta(card, s); });
+      menu.appendChild(op);
+    });
+    btn.parentElement.appendChild(menu);
+  });
+  document.addEventListener('click', cerrarMenus);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenus(); });
+
+  /* Auto-scroll al arrastrar cerca del borde superior/inferior de la ventana:
+     sin esto, con muchas tarjetas no se alcanza la columna destino. */
+  let autoScroll = 0, rafId = null;
+  const tick = () => { if (autoScroll) window.scrollBy(0, autoScroll); rafId = requestAnimationFrame(tick); };
+  const pararScroll = () => { autoScroll = 0; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } };
+  kanban.addEventListener('dragstart', () => { if (!rafId) rafId = requestAnimationFrame(tick); });
+  kanban.addEventListener('dragover', (e) => {
+    const m = 90, paso = 20;
+    autoScroll = e.clientY < m ? -paso : (e.clientY > window.innerHeight - m ? paso : 0);
+  });
+  kanban.addEventListener('dragend', pararScroll);
+  kanban.addEventListener('drop', pararScroll);
 }
 
 // Tabla: el select de estado también guarda por AJAX (no recarga la página)
