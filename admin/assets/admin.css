@@ -6642,6 +6642,19 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .fq-personas small { color: var(--c-text-soft); font-size: .76rem; }
 .dlg-ficha footer .inline-form { margin: 0; }
 
+/* Formulario "marcar terminado" (bandeja del responsable): ocupa todo el ancho
+   del pie, con la observación arriba y el botón alineado a la derecha. */
+.dlg-ficha footer .fq-terminar {
+  flex: 1 1 100%; display: flex; flex-direction: column; gap: 10px; margin: 0;
+}
+.dlg-ficha footer .fq-terminar .campo { margin: 0; }
+.dlg-ficha footer .fq-terminar .campo > span small { color: var(--c-text-soft); font-weight: 500; }
+.dlg-ficha footer .fq-terminar textarea { resize: vertical; min-height: 52px; }
+.dlg-ficha footer .fq-terminar .btn-meca { align-self: flex-end; }
+/* Observación de cierre (cómo se entregó) */
+.fq-cierre p { margin: 0; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fq-cierre-meta { display: block; margin-top: 6px; color: var(--c-text-soft); font-size: .78rem; }
+
 /* Selector de personas del paso "Responsables". Vive dentro de un panel del
    asistente, así que se desplaza él solo: con 23 personas, dejar crecer el
    panel obligaba a scrollear el modal entero para llegar a los botones. */

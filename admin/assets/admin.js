@@ -2786,10 +2786,29 @@ document.addEventListener('change', (e) => {
       personas.append(li);
     }
 
-    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
     // Cerrarlo solo tiene sentido mientras siga abierto
     const resolver = $('fq-resolver');
     if (resolver) resolver.hidden = r.cerrado;
+
+    // Observación de cierre (cómo se entregó): se muestra si existe
+    const cierre = $('fq-cierre');
+    if (cierre) {
+      if (r.notaCierre) {
+        $('fq-nota-cierre').textContent = r.notaCierre;
+        const meta = [r.cerradoPor && ('por ' + r.cerradoPor), r.cerradoEn].filter(Boolean).join(' · ');
+        $('fq-cierre-meta').textContent = meta;
+        cierre.hidden = false;
+      } else {
+        cierre.hidden = true;
+      }
+    }
+    // Formulario de "marcar terminado" (bandeja del responsable): solo mientras
+    // siga abierto; si ya está cerrado, se muestra el aviso en su lugar.
+    const fTerm = $('fq-terminar');
+    if (fTerm) fTerm.hidden = r.cerrado;
+    const yaCerr = $('fq-ya-cerrado');
+    if (yaCerr) yaCerr.hidden = !r.cerrado;
 
     // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
     // y con su plazo actual en las fechas

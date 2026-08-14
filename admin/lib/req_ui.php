@@ -109,6 +109,10 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'cerrado'     => RequerimientoRepo::cerrado($r),
         'asignados'   => implode(',', $ids),
         'personas'    => array_map(fn($m) => ['nombre' => $m['nombre'], 'rol' => $m['rol'] ?? ''], $gente),
+        // Observación de cierre que deja el responsable al marcarlo terminado.
+        'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
+        'cerradoPor'  => (string)($mapa[(int)($r['cerrado_por'] ?? 0)]['nombre'] ?? ''),
+        'cerradoEn'   => (string)($r['cerrado_en'] ?? ''),
     ];
     ?>
     <button type="button" class="req-fila req-e-<?= e($estado) ?><?= $vencido ? ' req-fila-vencida' : '' ?>"
@@ -181,7 +185,7 @@ function bloqueRequerimientos(string $titulo, string $icono, array $items, array
  * $gestor = el administrador en su modulo: ademas de mirar, asigna, cierra y
  * borra. En la bandeja del equipo la ficha es solo de lectura.
  */
-function fichaRequerimiento(bool $gestor): void
+function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
 {
     ?>
     <dialog id="dlg-req-ficha" class="dlg-meca dlg-ficha">
@@ -210,6 +214,14 @@ function fichaRequerimiento(bool $gestor): void
           <ul class="fq-personas" id="fq-personas"></ul>
         </div>
 
+        <!-- Observación de cierre: lo que dejó anotado quien lo terminó (rama,
+             commits, dónde quedó). Se muestra si existe. -->
+        <div class="fq-bloque fq-cierre" id="fq-cierre" hidden>
+          <h4><i class="fa-solid fa-circle-check text-secondary"></i> Cómo se entregó</h4>
+          <p id="fq-nota-cierre"></p>
+          <small class="fq-cierre-meta" id="fq-cierre-meta"></small>
+        </div>
+
         <footer>
           <?php if ($gestor): ?>
           <form method="post" action="actions.php" class="inline-form" id="fq-borrar"
@@ -227,10 +239,29 @@ function fichaRequerimiento(bool $gestor): void
             <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Marcar resuelto</button>
           </form>
           <?php else: ?>
+          <?php if ($puedeTerminar): ?>
+          <!-- El responsable marca cuando lo terminó y deja constancia de cómo
+               (rama, commits…). Al enviarlo, se avisa por correo a quien lo
+               asignó. JS oculta el formulario si ya está cerrado. -->
+          <form method="post" action="actions.php" class="fq-terminar" id="fq-terminar">
+            <input type="hidden" name="accion" value="req_terminar">
+            <input type="hidden" name="id" id="fq-id-terminar">
+            <label class="campo">
+              <span>¿Cómo lo dejaste? <small>(rama, commits, dónde quedó…)</small></span>
+              <textarea class="input-meca" name="nota" rows="2" maxlength="600"
+                        placeholder="Ej. Subido en la rama feature/nota-credito con los commits ab12cd y 34ef56"></textarea>
+            </label>
+            <button class="btn-primary btn-meca"><i class="fa-solid fa-circle-check"></i> Marcar como terminado</button>
+          </form>
+          <p class="ajuste-ayuda fq-nota" id="fq-ya-cerrado" hidden>
+            <i class="fa-solid fa-circle-check"></i> Ya está marcado como terminado.
+          </p>
+          <?php else: ?>
           <p class="ajuste-ayuda fq-nota">
             <i class="fa-solid fa-circle-info"></i>
             Lo reparte el administrador: si algo no cuadra (el plazo, o que no te toque a ti), díselo.
           </p>
+          <?php endif; ?>
           <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cerrar</button>
           <?php endif; ?>
         </footer>

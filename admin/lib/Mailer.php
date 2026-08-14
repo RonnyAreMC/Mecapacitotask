@@ -770,6 +770,33 @@ class Mailer
             self::plantilla($cuerpo));
     }
 
+    /**
+     * Avisa de que un requerimiento suelto se TERMINÓ. Lo dispara el responsable
+     * desde su bandeja; va a quien lo asignó ($para). Incluye la observación de
+     * cómo lo dejó (rama, commits…).
+     */
+    public static function notificarRequerimientoHecho(array $req, array $quien, string $para, string $nota): true|string|null
+    {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = '#2BB673';
+        $nombre = $quien['nombre'] ?? 'Alguien';
+        $filas  = ['Lo terminó' => e($nombre)];
+        if (!empty($req['cerrado_en'])) $filas['Cuándo'] = e((string)$req['cerrado_en']);
+        if (!empty($req['solicitante'])) $filas['Lo pedía'] = e((string)$req['solicitante']);
+
+        $cuerpo = self::encabezado($acento, '&#10003;', 'Requerimiento terminado',
+                    '<b>' . e($nombre) . '</b> marcó como terminado un requerimiento que asignaste.')
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#f6fbf8;'
+                  . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Cómo lo dejó</b><br>' . nl2br(e($nota)) . '</div>'
+                : '');
+
+        return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo));
+    }
+
     /* ---------- Registro público ---------- */
 
     /**

@@ -31,6 +31,9 @@ $accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar'];
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
     'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
+    // El responsable de un requerimiento suelto puede marcarlo terminado desde
+    // su bandeja (dentro se comprueba que sea suyo).
+    'req_terminar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
@@ -155,6 +158,29 @@ function esUltimaOcurrencia(array $reu, string $fecha): bool
         if (strtotime($oc) <= time()) $ultima = substr($oc, 0, 10);
     }
     return $ultima !== '' && $ultima === $fecha;
+}
+
+/**
+ * Avisa por correo de que un requerimiento se terminó. Va a quien lo creó/asignó
+ * (por su correo) o, si no tiene, al admin configurado en Ajustes → Correo.
+ * Devuelve la coletilla para el flash.
+ */
+function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, string $nota): string
+{
+    $para    = '';
+    $creador = $miembros->buscar((int)($req['creado_por'] ?? 0));
+    if ($creador && !empty($creador['email'])) {
+        $para = (string)$creador['email'];
+    }
+    if ($para === '') {
+        $para = trim((string)(Mailer::config()['admin_email'] ?? ''));
+    }
+    if ($para === '') {
+        return '';
+    }
+    return Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true
+        ? ' Le avisamos por correo a quien lo asignó.'
+        : '';
 }
 
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
@@ -1418,6 +1444,32 @@ switch ($accion) {
         $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
         $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
         redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
+
+    case 'req_terminar':
+        // Lo marca el RESPONSABLE desde su bandeja, con una observación de cómo
+        // lo dejó (rama, commits…). Avisa por correo a quien lo asignó.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('bandeja.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $yoTerm = (int)(Auth::usuario()['id'] ?? 0);
+        if (!RequerimientoRepo::tieneAsignado($req, $yoTerm)) {
+            redirigir('bandeja.php', 'Solo quien lo tiene asignado puede marcarlo terminado.', 'error');
+        }
+        if (RequerimientoRepo::cerrado($req)) {
+            redirigir('bandeja.php', 'Ese requerimiento ya estaba cerrado.', 'info');
+        }
+        $notaTerm = trim($_POST['nota'] ?? '');
+        $reqRepo->actualizar((int)$req['id'], [
+            'estado'      => 'hecho',
+            'nota_cierre' => mb_substr($notaTerm, 0, 600),
+            'cerrado_por' => $yoTerm,
+            'cerrado_en'  => date('Y-m-d H:i'),
+        ]);
+        $reqTermAct = $reqRepo->buscar((int)$req['id']) ?? $req;
+        $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
+        redirigir('bandeja.php', 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
 
     case 'req_eliminar':
         $reqRepo = new RequerimientoRepo();

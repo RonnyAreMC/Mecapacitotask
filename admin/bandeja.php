@@ -102,6 +102,6 @@ UI::cabecera(
 
 <?php endif; ?>
 
-<?php fichaRequerimiento(false); ?>
+<?php fichaRequerimiento(false, !$verComo); ?>
 
 <?php UI::fin(); ?>
