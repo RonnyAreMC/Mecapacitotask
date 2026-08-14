@@ -121,8 +121,8 @@ function resolverUuidOcurrencia(array $reu, string $fecha, string &$error): stri
     $error = '';
     $inst  = Zoom::instancias((string)($reu['zoom_id'] ?? ''));
     if (($inst['estado'] ?? '') !== 'ok') {
-        $error = 'No se pudieron leer las ocurrencias en Zoom: ' . ($inst['msg'] ?? 'error')
-               . ' — necesita que la reunión se grabara en la nube y los permisos meeting:read y recording:read en la app de Zoom.';
+        $error = ($inst['msg'] ?? 'No se pudieron leer las ocurrencias en Zoom.')
+               . ' — En la app Server-to-Server de Zoom añade el permiso «meeting:read:list_past_instances» (y «cloud_recording:read»); es el que deja ver los días anteriores de una reunión repetida.';
         return '';
     }
     $items = $inst['items'] ?? [];
