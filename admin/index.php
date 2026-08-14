@@ -63,7 +63,7 @@ UI::cabecera(
              title="A qué hora se junta cada equipo">
        <i class="fa-solid fa-mug-hot"></i> Dailies
      </button>
-     <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
+     <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
 );
@@ -271,7 +271,7 @@ foreach ($mapaProy as $pid => $p) {
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
         </div>
       </div>
     </div>

@@ -140,7 +140,7 @@ $faltaPara = function (string $hora) use ($ahora): string {
         </div>
         <div class="daily-alta-pie">
           <button type="button" class="btn-outline btn-meca btn-neutro" id="rf-cancelar" hidden>Cancelar</button>
-          <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> <span id="rf-guardar">Añadir</span></button>
+          <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> <span id="rf-guardar">Añadir</span></button>
         </div>
       </form>
     </details>

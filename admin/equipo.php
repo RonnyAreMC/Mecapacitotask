@@ -68,7 +68,7 @@ UI::cabecera(
     '<button class="btn-outline btn-meca btn-azul solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
        <i class="fa-solid fa-file-arrow-up"></i> Cargar desde Excel
      </button>
-     <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
+     <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
        <i class="fa-solid fa-user-plus"></i> Agregar colaborador
      </button>'
 );
@@ -413,7 +413,7 @@ UI::cabecera(
     <?php camposPersona(false, $eq, $equipos); ?>
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Agregar al equipo</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Agregar al equipo</button>
     </footer>
   </form>
 </dialog>

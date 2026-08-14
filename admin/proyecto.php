@@ -1586,7 +1586,7 @@ $comData = json_encode([
     </label>
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-video"></i> Crear reunión</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-video"></i> Crear reunión</button>
     </footer>
   </form>
 </dialog>
@@ -1710,7 +1710,7 @@ $comData = json_encode([
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear tarea</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Crear tarea</button>
         </div>
       </div>
     </div>

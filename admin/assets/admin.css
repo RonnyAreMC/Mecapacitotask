@@ -1036,6 +1036,20 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
 .btn-primary.btn-meca:hover { background: #16169e; transform: translateY(-1px); }
 .btn-primary.btn-meca:active { box-shadow: var(--sh-inset-mini); transform: none; }
 
+/* Crear / agregar: siempre en verde #00C853, sea cual sea la pantalla. Es la
+   única acción que aparece en casi todas, así que se reconoce por el color
+   antes que por el texto.
+
+   El texto va en blanco por decisión de diseño. Queda en 2.2:1 contra el
+   verde, por debajo del 4.5:1 que pide WCAG para texto: si algún día se ve
+   flojo bajo sol directo o en una pantalla mala, el arreglo es la tinta
+   oscura (#062B14, 6.9:1), no cambiar el verde. */
+.btn-primary.btn-meca.btn-agregar {
+  background: #00C853;
+  color: #fff;
+}
+.btn-primary.btn-meca.btn-agregar:hover { background: #00B84C; }
+
 /* Secundario: superficie neumorfica con texto de acento */
 .btn-outline.btn-meca {
   border: 0;

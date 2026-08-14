@@ -273,7 +273,7 @@ UI::cabecera(
      <a class="btn-outline btn-meca btn-azul" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> Instituciones
      </a>
-     <button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
+     <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo requerimiento
      </button>'
 );
@@ -495,7 +495,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Registrar</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Registrar</button>
         </div>
       </div>
     </div>
