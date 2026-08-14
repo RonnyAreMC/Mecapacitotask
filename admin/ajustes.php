@@ -49,13 +49,13 @@ UI::cabecera(
 
 <!-- Tabs -->
 <div class="tabs-meca" data-clave="ajustes">
-  <button type="button" class="tab-btn active" data-tab="identidad"><i class="fa-solid fa-id-badge"></i> Identidad</button>
-  <button type="button" class="tab-btn" data-tab="catalogos"><i class="fa-solid fa-layer-group"></i> Catálogos</button>
-  <button type="button" class="tab-btn" data-tab="iconos"><i class="fa-solid fa-icons"></i> Íconos</button>
-  <button type="button" class="tab-btn" data-tab="roles"><i class="fa-solid fa-user-tag"></i> Roles</button>
-  <button type="button" class="tab-btn" data-tab="correo"><i class="fa-solid fa-envelope"></i> Correo</button>
-  <button type="button" class="tab-btn" data-tab="reuniones"><i class="fa-solid fa-calendar-check"></i> Reuniones</button>
-  <button type="button" class="tab-btn" data-tab="acceso"><i class="fa-solid fa-shield-halved"></i> Acceso y respaldo</button>
+  <button type="button" class="tab-btn active" data-tab="identidad"><?= UI::icono('UserPaper') ?> Identidad</button>
+  <button type="button" class="tab-btn" data-tab="catalogos"><?= UI::icono('MenuBoard') ?> Catálogos</button>
+  <button type="button" class="tab-btn" data-tab="iconos"><?= UI::icono('ArrangeSquare') ?> Íconos</button>
+  <button type="button" class="tab-btn" data-tab="roles"><?= UI::icono('UserAppoint') ?> Roles</button>
+  <button type="button" class="tab-btn" data-tab="correo"><?= UI::icono('EmailEnvelope') ?> Correo</button>
+  <button type="button" class="tab-btn" data-tab="reuniones"><?= UI::icono('CalendarCheck') ?> Reuniones</button>
+  <button type="button" class="tab-btn" data-tab="acceso"><?= UI::icono('ShieldTick') ?> Acceso y respaldo</button>
 </div>
 
 <form method="post" action="actions.php" class="ajustes-form" enctype="multipart/form-data">

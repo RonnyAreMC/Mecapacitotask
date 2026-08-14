@@ -15,6 +15,8 @@
   --c-secondary-rgb: 27, 192, 89;
   --c-accent: #63E396;
   --c-accent-rgb: 99, 227, 150;
+  /* Pastilla activa de los tabs: el azul marino del design system. */
+  --c-tab-activo: #000080;
 
   --sidebar-w: 264px;
 
@@ -49,6 +51,11 @@ html.dark {
   --n-bg: #262c3a;
   --n-sh-d: #1a1f2a;
   --n-sh-l: #313a4c;
+
+  /* El #000080 sobre el fondo oscuro se pierde: casi no se distingue del
+     propio fondo. En oscuro la pastilla sube a un azul que sí destaca y
+     sigue aguantando el texto en blanco. */
+  --c-tab-activo: #1F63D6;
 
   /* Neutrales de mecapacito.css re-mapeados */
   --c-bg: var(--n-bg);
@@ -4451,28 +4458,32 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 /* =========================================================
    Tabs (Ajustes y reutilizables)
    ========================================================= */
+/* Tabs del design system: la activa es una pastilla azul marina llena y las
+   demás quedan planas con una línea de 1.5px. El icono va en el SVG del set
+   (UI::icono), no en Font Awesome, y hereda el color del botón. */
 .tabs-meca {
-  display: flex; flex-wrap: wrap; gap: 12px;
+  display: flex; flex-wrap: wrap; gap: 10px;
   margin-bottom: 26px;
 }
 .tab-btn {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 11px 20px;
-  border: 1.5px solid transparent;
-  border-radius: 14px;
+  border: 1.5px solid var(--c-border-soft, rgba(30, 55, 100, .12));
+  border-radius: 12px;
   background: var(--n-bg);
-  box-shadow: var(--sh-soft);
   color: var(--c-text-muted);
   font-family: 'Inter', sans-serif;
   font-size: .86rem; font-weight: 700;
   cursor: pointer;
-  transition: box-shadow .22s ease, color .22s ease, border-color .22s ease;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
 }
-.tab-btn:hover { color: var(--c-text); }
-.tab-btn.active {
-  box-shadow: var(--sh-inset-mini);
-  color: var(--c-secondary);
-  border-color: color-mix(in srgb, var(--c-secondary) 30%, var(--n-bg));
+.tab-btn .ico { width: 1.15em; height: 1.15em; }
+.tab-btn:hover { color: var(--c-text); border-color: color-mix(in srgb, var(--c-tab-activo) 35%, transparent); }
+.tab-btn.active,
+.tab-btn.active:hover {
+  background: var(--c-tab-activo);
+  border-color: var(--c-tab-activo);
+  color: #fff;
 }
 .tab-panel[hidden] { display: none; }
 
