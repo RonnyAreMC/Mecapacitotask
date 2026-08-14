@@ -100,6 +100,29 @@ if ($porMes) {
     }
 }
 
+// Heatmap institución × prioridad: cuántos requerimientos de cada prioridad
+// toca cada institución. Las filas son las prioridades; las columnas, las
+// instituciones (en el mismo orden que el resto de gráficos).
+$prioOrden = ['alta' => 'Alta', 'media' => 'Media', 'baja' => 'Baja'];
+$heatCount = [];
+foreach ($requerimientos as $r) {
+    $prio = (string)($r['prioridad'] ?? '');
+    if (!isset($prioOrden[$prio])) continue;
+    foreach (RequerimientoRepo::institucionesDe($r) as $iid) {
+        if (!isset($instMapa[$iid])) continue;
+        $heatCount[$iid][$prio] = ($heatCount[$iid][$prio] ?? 0) + 1;
+    }
+}
+$heatInsts  = array_keys($porInst);   // mismo orden (por total desc)
+$heatSeries = [];
+foreach ($prioOrden as $pk => $plabel) {
+    $data = [];
+    foreach ($heatInsts as $iid) {
+        $data[] = ['x' => $instMapa[$iid]['nombre'], 'y' => (int)($heatCount[$iid][$pk] ?? 0)];
+    }
+    $heatSeries[] = ['name' => $plabel, 'data' => $data];
+}
+
 $dashData = [
     'inst'  => $dashInst,
     'sit'   => [['Sin asignar', $sit['sin-asignar']], ['En curso', $sit['en-curso']], ['Cerrados', $sit['cerrados']]],
@@ -107,6 +130,7 @@ $dashData = [
     'prio'  => [['Alta', $porPrioridad['alta']], ['Media', $porPrioridad['media']], ['Baja', $porPrioridad['baja']]],
     'meses' => $serieMeses,
     'carga' => array_map(fn($n, $v) => [$n, $v], array_keys($abiertoPor), array_values($abiertoPor)),
+    'heat'  => $heatInsts ? $heatSeries : [],
     'pct'   => $pct,
 ];
 
@@ -144,7 +168,7 @@ UI::cabecera(
 <!-- Gráficos -->
 <section class="req-dash-grid rd-grid-pagina">
   <div class="req-dash-card rd-ancho-2">
-    <h3><i class="fa-solid fa-building-columns"></i> Cumplidos por institución</h3>
+    <h3><i class="fa-solid fa-chart-column"></i> Cumplidos por institución</h3>
     <div class="req-dash-chart" id="rd-inst"></div>
   </div>
   <div class="req-dash-card">
@@ -152,7 +176,7 @@ UI::cabecera(
     <div class="req-dash-chart" id="rd-pct"></div>
   </div>
   <div class="req-dash-card">
-    <h3><i class="fa-solid fa-circle-nodes"></i> Reparto por institución</h3>
+    <h3><i class="fa-solid fa-bullseye"></i> Reparto por institución</h3>
     <div class="req-dash-chart" id="rd-inst-dona"></div>
   </div>
   <div class="req-dash-card">
@@ -160,7 +184,7 @@ UI::cabecera(
     <div class="req-dash-chart" id="rd-sit"></div>
   </div>
   <div class="req-dash-card">
-    <h3><i class="fa-solid fa-flag"></i> Por prioridad</h3>
+    <h3><i class="fa-solid fa-ring"></i> Por prioridad</h3>
     <div class="req-dash-chart" id="rd-prio"></div>
   </div>
   <div class="req-dash-card rd-ancho-2">
@@ -171,8 +195,12 @@ UI::cabecera(
     <h3><i class="fa-solid fa-user-check"></i> Quién los cumplió</h3>
     <div class="req-dash-chart" id="rd-quien"></div>
   </div>
+  <div class="req-dash-card rd-ancho-2">
+    <h3><i class="fa-solid fa-table-cells"></i> Prioridad por institución</h3>
+    <div class="req-dash-chart" id="rd-heat"></div>
+  </div>
   <div class="req-dash-card">
-    <h3><i class="fa-solid fa-scale-unbalanced"></i> Carga abierta por persona</h3>
+    <h3><i class="fa-solid fa-shapes"></i> Carga abierta por persona</h3>
     <div class="req-dash-chart" id="rd-carga"></div>
   </div>
 </section>

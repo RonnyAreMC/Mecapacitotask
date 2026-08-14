@@ -3035,31 +3035,42 @@ document.addEventListener('change', (e) => {
   // 1) Cumplidos por institución (barras apiladas: cumplidos + pendientes)
   const inst = (D.inst || []);
   if (inst.length) {
+    // Columnas DISTRIBUIDAS: cada institución en SU color configurado. La
+    // etiqueta encima muestra cumplidos/total, y el tooltip lo explica.
     pintar('rd-inst', {
       ...base,
-      series: [
-        { name: 'Cumplidos', data: inst.map((i) => i.cumplidos) },
-        { name: 'Pendientes', data: inst.map((i) => Math.max(0, i.total - i.cumplidos)) },
-      ],
-      chart: { ...base.chart, type: 'bar', height: 280, stacked: true },
-      colors: [cSucc, cWarn],
-      plotOptions: { bar: { horizontal: false, borderRadius: 5, columnWidth: '55%' } },
+      series: [{ name: 'Requerimientos', data: inst.map((i) => i.total) }],
+      chart: { ...base.chart, type: 'bar', height: 300 },
+      colors: inst.map((i) => i.color || cSec),
+      plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: '58%' } },
+      dataLabels: {
+        enabled: true, offsetY: -20, style: { colors: [cText], fontWeight: 700 },
+        formatter: (val, opts) => { const i = inst[opts.dataPointIndex]; return i ? (i.cumplidos + '/' + i.total) : val; },
+      },
       xaxis: { categories: inst.map((i) => i.nombre) },
       yaxis: { labels: { formatter: (n) => Math.round(n) } },
+      legend: { show: false },
+      tooltip: {
+        ...base.tooltip,
+        y: { formatter: (val, opts) => { const i = inst[opts.dataPointIndex]; return i ? (i.cumplidos + ' cumplidos de ' + i.total) : val; } },
+      },
     });
-  } else {
+  } else if (document.getElementById('rd-inst')) {
     document.getElementById('rd-inst').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas todavía.</p>';
   }
 
-  // 1b) Reparto por institución (dona): cada una en SU color configurado.
+  // 1b) Reparto por institución (polar area): cada una en SU color configurado.
   if (document.getElementById('rd-inst-dona') && inst.length) {
     pintar('rd-inst-dona', {
       ...base,
       series: inst.map((i) => i.total),
       labels: inst.map((i) => i.nombre),
-      chart: { ...base.chart, type: 'donut', height: 280 },
+      chart: { ...base.chart, type: 'polarArea', height: 300 },
       colors: inst.map((i) => i.color || cSec),
-      plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Requerim.', color: cText } } } } },
+      fill: { opacity: 0.88 },
+      stroke: { colors: [oscuro ? '#2a2f3a' : '#ffffff'] },
+      yaxis: { show: false },
+      plotOptions: { polarArea: { rings: { strokeColor: cGrid }, spokes: { connectorColors: cGrid } } },
     });
   } else if (document.getElementById('rd-inst-dona')) {
     document.getElementById('rd-inst-dona').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas.</p>';
@@ -3076,7 +3087,7 @@ document.addEventListener('change', (e) => {
       colors: sit.map((s) => ({ 'Sin asignar': cMuted, 'En curso': cSec, 'Cerrados': cSucc }[s[0]] || cSec)),
       plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total', color: cText } } } } },
     });
-  } else {
+  } else if (document.getElementById('rd-sit')) {
     document.getElementById('rd-sit').innerHTML = '<p class="rd-vacio">Sin requerimientos.</p>';
   }
 
@@ -3092,21 +3103,34 @@ document.addEventListener('change', (e) => {
       xaxis: { categories: quien.map((q) => q[0]), labels: { formatter: (n) => Math.round(n) } },
       legend: { show: false },
     });
-  } else {
+  } else if (document.getElementById('rd-quien')) {
     document.getElementById('rd-quien').innerHTML = '<p class="rd-vacio">Nadie ha resuelto requerimientos todavía.</p>';
   }
 
-  // 4) Por prioridad (dona)
+  // 4) Por prioridad (radial multi-anillo)
   const prio = (D.prio || []).filter((p) => p[1] > 0);
   if (prio.length) {
+    const prioTot = prio.reduce((a, p) => a + p[1], 0) || 1;
     pintar('rd-prio', {
       ...base,
-      series: prio.map((p) => p[1]),
-      labels: prio.map((p) => p[0]),
-      chart: { ...base.chart, type: 'donut', height: 280 },
+      series: prio.map((p) => Math.round((p[1] / prioTot) * 100)),
+      labels: prio.map((p) => p[0] + ' (' + p[1] + ')'),
+      chart: { ...base.chart, type: 'radialBar', height: 300 },
       colors: prio.map((p) => ({ Alta: cDang, Media: cWarn, Baja: cSec }[p[0]] || cSec)),
+      plotOptions: {
+        radialBar: {
+          hollow: { size: '32%' },
+          track: { background: oscuro ? '#2a2f3a' : '#eef2f7' },
+          dataLabels: {
+            name: { fontSize: '12px' },
+            value: { fontSize: '15px', formatter: (n) => Math.round(n) + '%' },
+            total: { show: true, label: 'Total', color: cMuted, formatter: () => prioTot },
+          },
+        },
+      },
+      legend: { show: true, position: 'bottom', labels: { colors: cText } },
     });
-  } else {
+  } else if (document.getElementById('rd-prio')) {
     document.getElementById('rd-prio').innerHTML = '<p class="rd-vacio">Sin prioridades registradas.</p>';
   }
 
@@ -3128,20 +3152,47 @@ document.addEventListener('change', (e) => {
     document.getElementById('rd-meses').innerHTML = '<p class="rd-vacio">Sin histórico todavía.</p>';
   }
 
-  // 6) Carga abierta por persona (barras)
+  // 6) Carga abierta por persona (treemap)
   const carga = (D.carga || []);
   if (document.getElementById('rd-carga') && carga.length) {
     pintar('rd-carga', {
       ...base,
-      series: [{ name: 'Abiertos', data: carga.map((c) => c[1]) }],
-      chart: { ...base.chart, type: 'bar', height: Math.max(220, carga.length * 40 + 60) },
-      colors: [cWarn],
-      plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '58%' } },
-      xaxis: { categories: carga.map((c) => c[0]), labels: { formatter: (n) => Math.round(n) } },
+      series: [{ data: carga.map((c) => ({ x: c[0], y: c[1] })) }],
+      chart: { ...base.chart, type: 'treemap', height: 300 },
+      colors: [cSec, cWarn, cSucc, cDang, '#7AC943', '#8E44AD', '#40CFFF', '#E91E8C', '#F7931E', '#1ABC9C'],
+      plotOptions: { treemap: { distributed: true, enableShades: false, borderRadius: 6 } },
+      dataLabels: { enabled: true, style: { fontSize: '13px', fontWeight: 700 } },
       legend: { show: false },
     });
   } else if (document.getElementById('rd-carga')) {
     document.getElementById('rd-carga').innerHTML = '<p class="rd-vacio">Nadie tiene requerimientos abiertos.</p>';
+  }
+
+  // 8) Prioridad por institución (heatmap)
+  const heat = (D.heat || []);
+  if (document.getElementById('rd-heat') && heat.length && heat.some((s) => (s.data || []).length)) {
+    pintar('rd-heat', {
+      ...base,
+      series: heat,
+      chart: { ...base.chart, type: 'heatmap', height: 300 },
+      dataLabels: { enabled: true, style: { colors: [cText] } },
+      colors: [cSec],
+      plotOptions: {
+        heatmap: {
+          radius: 6, enableShades: false,
+          colorScale: {
+            ranges: [
+              { from: 0, to: 0, color: oscuro ? '#2a2f3a' : '#eef2f7', name: 'sin' },
+              { from: 1, to: 2, color: '#9ecbff' },
+              { from: 3, to: 5, color: cSec },
+              { from: 6, to: 99999, color: '#0b5cbf' },
+            ],
+          },
+        },
+      },
+    });
+  } else if (document.getElementById('rd-heat')) {
+    document.getElementById('rd-heat').innerHTML = '<p class="rd-vacio">Sin datos por institución y prioridad.</p>';
   }
 
   // 7) % de cumplimiento global (radial)
