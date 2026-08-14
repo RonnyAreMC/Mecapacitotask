@@ -77,7 +77,7 @@ $lista = array_values(array_filter($requerimientos, function ($r) use ($fSit, $f
     }
     if ($fPersona > 0 && !RequerimientoRepo::tieneAsignado($r, $fPersona)) return false;
     if ($fQ !== '') {
-        $paja = $r['titulo'] . ' ' . ($r['detalle'] ?? '') . ' ' . ($r['solicitante'] ?? '');
+        $paja = $r['titulo'] . ' ' . HtmlRico::texto($r['detalle'] ?? '') . ' ' . ($r['solicitante'] ?? '');
         if (mb_stripos($paja, $fQ) === false) return false;
     }
     return true;
@@ -449,10 +449,10 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
           <span>¿Qué piden? *</span>
           <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
         </label>
-        <label class="campo">
+        <div class="campo">
           <span>Detalle</span>
-          <textarea class="input-meca" name="detalle" rows="3" placeholder="Contexto, con quién hablar, qué se espera de entrega…"></textarea>
-        </label>
+          <?= UI::editorRico(['name' => 'detalle', 'placeholder' => 'Contexto, con quién hablar, qué se espera de entrega… (puedes pegar un correo con su tabla)']) ?>
+        </div>
         <div class="campo-doble">
           <label class="campo"><span>¿Quién lo pide?</span>
             <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica">

@@ -823,6 +823,60 @@ class UI
         return $h;
     }
 
+    /**
+     * Editor de texto enriquecido, reutilizable (data-editor-rico).
+     *
+     * Es un contenteditable con barra de formato mínima y un <textarea> oculto
+     * que lleva el HTML en el envío del formulario (con el $name que se pase).
+     * Sirve para PEGAR contenido con formato y TABLAS (p. ej. un correo) y que
+     * se guarde y se muestre bien. El HTML se sanea SIEMPRE en el servidor
+     * (HtmlRico::limpiar) antes de guardar; aquí solo se limpia al pegar para
+     * que la edición se vea limpia.
+     *
+     * $o admite:
+     *   name*        nombre del textarea que se envía
+     *   valor        HTML inicial (ya saneado) — para formularios de edición
+     *   id           id del contenedor (para rellenarlo por JS: MecaRT.set)
+     *   placeholder  texto de ayuda cuando está vacío
+     */
+    public static function editorRico(array $o): string
+    {
+        $name = (string)($o['name'] ?? 'contenido');
+        $val  = (string)($o['valor'] ?? '');
+        $id   = (string)($o['id'] ?? '');
+        $ph   = (string)($o['placeholder'] ?? 'Escribe o pega aquí… (puedes pegar tablas)');
+
+        // Botones de la barra: [comando execCommand, valor, icono, título].
+        $botones = [
+            ['bold',        '',   'fa-bold',          'Negrita'],
+            ['italic',      '',   'fa-italic',        'Cursiva'],
+            ['underline',   '',   'fa-underline',     'Subrayado'],
+            ['formatBlock', 'h3', 'fa-heading',       'Título'],
+            ['insertUnorderedList', '', 'fa-list-ul',  'Lista'],
+            ['insertOrderedList',   '', 'fa-list-ol',  'Lista numerada'],
+            ['formatBlock', 'blockquote', 'fa-quote-right', 'Cita'],
+            ['createLink',  '',   'fa-link',          'Enlace'],
+            ['removeFormat','',   'fa-eraser',        'Quitar formato'],
+        ];
+        $barra = '';
+        foreach ($botones as [$cmd, $cval, $ico, $tit]) {
+            $barra .= '<button type="button" class="rt-b" tabindex="-1" data-cmd="' . e($cmd) . '"'
+                . ($cval !== '' ? ' data-val="' . e($cval) . '"' : '')
+                . ' title="' . e($tit) . '"><i class="fa-solid ' . e($ico) . '"></i></button>';
+        }
+
+        $vacio = HtmlRico::vacio($val);
+        $h  = '<div class="rt' . ($vacio ? ' rt-vacio' : '') . '" data-editor-rico'
+            . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>';
+        $h .= '<div class="rt-barra" role="toolbar">' . $barra . '</div>';
+        // El HTML inicial NO se escapa: es el contenido editable, ya saneado.
+        $h .= '<div class="rt-area rt-render" contenteditable="true" data-ph="' . e($ph) . '">'
+            . ($vacio ? '' : $val) . '</div>';
+        $h .= '<textarea class="rt-fuente" name="' . e($name) . '" hidden>' . e($val) . '</textarea>';
+        $h .= '</div>';
+        return $h;
+    }
+
     /** Texto de ayuda bajo el selector de asignado. */
     public static function ayudaEquipoProyecto(?array $equipoProyecto): string
     {

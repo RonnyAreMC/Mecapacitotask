@@ -615,6 +615,9 @@ switch ($accion) {
         // Documentos de respaldo: van con la tarea desde que se asigna
         $rechazados = [];
         $datosTarea = $_POST;
+        // La descripción es texto enriquecido (se puede pegar tablas): se sanea
+        // a lista blanca antes de guardar para que no entre HTML peligroso.
+        $datosTarea['descripcion'] = HtmlRico::limpiar($_POST['descripcion'] ?? '');
         $datosTarea['adjuntos'] = guardarAdjuntos('adjuntos', 'tarea_', $rechazados);
         $t = $tareas->crear($datosTarea);
         $deps = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), $pid);
@@ -692,7 +695,7 @@ switch ($accion) {
         $tareas->actualizar((int)$t['id'], [
             'adjuntos'     => array_merge($quedan, $nuevos),
             'titulo'       => trim($_POST['titulo'] ?? ''),
-            'descripcion'  => trim($_POST['descripcion'] ?? ''),
+            'descripcion'  => HtmlRico::limpiar($_POST['descripcion'] ?? ''),
             'prioridad'    => $_POST['prioridad'] ?? 'media',
             'estado'       => $_POST['estado'] ?? 'pendiente',
             'fecha_inicio' => $fIni,
@@ -1292,6 +1295,9 @@ switch ($accion) {
             redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
         }
         $fechasReq = fechasRequerimiento($_POST);
+        // El detalle es texto enriquecido (se puede pegar un correo con su
+        // tabla): se sanea a lista blanca antes de guardar.
+        $_POST['detalle'] = HtmlRico::limpiar($_POST['detalle'] ?? '');
         $reqRepo = new RequerimientoRepo();
         $req = $reqRepo->crear($_POST + ['creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
         // Se puede asignar de una vez, sin pasar dos veces por el formulario

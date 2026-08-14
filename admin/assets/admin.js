@@ -407,17 +407,33 @@ const MecaWizard = {
     form.querySelectorAll('.wz-panel .campo').forEach((campo) => {
       if (campo.hasAttribute('data-sin-resumen')) return;
       const etiqueta = campo.querySelector(':scope > span');
+      if (!etiqueta) return;
+
+      const dt = document.createElement('dt');
+      dt.textContent = etiqueta.textContent.replace('*', '').trim();
+      const dd = document.createElement('dd');
+      const fila = document.createElement('div');
+
+      // Editor de texto enriquecido: se muestra RENDERIZADO (con su tabla y
+      // formato), no como HTML crudo. Es lo mismo que se va a guardar.
+      const rico = campo.querySelector('[data-editor-rico]');
+      if (rico) {
+        const html = (rico.querySelector('.rt-fuente')?.value || '').trim();
+        if (html) { dd.innerHTML = html; dd.classList.add('rt-render', 'wz-rico'); }
+        else { dd.textContent = '— sin definir —'; dd.className = 'vacio'; }
+        fila.classList.add('wz-resumen-bloque');
+        fila.append(dt, dd);
+        caja.appendChild(fila);
+        return;
+      }
+
       // Los campos de fecha quedan como input[type=hidden] tras MecaDate,
       // asi que se reconocen por su marca data-md en vez de por el tipo.
       const ctrl = [...campo.querySelectorAll('select, textarea, input')].find((c) =>
         c.dataset.md !== undefined ||
         !['radio', 'checkbox', 'color', 'hidden', 'submit', 'button'].includes(c.type));
-      if (!etiqueta || !ctrl) return;
+      if (!ctrl) return;
       const valor = this.valorDe(ctrl);
-      const fila = document.createElement('div');
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-      dt.textContent = etiqueta.textContent.replace('*', '').trim();
       dd.textContent = valor || '— sin definir —';
       if (!valor) dd.className = 'vacio';
       fila.append(dt, dd);
@@ -1261,7 +1277,8 @@ function abrirDetalleTarea(t) {
   set('.dt-titulo', t.titulo || '');
 
   const desc = dlg.querySelector('.dt-desc');
-  if (desc) { desc.textContent = t.descripcion || ''; desc.hidden = !t.descripcion; }
+  // La descripción es HTML ya saneado en el servidor (tablas, formato): innerHTML.
+  if (desc) { desc.innerHTML = t.descripcion || ''; desc.hidden = !t.descripcion; }
 
   const chips = dlg.querySelector('.dt-chips');
   if (chips) {
@@ -1961,7 +1978,7 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     const dlg = document.getElementById('dlg-editar-tarea');
     dlg.querySelector('#et-id').value = t.id;
     dlg.querySelector('#et-titulo').value = t.titulo;
-    dlg.querySelector('#et-descripcion').value = t.descripcion;
+    window.MecaRT.set('et-descripcion', t.descripcion || '');
     setFecha(dlg.querySelector('#et-inicio'), t.fecha_inicio);
     setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
     dlg.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
@@ -2733,8 +2750,11 @@ document.addEventListener('change', (e) => {
     const r = JSON.parse(fila.dataset.req);
 
     $('fq-titulo').textContent = r.titulo;
-    $('fq-detalle').textContent = r.detalle || 'Sin detalle.';
-    $('fq-detalle').classList.toggle('vacio', !r.detalle);
+    // El detalle es HTML ya saneado en el servidor: se inyecta tal cual para
+    // que se vean las tablas y el formato. Vacío → nota en gris.
+    const detEl = $('fq-detalle');
+    if (r.detalle) { detEl.innerHTML = r.detalle; detEl.classList.remove('vacio'); }
+    else { detEl.textContent = 'Sin detalle.'; detEl.classList.add('vacio'); }
     $('fq-solicitante').textContent = r.solicitante || '—';
     $('fq-inicio').textContent = r.inicio || '—';
     $('fq-fin').textContent = r.fin || '—';
@@ -2832,4 +2852,120 @@ document.addEventListener('change', (e) => {
   });
 
   $('rf-cancelar')?.addEventListener('click', modoAlta);
+})();
+
+/* =========================================================
+   Editor de texto enriquecido (data-editor-rico). Un contenteditable con
+   barra mínima y un <textarea> oculto que lleva el HTML en el formulario.
+   Sirve para PEGAR contenido con formato y TABLAS (p. ej. un correo). Al
+   pegar se limpia a una lista blanca para que la edición se vea limpia; el
+   servidor vuelve a sanear siempre antes de guardar.
+   ========================================================= */
+(() => {
+  const OK = new Set(['P', 'BR', 'HR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE',
+    'SUB', 'SUP', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE',
+    'A', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'COL', 'COLGROUP',
+    'CODE', 'PRE', 'SPAN', 'DIV']);
+  const ATTRS = { A: ['href', 'title'], TD: ['colspan', 'rowspan'], TH: ['colspan', 'rowspan'], COL: ['span'], COLGROUP: ['span'] };
+  const FUERA = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT',
+    'TEXTAREA', 'BUTTON', 'SELECT', 'META', 'LINK', 'BASE', 'NOSCRIPT', 'SVG', 'MATH', 'TITLE', 'O:P']);
+
+  // Recorta un HTML pegado a la lista blanca (mismo criterio que el servidor).
+  function limpiarPegado(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const paso = (nodo) => {
+      [...nodo.childNodes].forEach((n) => {
+        if (n.nodeType === 8) { n.remove(); return; }          // comentario
+        if (n.nodeType !== 1) return;                          // texto: se queda
+        const tag = n.nodeName.toUpperCase();
+        if (FUERA.has(tag)) { n.remove(); return; }
+        paso(n);
+        if (!OK.has(tag)) {                                    // desconocida: desenvolver
+          const p = n.parentNode;
+          while (n.firstChild) p.insertBefore(n.firstChild, n);
+          p.removeChild(n);
+          return;
+        }
+        const keep = ATTRS[tag] || [];
+        [...n.attributes].forEach((a) => {
+          if (!keep.includes(a.name.toLowerCase())) n.removeAttribute(a.name);
+        });
+      });
+    };
+    paso(tpl.content);
+    return tpl.innerHTML;
+  }
+
+  const vacio = (area) => area.textContent.trim() === '' && !area.querySelector('table, img, hr');
+
+  function init(rt) {
+    const area = rt.querySelector('.rt-area');
+    const fuente = rt.querySelector('.rt-fuente');
+    if (!area || !fuente) return;
+
+    const sync = () => {
+      const vac = vacio(area);
+      fuente.value = vac ? '' : area.innerHTML;
+      rt.classList.toggle('rt-vacio', vac);
+    };
+
+    area.addEventListener('input', sync);
+    area.addEventListener('blur', sync);
+
+    // Pegado: se inserta el HTML ya limpio (conserva tablas y formato básico).
+    area.addEventListener('paste', (e) => {
+      const cb = e.clipboardData;
+      if (!cb) return;
+      const html = cb.getData('text/html');
+      if (html) {
+        e.preventDefault();
+        document.execCommand('insertHTML', false, limpiarPegado(html));
+        sync();
+      }
+      // Sin HTML en el portapapeles: se deja el pegado de texto normal.
+    });
+
+    // Barra de formato. mousedown + preventDefault para no perder la selección.
+    rt.querySelectorAll('.rt-b[data-cmd]').forEach((b) => {
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const cmd = b.dataset.cmd;
+        area.focus();
+        if (cmd === 'createLink') {
+          const url = prompt('URL del enlace (https://…):');
+          if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'formatBlock') {
+          // Alternar: si ya es ese bloque, se vuelve a párrafo.
+          const val = (b.dataset.val || 'p').toUpperCase();
+          const actual = (document.queryCommandValue('formatBlock') || '').toUpperCase();
+          document.execCommand('formatBlock', false, actual === val ? 'P' : val);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        sync();
+      });
+    });
+
+    const form = rt.closest('form');
+    if (form) form.addEventListener('submit', sync);
+    sync();
+  }
+
+  document.querySelectorAll('[data-editor-rico]').forEach(init);
+
+  // API para rellenar un editor por JS (formularios de edición que se llenan
+  // en el navegador): MecaRT.set('id-del-contenedor', htmlSaneado).
+  window.MecaRT = {
+    set(id, html) {
+      const rt = document.getElementById(id);
+      if (!rt) return;
+      const area = rt.querySelector('.rt-area');
+      const fuente = rt.querySelector('.rt-fuente');
+      if (!area || !fuente) return;
+      area.innerHTML = html || '';
+      fuente.value = html || '';
+      rt.classList.toggle('rt-vacio', vacio(area));
+    },
+  };
 })();

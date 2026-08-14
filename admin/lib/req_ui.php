@@ -193,7 +193,7 @@ function fichaRequerimiento(bool $gestor): void
 
         <div class="fq-bloque">
           <h4>Detalle</h4>
-          <p id="fq-detalle"></p>
+          <div id="fq-detalle" class="rt-render"></div>
         </div>
 
         <div class="fq-datos">
