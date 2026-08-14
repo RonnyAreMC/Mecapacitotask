@@ -2699,7 +2699,7 @@ document.addEventListener('change', (e) => {
     if (espejo) espejo.value = marcados.join(', ');
   };
 
-  ['nr', 'dv'].forEach(picker => {
+  ['nr', 'dv', 're'].forEach(picker => {
     const lista = document.querySelector(`[data-picker="${picker}"]`);
     if (!lista) return;
     lista.addEventListener('change', () => sincronizar(picker));
@@ -2801,6 +2801,34 @@ document.addEventListener('change', (e) => {
       derivar.dataset.inicio = r.inicio || '';
       derivar.dataset.fin = r.fin || '';
       derivar.onclick = () => { dlg.close(); };
+    }
+
+    // "Editar": abre EL MISMO asistente que "Nuevo requerimiento", relleno con
+    // este requerimiento (contenido + responsables + plazo actuales).
+    const editar = $('fq-editar');
+    if (editar) {
+      editar.onclick = () => {
+        const em = document.getElementById('dlg-req-editar');
+        if (!em) return;
+        em.querySelector('#re-id').value = r.id;
+        em.querySelector('#re-titulo').value = r.titulo || '';
+        em.querySelector('#re-solicitante').value = r.solicitante || '';
+        setSelect(em.querySelector('.js-re-prioridad'), r.prioridadKey || 'media');
+        setSelect(em.querySelector('.js-re-inst'), r.instituciones || []);
+        window.MecaRT.set('re-detalle', r.detalle || '');
+        // Plazo actual (setFecha, no .value: MecaDate sustituye el input)
+        setFecha(em.querySelector('[data-req-fecha="re-inicio"]'), r.inicio || '');
+        setFecha(em.querySelector('[data-req-fecha="re-fin"]'), r.fin || '');
+        // Deja marcados a los responsables actuales (r.asignados = "3,7")
+        const actuales = (r.asignados || '').split(',').filter(Boolean);
+        em.querySelectorAll('input[name="asignados[]"]').forEach(c => { c.checked = actuales.includes(c.value); });
+        const lista = em.querySelector('[data-picker="re"]');
+        if (lista) lista.dispatchEvent(new Event('change'));
+        const fEm = em.querySelector('form');
+        if (typeof actualizarDuracion === 'function') actualizarDuracion(fEm);
+        dlg.close();
+        em.showModal();
+      };
     }
     dlg.showModal();
   });

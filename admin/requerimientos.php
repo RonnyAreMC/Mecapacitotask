@@ -527,4 +527,71 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
   </form>
 </dialog>
 
+<!-- Modal: editar un requerimiento. Es EL MISMO asistente que "Nuevo
+     requerimiento" (mismos pasos y componentes), pero apunta a req_editar y se
+     rellena con el requerimiento pulsado. Así se puede corregir todo —qué
+     piden, detalle, prioridad, instituciones, responsables y plazo— en el mismo
+     sitio. Los responsables nuevos reciben aviso; a los que ya estaban no se
+     les reenvía. -->
+<dialog id="dlg-req-editar" class="dlg-meca dlg-wizard dlg-req-wz">
+  <form method="post" action="actions.php" class="dlg-form wz">
+    <input type="hidden" name="accion" value="req_editar">
+    <input type="hidden" name="id" id="re-id">
+    <?= UI::wizardRiel('fa-pen', 'Editar requerimiento', 'Corrige lo que haga falta', UI::PASOS_REQUERIMIENTO) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>¿Qué piden? *</span>
+          <input class="input-meca" name="titulo" id="re-titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
+        </label>
+        <div class="campo">
+          <span>Detalle</span>
+          <?= UI::editorRico(['name' => 'detalle', 'id' => 're-detalle', 'placeholder' => 'Contexto, con quién hablar, qué se espera… (puedes pegar un correo con su tabla)']) ?>
+        </div>
+        <div class="campo-doble">
+          <label class="campo"><span>¿Quién lo pide?</span>
+            <input class="input-meca" name="solicitante" id="re-solicitante" maxlength="80" placeholder="Ej. Secretaría académica">
+          </label>
+          <label class="campo"><span>Prioridad</span>
+            <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida(''), false, 'js-re-prioridad') ?>
+          </label>
+        </div>
+        <label class="campo">
+          <span><i class="fa-solid fa-building-columns"></i> Institución(es)</span>
+          <?php if ($opcionesInst): ?>
+          <?= UI::select('instituciones', $opcionesInst, [], false, 'js-re-inst', true) ?>
+          <small class="campo-ayuda">¿Para qué institución es? Puedes elegir <b>varias</b>.</small>
+          <?php else: ?>
+          <small class="campo-ayuda">Aún no hay instituciones en el catálogo. <a href="instituciones.php">Créalas aquí</a>.</small>
+          <?php endif; ?>
+        </label>
+      </section>
+
+      <?php panelResponsables($carga, $opcionesRol, 're'); ?>
+      <?php panelPlazo('re'); ?>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</dialog>
+
 <?php UI::fin(); ?>

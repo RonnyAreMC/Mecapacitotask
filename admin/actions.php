@@ -1306,6 +1306,49 @@ switch ($accion) {
             ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
             : 'Requerimiento registrado y asignado a ' . $avisoReq);
 
+    case 'req_editar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        if (trim($_POST['titulo'] ?? '') === '') {
+            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
+        }
+        $fechasReqEd = fechasRequerimiento($_POST);
+        $antesResp   = RequerimientoRepo::asignadosDe($req);
+
+        // Contenido (el detalle es texto enriquecido: se sanea).
+        $reqRepo->actualizar((int)$req['id'], [
+            'titulo'        => trim($_POST['titulo'] ?? ''),
+            'detalle'       => HtmlRico::limpiar($_POST['detalle'] ?? ''),
+            'solicitante'   => trim($_POST['solicitante'] ?? ''),
+            'prioridad'     => Catalogo::prioridadValida($_POST['prioridad'] ?? ''),
+            'instituciones' => InstitucionRepo::idsEntrada($_POST['instituciones'] ?? []),
+        ]);
+
+        // Responsables + plazo. Se guardan igual que al asignar, pero el aviso
+        // por correo va SOLO a quien se acaba de sumar: a los que ya estaban no
+        // se les reenvía cada vez que se corrige una coma.
+        $validosEd = [];
+        foreach ((array)($_POST['asignados'] ?? []) as $aid) {
+            if ($mEd = $miembros->buscar((int)$aid)) $validosEd[(int)$mEd['id']] = $mEd;
+        }
+        $reqRepo->asignar((int)$req['id'], array_keys($validosEd), $fechasReqEd);
+        $reqActEd = $reqRepo->buscar((int)$req['id']) ?? [];
+        $nuevosEd = array_diff(array_keys($validosEd), $antesResp);
+        $avisadosEd = 0;
+        foreach ($nuevosEd as $mid) {
+            $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validosEd, [$mid => true]));
+            if (Mailer::notificarRequerimiento($reqActEd, $validosEd[$mid], array_values($otros)) === true) {
+                $avisadosEd++;
+            }
+        }
+        $sufijoEd = $avisadosEd
+            ? ' Avisamos por correo a ' . $avisadosEd . ' responsable' . ($avisadosEd === 1 ? '' : 's') . ' nuevo' . ($avisadosEd === 1 ? '' : 's') . '.'
+            : '';
+        redirigir('requerimientos.php', '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd);
+
     case 'req_asignar':
         $reqRepo = new RequerimientoRepo();
         $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
