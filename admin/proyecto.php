@@ -1118,7 +1118,7 @@ foreach ($tareas as $t) {
         </div>
         <div class="reu-acciones">
           <?php if (!$pasada): ?>
-          <a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a>
+          <a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button>
           <?php if (!empty($r['start_url'])): ?>
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
@@ -1126,7 +1126,7 @@ foreach ($tareas as $t) {
           <?php if (!$esMeet && !$repite): /* grabación/transcripción de Zoom; en las recurrentes van por día, más abajo */ ?>
           <?php if (!empty($r['grabaciones'])): ?>
             <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
-            <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><i class="fa-solid fa-circle-play"></i> Grabación</a>
+            <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><?= UI::iconoVideo() ?> Grabación</a>
             <?php break; endif; endforeach; ?>
             <?php if (!empty($r['grab_password'])): ?>
             <span class="chip-copiar grab-codigo" title="Código de la grabación (por si Zoom lo pide)">
@@ -1207,12 +1207,12 @@ foreach ($tareas as $t) {
           <li class="reu-dia reu-dia-hoy">
             <span class="reu-dia-fecha"><i class="fa-solid fa-circle-dot"></i> <?= e($fechaDia($enCurso)) ?></span>
             <span class="reu-dia-tag t-hoy">En curso</span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a></span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
           </li>
           <?php elseif ($proximas): ?>
           <li class="reu-dia reu-dia-prox">
             <span class="reu-dia-fecha"><i class="fa-regular fa-calendar"></i> Próxima: <?= e($fechaDia($proximas[0])) ?></span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a></span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
           </li>
           <?php endif; ?>
 
@@ -1228,7 +1228,7 @@ foreach ($tareas as $t) {
                 <span class="reu-dia-nota">Reunión realizada</span>
               <?php elseif ($gd && !empty($gd['archivos'])): ?>
                 <?php foreach ($gd['archivos'] as $gf): if (!empty($gf['play'])): ?>
-                <a class="accion-btn accion-grab" href="<?= e($gf['play']) ?>" target="_blank" rel="noopener" title="Ver grabación del <?= e($fechaOc) ?>"><i class="fa-solid fa-circle-play"></i> Grabación</a>
+                <a class="accion-btn accion-grab" href="<?= e($gf['play']) ?>" target="_blank" rel="noopener" title="Ver grabación del <?= e($fechaOc) ?>"><?= UI::iconoVideo() ?> Grabación</a>
                 <?php break; endif; endforeach; ?>
                 <?php if (!empty($gd['grab_password'])): ?>
                 <span class="chip-copiar grab-codigo" title="Código de la grabación">

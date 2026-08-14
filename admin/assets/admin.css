@@ -2121,6 +2121,11 @@ html.dark .reu-plat.plat-meet { color: #7BAAF7; }
 }
 .reu-invitados small { font-size: .74rem; color: var(--c-text-soft); font-weight: 600; }
 .reu-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Iconos SVG dentro de botones/enlaces (grabación, copiar): tamaño y alineación
+   como un icono de texto, heredando el color del botón. */
+.ico-svg { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+a:has(> .ico-svg), button:has(> .ico-svg) { display: inline-flex; align-items: center; gap: 7px; }
+a:has(> .ico-svg) .ico-svg, button:has(> .ico-svg) .ico-svg { vertical-align: 0; }
 
 /* Historial por día de una reunión recurrente: se despliega bajo su fila y
    lista los días que ya ocurrieron (registro de "qué días hubo reunión") con su
@@ -2159,13 +2164,13 @@ html.dark .reu-plat.plat-meet { color: #7BAAF7; }
 /* "Ver grabación": botón lleno tipo play, resalta cuando ya hay grabación.
    Doble clase para ganarle al fondo de .accion-btn (declarado más abajo). */
 .accion-btn.accion-grab {
-  background: linear-gradient(135deg, #7C3AED, #A855F7);
+  background: linear-gradient(135deg, #17A34A, #2BC55E);
   color: #fff !important; font-weight: 700; border: 0;
   padding: 8px 14px;
   box-shadow: var(--clay-pop);
   transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
 }
-.accion-btn.accion-grab i { color: #fff !important; }
+.accion-btn.accion-grab i, .accion-btn.accion-grab .ico-svg { color: #fff !important; }
 .accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
 .accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
 
