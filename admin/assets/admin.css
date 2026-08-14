@@ -3339,6 +3339,60 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .ap-sin-prov { font-size: .66rem; text-transform: uppercase; color: var(--c-text-soft); letter-spacing: .05em; }
 .ap-sin-num { flex: none; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
 
+/* =========================================================
+   Instituciones (catálogo + en requerimientos)
+   ========================================================= */
+/* Catálogo (instituciones.php) */
+.inst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 22px; }
+.inst-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+.inst-logo {
+  flex: none; width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: #fff; box-shadow: var(--sh-inset-mini); color: var(--c-secondary); font-size: 1.2rem;
+}
+.inst-logo img { width: 100%; height: 100%; object-fit: contain; }
+.inst-logo-prev { width: 72px; height: 72px; }
+.inst-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.inst-datos b { color: var(--c-text); font-weight: 700; }
+.inst-datos small { color: var(--c-text-muted); font-size: .8rem; }
+.inst-acciones { flex: none; display: flex; gap: 4px; }
+
+/* Logos de institución en cada fila de requerimiento */
+.req-f-inst { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.req-inst-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 160px;
+  padding: 2px 8px 2px 3px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 10%, transparent);
+  font-size: .68rem; font-weight: 700; color: var(--c-text-muted);
+}
+.req-inst-chip img { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
+.req-inst-chip i { font-size: .7rem; color: var(--c-secondary); margin-left: 4px; }
+.req-inst-chip .truncate { min-width: 0; }
+
+/* Métrica por institución (requerimientos.php) */
+.inst-metrica { padding: 16px 18px; margin-bottom: 18px; }
+.inst-metrica-tit { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: .95rem; color: var(--c-text); margin-bottom: 12px; }
+.inst-metrica-tit span { display: inline-flex; align-items: center; gap: 8px; }
+.inst-metrica-link { font-size: .8rem; font-weight: 700; color: var(--c-secondary); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.inst-metrica-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.inst-metrica-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  text-decoration: none; color: var(--c-text); transition: box-shadow .15s ease;
+}
+.inst-metrica-item:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent) inset; }
+.inst-metrica-item.activo { box-shadow: 0 0 0 1.5px var(--c-secondary) inset; }
+.inst-metrica-logo {
+  flex: none; width: 34px; height: 34px; border-radius: 9px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; box-shadow: var(--sh-inset-mini); color: var(--c-secondary); font-size: .85rem;
+}
+.inst-metrica-logo img { width: 100%; height: 100%; object-fit: contain; }
+.inst-metrica-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.inst-metrica-datos b { font-size: .84rem; font-weight: 700; }
+.inst-metrica-datos small { font-size: .7rem; color: var(--c-text-muted); }
+.inst-metrica-num { flex: none; font-size: 1.05rem; font-weight: 800; color: var(--c-secondary); }
+
 /* Avatares chicos */
 .ap-av {
   flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;

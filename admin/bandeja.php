@@ -22,6 +22,7 @@ $yo      = $verComo ?: (Auth::usuario() ?? []);
 
 $prioridades = Catalogo::prioridades();
 $estados     = RequerimientoRepo::ESTADOS;
+reqUiInst((new InstitucionRepo())->mapa());   // logos de institución en las filas
 
 // Solo lo suyo. Lo que no le han asignado no es asunto de esta pantalla: para
 // ver el reparto entero esta el modulo del administrador.

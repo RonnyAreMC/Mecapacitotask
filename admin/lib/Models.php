@@ -877,9 +877,18 @@ class RequerimientoRepo
             'estado'      => 'pendiente',
             'asignados'   => [],
             'asignado_en' => '',
+            // Una o varias instituciones del catálogo (a veces un requerimiento
+            // atiende a dos a la vez). Sirve para métricas por institución.
+            'instituciones' => InstitucionRepo::idsEntrada($datos['instituciones'] ?? []),
             'creado_por'  => (int)($datos['creado_por'] ?? 0),
             'adjuntos'    => array_values((array)($datos['adjuntos'] ?? [])),
         ]);
+    }
+
+    /** Ids de institución de un requerimiento. */
+    public static function institucionesDe(array $r): array
+    {
+        return InstitucionRepo::idsEntrada($r['instituciones'] ?? []);
     }
 
     public function actualizar(int $id, array $datos): bool
@@ -920,6 +929,76 @@ class RequerimientoRepo
         $r = $this->buscar($id);
         if ($r && !empty($r['adjuntos'])) borrarAdjuntos((array)$r['adjuntos']);
         return $this->store->delete($id);
+    }
+}
+
+/* =========================================================
+   Catálogo de instituciones (para los requerimientos sueltos)
+
+   El administrador mantiene el catálogo: cada institución tiene un nombre y,
+   opcionalmente, una imagen (logo). Un requerimiento puede ser para una o
+   varias instituciones, y así salen métricas de cuánto se asiste a cada una.
+   ========================================================= */
+class InstitucionRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('instituciones');
+    }
+
+    /** Todas, ordenadas por nombre. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+        return $items;
+    }
+
+    /** [id => institución], para pintar rápido en las listas. */
+    public function mapa(): array
+    {
+        $out = [];
+        foreach ($this->store->all() as $i) {
+            $out[(int)$i['id']] = $i;
+        }
+        return $out;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $d): array
+    {
+        return $this->store->insert([
+            'nombre' => trim($d['nombre'] ?? ''),
+            'imagen' => trim($d['imagen'] ?? ''),
+        ]);
+    }
+
+    public function actualizar(int $id, array $d): bool
+    {
+        return $this->store->update($id, $d);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $i = $this->buscar($id);
+        if ($i && !empty($i['imagen']) && is_file(__DIR__ . '/../' . $i['imagen'])) {
+            @unlink(__DIR__ . '/../' . $i['imagen']);
+        }
+        return $this->store->delete($id);
+    }
+
+    /** Normaliza una lista de ids (del multiselect): positivos y únicos. */
+    public static function idsEntrada(mixed $v): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)$v), fn($n) => $n > 0)));
+        sort($ids);
+        return $ids;
     }
 }
 

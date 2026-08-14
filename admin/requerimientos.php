@@ -26,6 +26,14 @@ $reqRepo    = new RequerimientoRepo();
 $miembros   = new MiembroRepo();
 $tareasRepo = new TareaRepo();
 
+// Catálogo de instituciones: un requerimiento puede ser para una o varias.
+$instRepo         = new InstitucionRepo();
+$instMapa         = $instRepo->mapa();          // [id => institución] para pintar
+$institucionesCat = $instRepo->todas();         // ordenadas por nombre, para el selector
+$opcionesInst     = [];
+foreach ($institucionesCat as $i) { $opcionesInst[(int)$i['id']] = $i['nombre']; }
+reqUiInst($instMapa);   // para que las filas pinten el logo de cada institución
+
 $mapa        = $miembros->mapa();
 $prioridades = Catalogo::prioridades();
 $estados     = RequerimientoRepo::ESTADOS;
@@ -45,8 +53,9 @@ $situaciones = [
 $fSit     = isset($situaciones[$_GET['sit'] ?? '']) ? (string)$_GET['sit'] : '';
 $fQ       = trim((string)($_GET['q'] ?? ''));
 $fPersona = max(0, (int)($_GET['persona'] ?? 0));
+$fInst    = max(0, (int)($_GET['inst'] ?? 0));
 $fOrden   = in_array($_GET['orden'] ?? '', ['entrega', 'prioridad', 'nuevos'], true) ? (string)$_GET['orden'] : 'entrega';
-$hayFiltro = $fSit !== '' || $fQ !== '' || $fPersona > 0;
+$hayFiltro = $fSit !== '' || $fQ !== '' || $fPersona > 0 || $fInst > 0;
 
 // Los contadores de las pastillas van SIEMPRE sobre el total: son el mapa de
 // la pantalla, y si se recalcularan sobre lo ya filtrado se quedarian en 0 y
@@ -57,7 +66,8 @@ foreach ($requerimientos as $r) {
     if (RequerimientoRepo::vencido($r)) $conteo['tarde']++;
 }
 
-$lista = array_values(array_filter($requerimientos, function ($r) use ($fSit, $fQ, $fPersona) {
+$lista = array_values(array_filter($requerimientos, function ($r) use ($fSit, $fQ, $fPersona, $fInst) {
+    if ($fInst > 0 && !in_array($fInst, RequerimientoRepo::institucionesDe($r), true)) return false;
     // "Pasados de fecha" es un corte transversal, no una situacion mas: puede
     // haber vencidos sin asignar y vencidos en curso.
     if ($fSit === 'tarde') {
@@ -157,6 +167,7 @@ function urlFiltro(array $cambios): string
         'sit'     => $_GET['sit'] ?? '',
         'q'       => $_GET['q'] ?? '',
         'persona' => $_GET['persona'] ?? '',
+        'inst'    => $_GET['inst'] ?? '',
         'orden'   => $_GET['orden'] ?? '',
     ], $cambios), fn($v) => (string)$v !== '' && (string)$v !== '0');
     return 'requerimientos.php' . ($qs ? '?' . http_build_query($qs) : '');
@@ -248,7 +259,10 @@ UI::inicio('Requerimientos', 'requerimientos');
 UI::cabecera(
     'Requerimientos <span class="text-secondary">sueltos</span>',
     'Peticiones que no pertenecen a ningún proyecto. Repártelas con su plazo, mirando cuánto tiene encima cada persona.',
-    '<button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
+    '<a class="btn-outline btn-meca" href="instituciones.php" title="Catálogo de instituciones">
+       <i class="fa-solid fa-building-columns"></i> Instituciones
+     </a>
+     <button class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo requerimiento
      </button>'
 );
@@ -278,6 +292,43 @@ UI::cabecera(
   </a>
   <?php endforeach; ?>
 </section>
+
+<?php
+// Métrica: cuántos requerimientos toca cada institución (y cuántos ya resueltos)
+$porInstitucion = [];
+foreach ($requerimientos as $r) {
+    $resuelto = (($r['estado'] ?? '') === 'hecho');
+    foreach (RequerimientoRepo::institucionesDe($r) as $iid) {
+        if (!isset($instMapa[$iid])) continue;
+        if (!isset($porInstitucion[$iid])) $porInstitucion[$iid] = ['total' => 0, 'hechos' => 0];
+        $porInstitucion[$iid]['total']++;
+        if ($resuelto) $porInstitucion[$iid]['hechos']++;
+    }
+}
+uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
+?>
+<?php if ($porInstitucion): ?>
+<section class="inst-metrica card-base">
+  <div class="inst-metrica-tit">
+    <span><i class="fa-solid fa-building-columns text-secondary"></i> Requerimientos por institución</span>
+    <a href="instituciones.php" class="inst-metrica-link">Catálogo <i class="fa-solid fa-arrow-right"></i></a>
+  </div>
+  <div class="inst-metrica-lista">
+    <?php foreach ($porInstitucion as $iid => $c): $ii = $instMapa[$iid]; $act = ($fInst === (int)$iid); ?>
+    <a class="inst-metrica-item<?= $act ? ' activo' : '' ?>" href="<?= e(urlFiltro(['inst' => $act ? 0 : (int)$iid])) ?>" title="<?= e($ii['nombre']) ?>: <?= $c['total'] ?> requerimiento(s), <?= $c['hechos'] ?> resuelto(s)<?= $act ? ' · Pulsa para quitar el filtro' : '' ?>">
+      <span class="inst-metrica-logo">
+        <?php if (!empty($ii['imagen'])): ?><img src="<?= e($ii['imagen']) ?>" alt=""><?php else: ?><i class="fa-solid fa-building-columns"></i><?php endif; ?>
+      </span>
+      <span class="inst-metrica-datos">
+        <b class="truncate"><?= e($ii['nombre']) ?></b>
+        <small><?= $c['hechos'] ?>/<?= $c['total'] ?> resueltos</small>
+      </span>
+      <b class="inst-metrica-num"><?= $c['total'] ?></b>
+    </a>
+    <?php endforeach; ?>
+  </div>
+</section>
+<?php endif; ?>
 
 <div class="req-tablero">
   <div class="req-principal">
@@ -410,6 +461,15 @@ UI::cabecera(
             <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida('')) ?>
           </label>
         </div>
+        <label class="campo">
+          <span><i class="fa-solid fa-building-columns"></i> Institución(es)</span>
+          <?php if ($opcionesInst): ?>
+          <?= UI::select('instituciones', $opcionesInst, [], false, '', true) ?>
+          <small class="campo-ayuda">¿Para qué institución es? Puedes elegir <b>varias</b> si el mismo requerimiento atiende a más de una.</small>
+          <?php else: ?>
+          <small class="campo-ayuda">Aún no hay instituciones en el catálogo. <a href="instituciones.php">Créalas aquí</a> para poder asignarlas.</small>
+          <?php endif; ?>
+        </label>
       </section>
 
       <?php panelResponsables($carga, $opcionesRol, 'nr'); ?>

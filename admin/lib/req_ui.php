@@ -52,6 +52,17 @@ function plazoDe(array $r): array
 }
 
 /**
+ * Catálogo de instituciones para pintar sus logos en las filas, sin cambiar la
+ * firma de cada función: requerimientos.php lo fija una vez con reqUiInst($mapa).
+ */
+function reqUiInst(?array $set = null): array
+{
+    static $mapa = [];
+    if ($set !== null) $mapa = $set;
+    return $mapa;
+}
+
+/**
  * Una fila de la lista. Enseña lo justo para decidir sin abrirla: qué es,
  * quién lo hace (con nombres, no solo iniciales de colores), qué urgencia
  * tiene y cuánto queda de plazo. El detalle largo y las acciones viven en la
@@ -107,6 +118,16 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         <small class="truncate">
           <?= !empty($r['solicitante']) ? 'Lo pide ' . e($r['solicitante']) : 'Sin remitente anotado' ?>
         </small>
+        <?php $insts = RequerimientoRepo::institucionesDe($r); $imapa = reqUiInst(); if ($insts): ?>
+        <span class="req-f-inst">
+          <?php foreach ($insts as $iid): if (!isset($imapa[$iid])) continue; $ii = $imapa[$iid]; ?>
+          <span class="req-inst-chip" title="<?= e($ii['nombre']) ?>">
+            <?php if (!empty($ii['imagen'])): ?><img src="<?= e($ii['imagen']) ?>" alt=""><?php else: ?><i class="fa-solid fa-building-columns"></i><?php endif; ?>
+            <span class="truncate"><?= e($ii['nombre']) ?></span>
+          </span>
+          <?php endforeach; ?>
+        </span>
+        <?php endif; ?>
       </span>
 
       <!-- Quién lo hace. Es la columna que más se mira: va con nombre. -->

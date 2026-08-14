@@ -1329,6 +1329,40 @@ switch ($accion) {
         $reqRepo->eliminar((int)($_POST['id'] ?? 0));
         redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
 
+    /* ---------- Catálogo de instituciones (solo admin) ---------- */
+
+    case 'institucion_crear':
+        $nombreI = trim($_POST['nombre'] ?? '');
+        if ($nombreI === '') {
+            redirigir('instituciones.php', 'Ponle un nombre a la institución.', 'error');
+        }
+        (new InstitucionRepo())->crear([
+            'nombre' => $nombreI,
+            'imagen' => guardarFoto('imagen', 'inst_', 'imagen'),
+        ]);
+        redirigir('instituciones.php', 'Institución «' . $nombreI . '» agregada al catálogo.');
+
+    case 'institucion_editar':
+        $instRepo = new InstitucionRepo();
+        $inst = $instRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$inst) {
+            redirigir('instituciones.php', 'Esa institución ya no existe.', 'error');
+        }
+        $cambiosInst = ['nombre' => trim($_POST['nombre'] ?? '')];
+        $imgInst = guardarFoto('imagen', 'inst_', 'imagen');
+        if ($imgInst !== '') {   // reemplaza la imagen y borra la anterior
+            if (!empty($inst['imagen']) && is_file(__DIR__ . '/' . $inst['imagen'])) {
+                @unlink(__DIR__ . '/' . $inst['imagen']);
+            }
+            $cambiosInst['imagen'] = $imgInst;
+        }
+        $instRepo->actualizar((int)$inst['id'], $cambiosInst);
+        redirigir('instituciones.php', 'Institución actualizada.');
+
+    case 'institucion_eliminar':
+        (new InstitucionRepo())->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('instituciones.php', 'Institución quitada del catálogo.');
+
     case 'equipo_importar':
         // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.
         // No escribe nada todavía: cargar 20 fichas a ciegas no se deshace.
