@@ -925,7 +925,7 @@ class UI
             return $mapa;
         }
         $mapa = [];
-        foreach (glob(__DIR__ . '/../../Interface/*/*.svg') ?: [] as $f) {
+        foreach (glob(__DIR__ . '/../iconos/*/*.svg') ?: [] as $f) {
             $mapa[basename($f, '.svg')] = $f;
         }
         return $mapa;
