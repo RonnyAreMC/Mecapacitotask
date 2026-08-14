@@ -5,6 +5,9 @@
  * Vista de rendimiento con gráficos (ApexCharts): cumplimiento por institución,
  * situación de la carga, quién resuelve, prioridad, entrada por mes y carga
  * abierta por persona. Los datos se calculan aquí y se dibujan en admin.js.
+ *
+ * Aquí solo se preparan los números; la forma de cada gráfico y la paleta
+ * están en el bloque "Panel de requerimientos" de admin.js.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/req_ui.php';
@@ -184,7 +187,7 @@ UI::cabecera(
     <div class="req-dash-chart" id="rd-sit"></div>
   </div>
   <div class="req-dash-card">
-    <h3><i class="fa-solid fa-ring"></i> Por prioridad</h3>
+    <h3><i class="fa-solid fa-flag"></i> Por prioridad</h3>
     <div class="req-dash-chart" id="rd-prio"></div>
   </div>
   <div class="req-dash-card rd-ancho-2">
@@ -196,11 +199,11 @@ UI::cabecera(
     <div class="req-dash-chart" id="rd-quien"></div>
   </div>
   <div class="req-dash-card rd-ancho-2">
-    <h3><i class="fa-solid fa-table-cells"></i> Prioridad por institución</h3>
+    <h3><i class="fa-solid fa-layer-group"></i> Prioridad por institución</h3>
     <div class="req-dash-chart" id="rd-heat"></div>
   </div>
   <div class="req-dash-card">
-    <h3><i class="fa-solid fa-shapes"></i> Carga abierta por persona</h3>
+    <h3><i class="fa-solid fa-chart-simple"></i> Carga abierta por persona</h3>
     <div class="req-dash-chart" id="rd-carga"></div>
   </div>
 </section>

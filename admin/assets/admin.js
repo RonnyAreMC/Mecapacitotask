@@ -691,6 +691,9 @@ if (themeToggle) {
   themeToggle.addEventListener('click', () => {
     const dark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('meca-theme', dark ? 'dark' : 'light');
+    // Lo que se pinta en un <canvas>/SVG no se entera de que cambió el CSS:
+    // los gráficos del panel escuchan esto para repintarse con la otra paleta.
+    document.dispatchEvent(new CustomEvent('meca:tema', { detail: { oscuro: dark } }));
   });
 }
 
@@ -3091,220 +3094,358 @@ document.addEventListener('change', (e) => {
 })();
 
 /* =========================================================
-   Dashboard de requerimientos (ApexCharts). Los datos llegan en
-   window.REQ_DASH desde requerimientos.php; la librería se carga antes que
-   este archivo. Cada gráfico se salta si no hay contenedor o no hay datos.
+   Panel de requerimientos (ApexCharts 6). Los datos llegan en window.REQ_DASH
+   desde req_dashboard.php; la librería se carga antes que este archivo.
+
+   Criterios que se aplican igual en todos los gráficos:
+   - Colores propios de datos, no los tokens de interfaz. Los del CSS sirven
+     para texto y bordes, pero puestos uno al lado del otro dentro de un
+     gráfico no se distinguen. Los de aquí están medidos contra la superficie
+     real de cada tema (#e5eaf3 claro, #262c3a oscuro) y siguen separándose
+     con daltonismo.
+   - El color rojo/naranja de una institución identifica a la institución, no
+     dice "va mal": por eso solo se usa donde la institución ES el dato (el
+     reparto). Cumplido/pendiente va en verde contra gris.
+   - Ejes de enteros calculados desde el máximo. Con 3 requerimientos, Apex
+     repartía 6 marcas y al redondear salían etiquetas repetidas (0,0,1,1).
+   - Marcas finas, punta redondeada, rejilla continua de 1px y 2px de hueco
+     del color del fondo entre porciones (hueco, nunca un borde dibujado).
+   - Se redibujan al cambiar de tema (evento meca:tema).
    ========================================================= */
 (() => {
   const D = window.REQ_DASH;
   if (!D || typeof ApexCharts === 'undefined' || !document.getElementById('rd-inst')) return;
 
-  const css = getComputedStyle(document.documentElement);
-  const v = (n, d) => (css.getPropertyValue(n).trim() || d);
-  const cText = v('--c-text', '#1e2430');
-  const cGrid = v('--c-border', '#e6e9ef');
-  const cSec  = v('--c-secondary', '#1A85FF');
-  const cSucc = v('--c-success', '#1BC059');
-  const cWarn = v('--c-warning', '#E68A00');
-  const cDang = v('--c-danger', '#E63939');
-  const cMuted = v('--c-text-muted', '#9aa4b2');
-  const oscuro = document.documentElement.classList.contains('dark');
-
-  const base = {
-    chart: { fontFamily: 'inherit', foreColor: cText, toolbar: { show: false }, animations: { speed: 500 } },
-    grid: { borderColor: cGrid, strokeDashArray: 4 },
-    dataLabels: { enabled: false },
-    tooltip: { theme: oscuro ? 'dark' : 'light' },
-    legend: { position: 'bottom', labels: { colors: cText } },
-    noData: { text: 'Sin datos todavía', style: { color: cMuted } },
+  const PALETAS = {
+    claro: {
+      sup: '#e5eaf3',
+      hecho: '#129251',
+      pendiente: '#8B9CB8',
+      tinta: ['#ffffff', '#16233a'],          // texto sobre hecho / sobre pendiente
+      serie: '#129251',
+      situacion: ['#3DB878', '#129251', '#0B6234'],   // sin asignar → en curso → cerrados
+      prioridad: { Alta: '#8C4711', Media: '#BE6A18', Baja: '#DD9436' },
+      tintaPrio: ['#ffffff', '#ffffff', '#3a2408'],   // Alta / Media / Baja
+      estado: { bien: '#0E8E4E', ojo: '#BE6A18', mal: '#B23A2E' },
+      pista: '#cfd8e6',                       // canal vacío del medidor
+    },
+    oscuro: {
+      sup: '#262c3a',
+      hecho: '#28AC69',
+      pendiente: '#7E8FAC',
+      tinta: ['#08301c', '#101827'],
+      serie: '#28AC69',
+      situacion: ['#7FE3AE', '#35C078', '#178A4E'],
+      prioridad: { Alta: '#B0641A', Media: '#DE8A2E', Baja: '#F5B860' },
+      tintaPrio: ['#ffffff', '#2a1a06', '#2a1a06'],
+      estado: { bien: '#28AC69', ojo: '#DE8A2E', mal: '#E06A5C' },
+      pista: '#333c4e',
+    },
   };
-  const pintar = (id, opts) => {
-    const el = document.getElementById(id);
-    if (!el) return;
-    try { new ApexCharts(el, opts).render(); } catch (e) { el.innerHTML = '<p class="rd-vacio">No se pudo dibujar el gráfico.</p>'; }
-  };
 
-  // 1) Cumplidos por institución (barras apiladas: cumplidos + pendientes)
-  const inst = (D.inst || []);
-  if (inst.length) {
-    // Columnas DISTRIBUIDAS: cada institución en SU color configurado. La
-    // etiqueta encima muestra cumplidos/total, y el tooltip lo explica.
-    pintar('rd-inst', {
-      ...base,
-      series: [{ name: 'Requerimientos', data: inst.map((i) => i.total) }],
-      chart: { ...base.chart, type: 'bar', height: 300 },
-      colors: inst.map((i) => i.color || cSec),
-      plotOptions: { bar: { distributed: true, borderRadius: 6, columnWidth: '58%' } },
-      dataLabels: {
-        enabled: true, offsetY: -20, style: { colors: [cText], fontWeight: 700 },
-        formatter: (val, opts) => { const i = inst[opts.dataPointIndex]; return i ? (i.cumplidos + '/' + i.total) : val; },
+  const vivos = [];
+
+  const dibujar = () => {
+    // Al repintar por cambio de tema hay que soltar los anteriores: si no,
+    // Apex deja el SVG viejo debajo del nuevo.
+    while (vivos.length) { try { vivos.pop().destroy(); } catch (e) { /* ya no estaba */ } }
+
+    const oscuro = document.documentElement.classList.contains('dark');
+    const P = oscuro ? PALETAS.oscuro : PALETAS.claro;
+    const css = getComputedStyle(document.documentElement);
+    const v = (n, d) => (css.getPropertyValue(n).trim() || d);
+    const cText  = v('--c-text', oscuro ? '#e9edf6' : '#1e2430');
+    const cMuted = v('--c-text-muted', oscuro ? '#b6c0d2' : '#6b7688');
+    const cGrid  = oscuro ? 'rgba(255,255,255,.08)' : 'rgba(30,55,100,.10)';
+
+    const base = {
+      chart: {
+        fontFamily: 'inherit', foreColor: cMuted, background: 'transparent',
+        toolbar: { show: false },
+        // Sin "animateGradually": si no, las barras crecen en fila india y
+        // durante medio segundo unas miden menos de lo que valen.
+        animations: { enabled: true, speed: 420, animateGradually: { enabled: false } },
+        parentHeightOffset: 0,
       },
-      xaxis: { categories: inst.map((i) => i.nombre) },
-      yaxis: { labels: { formatter: (n) => Math.round(n) } },
-      legend: { show: false },
-      tooltip: {
-        ...base.tooltip,
-        y: { formatter: (val, opts) => { const i = inst[opts.dataPointIndex]; return i ? (i.cumplidos + ' cumplidos de ' + i.total) : val; } },
+      grid: { borderColor: cGrid, strokeDashArray: 0, padding: { top: 0, right: 14, bottom: 0, left: 6 } },
+      dataLabels: { enabled: false },
+      tooltip: { theme: oscuro ? 'dark' : 'light' },
+      legend: {
+        position: 'bottom', horizontalAlign: 'center', fontSize: '12.5px', fontWeight: 600,
+        labels: { colors: cText }, markers: { width: 9, height: 9, radius: 9 },
+        itemMargin: { horizontal: 9, vertical: 3 },
       },
-    });
-  } else if (document.getElementById('rd-inst')) {
-    document.getElementById('rd-inst').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas todavía.</p>';
-  }
+      noData: { text: 'Sin datos todavía', style: { color: cMuted, fontSize: '13px' } },
+      states: { hover: { filter: { type: 'lighten', value: 0.08 } } },
+    };
 
-  // 1b) Reparto por institución (polar area): cada una en SU color configurado.
-  if (document.getElementById('rd-inst-dona') && inst.length) {
-    pintar('rd-inst-dona', {
-      ...base,
-      series: inst.map((i) => i.total),
-      labels: inst.map((i) => i.nombre),
-      chart: { ...base.chart, type: 'polarArea', height: 300 },
-      colors: inst.map((i) => i.color || cSec),
-      fill: { opacity: 0.88 },
-      stroke: { colors: [oscuro ? '#2a2f3a' : '#ffffff'] },
-      yaxis: { show: false },
-      plotOptions: { polarArea: { rings: { strokeColor: cGrid }, spokes: { connectorColors: cGrid } } },
-    });
-  } else if (document.getElementById('rd-inst-dona')) {
-    document.getElementById('rd-inst-dona').innerHTML = '<p class="rd-vacio">Sin instituciones asignadas.</p>';
-  }
+    // Eje de enteros: fija el tope y el número de marcas para que cada una
+    // caiga justo en un entero y no se repitan las etiquetas.
+    const ejeEntero = (max) => {
+      const alto = Math.max(1, Math.ceil(max));
+      const marcas = alto <= 5 ? alto : 5;
+      return {
+        min: 0, max: Math.ceil(alto / marcas) * marcas, tickAmount: marcas,
+        forceNiceScale: false,
+        labels: { formatter: (n) => String(Math.round(n)) },
+      };
+    };
 
-  // 2) Situación de la carga (dona)
-  const sit = (D.sit || []).filter((s) => s[1] > 0);
-  if (sit.length) {
-    pintar('rd-sit', {
-      ...base,
-      series: sit.map((s) => s[1]),
-      labels: sit.map((s) => s[0]),
-      chart: { ...base.chart, type: 'donut', height: 280 },
-      colors: sit.map((s) => ({ 'Sin asignar': cMuted, 'En curso': cSec, 'Cerrados': cSucc }[s[0]] || cSec)),
-      plotOptions: { pie: { donut: { labels: { show: true, total: { show: true, label: 'Total', color: cText } } } } },
-    });
-  } else if (document.getElementById('rd-sit')) {
-    document.getElementById('rd-sit').innerHTML = '<p class="rd-vacio">Sin requerimientos.</p>';
-  }
+    const req = (n) => n + (n === 1 ? ' requerimiento' : ' requerimientos');
+    // Altura a partir del número de barras, para que cada una salga de ~22px
+    // en vez de estirarse hasta llenar la tarjeta cuando hay dos o tres.
+    const altoBarras = (n, extra) => Math.max(170, n * 48 + (extra || 70));
+    const vacio = (id, msg) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<p class="rd-vacio">' + msg + '</p>';
+    };
+    const pintar = (id, opts) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = '';
+      try {
+        const c = new ApexCharts(el, opts);
+        c.render();
+        vivos.push(c);
+      } catch (e) {
+        el.innerHTML = '<p class="rd-vacio">No se pudo dibujar el gráfico.</p>';
+      }
+    };
 
-  // 3) Quién los cumplió (barras horizontales)
-  const quien = (D.quien || []);
-  if (quien.length) {
-    pintar('rd-quien', {
-      ...base,
-      series: [{ name: 'Cumplidos', data: quien.map((q) => q[1]) }],
-      chart: { ...base.chart, type: 'bar', height: Math.max(200, quien.length * 42 + 60) },
-      colors: [cSec],
-      plotOptions: { bar: { horizontal: true, borderRadius: 5, barHeight: '60%' } },
-      xaxis: { categories: quien.map((q) => q[0]), labels: { formatter: (n) => Math.round(n) } },
-      legend: { show: false },
-    });
-  } else if (document.getElementById('rd-quien')) {
-    document.getElementById('rd-quien').innerHTML = '<p class="rd-vacio">Nadie ha resuelto requerimientos todavía.</p>';
-  }
+    /* 1) Cumplidos por institución. Barras apiladas: lo cumplido y lo que
+       falta, en horizontal porque los nombres de institución son largos. La
+       barra entera mide el total, así que ya no hace falta la etiqueta "1/3"
+       encima de una barra que medía otra cosa. */
+    const inst = D.inst || [];
+    if (inst.length) {
+      pintar('rd-inst', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', stacked: true, height: altoBarras(inst.length, 104) },
+        series: [
+          { name: 'Cumplidos',  data: inst.map((i) => i.cumplidos) },
+          { name: 'Pendientes', data: inst.map((i) => Math.max(0, i.total - i.cumplidos)) },
+        ],
+        colors: [P.hecho, P.pendiente],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '42%' } },
+        stroke: { show: true, width: 2, colors: [P.sup] },
+        xaxis: { categories: inst.map((i) => i.nombre), ...ejeEntero(Math.max(...inst.map((i) => i.total))) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        dataLabels: {
+          enabled: true,
+          // Solo dentro del trozo que tenga sitio; si no, lo cuenta el eje.
+          formatter: (val) => (val >= 1 ? val : ''),
+          style: { fontSize: '12px', fontWeight: 700, colors: P.tinta },
+          dropShadow: { enabled: false },
+        },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-inst', 'Sin instituciones asignadas todavía.');
+    }
 
-  // 4) Por prioridad (radial multi-anillo)
-  const prio = (D.prio || []).filter((p) => p[1] > 0);
-  if (prio.length) {
-    const prioTot = prio.reduce((a, p) => a + p[1], 0) || 1;
-    pintar('rd-prio', {
-      ...base,
-      series: prio.map((p) => Math.round((p[1] / prioTot) * 100)),
-      labels: prio.map((p) => p[0] + ' (' + p[1] + ')'),
-      chart: { ...base.chart, type: 'radialBar', height: 300 },
-      colors: prio.map((p) => ({ Alta: cDang, Media: cWarn, Baja: cSec }[p[0]] || cSec)),
-      fill: { type: 'gradient', gradient: { shade: 'light', shadeIntensity: 0.4, stops: [0, 100] } },
-      stroke: { lineCap: 'round' },
-      plotOptions: {
-        radialBar: {
-          hollow: { size: '30%' },
-          track: { background: oscuro ? '#2a2f3a' : '#eef2f7', margin: 8 },
-          dataLabels: {
-            name: { fontSize: '12px' },
-            value: { fontSize: '15px', formatter: (n) => Math.round(n) + '%' },
-            total: { show: true, label: 'Total', color: cMuted, formatter: () => prioTot },
+    /* 2) Reparto por institución. Único gráfico donde manda el color propio
+       de cada institución, porque aquí el dato ES la institución. */
+    if (inst.length) {
+      pintar('rd-inst-dona', {
+        ...base,
+        chart: { ...base.chart, type: 'donut', height: 300 },
+        series: inst.map((i) => i.total),
+        labels: inst.map((i) => i.nombre),
+        colors: inst.map((i) => i.color || P.serie),
+        stroke: { width: 2, colors: [P.sup] },
+        plotOptions: { pie: { donut: { size: '68%', labels: {
+          show: true, name: { fontSize: '13px', color: cMuted },
+          value: { fontSize: '24px', fontWeight: 700, color: cText },
+          total: { show: true, label: 'Total', color: cMuted, formatter: () => inst.reduce((a, i) => a + i.total, 0) },
+        } } } },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-inst-dona', 'Sin instituciones asignadas.');
+    }
+
+    /* 3) Situación de la carga. Las tres situaciones están ordenadas (sin
+       asignar → en curso → cerrado), así que van en una rampa de un solo
+       tono: el orden se lee por lo oscuro, no por el tono. */
+    const sit = (D.sit || []).filter((s) => s[1] > 0);
+    if (sit.length) {
+      const orden = ['Sin asignar', 'En curso', 'Cerrados'];
+      pintar('rd-sit', {
+        ...base,
+        chart: { ...base.chart, type: 'donut', height: 300 },
+        series: sit.map((s) => s[1]),
+        labels: sit.map((s) => s[0]),
+        colors: sit.map((s) => P.situacion[Math.max(0, orden.indexOf(s[0]))]),
+        stroke: { width: 2, colors: [P.sup] },
+        plotOptions: { pie: { donut: { size: '68%', labels: {
+          show: true, name: { fontSize: '13px', color: cMuted },
+          value: { fontSize: '24px', fontWeight: 700, color: cText },
+          total: { show: true, label: 'Total', color: cMuted, formatter: () => sit.reduce((a, s) => a + s[1], 0) },
+        } } } },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-sit', 'Sin requerimientos.');
+    }
+
+    /* 4) Por prioridad. Era un radial de tres anillos que no se podía
+       comparar: tres barras sobre la misma línea se leen de un vistazo. */
+    const prio = (D.prio || []).filter((p) => p[1] > 0);
+    if (prio.length) {
+      pintar('rd-prio', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(prio.length) },
+        series: [{ name: 'Requerimientos', data: prio.map((p) => p[1]) }],
+        colors: prio.map((p) => P.prioridad[p[0]] || P.serie),
+        plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: prio.map((p) => p[0]), ...ejeEntero(Math.max(...prio.map((p) => p[1]))) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-prio', 'Sin prioridades registradas.');
+    }
+
+    /* 5) Recibidos por mes. Un área necesita recorrido: con uno o dos meses
+       no hay tendencia que dibujar y quedaba un punto suelto en medio de una
+       tarjeta vacía, así que hasta el tercer mes se cuentan en columnas. */
+    const meses = D.meses || [];
+    const hayTendencia = meses.length >= 3;
+    if (meses.length) {
+      pintar('rd-meses', {
+        ...base,
+        chart: { ...base.chart, type: hayTendencia ? 'area' : 'bar', height: 300, zoom: { enabled: false } },
+        series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
+        colors: [P.serie],
+        plotOptions: { bar: {
+          columnWidth: meses.length === 1 ? '56px' : '38%',
+          borderRadius: 4, borderRadiusApplication: 'end',
+          dataLabels: { position: 'top' },     // el número va sobre la columna
+        } },
+        dataLabels: hayTendencia ? { enabled: false } : {
+          enabled: true, offsetY: -20,
+          style: { fontSize: '12.5px', fontWeight: 700, colors: [cText] },
+          background: { enabled: false }, dropShadow: { enabled: false },
+        },
+        stroke: hayTendencia ? { curve: 'smooth', width: 2, lineCap: 'round' } : { width: 0 },
+        fill: { type: 'solid', opacity: hayTendencia ? 0.1 : 1 },
+        markers: { size: 0, strokeColors: P.sup, strokeWidth: 2, hover: { size: 6 } },
+        xaxis: {
+          categories: meses.map((m) => m[0]),
+          // 'on' pone cada mes justo debajo de su punto; por defecto Apex los
+          // reparte entre marcas y el primero y el último quedan descolgados.
+          tickPlacement: 'on',
+          axisBorder: { show: false }, axisTicks: { show: false },
+          labels: { style: { fontSize: '12px' }, hideOverlappingLabels: true },
+        },
+        yaxis: ejeEntero(Math.max(...meses.map((m) => m[1]))),
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-meses', 'Sin histórico todavía.');
+    }
+
+    /* 6) Quién los cumplió. Una sola serie, un solo color: pintar cada
+       persona de un color distinto no añadía información. */
+    const quien = D.quien || [];
+    if (quien.length) {
+      pintar('rd-quien', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(quien.length) },
+        series: [{ name: 'Cumplidos', data: quien.map((q) => q[1]) }],
+        colors: [P.serie],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: quien.map((q) => q[0]), ...ejeEntero(Math.max(...quien.map((q) => q[1]))) },
+        yaxis: { labels: { maxWidth: 170, style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-quien', 'Nadie ha resuelto requerimientos todavía.');
+    }
+
+    /* 7) Prioridad por institución. Era un mapa de calor donde las filas en
+       cero salían en blanco y parecía roto. Apilado por prioridad se ve el
+       total de cada institución y su mezcla, con la misma rampa que el
+       gráfico de prioridad. */
+    const heat = (D.heat || []).filter((s) => (s.data || []).length);
+    if (heat.length && heat.some((s) => s.data.some((d) => d.y > 0))) {
+      const cats = heat[0].data.map((d) => d.x);
+      const totales = cats.map((_, i) => heat.reduce((a, s) => a + (s.data[i] ? s.data[i].y : 0), 0));
+      pintar('rd-heat', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', stacked: true, height: altoBarras(cats.length, 104) },
+        series: heat.map((s) => ({ name: s.name, data: s.data.map((d) => d.y) })),
+        colors: heat.map((s) => P.prioridad[s.name] || P.serie),
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '42%' } },
+        stroke: { show: true, width: 2, colors: [P.sup] },
+        xaxis: { categories: cats, ...ejeEntero(Math.max(...totales)) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        dataLabels: {
+          enabled: true,
+          formatter: (val) => (val >= 1 ? val : ''),
+          // El naranja claro de "Baja" no aguanta texto blanco: cada
+          // prioridad lleva la tinta que contrasta con su relleno.
+          style: { fontSize: '12px', fontWeight: 700, colors: P.tintaPrio },
+          dropShadow: { enabled: false },
+        },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-heat', 'Sin datos por institución y prioridad.');
+    }
+
+    /* 8) Carga abierta por persona. Era un treemap: con dos personas eran dos
+       bloques enormes de colores que parecían un semáforo. En barras se
+       compara de verdad quién lleva más. */
+    const carga = D.carga || [];
+    if (carga.length) {
+      pintar('rd-carga', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(carga.length) },
+        series: [{ name: 'Abiertos', data: carga.map((c) => c[1]) }],
+        colors: [P.pendiente],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: carga.map((c) => c[0]), ...ejeEntero(Math.max(...carga.map((c) => c[1]))) },
+        yaxis: { labels: { maxWidth: 170, style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-carga', 'Nadie tiene requerimientos abiertos.');
+    }
+
+    /* 9) Cumplimiento global. El número grande del panel: medidor limpio, sin
+       degradado, y el color lo pone el tramo en el que cae. */
+    if (typeof D.pct === 'number') {
+      const col = D.pct >= 66 ? P.estado.bien : (D.pct >= 33 ? P.estado.ojo : P.estado.mal);
+      pintar('rd-pct', {
+        ...base,
+        chart: { ...base.chart, type: 'radialBar', height: 320 },
+        series: [D.pct],
+        labels: ['Cumplimiento'],
+        colors: [col],
+        fill: { type: 'solid' },
+        stroke: { lineCap: 'round' },
+        plotOptions: {
+          radialBar: {
+            startAngle: -135, endAngle: 135,
+            hollow: { size: '68%' },
+            track: { background: P.pista, strokeWidth: '100%', margin: 0 },
+            dataLabels: {
+              name: { color: cMuted, fontSize: '13px', fontWeight: 600, offsetY: 26 },
+              value: { color: cText, fontSize: '38px', fontWeight: 700, offsetY: -6, formatter: (n) => Math.round(n) + '%' },
+            },
           },
         },
-      },
-      legend: { show: true, position: 'bottom', labels: { colors: cText } },
-    });
-  } else if (document.getElementById('rd-prio')) {
-    document.getElementById('rd-prio').innerHTML = '<p class="rd-vacio">Sin prioridades registradas.</p>';
-  }
+      });
+    }
+  };
 
-  // 5) Requerimientos entrantes por mes (área)
-  const meses = (D.meses || []);
-  if (document.getElementById('rd-meses') && meses.length) {
-    pintar('rd-meses', {
-      ...base,
-      series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
-      chart: { ...base.chart, type: 'area', height: 300 },
-      colors: [cSec],
-      stroke: { curve: 'smooth', width: 3, lineCap: 'round' },
-      fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.45, opacityTo: 0.02, stops: [0, 90, 100] } },
-      markers: { size: meses.length === 1 ? 5 : 0, hover: { size: 6 } },
-      xaxis: { categories: meses.map((m) => m[0]), axisBorder: { show: false }, axisTicks: { show: false } },
-      yaxis: { labels: { formatter: (n) => Math.round(n) } },
-      legend: { show: false },
-    });
-  } else if (document.getElementById('rd-meses')) {
-    document.getElementById('rd-meses').innerHTML = '<p class="rd-vacio">Sin histórico todavía.</p>';
-  }
-
-  // 6) Carga abierta por persona (treemap)
-  const carga = (D.carga || []);
-  if (document.getElementById('rd-carga') && carga.length) {
-    pintar('rd-carga', {
-      ...base,
-      series: [{ data: carga.map((c) => ({ x: c[0], y: c[1] })) }],
-      chart: { ...base.chart, type: 'treemap', height: 300 },
-      colors: [cSec, cWarn, cSucc, cDang, '#7AC943', '#8E44AD', '#40CFFF', '#E91E8C', '#F7931E', '#1ABC9C'],
-      plotOptions: { treemap: { distributed: true, enableShades: false, borderRadius: 6 } },
-      dataLabels: { enabled: true, style: { fontSize: '13px', fontWeight: 700 } },
-      legend: { show: false },
-    });
-  } else if (document.getElementById('rd-carga')) {
-    document.getElementById('rd-carga').innerHTML = '<p class="rd-vacio">Nadie tiene requerimientos abiertos.</p>';
-  }
-
-  // 8) Prioridad por institución (heatmap)
-  const heat = (D.heat || []);
-  if (document.getElementById('rd-heat') && heat.length && heat.some((s) => (s.data || []).length)) {
-    // Cada prioridad (fila) con su familia de color, sombreada por el conteo.
-    pintar('rd-heat', {
-      ...base,
-      series: heat,
-      chart: { ...base.chart, type: 'heatmap', height: 300 },
-      dataLabels: { enabled: true, style: { colors: [cText], fontWeight: 700 }, formatter: (v) => (v > 0 ? v : '') },
-      colors: [cDang, cWarn, cSec],   // Alta, Media, Baja (orden de las series)
-      stroke: { width: 3, colors: [oscuro ? '#20242c' : '#ffffff'] },
-      plotOptions: { heatmap: { radius: 8, enableShades: true, shadeIntensity: 0.55, distributed: false } },
-    });
-  } else if (document.getElementById('rd-heat')) {
-    document.getElementById('rd-heat').innerHTML = '<p class="rd-vacio">Sin datos por institución y prioridad.</p>';
-  }
-
-  // 7) % de cumplimiento global (radial)
-  if (document.getElementById('rd-pct') && typeof D.pct === 'number') {
-    const cPct = D.pct >= 66 ? cSucc : (D.pct >= 33 ? cWarn : cDang);
-    const cPct2 = D.pct >= 66 ? '#7AC943' : (D.pct >= 33 ? '#FFD166' : '#FF7A7A');
-    pintar('rd-pct', {
-      ...base,
-      series: [D.pct],
-      labels: ['Cumplimiento'],
-      chart: { ...base.chart, type: 'radialBar', height: 320, sparkline: { enabled: false } },
-      colors: [cPct],
-      fill: { type: 'gradient', gradient: { shade: 'light', type: 'horizontal', shadeIntensity: 0.5, gradientToColors: [cPct2], stops: [0, 100] } },
-      stroke: { lineCap: 'round' },
-      plotOptions: {
-        radialBar: {
-          startAngle: -135, endAngle: 135,
-          hollow: { size: '62%' },
-          track: { background: oscuro ? '#2a2f3a' : '#eef2f7', strokeWidth: '100%', margin: 6 },
-          dataLabels: {
-            name: { color: cMuted, fontSize: '13px', offsetY: 24 },
-            value: { color: cText, fontSize: '36px', fontWeight: 800, offsetY: -8, formatter: (n) => Math.round(n) + '%' },
-          },
-        },
-      },
-    });
-  }
+  dibujar();
+  document.addEventListener('meca:tema', dibujar);
 })();
 
 /* =========================================================
