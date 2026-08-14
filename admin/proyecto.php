@@ -1065,6 +1065,16 @@ foreach ($tareas as $t) {
     <?php if (empty($reuniones)): ?>
       <?php if ($reunionesOn): ?><?= UI::vacio('fa-video', 'Sin reuniones', 'Crea la primera reunión (Zoom o Google Meet) de este proyecto con el botón de arriba.') ?><?php endif; ?>
     <?php else: ?>
+    <?php
+      // Fecha larga de una ocurrencia: "Miércoles 13 ago · 10:00".
+      $mesCorto = [1 => 'ene', 2 => 'feb', 3 => 'mar', 4 => 'abr', 5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'ago', 9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dic'];
+      $fechaDia = function (string $dt) use ($mesCorto) {
+          $ts = strtotime($dt);
+          if ($ts === false) return $dt;
+          return Reuniones::DIAS[(int)date('N', $ts)][1] . ' ' . (int)date('j', $ts)
+               . ' ' . $mesCorto[(int)date('n', $ts)] . ' · ' . date('H:i', $ts);
+      };
+    ?>
     <div class="reu-lista">
       <?php foreach ($reuniones as $r):
           $repite = Reuniones::esRecurrente($r);
@@ -1103,7 +1113,7 @@ foreach ($tareas as $t) {
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
           <?php endif; ?>
-          <?php if (!$esMeet): /* grabación y transcripción son de Zoom */ ?>
+          <?php if (!$esMeet && !$repite): /* grabación/transcripción de Zoom; en las recurrentes van por día, más abajo */ ?>
           <?php if (!empty($r['grabaciones'])): ?>
             <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
             <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><i class="fa-solid fa-circle-play"></i> Grabación</a>
@@ -1154,6 +1164,92 @@ foreach ($tareas as $t) {
           <?php endif; ?>
         </div>
       </article>
+
+      <?php if ($repite):
+        // Historial por día: una reunión recurrente es UNA sola fila, pero el
+        // equipo la vive como una reunión por día. Aquí se despliega en sus
+        // ocurrencias, para que quede constancia de qué días SÍ hubo reunión
+        // (con su grabación y su resumen) y qué días no — que es lo que mira
+        // quien revisa el rendimiento.
+        $ocs   = Reuniones::fechasOcurrencias((string)$r['inicio'], (array)$r['dias'], (string)$r['hasta']);
+        $ahora = time();
+        $dSeg  = (int)$r['duracion'] * 60;
+        $grabOc = is_array($r['grab_ocurrencias'] ?? null) ? $r['grab_ocurrencias'] : [];
+        $pasadas = []; $proximas = []; $enCurso = null;
+        foreach ($ocs as $oc) {
+            $iniOc = strtotime($oc); $finOc = $iniOc + $dSeg;
+            if ($finOc < $ahora)                    $pasadas[] = $oc;
+            elseif ($iniOc <= $ahora)               $enCurso   = $oc;   // ya empezó, no ha acabado
+            else                                    $proximas[] = $oc;
+        }
+        $pasadasDesc = array_reverse($pasadas);     // la más reciente arriba
+        $totalPas = count($pasadas);
+      ?>
+      <details class="reu-hist"<?= $totalPas ? ' open' : '' ?>>
+        <summary>
+          <i class="fa-solid fa-clock-rotate-left"></i>
+          <b><?= $totalPas ?></b> reunión<?= $totalPas === 1 ? '' : 'es' ?> ya realizada<?= $totalPas === 1 ? '' : 's' ?>
+          <?php if ($enCurso): ?><span class="reu-dia-tag t-hoy">1 en curso</span>
+          <?php elseif ($proximas): ?><small>· quedan <?= count($proximas) ?> por venir</small><?php endif; ?>
+        </summary>
+        <ul class="reu-dias">
+          <?php if ($enCurso): ?>
+          <li class="reu-dia reu-dia-hoy">
+            <span class="reu-dia-fecha"><i class="fa-solid fa-circle-dot"></i> <?= e($fechaDia($enCurso)) ?></span>
+            <span class="reu-dia-tag t-hoy">En curso</span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a></span>
+          </li>
+          <?php elseif ($proximas): ?>
+          <li class="reu-dia reu-dia-prox">
+            <span class="reu-dia-fecha"><i class="fa-regular fa-calendar"></i> Próxima: <?= e($fechaDia($proximas[0])) ?></span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a></span>
+          </li>
+          <?php endif; ?>
+
+          <?php if (!$pasadasDesc): ?>
+          <li class="reu-dia reu-dia-vacio">Todavía no ha ocurrido ningún día de esta reunión.</li>
+          <?php endif; ?>
+
+          <?php foreach ($pasadasDesc as $oc): $fechaOc = substr($oc, 0, 10); $gd = $grabOc[$fechaOc] ?? null; ?>
+          <li class="reu-dia reu-dia-pasada">
+            <span class="reu-dia-fecha"><i class="fa-solid fa-check reu-dia-ok"></i> <?= e($fechaDia($oc)) ?></span>
+            <span class="reu-dia-acc">
+              <?php if ($esMeet): ?>
+                <span class="reu-dia-nota">Reunión realizada</span>
+              <?php elseif ($gd && !empty($gd['archivos'])): ?>
+                <?php foreach ($gd['archivos'] as $gf): if (!empty($gf['play'])): ?>
+                <a class="accion-btn accion-grab" href="<?= e($gf['play']) ?>" target="_blank" rel="noopener" title="Ver grabación del <?= e($fechaOc) ?>"><i class="fa-solid fa-circle-play"></i> Grabación</a>
+                <?php break; endif; endforeach; ?>
+                <?php if (!empty($gd['grab_password'])): ?>
+                <span class="chip-copiar grab-codigo" title="Código de la grabación">
+                  <code><i class="fa-solid fa-key"></i> <?= e($gd['grab_password']) ?></code>
+                  <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($gd['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
+                </span>
+                <?php endif; ?>
+              <?php else: ?>
+                <form method="post" action="actions.php" class="inline-form">
+                  <input type="hidden" name="accion" value="reunion_grabaciones">
+                  <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                  <input type="hidden" name="ocurrencia" value="<?= e($fechaOc) ?>">
+                  <button class="accion-btn" title="Buscar en Zoom la grabación de este día"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
+                </form>
+              <?php endif; ?>
+              <?php if (!$esMeet): ?>
+              <form method="post" action="actions.php" class="inline-form" data-descarga>
+                <input type="hidden" name="accion" value="reunion_transcripcion">
+                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
+                <input type="hidden" name="ocurrencia" value="<?= e($fechaOc) ?>">
+                <button class="accion-btn accion-claude" data-tip="Lleva el resumen de ese día a Claude Code">
+                  <img src="assets/claude.svg" alt="" width="16" height="16"> Resumen
+                </button>
+              </form>
+              <?php endif; ?>
+            </span>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </details>
+      <?php endif; ?>
       <?php endforeach; ?>
     </div>
     <?php endif; ?>

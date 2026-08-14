@@ -2079,6 +2079,41 @@ html.dark .reu-plat.plat-meet { color: #7BAAF7; }
 }
 .reu-invitados small { font-size: .74rem; color: var(--c-text-soft); font-weight: 600; }
 .reu-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Historial por día de una reunión recurrente: se despliega bajo su fila y
+   lista los días que ya ocurrieron (registro de "qué días hubo reunión") con su
+   grabación/resumen, más la de hoy/próxima con "Entrar". */
+.reu-hist {
+  margin: -6px 0 2px; margin-left: 24px;
+  border-left: 2px solid var(--c-border-soft); border-radius: 0 0 12px 12px;
+  padding-left: 4px;
+}
+.reu-hist > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 10px;
+  font-size: .86rem; color: var(--c-text-muted);
+}
+.reu-hist > summary::-webkit-details-marker { display: none; }
+.reu-hist > summary:hover { background: var(--c-bg-hundido); color: var(--c-text); }
+.reu-hist > summary b { color: var(--c-text); }
+.reu-hist > summary i.fa-clock-rotate-left { color: var(--c-secondary); }
+.reu-dias { list-style: none; margin: 2px 0 4px; padding: 0 0 0 4px; display: flex; flex-direction: column; gap: 6px; }
+.reu-dia {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: 11px;
+  background: var(--c-bg-hundido); font-size: .86rem;
+}
+.reu-dia-fecha { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--c-text); }
+.reu-dia-ok { color: var(--c-success); }
+.reu-dia-hoy { background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); }
+.reu-dia-prox .reu-dia-fecha { color: var(--c-text-muted); font-weight: 500; }
+.reu-dia-acc { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.reu-dia-nota, .reu-dia-vacio { color: var(--c-text-soft); font-style: italic; }
+.reu-dia-vacio { padding: 9px 12px; }
+.reu-dia-tag { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+.reu-dia-tag.t-hoy { color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 16%, transparent); }
+
 /* "Ver grabación": botón lleno tipo play, resalta cuando ya hay grabación.
    Doble clase para ganarle al fondo de .accion-btn (declarado más abajo). */
 .accion-btn.accion-grab {

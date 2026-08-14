@@ -189,12 +189,56 @@ class Zoom
         return false;
     }
 
-    public static function grabaciones(string $zoomId, string $passReunion = ''): array
+    /**
+     * Ruta de grabaciones de una reunión o de UNA ocurrencia suya. Un id
+     * numérico va tal cual; un UUID de ocurrencia (empieza por '/' o lleva
+     * '//') exige DOBLE codificación, según la API de Zoom.
+     */
+    private static function rutaGrabacion(string $idOuuid): string
+    {
+        if (preg_match('/^\d+$/', $idOuuid)) {
+            return '/meetings/' . $idOuuid . '/recordings';
+        }
+        return '/meetings/' . rawurlencode(rawurlencode($idOuuid)) . '/recordings';
+    }
+
+    /**
+     * Instancias PASADAS de una reunión recurrente (las veces que de verdad
+     * ocurrió, según Zoom). Devuelve ['estado'=>..., 'items'=>[['uuid'=>,
+     * 'fecha'=>'Y-m-d','inicio'=>'Y-m-d H:i'], ...]] con la hora ya en la zona
+     * del equipo. Es lo que asocia cada día del historial con su grabación.
+     */
+    public static function instancias(string $zoomId): array
+    {
+        [$codigo, $json] = self::api('GET', '/past_meetings/' . $zoomId . '/instances');
+        if ($codigo === 404) {
+            return ['estado' => 'vacio', 'items' => [], 'msg' => 'Zoom no tiene todavía ninguna ocurrencia registrada.'];
+        }
+        if ($codigo !== 200) {
+            $msg = $json['error']['message'] ?? ($json['message'] ?? ('HTTP ' . $codigo));
+            return ['estado' => 'error', 'items' => [], 'msg' => 'No se pudieron leer las ocurrencias: ' . $msg];
+        }
+        $zona  = Reuniones::zona();
+        $items = [];
+        foreach ((array)($json['meetings'] ?? []) as $m) {
+            $uuid  = (string)($m['uuid'] ?? '');
+            $start = (string)($m['start_time'] ?? '');
+            if ($uuid === '' || $start === '') continue;
+            try {
+                $dt = new DateTime($start);                 // viene en UTC (…Z)
+                $dt->setTimezone(new DateTimeZone($zona));
+                $items[] = ['uuid' => $uuid, 'fecha' => $dt->format('Y-m-d'), 'inicio' => $dt->format('Y-m-d H:i')];
+            } catch (Exception $e) { /* fecha rara: se ignora esa instancia */ }
+        }
+        return ['estado' => 'ok', 'items' => $items, 'msg' => ''];
+    }
+
+    public static function grabaciones(string $zoomId, string $passReunion = '', string $uuid = ''): array
     {
         // Antes de leerla, intentamos quitarle el passcode para que abra directo.
         $abierto = self::abrirGrabacion($zoomId);
         $abrirError = self::$ultimoError;
-        [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
+        [$codigo, $json] = self::api('GET', self::rutaGrabacion($uuid !== '' ? $uuid : $zoomId));
         if ($codigo === 200 && !empty($json['recording_files'])) {
             // Passcode para incrustar en la URL (?pwd=) y que abra sin pedirlo.
             // Como la grabación suele usar la contraseña de la REUNIÓN
@@ -237,9 +281,9 @@ class Zoom
      * como texto plano, listo para pasárselo a Claude.
      * ['estado'=>'ok'|'vacio'|'error', 'texto'=>string, 'msg'=>string]
      */
-    public static function transcripcion(string $zoomId): array
+    public static function transcripcion(string $zoomId, string $uuid = ''): array
     {
-        [$codigo, $json] = self::api('GET', '/meetings/' . $zoomId . '/recordings');
+        [$codigo, $json] = self::api('GET', self::rutaGrabacion($uuid !== '' ? $uuid : $zoomId));
         if ($codigo === 404 || ($codigo === 200 && empty($json['recording_files']))) {
             return ['estado' => 'vacio', 'texto' => '', 'msg' => 'Aún no hay grabación.'];
         }

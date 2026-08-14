@@ -2005,13 +2005,41 @@ switch ($accion) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''));
+
+        // Grabación de UN día concreto (ocurrencia de una reunión recurrente):
+        // se localiza la instancia de Zoom de ese día para leer SU grabación,
+        // no la de toda la serie.
+        $ocurrencia = trim((string)($_POST['ocurrencia'] ?? ''));
+        $uuidOc = '';
+        if ($ocurrencia !== '' && Reuniones::esRecurrente($reu)) {
+            $inst = Zoom::instancias((string)$reu['zoom_id']);
+            foreach (($inst['items'] ?? []) as $it) {
+                if (($it['fecha'] ?? '') === $ocurrencia) { $uuidOc = $it['uuid']; break; }
+            }
+            if ($uuidOc === '') {
+                redirigir($volver, 'Zoom todavía no tiene la grabación de la reunión del ' . $ocurrencia . ' (aparece cuando termina de procesarla).', 'info');
+            }
+        }
+
+        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''), $uuidOc);
         if ($g['estado'] === 'ok') {
-            $reuniones->actualizar((int)$reu['id'], [
-                'grabaciones'   => $g['archivos'],
-                'share_url'     => $g['share_url'] ?? '',
-                'grab_password' => $g['password'] ?? '',
-            ]);
+            if ($ocurrencia !== '') {
+                // Se guarda en un mapa por día; la lista de reuniones lo lee para
+                // pintar el "▶ Grabación" de ESE día.
+                $mapaOc = is_array($reu['grab_ocurrencias'] ?? null) ? $reu['grab_ocurrencias'] : [];
+                $mapaOc[$ocurrencia] = [
+                    'archivos'      => $g['archivos'],
+                    'share_url'     => $g['share_url'] ?? '',
+                    'grab_password' => $g['password'] ?? '',
+                ];
+                $reuniones->actualizar((int)$reu['id'], ['grab_ocurrencias' => $mapaOc]);
+            } else {
+                $reuniones->actualizar((int)$reu['id'], [
+                    'grabaciones'   => $g['archivos'],
+                    'share_url'     => $g['share_url'] ?? '',
+                    'grab_password' => $g['password'] ?? '',
+                ]);
+            }
             $msg = count($g['archivos']) . ' archivo(s) de grabación disponibles.';
             if (!empty($g['abierto'])) {
                 $msg .= ' Abre sin pedir código.';
@@ -2038,7 +2066,21 @@ switch ($accion) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-        $tr = Zoom::transcripcion((string)$reu['zoom_id']);
+
+        // Transcripción de UN día (ocurrencia de una serie): se resuelve su UUID.
+        $ocurrenciaT = trim((string)($_POST['ocurrencia'] ?? ''));
+        $uuidT = '';
+        if ($ocurrenciaT !== '' && Reuniones::esRecurrente($reu)) {
+            $inst = Zoom::instancias((string)$reu['zoom_id']);
+            foreach (($inst['items'] ?? []) as $it) {
+                if (($it['fecha'] ?? '') === $ocurrenciaT) { $uuidT = $it['uuid']; break; }
+            }
+            if ($uuidT === '') {
+                redirigir($volver, 'Zoom todavía no tiene la transcripción de la reunión del ' . $ocurrenciaT . '.', 'info');
+            }
+        }
+
+        $tr = Zoom::transcripcion((string)$reu['zoom_id'], $uuidT);
         if ($tr['estado'] !== 'ok') {
             redirigir($volver, $tr['msg'] ?? 'Sin transcripción.', $tr['estado'] === 'vacio' ? 'info' : 'error');
         }
@@ -2050,12 +2092,12 @@ switch ($accion) {
         }
         $cab = '# Transcripción de reunión — ' . ($reu['topic'] ?? '') . "\n\n"
             . 'Proyecto: ' . ($p['nombre'] ?? '') . "\n"
-            . 'Fecha: ' . ($reu['inicio'] ?? '') . "\n"
+            . 'Fecha: ' . ($ocurrenciaT !== '' ? $ocurrenciaT : ($reu['inicio'] ?? '')) . "\n"
             . ($nombres ? 'Participantes: ' . implode(', ', $nombres) . "\n" : '')
             . "\nContexto para Claude: esto es la transcripción automática (Zoom) de una reunión "
             . "del equipo de InnoTech Hub. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
             . "Las tareas del panel se referencian con su #id.\n\n---\n\n";
-        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($reu['topic'] ?? 'reunion'));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(($reu['topic'] ?? 'reunion') . ($ocurrenciaT !== '' ? '-' . $ocurrenciaT : '')));
         header('Content-Type: text/markdown; charset=utf-8');
         header('Content-Disposition: attachment; filename="transcripcion-' . trim($slug, '-') . '.md"');
         header('Cache-Control: no-store');

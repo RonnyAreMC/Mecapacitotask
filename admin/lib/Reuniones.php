@@ -212,6 +212,29 @@ class Reuniones
     }
 
     /**
+     * Las FECHAS de cada ocurrencia de una serie, "Y-m-d H:i" (misma hora que
+     * el inicio). Es lo que permite tratar una reunión recurrente como lo que
+     * el equipo espera: una reunión POR DÍA, no una sola fila. Sirve para el
+     * historial ("¿qué días hubo reunión?") y para pedir la grabación de un día.
+     */
+    public static function fechasOcurrencias(string $inicio, array $dias, string $hasta): array
+    {
+        $dias = self::diasValidos($dias);
+        $hora = substr($inicio, 11, 5) ?: '00:00';
+        $ts   = strtotime(substr($inicio, 0, 10));
+        $fin  = strtotime($hasta);
+        if (!$dias || $ts === false || $fin === false || $fin < $ts) return [];
+        $out = [];
+        while ($ts <= $fin && count($out) <= 500) {          // tope de seguridad
+            if (in_array((int)date('N', $ts), $dias, true)) {
+                $out[] = date('Y-m-d', $ts) . ' ' . $hora;
+            }
+            $ts = strtotime('+1 day', $ts);
+        }
+        return $out;
+    }
+
+    /**
      * RRULE semanal para Google Calendar. $hasta es "Y-m-d" (inclusive) y se
      * convierte a UTC porque UNTIL con 'Z' debe ir en tiempo universal.
      * Devuelve '' si la regla no aplica.
