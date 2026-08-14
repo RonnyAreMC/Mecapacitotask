@@ -16,11 +16,28 @@
   --c-terracota: #C66B2D;
   --c-petroleo: #2D3E50;
 
-  /* Estados (basados en la paleta) */
-  --c-success: var(--c-verde-esmeralda);
-  --c-warning: var(--c-naranja);
-  --c-info: var(--c-cian);
-  --c-danger: var(--c-terracota);
+  /* ---- Paleta de marca (escalas 900→200) ---- */
+  --brand-900: #000033; --brand-800: #00004D; --brand-700: #000066; --brand-600: #000080;
+  --brand-500: #333399; --brand-400: #6666B2; --brand-300: #9999CC; --brand-200: #CCCCE6;
+  /* Acción e información */
+  --info-900: #002244; --info-800: #004488; --info-700: #0066CC; --info-600: #1A85FF;
+  --info-500: #3399FF; --info-400: #66B2FF; --info-300: #99CCFF; --info-200: #CCE6FF;
+  /* Éxito */
+  --success-900: #052610; --success-800: #0B4D23; --success-700: #128A3F; --success-600: #1BC059;
+  --success-500: #21D866; --success-400: #63E396; --success-300: #9CEFBD;
+  /* Advertencia */
+  --warning-900: #4D2C00; --warning-800: #804A00; --warning-700: #B36700; --warning-600: #E68A00;
+  --warning-500: #FFB333;
+  /* Error */
+  --error-900: #3D0000; --error-800: #800000; --error-700: #B30000; --error-600: #E63939;
+  /* Neutrales */
+  --neutral-900: #0F172A; --neutral-800: #1E293B; --neutral-700: #334155; --neutral-600: #64748B;
+
+  /* Estados (apuntan a la paleta de marca) */
+  --c-success: var(--success-600);
+  --c-warning: var(--warning-600);
+  --c-info: var(--info-600);
+  --c-danger: var(--error-600);
 
   /* Neutrales */
   --c-bg: #ffffff;

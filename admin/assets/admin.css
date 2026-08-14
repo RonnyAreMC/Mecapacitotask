@@ -3891,10 +3891,21 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .dlg-tarea textarea.input-meca { min-height: 90px; }
 .dlg-tarea .campo-doble { gap: 18px; }
 .dlg-form header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   margin: -4px 0 2px;
 }
-.dlg-form header h3 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; gap: 10px; align-items: center; }
+/* Cabecera con BADGE de ícono arriba del título (estilo del panel: claymorphism).
+   El ícono que va como primer hijo del h3 se convierte en una pastilla suave. */
+.dlg-form header h3 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.dlg-form header h3 > i:first-child {
+  flex: none; width: 46px; height: 46px; border-radius: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 13%, var(--n-bg));
+  box-shadow: var(--sh-inset-mini);
+}
+/* Variante de peligro (confirmar/anular): badge rojo */
+.dlg-form.dlg-peligro header h3 > i:first-child { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, var(--n-bg)); }
 .dlg-close {
   width: 36px; height: 36px; border: 0; border-radius: 11px;
   /* Sin esto el aspa se apoya en la línea base y queda descentrada */
