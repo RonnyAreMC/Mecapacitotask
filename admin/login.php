@@ -151,7 +151,7 @@ $sinVincular = [];
         <div class="login-pie">
           <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
           <p class="lp-cta">¿Todavía no tienes cuenta?
-            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-solid fa-user-plus"></i> Crear una cuenta</a>
+            <a class="lp-cta-btn" href="<?= e(urlPanel('registro.php')) ?>"><?= UI::icono('PlusCircle') ?> Crear una cuenta</a>
           </p>
         </div>
         <?php else: ?>

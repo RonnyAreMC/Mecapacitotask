@@ -138,7 +138,7 @@ $dominios       = Auth::dominiosPermitidos();
           <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Registrarte no te mete al panel: deja una
              solicitud que un administrador aprueba. Te avisamos por correo cuando la acepten.</p>
           <p class="lp-cta">¿Ya tienes cuenta?
-            <a href="<?= e(urlPanel('login.php')) ?>"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar al panel</a>
+            <a class="lp-cta-btn" href="<?= e(urlPanel('login.php')) ?>"><?= UI::icono('ArrowRight03Square') ?> Entrar al panel</a>
           </p>
         </div>
       <?php endif; ?>

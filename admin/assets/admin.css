@@ -6305,9 +6305,27 @@ img[src$="claude.svg"] {
 .btn-google:hover{ border-color:var(--it-celeste) !important; background:#f8fbfe !important; }
 .login-sep span{ color:#93a3ab !important; }
 .login-pie i{ color:var(--it-celeste) !important; }
-/* "Crear una cuenta" en azul marino: el verde queda para la acción principal
-   (Entrar). En verde los dos competían por la misma mirada. */
-.lp-cta a, .lp-cta a:visited{ color:var(--it-celeste) !important; }
+/* "Crear una cuenta": botón de contorno, no un enlace suelto. Se ve que se
+   puede pulsar y tiene un área de clic de verdad, pero al ser hueco no
+   compite con Entrar — solo una es la acción principal de la pantalla. */
+.lp-cta{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.lp-cta a.lp-cta-btn, .lp-cta a.lp-cta-btn:visited{
+  display:inline-flex; align-items:center; gap:7px;
+  margin-left:0;
+  padding:9px 15px;
+  border:1.5px solid var(--it-celeste) !important;
+  border-radius:11px;
+  color:var(--it-celeste) !important;
+  background:#fff;
+  text-decoration:none;
+  transition:background .18s ease, color .18s ease;
+}
+.lp-cta a.lp-cta-btn:hover{
+  background:var(--it-celeste) !important;
+  color:#fff !important;
+  text-decoration:none;
+}
+.lp-cta a.lp-cta-btn .ico{ width:1.1em; height:1.1em; }
 
 /* Selector "¿Quién eres?": acento celeste al pasar */
 .ident-persona:hover{ border-color:var(--it-celeste) !important;
