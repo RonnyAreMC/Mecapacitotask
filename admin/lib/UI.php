@@ -408,9 +408,15 @@ class UI
         }
         // Estados de tarea: los personalizados siempre emiten su color; los de
         // fabrica solo si cambiaron (para conservar las variantes del modo oscuro).
+        // Los COLORES_JUBILADOS son defaults de antes: quien nunca tocó el color
+        // los tiene guardados y, al cambiar el default, pasarían por
+        // personalizados y se quedarían con el color viejo pisando el nuevo con
+        // !important. Cuentan como default para que el panel se actualice solo.
         foreach ($cfg['estados_tarea'] as $k => $v) {
             $color = $v['color'] ?? '#64748b';
-            $esDefault = isset($def['estados_tarea'][$k]) && strcasecmp($color, $def['estados_tarea'][$k]['color']) === 0;
+            $esDefault = isset($def['estados_tarea'][$k])
+                && (strcasecmp($color, $def['estados_tarea'][$k]['color']) === 0
+                    || in_array(strtolower($color), self::COLORES_JUBILADOS[$k] ?? [], true));
             if (!$esDefault) {
                 $css .= '.estado-' . $k . ',.select-pill.estado-' . $k . '{color:' . $color . ' !important;}';
             }
@@ -897,11 +903,43 @@ class UI
      * IDs de clip que choquen al repetirse. Si el nombre no existe pero es un
      * "fa-…", cae a Font Awesome, así la migración es gradual y nada se rompe.
      */
+    /**
+     * Equivalencias de los iconos que ya se migraron.
+     *
+     * Cambiar el default en Config no basta: en cuanto alguien guarda Ajustes,
+     * su config.json se queda con el nombre viejo y pisa el default para
+     * siempre. Pasaba con los equipos y los estados de tarea, que en local
+     * salían nuevos y en producción seguían en Font Awesome.
+     *
+     * Se traduce AL PINTAR y no se toca lo guardado: así cada entorno se
+     * arregla solo al desplegar, sin migración ni entrar a Ajustes.
+     */
+    /** Colores que fueron default de un estado antes de la paleta del DS. */
+    private const COLORES_JUBILADOS = [
+        'pendiente' => ['#0b7ea8', '#0f6e92'],
+        'progreso'  => ['#2b76f7'],
+        'revision'  => ['#c26f0e'],
+        'hecho'     => ['#2bb673'],
+    ];
+
+    private const ICONOS_MIGRADOS = [
+        // Equipos
+        'fa-code'                    => 'Desarrolladores',
+        'fa-chart-line'              => 'Analistas',
+        // Estados de tarea
+        'fa-circle-dot'              => 'OctagonCheck',
+        'fa-spinner'                 => 'RefreshCircle',
+        'fa-magnifying-glass-chart'  => 'OctagonHelp',
+        'fa-circle-check'            => 'WavyCheck',
+    ];
+
     public static function icono(string $nombre, string $clase = ''): string
     {
         static $cache = [];
         $mapa = self::mapaIconos();
         $cls  = trim('ico ' . $clase);
+
+        $nombre = self::ICONOS_MIGRADOS[$nombre] ?? $nombre;
 
         if (!isset($mapa[$nombre])) {
             // Compatibilidad: los iconos aún no migrados siguen siendo fa-*
