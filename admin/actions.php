@@ -161,9 +161,14 @@ function esUltimaOcurrencia(array $reu, string $fecha): bool
 }
 
 /**
- * Avisa por correo de que un requerimiento se terminó. Va a quien lo creó/asignó
- * (por su correo) o, si no tiene, al admin configurado en Ajustes → Correo.
- * Devuelve la coletilla para el flash.
+ * Avisa por correo de que un requerimiento se terminó.
+ *
+ * Van dos avisos, cada uno por su lado:
+ *  - a quien lo creó/asignó, que es el que espera la respuesta;
+ *  - al correo del administrador de Ajustes → Correo, con el mismo
+ *    interruptor que los proyectos completados, para que tenga la foto de
+ *    todo lo que se cierra aunque el requerimiento no lo pidiera él.
+ * Si son el mismo correo solo sale uno. Devuelve la coletilla para el flash.
  */
 function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, string $nota): string
 {
@@ -175,12 +180,15 @@ function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, 
     if ($para === '') {
         $para = trim((string)(Mailer::config()['admin_email'] ?? ''));
     }
-    if ($para === '') {
-        return '';
-    }
-    return Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true
-        ? ' Le avisamos por correo a quien lo asignó.'
-        : '';
+
+    $aQuienPidio = $para !== ''
+        && Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true;
+    $alAdmin = Mailer::avisarAdminRequerimientoHecho($req, $quien, $nota, $para) === true;
+
+    if ($aQuienPidio && $alAdmin) return ' Avisamos por correo a quien lo asignó y al administrador.';
+    if ($aQuienPidio)             return ' Le avisamos por correo a quien lo asignó.';
+    if ($alAdmin)                 return ' Le avisamos por correo al administrador.';
+    return '';
 }
 
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void

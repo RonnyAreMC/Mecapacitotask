@@ -797,6 +797,29 @@ class Mailer
         return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo));
     }
 
+    /**
+     * Copia del requerimiento terminado al correo del administrador.
+     *
+     * Va con el mismo interruptor que los proyectos completados
+     * (avisar_completado): es el mismo encargo — "avísame cuando algo se
+     * termine" — y separarlo en dos casillas obligaría a marcar las dos.
+     *
+     * $yaAvisado evita el duplicado cuando quien lo pidió ES el administrador.
+     */
+    public static function avisarAdminRequerimientoHecho(
+        array $req, array $quien, string $nota, string $yaAvisado = ''
+    ): true|string|null {
+        $c = self::conf();
+        $admin = trim((string)($c['admin_email'] ?? ''));
+        if (!self::listo() || empty($c['avisar_completado']) || $admin === '') {
+            return null;
+        }
+        if (strcasecmp($admin, trim($yaAvisado)) === 0) {
+            return null;
+        }
+        return self::notificarRequerimientoHecho($req, $quien, $admin, $nota);
+    }
+
     /* ---------- Registro público ---------- */
 
     /**
