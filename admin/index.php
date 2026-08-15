@@ -163,7 +163,7 @@ foreach ($mapaProy as $pid => $p) {
       <div class="pac-estados">
         <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
           <span class="pac-mini estado-<?= $k ?>" title="<?= e($label) ?>">
-            <i class="fa-solid <?= $icono ?>"></i> <?= (int)$resumen[$k] ?>
+            <?= UI::icono($icono) ?> <?= (int)$resumen[$k] ?>
           </span>
         <?php endforeach; ?>
       </div>

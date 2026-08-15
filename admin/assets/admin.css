@@ -1424,10 +1424,10 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 }
 
 /* Colores de texto por estado (claro) */
-.estado-pendiente { color: #0b7ea8; }
-.estado-progreso  { color: var(--c-azul-electrico); }
-.estado-revision  { color: #c26f0e; }
-.estado-hecho     { color: var(--c-verde-esmeralda); }
+.estado-pendiente { color: #0F6E92; }
+.estado-progreso  { color: #1F63D6; }
+.estado-revision  { color: #9C5511; }
+.estado-hecho     { color: #0D7340; }
 
 /* Estados de proyecto */
 .pestado-activo     { color: var(--c-verde-esmeralda); }
@@ -1436,10 +1436,10 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 html.dark .pestado-completado { color: #7fabff; }
 
 /* Colores por estado (oscuro: mas brillantes) */
-html.dark .estado-pendiente { color: var(--c-cian); }
-html.dark .estado-progreso  { color: #7fabff; }
-html.dark .estado-revision  { color: #ffb35c; }
-html.dark .estado-hecho     { color: #57d99a; }
+html.dark .estado-pendiente { color: #5FC8E8; }
+html.dark .estado-progreso  { color: #66B2FF; }
+html.dark .estado-revision  { color: #F0A73F; }
+html.dark .estado-hecho     { color: #35C078; }
 
 /* Prioridades */
 .badge-prio.prio-baja  { color: #4e8a24; }
@@ -1883,12 +1883,16 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 .kb-col { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
 .kb-head {
   display: flex; align-items: center; gap: 9px;
+  /* El título va en .78rem, así que un icono a 1em se queda en 12px y no se
+     lee. Se separa del texto para que aguante. */
   padding: 11px 14px;
   border-radius: 13px;
   box-shadow: var(--sh-inset-mini);
   font-size: .78rem; font-weight: 800;
   letter-spacing: .04em; text-transform: uppercase;
 }
+.kb-head .ico { width: 1.35em; height: 1.35em; }
+.et-icono .ico { width: 1.25em; height: 1.25em; }
 .kb-count {
   margin-left: auto;
   min-width: 24px; height: 24px; padding: 0 7px;

@@ -416,7 +416,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
   <a class="estado-tile estado-<?= $k ?> <?= $fEstado === $k ? 'tile-activo' : '' ?>"
      href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>">
-    <span class="et-icono"><i class="fa-solid <?= $icono ?>"></i></span>
+    <span class="et-icono"><?= UI::icono($icono) ?></span>
     <span class="et-datos">
       <b class="font-display"><?= (int)$resumen[$k] ?></b>
       <small><?= e($label) ?></small>
@@ -677,14 +677,16 @@ foreach ($tareas as $t) {
       // Lista de estados para el menú de "mover rápido" de cada tarjeta.
       $kbEstados = [];
       foreach (Catalogo::estadosTarea() as $ek => $ev) {
-          $kbEstados[] = ['k' => $ek, 'label' => $ev[0], 'icono' => $ev[1]];
+          // 'svg' ya renderizado: el menú de mover lo dibuja el JS, que no
+          // puede llamar a UI::icono.
+          $kbEstados[] = ['k' => $ek, 'label' => $ev[0], 'svg' => UI::icono($ev[1])];
       }
     ?>
     <div class="kanban" style="--pc:<?= $color ?>" data-estados='<?= e(json_encode($kbEstados, JSON_UNESCAPED_UNICODE)) ?>'>
       <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
       <div class="kb-col">
         <div class="kb-head estado-<?= $k ?>">
-          <i class="fa-solid <?= $icono ?>"></i> <?= e($label) ?>
+          <?= UI::icono($icono) ?> <?= e($label) ?>
           <span class="kb-count"><?= (int)$resumen[$k] ?></span>
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">

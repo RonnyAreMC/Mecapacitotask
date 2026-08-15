@@ -167,7 +167,7 @@ function bloqueRequerimientos(string $titulo, string $icono, array $items, array
     ?>
     <section class="req-bloque">
       <h2 class="req-titulo">
-        <i class="fa-solid <?= e($icono) ?> text-secondary"></i> <?= e($titulo) ?>
+        <?= UI::icono($icono, "text-secondary") ?> <?= e($titulo) ?>
         <span class="tabla-count"><?= count($items) ?></span>
         <?php if ($ayuda !== ''): ?><small><?= e($ayuda) ?></small><?php endif; ?>
       </h2>

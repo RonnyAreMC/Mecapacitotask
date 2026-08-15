@@ -76,7 +76,7 @@ UI::cabecera(
   ];
   foreach ($tiles as [$clase, $icono, $n, $label]): ?>
   <div class="estado-tile <?= $clase ?><?= $n ? '' : ' tile-apagado' ?>">
-    <span class="et-icono"><i class="fa-solid <?= $icono ?>"></i></span>
+    <span class="et-icono"><?= UI::icono($icono) ?></span>
     <span class="et-datos">
       <b class="font-display"><?= $n ?></b>
       <small><?= e($label) ?></small>

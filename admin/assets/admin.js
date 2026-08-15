@@ -1241,7 +1241,7 @@ if (kanban) {
       const op = document.createElement('button');
       op.type = 'button';
       op.className = 'kb-menu-op';
-      op.innerHTML = '<i class="fa-solid ' + s.icono + '"></i> ' + s.label;
+      op.innerHTML = (s.svg || '') + ' ' + s.label;
       op.addEventListener('click', (ev) => { ev.stopPropagation(); cerrarMenus(); moverTarjeta(card, s); });
       menu.appendChild(op);
     });

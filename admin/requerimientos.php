@@ -295,7 +295,7 @@ UI::cabecera(
   <a class="estado-tile <?= e($clase) ?><?= $activo ? ' tile-activo' : '' ?>"
      href="<?= e(urlFiltro(['sit' => $activo ? '' : $k])) ?>"
      title="<?= e($ayudas[$k]) ?><?= $activo ? ' · Pulsa otra vez para quitar el filtro' : '' ?>">
-    <span class="et-icono"><i class="fa-solid <?= e($icono) ?>"></i></span>
+    <span class="et-icono"><?= UI::icono($icono) ?></span>
     <span class="et-datos">
       <b class="font-display"><?= (int)$conteo[$k] ?></b>
       <small><?= e($label) ?></small>

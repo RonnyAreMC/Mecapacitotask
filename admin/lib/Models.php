@@ -11,11 +11,17 @@ require_once __DIR__ . '/Storage.php';
 final class Catalogo
 {
     /** Estados de tarea: clave => [etiqueta, icono] */
+    /**
+     * Estados de tarea con el icono del design system (admin/iconos).
+     * Siguen la familia de estados del DS: información, aviso y confirmación.
+     * "En progreso" no tiene icono de estado propio en el set, así que usa el
+     * de recarga, que es lo que se entiende por "en marcha".
+     */
     public const ESTADOS_TAREA = [
-        'pendiente' => ['Por hacer',   'fa-circle-dot'],
-        'progreso'  => ['En progreso', 'fa-spinner'],
-        'revision'  => ['En revision', 'fa-magnifying-glass-chart'],
-        'hecho'     => ['Completada',  'fa-circle-check'],
+        'pendiente' => ['Por hacer',   'CommentInfo'],
+        'progreso'  => ['En progreso', 'RefreshCircle'],
+        'revision'  => ['En revision', 'TriangleWarning'],
+        'hecho'     => ['Completada',  'WavyCheck'],
     ];
 
     public const PRIORIDADES = [
@@ -191,11 +197,15 @@ final class Config
             'gitlab_host'      => '',   // host de una instancia autogestionada
             'color_secundario' => '#2B76F7',   // acento principal (botones, links)
             'color_acento'     => '#FFD700',   // acento secundario
+            // Iconos y colores del design system. El color es el del tema claro:
+            // mientras sea el de aquí, estilosConfig() no emite nada y manda
+            // admin.css, que además tiene su paso para el tema oscuro. En cuanto
+            // alguien lo cambia en Ajustes, ese color pasa a mandar en los dos.
             'estados_tarea' => [
-                'pendiente' => ['label' => 'Por hacer',   'color' => '#0B7EA8', 'icono' => 'fa-circle-dot',              'final' => false],
-                'progreso'  => ['label' => 'En progreso', 'color' => '#2B76F7', 'icono' => 'fa-spinner',                 'final' => false],
-                'revision'  => ['label' => 'En revision', 'color' => '#C26F0E', 'icono' => 'fa-magnifying-glass-chart',  'final' => false],
-                'hecho'     => ['label' => 'Completada',  'color' => '#2BB673', 'icono' => 'fa-circle-check',            'final' => true],
+                'pendiente' => ['label' => 'Por hacer',   'color' => '#0F6E92', 'icono' => 'CommentInfo',     'final' => false],
+                'progreso'  => ['label' => 'En progreso', 'color' => '#1F63D6', 'icono' => 'RefreshCircle',   'final' => false],
+                'revision'  => ['label' => 'En revision', 'color' => '#9C5511', 'icono' => 'TriangleWarning', 'final' => false],
+                'hecho'     => ['label' => 'Completada',  'color' => '#0D7340', 'icono' => 'WavyCheck',       'final' => true],
             ],
             'prioridades' => [
                 'baja'  => ['label' => 'Baja',  'color' => '#4E8A24', 'icono' => 'fa-angle-down'],
