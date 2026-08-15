@@ -148,6 +148,7 @@ foreach ($mapaProy as $pid => $p) {
       }
   ?>
   <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">
+    <?= UI::icono($p['icono'] ?? 'FolderOpen', 'pac-watermark') ?>
     <div class="pac-head">
       <div class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></div>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>

@@ -1298,6 +1298,23 @@ html.dark .fondo-ramas { opacity: .2; }
 }
 /* (Se quitó la franja de color de arriba de cada card: el proyecto ya se
    identifica por su ícono y el tinte de la esquina.) */
+
+/* Marca de agua: el mismo ícono del proyecto en grande al fondo, como en la
+   cabecera de su tablero. El tamaño sale del font-size porque .ico mide 1em.
+   La tarjeta ya es relative con overflow:hidden, así que el ícono se recorta
+   contra su esquina. */
+.pac-watermark {
+  position: absolute; right: -26px; bottom: -34px;
+  font-size: 8.5rem;
+  color: var(--pc, var(--c-secondary));
+  opacity: .07;
+  transform: rotate(-10deg);
+  z-index: 0; pointer-events: none;
+}
+html.dark .pac-watermark { opacity: .13; }
+/* El contenido es estático y se pintaría DEBAJO de la marca, que sí está
+   posicionada: hay que subirlo a su propia capa. */
+.pac-head, .pac-body { position: relative; z-index: 1; }
 .proyecto-admin-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--sh-card), 0 0 0 1.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 40%, transparent);
