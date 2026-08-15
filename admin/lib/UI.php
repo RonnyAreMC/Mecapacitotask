@@ -125,7 +125,7 @@ class UI
       </div>
     </a>
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
-      <i class="fa-solid fa-angles-left"></i>
+      <?= UI::icono('ArrowLeft03Square') ?>
     </button>
     <!-- Solo en móvil: abre el menú flotante -->
     <button type="button" id="sidebar-burger" class="sidebar-burger" aria-label="Menú" aria-expanded="false">
@@ -144,11 +144,11 @@ class UI
         <?= self::avatar($verComo, 26) ?>
         <span class="truncate">Viendo a <b><?= e(explode(' ', $verComo['nombre'])[0]) ?></b></span>
       <?php else: ?>
-        <i class="fa-regular fa-eye"></i> <span class="truncate">Ver como...</span>
+        <?= UI::icono('Eye') ?> <span class="truncate">Ver como...</span>
       <?php endif; ?>
     </button>
     <?php if ($verComo): ?>
-    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><i class="fa-solid fa-xmark"></i></a>
+    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><?= UI::icono('Close') ?></a>
     <?php endif; ?>
   </div>
   <?php endif; ?>
@@ -156,7 +156,7 @@ class UI
   <nav class="sidebar-nav">
     <span class="sidebar-label">General</span>
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
-      <i class="fa-solid fa-table-columns"></i> <span class="truncate">Dashboard</span>
+      <?= UI::icono('AppWindow') ?> <span class="truncate">Dashboard</span>
     </a>
 
     <?php
@@ -169,13 +169,13 @@ class UI
       <span class="sidebar-label">Proyectos</span>
       <button type="button" class="sidebar-link nav-grupo-btn <?= $enProyecto ? 'active' : '' ?>"
               aria-expanded="false" title="Proyectos">
-        <i class="fa-solid fa-folder-open"></i>
+        <?= UI::icono('FolderOpen') ?>
         <span class="truncate">Proyectos</span>
         <?php if ($proyectos): ?><span class="nav-grupo-n"><?= count($proyectos) ?></span><?php endif; ?>
       </button>
 
       <div class="nav-grupo-items">
-        <div class="nav-grupo-cab"><i class="fa-solid fa-folder-open"></i> Proyectos</div>
+        <div class="nav-grupo-cab"><?= UI::icono('FolderOpen') ?> Proyectos</div>
         <?php foreach ($proyectos as $p): ?>
         <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
            class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
@@ -190,7 +190,7 @@ class UI
         <?php endif; ?>
 
         <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
-          <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
+          <?= UI::icono('Plus') ?> <span class="truncate">Nuevo proyecto</span>
         </a>
       </div>
     </div>
@@ -222,7 +222,7 @@ class UI
     ?>
     <a href="<?= $reqHref ?>" class="sidebar-link <?= $activo === $reqClave ? 'active' : '' ?>"
        title="<?= e($reqTitle) ?>">
-      <i class="fa-solid fa-inbox"></i>
+      <?= UI::icono('ReceiveSquare') ?>
       <span class="truncate"><?= e($reqTexto) ?></span>
       <?php if ($nReq): ?><span class="nav-badge nav-badge-fin" title="<?= e($reqTitleN) ?>"><?= $nReq ?></span><?php endif; ?>
     </a>
@@ -238,7 +238,7 @@ class UI
     </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
     <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
-      <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>
+      <?= UI::icono($eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
 
@@ -247,7 +247,7 @@ class UI
     <?php endif; ?>
     <?php if (Auth::esGestor()): /* Planificar: admin y Scrum Master */ ?>
     <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
-      <i class="fa-solid fa-list-check"></i> <span class="truncate">Planificar</span>
+      <?= UI::icono('Task') ?> <span class="truncate">Planificar</span>
     </a>
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
@@ -300,7 +300,7 @@ class UI
       <span class="tt-knob"></span>
       <i class="fa-solid fa-moon tt-luna"></i>
     </button>
-    <span><i class="fa-solid fa-code"></i> Equipo dev</span>
+    <span><?= UI::icono('Laptop') ?> Equipo dev</span>
   </div>
   </div><!-- /.sidebar-menu -->
 </aside>

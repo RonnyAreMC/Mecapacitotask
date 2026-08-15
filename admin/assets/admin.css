@@ -174,7 +174,8 @@ body { margin: 0; }
 }
 .sidebar-toggle:hover { color: var(--c-secondary); }
 .sidebar-toggle:active { box-shadow: var(--sh-inset-mini); }
-.sidebar-toggle i { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.sidebar-toggle i,
+.sidebar-toggle .ico { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 
 .sidebar-brand {
   display: flex; align-items: center; gap: 12px;
@@ -363,6 +364,9 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
   transition: box-shadow .22s ease, color .22s ease;
 }
 .sidebar-link i { width: 18px; text-align: center; font-size: .95rem; }
+/* Los del set son SVG y no tienen font-size: se les da la caja a mano para
+   que queden alineados con los de Font Awesome que aún quedan. */
+.sidebar-link .ico { width: 18px; height: 18px; }
 .sidebar-link:hover { box-shadow: var(--sh-mini); color: var(--c-text); }
 /* El item activo se marca solo con el borde iluminado, sin barra al lado */
 .sidebar-link.active {
@@ -442,6 +446,7 @@ html.sb-collapsed .nav-grupo-items .sidebar-link {
 }
 html.sb-collapsed .nav-grupo-items .sidebar-link .truncate { display: inline; }
 html.sb-collapsed .nav-grupo-items .sidebar-link i { width: 18px; font-size: .95rem; }
+html.sb-collapsed .nav-grupo-items .sidebar-link .ico { width: 18px; height: 18px; }
 .nav-grupo-vacio { margin: 6px 10px 10px; font-size: .78rem; color: var(--c-text-soft); }
 
 .sidebar-link-new {
@@ -935,7 +940,9 @@ html.sb-collapsed { --sidebar-w: 96px; }
 
 html.sb-collapsed .sidebar { padding: 22px 14px; }
 html.sb-collapsed .sidebar-top { flex-direction: column-reverse; gap: 12px; }
-html.sb-collapsed .sidebar-toggle i { transform: rotate(180deg); }
+/* El SVG del set también gira al plegar: la regla apuntaba solo al <i>. */
+html.sb-collapsed .sidebar-toggle i,
+html.sb-collapsed .sidebar-toggle .ico { transform: rotate(180deg); }
 html.sb-collapsed .sidebar-brand {
   padding: 10px;
   justify-content: center;
@@ -968,6 +975,7 @@ html.sb-collapsed .sidebar-link {
 }
 html.sb-collapsed .sidebar-link .truncate { display: none; }
 html.sb-collapsed .sidebar-link i { width: auto; font-size: 1.05rem; }
+html.sb-collapsed .sidebar-link .ico { width: 20px; height: 20px; }
 
 html.sb-collapsed .sidebar-foot {
   flex-direction: column; align-items: center; gap: 8px;
@@ -5263,6 +5271,7 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
   .sidebar-menu .sidebar-link .truncate,
   .sidebar-menu .vc-abrir .truncate { display: inline !important; }
   .sidebar-menu .sidebar-link i { width: 22px !important; font-size: .95rem !important; }
+  .sidebar-menu .sidebar-link .ico { width: 20px !important; height: 20px !important; }
   html.sb-collapsed .sidebar-menu .nav-grupo:not(.cuenta-menu),
   html.sb-collapsed .sidebar-menu .nav-grupo-items:not(.cuenta-panel) { display: contents !important; }
   html.sb-collapsed .sidebar-menu .nav-grupo-btn,

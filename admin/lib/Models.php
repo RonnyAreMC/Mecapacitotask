@@ -218,8 +218,8 @@ final class Config
                 'completado' => ['label' => 'Completado', 'icono' => 'fa-flag-checkered'],
             ],
             'equipos' => [
-                'programacion' => ['label' => 'Programadores', 'icono' => 'fa-code'],
-                'analistas'    => ['label' => 'Analistas',     'icono' => 'fa-chart-line'],
+                'programacion' => ['label' => 'Programadores', 'icono' => 'Laptop'],
+                'analistas'    => ['label' => 'Analistas',     'icono' => 'TrendingUp'],
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],
