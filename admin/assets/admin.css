@@ -4469,6 +4469,12 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .ph-icon .ico { width: 2.1rem; height: 2.1rem; }
 
 .icon-picker { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px; }
+/* Con el set entero desplegado son 200 y pico: se limita el alto y se pasa a
+   scroll para que el botón de guardar no se vaya fuera de la pantalla. */
+.icon-picker:has(.icono-extra:not([hidden])) { max-height: 260px; overflow-y: auto; }
+.icon-mas { margin: 10px 0 0 4px; }
+.icon-mas i { transition: transform .2s ease; }
+.icon-mas.abierto i { transform: rotate(180deg); }
 .icon-picker input { display: none; }
 .icon-picker label {
   cursor: pointer;
@@ -4485,6 +4491,10 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
   box-shadow: var(--sh-inset-mini);
   color: var(--c-secondary);
 }
+/* El display:inline-flex de arriba gana al display:none que el navegador da
+   a [hidden], así que los del set completo salían igual con el desplegable
+   cerrado. Hay que decirlo a mano. */
+.icon-picker label[hidden] { display: none; }
 .icon-picker label:hover { color: var(--c-secondary); }
 
 /* Selector de colores (planos) */

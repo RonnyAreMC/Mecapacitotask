@@ -1992,14 +1992,7 @@ $comData = json_encode([
       <section class="wz-panel">
         <div class="campo" data-sin-resumen>
           <span>Ícono</span>
-          <div class="icon-picker">
-            <?php foreach (Catalogo::iconosProyecto() as $ic): ?>
-            <label>
-              <input type="radio" name="icono" value="<?= e($ic) ?>" <?= $proyecto['icono'] === $ic ? 'checked' : '' ?>>
-              <?= UI::icono($ic) ?>
-            </label>
-            <?php endforeach; ?>
-          </div>
+          <?= UI::selectorIcono($proyecto['icono'] ?? null) ?>
         </div>
         <div class="campo" data-sin-resumen>
           <span>Color</span>

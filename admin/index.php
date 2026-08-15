@@ -251,14 +251,7 @@ foreach ($mapaProy as $pid => $p) {
       <section class="wz-panel">
         <div class="campo" data-sin-resumen>
           <span>Ícono</span>
-          <div class="icon-picker">
-            <?php foreach (Catalogo::iconosProyecto() as $i => $ic): ?>
-            <label>
-              <input type="radio" name="icono" value="<?= e($ic) ?>" <?= $i === 0 ? 'checked' : '' ?>>
-              <?= UI::icono($ic) ?>
-            </label>
-            <?php endforeach; ?>
-          </div>
+          <?= UI::selectorIcono() ?>
         </div>
         <div class="campo" data-sin-resumen>
           <span>Color</span>

@@ -2452,6 +2452,19 @@ document.querySelectorAll('.tabs-meca').forEach((tabs) => {
   if (guardado && tabs.querySelector('[data-tab="' + guardado + '"]')) activar(guardado);
 });
 
+// "Más íconos": el selector de proyecto enseña primero los de Ajustes y
+// despliega el resto del set aquí mismo, sin salir del formulario.
+document.querySelectorAll('.icon-mas').forEach((btn) => {
+  const picker = btn.previousElementSibling;
+  if (!picker || !picker.classList.contains('icon-picker')) return;
+  const txt = btn.querySelector('.icon-mas-txt');
+  btn.addEventListener('click', () => {
+    const abierto = btn.classList.toggle('abierto');
+    picker.querySelectorAll('.icono-extra').forEach((l) => { l.hidden = !abierto; });
+    if (txt) txt.textContent = abierto ? btn.dataset.menos : btn.dataset.mas;
+  });
+});
+
 // Galeria de iconos: clic para elegir; el valor se arma solo en el hidden
 const galeriaIconos = document.querySelector('.icon-galeria');
 if (galeriaIconos) {

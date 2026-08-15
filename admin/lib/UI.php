@@ -950,6 +950,47 @@ class UI
     }
 
     /**
+     * Selector de ícono de proyecto.
+     *
+     * Enseña primero los elegidos en Ajustes, que son los de uso habitual, y
+     * detrás de "Más íconos" el resto del set. Antes solo se veían los de
+     * Ajustes: si el que querías no estaba, había que salir del formulario,
+     * ir a Ajustes, marcarlo, guardar y volver.
+     *
+     * $actual entra siempre aunque no esté en la lista corta, para que un
+     * proyecto viejo no pierda su ícono al abrir el formulario.
+     */
+    public static function selectorIcono(?string $actual = null): string
+    {
+        $cortos = Catalogo::iconosProyecto();
+        if ($actual !== null && $actual !== '' && !in_array($actual, $cortos, true)) {
+            array_unshift($cortos, $actual);
+        }
+        $resto = array_values(array_diff(self::nombresIconos(), $cortos));
+        $marcado = $actual !== null && $actual !== '' ? $actual : ($cortos[0] ?? '');
+
+        $opcion = function (string $ic, bool $extra) use ($marcado): string {
+            return '<label' . ($extra ? ' class="icono-extra" hidden' : '') . '>'
+                 . '<input type="radio" name="icono" value="' . e($ic) . '"'
+                 . ($ic === $marcado ? ' checked' : '') . '>'
+                 . self::icono($ic) . '</label>';
+        };
+
+        $html = '<div class="icon-picker">';
+        foreach ($cortos as $ic) $html .= $opcion($ic, false);
+        foreach ($resto  as $ic) $html .= $opcion($ic, true);
+        $html .= '</div>';
+
+        if ($resto) {
+            $html .= '<button type="button" class="btn-outline btn-meca btn-sm btn-azul icon-mas"'
+                   . ' data-mas="Más íconos (' . count($resto) . ')" data-menos="Ver menos">'
+                   . '<i class="fa-solid fa-chevron-down"></i> '
+                   . '<span class="icon-mas-txt">Más íconos (' . count($resto) . ')</span></button>';
+        }
+        return $html;
+    }
+
+    /**
      * Deja un SVG listo para incrustar varias veces en la página:
      *  - el color pasa a currentColor (para heredar del texto/estado),
      *  - se quitan width/height del <svg> (el tamaño lo pone .ico por CSS),
