@@ -6239,10 +6239,15 @@ img[src$="claude.svg"] {
    Login InnoTech Hub — celeste + verde, plano, wordmark arriba.
    Override del login neumórfico anterior (gana por orden de fuente).
    ============================================================ */
+/* Paleta del login, alineada al design system: el acento es el azul marino
+   (foco, iconos y enlaces) y la acción principal el verde de crear/confirmar,
+   igual que el resto del panel. El celeste de antes no salía de ninguna parte
+   del DS. El celeste de la barra lateral NO sale de aquí: está escrito a
+   pelo más abajo, así que esto no lo toca. */
 :root{
-  --it-celeste:#0EA5E9; --it-celeste-2:#38BDF8;
-  --it-verde:#16A34A;   --it-verde-2:#22C55E;
-  --it-tinta:#0f2b32;   --it-borde:#e2e8f0;
+  --it-celeste:#000080; --it-celeste-2:#16169E;   /* acento (era celeste) */
+  --it-verde:#00C853;   --it-verde-2:#00B84C;     /* acción principal */
+  --it-tinta:#101828;   --it-borde:#E4E7EC;
 }
 
 /* Lado marca: verde (degradado mono suave, profundo para que el canvas se lea) */
@@ -6284,19 +6289,25 @@ img[src$="claude.svg"] {
 }
 .login-caja .input-prefijo > i{ color:var(--it-celeste) !important; }
 
-/* Botón Entrar: celeste sólido, plano (sin degradado) */
+/* Botón Entrar: el verde de confirmar del DS, sólido y plano. Es la misma
+   acción que el "Confirmar" de las tarjetas del sistema, así que va del
+   mismo color que crear/agregar en el panel. */
 .login-btn{
-  background:var(--it-celeste) !important;
+  background:var(--it-verde) !important;
+  color:#fff !important;
   border:none !important;
   box-shadow: none !important;
 }
-.login-btn:hover{ background:#0b93d1 !important; }
+.login-btn:hover{ background:var(--it-verde-2) !important; }
 
 /* Google y separador: planos, acento celeste */
 .btn-google{ box-shadow:none !important; border:1.5px solid var(--it-borde) !important; border-radius:12px !important; }
 .btn-google:hover{ border-color:var(--it-celeste) !important; background:#f8fbfe !important; }
 .login-sep span{ color:#93a3ab !important; }
 .login-pie i{ color:var(--it-celeste) !important; }
+/* "Crear una cuenta" en azul marino: el verde queda para la acción principal
+   (Entrar). En verde los dos competían por la misma mirada. */
+.lp-cta a, .lp-cta a:visited{ color:var(--it-celeste) !important; }
 
 /* Selector "¿Quién eres?": acento celeste al pasar */
 .ident-persona:hover{ border-color:var(--it-celeste) !important;
