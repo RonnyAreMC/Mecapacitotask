@@ -1424,7 +1424,7 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 }
 
 /* Colores de texto por estado (claro) */
-.estado-pendiente { color: #0F6E92; }
+.estado-pendiente { color: #B4232F; }
 .estado-progreso  { color: #1F63D6; }
 .estado-revision  { color: #9C5511; }
 .estado-hecho     { color: #0D7340; }
@@ -1436,7 +1436,7 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 html.dark .pestado-completado { color: #7fabff; }
 
 /* Colores por estado (oscuro: mas brillantes) */
-html.dark .estado-pendiente { color: #5FC8E8; }
+html.dark .estado-pendiente { color: #F1707A; }
 html.dark .estado-progreso  { color: #66B2FF; }
 html.dark .estado-revision  { color: #F0A73F; }
 html.dark .estado-hecho     { color: #35C078; }

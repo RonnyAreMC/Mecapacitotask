@@ -18,9 +18,9 @@ final class Catalogo
      * de recarga, que es lo que se entiende por "en marcha".
      */
     public const ESTADOS_TAREA = [
-        'pendiente' => ['Por hacer',   'CommentInfo'],
+        'pendiente' => ['Por hacer',   'OctagonCheck'],
         'progreso'  => ['En progreso', 'RefreshCircle'],
-        'revision'  => ['En revision', 'TriangleWarning'],
+        'revision'  => ['En revision', 'OctagonHelp'],
         'hecho'     => ['Completada',  'WavyCheck'],
     ];
 
@@ -202,10 +202,10 @@ final class Config
             // admin.css, que además tiene su paso para el tema oscuro. En cuanto
             // alguien lo cambia en Ajustes, ese color pasa a mandar en los dos.
             'estados_tarea' => [
-                'pendiente' => ['label' => 'Por hacer',   'color' => '#0F6E92', 'icono' => 'CommentInfo',     'final' => false],
-                'progreso'  => ['label' => 'En progreso', 'color' => '#1F63D6', 'icono' => 'RefreshCircle',   'final' => false],
-                'revision'  => ['label' => 'En revision', 'color' => '#9C5511', 'icono' => 'TriangleWarning', 'final' => false],
-                'hecho'     => ['label' => 'Completada',  'color' => '#0D7340', 'icono' => 'WavyCheck',       'final' => true],
+                'pendiente' => ['label' => 'Por hacer',   'color' => '#B4232F', 'icono' => 'OctagonCheck',  'final' => false],
+                'progreso'  => ['label' => 'En progreso', 'color' => '#1F63D6', 'icono' => 'RefreshCircle', 'final' => false],
+                'revision'  => ['label' => 'En revision', 'color' => '#9C5511', 'icono' => 'OctagonHelp',   'final' => false],
+                'hecho'     => ['label' => 'Completada',  'color' => '#0D7340', 'icono' => 'WavyCheck',     'final' => true],
             ],
             'prioridades' => [
                 'baja'  => ['label' => 'Baja',  'color' => '#4E8A24', 'icono' => 'fa-angle-down'],
