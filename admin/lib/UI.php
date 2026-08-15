@@ -125,7 +125,7 @@ class UI
       </div>
     </a>
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
-      <?= UI::icono('ArrowLeft03Square') ?>
+      <?= UI::icono('PanelLateral') ?>
     </button>
     <!-- Solo en móvil: abre el menú flotante -->
     <button type="button" id="sidebar-burger" class="sidebar-burger" aria-label="Menú" aria-expanded="false">
@@ -156,7 +156,7 @@ class UI
   <nav class="sidebar-nav">
     <span class="sidebar-label">General</span>
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
-      <?= UI::icono('AppWindow') ?> <span class="truncate">Dashboard</span>
+      <?= UI::icono('Dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
 
     <?php
@@ -222,7 +222,7 @@ class UI
     ?>
     <a href="<?= $reqHref ?>" class="sidebar-link <?= $activo === $reqClave ? 'active' : '' ?>"
        title="<?= e($reqTitle) ?>">
-      <?= UI::icono('ReceiveSquare') ?>
+      <?= UI::icono('Requerimientos') ?>
       <span class="truncate"><?= e($reqTexto) ?></span>
       <?php if ($nReq): ?><span class="nav-badge nav-badge-fin" title="<?= e($reqTitleN) ?>"><?= $nReq ?></span><?php endif; ?>
     </a>
