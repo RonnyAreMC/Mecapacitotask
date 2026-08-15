@@ -809,15 +809,46 @@ class Mailer
     public static function avisarAdminRequerimientoHecho(
         array $req, array $quien, string $nota, string $yaAvisado = ''
     ): true|string|null {
+        $destinos = self::listo() ? self::destinatariosAdmin($yaAvisado) : [];
+        if (!$destinos) {
+            return null;
+        }
+        $alguno = null;
+        foreach ($destinos as $email) {
+            $r = self::notificarRequerimientoHecho($req, $quien, $email, $nota);
+            if ($r === true) $alguno = true;
+            elseif ($alguno === null) $alguno = $r;
+        }
+        return $alguno;
+    }
+
+    /**
+     * A quién avisar cuando algo se termina: todas las personas con acceso de
+     * administrador, más la dirección suelta de Ajustes → Correo si la hay
+     * (puede ser un buzón compartido que no es de nadie del equipo).
+     *
+     * Sin duplicados y saltándose $excluir, que es a quien ya se avisó por
+     * otra vía — normalmente el propio administrador que pidió el trabajo.
+     */
+    public static function destinatariosAdmin(string $excluir = ''): array
+    {
         $c = self::conf();
-        $admin = trim((string)($c['admin_email'] ?? ''));
-        if (!self::listo() || empty($c['avisar_completado']) || $admin === '') {
-            return null;
+        if (empty($c['avisar_completado'])) {
+            return [];
         }
-        if (strcasecmp($admin, trim($yaAvisado)) === 0) {
-            return null;
+        $lista = (new MiembroRepo())->correosAdmin();
+        $suelto = trim((string)($c['admin_email'] ?? ''));
+        if ($suelto !== '') {
+            $lista[] = $suelto;
         }
-        return self::notificarRequerimientoHecho($req, $quien, $admin, $nota);
+        $fuera = strtolower(trim($excluir));
+        $unicos = [];
+        foreach ($lista as $email) {
+            $k = strtolower(trim($email));
+            if ($k === '' || $k === $fuera) continue;
+            $unicos[$k] = $email;
+        }
+        return array_values($unicos);
     }
 
     /* ---------- Registro público ---------- */
@@ -976,8 +1007,8 @@ class Mailer
     /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
     public static function notificarProyectoCompleto(array $proyecto, int $total): true|string|null
     {
-        $c = self::conf();
-        if (!self::listo() || empty($c['avisar_completado']) || empty($c['admin_email'])) {
+        $destinos = self::listo() ? self::destinatariosAdmin() : [];
+        if (!$destinos) {
             return null;
         }
         $cuerpo = self::encabezado('#34c759', '&#10003;', 'Proyecto completado',
@@ -986,7 +1017,13 @@ class Mailer
                 'Estado'  => '<span style="color:#34c759;">Completado</span>',
                 'Tareas'  => $total . ' de ' . $total,
             ]);
-        return self::enviar($c['admin_email'], $proyecto['nombre'] . ' — proyecto completado',
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+        $html = self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto');
+        $alguno = null;
+        foreach ($destinos as $email) {
+            $r = self::enviar($email, $proyecto['nombre'] . ' — proyecto completado', $html);
+            if ($r === true) $alguno = true;
+            elseif ($alguno === null) $alguno = $r;
+        }
+        return $alguno;
     }
 }

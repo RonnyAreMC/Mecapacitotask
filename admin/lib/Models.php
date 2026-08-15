@@ -594,6 +594,25 @@ class MiembroRepo
         return $map;
     }
 
+    /**
+     * Correos de todas las personas con acceso de administrador.
+     *
+     * Los avisos de "algo se terminó" van a este grupo y no a una dirección
+     * suelta: si entra o sale un administrador, la lista se ajusta sola sin
+     * que nadie tenga que acordarse de Ajustes → Correo.
+     */
+    public function correosAdmin(): array
+    {
+        $correos = [];
+        foreach ($this->store->all() as $m) {
+            $email = trim((string)($m['email'] ?? ''));
+            if (($m['acceso'] ?? '') === 'admin' && $email !== '') {
+                $correos[strtolower($email)] = $email;
+            }
+        }
+        return array_values($correos);
+    }
+
     public function buscar(int $id): ?array
     {
         return $this->store->find($id);
