@@ -2287,8 +2287,10 @@ a:has(> .ico-svg) .ico-svg, button:has(> .ico-svg) .ico-svg { vertical-align: 0;
   color: #fff !important; font-weight: 700; border: 0;
   padding: 8px 14px;
   box-shadow: var(--clay-pop);
+  text-decoration: none;   /* es un <a>: sin subrayado */
   transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
 }
+.accion-btn.accion-grab:hover { text-decoration: none; }
 .accion-btn.accion-grab i, .accion-btn.accion-grab .ico-svg { color: #fff !important; }
 .accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
 .accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
