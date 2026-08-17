@@ -256,6 +256,7 @@ final class Config
                 'dias_recordatorio'   => 3,
                 'avisar_completado'   => false,
                 'admin_email'         => '',
+                'correos_aviso'       => '',
             ],
             'google_login' => [
                 'activo'              => true,

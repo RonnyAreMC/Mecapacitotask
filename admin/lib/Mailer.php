@@ -30,6 +30,7 @@ class Mailer
             'dias_recordatorio'   => 3,
             'avisar_completado'   => false,
             'admin_email'         => '',
+            'correos_aviso'       => '',   // otros correos que también reciben los avisos de completado/terminado
         ], (array)Config::get('correo'));
     }
 
@@ -840,6 +841,11 @@ class Mailer
         $suelto = trim((string)($c['admin_email'] ?? ''));
         if ($suelto !== '') {
             $lista[] = $suelto;
+        }
+        // Correos extra configurados en Ajustes → Correo (además del admin).
+        foreach (preg_split('/[\s,;]+/', (string)($c['correos_aviso'] ?? '')) as $extra) {
+            $extra = trim($extra);
+            if ($extra !== '') $lista[] = $extra;
         }
         $fuera = strtolower(trim($excluir));
         $unicos = [];

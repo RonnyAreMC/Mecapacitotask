@@ -385,11 +385,16 @@ UI::cabecera(
         <label class="chk-linea">
           <input type="checkbox" name="correo[avisar_completado]" <?= !empty($co['avisar_completado']) ? 'checked' : '' ?>>
           <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-          Avisarme cuando se complete un proyecto (todas sus tareas entregadas)
+          Avisar cuando se complete un proyecto (todas sus tareas entregadas)
           o cuando se termine un requerimiento suelto
         </label>
         <label class="campo"><span>Correo del administrador (recibe los avisos de proyecto completado y de requerimiento terminado)</span>
           <input class="input-meca" type="email" name="correo[admin_email]" value="<?= e($co['admin_email'] ?? '') ?>" placeholder="tucorreo@gmail.com">
+        </label>
+        <label class="campo"><span>Otros correos que también reciben estos avisos</span>
+          <textarea class="input-meca" name="correo[correos_aviso]" rows="3"
+                    placeholder="jefe@empresa.com, coordinacion@empresa.com&#10;otro@empresa.com"><?= e($co['correos_aviso'] ?? '') ?></textarea>
+          <small class="campo-ayuda">Uno por línea o separados por coma. Todos reciben el mismo aviso de proyecto completado y de requerimiento terminado.</small>
         </label>
 
         <p class="ajuste-ayuda"><b>Solo para SMTP</b> — con Gmail usa una

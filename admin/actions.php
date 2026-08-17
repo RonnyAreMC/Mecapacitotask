@@ -1901,6 +1901,16 @@ switch ($accion) {
             'dias_recordatorio'   => max(0, min(30, (int)($correoPost['dias_recordatorio'] ?? 3))),
             'avisar_completado'   => !empty($correoPost['avisar_completado']),
             'admin_email'         => filter_var(trim($correoPost['admin_email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
+            // Otros correos que también reciben los avisos de completado/terminado.
+            // Se aceptan separados por coma, punto y coma o salto de línea; se
+            // guardan solo los válidos, sin repetir, unidos por ", ".
+            'correos_aviso'       => implode(', ', array_values(array_unique(array_filter(
+                array_map(
+                    fn($e) => filter_var(trim($e), FILTER_VALIDATE_EMAIL) ?: '',
+                    preg_split('/[\s,;]+/', (string)($correoPost['correos_aviso'] ?? ''))
+                ),
+                fn($e) => $e !== ''
+            )))),
         ];
 
         // Roles: filas del catalogo (rl[]) o, por compatibilidad, textarea 'roles'
