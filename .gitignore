@@ -14,6 +14,9 @@ admin/data/*.sqlite
 admin/data/*.sqlite-wal
 admin/data/*.sqlite-shm
 
+# Sesiones (se guardan aquí para que no se pierdan en cada deploy)
+admin/data/sessions/
+
 # Mantener las carpetas en el repo
 !admin/data/.gitkeep
 !admin/uploads/.gitkeep

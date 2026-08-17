@@ -18,14 +18,50 @@ if (PHP_SAPI !== 'cli') {
     }
 }
 
-// Cookie de sesión endurecida (no accesible por JS, y solo por HTTPS si lo hay)
+// Sesión pensada para que dure HASTA QUE EL USUARIO CIERRE SESIÓN y no se
+// pierda en cada deploy.
 if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    $vidaSesion = 60 * 60 * 24 * 30;   // 30 días
+
+    // Las sesiones se guardan en el directorio PERSISTENTE de datos, no en el
+    // /tmp del sistema. Así:
+    //  - No se borran en cada deploy (el deploy reemplaza el código, pero data/
+    //    persiste — ahí vive también el SQLite).
+    //  - No las limpia el cron del sistema (en Debian borra /var/lib/php/sessions
+    //    a los ~24 min ignorando nuestro gc_maxlifetime, que era la causa de que
+    //    "se cerraran las cuentas" solas).
+    // data/ está fuera de git y bloqueado al web por su .htaccess.
+    $dirSesiones = __DIR__ . '/../data/sessions';
+    if (!is_dir($dirSesiones)) @mkdir($dirSesiones, 0700, true);
+    if (is_dir($dirSesiones) && is_writable($dirSesiones)) {
+        session_save_path($dirSesiones);
+    }
+    ini_set('session.gc_maxlifetime', (string)$vidaSesion);
+
+    // Cookie endurecida (no accesible por JS, y solo por HTTPS si lo hay) y
+    // PERSISTENTE: sobrevive a cerrar el navegador (antes era de sesión y se
+    // perdía al salir).
+    $seguro = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     session_set_cookie_params([
+        'lifetime' => $vidaSesion,
         'httponly' => true,
         'samesite' => 'Lax',
-        'secure'   => !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https',
+        'secure'   => $seguro,
     ]);
     session_start();
+
+    // Expiración deslizante: cada visita de alguien con la sesión iniciada
+    // renueva la cookie otros 30 días, para que quien lo usa a diario nunca se
+    // desloguee salvo que pulse "Cerrar sesión".
+    if (!empty($_SESSION['uid'])) {
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + $vidaSesion,
+            'path'     => ini_get('session.cookie_path') ?: '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => $seguro,
+        ]);
+    }
 }
 
 require_once __DIR__ . '/Storage.php';
