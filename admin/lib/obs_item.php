@@ -20,15 +20,22 @@ function obsItemHtml(array $o): string
     $pend    = ($o['estado'] ?? 'pendiente') === 'pendiente';
     $tRef    = (int)($o['tarea_id'] ?? 0) ? $tareas->buscar((int)$o['tarea_id']) : null;
     $rRef    = (int)($o['reunion_id'] ?? 0) ? $reuniones->buscar((int)$o['reunion_id']) : null;
+    $esRecord = ($o['tipo'] ?? 'nota') === 'recordatorio';
+    // Nombres de los destinatarios (a quién se dirigió / avisó).
+    $destNombres = [];
+    foreach (ObservacionRepo::destinatariosDe($o) as $mid) {
+        if (isset($miembros[$mid])) $destNombres[] = $miembros[$mid]['nombre'];
+    }
 
     ob_start();
     ?>
-    <article class="obs-item <?= $pend ? 'obs-pend' : 'obs-res' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
+    <article class="obs-item <?= $pend ? 'obs-pend' : 'obs-res' ?><?= $esRecord ? ' obs-record' : '' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
       <div class="obs-cabecera">
         <?= UI::avatar($autor, 40) ?>
         <div class="obs-autor">
           <b><?= e($autor['nombre'] ?? 'Alguien') ?></b>
           <span class="obs-meta">
+            <?php if ($esRecord): ?><span class="obs-tipo-record"><i class="fa-solid fa-bell"></i> Recordatorio</span> · <?php endif; ?>
             <span class="obs-equipo"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($eqLabel) ?></span>
             · <?= e($o['creado'] ?? '') ?>
           </span>
@@ -50,6 +57,10 @@ function obsItemHtml(array $o): string
       <a class="obs-reunion" href="proyecto.php?id=<?= (int)$rRef['proyecto_id'] ?>#vista-reuniones" title="De la reunión">
         <i class="fa-solid fa-video"></i> <?= e(mb_strimwidth($rRef['topic'], 0, 40, '…')) ?>
       </a>
+      <?php endif; ?>
+
+      <?php if ($destNombres): ?>
+      <p class="obs-para"><i class="fa-solid fa-bell"></i> Para: <?= e(implode(', ', $destNombres)) ?></p>
       <?php endif; ?>
 
       <?php if (!empty($o['texto'])): ?><p class="obs-texto"><?= nl2br(e($o['texto'])) ?></p><?php endif; ?>

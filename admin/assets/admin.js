@@ -508,6 +508,114 @@ const MecaWizard = {
 };
 MecaWizard.init();
 
+/* =========================================================
+   Selector de dependencias (crear / editar tarea).
+   Paso 1: ¿tiene dependencias? Paso 2 (si sí): se elige el equipo y sus
+   tareas (buscador + casillas). Las elegidas quedan como chips con el icono y
+   color de su equipo, y como <input hidden name="dependencias[]"> del form.
+   Puede depender de tareas de OTRO equipo (dependencia cruzada).
+   ========================================================= */
+(function () {
+  const fuente = document.getElementById('dep-datos');
+  if (!fuente) return;
+  let DATOS = [];
+  try { DATOS = JSON.parse(fuente.textContent || '[]'); } catch (_) { DATOS = []; }
+  if (!Array.isArray(DATOS) || !DATOS.length) return;
+
+  // Índice global: id de tarea → su equipo (título, color, icono, actual)
+  const IDX = {};
+  DATOS.forEach((eq) => (eq.tareas || []).forEach((t) => {
+    IDX[t.id] = { titulo: t.titulo, final: t.final, equipo: eq.nombre, color: eq.color, icono: eq.icono, actual: eq.actual };
+  }));
+
+  function montar(el) {
+    const body   = el.querySelector('.dp-body');
+    const ops    = [...el.querySelectorAll('.dp-op')];
+    const selEq  = el.querySelector('.dp-equipo');
+    const buscar = el.querySelector('.dp-buscar');
+    const lista  = el.querySelector('.dp-opciones');
+    const chips  = el.querySelector('.dp-chips');
+    const hidden = el.querySelector('.dp-hidden');
+    const sel    = new Set();      // ids elegidos
+    let selfId   = 0;              // la tarea que se edita no depende de sí misma
+
+    selEq.innerHTML = DATOS.map((eq) =>
+      `<option value="${eq.id}">${eq.actual ? 'Este equipo · ' : ''}${esc(eq.nombre)}</option>`).join('');
+
+    const equipoActivo = () => DATOS.find((eq) => String(eq.id) === String(selEq.value)) || DATOS[0];
+
+    function pintarLista() {
+      const eq = equipoActivo();
+      const q  = (buscar.value || '').trim().toLowerCase();
+      const items = (eq ? eq.tareas || [] : []).filter((t) =>
+        t.id !== selfId && (!q || t.titulo.toLowerCase().includes(q)));
+      lista.innerHTML = items.length
+        ? items.map((t) =>
+            `<label class="dp-op-tarea${sel.has(t.id) ? ' sel' : ''}">
+               <input type="checkbox" value="${t.id}" ${sel.has(t.id) ? 'checked' : ''}>
+               <span class="dp-t-tit">${esc(t.titulo)}</span>
+               ${t.final ? '<span class="dp-t-fin" title="Ya completada"><i class="fa-solid fa-check"></i></span>' : ''}
+             </label>`).join('')
+        : '<p class="dp-vacio">No hay tareas que coincidan.</p>';
+    }
+
+    function pintarChips() {
+      const arr = [...sel];
+      chips.innerHTML = arr.map((id) => {
+        const info = IDX[id]; if (!info) return '';
+        return `<span class="dp-chip${info.actual ? '' : ' externo'}" style="--dc:${esc(info.color)}">
+                  ${info.actual ? '<i class="fa-solid fa-link"></i>' : info.icono}
+                  <span class="dp-chip-tit">${esc(info.titulo)}</span>
+                  ${info.actual ? '' : `<em class="dp-chip-eq">${esc(info.equipo)}</em>`}
+                  <button type="button" class="dp-quita" data-id="${id}" title="Quitar" aria-label="Quitar">&times;</button>
+                </span>`;
+      }).join('');
+      hidden.innerHTML = arr.map((id) => `<input type="hidden" name="dependencias[]" value="${id}">`).join('');
+    }
+
+    function setModo(si) {
+      ops.forEach((o) => o.classList.toggle('active', (o.dataset.dep === 'si') === si));
+      body.hidden = !si;
+      if (si) { pintarLista(); pintarChips(); }
+      else { hidden.innerHTML = ''; }   // en "Sin dependencias" no se envía ninguna (la selección se conserva por si vuelve)
+    }
+
+    ops.forEach((o) => o.addEventListener('click', () => setModo(o.dataset.dep === 'si')));
+    selEq.addEventListener('change', () => { buscar.value = ''; pintarLista(); });
+    buscar.addEventListener('input', pintarLista);
+    lista.addEventListener('change', (e) => {
+      const cb = e.target.closest('input[type=checkbox]'); if (!cb) return;
+      const id = parseInt(cb.value, 10);
+      if (cb.checked) { if (IDX[id]) sel.add(id); } else { sel.delete(id); }
+      cb.closest('.dp-op-tarea')?.classList.toggle('sel', cb.checked);
+      pintarChips();
+    });
+    chips.addEventListener('click', (e) => {
+      const b = e.target.closest('.dp-quita'); if (!b) return;
+      sel.delete(parseInt(b.dataset.id, 10));
+      pintarChips();
+      pintarLista();
+    });
+
+    el.depAPI = {
+      reset() { sel.clear(); selfId = 0; selEq.value = DATOS[0].id; buscar.value = ''; setModo(false); pintarChips(); },
+      excludeSelf(id) { selfId = parseInt(id, 10) || 0; sel.delete(selfId); pintarLista(); pintarChips(); },
+      setDeps(ids) {
+        (ids || []).map(Number).forEach((id) => { if (IDX[id] && id !== selfId) sel.add(id); });
+        pintarChips();
+        if (sel.size) setModo(true);
+      },
+    };
+    el.depAPI.reset();
+
+    // Al cerrar su modal se limpia, para no arrastrar lo elegido a la próxima.
+    const dlg = el.closest('dialog');
+    if (dlg) dlg.addEventListener('close', () => el.depAPI.reset());
+  }
+
+  document.querySelectorAll('[data-dep-picker]').forEach(montar);
+})();
+
 // Fija el valor de un input de fecha y refresca su MecaDate
 function setFecha(el, valor) {
   if (!el) return;
@@ -1360,11 +1468,26 @@ function abrirDetalleTarea(t) {
 
   const filaDep = dlg.querySelector('.dt-fila-dep');
   if (filaDep) {
-    filaDep.hidden = !t.dep;
-    if (t.dep) dlg.querySelector('.dt-dep').innerHTML =
-      '<span class="dt-dep-tag ' + (t.dep_lista ? 'ok' : 'bloq') + '">' +
-      '<i class="fa-solid ' + (t.dep_lista ? 'fa-link' : 'fa-lock') + '"></i> ' +
-      (t.dep_lista ? 'Depende de' : 'Espera a') + ': ' + esc(t.dep) + '</span>';
+    const deps = t.deps || [];
+    filaDep.hidden = deps.length === 0;
+    dlg.querySelector('.dt-dep').innerHTML = deps.map((d) => {
+      const urg = d.urgencia === 'vencida' ? '<span class="dt-dep-urg venc"><i class="fa-solid fa-triangle-exclamation"></i> vencida</span>'
+                : d.urgencia === 'proxima' ? '<span class="dt-dep-urg prox"><i class="fa-regular fa-clock"></i> próxima a vencer</span>' : '';
+      const eq = d.externa
+        ? '<span class="dt-dep-eq" style="--dc:' + esc(d.color) + '">' + (d.icono || '') + ' ' + esc(d.equipo) + '</span>'
+        : '<span class="dt-dep-eq propia"><i class="fa-solid fa-link"></i> este tablero</span>';
+      const est = d.final ? '<i class="fa-solid fa-check dt-dep-ok" title="Ya completada"></i>' : '';
+      const btn = d.externa
+        ? '<button type="button" class="dt-dep-recordar" data-tarea-id="' + t.id + '" data-dep-id="' + d.id + '"' +
+          ' data-dep-titulo="' + esc(d.titulo) + '" data-dep-eq="' + esc(d.equipo) + '"' +
+          ' data-dep-avisar="' + esc((d.avisar || []).join(', ')) + '">' +
+          '<i class="fa-solid fa-bell"></i> Recordar</button>'
+        : '';
+      return '<div class="dt-dep-item' + (d.externa ? ' externo' : '') + '" style="--dc:' + esc(d.color || '#64748b') + '">' +
+               '<div class="dt-dep-l">' + eq + ' <span class="dt-dep-t">' + esc(d.titulo) + '</span> ' + est + ' ' + urg + '</div>' +
+               btn +
+             '</div>';
+    }).join('');
   }
   const filaObs = dlg.querySelector('.dt-fila-obs');
   if (filaObs) {
@@ -1604,6 +1727,25 @@ document.querySelectorAll('[data-adjuntos-tarea]').forEach((campo) => {
     input.files = cola.files;
     pintarNuevos();
   });
+});
+
+// "Recordar" en el detalle de una dependencia de otro equipo → abre el modal
+// de recordatorio con el contexto y a quién le llegará.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.dt-dep-recordar');
+  if (!b) return;
+  const dlg = document.getElementById('dlg-dep-recordar');
+  if (!dlg) return;
+  dlg.querySelector('#dr-tarea').value = b.dataset.tareaId || '';
+  dlg.querySelector('#dr-dep').value = b.dataset.depId || '';
+  dlg.querySelector('.dr-contexto').textContent =
+    'Tu tarea espera por «' + (b.dataset.depTitulo || '') + '» del equipo ' + (b.dataset.depEq || 'otro equipo') + '.';
+  const avisar = (b.dataset.depAvisar || '').trim();
+  dlg.querySelector('.dr-para').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Se avisará a: <b>' +
+    (avisar ? esc(avisar) : 'los responsables y el Scrum Master de ese equipo') + '</b>';
+  const detalle = document.getElementById('dlg-detalle-tarea');
+  if (detalle && detalle.open) detalle.close();
+  dlg.showModal();
 });
 
 // Clic en una tarea (fila, kanban, flujo, calendario) → detalle de solo lectura
@@ -1957,11 +2099,12 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     setSelect(dlg.querySelector('.js-et-asignado'), t.asignados || (t.asignado_id ? [t.asignado_id] : []));
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);
-    const dep = dlg.querySelector('.js-et-depende');
-    if (dep) {
-      // Una tarea no puede depender de si misma
-      [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
-      setSelect(dep, t.dependencias || (t.depende_de ? [t.depende_de] : []));
+    const picker = dlg.querySelector('[data-dep-picker]');
+    if (picker && picker.depAPI) {
+      // El selector se rellena vía su API (excluye la propia tarea de la lista).
+      picker.depAPI.reset();
+      picker.depAPI.excludeSelf(t.id);
+      picker.depAPI.setDeps(t.dependencias || (t.depende_de ? [t.depende_de] : []));
     }
     // Documentos que ya tiene: se listan para poder abrirlos o quitarlos
     const campoAdj = dlg.querySelector('[data-adjuntos-tarea]');

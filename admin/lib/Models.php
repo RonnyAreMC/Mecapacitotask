@@ -939,17 +939,21 @@ class TareaRepo
     }
 
     /**
-     * Valida una lista de dependencias: cada una debe existir, ser del mismo
-     * proyecto, no ser la propia tarea y no formar un ciclo. Devuelve las
-     * válidas, únicas.
+     * Valida una lista de dependencias: cada una debe existir, no ser la propia
+     * tarea y no formar un ciclo. Devuelve las válidas, únicas.
+     *
+     * La dependencia PUEDE ser de otro equipo (proyecto): así una tarea espera a
+     * la de otro equipo. El $proyectoId ya no filtra —se conserva por compat de
+     * firma—; el anti-ciclo sigue funcionando porque sube por la cadena de
+     * dependencias buscando cada tarea por id, cruce o no de equipos.
      */
-    public function dependenciasValidas(int $tareaId, array $deps, int $proyectoId): array
+    public function dependenciasValidas(int $tareaId, array $deps, int $proyectoId = 0): array
     {
         $ok = [];
         foreach (array_values(array_unique(array_map('intval', $deps))) as $d) {
             if ($d <= 0 || $d === $tareaId) continue;
             $dep = $this->buscar($d);
-            if (!$dep || (int)$dep['proyecto_id'] !== $proyectoId) continue;
+            if (!$dep) continue;   // la tarea de la que depende ya no existe
             // Anti-ciclo: ¿$tareaId es alcanzable subiendo por las dependencias
             // de $d? Si sí, agregarla cerraría un ciclo.
             $pila = self::dependenciasDe($dep);
@@ -1032,6 +1036,9 @@ class ObservacionRepo
 
     public function crear(array $datos): array
     {
+        // 'nota' (revisión/QA normal) o 'recordatorio' (aviso de dependencia).
+        $tipo = $datos['tipo'] ?? 'nota';
+        if (!in_array($tipo, ['nota', 'recordatorio'], true)) $tipo = 'nota';
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
@@ -1040,8 +1047,23 @@ class ObservacionRepo
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),
             'estado'      => 'pendiente',
+            // A quién va dirigida: ids de miembros. Vacío = a todo el equipo.
+            'destinatarios' => self::destinatariosEntrada($datos['destinatarios'] ?? []),
+            'tipo'        => $tipo,
             'adjuntos'    => array_values($datos['adjuntos'] ?? []),
         ]);
+    }
+
+    /** Ids de los destinatarios de una observación (lista limpia, puede ir vacía). */
+    public static function destinatariosDe(array $o): array
+    {
+        return self::destinatariosEntrada($o['destinatarios'] ?? []);
+    }
+
+    /** Normaliza una lista de destinatarios: ids únicos y positivos. */
+    public static function destinatariosEntrada(mixed $valor): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', (array)$valor), fn($n) => $n > 0)));
     }
 
     public function actualizar(int $id, array $cambios): bool
