@@ -31,6 +31,9 @@ $accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar'];
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
     'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
+    // Quien depende de una tarea de otro equipo puede recordarle por correo
+    // (dentro se comprueba que participe en su proyecto y que la dep sea real).
+    'dep_recordar',
     // El responsable de un requerimiento suelto puede marcarlo terminado desde
     // su bandeja (dentro se comprueba que sea suyo).
     'req_terminar',
@@ -189,6 +192,58 @@ function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, 
     if ($aQuienPidio)             return ' Le avisamos por correo a quien lo asignó.';
     if ($alAdmin)                 return ' Le avisamos por correo al administrador.';
     return '';
+}
+
+/**
+ * Avisa al OTRO equipo cuando una tarea pasa a depender de una suya. Solo por
+ * las dependencias NUEVAS (comparando antes/después) y solo las de otro equipo:
+ * las del mismo tablero no generan correo. A cada dependencia externa se avisa a
+ * sus responsables y al Scrum Master de su proyecto. Devuelve la coletilla flash.
+ */
+function notificarDepsExternas(array $tareaMia, array $depsAntes, array $depsDespues, ProyectoRepo $proyectos, MiembroRepo $miembros, TareaRepo $tareas): string
+{
+    $nuevas = array_diff(array_map('intval', $depsDespues), array_map('intval', $depsAntes));
+    if (!$nuevas || !Mailer::listo()) {
+        return '';
+    }
+    $miProy = (int)($tareaMia['proyecto_id'] ?? 0);
+    $pMio   = $proyectos->buscar($miProy);
+    if (!$pMio) {
+        return '';
+    }
+    $avisados = 0;
+    foreach ($nuevas as $depId) {
+        $dep = $tareas->buscar((int)$depId);
+        if (!$dep || (int)$dep['proyecto_id'] === $miProy) continue;   // solo dependencias de otro equipo
+        $pDep = $proyectos->buscar((int)$dep['proyecto_id']);
+        if (!$pDep) continue;
+        // Responsables de la dependencia + Scrum Master de su equipo.
+        $ids = TareaRepo::asignadosDe($dep);
+        $sm  = ProyectoRepo::scrumDe($pDep);
+        if ($sm > 0) $ids[] = $sm;
+        foreach (array_values(array_unique($ids)) as $mid) {
+            $m = $miembros->buscar((int)$mid);
+            if ($m && Mailer::notificarDependencia($tareaMia, $pMio, $dep, $pDep, $m) === true) $avisados++;
+        }
+    }
+    return $avisados ? ' Avisamos por correo al otro equipo (' . $avisados . ').' : '';
+}
+
+/**
+ * Ids de todo el que participa en un proyecto: responsables de sus tareas, su
+ * equipo definido y quien lo lleva (PO y Scrum Master). Para "avisar a todos".
+ */
+function participantesProyecto(int $pid, ProyectoRepo $proyectos, TareaRepo $tareas, MiembroRepo $miembros): array
+{
+    $ids = [];
+    foreach ($tareas->delProyecto($pid) as $t) {
+        foreach (TareaRepo::asignadosDe($t) as $mid) $ids[(int)$mid] = true;
+    }
+    if ($p = $proyectos->buscar($pid)) {
+        foreach (ProyectoRepo::miembrosDe($p) ?? [] as $mid) $ids[(int)$mid] = true;
+        foreach ([ProyectoRepo::poDe($p), ProyectoRepo::scrumDe($p)] as $mid) if ($mid > 0) $ids[(int)$mid] = true;
+    }
+    return array_keys($ids);
 }
 
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
@@ -703,8 +758,10 @@ switch ($accion) {
         $t = $tareas->crear($datosTarea);
         $deps = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), $pid);
         $tareas->actualizar((int)$t['id'], ['dependencias' => $deps, 'depende_de' => $deps[0] ?? 0]);
+        $tCreada = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
-        sincronizarCalendario($tareas->buscar((int)$t['id']), $proyectos, $miembros, $tareas);
+        $msg .= notificarDepsExternas($tCreada, [], $deps, $proyectos, $miembros, $tareas);
+        sincronizarCalendario($tCreada, $proyectos, $miembros, $tareas);
         chequearEntrega($pid, $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
         redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
@@ -761,6 +818,7 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . (int)$t['proyecto_id'], 'Solo el Product Owner o el Scrum Master pueden editar tareas.', 'error');
         }
         $asignadosAntes = TareaRepo::asignadosDe($t);
+        $depsAntes      = TareaRepo::dependenciasDe($t);
         [$fIni, $fLim] = fechasTarea($_POST, 'proyecto.php?id=' . $t['proyecto_id']);
 
         // Adjuntos: se quitan los marcados (y se borran del disco), se suman
@@ -787,6 +845,7 @@ switch ($accion) {
           + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
+        $msg .= notificarDepsExternas($tActual, $depsAntes, $depsEd, $proyectos, $miembros, $tareas);
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
@@ -966,6 +1025,13 @@ switch ($accion) {
         $autor  = $miembros->buscar((int)($_POST['autor_id'] ?? 0));
         $equipo = $autor ? MiembroRepo::equipoDe($autor) : '';
 
+        // Destinatarios de la observación: ids elegidos; 'all' = todo el
+        // proyecto; vacío = nadie en concreto (solo queda registrada).
+        $destRaw = array_map('strval', (array)($_POST['destinatarios'] ?? []));
+        $aTodos  = in_array('all', $destRaw, true);
+        $destIds = ObservacionRepo::destinatariosEntrada($destRaw);
+        if ($aTodos) $destIds = participantesProyecto($pid, $proyectos, $tareas, $miembros);
+
         // Tareas destino (n a la vez): solo las del proyecto; ninguna = general
         $destinos = array_values(array_filter(
             array_map('intval', (array)($_POST['tarea_id'] ?? [])),
@@ -979,14 +1045,28 @@ switch ($accion) {
         $creadas = [];
         foreach ($destinos as $tid) {
             $creadas[] = $obsRepo->crear([
-                'proyecto_id' => $pid,
-                'tarea_id'    => $tid,
-                'reunion_id'  => (int)($_POST['reunion_id'] ?? 0),
-                'autor_id'    => (int)($_POST['autor_id'] ?? 0),
-                'equipo'      => $equipo,
-                'texto'       => $_POST['texto'] ?? '',
-                'adjuntos'    => $adjuntos,
+                'proyecto_id'   => $pid,
+                'tarea_id'      => $tid,
+                'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
+                'autor_id'      => (int)($_POST['autor_id'] ?? 0),
+                'equipo'        => $equipo,
+                'texto'         => $_POST['texto'] ?? '',
+                'destinatarios' => $destIds,
+                'adjuntos'      => $adjuntos,
             ]);
+        }
+
+        // Aviso por correo a los destinatarios (menos al propio autor).
+        if ($destIds && Mailer::listo() && !empty($creadas)) {
+            $pObs     = $proyectos->buscar($pid);
+            $tareaRef = (count($destinos) === 1 && $destinos[0] > 0) ? $tareas->buscar($destinos[0]) : null;
+            foreach (array_unique($destIds) as $mid) {
+                if ((int)$mid === (int)($_POST['autor_id'] ?? 0)) continue;
+                $m = $miembros->buscar((int)$mid);
+                if ($m && !empty($m['email'])) {
+                    Mailer::notificarObservacion($creadas[0], $autor ?? [], $pObs ?? [], $tareaRef, $m['email']);
+                }
+            }
         }
 
         if ($esAjax) {
@@ -1002,6 +1082,59 @@ switch ($accion) {
             exit;
         }
         redirigir($volver, count($creadas) > 1 ? count($creadas) . ' observaciones registradas.' : 'Observación registrada.');
+
+    case 'dep_recordar':
+        $pid    = (int)($_POST['proyecto_id'] ?? 0);
+        $volver = 'proyecto.php?id=' . $pid;
+        if (!$proyectos->buscar($pid) || !puedeVerProyecto($pid)) {
+            redirigir($volver, 'No participas en ese proyecto.', 'error');
+        }
+        $tareaMia = $tareas->buscar((int)($_POST['tarea_id'] ?? 0));
+        $depTarea = $tareas->buscar((int)($_POST['dep_tarea_id'] ?? 0));
+        if (!$tareaMia || (int)$tareaMia['proyecto_id'] !== $pid) {
+            redirigir($volver, 'Tarea no encontrada.', 'error');
+        }
+        if (!$depTarea || !in_array((int)$depTarea['id'], TareaRepo::dependenciasDe($tareaMia), true)) {
+            redirigir($volver, 'Esa tarea no es una dependencia de la tuya.', 'error');
+        }
+        if ((int)$depTarea['proyecto_id'] === $pid) {
+            redirigir($volver, 'El recordatorio es solo para dependencias de otro equipo.', 'error');
+        }
+        if (!Mailer::listo()) {
+            redirigir($volver, 'El correo no está configurado. Revisa Ajustes → Correo.', 'error');
+        }
+        $pDep = $proyectos->buscar((int)$depTarea['proyecto_id']);
+        $pMio = $proyectos->buscar($pid);
+        // Destinatarios: responsables de la dependencia + Scrum Master de su equipo.
+        $idsDep = TareaRepo::asignadosDe($depTarea);
+        $smDep  = $pDep ? ProyectoRepo::scrumDe($pDep) : 0;
+        if ($smDep > 0) $idsDep[] = $smDep;
+        $idsDep = array_values(array_unique(array_filter($idsDep)));
+        $quien  = Auth::usuario() ?? [];
+        $notaDr = trim((string)($_POST['nota'] ?? ''));
+        $avisados = 0;
+        foreach ($idsDep as $mid) {
+            $m = $miembros->buscar((int)$mid);
+            if ($m && !empty($m['email'])
+                && Mailer::recordatorioDependencia($tareaMia, $pMio ?? [], $depTarea, $pDep ?? [], $quien, $m['email'], $notaDr) === true) {
+                $avisados++;
+            }
+        }
+        // Queda registrado como observación en MI tablero, sobre mi tarea.
+        (new ObservacionRepo())->crear([
+            'proyecto_id'   => $pid,
+            'tarea_id'      => (int)$tareaMia['id'],
+            'autor_id'      => (int)($quien['id'] ?? 0),
+            'equipo'        => $quien ? MiembroRepo::equipoDe($quien) : '',
+            'texto'         => 'Recordatorio a ' . ($pDep['nombre'] ?? 'otro equipo') . ' por la dependencia «'
+                             . ($depTarea['titulo'] ?? '') . '».' . ($notaDr !== '' ? ' ' . $notaDr : ''),
+            'destinatarios' => $idsDep,
+            'tipo'          => 'recordatorio',
+        ]);
+        redirigir($volver . '#vista-observaciones',
+            $avisados ? 'Recordatorio enviado (' . $avisados . ') y guardado en observaciones.'
+                      : 'Nadie del otro equipo tiene correo registrado. Igual quedó guardado en observaciones.',
+            $avisados ? 'success' : 'info');
 
     case 'obs_estado':
         $obsRepo = new ObservacionRepo();

@@ -851,6 +851,93 @@ class Mailer
         return array_values($unicos);
     }
 
+    /* ---------- Dependencias entre equipos ---------- */
+
+    /**
+     * Avisa a alguien del OTRO equipo de que una tarea nuestra pasó a depender
+     * de la suya. Así se entera de que su trabajo bloquea a otro equipo aunque
+     * no comparta tablero. $miembro es el destinatario (responsable de la
+     * dependencia o su Scrum Master).
+     */
+    public static function notificarDependencia(
+        array $tareaMia, array $proyectoMio, array $tareaDep, array $proyectoDep, array $miembro
+    ): true|string|null {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = [
+            'Equipo que espera' => e($proyectoMio['nombre'] ?? ''),
+            'Su tarea'          => e($tareaMia['titulo'] ?? ''),
+        ];
+        if (!empty($tareaDep['fecha_limite'])) $filas['Entrega tu tarea'] = e((string)$tareaDep['fecha_limite']);
+
+        $cuerpo = self::encabezado($acento, '&#128279;', 'Otro equipo depende de tu tarea',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', el equipo de <b>'
+                    . e($proyectoMio['nombre'] ?? '') . '</b> registró que su tarea depende de la tuya. '
+                    . 'Mientras no la termines, la de ellos queda en espera.')
+            . self::detalle($tareaDep['titulo'] ?? '', $filas);
+
+        return self::enviar($miembro['email'], 'Dependencia: tu tarea «' . ($tareaDep['titulo'] ?? '') . '» bloquea a otro equipo',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyectoDep['id']), 'Ver mi tablero'));
+    }
+
+    /**
+     * Recordatorio MANUAL: alguien que depende de una tarea de otro equipo le
+     * pide avanzar. $quien lo envía, $para es el correo del responsable de la
+     * dependencia, $nota es el mensaje ("necesito esto para avanzar…").
+     */
+    public static function recordatorioDependencia(
+        array $tareaMia, array $proyectoMio, array $tareaDep, array $proyectoDep, array $quien, string $para, string $nota
+    ): true|string|null {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = '#F59E0B';
+        $filas = [
+            'Te lo recuerda' => e($quien['nombre'] ?? 'Alguien'),
+            'Su equipo'      => e($proyectoMio['nombre'] ?? ''),
+            'Espera por'     => e($tareaDep['titulo'] ?? ''),
+        ];
+        if (!empty($tareaDep['fecha_limite'])) $filas['Entrega'] = e((string)$tareaDep['fecha_limite']);
+
+        $cuerpo = self::encabezado($acento, '&#9200;', 'Recordatorio de una dependencia',
+                    '<b>' . e($quien['nombre'] ?? 'Alguien') . '</b> está esperando tu tarea para avanzar con la suya («'
+                    . e($tareaMia['titulo'] ?? '') . '», del equipo ' . e($proyectoMio['nombre'] ?? '') . ').')
+            . self::detalle($tareaDep['titulo'] ?? '', $filas)
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#fffaf0;'
+                  . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Mensaje</b><br>' . nl2br(e($nota)) . '</div>'
+                : '');
+
+        return self::enviar($para, 'Recordatorio: te esperan para «' . ($tareaDep['titulo'] ?? '') . '»',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyectoDep['id']), 'Ver mi tablero'));
+    }
+
+    /**
+     * Envía una observación a un destinatario elegido. Con el texto de la
+     * observación y, si va sobre una tarea concreta, a cuál.
+     */
+    public static function notificarObservacion(
+        array $obs, array $autor, array $proyecto, ?array $tareaRef, string $para
+    ): true|string|null {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = ['Proyecto' => e($proyecto['nombre'] ?? '')];
+        if ($tareaRef) $filas['Sobre la tarea'] = e($tareaRef['titulo'] ?? '');
+        else           $filas['Sobre'] = 'General de la entrega';
+
+        $cuerpo = self::encabezado($acento, '&#128172;', 'Nueva observación',
+                    '<b>' . e($autor['nombre'] ?? 'Alguien') . '</b> te dejó una observación en <b>'
+                    . e($proyecto['nombre'] ?? '') . '</b>.')
+            . self::detalle($tareaRef['titulo'] ?? ($proyecto['nombre'] ?? ''), $filas, (string)($obs['texto'] ?? ''));
+
+        return self::enviar($para, 'Observación en ' . ($proyecto['nombre'] ?? ''),
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
     /* ---------- Registro público ---------- */
 
     /**
