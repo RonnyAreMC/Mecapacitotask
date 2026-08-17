@@ -834,19 +834,26 @@ class Mailer
     public static function destinatariosAdmin(string $excluir = ''): array
     {
         $c = self::conf();
-        if (empty($c['avisar_completado'])) {
-            return [];
-        }
-        $lista = (new MiembroRepo())->correosAdmin();
+        $lista = [];
+
+        // Los correos escritos A MANO en Ajustes → Correo SIEMPRE reciben (la
+        // etiqueta lo promete): el "Correo del administrador" y la lista de
+        // "Otros correos". No dependen de la casilla.
         $suelto = trim((string)($c['admin_email'] ?? ''));
         if ($suelto !== '') {
             $lista[] = $suelto;
         }
-        // Correos extra configurados en Ajustes → Correo (además del admin).
         foreach (preg_split('/[\s,;]+/', (string)($c['correos_aviso'] ?? '')) as $extra) {
             $extra = trim($extra);
             if ($extra !== '') $lista[] = $extra;
         }
+
+        // La casilla "avisar_completado" añade, ADEMÁS, a todo el que tenga
+        // acceso de administrador (aunque no esté en los campos de arriba).
+        if (!empty($c['avisar_completado'])) {
+            $lista = array_merge((new MiembroRepo())->correosAdmin(), $lista);
+        }
+
         $fuera = strtolower(trim($excluir));
         $unicos = [];
         foreach ($lista as $email) {

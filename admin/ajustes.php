@@ -382,19 +382,20 @@ UI::cabecera(
             <input class="input-meca" type="number" min="0" max="30" name="correo[dias_recordatorio]" value="<?= (int)($co['dias_recordatorio'] ?? 3) ?>" style="width:90px">
           </label>
         </div>
-        <label class="chk-linea">
-          <input type="checkbox" name="correo[avisar_completado]" <?= !empty($co['avisar_completado']) ? 'checked' : '' ?>>
-          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-          Avisar cuando se complete un proyecto (todas sus tareas entregadas)
-          o cuando se termine un requerimiento suelto
-        </label>
+        <p class="ajuste-ayuda">Avisos de <b>proyecto completado</b> (todas sus tareas entregadas) y de
+          <b>requerimiento suelto terminado</b>. Los correos de abajo reciben SIEMPRE (mientras el correo esté configurado).</p>
         <label class="campo"><span>Correo del administrador (recibe los avisos de proyecto completado y de requerimiento terminado)</span>
           <input class="input-meca" type="email" name="correo[admin_email]" value="<?= e($co['admin_email'] ?? '') ?>" placeholder="tucorreo@gmail.com">
         </label>
         <label class="campo"><span>Otros correos que también reciben estos avisos</span>
           <textarea class="input-meca" name="correo[correos_aviso]" rows="3"
                     placeholder="jefe@empresa.com, coordinacion@empresa.com&#10;otro@empresa.com"><?= e($co['correos_aviso'] ?? '') ?></textarea>
-          <small class="campo-ayuda">Uno por línea o separados por coma. Todos reciben el mismo aviso de proyecto completado y de requerimiento terminado.</small>
+          <small class="campo-ayuda">Uno por línea o separados por coma. Todos reciben el mismo aviso, sin depender de la casilla de abajo.</small>
+        </label>
+        <label class="chk-linea">
+          <input type="checkbox" name="correo[avisar_completado]" <?= !empty($co['avisar_completado']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisar también a TODAS las personas con acceso de administrador
         </label>
 
         <p class="ajuste-ayuda"><b>Solo para SMTP</b> — con Gmail usa una
