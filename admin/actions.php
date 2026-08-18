@@ -793,6 +793,8 @@ switch ($accion) {
         $estadoNuevo = $_POST['estado'] ?? 'pendiente';
         $tareas->actualizar((int)$t['id'],
             ['estado' => $estadoNuevo] + completadaEn($estadoNuevo, $t['estado'] ?? 'pendiente'));
+        // Al darla por terminada, quien lleva el proyecto se entera al momento
+        $avisoFin = avisarTareaTerminada($t, $t['estado'] ?? 'pendiente', $estadoNuevo, (int)(Auth::usuario()['id'] ?? 0));
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         // Contadores por estado del proyecto, para que el kanban, los tiles de
         // resumen y la barra de avance se actualicen sin recargar. El avance se
@@ -800,7 +802,7 @@ switch ($accion) {
         // el navegador no puede deducirlo del conteo.
         $pidEstado = (int)$t['proyecto_id'];
         $conteo    = $tareas->resumen($pidEstado);
-        $respEstado(true, 'Estado actualizado.', [
+        $respEstado(true, 'Estado actualizado.' . $avisoFin, [
             'conteo'      => $conteo,
             'avance'      => $tareas->avance($pidEstado),
             'completadas' => $tareas->completadas($pidEstado),
@@ -845,6 +847,7 @@ switch ($accion) {
           + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
+        $msg .= avisarTareaTerminada($tActual, $t['estado'] ?? 'pendiente', $_POST['estado'] ?? 'pendiente', (int)(Auth::usuario()['id'] ?? 0));
         $msg .= notificarDepsExternas($tActual, $depsAntes, $depsEd, $proyectos, $miembros, $tareas);
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);

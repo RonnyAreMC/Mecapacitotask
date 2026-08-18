@@ -83,6 +83,10 @@ class AutoEstado
                 if (!$esFinal && $eraFinal) $extra['completada_en'] = '';
 
                 $tareas->actualizar($tid, ['estado' => $destino] + $extra);
+                // Si el commit la dio por terminada, avisa a quien lleva el
+                // proyecto igual que si la hubieran cerrado a mano. Sin id de
+                // persona: aqui no hay sesion detras, la cerro un commit.
+                avisarTareaTerminada($delProy[$tid], $actual, $destino, 0);
                 $delProy[$tid]['estado'] = $destino;
                 $cambios[] = ['tarea' => $tid, 'de' => $actual, 'a' => $destino];
             }

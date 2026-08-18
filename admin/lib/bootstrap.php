@@ -453,6 +453,68 @@ function puedeHorarioDelProyecto(int $proyectoId): bool
 }
 
 /**
+ * Avisa por correo al Scrum Master y al Product Owner del proyecto de que una
+ * tarea acaba de darse por TERMINADA.
+ *
+ * Solo dispara en el paso a terminada: si ya lo estaba (se reedita, se vuelve
+ * a guardar) no se avisa otra vez, que si no cada retoque manda un correo.
+ *
+ * A quien la termina no se le avisa de lo que acaba de hacer: si el propio
+ * Scrum Master cierra su tarea, ya lo sabe.
+ *
+ * $quienId es quien la cerro (0 = la cerro un commit, sin sesion detras).
+ * Devuelve la coletilla para el flash ('' si no habia a quien avisar).
+ */
+function avisarTareaTerminada(array $tarea, string $antes, string $ahora, int $quienId = 0): string
+{
+    $finales = Catalogo::estadosFinales();
+    if (!in_array($ahora, $finales, true) || in_array($antes, $finales, true)) {
+        return '';
+    }
+    $proyecto = (new ProyectoRepo())->buscar((int)($tarea['proyecto_id'] ?? 0));
+    if (!$proyecto) {
+        return '';
+    }
+
+    // Quien lleva el proyecto. Si una misma persona es las dos cosas, recibe UN
+    // correo que lo dice, no dos iguales.
+    $roles = [];
+    if (($sm = ProyectoRepo::scrumDe($proyecto)) > 0) $roles[$sm][] = 'Scrum Master';
+    if (($po = ProyectoRepo::poDe($proyecto)) > 0)     $roles[$po][] = 'Product Owner';
+    unset($roles[$quienId]);
+    if (!$roles) {
+        return '';
+    }
+
+    $miembros = new MiembroRepo();
+    $quien    = $quienId > 0 ? $miembros->buscar($quienId) : null;
+    $avisados = [];
+    $sinCorreo = [];
+    $fallo = '';
+    foreach ($roles as $mid => $comoQue) {
+        $m = $miembros->buscar((int)$mid);
+        if (!$m) continue;
+        $r = Mailer::notificarTareaTerminada($tarea, $proyecto, $quien, $m, implode(' y ', $comoQue));
+        if ($r === true) {
+            $avisados[] = explode(' ', trim($m['nombre']))[0];
+        } else {
+            $sinCorreo[] = explode(' ', trim($m['nombre']))[0];
+            if (is_string($r)) $fallo = $r;
+        }
+    }
+    // Callar que el aviso no salio deja al equipo pensando que ya se enteraron.
+    // Las ramas van con (bool) a proposito: match compara en ESTRICTO, y un
+    // array no es === true, asi que sin el casteo nunca entrarian.
+    $motivo = $fallo ?: 'no tiene correo registrado, o el correo del panel no está configurado';
+    return match (true) {
+        (bool)$avisados && !$sinCorreo => ' Avisamos a ' . implode(' y ', $avisados) . '.',
+        (bool)$avisados                => ' Avisamos a ' . implode(' y ', $avisados) . '; a ' . implode(' y ', $sinCorreo) . ' no (' . $motivo . ').',
+        (bool)$sinCorreo               => ' No salió el aviso a ' . implode(' y ', $sinCorreo) . ' (' . $motivo . ').',
+        default                        => '',
+    };
+}
+
+/**
  * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
  * Master del proyecto y su Product Owner. Los demás participantes ejecutan
  * (mueven sus tareas por el tablero) pero no arman el backlog.

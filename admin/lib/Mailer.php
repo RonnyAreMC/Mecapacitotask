@@ -1104,6 +1104,33 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
 
+    /**
+     * Una tarea acaba de darse por terminada: se avisa a quien LLEVA el
+     * proyecto (su Scrum Master y su Product Owner) para que lo sepan en el
+     * momento y no al revisar el tablero.
+     *
+     * $quien es la persona que la terminó, o null si la cerró un commit.
+     */
+    public static function notificarTareaTerminada(array $tarea, array $proyecto, ?array $quien, array $destino, string $rol): true|string|null
+    {
+        if (!self::listo() || empty($destino['email'])) {
+            return null;
+        }
+        $autor  = $quien ? trim($quien['nombre'] ?? '') : '';
+        $hizo   = $autor !== '' ? e($autor) : 'Un commit';
+        $filas  = self::filasTarea($tarea, $proyecto);
+        $filas['Terminada'] = e(date('Y-m-d H:i'));
+        if ($autor !== '') $filas['La cerró'] = e($autor);
+
+        $cuerpo = self::encabezado('#34c759', '&#10003;', 'Tarea terminada',
+                    'Hola ' . e(explode(' ', trim($destino['nombre'] ?? ''))[0] ?: '') . ', te avisamos como '
+                    . e($rol) . ' de ' . e($proyecto['nombre']) . ': ' . $hizo . ' dio por terminada una tarea.')
+            . self::detalle($tarea['titulo'] ?? '', $filas, $tarea['descripcion'] ?? '', true);
+
+        return self::enviar($destino['email'], 'Terminada: ' . ($tarea['titulo'] ?? ''),
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
+    }
+
     /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
     public static function notificarProyectoCompleto(array $proyecto, int $total): true|string|null
     {
