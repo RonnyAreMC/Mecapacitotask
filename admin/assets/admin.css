@@ -7390,3 +7390,27 @@ html.sb-collapsed .nav-badge-fin {
 @media (max-width: 760px) {
   .ph-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
+
+/* =========================================================
+   Botón compacto: solo icono, el texto se despliega al pasar por encima o
+   al llegar con el teclado. Mismo comportamiento que el "Ver como", pero
+   como clase suelta para poder ponérsela a cualquier botón de una barra.
+   El hueco va en el margen del texto y no en el gap del botón: plegado, un
+   gap dejaría aire al lado del icono.
+   ========================================================= */
+.btn-icono { gap: 0; padding-left: 11px; padding-right: 11px; }
+.btn-icono .tab-txt {
+  display: inline-block;
+  max-width: 0; margin-left: 0; opacity: 0;
+  overflow: hidden; white-space: nowrap;
+  transition: max-width .22s ease, opacity .16s ease, margin-left .22s ease;
+}
+.btn-icono:hover .tab-txt,
+.btn-icono:focus-visible .tab-txt { max-width: 12rem; margin-left: 7px; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-icono .tab-txt { transition: none; }
+}
+/* El logo de Claude es un <img>, no hereda color: se atenúa en reposo para
+   que no grite más que los iconos de al lado. */
+.btn-icono img { opacity: .85; }
+.btn-icono:hover img { opacity: 1; }
