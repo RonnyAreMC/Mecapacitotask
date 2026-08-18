@@ -216,11 +216,27 @@ foreach (([$id => $proyecto] + $proyGlobal) as $pidD => $pD) {
     ];
 }
 
-// Flujo de dependencias: al proyecto actual le sumamos, como nodos externos de
-// solo lectura, las tareas de OTROS equipos de las que dependen las de aquí.
-$tareasFlujo = $tareas;
+// Flujo de dependencias: solo entran las tareas que forman parte de alguna,
+// o sea las que dependen de algo y aquellas de las que depende alguien. Las
+// sueltas no dibujan ninguna flecha: solo alargaban la columna "Inicio" y
+// escondían las que sí encadenan.
+$enDependencia = [];
+foreach ($tareas as $t) {
+    $deps = TareaRepo::dependenciasDe($t);
+    if (!$deps) continue;
+    $enDependencia[(int)$t['id']] = true;              // la que depende
+    foreach ($deps as $depId) $enDependencia[$depId] = true;   // y de la que depende
+}
+
+$tareasFlujo = [];
 $enFlujo = [];
-foreach ($tareasFlujo as $t) $enFlujo[(int)$t['id']] = true;
+foreach ($tareas as $t) {
+    if (!isset($enDependencia[(int)$t['id']])) continue;
+    $tareasFlujo[] = $t;
+    $enFlujo[(int)$t['id']] = true;
+}
+// Y como nodos externos de solo lectura, las tareas de OTROS equipos de las
+// que dependen las de aquí.
 foreach ($tareas as $t) {
     foreach (TareaRepo::dependenciasDe($t) as $depId) {
         if (isset($enFlujo[$depId])) continue;
@@ -773,6 +789,11 @@ foreach ($tareas as $t) {
     </div>
     <?php if (empty($tareas)): ?>
       <?= UI::vacio('fa-diagram-project', 'Sin tareas', 'Crea tareas para ver su flujo.') ?>
+    <?php elseif (!$hayDependencias): ?>
+      <?php /* Sin dependencias no hay nada que encadenar: antes salía el lienzo
+               con todas las tareas en una columna y ni una flecha. */ ?>
+      <?= UI::vacio('fa-diagram-project', 'Todavía no hay dependencias',
+            'Marca "Depende de" al crear o editar una tarea y aquí verás cómo se encadenan.') ?>
     <?php else: ?>
     <div class="flujo-wrap" id="flujo-wrap" style="--pc:<?= $color ?>">
       <svg class="flujo-lineas" id="flujo-lineas"></svg>
