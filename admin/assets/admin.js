@@ -1238,9 +1238,23 @@ function pintarAvanceProyecto(res) {
       const head = z.closest('.kb-col')?.querySelector('.kb-count');
       if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
     });
+    // Los estados del encabezado del proyecto (.phk) y las tarjetas sueltas
+    // que siguen usando otras pantallas (.estado-tile).
+    const total = Object.values(res.conteo).reduce((a, n) => a + n, 0);
     Object.keys(res.conteo).forEach((k) => {
-      const num = document.querySelector('.estado-tile.estado-' + k + ' .et-datos b');
-      if (num) num.textContent = res.conteo[k];
+      const n = res.conteo[k];
+      const viejo = document.querySelector('.estado-tile.estado-' + k + ' .et-datos b');
+      if (viejo) viejo.textContent = n;
+
+      const kpi = document.querySelector('.phk.estado-' + k);
+      if (!kpi) return;
+      const cifra = kpi.querySelector('.phk-linea b');
+      if (cifra) cifra.textContent = n;
+      // La barra es la parte del total: sin esto se queda con el ancho viejo.
+      const relleno = kpi.querySelector('.phk-barra > span');
+      if (relleno) relleno.style.width = (total > 0 ? Math.round(n / total * 100) : 0) + '%';
+      const lbl = kpi.querySelector('.phk-linea small');
+      kpi.title = n + ' de ' + total + (lbl ? ' · ' + lbl.textContent : '');
     });
   }
 

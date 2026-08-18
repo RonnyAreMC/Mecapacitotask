@@ -7335,3 +7335,58 @@ html.sb-collapsed .nav-badge-fin {
    arriba es la persona A QUIEN va dirigida. */
 .obs-creador { color: var(--c-text-soft); }
 .obs-creador i { font-size: .72em; margin-right: 3px; }
+
+/* =========================================================
+   Estados dentro del encabezado del proyecto
+
+   Antes eran cuatro tarjetas sueltas bajo la cabecera, que se comían una
+   franja entera de alto. Aquí van en una fila, con el patrón del design
+   system: círculo con el icono, la cifra con su rótulo y una barra con la
+   parte que le toca del total. Siguen filtrando al pulsarlas.
+
+   El color sale de .estado-<clave>, que ya define el de cada estado y su
+   variante oscura: aquí solo se usa currentColor.
+   ========================================================= */
+.ph-kpis {
+  position: relative; z-index: 1;
+  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px; margin-top: 16px;
+}
+.phk {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 13px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.phk:hover { transform: translateY(-1px); background: color-mix(in srgb, currentColor 12%, transparent); }
+.phk-activo { border-color: currentColor; background: color-mix(in srgb, currentColor 16%, transparent); }
+/* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
+.phk-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 32px; height: 32px; flex: none;
+  border-radius: 999px; background: currentColor;
+}
+.phk-ico .ico { width: 17px; height: 17px; color: #fff; }
+.phk-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.phk-linea { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.phk-linea b {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.15rem; font-weight: 800; line-height: 1; color: var(--c-text);
+}
+.phk-linea small {
+  font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--c-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.phk-barra {
+  display: block; height: 4px; border-radius: 999px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  overflow: hidden;
+}
+.phk-barra > span { display: block; height: 100%; border-radius: 999px; background: currentColor; }
+
+@media (max-width: 760px) {
+  .ph-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
