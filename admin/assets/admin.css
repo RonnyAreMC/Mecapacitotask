@@ -2942,6 +2942,16 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .adj-elegir input[type="file"] { display: none; }
 /* Contenido de la previsualización (lo usa el panel del detalle) */
 .adj-visor-frame { width: 100%; height: 100%; border: 0; background: #fff; }
+/* La imagen se ve entera dentro del visor, sin recortarse ni deformarse; el
+   tablero a cuadros deja ver el fondo transparente de un PNG. */
+.adj-visor-img {
+  display: block; width: 100%; height: 100%;
+  object-fit: contain; object-position: center;
+  background:
+    linear-gradient(45deg, rgba(0,0,0,.05) 25%, transparent 25% 75%, rgba(0,0,0,.05) 75%) 0 0 / 18px 18px,
+    linear-gradient(45deg, rgba(0,0,0,.05) 25%, transparent 25% 75%, rgba(0,0,0,.05) 75%) 9px 9px / 18px 18px,
+    #fff;
+}
 
 /* Chips del detalle de la tarea (solo lectura) */
 .dt-adjuntos { display: flex; flex-wrap: wrap; gap: 8px; }

@@ -1484,12 +1484,17 @@ document.querySelectorAll('[data-avisar]').forEach((caja) => {
 // ofrece la descarga y se dice por qué.
 // Solo el PDF se previsualiza. Todo lo demás —imágenes incluidas— se descarga
 // desde su chip: menos elementos moviéndose en la ficha y una regla sola.
-const previsualizable = (ext) => String(ext || '').toLowerCase() === 'pdf';
+/* Qué se puede ver sin descargar: el PDF en un iframe y las imágenes tal
+   cual. Lo demás (doc, docx) no lo pinta el navegador, así que se baja. */
+const IMAGENES_VISIBLES = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg'];
+const esImagen = (ext) => IMAGENES_VISIBLES.includes(String(ext || '').toLowerCase());
+const previsualizable = (ext) => String(ext || '').toLowerCase() === 'pdf' || esImagen(ext);
 
 function pintarPrevia(cont, a) {
   if (!cont || !a || !previsualizable(a.ext)) return;
-  cont.innerHTML = '<iframe class="adj-visor-frame" src="' + esc(a.ruta) +
-    '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
+  cont.innerHTML = esImagen(a.ext)
+    ? '<img class="adj-visor-img" src="' + esc(a.ruta) + '" alt="' + esc(a.nombre || '') + '">'
+    : '<iframe class="adj-visor-frame" src="' + esc(a.ruta) + '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
 }
 
 /* ---------- Previsualización dentro del detalle de la tarea ---------- */
