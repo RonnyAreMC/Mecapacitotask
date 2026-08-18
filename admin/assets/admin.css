@@ -1725,8 +1725,8 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   text-transform: uppercase; letter-spacing: .05em;
 }
 .subvista-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 14px;
+  display: inline-flex; align-items: center; gap: 0;
+  padding: 7px 12px;
   border: 0; border-radius: 10px;
   background: transparent;
   color: var(--c-text-muted);
@@ -1735,6 +1735,25 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   transition: color .2s ease, box-shadow .2s ease, background .2s ease;
 }
 .subvista-btn:hover { color: var(--c-text); }
+
+/* "Ver como" solo con iconos: el texto se despliega al pasar por encima o al
+   llegar con el teclado. Ocupa un tercio del ancho y se sigue leyendo cuando
+   hace falta. El gap va en el margen del texto, no en el botón, para que
+   plegado no deje un hueco al lado del icono. */
+.subvista-btn .tab-txt {
+  display: inline-block;
+  max-width: 0; margin-left: 0; opacity: 0;
+  overflow: hidden; white-space: nowrap;
+  transition: max-width .22s ease, opacity .16s ease, margin-left .22s ease;
+}
+.subvista-btn:hover .tab-txt,
+.subvista-btn:focus-visible .tab-txt {
+  max-width: 9rem; margin-left: 7px; opacity: 1;
+}
+/* Sin animación para quien la haya desactivado en su sistema. */
+@media (prefers-reduced-motion: reduce) {
+  .subvista-btn .tab-txt { transition: none; }
+}
 .subvista-btn.active {
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
@@ -1745,12 +1764,9 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
    únicamente en la opción activa. El resto se explica con su tooltip. */
 @media (max-width: 900px) {
   .subvista-tit { display: none; }
-  .vista-toggle .tab-btn .tab-txt,
-  .subvista-toggle .subvista-btn .tab-txt { display: none; }
-  .vista-toggle .tab-btn.active .tab-txt,
-  .subvista-toggle .subvista-btn.active .tab-txt { display: inline; }
+  .vista-toggle .tab-btn .tab-txt { display: none; }
+  .vista-toggle .tab-btn.active .tab-txt { display: inline; }
   .vista-toggle .tab-btn:not(.active) { padding-left: 13px; padding-right: 13px; }
-  .subvista-toggle .subvista-btn:not(.active) { padding-left: 11px; padding-right: 11px; }
 }
 @media (max-width: 620px) {
   .subvista-tit { display: none; }
