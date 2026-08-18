@@ -477,6 +477,25 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     </div>
   </div>
 
+  <!-- Estados dentro del encabezado: cada uno con su parte del total. Antes
+       eran cuatro tarjetas sueltas debajo que ocupaban una franja entera. -->
+  <?php $totalTareas = array_sum($resumen); ?>
+  <div class="ph-kpis">
+    <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
+        $n  = (int)$resumen[$k];
+        $pc = $totalTareas > 0 ? round($n / $totalTareas * 100) : 0; ?>
+    <a class="phk estado-<?= $k ?> <?= $fEstado === $k ? 'phk-activo' : '' ?>"
+       href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>"
+       title="<?= $n ?> de <?= $totalTareas ?> · <?= e($label) ?><?= $fEstado === $k ? ' (quitar filtro)' : ' (filtrar)' ?>">
+      <span class="phk-ico"><?= UI::icono($icono) ?></span>
+      <span class="phk-txt">
+        <span class="phk-linea"><b><?= $n ?></b> <small><?= e($label) ?></small></span>
+        <span class="phk-barra"><span style="width:<?= $pc ?>%"></span></span>
+      </span>
+    </a>
+    <?php endforeach; ?>
+  </div>
+
   <!-- Avance abajo a la derecha: barra semaforo (rojo/amarillo/verde) -->
   <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
   <div class="ph-avance-abajo" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
@@ -485,20 +504,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
   </div>
 </header>
-
-<!-- Resumen por estado (mini kanban): icono a un lado, datos al otro -->
-<section class="estados-resumen">
-  <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
-  <a class="estado-tile estado-<?= $k ?> <?= $fEstado === $k ? 'tile-activo' : '' ?>"
-     href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>">
-    <span class="et-icono"><i class="fa-solid <?= $icono ?>"></i></span>
-    <span class="et-datos">
-      <b class="font-display"><?= (int)$resumen[$k] ?></b>
-      <small><?= e($label) ?></small>
-    </span>
-  </a>
-  <?php endforeach; ?>
-</section>
 
 <!-- Cambio de vista + selector de persona -->
 <?php
