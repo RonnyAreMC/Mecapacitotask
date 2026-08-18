@@ -1498,7 +1498,13 @@ foreach ($tareas as $t) {
       <input type="hidden" name="accion" value="obs_crear">
       <input type="hidden" name="proyecto_id" value="<?= $id ?>">
       <div class="oc-top">
-        <?= UI::select('autor_id', $opcionesFiltro, (string)$fAsignado, false, 'oc-select') ?>
+        <?php /* A quién va dirigida: uno o varios. Con varios se crea una
+                 observación por persona, igual que ya se hace por tarea. */ ?>
+        <select name="autor_id[]" class="select-meca oc-select" multiple data-ph="¿Para quién? — elige una o varias personas">
+          <?php foreach (array_slice($opcionesFiltro, 1, null, true) as $mid => $lbl): ?>
+          <option value="<?= (int)$mid ?>"><?= e($lbl) ?></option>
+          <?php endforeach; ?>
+        </select>
         <select name="tarea_id[]" class="select-meca oc-select" multiple data-ph="General de la entrega — o elige tareas">
           <?php foreach (array_slice($opcionesDependencia, 1, null, true) as $tid => $lbl): ?>
           <option value="<?= (int)$tid ?>"><?= e($lbl) ?></option>

@@ -1361,7 +1361,11 @@ class ObservacionRepo
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
             'reunion_id'  => (int)($datos['reunion_id'] ?? 0),
+            // 'autor_id' es A QUIÉN va dirigida la observación (así se venía
+            // usando el selector). Quien la escribe se guarda aparte y solo:
+            // sale del usuario en sesión, no se elige.
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            'creado_por'  => (int)($datos['creado_por'] ?? 0),
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),
             'estado'      => 'pendiente',

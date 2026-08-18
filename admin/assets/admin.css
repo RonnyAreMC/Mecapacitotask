@@ -7247,7 +7247,9 @@ html.sb-collapsed .nav-badge-fin {
 .fn-eq-ico { width: 1em; height: 1em; }
 
 /* --- Destinatarios en el compositor de observaciones --- */
-.oc-destino { display: flex; align-items: center; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+/* El bloque de 'Avisar a' quedaba pegado al textarea de abajo: la etiqueta y
+   el selector iban en columna y no había separación con el campo. */
+.oc-destino { display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap; }
 .oc-destino-lbl { font-size: .78rem; font-weight: 700; color: var(--c-text-soft); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
 .oc-destino-lbl i { color: var(--c-secondary); }
 .oc-destino .oc-select { flex: 1; min-width: 180px; }
@@ -7313,3 +7315,7 @@ html.sb-collapsed .nav-badge-fin {
 }
 .dt-carga b { display: block; margin-bottom: 5px; color: var(--btn-ambar); }
 .dt-carga ul { margin: 0; padding-left: 18px; line-height: 1.6; }
+/* Quién escribió la observación: dato secundario, porque el nombre grande de
+   arriba es la persona A QUIEN va dirigida. */
+.obs-creador { color: var(--c-text-soft); }
+.obs-creador i { font-size: .72em; margin-right: 3px; }

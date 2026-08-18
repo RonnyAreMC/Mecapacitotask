@@ -1022,8 +1022,15 @@ switch ($accion) {
         if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
             $fallar('Escribe la observación o adjunta un archivo.');
         }
-        $autor  = $miembros->buscar((int)($_POST['autor_id'] ?? 0));
-        $equipo = $autor ? MiembroRepo::equipoDe($autor) : '';
+        // A quién va dirigida: una o varias personas del proyecto. Si no se
+        // elige a nadie, queda como observación general del proyecto.
+        $paraIds = array_values(array_unique(array_filter(
+            array_map('intval', (array)($_POST['autor_id'] ?? [])),
+            fn($mid) => $mid > 0 && $miembros->buscar($mid) !== null
+        )));
+        if (!$paraIds) $paraIds = [0];
+        // Quien la escribe NO se elige: sale de la sesión.
+        $creadorId = (int)(Auth::usuario()['id'] ?? 0);
 
         // Destinatarios de la observación: ids elegidos; 'all' = todo el
         // proyecto; vacío = nadie en concreto (solo queda registrada).
@@ -1043,17 +1050,22 @@ switch ($accion) {
         if (empty($destinos)) $destinos = [0];   // general
 
         $creadas = [];
-        foreach ($destinos as $tid) {
-            $creadas[] = $obsRepo->crear([
-                'proyecto_id'   => $pid,
-                'tarea_id'      => $tid,
-                'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
-                'autor_id'      => (int)($_POST['autor_id'] ?? 0),
-                'equipo'        => $equipo,
-                'texto'         => $_POST['texto'] ?? '',
-                'destinatarios' => $destIds,
-                'adjuntos'      => $adjuntos,
-            ]);
+        foreach ($paraIds as $paraId) {
+            $para   = $paraId ? $miembros->buscar($paraId) : null;
+            $equipo = $para ? MiembroRepo::equipoDe($para) : '';
+            foreach ($destinos as $tid) {
+                $creadas[] = $obsRepo->crear([
+                    'proyecto_id'   => $pid,
+                    'tarea_id'      => $tid,
+                    'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
+                    'autor_id'      => $paraId,
+                    'creado_por'    => $creadorId,
+                    'equipo'        => $equipo,
+                    'texto'         => $_POST['texto'] ?? '',
+                    'destinatarios' => $destIds,
+                    'adjuntos'      => $adjuntos,
+                ]);
+            }
         }
 
         // Aviso por correo a los destinatarios (menos al propio autor).
@@ -1061,10 +1073,10 @@ switch ($accion) {
             $pObs     = $proyectos->buscar($pid);
             $tareaRef = (count($destinos) === 1 && $destinos[0] > 0) ? $tareas->buscar($destinos[0]) : null;
             foreach (array_unique($destIds) as $mid) {
-                if ((int)$mid === (int)($_POST['autor_id'] ?? 0)) continue;
+                if ((int)$mid === $creadorId) continue;   // no se avisa a sí mismo
                 $m = $miembros->buscar((int)$mid);
                 if ($m && !empty($m['email'])) {
-                    Mailer::notificarObservacion($creadas[0], $autor ?? [], $pObs ?? [], $tareaRef, $m['email']);
+                    Mailer::notificarObservacion($creadas[0], $miembros->buscar($creadorId) ?? [], $pObs ?? [], $tareaRef, $m['email']);
                 }
             }
         }
