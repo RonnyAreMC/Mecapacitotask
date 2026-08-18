@@ -727,7 +727,21 @@ foreach ($tareas as $t) {
             $esFinal = in_array($t['estado'] ?? '', $finales, true);
             $vencida = !empty($t['fecha_limite']) && $t['fecha_limite'] < date('Y-m-d') && !$esFinal;
         ?>
-        <tr class="fila-tarea <?= $esFinal ? 'fila-hecha' : '' ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+        <?php
+        // Lo que busca el buscador de la tabla. Va explicito porque, sin esto,
+        // el JS cae al texto de la fila — y ahi dentro esta el <select> de
+        // Estado con SUS CUATRO OPCIONES, asi que buscar "completada" o
+        // "progreso" devolvia TODAS las tareas. Aqui va el estado de verdad.
+        $buscarFila = mb_strtolower(trim(
+            '#' . (int)$t['id'] . ' ' . ($t['titulo'] ?? '')
+            . ' ' . HtmlRico::texto($t['descripcion'] ?? '', 200)
+            . ' ' . implode(' ', array_map(fn($m) => ($m['nombre'] ?? '') . ' ' . ($m['git_user'] ?? ''), $asigLista))
+            . ' ' . ($estadosCat[$t['estado'] ?? '']['0'] ?? ($t['estado'] ?? ''))
+            . ' ' . ($prioCat[$t['prioridad'] ?? '']['0'] ?? '')
+        ));
+        ?>
+        <tr class="fila-tarea <?= $esFinal ? 'fila-hecha' : '' ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'
+            data-buscar="<?= e($buscarFila) ?>">
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
