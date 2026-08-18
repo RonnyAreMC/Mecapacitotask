@@ -549,8 +549,12 @@ foreach ($tareas as $t) {
 <section class="card-base tabla-card">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-solid fa-list-check text-secondary"></i> Tareas
-      <span class="tabla-count"><?= count($visibles) ?></span>
+      <span class="tabla-count" data-buscar-count><?= count($visibles) ?></span>
     </h2>
+    <label class="tabla-buscar">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off">
+    </label>
     <div class="tabla-filtros">
       <?php if (!$verComo): ?>
       <form method="get" class="inline-form">
@@ -564,27 +568,27 @@ foreach ($tareas as $t) {
       <?php endif; ?>
       <?php if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)): ?>
         <?php if ($verArchivadas): ?>
-        <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-eye-slash"></i> Ocultar archivadas</a>
+        <a href="?id=<?= $id ?>" class="btn-outline btn-meca btn-sm btn-neutro btn-icono"><i class="fa-solid fa-eye-slash"></i> <span class="tab-txt">Ocultar archivadas</span></a>
         <?php else: ?>
-        <a href="?id=<?= $id ?>&arch=1" class="filtro-clear" title="Completadas hace más de una semana (siguen guardadas)"><i class="fa-solid fa-box-archive"></i> Ver archivadas (<?= $nArchivadas ?>)</a>
+        <a href="?id=<?= $id ?>&arch=1" class="btn-outline btn-meca btn-sm btn-neutro btn-icono" title="Completadas hace más de una semana (siguen guardadas)"><i class="fa-solid fa-box-archive"></i> <span class="tab-txt">Ver archivadas (<?= $nArchivadas ?>)</span></a>
         <?php endif; ?>
       <?php endif; ?>
       <form method="post" action="actions.php" class="inline-form" data-descarga>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="accion-btn accion-claude" data-tip="Descarga las tareas de este proyecto en JSON (con sus #id) para pasárselas a Claude">
-          <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
+        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
+          <img src="assets/claude.svg" alt="" width="16" height="16"> <span class="tab-txt">Mis tareas</span>
         </button>
       </form>
       <?php if ($avisoPersonas): ?>
       <!-- Un correo por persona con las tareas que el admin elija en el modal -->
-      <button type="button" class="accion-btn solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
+      <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-icono solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
               data-tip="Elige a quién avisar y con qué tareas; se manda un correo por persona">
-        <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
+        <i class="fa-solid fa-paper-plane"></i> <span class="tab-txt">Avisar al equipo</span>
       </button>
       <?php endif; ?>
       <?php if ($puedeTareas): ?>
-      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
+      <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
       <?php endif; ?>
@@ -723,6 +727,9 @@ foreach ($tareas as $t) {
           </td>
         </tr>
         <?php endforeach; ?>
+        <tr data-buscar-vacio data-no-buscar hidden>
+          <td colspan="6" class="tabla-buscar-vacio">Ninguna tarea coincide con la búsqueda.</td>
+        </tr>
       </tbody>
     </table>
   </div>
