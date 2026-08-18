@@ -79,6 +79,10 @@ class Reuniones
         $out = [];
         if (Zoom::listo())           $out['zoom'] = 'Zoom';
         if (GoogleCalendar::listo()) $out['meet'] = 'Google Meet';
+        // El enlace propio no necesita configuración: siempre está. Sirve
+        // cuando la sala de Zoom está ocupada y hay que hacer una revisión
+        // igual — a cambio, esa reunión no queda grabada.
+        $out['enlace'] = 'Enlace propio';
         return $out;
     }
 
@@ -95,13 +99,24 @@ class Reuniones
         $pref = $delProyecto !== ''
             ? $delProyecto
             : (self::conf()['plataforma'] === 'meet' ? 'meet' : 'zoom');
-        return isset($disp[$pref]) ? $pref : (string)array_key_first($disp);
+        if (isset($disp[$pref])) return $pref;
+        // 'enlace' siempre está, pero no debe ganar por descarte: solo queda si
+        // de verdad no hay ninguna plataforma conectada.
+        foreach (['zoom', 'meet'] as $k) {
+            if (isset($disp[$k])) return $k;
+        }
+        return 'enlace';
     }
 
     /** Etiqueta de la plataforma para mostrar ('' -> ''). */
     public static function etiquetaPlataforma(string $clave): string
     {
-        return $clave === 'meet' ? 'Google Meet' : ($clave === 'zoom' ? 'Zoom' : '');
+        return match ($clave) {
+            'meet'   => 'Google Meet',
+            'zoom'   => 'Zoom',
+            'enlace' => 'Enlace propio',
+            default  => '',
+        };
     }
 
     /** ¿Se le ofrece el selector de plataforma a quien crea la reunion? */
@@ -117,7 +132,14 @@ class Reuniones
      */
     public static function resolverPlataforma(?string $pedida, ?array $proyecto = null): string
     {
-        $pedida = in_array($pedida, ['zoom', 'meet'], true) ? $pedida : '';
+        $pedida = in_array($pedida, ['zoom', 'meet', 'enlace'], true) ? $pedida : '';
+        // El enlace propio se permite SIEMPRE, aunque el panel fuerce una
+        // plataforma: es la salida para cuando la sala está ocupada y hay que
+        // hacer la revisión igual. No necesita nada configurado y quien la crea
+        // ya sabe que no quedará grabada.
+        if ($pedida === 'enlace') {
+            return 'enlace';
+        }
         if ($pedida !== '' && self::puedeElegir() && isset(self::disponibles()[$pedida])) {
             return $pedida;
         }

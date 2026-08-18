@@ -1725,8 +1725,8 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   text-transform: uppercase; letter-spacing: .05em;
 }
 .subvista-btn {
-  display: inline-flex; align-items: center; gap: 0;
-  padding: 7px 12px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
   border: 0; border-radius: 10px;
   background: transparent;
   color: var(--c-text-muted);
@@ -1736,24 +1736,6 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 .subvista-btn:hover { color: var(--c-text); }
 
-/* "Ver como" solo con iconos: el texto se despliega al pasar por encima o al
-   llegar con el teclado. Ocupa un tercio del ancho y se sigue leyendo cuando
-   hace falta. El gap va en el margen del texto, no en el botón, para que
-   plegado no deje un hueco al lado del icono. */
-.subvista-btn .tab-txt {
-  display: inline-block;
-  max-width: 0; margin-left: 0; opacity: 0;
-  overflow: hidden; white-space: nowrap;
-  transition: max-width .22s ease, opacity .16s ease, margin-left .22s ease;
-}
-.subvista-btn:hover .tab-txt,
-.subvista-btn:focus-visible .tab-txt {
-  max-width: 9rem; margin-left: 7px; opacity: 1;
-}
-/* Sin animación para quien la haya desactivado en su sistema. */
-@media (prefers-reduced-motion: reduce) {
-  .subvista-btn .tab-txt { transition: none; }
-}
 .subvista-btn.active {
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
@@ -7424,3 +7406,8 @@ html.sb-collapsed .nav-badge-fin {
    que no grite más que los iconos de al lado. */
 .btn-icono img { opacity: .85; }
 .btn-icono:hover img { opacity: 1; }
+/* Enlace puesto a mano: ni Zoom ni Meet, y sin grabación. Neutro a propósito,
+   para que se distinga de las dos plataformas conectadas. */
+.reu-plat.plat-enlace { background: color-mix(in srgb, var(--c-text-soft) 18%, transparent); color: var(--c-text-muted); }
+/* El campo del enlace propio aparece solo con esa opción elegida. */
+.nr-enlace[hidden] { display: none; }

@@ -627,9 +627,9 @@ foreach ($tareas as $t) {
   <!-- Subvistas de "Tareas": la misma lista vista como tabla, kanban o flujo -->
   <div class="subvista-toggle" hidden>
     <span class="subvista-tit">Ver como</span>
-    <button type="button" class="subvista-btn active" data-subvista="tabla" data-tip="Tabla"><i class="fa-solid fa-table-list"></i> <span class="tab-txt">Tabla</span></button>
-    <button type="button" class="subvista-btn" data-subvista="kanban" data-tip="Kanban"><i class="fa-solid fa-table-columns"></i> <span class="tab-txt">Kanban</span></button>
-    <button type="button" class="subvista-btn" data-subvista="flujo" data-tip="Flujo"><i class="fa-solid fa-diagram-project"></i> <span class="tab-txt">Flujo</span></button>
+    <button type="button" class="subvista-btn btn-icono active" data-subvista="tabla" data-tip="Tabla"><i class="fa-solid fa-table-list"></i> <span class="tab-txt">Tabla</span></button>
+    <button type="button" class="subvista-btn btn-icono" data-subvista="kanban" data-tip="Kanban"><i class="fa-solid fa-table-columns"></i> <span class="tab-txt">Kanban</span></button>
+    <button type="button" class="subvista-btn btn-icono" data-subvista="flujo" data-tip="Flujo"><i class="fa-solid fa-diagram-project"></i> <span class="tab-txt">Flujo</span></button>
   </div>
 </div>
 
@@ -1311,7 +1311,9 @@ foreach ($tareas as $t) {
               : (int)strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60);
           $pasada = $fin < time();
           $invita = array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $r['invitados'] ?? []));
-          $esMeet = ($r['plataforma'] ?? 'zoom') === 'meet';
+          $platReu  = $r['plataforma'] ?? 'zoom';
+          $esMeet   = $platReu === 'meet';
+          $esEnlace = $platReu === 'enlace';
       ?>
       <article class="reu-item">
         <div class="reu-icono <?= $pasada ? 'reu-pasada' : 'reu-proxima' ?> <?= $esMeet ? 'reu-meet' : 'reu-zoom' ?>">
@@ -1319,7 +1321,10 @@ foreach ($tareas as $t) {
         <div class="reu-info">
           <b><?= e($r['topic']) ?></b>
           <span class="reu-meta">
-            <span class="reu-plat <?= $esMeet ? 'plat-meet' : 'plat-zoom' ?>"><?= $esMeet ? 'Google Meet' : 'Zoom' ?></span>
+            <span class="reu-plat <?= $esEnlace ? 'plat-enlace' : ($esMeet ? 'plat-meet' : 'plat-zoom') ?>"
+                  <?= $esEnlace ? 'title="Enlace puesto a mano: esta reunión no queda grabada"' : '' ?>>
+              <?= e(Reuniones::etiquetaPlataforma($platReu)) ?>
+            </span>
             <i class="fa-regular fa-calendar"></i> <?= e($r['inicio']) ?> · <?= (int)$r['duracion'] ?> min
             <?php if ($repite): ?>
             <span class="reu-repite" title="<?= e(Reuniones::resumen($r)) ?>">
@@ -1795,20 +1800,49 @@ $comData = json_encode([
       <div class="subvista-toggle nr-plat">
         <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
         <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
+        <button type="button" class="subvista-btn <?= $platDefecto === 'enlace' ? 'active' : '' ?>" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
       </div>
       <small class="campo-ayuda nr-meet-hint" <?= $platDefecto === 'meet' ? '' : 'hidden' ?>>La reunión de Meet se crea en TU Google Calendar (necesitas tenerlo conectado en Mi perfil).</small>
     </div>
+    <!-- Enlace propio: para cuando la sala de Zoom está ocupada y hay que
+         hacer la revisión igual. El panel guarda el detalle y avisa a los
+         invitados, pero la reunión NO queda grabada. -->
+    <label class="campo nr-enlace" <?= $platDefecto === 'enlace' ? '' : 'hidden' ?>>
+      <span>Enlace de la reunión</span>
+      <input class="input-meca" type="url" name="join_url" inputmode="url"
+             placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
+      <small class="campo-ayuda">
+        <i class="fa-solid fa-circle-info"></i>
+        Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
+        pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
+      </small>
+    </label>
     <?php else:
       // Sin selector conviene decir de dónde sale la plataforma, o parece impuesta sin motivo
       $platOrigen = ProyectoRepo::plataformaEntrada($proyecto['plataforma'] ?? '') !== ''
           ? 'la elegida para este proyecto'
           : (count(Reuniones::disponibles()) < 2 ? 'la única configurada' : 'la del panel');
     ?>
-    <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
     <div class="campo"><span>Plataforma</span>
-      <small class="campo-ayuda"><b><?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></b><?= $platDefecto === 'meet' ? ', en tu calendario' : '' ?>
-        — <?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
+      <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
+      <div class="subvista-toggle nr-plat">
+        <button type="button" class="subvista-btn active" data-plat="<?= e($platDefecto) ?>"><i class="fa-solid fa-video"></i> <?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></button>
+        <button type="button" class="subvista-btn" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
+      </div>
+      <small class="campo-ayuda"><?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
     </div>
+    <!-- El enlace propio se ofrece aunque el panel fuerce una plataforma: es la
+         salida cuando la sala está ocupada. -->
+    <label class="campo nr-enlace" hidden>
+      <span>Enlace de la reunión</span>
+      <input class="input-meca" type="url" name="join_url" inputmode="url"
+             placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
+      <small class="campo-ayuda">
+        <i class="fa-solid fa-circle-info"></i>
+        Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
+        pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
+      </small>
+    </label>
     <?php endif; ?>
 
     <label class="campo"><span>Invitar (registra a las personas del equipo)</span>

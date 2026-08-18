@@ -2253,17 +2253,25 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Toggle de plataforma (Zoom / Meet) en "Nueva reunión"
+// Toggle de plataforma (Zoom / Meet / enlace propio) en "Nueva reunión"
 document.querySelectorAll('.nr-plat').forEach((tg) => {
   const campo = tg.closest('.campo');
   const hidden = campo?.querySelector('input[name="plataforma"]');
   const hint = campo?.querySelector('.nr-meet-hint');
+  // El campo del enlace es hermano del .campo de la plataforma, no hijo.
+  const enlace = campo?.parentElement?.querySelector('.nr-enlace');
+  const urlInp = enlace?.querySelector('input[name="join_url"]');
   tg.addEventListener('click', (e) => {
     const b = e.target.closest('[data-plat]');
     if (!b) return;
+    const plat = b.dataset.plat;
     tg.querySelectorAll('[data-plat]').forEach((x) => x.classList.toggle('active', x === b));
-    if (hidden) hidden.value = b.dataset.plat;
-    if (hint) hint.hidden = b.dataset.plat !== 'meet';
+    if (hidden) hidden.value = plat;
+    if (hint) hint.hidden = plat !== 'meet';
+    if (enlace) enlace.hidden = plat !== 'enlace';
+    // Obligatorio solo cuando es la opción elegida: si no, el navegador
+    // bloquearía el envío de una reunión de Zoom por un campo oculto.
+    if (urlInp) urlInp.required = plat === 'enlace';
   });
 });
 

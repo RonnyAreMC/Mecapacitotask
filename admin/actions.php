@@ -2104,7 +2104,29 @@ switch ($accion) {
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
         $p = $proyectos->buscar($pid);
 
-        if ($plataforma === 'meet') {
+        if ($plataforma === 'enlace') {
+            // Enlace propio: no se llama a ninguna API, el enlace lo pone quien
+            // crea la reunión. Se guarda el detalle, se agenda y se avisa igual;
+            // lo único que no habrá es grabación.
+            $suUrl = trim($_POST['join_url'] ?? '');
+            if (!filter_var($suUrl, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $suUrl)) {
+                redirigir($volver, 'Pega el enlace de la reunión (tiene que empezar por https://).', 'error');
+            }
+            $reu = $reuniones->crear([
+                'proyecto_id' => $pid,
+                'plataforma'  => 'enlace',
+                'creador_id'  => (int)(Auth::usuario()['id'] ?? 0),
+                'topic'       => $topic,
+                'inicio'      => $inicio,
+                'duracion'    => $dur,
+                'join_url'    => $suUrl,
+                'invitados'   => $invitados,
+                'recurrente'  => $recurrente,
+                'dias'        => $dias,
+                'hasta'       => $hasta,
+            ]);
+            $donde = 'Reunión creada con tu enlace. No quedará grabada.';
+        } elseif ($plataforma === 'meet') {
             // Meet: se crea en el calendario del creador (necesita su Google)
             $yo = Auth::usuario();
             $refresh = (string)($yo['gcal_refresh'] ?? '');
