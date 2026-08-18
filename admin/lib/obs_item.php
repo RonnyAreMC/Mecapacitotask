@@ -13,7 +13,10 @@ function obsItemHtml(array $o): string
     if ($tareas === null)    $tareas    = new TareaRepo();
     if ($reuniones === null) $reuniones = new ReunionRepo();
 
+    // 'autor_id' es la persona a la que va dirigida (es lo que se elige en el
+    // compositor); quien la escribió va en 'creado_por' y se muestra al pie.
     $autor   = $miembros[(int)($o['autor_id'] ?? 0)] ?? null;
+    $creador = $miembros[(int)($o['creado_por'] ?? 0)] ?? null;
     $c1      = $autor ? Catalogo::colorDe($autor['color'] ?? 0) : '#64748b';
     $eqLabel = $equipos[$o['equipo'] ?? '']['0'] ?? 'Equipo';
     $eqIcono = $equipos[$o['equipo'] ?? '']['1'] ?? 'fa-user';
@@ -38,6 +41,11 @@ function obsItemHtml(array $o): string
             <?php if ($esRecord): ?><span class="obs-tipo-record"><i class="fa-solid fa-bell"></i> Recordatorio</span> · <?php endif; ?>
             <span class="obs-equipo"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($eqLabel) ?></span>
             · <?= e($o['creado'] ?? '') ?>
+            <?php if ($creador): ?>
+            · <span class="obs-creador" title="Quién anotó esta observación">
+                <i class="fa-solid fa-pen"></i> la anotó <?= e($creador['nombre']) ?>
+              </span>
+            <?php endif; ?>
           </span>
         </div>
         <span class="obs-destino">
