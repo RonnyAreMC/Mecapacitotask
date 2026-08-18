@@ -7289,3 +7289,27 @@ html.sb-collapsed .nav-badge-fin {
   font-size: .85rem; color: var(--c-text); }
 .dr-para i { color: var(--c-secondary); margin-right: 5px; }
 .dr-pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* ---------- Carga cruzada: la persona tiene un requerimiento suelto en las
+   mismas fechas que la tarea. Es un aviso de "esto se puede demorar", no un
+   error: ámbar, discreto y con el detalle en el title. ---------- */
+.kb-carga {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--btn-ambar) 14%, transparent);
+  color: var(--btn-ambar);
+  font-size: .72rem; font-weight: 800;
+  cursor: help; vertical-align: middle;
+}
+.kb-carga .ico { width: 1.05em; height: 1.05em; }
+.kb-card .kb-carga { position: absolute; top: 8px; right: 30px; }
+/* El mismo aviso, desplegado dentro del detalle de la tarea. */
+.dt-carga {
+  margin: 10px 0 0; padding: 11px 14px;
+  border-left: 3px solid var(--btn-ambar);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--btn-ambar) 10%, transparent);
+  font-size: .84rem; color: var(--c-text);
+}
+.dt-carga b { display: block; margin-bottom: 5px; color: var(--btn-ambar); }
+.dt-carga ul { margin: 0; padding-left: 18px; line-height: 1.6; }

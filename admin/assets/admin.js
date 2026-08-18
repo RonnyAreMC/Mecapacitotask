@@ -1437,6 +1437,8 @@ if (location.hash === '#nuevo-colaborador') {
 
 /* ---------- Detalle de tarea (solo lectura, para cualquiera) ---------- */
 function abrirDetalleTarea(t) {
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const dlg = document.getElementById('dlg-detalle-tarea');
   if (!dlg) return;
   const set = (sel, val) => { const el = dlg.querySelector(sel); if (el) el.textContent = val; };
@@ -1465,6 +1467,20 @@ function abrirDetalleTarea(t) {
   else if (t.fecha_inicio) { fechas = 'Arranca: ' + t.fecha_inicio; }
   else { fechas = 'Sin fechas'; }
   set('.dt-fechas', fechas);
+
+  // Carga cruzada: requerimientos sueltos que le cayeron a la misma persona en
+  // esas fechas. Explica por qué la tarea puede ir lenta sin tener que
+  // preguntar; el servidor ya cruzó los rangos.
+  const carga = dlg.querySelector('.dt-carga');
+  if (carga) {
+    const lista = t.carga_extra || [];
+    carga.hidden = !lista.length;
+    carga.innerHTML = lista.length
+      ? '<b>También tiene requerimientos en estas fechas</b><ul>' + lista.map((c) =>
+          '<li>' + esc(c.persona) + ' — «' + esc(c.titulo) + '» del ' + esc(c.ini) + ' al ' + esc(c.fin) + '</li>'
+        ).join('') + '</ul>'
+      : '';
+  }
 
   // Cuánto queda (o cuánto lleva vencida): es lo primero que uno mira
   const restante = dlg.querySelector('.dt-restante');

@@ -292,12 +292,65 @@ $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
 
+// Carga cruzada: a la gente se le meten requerimientos sueltos mientras tiene
+// tareas del proyecto, y el SM/PO no lo ve — solo nota que la tarea se demora.
+// Aquí se cruza, por persona, el rango de fechas de cada tarea con el de sus
+// requerimientos abiertos, y lo que se solape se avisa en la tarea.
+$reqPorMiembro = [];
+foreach ((new RequerimientoRepo())->todos() as $r) {
+    if (RequerimientoRepo::cerrado($r)) continue;              // lo cerrado ya no estorba
+    $ini = RequerimientoRepo::fechaInicio($r);
+    $fin = RequerimientoRepo::fechaFin($r);
+    if ($ini === '' && $fin === '') continue;                   // sin fechas no hay nada que cruzar
+    foreach (RequerimientoRepo::asignadosDe($r) as $mid) {
+        $reqPorMiembro[$mid][] = [
+            'titulo' => (string)($r['titulo'] ?? ''),
+            'ini'    => $ini !== '' ? $ini : $fin,              // si falta una punta, se usa la otra
+            'fin'    => $fin !== '' ? $fin : $ini,
+        ];
+    }
+}
+
+/** Texto del aviso de carga cruzada, para el title del tablero y de la tabla. */
+function avisoCargaExtra(array $choques): string
+{
+    $partes = [];
+    foreach ($choques as $c) {
+        $partes[] = $c['persona'] . ' tiene «' . $c['titulo'] . '» del ' . $c['ini'] . ' al ' . $c['fin'];
+    }
+    return 'Puede demorarse: ' . implode('; ', $partes) . '.';
+}
+
+/** Requerimientos abiertos de los responsables que pisan las fechas de la tarea. */
+$cargaExtra = function (array $t) use ($miembros, $reqPorMiembro): array {
+    $tIni = trim((string)($t['fecha_inicio'] ?? ''));
+    $tFin = trim((string)($t['fecha_limite'] ?? ''));
+    if ($tIni === '' && $tFin === '') return [];               // tarea sin fechas: nada que comparar
+    if ($tIni === '') $tIni = $tFin;
+    if ($tFin === '') $tFin = $tIni;
+
+    $choques = [];
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        foreach ($reqPorMiembro[$mid] ?? [] as $r) {
+            // Dos rangos se pisan si cada uno empieza antes de que acabe el otro.
+            if ($r['ini'] > $tFin || $r['fin'] < $tIni) continue;
+            $choques[] = [
+                'persona' => $miembros[$mid]['nombre'] ?? 'Alguien',
+                'titulo'  => $r['titulo'],
+                'ini'     => $r['ini'],
+                'fin'     => $r['fin'],
+            ];
+        }
+    }
+    return $choques;
+};
+
 // Datos de solo lectura de una tarea para el modal de detalle (cualquiera puede
 // abrirlo, incluidos los programadores). Se calcula una vez y se pega como
 // atributo data-ver-tarea en cada tarjeta/fila/nodo.
 $estadosCat = Catalogo::estadosTarea();
 $prioCat    = Catalogo::prioridades();
-$verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep): string {
+$verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep, $cargaExtra): string {
     $nombres = [];
     foreach (TareaRepo::asignadosDe($t) as $mid) {
         if (isset($miembros[$mid])) $nombres[] = $miembros[$mid]['nombre'];
@@ -318,6 +371,7 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
         'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
         'adjuntos'     => TareaRepo::adjuntosDe($t),
         'creado'       => $t['creado'] ?? '',
+        'carga_extra'  => $cargaExtra($t),
     ], JSON_UNESCAPED_UNICODE));
 };
 $listoEntrega    = $avance === 100 && $obsPendientes === 0 && array_sum($resumen) > 0;
@@ -668,7 +722,9 @@ foreach ($tareas as $t) {
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
-              <b><button type="button" class="tarea-id btn-copiar" data-copiar="#<?= (int)$t['id'] ?>" title="Copiar #<?= (int)$t['id'] ?> para tus commits">#<?= (int)$t['id'] ?></button> <?= e($t['titulo']) ?></b>
+              <b><button type="button" class="tarea-id btn-copiar" data-copiar="#<?= (int)$t['id'] ?>" title="Copiar #<?= (int)$t['id'] ?> para tus commits">#<?= (int)$t['id'] ?></button> <?= e($t['titulo']) ?><?php $choques = $cargaExtra($t); if ($choques): ?>
+                <span class="kb-carga" title="<?= e(avisoCargaExtra($choques)) ?>"><?= UI::icono('TriangleWarning') ?> <?= count($choques) ?></span>
+              <?php endif; ?></b>
               <?php $descPrev = HtmlRico::texto($t['descripcion'] ?? '', 140); if ($descPrev !== ''): ?><small><?= e($descPrev) ?></small><?php endif; ?>
               <?php
               $depId = (int)($t['depende_de'] ?? 0);
@@ -806,6 +862,11 @@ foreach ($tareas as $t) {
             <button type="button" class="kb-mover" title="Mover a otra columna" aria-label="Mover a otra columna"><i class="fa-solid fa-ellipsis-vertical"></i></button>
             <?php endif; ?>
             <b><?= e($t['titulo']) ?></b>
+            <?php $choques = $cargaExtra($t); if ($choques): ?>
+            <span class="kb-carga" title="<?= e(avisoCargaExtra($choques)) ?>">
+              <?= UI::icono('TriangleWarning') ?> <?= count($choques) ?>
+            </span>
+            <?php endif; ?>
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
@@ -1467,7 +1528,7 @@ foreach ($tareas as $t) {
           <i class="fa-solid fa-paperclip"></i> Adjuntar
         </label>
         <span class="oc-hint"><i class="fa-regular fa-clipboard"></i> Ctrl+V pega imágenes · Ctrl+Enter guarda</span>
-        <button type="submit" class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
+        <button type="submit" class="btn-primary btn-meca btn-agregar btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
       </div>
     </form>
     <?php } ?>
@@ -2075,6 +2136,7 @@ function depPicker(): void { ?>
     </header>
     <div class="dt-chips"></div>
     <span class="dt-restante" hidden></span>
+    <div class="dt-carga" hidden></div>
     <div class="dt-desc rt-render"></div>
     <dl class="dt-datos">
       <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
