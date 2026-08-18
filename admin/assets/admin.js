@@ -3684,12 +3684,16 @@ document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
   if (!tbody) return;
   const vacio = card.querySelector('[data-buscar-vacio]');
   const contador = card.querySelector('[data-buscar-count]');
+  // Sin tildes y en minúsculas por los dos lados: nadie escribe "planificación"
+  // con tilde en un buscador, y sin esto "planificacion" no encontraba nada.
+  // La ñ también se descompone, así que "ordonez" encuentra a "Ordoñez".
+  const normalizar = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
   const filtrar = () => {
-    const q = input.value.trim().toLowerCase();
+    const q = normalizar(input.value.trim());
     let n = 0;
     tbody.querySelectorAll('tr').forEach((tr) => {
       if (tr.hasAttribute('data-no-buscar')) return;
-      const hay = (tr.dataset.buscar || tr.textContent || '').toLowerCase();
+      const hay = normalizar(tr.dataset.buscar || tr.textContent || '');
       const ok = !q || hay.includes(q);
       tr.classList.toggle('fila-oculta', !ok);
       if (ok) n++;
