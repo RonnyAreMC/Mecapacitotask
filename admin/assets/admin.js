@@ -1409,21 +1409,35 @@ document.addEventListener('submit', (e) => {
   });
 });
 
-// Paginador de la tabla de tareas (8 por página)
+// Paginador de la tabla de tareas (8 por página).
+//
+// Pagina sobre las filas que PASAN EL FILTRO, no sobre todas. Antes repartía
+// por el índice en la lista completa, así que al buscar solo salían las
+// coincidencias que caían en la página en la que estabas: el contador decía
+// "4" y en pantalla había 2. Se recalcula en cada búsqueda (evento
+// 'tabla-filtrada') y se vuelve a la página 1.
 const cuerpoTabla = document.querySelector('[data-vista-panel="tabla"] .tabla-meca tbody');
 if (cuerpoTabla) {
-  const filas = [...cuerpoTabla.rows];
+  // La fila de "ninguna tarea coincide" vive en el mismo tbody y no es una
+  // tarea: no cuenta para las páginas.
+  const filas = [...cuerpoTabla.rows].filter((f) => !f.hasAttribute('data-no-buscar'));
   const porPagina = 8;
   if (filas.length > porPagina) {
-    const totalPaginas = Math.ceil(filas.length / porPagina);
     const cont = document.createElement('div');
     cont.className = 'paginador';
     document.querySelector('[data-vista-panel="tabla"] .tabla-scroll').after(cont);
     let pagina = 1;
     const pintar = () => {
-      filas.forEach((f, i) => {
-        f.style.display = (i >= (pagina - 1) * porPagina && i < pagina * porPagina) ? '' : 'none';
-      });
+      const visibles = filas.filter((f) => !f.classList.contains('fila-oculta'));
+      const totalPaginas = Math.max(1, Math.ceil(visibles.length / porPagina));
+      if (pagina > totalPaginas) pagina = totalPaginas;
+
+      filas.forEach((f) => { f.style.display = 'none'; });
+      visibles.slice((pagina - 1) * porPagina, pagina * porPagina)
+              .forEach((f) => { f.style.display = ''; });
+
+      // Con los resultados en una sola página, el paginador estorba
+      cont.hidden = visibles.length <= porPagina;
       let html = '<button type="button" class="pg-btn" data-pg="prev" ' + (pagina === 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
       for (let p = 1; p <= totalPaginas; p++) {
         html += '<button type="button" class="pg-btn ' + (p === pagina ? 'active' : '') + '" data-pg="' + p + '">' + p + '</button>';
@@ -1439,6 +1453,8 @@ if (cuerpoTabla) {
       else pagina = parseInt(btn.dataset.pg, 10);
       pintar();
     });
+    // Al buscar, se reparte de nuevo desde la primera página
+    cuerpoTabla.addEventListener('tabla-filtrada', () => { pagina = 1; pintar(); });
     pintar();
   }
 }
@@ -3700,6 +3716,9 @@ document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
     });
     if (vacio) vacio.hidden = n > 0;
     if (contador) contador.textContent = n;
+    // La tabla puede estar paginada: se le avisa para que reparta las filas
+    // que SI coinciden, no las de la pagina en la que estabas.
+    tbody.dispatchEvent(new CustomEvent('tabla-filtrada'));
   };
   input.addEventListener('input', filtrar);
 });
