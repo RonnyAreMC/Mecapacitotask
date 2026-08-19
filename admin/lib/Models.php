@@ -1047,6 +1047,9 @@ class ObservacionRepo
             // usando el selector). Quien la escribe se guarda aparte y solo:
             // sale del usuario en sesión, no se elige.
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            // 'para': todas las personas a las que va dirigida. 'autor_id' es
+            // la primera y solo se usa para el avatar y el color de la tarjeta.
+            'para'        => self::destinatariosEntrada($datos['para'] ?? []),
             'creado_por'  => (int)($datos['creado_por'] ?? 0),
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),

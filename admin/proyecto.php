@@ -1394,8 +1394,12 @@ foreach ($tareas as $t) {
         </select>
       </div>
       <div class="oc-campo">
-        <textarea name="texto" class="oc-texto" rows="2"
-          placeholder="Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí."></textarea>
+        <?php /* Editor enriquecido, el mismo de las descripciones: permite pegar
+                 tablas y contenido con formato (p. ej. un correo). */ ?>
+        <?= UI::editorRico([
+              'name' => 'texto',
+              'placeholder' => 'Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí.',
+            ]) ?>
         <div class="oc-previews"></div>
       </div>
       <div class="oc-pie">

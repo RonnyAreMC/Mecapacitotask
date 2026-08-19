@@ -17,6 +17,13 @@ function obsItemHtml(array $o): string
     // compositor); quien la escribió va en 'creado_por' y se muestra al pie.
     $autor   = $miembros[(int)($o['autor_id'] ?? 0)] ?? null;
     $creador = $miembros[(int)($o['creado_por'] ?? 0)] ?? null;
+    // A quién va dirigida: la lista entera. Las de antes de 'para' solo tienen
+    // 'autor_id', así que se cae a esa para no dejarlas sin nombre.
+    $paraIds = is_array($o['para'] ?? null) && $o['para'] ? $o['para'] : array_filter([(int)($o['autor_id'] ?? 0)]);
+    $paraNombres = [];
+    foreach ($paraIds as $pid2) {
+        if (isset($miembros[(int)$pid2])) $paraNombres[] = $miembros[(int)$pid2]['nombre'];
+    }
     $c1      = $autor ? Catalogo::colorDe($autor['color'] ?? 0) : '#64748b';
     $eqLabel = $equipos[$o['equipo'] ?? '']['0'] ?? 'Equipo';
     $eqIcono = $equipos[$o['equipo'] ?? '']['1'] ?? 'fa-user';
@@ -36,7 +43,7 @@ function obsItemHtml(array $o): string
       <div class="obs-cabecera">
         <?= UI::avatar($autor, 40) ?>
         <div class="obs-autor">
-          <b><?= e($autor['nombre'] ?? 'Alguien') ?></b>
+          <b><?= e($paraNombres ? implode(', ', $paraNombres) : ($autor['nombre'] ?? 'Alguien')) ?></b>
           <span class="obs-meta">
             <?php if ($esRecord): ?><span class="obs-tipo-record"><i class="fa-solid fa-bell"></i> Recordatorio</span> · <?php endif; ?>
             <span class="obs-equipo"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($eqLabel) ?></span>
@@ -71,7 +78,7 @@ function obsItemHtml(array $o): string
       <p class="obs-para"><i class="fa-solid fa-bell"></i> Para: <?= e(implode(', ', $destNombres)) ?></p>
       <?php endif; ?>
 
-      <?php if (!empty($o['texto'])): ?><p class="obs-texto"><?= nl2br(e($o['texto'])) ?></p><?php endif; ?>
+      <?php if (!HtmlRico::vacio($o['texto'] ?? '')): ?><div class="obs-texto rt-render"><?= $o['texto'] ?></div><?php endif; ?>
 
       <?php if (!empty($o['adjuntos'])): ?>
       <div class="obs-adjuntos">
