@@ -1024,7 +1024,18 @@ function initComposer(form) {
   form.dataset.init = '1';
   const fileInput = form.querySelector('.oc-file');
   const previews  = form.querySelector('.oc-previews');
-  const textarea  = form.querySelector('.oc-texto');
+  // El campo pasó a editor enriquecido: el HTML viaja en el textarea oculto
+  // (.rt-fuente) y se escribe en el contenteditable (.rt-area). Los eventos de
+  // teclado y de pegar van en el área; el valor, en la fuente.
+  const area      = form.querySelector('.rt-area');
+  const fuente    = form.querySelector('.rt-fuente');
+  const rico      = form.querySelector('[data-editor-rico]');
+  const hayTexto  = () => (area?.innerText || '').trim() !== '' || /<(img|table|li)\b/i.test(fuente?.value || '');
+  const limpiar   = () => {
+    if (area) area.innerHTML = '';
+    if (fuente) fuente.value = '';
+    rico?.classList.add('rt-vacio');
+  };
   const bolsa = new DataTransfer();
 
   const pintar = () => {
@@ -1046,7 +1057,7 @@ function initComposer(form) {
   };
   const agregar = (files) => { [...files].forEach((f) => bolsa.items.add(f)); pintar(); };
 
-  textarea.addEventListener('paste', (e) => {
+  area.addEventListener('paste', (e) => {
     const imgs = [...(e.clipboardData?.items || [])].filter((it) => it.type.startsWith('image/'));
     if (!imgs.length) return;
     imgs.forEach((it, k) => {
@@ -1069,7 +1080,7 @@ function initComposer(form) {
     bolsa.items.remove(parseInt(b.dataset.i, 10));
     pintar();
   });
-  textarea.addEventListener('keydown', (e) => {
+  area.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
   });
   // Botón × para quitar el compositor (deja al menos uno)
@@ -1080,7 +1091,7 @@ function initComposer(form) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!textarea.value.trim() && !bolsa.files.length) {
+    if (!hayTexto() && !bolsa.files.length) {
       MC.toast('Escribe la observación o adjunta un archivo.', 'error');
       return;
     }
@@ -1095,7 +1106,7 @@ function initComposer(form) {
       const lista = document.getElementById('obs-lista');
       lista.querySelector('.empty-state')?.remove();
       data.items.reverse().forEach((html) => lista.insertAdjacentHTML('afterbegin', html));
-      textarea.value = '';
+      limpiar();
       while (bolsa.items.length) bolsa.items.remove(0);
       pintar();
       const total = document.querySelector('.obs-card .tabla-count');
@@ -1105,7 +1116,7 @@ function initComposer(form) {
       const tabBadge = document.querySelector('.vista-toggle [data-vista="observaciones"] .tab-badge');
       if (tabBadge) tabBadge.textContent = data.pendientes;
       MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
-      textarea.focus();
+      area.focus();
     } catch {
       MC.toast('Error de red al guardar la observación.', 'error');
     } finally {
@@ -1141,7 +1152,7 @@ document.querySelectorAll('.obs-composer').forEach(initComposer);
     MecaSelect.init(nodo);
     initComposer(nodo);
     actualizarAddNota();
-    nodo.querySelector('.oc-texto')?.focus();
+    nodo.querySelector('.rt-area')?.focus();
   });
 })();
 
@@ -3025,6 +3036,22 @@ document.addEventListener('change', (e) => {
     const detEl = $('fq-detalle');
     if (r.detalle) { detEl.innerHTML = r.detalle; detEl.classList.remove('vacio'); }
     else { detEl.textContent = 'Sin detalle.'; detEl.classList.add('vacio'); }
+    // Documentos: los mismos chips que en el detalle de la tarea, con el ojo
+    // para lo que el navegador sabe pintar y la flecha para lo que hay que
+    // bajarse. El bloque se esconde si no hay ninguno.
+    const docs = Array.isArray(r.adjuntos) ? r.adjuntos : [];
+    const bloqueDocs = $('fq-docs-bloque');
+    if (bloqueDocs) {
+      bloqueDocs.hidden = docs.length === 0;
+      $('fq-docs').innerHTML = docs.map((a) => {
+        const ver = previsualizable(a.ext);
+        return '<a class="adj-chip' + (ver ? '' : ' adj-bajar') + '" href="' + esc(a.ruta) + '"' +
+          (ver ? '' : ' download') + ' target="_blank" rel="noopener"' +
+          ' title="' + (ver ? 'Ver ' : 'Descargar ') + esc(a.nombre) + '">' +
+          '<i class="fa-solid ' + iconoAdjunto(a.ext) + '"></i><span>' + esc(a.nombre) + '</span>' +
+          '<i class="fa-solid ' + (ver ? 'fa-eye' : 'fa-download') + ' adj-chip-acc"></i></a>';
+      }).join('');
+    }
     $('fq-solicitante').textContent = r.solicitante || '—';
     $('fq-inicio').textContent = r.inicio || '—';
     $('fq-fin').textContent = r.fin || '—';

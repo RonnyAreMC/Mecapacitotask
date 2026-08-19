@@ -443,7 +443,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
      (.dlg-wizard + form.wz, que mueve MecaWizard) que "Nueva tarea": riel de
      pasos a la izquierda, un panel visible cada vez y revisión al final. -->
 <dialog id="dlg-req-nuevo" class="dlg-meca dlg-wizard dlg-req-wz">
-  <form method="post" action="actions.php" class="dlg-form wz">
+  <form method="post" action="actions.php" class="dlg-form wz" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="req_crear">
     <?= UI::wizardRiel('fa-inbox', 'Nuevo requerimiento', 'Petición que no pertenece a ningún proyecto', UI::PASOS_REQUERIMIENTO) ?>
     <div class="wz-cuerpo">
@@ -481,6 +481,15 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
           <small class="campo-ayuda">Aún no hay instituciones en el catálogo. <a href="instituciones.php">Créalas aquí</a> para poder asignarlas.</small>
           <?php endif; ?>
         </label>
+        <div class="campo">
+          <span>Documentos (opcional)</span>
+          <?= UI::archivo([
+                'name' => 'adjuntos[]', 'multiple' => true, 'maxMB' => 10,
+                'accept' => 'image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx',
+                'ayuda'  => 'Capturas, PDF o Word · máx 10 MB cada uno',
+              ]) ?>
+          <small class="campo-ayuda">Lo que adjuntes se ve en la ficha del requerimiento, igual que en una tarea.</small>
+        </div>
       </section>
 
       <?php panelResponsables($carga, $opcionesRol, 'nr'); ?>

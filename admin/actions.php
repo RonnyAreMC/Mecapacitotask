@@ -1022,7 +1022,7 @@ switch ($accion) {
         if (!puedeVerProyecto($pid)) $fallar('No participas en ese proyecto.');
         if (Auth::esSupervisor()) $fallar('Un supervisor solo observa el tablero, no anota observaciones.');
         $adjuntos = guardarAdjuntos('adjuntos');
-        if (trim($_POST['texto'] ?? '') === '' && empty($adjuntos)) {
+        if (HtmlRico::vacio($_POST['texto'] ?? '') && empty($adjuntos)) {
             $fallar('Escribe la observación o adjunta un archivo.');
         }
         // A quién va dirigida: una o varias personas del proyecto. Si no se
@@ -1052,23 +1052,29 @@ switch ($accion) {
         ));
         if (empty($destinos)) $destinos = [0];   // general
 
+        // UNA observación aunque vaya dirigida a varias personas: la lista
+        // entera va en 'para'. Antes se creaba una copia por persona y el mismo
+        // texto salía repetido tantas veces como destinatarios tuviera.
+        // 'autor_id' se queda con el primero, que es de quien salen el avatar y
+        // el color de la tarjeta; los demás se leen de 'para'.
+        $primero = $paraIds[0];
+        $paraUno = $primero ? $miembros->buscar($primero) : null;
+        $equipo  = $paraUno ? MiembroRepo::equipoDe($paraUno) : '';
+
         $creadas = [];
-        foreach ($paraIds as $paraId) {
-            $para   = $paraId ? $miembros->buscar($paraId) : null;
-            $equipo = $para ? MiembroRepo::equipoDe($para) : '';
-            foreach ($destinos as $tid) {
-                $creadas[] = $obsRepo->crear([
-                    'proyecto_id'   => $pid,
-                    'tarea_id'      => $tid,
-                    'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
-                    'autor_id'      => $paraId,
-                    'creado_por'    => $creadorId,
-                    'equipo'        => $equipo,
-                    'texto'         => $_POST['texto'] ?? '',
-                    'destinatarios' => $destIds,
-                    'adjuntos'      => $adjuntos,
-                ]);
-            }
+        foreach ($destinos as $tid) {
+            $creadas[] = $obsRepo->crear([
+                'proyecto_id'   => $pid,
+                'tarea_id'      => $tid,
+                'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
+                'autor_id'      => $primero,
+                'para'          => $paraIds,
+                'creado_por'    => $creadorId,
+                'equipo'        => $equipo,
+                'texto'         => HtmlRico::limpiar($_POST['texto'] ?? ''),
+                'destinatarios' => $destIds,
+                'adjuntos'      => $adjuntos,
+            ]);
         }
 
         // Aviso por correo a los destinatarios (menos al propio autor).
@@ -1528,7 +1534,10 @@ switch ($accion) {
         // tabla): se sanea a lista blanca antes de guardar.
         $_POST['detalle'] = HtmlRico::limpiar($_POST['detalle'] ?? '');
         $reqRepo = new RequerimientoRepo();
-        $req = $reqRepo->crear($_POST + ['creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
+        $req = $reqRepo->crear($_POST + [
+            'creado_por' => (int)(Auth::usuario()['id'] ?? 0),
+            'adjuntos'   => guardarAdjuntos('adjuntos'),
+        ]);
         // Se puede asignar de una vez, sin pasar dos veces por el formulario
         $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
         redirigir('requerimientos.php', $avisoReq === ''

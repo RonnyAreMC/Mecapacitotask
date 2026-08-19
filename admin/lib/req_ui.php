@@ -108,6 +108,7 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'creado'      => (string)($r['creado'] ?? ''),
         'cerrado'     => RequerimientoRepo::cerrado($r),
         'asignados'   => implode(',', $ids),
+        'adjuntos'    => array_values((array)($r['adjuntos'] ?? [])),
         'personas'    => array_map(fn($m) => ['nombre' => $m['nombre'], 'rol' => $m['rol'] ?? ''], $gente),
         // Observación de cierre que deja el responsable al marcarlo terminado.
         'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
@@ -200,6 +201,11 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
         <div class="fq-bloque">
           <h4>Detalle</h4>
           <div id="fq-detalle" class="rt-render"></div>
+        </div>
+
+        <div class="fq-bloque" id="fq-docs-bloque" hidden>
+          <h4>Documentos</h4>
+          <div id="fq-docs" class="dt-adjuntos"></div>
         </div>
 
         <div class="fq-datos">
