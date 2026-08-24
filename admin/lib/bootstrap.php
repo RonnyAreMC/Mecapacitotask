@@ -453,8 +453,8 @@ function puedeHorarioDelProyecto(int $proyectoId): bool
 }
 
 /**
- * Avisa por correo al Scrum Master y al Product Owner del proyecto de que una
- * tarea acaba de darse por TERMINADA.
+ * Avisa por correo al Scrum Master del proyecto de que una tarea acaba de darse
+ * por TERMINADA. (El Product Owner NO recibe este aviso, a propósito.)
  *
  * Solo dispara en el paso a terminada: si ya lo estaba (se reedita, se vuelve
  * a guardar) no se avisa otra vez, que si no cada retoque manda un correo.
@@ -476,11 +476,10 @@ function avisarTareaTerminada(array $tarea, string $antes, string $ahora, int $q
         return '';
     }
 
-    // Quien lleva el proyecto. Si una misma persona es las dos cosas, recibe UN
-    // correo que lo dice, no dos iguales.
+    // Solo el Scrum Master del proyecto. El Product Owner NO recibe el aviso de
+    // tarea terminada (decisión del equipo).
     $roles = [];
     if (($sm = ProyectoRepo::scrumDe($proyecto)) > 0) $roles[$sm][] = 'Scrum Master';
-    if (($po = ProyectoRepo::poDe($proyecto)) > 0)     $roles[$po][] = 'Product Owner';
     unset($roles[$quienId]);
     if (!$roles) {
         return '';
