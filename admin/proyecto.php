@@ -128,6 +128,13 @@ foreach ($miembros as $m) {
 $poProyecto = ProyectoRepo::poDe($proyecto);
 // Crear/editar tareas: solo el PO, el Scrum Master del proyecto y el admin.
 $puedeTareas = puedeGestionarTareas($id);
+// Admin o Scrum de este proyecto: manda en el tablero (p. ej. puede bajarse
+// las tareas de todo el equipo, no solo las suyas).
+$puedeGestionar = puedeGestionar($id);
+// Reuniones: además del admin y el Scrum Master, el Product Owner del proyecto.
+// No vale la clase .solo-gestor de siempre: esa se apaga por el ROL del panel, y
+// un PO puede entrar como solo lectura y aun así mandar aquí.
+$puedeReuniones = puedeReunionesDelProyecto($id);
 
 // Dependencias: opciones (todas las tareas del proyecto) y mapa por id.
 $tareasPorId = [];
@@ -639,9 +646,16 @@ foreach ($tareas as $t) {
       <form method="post" action="actions.php" class="inline-form" data-descarga>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
+        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="mias"
+                data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
           <img src="assets/claude.svg" alt="" width="16" height="16"> <span class="tab-txt">Mis tareas</span>
         </button>
+        <?php if ($puedeGestionar): /* admin o Scrum: también las de todo el equipo */ ?>
+        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="equipo"
+                data-tip="Descarga las tareas de TODO el equipo en este proyecto, en el mismo formato JSON">
+          <i class="fa-solid fa-users"></i> <span class="tab-txt">Tareas del equipo</span>
+        </button>
+        <?php endif; ?>
       </form>
       <?php if ($avisoPersonas): ?>
       <!-- Un correo por persona con las tareas que el admin elija en el modal -->

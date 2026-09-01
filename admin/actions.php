@@ -1058,6 +1058,11 @@ switch ($accion) {
         if (!puedeVerProyecto($pid)) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
+        $miIdJson = (int)$yoJson['id'];
+        // Alcance: por defecto solo las mías. "equipo" saca las de todo el
+        // proyecto y lo puede pedir quien lo gestiona — admin o Scrum de este
+        // proyecto; a cualquier otro se le devuelven las suyas.
+        $todoElEquipo = ($_POST['alcance'] ?? '') === 'equipo' && puedeGestionar($pid);
         $estCat  = Catalogo::estadosTarea();
         $priCat  = Catalogo::prioridades();
         $memNom  = [];
@@ -1086,17 +1091,44 @@ switch ($accion) {
                 'responsables' => $resp,
                 'depende_de'   => $depId && isset($porId[$depId]) ? ('#' . $depId . ' · ' . ($porId[$depId]['titulo'] ?? '')) : '',
             ];
+        };
+
+        // Las mías, o las del proyecto entero si se pidió el alcance de equipo.
+        $out = [];
+        $dentro = [];
+        $depIds = [];
+        foreach ($lista as $t) {
+            if (!$todoElEquipo && !TareaRepo::tieneAsignado($t, $miIdJson)) continue;
+            $dentro[(int)$t['id']] = true;
+            $out[] = $fmtTarea($t);
+            $d = (int)($t['depende_de'] ?? 0);
+            if ($d && isset($porId[$d])) $depIds[$d] = true;
         }
+        // Contexto: las tareas de las que dependen las incluidas. Con el alcance
+        // de equipo ya están todas dentro, así que esta lista sale vacía sola.
+        $deps = [];
+        foreach (array_keys($depIds) as $d) {
+            if (empty($dentro[$d])) $deps[] = $fmtTarea($porId[$d]);
+        }
+
         $salida = json_encode([
-            'proyecto' => $p['nombre'],
-            'total'    => count($out),
-            'nota'     => 'Tareas del proyecto «' . $p['nombre'] . '» en Mecapacito. Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id> (ver estándar del equipo).',
-            'tareas'   => $out,
+            'proyecto'     => $p['nombre'],
+            'persona'      => $todoElEquipo ? 'Todo el equipo' : $yoJson['nombre'],
+            'total'        => count($out),
+            'nota'         => ($todoElEquipo
+                ? 'Todas las tareas del proyecto «' . $p['nombre'] . '» en Mecapacito, de todo el equipo.'
+                : 'Mis tareas del proyecto «' . $p['nombre'] . '» en Mecapacito.')
+                . ' Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id>. Con una palabra clave pegada (closes/fixes/cierra #id) el panel avanza la tarea de estado solo (ver estándar del equipo). En "dependencias" van las tareas de las que dependen estas, como contexto.',
+            'tareas'       => $out,
+            'dependencias' => $deps,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
-        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($p['nombre']));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(
+            $p['nombre'] . ($todoElEquipo ? '' : '-' . MiembroRepo::iniciales($yoJson))
+        ));
         header('Content-Type: application/json; charset=utf-8');
-        header('Content-Disposition: attachment; filename="tareas-' . trim($slug, '-') . '.json"');
+        header('Content-Disposition: attachment; filename="'
+            . ($todoElEquipo ? 'tareas-equipo-' : 'mis-tareas-') . trim($slug, '-') . '.json"');
         header('Cache-Control: no-store');
         echo $salida;
         exit;
