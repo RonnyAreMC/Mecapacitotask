@@ -260,6 +260,69 @@ $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
 
+// Carga cruzada: alguien puede estar en dos o tres tableros a la vez y desde
+// aquí solo se ve el suyo; el SM/PO no lo ve — solo nota que la tarea se
+// demora. Aquí se cruza, por persona, el rango de fechas de cada tarea con el
+// de sus tareas abiertas en OTROS equipos, y lo que se solape se avisa.
+$cargaPorMiembro = [];
+$apunta = function (int $mid, string $origen, string $titulo, string $ini, string $fin) use (&$cargaPorMiembro) {
+    if ($ini === '' && $fin === '') return;                     // sin fechas no hay nada que cruzar
+    $cargaPorMiembro[$mid][] = [
+        'origen' => $origen,                                    // requerimiento suelto o nombre del equipo
+        'titulo' => $titulo,
+        'ini'    => $ini !== '' ? $ini : $fin,                  // si falta una punta, se usa la otra
+        'fin'    => $fin !== '' ? $fin : $ini,
+    ];
+};
+
+// Tareas abiertas de esa persona en cualquier OTRO proyecto.
+$nombreProy = [];
+foreach ((new ProyectoRepo())->todos() as $p2) $nombreProy[(int)$p2['id']] = (string)$p2['nombre'];
+foreach ($tareasRepo->todas() as $t2) {
+    $pid2 = (int)($t2['proyecto_id'] ?? 0);
+    if ($pid2 === $id) continue;                                // el tablero de aquí ya se ve
+    if (in_array($t2['estado'] ?? '', $finales, true)) continue; // lo terminado no ocupa
+    foreach (TareaRepo::asignadosDe($t2) as $mid) {
+        $apunta($mid, $nombreProy[$pid2] ?? 'Otro equipo', (string)($t2['titulo'] ?? ''),
+                (string)($t2['fecha_inicio'] ?? ''), (string)($t2['fecha_limite'] ?? ''));
+    }
+}
+
+/** Texto del aviso de carga cruzada, para el title del tablero y de la tabla. */
+function avisoCargaExtra(array $choques): string
+{
+    $partes = [];
+    foreach ($choques as $c) {
+        $partes[] = $c['persona'] . ' — ' . $c['origen'] . ': «' . $c['titulo'] . '» del ' . $c['ini'] . ' al ' . $c['fin'];
+    }
+    return 'Puede demorarse, tiene trabajo en paralelo: ' . implode('; ', $partes) . '.';
+}
+
+/** Trabajo de los responsables (otros equipos o requerimientos) que pisa las fechas de la tarea. */
+$cargaExtra = function (array $t) use ($miembros, $cargaPorMiembro): array {
+    $tIni = trim((string)($t['fecha_inicio'] ?? ''));
+    $tFin = trim((string)($t['fecha_limite'] ?? ''));
+    if ($tIni === '' && $tFin === '') return [];               // tarea sin fechas: nada que comparar
+    if ($tIni === '') $tIni = $tFin;
+    if ($tFin === '') $tFin = $tIni;
+
+    $choques = [];
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        foreach ($cargaPorMiembro[$mid] ?? [] as $r) {
+            // Dos rangos se pisan si cada uno empieza antes de que acabe el otro.
+            if ($r['ini'] > $tFin || $r['fin'] < $tIni) continue;
+            $choques[] = [
+                'persona' => $miembros[$mid]['nombre'] ?? 'Alguien',
+                'origen'  => $r['origen'],
+                'titulo'  => $r['titulo'],
+                'ini'     => $r['ini'],
+                'fin'     => $r['fin'],
+            ];
+        }
+    }
+    return $choques;
+};
+
 // Datos de solo lectura de una tarea para el modal de detalle (cualquiera puede
 // abrirlo, incluidos los programadores). Se calcula una vez y se pega como
 // atributo data-ver-tarea en cada tarjeta/fila/nodo.
