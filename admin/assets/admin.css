@@ -923,8 +923,11 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
    ========================================================= */
 .admin-main {
   margin-left: var(--sidebar-w);
-  padding: 36px clamp(16px, 3.5vw, 44px) 64px;
-  max-width: 1560px;
+  /* Sin tope de ancho: con la barra fija a la izquierda, un max-width dejaba
+     todo lo que sobraba en una franja muerta a la DERECHA (736px a 2560px de
+     pantalla). El respiro lateral lo da el padding, que crece con la pantalla
+     hasta un límite para que el contenido no se pegue al borde. */
+  padding: 36px clamp(16px, 3.5vw, 64px) 64px;
   transition: margin-left .3s cubic-bezier(.2,.8,.2,1);
   /* Contexto propio de apilado: así el fondo decorativo (z-index negativo)
      queda por encima del color del body y por debajo del contenido. Sin esto

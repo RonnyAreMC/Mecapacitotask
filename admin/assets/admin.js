@@ -1517,8 +1517,9 @@ function abrirDetalleTarea(t) {
     const lista = t.carga_extra || [];
     carga.hidden = !lista.length;
     carga.innerHTML = lista.length
-      ? '<b>También tiene requerimientos en estas fechas</b><ul>' + lista.map((c) =>
-          '<li>' + esc(c.persona) + ' — «' + esc(c.titulo) + '» del ' + esc(c.ini) + ' al ' + esc(c.fin) + '</li>'
+      ? '<b>También tiene trabajo en paralelo en estas fechas</b><ul>' + lista.map((c) =>
+          '<li>' + esc(c.persona) + ' — <i>' + esc(c.origen || '') + '</i>: «' + esc(c.titulo) +
+          '» del ' + esc(c.ini) + ' al ' + esc(c.fin) + '</li>'
         ).join('') + '</ul>'
       : '';
   }

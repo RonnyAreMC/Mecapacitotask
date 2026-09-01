@@ -296,18 +296,37 @@ $equiposCat      = Catalogo::equipos();
 // tareas del proyecto, y el SM/PO no lo ve — solo nota que la tarea se demora.
 // Aquí se cruza, por persona, el rango de fechas de cada tarea con el de sus
 // requerimientos abiertos, y lo que se solape se avisa en la tarea.
-$reqPorMiembro = [];
+// Cuenta lo mismo el trabajo de OTROS equipos: alguien puede estar en dos o
+// tres tableros a la vez y desde aquí solo se ve el suyo.
+$cargaPorMiembro = [];
+$apunta = function (int $mid, string $origen, string $titulo, string $ini, string $fin) use (&$cargaPorMiembro) {
+    if ($ini === '' && $fin === '') return;                     // sin fechas no hay nada que cruzar
+    $cargaPorMiembro[$mid][] = [
+        'origen' => $origen,                                    // requerimiento suelto o nombre del equipo
+        'titulo' => $titulo,
+        'ini'    => $ini !== '' ? $ini : $fin,                  // si falta una punta, se usa la otra
+        'fin'    => $fin !== '' ? $fin : $ini,
+    ];
+};
+
 foreach ((new RequerimientoRepo())->todos() as $r) {
-    if (RequerimientoRepo::cerrado($r)) continue;              // lo cerrado ya no estorba
-    $ini = RequerimientoRepo::fechaInicio($r);
-    $fin = RequerimientoRepo::fechaFin($r);
-    if ($ini === '' && $fin === '') continue;                   // sin fechas no hay nada que cruzar
+    if (RequerimientoRepo::cerrado($r)) continue;               // lo cerrado ya no estorba
     foreach (RequerimientoRepo::asignadosDe($r) as $mid) {
-        $reqPorMiembro[$mid][] = [
-            'titulo' => (string)($r['titulo'] ?? ''),
-            'ini'    => $ini !== '' ? $ini : $fin,              // si falta una punta, se usa la otra
-            'fin'    => $fin !== '' ? $fin : $ini,
-        ];
+        $apunta($mid, 'Requerimiento suelto', (string)($r['titulo'] ?? ''),
+                RequerimientoRepo::fechaInicio($r), RequerimientoRepo::fechaFin($r));
+    }
+}
+
+// Tareas abiertas de esa persona en cualquier OTRO proyecto.
+$nombreProy = [];
+foreach ((new ProyectoRepo())->todos() as $p2) $nombreProy[(int)$p2['id']] = (string)$p2['nombre'];
+foreach ($tareasRepo->todas() as $t2) {
+    $pid2 = (int)($t2['proyecto_id'] ?? 0);
+    if ($pid2 === $id) continue;                                // el tablero de aquí ya se ve
+    if (in_array($t2['estado'] ?? '', $finales, true)) continue; // lo terminado no ocupa
+    foreach (TareaRepo::asignadosDe($t2) as $mid) {
+        $apunta($mid, $nombreProy[$pid2] ?? 'Otro equipo', (string)($t2['titulo'] ?? ''),
+                (string)($t2['fecha_inicio'] ?? ''), (string)($t2['fecha_limite'] ?? ''));
     }
 }
 
@@ -316,13 +335,13 @@ function avisoCargaExtra(array $choques): string
 {
     $partes = [];
     foreach ($choques as $c) {
-        $partes[] = $c['persona'] . ' tiene «' . $c['titulo'] . '» del ' . $c['ini'] . ' al ' . $c['fin'];
+        $partes[] = $c['persona'] . ' — ' . $c['origen'] . ': «' . $c['titulo'] . '» del ' . $c['ini'] . ' al ' . $c['fin'];
     }
-    return 'Puede demorarse: ' . implode('; ', $partes) . '.';
+    return 'Puede demorarse, tiene trabajo en paralelo: ' . implode('; ', $partes) . '.';
 }
 
-/** Requerimientos abiertos de los responsables que pisan las fechas de la tarea. */
-$cargaExtra = function (array $t) use ($miembros, $reqPorMiembro): array {
+/** Trabajo de los responsables (otros equipos o requerimientos) que pisa las fechas de la tarea. */
+$cargaExtra = function (array $t) use ($miembros, $cargaPorMiembro): array {
     $tIni = trim((string)($t['fecha_inicio'] ?? ''));
     $tFin = trim((string)($t['fecha_limite'] ?? ''));
     if ($tIni === '' && $tFin === '') return [];               // tarea sin fechas: nada que comparar
@@ -331,11 +350,12 @@ $cargaExtra = function (array $t) use ($miembros, $reqPorMiembro): array {
 
     $choques = [];
     foreach (TareaRepo::asignadosDe($t) as $mid) {
-        foreach ($reqPorMiembro[$mid] ?? [] as $r) {
+        foreach ($cargaPorMiembro[$mid] ?? [] as $r) {
             // Dos rangos se pisan si cada uno empieza antes de que acabe el otro.
             if ($r['ini'] > $tFin || $r['fin'] < $tIni) continue;
             $choques[] = [
                 'persona' => $miembros[$mid]['nombre'] ?? 'Alguien',
+                'origen'  => $r['origen'],
                 'titulo'  => $r['titulo'],
                 'ini'     => $r['ini'],
                 'fin'     => $r['fin'],
