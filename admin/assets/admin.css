@@ -1765,6 +1765,25 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 .vista-toggle .tab-btn.active,
 .vista-toggle .tab-btn.active:hover { background: var(--c-tab-activo); color: #fff; }
+/* Un color por pestaña en el icono: se distinguen de un vistazo sin tener
+   que leer. Seis tonos separados, y en oscuro los mismos aclarados para que
+   no se apaguen sobre el marino. */
+.vista-toggle .tab-btn i, .vista-toggle .tab-btn .ico { color: var(--tc); transition: color .2s ease; }
+.vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #6D28D9; }
+.vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #0D7340; }
+.vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #C2410C; }
+.vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #1F63D6; }
+.vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #B4232F; }
+.vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #0E7490; }
+html.dark .vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #B497FF; }
+html.dark .vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #35C078; }
+html.dark .vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #FFB35C; }
+html.dark .vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #66B2FF; }
+html.dark .vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #F98A92; }
+html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
+/* Sobre la pastilla rellena el icono va en blanco: cualquier color se
+   perdería contra el marino. */
+.vista-toggle .tab-btn.active i, .vista-toggle .tab-btn.active .ico { color: #fff; }
 
 /* Subselector de "Tareas": segmentado compacto embutido */
 .subvista-toggle {
@@ -7430,13 +7449,17 @@ html.sb-collapsed .nav-badge-fin {
   position: relative; z-index: 1;
   /* Dos columnas y pegado a la derecha del título, no una franja de cuatro
      tarjetas anchas debajo de todo. */
-  flex: 0 1 auto; width: min(400px, 40%);
+  flex: 0 1 auto; width: min(360px, 36%);
   display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px; margin-top: 0;
 }
 .phk {
-  display: flex; align-items: center; gap: 9px;
-  padding: 7px 11px; border-radius: 12px;
+  /* Tarjeta cuadrada: el icono arriba y la cifra debajo, no todo en una fila
+     larga y baja. */
+  display: flex; flex-direction: column; align-items: flex-start;
+  justify-content: space-between; gap: 10px;
+  min-height: 112px;
+  padding: 12px 13px; border-radius: 14px;
   background: color-mix(in srgb, currentColor 7%, transparent);
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   text-decoration: none;
@@ -7447,18 +7470,18 @@ html.sb-collapsed .nav-badge-fin {
 /* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
 .phk-ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 27px; height: 27px; flex: none;
+  width: 30px; height: 30px; flex: none;
   border-radius: 999px; background: currentColor;
 }
-.phk-ico .ico { width: 15px; height: 15px; color: #fff; }
-.phk-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
-.phk-linea { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
+.phk-ico .ico { width: 16px; height: 16px; color: #fff; }
+.phk-txt { display: flex; flex-direction: column; gap: 7px; min-width: 0; width: 100%; }
+.phk-linea { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .phk-linea b {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1rem; font-weight: 800; line-height: 1; color: var(--c-text);
+  font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--c-text);
 }
 .phk-linea small {
-  font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: .64rem; max-width: 100%; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--c-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
