@@ -321,8 +321,8 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
     camposPersona(true, $eq, Catalogo::equipos());
     ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>

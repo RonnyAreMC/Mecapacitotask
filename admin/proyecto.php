@@ -540,9 +540,8 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php if ($poProyecto && isset($miembros[$poProyecto])): ?>
         <span class="ph-fecha ph-po"><i class="fa-solid fa-user-tie"></i> PO: <b><?= e($miembros[$poProyecto]['nombre']) ?></b></span>
         <?php endif; ?>
-        <span class="ph-fecha"><i class="fa-regular fa-calendar"></i> Creado <?= e($proyecto['creado'] ?? '') ?></span>
       </div>
-      <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
+      <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
     </div>
   </div>
@@ -1734,8 +1733,8 @@ $comData = json_encode([
       <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>
@@ -1893,7 +1892,7 @@ function depPicker(): void { ?>
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>
       </div>
     </div>
@@ -2148,7 +2147,7 @@ function depPicker(): void { ?>
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
         </div>
       </div>
     </div>
