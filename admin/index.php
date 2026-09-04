@@ -133,21 +133,24 @@ foreach ($mapaProy as $pid => $p) {
   <?php endif; ?>
 <?php else: ?>
 <section class="proyectos-admin-grid">
-  <?php foreach ($proyectos as $p):
+  <?php $iCard = 0; foreach ($proyectos as $p):
       $resumen = $tareasRepo->resumen((int)$p['id']);
       $total   = array_sum($resumen);
       $avance  = $tareasRepo->avance((int)$p['id']);
       $color   = ProyectoRepo::colorBase($p);
 
-      // Miembros con tareas en este proyecto
+      // Miembros con tareas en este proyecto, y las tareas agrupadas por estado
+      // para la lista que se abre al pasar por encima de cada contador.
       $equipo = [];
+      $porEstado = [];
       foreach ($tareasRepo->delProyecto((int)$p['id']) as $t) {
+          $porEstado[$t['estado'] ?? ''][] = $t;
           foreach (TareaRepo::asignadosDe($t) as $mid) {
               if (isset($miembros[$mid])) $equipo[$mid] = $miembros[$mid];
           }
       }
   ?>
-  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">
+  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
     <?= UI::icono($p['icono'] ?? 'FolderOpen', 'pac-watermark') ?>
     <div class="pac-head">
       <div class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></div>
@@ -162,9 +165,35 @@ foreach ($mapaProy as $pid => $p) {
       </div>
 
       <div class="pac-estados">
-        <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
-          <span class="pac-mini estado-<?= $k ?>" title="<?= e($label) ?>">
-            <?= UI::icono($icono) ?> <?= (int)$resumen[$k] ?>
+        <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
+            $lista = $porEstado[$k] ?? [];
+            $n     = (int)$resumen[$k];
+            // Lista corta: lo que cabe de un vistazo. El resto se cuenta al pie.
+            $muestra = array_slice($lista, 0, 5); ?>
+          <span class="pac-mini estado-<?= $k ?><?= $n ? '' : ' pac-mini-cero' ?>"
+                <?= $n ? 'tabindex="0"' : '' ?> title="<?= e($label) ?>">
+            <?= UI::icono($icono) ?> <?= $n ?>
+            <?php if ($muestra): ?>
+            <!-- La píldora se abre sobre sí misma: el panel se apoya en ella y
+                 crece hacia arriba. Por eso la cara (icono + número) se repite
+                 al final: es la parte que queda encima de la píldora. -->
+            <span class="pac-lista" role="tooltip">
+              <?php foreach ($muestra as $t): ?>
+              <span class="pl-item">
+                <span class="pl-txt"><?= e($t['titulo']) ?></span>
+                <?php $quien = TareaRepo::asignadosDe($t);
+                      $q = $quien && isset($miembros[$quien[0]]) ? $miembros[$quien[0]]['nombre'] : ''; ?>
+                <?php if ($q): ?><small><?= e($q) ?><?= count($quien) > 1 ? ' +' . (count($quien) - 1) : '' ?></small><?php endif; ?>
+              </span>
+              <?php endforeach; ?>
+              <?php if ($n > count($muestra)): ?>
+              <span class="pl-mas">y <?= $n - count($muestra) ?> más</span>
+              <?php endif; ?>
+              <span class="pl-cabeza" aria-hidden="true">
+                <?= UI::icono($icono) ?> <b><?= $n ?></b> <em class="pl-rot"><?= e($label) ?></em>
+              </span>
+            </span>
+            <?php endif; ?>
           </span>
         <?php endforeach; ?>
       </div>

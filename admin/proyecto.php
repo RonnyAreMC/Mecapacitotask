@@ -603,8 +603,11 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       <?php endif; ?>
     </div>
 
-  <!-- Estados a la derecha del título, en dos columnas: antes eran una franja
-       de cuatro tarjetas anchas debajo de todo. -->
+  <!-- Columna derecha: los cuatro estados en una sola fila y, justo debajo,
+       el avance. Antes el avance iba en una fila propia al pie del hero y las
+       tarjetas eran cuadradas en 2x2: entre las dos cosas la cabecera crecia
+       casi el doble de alto de lo necesario. -->
+  <div class="ph-lado">
   <?php $totalTareas = array_sum($resumen); ?>
   <div class="ph-kpis">
     <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
@@ -621,15 +624,16 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     </a>
     <?php endforeach; ?>
   </div>
-  </div><!-- /.ph-main -->
 
-  <!-- Avance abajo a la derecha: barra semaforo (rojo/amarillo/verde) -->
-  <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
-  <div class="ph-avance-abajo" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
-    <small><?= $completadas ?>/<?= array_sum($resumen) ?> tareas</small>
-    <div class="barra-semaforo sem-<?= $nivelAvance ?>"><span style="width:<?= $avance ?>%"></span></div>
-    <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
-  </div>
+    <!-- Avance bajo los estados: barra semaforo (rojo/amarillo/verde) -->
+    <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
+    <div class="ph-avance-abajo" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
+      <small><?= $completadas ?>/<?= array_sum($resumen) ?> tareas</small>
+      <div class="barra-semaforo sem-<?= $nivelAvance ?>"><span style="width:<?= $avance ?>%"></span></div>
+      <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
+    </div>
+  </div><!-- /.ph-lado -->
+  </div><!-- /.ph-main -->
 </header>
 
 <!-- Cambio de vista + selector de persona -->

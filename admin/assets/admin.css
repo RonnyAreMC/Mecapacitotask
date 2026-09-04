@@ -1372,14 +1372,82 @@ html.dark .proyecto-admin-card {
 .progress-bar { height: 100%; border-radius: 999px; transition: width .5s ease; }
 .progress-num { font-size: .78rem; font-weight: 800; color: var(--c-text-muted); }
 
+/* Los contadores de estado son también el acceso a lo que hay dentro: al
+   pasar por encima se abre la lista de esas tareas sobre la tarjeta. La
+   posición la da .pac-estados para que el panel ocupe todo el ancho y no el
+   del chip. */
 .pac-estados { display: flex; gap: 8px; flex-wrap: wrap; }
 .pac-mini {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 11px; border-radius: 999px;
-  font-size: .74rem; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 999px;
+  font-size: .86rem; font-weight: 800;
   box-shadow: var(--sh-inset-mini);
   background: var(--n-bg) !important;
+  cursor: default;
+  transition: box-shadow .18s ease, transform .18s ease;
 }
+.pac-mini .ico { width: 1.05em; height: 1.05em; }
+.pac-mini-cero { opacity: .45; }
+.pac-mini:not(.pac-mini-cero):hover,
+.pac-mini:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-inset-mini), 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent);
+  outline: none;
+}
+
+/* El panel NO es un globo colgando debajo: es la propia píldora abriéndose.
+   Se apoya en ella (mismo borde inferior, mismo padding) y crece hacia
+   arriba, que es donde hay sitio dentro de la tarjeta. La cara de la píldora
+   se repite abajo del todo para que quede justo encima de la original. */
+.pac-mini { position: relative; }
+.pac-lista {
+  position: absolute; left: 0; bottom: 0; z-index: 8;
+  width: 232px; max-height: 208px; overflow: auto;
+  display: flex; flex-direction: column; gap: 7px;
+  padding: 12px 14px 8px;
+  border-radius: 19px;
+  background: var(--n-bg);
+  box-shadow: var(--sh-mini), 0 14px 30px rgba(15, 30, 60, .16),
+              inset 0 0 0 1.5px color-mix(in srgb, currentColor 32%, transparent);
+  opacity: 0; visibility: hidden;
+  transform: scale(.92);
+  transform-origin: bottom left;
+  transition: opacity .16s ease, transform .22s cubic-bezier(.2, .9, .3, 1.25), visibility .16s;
+  cursor: default;
+}
+html.dark .pac-lista { background: var(--n-card); box-shadow: 0 14px 30px rgba(0, 0, 0, .5), inset 0 0 0 1.5px color-mix(in srgb, currentColor 40%, transparent); }
+/* Las dos de la derecha se abren hacia el otro lado para no salirse. Al
+   alinear por la derecha, icono y número caen exactamente sobre los de la
+   píldora, porque el padding es el mismo. */
+.pac-estados .pac-mini:nth-child(n+3) .pac-lista {
+  left: auto; right: 0; transform-origin: bottom right;
+}
+.pac-estados .pac-mini:nth-child(n+3) .pl-cabeza { justify-content: flex-end; }
+.pac-estados .pac-mini:nth-child(n+3) .pl-rot { order: -1; }
+.pac-mini:hover .pac-lista,
+.pac-mini:focus-within .pac-lista {
+  opacity: 1; visibility: visible; transform: scale(1);
+}
+/* La cara: idéntica a la píldora cerrada, más el rótulo que aparece al abrir */
+.pl-cabeza {
+  display: flex; align-items: center; gap: 7px;
+  margin-top: 2px;
+  font-size: .86rem; font-weight: 800; color: currentColor;
+}
+.pl-cabeza .ico { width: 1.05em; height: 1.05em; }
+.pl-cabeza b { color: currentColor; }
+.pl-rot {
+  font-style: normal; font-size: .68rem; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.pl-item {
+  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
+  font-size: .78rem; font-weight: 600; color: var(--c-text);
+}
+.pl-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pl-item small { color: var(--c-text-soft); font-size: .68rem; font-weight: 700; white-space: nowrap; }
+.pl-mas { font-size: .7rem; font-weight: 700; color: var(--c-text-soft); }
 
 .pac-foot {
   margin-top: auto;
@@ -7449,17 +7517,16 @@ html.sb-collapsed .nav-badge-fin {
   position: relative; z-index: 1;
   /* Dos columnas y pegado a la derecha del título, no una franja de cuatro
      tarjetas anchas debajo de todo. */
-  flex: 0 1 auto; width: min(360px, 36%);
-  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(2, 96px);
   gap: 8px; margin-top: 0;
 }
 .phk {
   /* Tarjeta cuadrada: el icono arriba y la cifra debajo, no todo en una fila
      larga y baja. */
   display: flex; flex-direction: column; align-items: flex-start;
-  justify-content: space-between; gap: 10px;
-  min-height: 112px;
-  padding: 12px 13px; border-radius: 14px;
+  justify-content: space-between; gap: 5px;
+  aspect-ratio: 1; padding: 9px; border-radius: 14px;
   background: color-mix(in srgb, currentColor 7%, transparent);
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   text-decoration: none;
@@ -7470,11 +7537,11 @@ html.sb-collapsed .nav-badge-fin {
 /* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
 .phk-ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 30px; height: 30px; flex: none;
+  width: 26px; height: 26px; flex: none;
   border-radius: 999px; background: currentColor;
 }
-.phk-ico .ico { width: 16px; height: 16px; color: #fff; }
-.phk-txt { display: flex; flex-direction: column; gap: 7px; min-width: 0; width: 100%; }
+.phk-ico .ico { width: 14px; height: 14px; color: #fff; }
+.phk-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; width: 100%; }
 .phk-linea { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
 .phk-linea b {
   font-family: 'Plus Jakarta Sans', sans-serif;
@@ -7486,7 +7553,7 @@ html.sb-collapsed .nav-badge-fin {
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 .phk-barra {
-  display: block; height: 4px; border-radius: 999px;
+  display: block; height: 3px; border-radius: 999px;
   background: color-mix(in srgb, currentColor 20%, transparent);
   overflow: hidden;
 }
@@ -7494,10 +7561,10 @@ html.sb-collapsed .nav-badge-fin {
 
 /* Cuando ya no cabe al lado del título, baja y ocupa el ancho entero */
 @media (max-width: 1150px) {
-  .ph-kpis { width: 100%; margin-top: 6px; }
+  .ph-kpis { margin-top: 6px; grid-template-columns: repeat(4, 96px); }
 }
 @media (max-width: 520px) {
-  .ph-kpis { grid-template-columns: minmax(0, 1fr); }
+  .ph-kpis { grid-template-columns: repeat(2, minmax(0, 96px)); }
 }
 
 /* =========================================================
@@ -7693,3 +7760,26 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 /* El nombre de quien escribió, en su color: es lo que distingue una tarjeta
    de otra de un vistazo cuando el hilo lo escriben varias personas. */
 .obs-meta .obs-creador { color: color-mix(in srgb, var(--av-c2, var(--av-c1)) 70%, var(--c-text)); font-weight: 700; }
+
+
+/* =========================================================
+   Entrada del panel: las tarjetas suben y aparecen en cascada, una detrás
+   de otra. Solo al cargar — nada se mueve después. --i lo pone el PHP en
+   cada tarjeta de proyecto; en las cifras de arriba basta el orden.
+   ========================================================= */
+@keyframes entrada-fresh {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.stats-grid > *,
+.proyectos-admin-grid > * {
+  animation: entrada-fresh .5s cubic-bezier(.2, .8, .3, 1) backwards;
+}
+.stats-grid > :nth-child(1) { animation-delay: .02s; }
+.stats-grid > :nth-child(2) { animation-delay: .08s; }
+.stats-grid > :nth-child(3) { animation-delay: .14s; }
+.stats-grid > :nth-child(4) { animation-delay: .20s; }
+.proyectos-admin-grid > * { animation-delay: calc(.24s + var(--i, 0) * .06s); }
+@media (prefers-reduced-motion: reduce) {
+  .stats-grid > *, .proyectos-admin-grid > * { animation: none; }
+}
