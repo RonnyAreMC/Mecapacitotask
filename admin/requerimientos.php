@@ -109,30 +109,66 @@ foreach ($lista as $r) {
 /**
  * Carga de cada persona: tareas abiertas + requerimientos abiertos. Es el dato
  * con el que se decide a quien darle el siguiente.
+ *
+ * Y, a igualdad de carga, CUANDO entrego algo por ultima vez. Ordenar solo por
+ * lo abierto repartia mal: quien acababa de cerrar diez cosas marcaba 0 igual
+ * que quien no recibe trabajo desde hace un mes, y entre dos ceros mandaba el
+ * alfabeto — o sea que Aaron Bayas se llevaba siempre el siguiente. Con la
+ * fecha de la ultima entrega, arriba queda quien lleva mas tiempo sin que le
+ * toque nada.
  */
 $finales  = Catalogo::estadosFinales();
 $abiertas = [];
+$ultima   = [];      // [miembro_id => 'Y-m-d' de lo ultimo que entrego]
+$apuntar  = function (int $mid, string $fecha) use (&$ultima) {
+    $fecha = substr(trim($fecha), 0, 10);
+    if ($mid <= 0 || $fecha === '') return;
+    if (!isset($ultima[$mid]) || $fecha > $ultima[$mid]) $ultima[$mid] = $fecha;
+};
 foreach ($tareasRepo->todas() as $t) {
-    if (in_array($t['estado'] ?? '', $finales, true)) continue;
+    $cerrada = in_array($t['estado'] ?? '', $finales, true);
     foreach (TareaRepo::asignadosDe($t) as $mid) {
-        $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
+        if ($cerrada) $apuntar($mid, (string)($t['completada_en'] ?? ''));
+        else          $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
     }
 }
+foreach ($reqRepo->todos() as $rq) {
+    if (!RequerimientoRepo::cerrado($rq)) continue;
+    $cuando = (string)($rq['cerrado_en'] ?? '');
+    // Lo cuenta quien lo marco terminado; si lo cerro el administrador desde
+    // el modulo no queda 'cerrado_por', y entonces cuenta para sus responsables.
+    $deQuien = (int)($rq['cerrado_por'] ?? 0)
+        ? [(int)$rq['cerrado_por']]
+        : RequerimientoRepo::asignadosDe($rq);
+    foreach ($deQuien as $mid) $apuntar($mid, $cuando);
+}
+
+$hoyCarga = new DateTimeImmutable('today');
 $carga = [];
 foreach ($miembros->todos() as $m) {
     $mid    = (int)$m['id'];
     $tareas = (int)($abiertas[$mid] ?? 0);
     $reqs   = $reqRepo->abiertosDe($mid);
+    $suUltima = $ultima[$mid] ?? '';
     $carga[] = [
         'miembro' => $m,
         'rol'     => trim($m['rol'] ?? '') ?: 'Sin rol',
         'tareas'  => $tareas,
         'reqs'    => $reqs,
         'total'   => $tareas + $reqs,
+        'ultima'  => $suUltima,
+        // Dias desde la ultima entrega; null si no consta ninguna.
+        'dias'    => $suUltima !== ''
+            ? (int)$hoyCarga->diff(new DateTimeImmutable($suUltima))->days
+            : null,
     ];
 }
-// Del mas libre al mas cargado: la decision salta a la vista
-usort($carga, fn($a, $b) => $a['total'] <=> $b['total'] ?: strcasecmp($a['miembro']['nombre'], $b['miembro']['nombre']));
+// Del mas libre al mas cargado y, a igual carga, de quien lleva mas tiempo sin
+// entregar a quien acaba de hacerlo. La cadena vacia ordena antes que cualquier
+// fecha, asi que quien no tiene ninguna entrega registrada sale primero.
+usort($carga, fn($a, $b) => $a['total'] <=> $b['total']
+    ?: strcmp($a['ultima'], $b['ultima'])
+    ?: strcasecmp($a['miembro']['nombre'], $b['miembro']['nombre']));
 
 // Roles presentes, con cuanta gente hay en cada uno: son los filtros del
 // selector. Se sacan del equipo real y no del catalogo, para no ofrecer
@@ -225,6 +261,24 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo): v
             <span class="dv-medida">
               <span class="dv-barra"><span style="width:<?= max($pct, $c['total'] > 0 ? 8 : 0) ?>%"></span></span>
               <small><?= $c['tareas'] ?> tareas · <?= $c['reqs'] ?> req.</small>
+              <?php
+              // Por que esta donde esta: entre varios con la misma carga, arriba
+              // van los que llevan mas tiempo sin entregar. Sin esto, el orden
+              // parece arbitrario cuando todos marcan 0.
+              $etUlt = $c['dias'] === null
+                  ? 'sin entregas registradas'
+                  : match (true) {
+                      $c['dias'] === 0 => 'entregó hoy',
+                      $c['dias'] === 1 => 'entregó ayer',
+                      $c['dias'] < 30  => 'entregó hace ' . $c['dias'] . ' días',
+                      default          => 'sin entregar hace ' . intdiv($c['dias'], 30) . ' mes'
+                                          . (intdiv($c['dias'], 30) === 1 ? '' : 'es'),
+                  };
+              ?>
+              <small class="dv-ultima<?= $c['dias'] !== null && $c['dias'] < 7 ? ' dv-ultima-reciente' : '' ?>"
+                     <?= $c['ultima'] !== '' ? 'title="Última entrega: ' . e($c['ultima']) . '"' : '' ?>>
+                <?= e($etUlt) ?>
+              </small>
             </span>
             <span class="dv-carga" title="<?= $c['total'] ?> pendientes en total: <?= $c['tareas'] ?> tareas de proyecto y <?= $c['reqs'] ?> requerimientos"><?= $c['total'] ?></span>
           </label>
@@ -233,7 +287,8 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo): v
 
         <small class="campo-ayuda">
           <b data-picker-n="<?= e($prefijo) ?>">0</b> seleccionados · el número de cada quien es lo que ya tiene
-          abierto (tareas de proyecto + requerimientos). Sin marcar a nadie, queda «sin asignar».
+          abierto (tareas de proyecto + requerimientos). Arriba van los más libres y, entre los que
+          empatan, quien lleva más tiempo sin que le toque nada. Sin marcar a nadie, queda «sin asignar».
         </small>
       </div>
     </section>

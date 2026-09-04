@@ -661,7 +661,7 @@ class UI
      */
     public const PASOS_REQUERIMIENTO = [
         ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.'],
-        ['Responsables', 'Quién lo saca adelante',  'El número de cada persona es lo que ya tiene abierto: elige a quien esté más libre.'],
+        ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.'],
         ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.'],
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
     ];

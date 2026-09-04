@@ -7167,8 +7167,13 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .dv-persona.carga-media .dv-barra span { background: var(--c-secondary); }
 .dv-persona.carga-alta  .dv-barra span { background: var(--c-warning); }
 .dv-persona.carga-alta  .dv-carga { color: var(--c-warning); }
-.dv-medida { flex: 0 0 7.5rem; display: flex; flex-direction: column; gap: 4px; }
+.dv-medida { flex: 0 0 8.5rem; display: flex; flex-direction: column; gap: 4px; }
 .dv-medida small { font-size: .7rem; color: var(--c-text-soft); }
+/* Cuándo entregó por última vez: es lo que decide el orden cuando varios
+   marcan la misma carga, así que si no se dice, la lista parece arbitraria.
+   Quien acaba de entregar se apaga — es a quien MENOS toca darle el siguiente. */
+.dv-medida .dv-ultima { font-size: .66rem; font-style: italic; }
+.dv-medida .dv-ultima-reciente { opacity: .6; }
 .dv-barra {
   display: block; height: 7px; border-radius: 99px;
   background: var(--n-bg); box-shadow: var(--sh-inset-mini); overflow: hidden;
