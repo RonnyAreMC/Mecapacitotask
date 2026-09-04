@@ -5,7 +5,7 @@
  */
 require_once __DIR__ . '/Models.php';
 
-function obsItemHtml(array $o): string
+function obsItemHtml(array $o, bool $esRespuesta = false): string
 {
     static $miembros = null, $equipos = null, $tareas = null, $reuniones = null;
     if ($miembros === null)  $miembros  = (new MiembroRepo())->mapa();
@@ -39,7 +39,7 @@ function obsItemHtml(array $o): string
 
     ob_start();
     ?>
-    <article class="obs-item <?= $pend ? 'obs-pend' : 'obs-res' ?><?= $esRecord ? ' obs-record' : '' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
+    <article class="obs-item <?= $esRespuesta ? 'obs-respuesta' : '' ?> <?= $pend ? 'obs-pend' : 'obs-res' ?><?= $esRecord ? ' obs-record' : '' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
       <div class="obs-cabecera">
         <?= UI::avatar($autor, 40) ?>
         <div class="obs-autor">
@@ -96,7 +96,13 @@ function obsItemHtml(array $o): string
       </div>
       <?php endif; ?>
 
-      <div class="obs-acciones solo-admin">
+      <div class="obs-acciones">
+        <?php if (!$esRespuesta): ?>
+        <button type="button" class="accion-btn obs-responder" data-obs="<?= (int)$o['id'] ?>">
+          <i class="fa-solid fa-reply"></i> Responder
+        </button>
+        <?php endif; ?>
+        <span class="obs-acc-admin solo-admin">
         <form method="post" action="actions.php" class="inline-form">
           <input type="hidden" name="accion" value="obs_estado">
           <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
@@ -112,7 +118,26 @@ function obsItemHtml(array $o): string
           <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
           <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
         </form>
+        </span>
       </div>
+
+      <?php if (!$esRespuesta): ?>
+      <!-- El hilo: las respuestas cuelgan con su sangría y su línea, y al final
+           el cuadro para contestar (lo abre el botón de arriba). -->
+      <div class="obs-hilo">
+        <?php foreach ($o['respuestas'] ?? [] as $r) echo obsItemHtml($r, true); ?>
+        <form class="obs-responder-caja" method="post" action="actions.php" hidden>
+          <input type="hidden" name="accion" value="obs_crear">
+          <input type="hidden" name="proyecto_id" value="<?= (int)$o['proyecto_id'] ?>">
+          <input type="hidden" name="padre_id" value="<?= (int)$o['id'] ?>">
+          <textarea name="texto" rows="2" class="input-meca" placeholder="Responder en este hilo…"></textarea>
+          <div class="obs-responder-pie">
+            <button type="button" class="btn-outline btn-meca btn-sm btn-neutro obs-responder-cancelar">Cancelar</button>
+            <button class="btn-primary btn-meca btn-sm btn-agregar"><i class="fa-solid fa-paper-plane"></i> Responder</button>
+          </div>
+        </form>
+      </div>
+      <?php endif; ?>
     </article>
     <?php
     return ob_get_clean();

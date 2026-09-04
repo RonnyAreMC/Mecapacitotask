@@ -1057,6 +1057,19 @@ switch ($accion) {
         // texto salía repetido tantas veces como destinatarios tuviera.
         // 'autor_id' se queda con el primero, que es de quien salen el avatar y
         // el color de la tarjeta; los demás se leen de 'para'.
+        // ¿Es una respuesta? Entonces hereda del hilo: misma tarea y mismo
+        // destinatario. Solo se pide el texto.
+        $padreId = (int)($_POST['padre_id'] ?? 0);
+        $padre   = $padreId ? $obsRepo->buscar($padreId) : null;
+        if ($padre && (int)$padre['proyecto_id'] !== $pid) $padre = null;   // no de otro proyecto
+        if ($padre) {
+            $destinos = [(int)($padre['tarea_id'] ?? 0)];
+            $paraIds  = is_array($padre['para'] ?? null) && $padre['para']
+                ? $padre['para']
+                : array_filter([(int)($padre['autor_id'] ?? 0)]);
+            if (!$paraIds) $paraIds = [0];
+        }
+
         $primero = $paraIds[0];
         $paraUno = $primero ? $miembros->buscar($primero) : null;
         $equipo  = $paraUno ? MiembroRepo::equipoDe($paraUno) : '';
@@ -1069,6 +1082,7 @@ switch ($accion) {
                 'reunion_id'    => (int)($_POST['reunion_id'] ?? 0),
                 'autor_id'      => $primero,
                 'para'          => $paraIds,
+                'padre_id'      => $padre ? (int)$padre['id'] : 0,
                 'creado_por'    => $creadorId,
                 'equipo'        => $equipo,
                 'texto'         => HtmlRico::limpiar($_POST['texto'] ?? ''),
@@ -1096,7 +1110,10 @@ switch ($accion) {
             header('Content-Type: application/json');
             echo json_encode([
                 'ok'         => true,
-                'items'      => array_map('obsItemHtml', $creadas),
+                // Una respuesta se pinta como tal: sin acciones de hilo y con
+                // su sangría. Si no, entraría con el aspecto de una raíz.
+                'items'      => array_map(fn($o) => obsItemHtml($o, (bool)$padre), $creadas),
+                'esRespuesta'=> (bool)$padre,
                 'total'      => $res['total'],
                 'pendientes' => $res['pendientes'],
             ]);

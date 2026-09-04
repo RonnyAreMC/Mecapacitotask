@@ -7537,3 +7537,52 @@ html.dark .inst-metrica {          /* gana a html.dark .card-base */
 .req-fila:hover {
   box-shadow: var(--sh-card), 0 0 0 2px color-mix(in srgb, var(--req-c) 45%, transparent);
 }
+
+/* =========================================================
+   Observaciones como hilo
+
+   Fuera la franja de color a la izquierda: el estado ya lo dice el chip de
+   la derecha. Quien la escribe pasa a leerse en grande, que es lo primero
+   que se mira, y las respuestas cuelgan con sangría y una línea que las une
+   a su origen — como una conversación, no como una lista plana.
+   ========================================================= */
+.obs-item { border-left: 0 !important; }
+
+.obs-autor b { font-size: 1rem; letter-spacing: -.01em; }
+.obs-cabecera .avatar { width: 44px !important; height: 44px !important; }
+
+/* El hilo: sangría, y la línea vertical que lo ata a la observación de arriba */
+.obs-hilo {
+  position: relative;
+  margin: 12px 0 0 22px;
+  padding-left: 20px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.obs-hilo::before {
+  content: ''; position: absolute; left: 0; top: -4px; bottom: 14px;
+  width: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text-soft) 30%, transparent);
+}
+/* Cada respuesta engancha con la vertical con su propio codo */
+.obs-respuesta { position: relative; }
+.obs-respuesta::before {
+  content: ''; position: absolute; left: -20px; top: 26px;
+  width: 14px; height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text-soft) 30%, transparent);
+}
+.obs-respuesta .avatar { width: 32px !important; height: 32px !important; }
+.obs-respuesta .obs-autor b { font-size: .88rem; }
+.obs-respuesta .obs-destino, .obs-respuesta .obs-estado { display: none; }
+
+/* Cuadro para responder */
+.obs-responder-caja { display: flex; flex-direction: column; gap: 8px; }
+/* El display de arriba gana al display:none que el navegador da a [hidden]:
+   sin esto el cuadro sale abierto en todos los hilos. */
+.obs-responder-caja[hidden] { display: none; }
+/* Una respuesta no se resuelve por su cuenta: lo que se cierra es el hilo.
+   El borrado sí se queda, para poder quitar una respuesta suelta. */
+.obs-respuesta .obs-acc-admin form:first-child { display: none; }
+.obs-responder-caja textarea { width: 100%; resize: vertical; }
+.obs-responder-pie { display: flex; justify-content: flex-end; gap: 8px; }
+.obs-acciones { display: flex; align-items: center; gap: 8px; }
+.obs-acc-admin { display: inline-flex; gap: 8px; margin-left: auto; }

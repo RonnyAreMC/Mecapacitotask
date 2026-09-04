@@ -3750,3 +3750,49 @@ document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
   };
   input.addEventListener('input', filtrar);
 });
+
+/* =========================================================
+   Observaciones en hilo: el botón "Responder" abre el cuadro del propio hilo
+   y la respuesta se manda por AJAX, así la conversación no recarga la página.
+   ========================================================= */
+document.addEventListener('click', (e) => {
+  const abrir = e.target.closest('.obs-responder');
+  if (abrir) {
+    const caja = abrir.closest('.obs-item')?.querySelector('.obs-responder-caja');
+    if (!caja) return;
+    caja.hidden = !caja.hidden;
+    if (!caja.hidden) caja.querySelector('textarea')?.focus();
+    return;
+  }
+  const cancelar = e.target.closest('.obs-responder-cancelar');
+  if (cancelar) {
+    const caja = cancelar.closest('.obs-responder-caja');
+    if (caja) { caja.hidden = true; caja.querySelector('textarea').value = ''; }
+  }
+});
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('.obs-responder-caja');
+  if (!form) return;
+  e.preventDefault();
+  const txt = form.querySelector('textarea');
+  if (!txt.value.trim()) { MC.toast('Escribe la respuesta.', 'error'); return; }
+  const btn = form.querySelector('button[type="submit"], .btn-primary');
+  btn.disabled = true;
+  try {
+    const fd = new FormData(form);
+    fd.set('ajax', '1');
+    const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
+    const data = await res.json();
+    if (!data.ok) { MC.toast(data.error || 'No se pudo responder.', 'error'); return; }
+    // La respuesta se mete ANTES del cuadro, al final de las que ya había.
+    data.items.forEach((html) => form.insertAdjacentHTML('beforebegin', html));
+    txt.value = '';
+    form.hidden = true;
+    MC.toast('Respuesta publicada', 'success', 1600);
+  } catch {
+    MC.toast('Error de red al responder.', 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});

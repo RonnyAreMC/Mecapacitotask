@@ -289,7 +289,7 @@ $reposProyecto = ProyectoRepo::repos($proyecto);
 
 // Observaciones (revision / QA)
 $obsRepo         = new ObservacionRepo();
-$observaciones   = $obsRepo->delProyecto($id);
+$observaciones   = $obsRepo->hilosDelProyecto($id);   // con sus respuestas dentro
 $obsPorTarea     = $obsRepo->pendientesPorTarea($id);   // [tarea_id => n pendientes]
 $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
