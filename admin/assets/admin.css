@@ -7945,29 +7945,74 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 .dep-item-tareas li small { color: var(--c-text-soft); font-size: .72rem; margin-left: 6px; }
 .dep-item-borrar { margin: 0; }
 
-/* ---------- Esperando subida ---------- */
+/* ---------- Esperando subida ----------
+
+   Una tarjeta por proyecto con el número; los títulos, en el modal. Antes cada
+   proyecto era una columna con TODAS sus tareas listadas: con 116 pendientes la
+   sección medía varias pantallas y las columnas quedaban a alturas dispares. */
 .dep-espera { margin-top: 20px; }
 .dep-espera-grid {
-  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
   gap: 14px; padding: 18px 24px 22px;
+  align-items: start;
 }
-.dep-espera-col {
-  border-radius: 15px; padding: 12px 14px;
+.dep-espera-card {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  appearance: none; font: inherit; text-align: left; cursor: pointer;
+  border-radius: 16px; padding: 13px 15px;
   background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
 }
-.dep-espera-col h3 {
-  display: flex; align-items: center; gap: 8px;
-  margin: 0 0 8px; font-size: .88rem; font-weight: 800; color: var(--c-text);
+.dep-espera-card:hover,
+.dep-espera-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 48%, transparent);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
 }
-.dep-espera-col h3 .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); }
-.dep-espera-col h3 span {
-  margin-left: auto; padding: 1px 8px; border-radius: 999px;
-  background: #C66B2D; color: #fff; font-size: .7rem;
+.dee-ico {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 12px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, transparent);
+  color: var(--pc, var(--c-secondary));
 }
-.dep-espera-col ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
-.dep-espera-col li { font-size: .8rem; color: var(--c-text-muted); }
-.dep-espera-col li small { color: var(--c-text-soft); font-size: .7rem; margin-left: 5px; }
+.dee-ico .ico { width: 19px; height: 19px; }
+/* min-width:0 para que el nombre largo se corte con "…" y no ensanche la tarjeta */
+.dee-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dee-txt b { font-size: .88rem; font-weight: 800; color: var(--c-text); }
+.dee-txt .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dee-txt small {
+  display: flex; align-items: center; gap: 5px;
+  font-size: .72rem; font-weight: 600; color: var(--c-text-soft);
+}
+.dee-txt small .ico { width: 12px; height: 12px; }
+.dee-n {
+  flex: 0 0 auto; min-width: 36px; padding: 5px 11px; border-radius: 999px;
+  background: #C66B2D; color: #fff;
+  font-size: .95rem; font-weight: 800; text-align: center; line-height: 1.15;
+}
+
+/* El detalle, ya en el modal */
+.dlg-espera .dlg-cuerpo { max-height: 62vh; overflow: auto; }
+.dep-espera-lista {
+  margin: 12px 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.dep-espera-lista li {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 11px;
+  border: 1px solid var(--c-border-soft);
+  font-size: .82rem; color: var(--c-text);
+}
+.dep-espera-lista li b { color: var(--c-text-soft); font-weight: 800; }
+.dep-espera-lista li span { flex: 1 1 140px; }
+.dep-espera-lista li small { color: var(--c-text-soft); font-size: .72rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dep-espera-card { transition: none; }
+  .dep-espera-card:hover, .dep-espera-card:focus-visible { transform: none; }
+}
+
 .dep-vacio {
   display: flex; align-items: center; gap: 8px; margin: 0;
   font-size: .86rem; color: var(--c-verde-esmeralda); font-weight: 600;

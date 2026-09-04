@@ -173,26 +173,63 @@ require __DIR__ . '/lib/deploy_tira.php';
     </h2>
     <span class="ajuste-ayuda">Tareas completadas que ningún despliegue se ha llevado todavía.</span>
   </div>
+  <!-- Una tarjeta por proyecto con el número, y los títulos en un modal.
+       Listadas aquí, las tareas hacían de esta sección un muro de varias
+       pantallas y dejaban las columnas a alturas distintas. Lo que se viene a
+       mirar es cuántas faltan; cuáles son, solo a veces. -->
   <div class="dep-espera-grid">
-    <?php $hayEspera = false; foreach ($filas as $pid => $f): if (!$f['pendientes']) continue; $hayEspera = true; ?>
-    <div class="dep-espera-col" style="--pc:<?= e(ProyectoRepo::colorBase($f['proyecto'])) ?>">
-      <h3><?= UI::icono($f['proyecto']['icono'] ?? 'FolderOpen') ?> <?= e($f['proyecto']['nombre']) ?>
-        <span><?= count($f['pendientes']) ?></span>
-      </h3>
-      <ul>
-        <?php foreach ($f['pendientes'] as $t): ?>
-        <li><b>#<?= (int)$t['id'] ?></b> <?= e($t['titulo']) ?>
-          <?php if (!empty($t['completada_en'])): ?><small><?= e($t['completada_en']) ?></small><?php endif; ?>
-        </li>
-        <?php endforeach; ?>
-      </ul>
-    </div>
+    <?php $hayEspera = false; foreach ($filas as $pid => $f):
+        if (!$f['pendientes']) continue;
+        $hayEspera = true;
+        $nEsp = count($f['pendientes']); ?>
+    <button type="button" class="dep-espera-card" aria-haspopup="dialog"
+            style="--pc:<?= e(ProyectoRepo::colorBase($f['proyecto'])) ?>"
+            onclick="document.getElementById('dlg-espera-<?= $pid ?>').showModal()">
+      <span class="dee-ico"><?= UI::icono($f['proyecto']['icono'] ?? 'FolderOpen') ?></span>
+      <span class="dee-txt">
+        <b class="truncate"><?= e($f['proyecto']['nombre']) ?></b>
+        <small><?= UI::icono('Eye') ?> Ver detalle</small>
+      </span>
+      <span class="dee-n"><?= $nEsp ?></span>
+    </button>
     <?php endforeach; ?>
     <?php if (!$hayEspera): ?>
     <p class="dep-vacio"><?= UI::icono('CircleCheck') ?> Todo lo completado ya está en <?= e($cfgDep['entorno']) ?>.</p>
     <?php endif; ?>
   </div>
 </section>
+
+<?php /* El detalle de cada tarjeta: los títulos que entrarían en la próxima subida. */ ?>
+<?php foreach ($filas as $pid => $f): if (!$f['pendientes']) continue; $nEsp = count($f['pendientes']); ?>
+<dialog id="dlg-espera-<?= $pid ?>" class="dlg-meca dlg-espera">
+  <div class="dlg-form">
+    <header>
+      <h3 class="font-display">
+        <?= UI::icono($f['proyecto']['icono'] ?? 'FolderOpen') ?> <?= e($f['proyecto']['nombre']) ?>
+      </h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dlg-cuerpo">
+      <p class="campo-ayuda">
+        <?= $nEsp ?> tarea<?= $nEsp === 1 ? '' : 's' ?> completada<?= $nEsp === 1 ? '' : 's' ?>
+        que ningún despliegue se ha llevado todavía.
+      </p>
+      <ul class="dep-espera-lista">
+        <?php foreach ($f['pendientes'] as $t): ?>
+        <li>
+          <b>#<?= (int)$t['id'] ?></b>
+          <span><?= e($t['titulo']) ?></span>
+          <?php if (!empty($t['completada_en'])): ?><small><?= e($t['completada_en']) ?></small><?php endif; ?>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+    <footer>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
+    </footer>
+  </div>
+</dialog>
+<?php endforeach; ?>
 <?php endif; ?>
 
 <?php UI::fin(); ?>
