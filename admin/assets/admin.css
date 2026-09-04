@@ -51,9 +51,13 @@ html.dark {
   /* Fondo oscuro en azul marino y más levantado: el #262c3a de antes tiraba a
      negro. Subirlo baja el contraste de todo lo que va encima, así que los
      tonos que se quedaban cortos sobre él están corregidos más abajo. */
-  --n-bg: #2E3A57;
-  --n-sh-d: #212a40;
-  --n-sh-l: #3a4972;
+  --n-bg: #1F2740;
+  --n-sh-d: #161c30;
+  --n-sh-l: #2b3455;
+  /* Superficie de las tarjetas: un escalón por encima del fondo. Antes eran del
+     mismo color y solo las separaba una línea de 1px; sobre un marino profundo
+     eso se pierde. */
+  --n-card: #2A3458;
 
   /* El #000080 sobre el fondo oscuro se pierde: casi no se distingue del
      propio fondo. En oscuro la pastilla sube a un azul que sí destaca y
@@ -62,7 +66,7 @@ html.dark {
 
   /* Neutrales de mecapacito.css re-mapeados */
   --c-bg: var(--n-bg);
-  --c-bg-soft: #36425f;
+  --c-bg-soft: #2f3b63;
   --c-text: #e9edf6;
   --c-text-muted: #b6c0d2;
   --c-text-soft: #9AA6BC;
@@ -84,13 +88,14 @@ html.dark {
 
 /* En oscuro los bordes tintados brillaban demasiado: tinte minimo y neutro */
 html.dark .card-base {
-  border-color: color-mix(in srgb, var(--card-c) 10%, rgba(255, 255, 255, .07));
+  background: var(--n-card);
+  border-color: color-mix(in srgb, var(--card-c) 14%, rgba(255, 255, 255, .09));
 }
 html.dark .card-base:hover {
   border-color: color-mix(in srgb, var(--card-c) 24%, rgba(255, 255, 255, .08));
 }
 html.dark .proyecto-hero {
-  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, rgba(255, 255, 255, .07));
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, rgba(255, 255, 255, .09));
 }
 html.dark .dlg-meca {
   border-color: rgba(255, 255, 255, .09);
@@ -1217,7 +1222,8 @@ html.dark {
 }
 .stat-card:hover { transform: none; box-shadow: none; }
 html.dark .stat-card {
-  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, var(--n-bg));
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 26%, var(--n-card));
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 40%, transparent);
 }
 /* El icono deja de ser un bloque de color: basta el tono sobre el fondo */
 .stat-card .stat-icon {
@@ -1327,8 +1333,8 @@ html.dark .pac-watermark { opacity: .13; }
 }
 html.dark .proyecto-admin-card {
   background:
-    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, transparent) 0%, transparent 60%),
-    var(--n-bg);
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--pc, var(--c-secondary)) 26%, transparent) 0%, transparent 62%),
+    var(--n-card);
 }
 
 .pac-head {
