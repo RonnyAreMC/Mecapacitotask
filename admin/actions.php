@@ -1963,6 +1963,12 @@ switch ($accion) {
             'equipos'    => array_values(array_intersect(
                 array_values(array_unique(array_map('strval', (array)($depPost['equipos'] ?? [])))), $clavesEq
             )),
+            // Alias por proyecto. Se guarda solo el de los proyectos que
+            // existen: si se borra un proyecto, su alias no se queda de okupa
+            // en la config para siempre.
+            'alias'      => array_intersect_key(
+                aliasDeploys($depPost['alias'] ?? []), array_flip($idsProy)
+            ),
         ];
 
         $correoPost = (array)($_POST['correo'] ?? []);
@@ -2502,12 +2508,18 @@ switch ($accion) {
         }
         $volverDep = ($_POST['volver'] ?? '') === 'index' ? 'index.php' : 'deploys.php';
 
-        // A qué proyectos afecta: lo dejó dicho el administrador en Ajustes, y
-        // por eso aquí no se pregunta nada — quien sube los cambios pulsa una
-        // vez y se acabó. Si el POST trae proyectos (otra pantalla, más
-        // adelante), se respetan; si no, se usan los configurados.
+        // A qué proyectos afecta. El encargado lo elige al registrar, en el
+        // modal, marcado por defecto todo lo que el administrador configuró:
+        // quien sube un solo microservicio desmarca el resto, y quien sube
+        // todo confirma y ya. El campo 'elegidos' distingue "no marcó ninguno"
+        // —que es un error y hay que decírselo— de una petición sin lista
+        // (la tira vieja, o un enlace directo), donde valen los configurados.
         $cfgDep   = configDeploys();
+        $eligio   = !empty($_POST['elegidos']);
         $pedidos  = (array)($_POST['proyectos'] ?? []);
+        if (!$pedidos && $eligio) {
+            redirigir($volverDep, 'Marca al menos un proyecto para registrar la subida.', 'error');
+        }
         if (!$pedidos) {
             $pedidos = $cfgDep['proyectos']
                 ?: array_map(fn($pp) => (int)$pp['id'], $proyectos->todos());
@@ -2552,9 +2564,16 @@ switch ($accion) {
                 'desplegada_en' => $nuevoDep['fecha'],
             ]);
         }
+        // El mensaje dice A QUÉ se registró, por su alias: "en 3 proyectos" no
+        // le sirve de nada a quien acaba de subir ms-academico y quiere estar
+        // seguro de que marcó ese y no otro.
         $nDep = count($pendientesDep);
+        $comoSeLlaman = array_map(function ($pidDep) use ($proyectos) {
+            $pDep = $proyectos->buscar($pidDep);
+            return aliasDeploy($pidDep) ?: ($pDep['nombre'] ?? ('#' . $pidDep));
+        }, $pidsDep);
         redirigir($volverDep, 'Subida registrada a las ' . substr($nuevoDep['fecha'], 11, 5)
-            . ' en ' . count($pidsDep) . ' proyecto' . (count($pidsDep) === 1 ? '' : 's')
+            . ' en ' . implode(', ', $comoSeLlaman)
             . ($nDep ? ' con ' . $nDep . ' tarea' . ($nDep === 1 ? '' : 's') . '.' : '. No había tareas nuevas completadas.'));
 
     case 'deploy_eliminar':

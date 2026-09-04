@@ -25,13 +25,25 @@ $dtPendTotal = array_sum(array_map(fn($f) => count($f['pendientes']), $dtFilas))
 $dtAutor = $dtUltimo ? ($dtMiembros[(int)$dtUltimo['autor_id']] ?? null) : null;
 $dtHoy   = $dtUltimo && substr((string)$dtUltimo['fecha'], 0, 10) === date('Y-m-d');
 
-// A qué proyectos afecta la subida NO se pregunta aquí: lo dejó dicho el
-// administrador en Ajustes → Despliegues. Quien sube los cambios pulsa una vez
-// y se acabó; preguntárselo cada vez es la forma de que deje de marcarlo.
-// Solo se nombran en el tooltip, para que el clic no sea a ciegas.
+// A qué proyectos afecta la subida se elige AL REGISTRAR, en el modal, con
+// todo lo configurado ya marcado: quien sube el lote entero confirma y ya,
+// y quien sube un solo microservicio desmarca el resto. Antes se registraba
+// en todos a ciegas, y con varios proyectos en el mismo servidor eso daba por
+// subido lo que nadie había tocado.
+//
+// Cada uno se nombra por su ALIAS ("ms-academico"): el nombre del proyecto en
+// el panel ("Equipo Delta") no es el que ve quien lo sube.
 $dtAfectados = $dtPuede
-    ? array_map(fn($p) => $p['nombre'], proyectosDeploys((new ProyectoRepo())->todos()))
+    ? proyectosDeploys((new ProyectoRepo())->todos())
     : [];
+// Cuántas tareas espera cada proyecto, para decirlo dentro del modal. Se
+// cuentan sobre $dtAfectados y no sobre $dtFilas: en el dashboard $dtFilas
+// trae solo los proyectos de quien mira, y un configurado que no fuera suyo
+// habría salido con un "0 tareas" que es mentira.
+$dtPendPorProy = [];
+foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
+    $dtPendPorProy[(int)$dtPid] = count($dtF['pendientes']);
+}
 ?>
 <section class="dep-tira card-base<?= $dtUltimo ? '' : ' dep-tira-vacia' ?>">
   <div class="dep-tira-main">
@@ -69,14 +81,11 @@ $dtAfectados = $dtPuede
       </span>
       <?php endif; ?>
       <?php if ($dtPuede): ?>
-      <form method="post" action="actions.php" class="inline-form dep-form">
-        <input type="hidden" name="accion" value="deploy_registrar">
-        <input type="hidden" name="volver" value="<?= e($dtVolver) ?>">
-        <button class="dep-btn" data-dep-btn
-                title="Queda registrada la hora de ahora en <?= e($dtCfg['entorno']) ?><?= $dtAfectados ? ' · ' . e(implode(', ', $dtAfectados)) : '' ?>">
-          <?= UI::icono('Upload') ?> <span>Registrar deploy</span>
-        </button>
-      </form>
+      <button type="button" class="dep-btn" aria-haspopup="dialog"
+              onclick="document.getElementById('dlg-dep-registrar').showModal()"
+              title="Elige qué subiste y queda registrada la hora de ahora en <?= e($dtCfg['entorno']) ?>">
+        <?= UI::icono('Upload') ?> <span>Registrar deploy</span>
+      </button>
       <?php endif; ?>
       <?php if ($dtVolver !== 'deploys'): ?>
       <a class="btn-outline btn-meca btn-sm btn-neutro" href="deploys.php">
@@ -87,3 +96,59 @@ $dtAfectados = $dtPuede
   </div>
 </section>
 
+
+<?php if ($dtPuede): ?>
+<!-- Qué se subió. Marcado por defecto todo lo configurado: el caso normal
+     sigue siendo un clic ("Registrar"), y quien subió solo una cosa desmarca
+     el resto. Cada línea dice su alias y cuántas tareas se llevaría. -->
+<dialog id="dlg-dep-registrar" class="dlg-meca dlg-dep-reg">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="deploy_registrar">
+    <input type="hidden" name="volver" value="<?= e($dtVolver) ?>">
+    <!-- Marca que la lista viene de aquí: sin esto, desmarcar todo se
+         confundiría con "no se preguntó" y se registraría en todos. -->
+    <input type="hidden" name="elegidos" value="1">
+    <header>
+      <h3 class="font-display">
+        <?= UI::icono('Upload') ?> ¿Qué subiste a <?= e($dtCfg['entorno']) ?>?
+      </h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dlg-cuerpo">
+      <?php if (!$dtAfectados): ?>
+      <p class="cs-vacio">No hay proyectos configurados para despliegues. Elígelos en Ajustes → Despliegues.</p>
+      <?php else: ?>
+      <p class="campo-ayuda">
+        Se marca la hora de ahora y la subida se lleva las tareas ya completadas que ningún
+        despliegue anterior había subido. Desmarca lo que no hayas subido.
+      </p>
+      <div class="cs-lista">
+        <?php foreach ($dtAfectados as $pDep): $pidDep = (int)$pDep['id'];
+              $aliasDep = aliasDeploy($pidDep);
+              $nPendDep = $dtPendPorProy[$pidDep] ?? 0; ?>
+        <label class="cs-item dep-reg-item">
+          <input type="checkbox" name="proyectos[]" value="<?= $pidDep ?>" checked>
+          <?= UI::icono($pDep['icono'] ?? 'FolderOpen') ?>
+          <span class="dep-reg-txt">
+            <b class="truncate"><?= e($aliasDep ?: $pDep['nombre']) ?></b>
+            <?php if ($aliasDep): ?><small class="truncate"><?= e($pDep['nombre']) ?></small><?php endif; ?>
+          </span>
+          <span class="dep-reg-n<?= $nPendDep ? '' : ' dep-reg-n-cero' ?>">
+            <?= $nPendDep ?> tarea<?= $nPendDep === 1 ? '' : 's' ?>
+          </span>
+        </label>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+    <footer>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <?php if ($dtAfectados): ?>
+      <button class="btn-primary btn-meca btn-agregar" data-dep-btn>
+        <?= UI::icono('Upload') ?> Registrar subida
+      </button>
+      <?php endif; ?>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>

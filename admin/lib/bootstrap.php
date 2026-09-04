@@ -544,7 +544,29 @@ function configDeploys(): array
         'proyectos'  => array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])))),
         // Equipos cuyos miembros ven el modulo y la tira del dashboard.
         'equipos'    => array_values(array_filter(array_map('strval', (array)($d['equipos'] ?? [])))),
+        // Alias tecnico por proyecto ("ms-academico"). Es con lo que reconoce
+        // lo que sube quien lo sube: el nombre del proyecto en el panel
+        // ("Equipo Delta") no es el de la carpeta ni el del microservicio.
+        'alias'      => aliasDeploys($d['alias'] ?? []),
     ];
+}
+
+/** [proyecto_id => alias], sin vacios ni espacios de mas. */
+function aliasDeploys($crudo): array
+{
+    $out = [];
+    foreach ((array)$crudo as $pid => $a) {
+        $pid = (int)$pid;
+        $a   = trim(preg_replace('/\s+/', ' ', (string)$a));
+        if ($pid > 0 && $a !== '') $out[$pid] = mb_substr($a, 0, 60);
+    }
+    return $out;
+}
+
+/** El alias de un proyecto, o '' si no se le puso ninguno. */
+function aliasDeploy(int $proyectoId): string
+{
+    return configDeploys()['alias'][$proyectoId] ?? '';
 }
 
 /**

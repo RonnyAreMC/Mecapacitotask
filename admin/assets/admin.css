@@ -7886,8 +7886,7 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 .dep-aldia { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
 .dep-pend .ico, .dep-aldia .ico { width: 15px; height: 15px; }
 
-.dep-form { margin: 0; }
-/* El botón del encargado: un solo clic y listo. Nada de formularios. */
+/* El botón del encargado: abre el modal donde marca QUÉ subió. */
 .dep-btn {
   display: inline-flex; align-items: center; gap: 7px;
   padding: 7px 13px; border: 0; border-radius: 11px; cursor: pointer;
@@ -7900,7 +7899,7 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 .dep-btn:active { transform: translateY(0) scale(.97); }
 /* Al pulsar, el icono sale volando: el registro es instantáneo y sin esa
    señal parecía que no había pasado nada. */
-.dep-btn.dep-enviando .ico { animation: dep-sube .5s ease-in infinite; }
+.dep-enviando .ico { animation: dep-sube .5s ease-in infinite; }
 @keyframes dep-sube {
   0%   { transform: translateY(3px); opacity: .4; }
   60%  { transform: translateY(-6px); opacity: 1; }
@@ -7944,6 +7943,61 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 .dep-item-tareas li { font-size: .82rem; color: var(--c-text); }
 .dep-item-tareas li small { color: var(--c-text-soft); font-size: .72rem; margin-left: 6px; }
 .dep-item-borrar { margin: 0; }
+
+/* ---------- Registrar: qué se subió ----------
+
+   El modal con los proyectos marcados. Cada línea lleva el alias grande y el
+   nombre del panel debajo: quien sube reconoce "ms-academico", no "Equipo
+   Delta", y quien lo lee después necesita el otro. */
+.dep-reg-item { gap: 10px; }
+.dep-reg-item .ico { width: 16px; height: 16px; color: var(--c-secondary); flex: none; }
+.dep-reg-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.dep-reg-txt b { font-size: .87rem; font-weight: 800; }
+.dep-reg-txt small { font-size: .72rem; color: var(--c-text-soft); }
+.dep-reg-txt .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-reg-n {
+  flex: none; padding: 3px 9px; border-radius: 999px;
+  font-size: .7rem; font-weight: 800;
+  color: #C66B2D; background: color-mix(in srgb, #C66B2D 14%, transparent);
+}
+/* Sin nada pendiente no hay nada que anunciar: se apaga en vez de gritar "0" */
+.dep-reg-n-cero { color: var(--c-text-soft); background: transparent; font-weight: 600; }
+
+/* ---------- Ajustes: alias por proyecto ---------- */
+.dep-alias { margin-top: 6px; }
+.dep-alias-tit {
+  display: block; margin-bottom: 2px;
+  font-size: .82rem; font-weight: 800; color: var(--c-text);
+}
+.dep-alias-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 10px; margin-top: 10px;
+}
+.dep-alias-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 13px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, transparent);
+}
+/* El nombre no se come el input: se corta con "…" y el input manda */
+.dep-alias-proy {
+  display: flex; align-items: center; gap: 7px;
+  flex: 0 1 42%; min-width: 0;
+  font-size: .82rem; font-weight: 700; color: var(--c-text);
+}
+.dep-alias-proy .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); flex: none; }
+.dep-alias-proy .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-alias-item input {
+  flex: 1 1 auto; min-width: 0;
+  padding: 7px 11px; font-size: .8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* El alias en la tarjeta de "esperando subida" */
+.dee-alias {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .7rem; font-weight: 700; color: var(--pc, var(--c-secondary));
+}
 
 /* ---------- Esperando subida ----------
 
@@ -8040,5 +8094,5 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   .dep-lista, .dep-espera-grid { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dep-pulso-hoy::after, .dep-btn.dep-enviando .ico { animation: none; }
+  .dep-pulso-hoy::after, .dep-enviando .ico { animation: none; }
 }

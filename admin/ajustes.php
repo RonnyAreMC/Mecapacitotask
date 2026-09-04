@@ -673,6 +673,33 @@ UI::cabecera(
           </label>
         </div>
 
+        <!-- Alias: el nombre con el que quien sube reconoce cada cosa. En el
+             panel un proyecto se llama "Equipo Delta", pero quien lo sube al
+             servidor lo conoce como "ms-academico", que es lo que ve en la
+             carpeta y en el pipeline. Sin esto, al registrar la subida tiene
+             que traducir de memoria. -->
+        <div class="dep-alias">
+          <span class="dep-alias-tit">Cómo se llama cada proyecto para quien lo sube</span>
+          <p class="ajuste-ayuda">
+            El alias técnico (p. ej. <b>ms-academico</b>). Es lo que sale al registrar la subida y en
+            el aviso de confirmación, para no tener que traducir «Equipo Delta» de memoria. Déjalo en
+            blanco y se usa el nombre del proyecto.
+          </p>
+          <div class="dep-alias-grid">
+            <?php foreach ((new ProyectoRepo())->todos() as $pp): $pidA = (int)$pp['id']; ?>
+            <label class="dep-alias-item" style="--pc:<?= e(ProyectoRepo::colorBase($pp)) ?>">
+              <span class="dep-alias-proy">
+                <?= UI::icono($pp['icono'] ?? 'FolderOpen') ?>
+                <span class="truncate"><?= e($pp['nombre']) ?></span>
+              </span>
+              <input class="input-meca" name="deploys[alias][<?= $pidA ?>]"
+                     value="<?= e($dp['alias'][$pidA] ?? '') ?>"
+                     placeholder="sin alias" maxlength="60" spellcheck="false">
+            </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
         <label class="chk-linea">
           <input type="checkbox" name="deploys[ver_po]" <?= $dp['ver_po'] ? 'checked' : '' ?>>
           <span class="chk-caja"><i class="fa-solid fa-check"></i></span>

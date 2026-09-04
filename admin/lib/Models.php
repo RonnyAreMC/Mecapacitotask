@@ -276,6 +276,9 @@ final class Config
                 'ver_po'     => true,    // los PO y Scrum Masters lo ven siempre
                 'proyectos'  => [],      // que proyectos se siguen ([] = todos)
                 'equipos'    => [],      // equipos cuyos miembros lo ven en el dashboard
+                // Alias tecnico por proyecto ("ms-academico"): es el nombre con
+                // el que quien sube los cambios reconoce lo que esta subiendo.
+                'alias'      => [],      // [proyecto_id => "ms-academico"]
             ],
             // Registro publico: quien se registra NO entra al panel, deja una
             // solicitud que un administrador aprueba o rechaza desde Equipo.

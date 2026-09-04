@@ -188,7 +188,9 @@ require __DIR__ . '/lib/deploy_tira.php';
       <span class="dee-ico"><?= UI::icono($f['proyecto']['icono'] ?? 'FolderOpen') ?></span>
       <span class="dee-txt">
         <b class="truncate"><?= e($f['proyecto']['nombre']) ?></b>
-        <small><?= UI::icono('Eye') ?> Ver detalle</small>
+        <small><?php $aliasEsp = aliasDeploy($pid); ?>
+          <?php if ($aliasEsp): ?><span class="dee-alias"><?= e($aliasEsp) ?></span><?php else: ?><?= UI::icono('Eye') ?> Ver detalle<?php endif; ?>
+        </small>
       </span>
       <span class="dee-n"><?= $nEsp ?></span>
     </button>
