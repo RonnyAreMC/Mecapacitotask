@@ -1666,6 +1666,25 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 .vista-toggle .tab-btn.active,
 .vista-toggle .tab-btn.active:hover { background: var(--c-tab-activo); color: #fff; }
+/* Un color por pestaña en el icono: se distinguen de un vistazo sin tener
+   que leer. Seis tonos separados, y en oscuro los mismos aclarados para que
+   no se apaguen sobre el marino. */
+.vista-toggle .tab-btn i, .vista-toggle .tab-btn .ico { color: var(--tc); transition: color .2s ease; }
+.vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #6D28D9; }
+.vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #0D7340; }
+.vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #C2410C; }
+.vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #1F63D6; }
+.vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #B4232F; }
+.vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #0E7490; }
+html.dark .vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #B497FF; }
+html.dark .vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #35C078; }
+html.dark .vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #FFB35C; }
+html.dark .vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #66B2FF; }
+html.dark .vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #F98A92; }
+html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
+/* Sobre la pastilla rellena el icono va en blanco: cualquier color se
+   perdería contra el marino. */
+.vista-toggle .tab-btn.active i, .vista-toggle .tab-btn.active .ico { color: #fff; }
 
 /* Subselector de "Tareas": segmentado compacto embutido */
 .subvista-toggle {
