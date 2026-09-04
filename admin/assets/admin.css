@@ -6724,14 +6724,14 @@ html.dark .sit-tarde { color: #ff9d5c; }
   gap: 10px;
 }
 .req-bloque-hecho .req-fila {
-  grid-template-columns: 2.2rem minmax(0, 1fr) auto;
   border-left: 0;
   padding: 11px 14px;
   background: color-mix(in srgb, var(--n-bg) 88%, transparent);
 }
-/* De la fila cerrada solo interesan quién y qué: el resto se calla y sigue
-   estando en la ficha al pulsarla. */
-.req-bloque-hecho .req-fila > :nth-child(n+4) { display: none; }
+/* De la tarjeta cerrada solo interesan quién y qué: la prioridad y el plazo
+   ya no deciden nada y se callan, pero siguen en la ficha al pulsarla. */
+.req-bloque-hecho .req-f-prio,
+.req-bloque-hecho .req-f-plazo { display: none; }
 @media (max-width: 900px) {
   .req-bloque-hecho .req-lista { grid-template-columns: 1fr; }
 }
@@ -6789,10 +6789,14 @@ html.dark .sit-tarde { color: #ff9d5c; }
 .req-lista { display: flex; flex-direction: column; gap: 9px; }
 .req-fila {
   display: grid;
-  /* Columnas fijas para que las filas se lean alineadas entre sí:
-     estado · qué es · quién lo hace · prioridad · plazo · abrir */
-  grid-template-columns: 2.4rem minmax(0, 1fr) 11rem 6.6rem 8.5rem 1rem;
-  align-items: center; gap: 14px;
+  /* Tarjeta de dos renglones: arriba el estado, de qué va y el badge; abajo
+     la tira con responsables, fechas, prioridad y plazo. Antes eran seis
+     columnas en una línea, que puestas de a dos no había quien las leyera. */
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto 1rem;
+  grid-template-areas:
+    "ico txt badge mas"
+    "ico meta meta meta";
+  align-items: center; gap: 8px 14px;
   width: 100%; padding: 12px 16px;
   border: 0; border-radius: 16px;
   background: var(--n-bg); box-shadow: var(--sh-card);
@@ -7470,3 +7474,33 @@ html.dark .inst-metrica {          /* gana a html.dark .card-base */
 }
 .inst-metrica-logo { width: 24px; height: 24px; }
 .inst-metrica-datos small { display: none; }   /* el x/y se lee en el title */
+/* ---------- Requerimientos: la fila es una tarjeta ---------- */
+.req-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.req-fila > .req-f-estado { grid-area: ico; align-self: start; margin-top: 2px; }
+.req-fila > .req-f-txt    { grid-area: txt; }
+.req-fila > .req-f-estadob{ grid-area: badge; }
+.req-fila > .req-f-mas    { grid-area: mas; }
+.req-fila > .req-f-meta   { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.req-f-meta .req-f-gente  { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+
+/* Estado, en chip, arriba a la derecha de la tarjeta */
+.req-f-estadob {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* Arranque y entrega. La bandera de cuadros es el final: se lee sin leer. */
+.req-f-fechas {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .76rem; font-weight: 600; color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.req-f-fechas i { font-size: .72em; opacity: .85; }
+.req-f-flecha { opacity: .5 !important; }
+
+@media (max-width: 1100px) {
+  .req-lista { grid-template-columns: 1fr; }
+}

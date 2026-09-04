@@ -137,7 +137,12 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         <?php endif; ?>
       </span>
 
-      <!-- Quién lo hace. Es la columna que más se mira: va con nombre. -->
+      <span class="req-f-estadob"><i class="fa-solid <?= e($icEstado) ?>"></i> <?= e($etEstado) ?></span>
+
+      <!-- Todo lo secundario en una sola tira, para que la tarjeta tenga dos
+           renglones y no seis columnas que se estrechan al ponerlas de a dos. -->
+      <span class="req-f-meta">
+      <!-- Quién lo hace. Es lo que más se mira: va con nombre. -->
       <span class="req-f-gente" title="<?= $gente ? e(implode(', ', array_column($gente, 'nombre'))) : 'Todavía no tiene responsable' ?>">
         <?php if ($gente): ?>
           <?= UI::avatarStack($gente, 3, 26) ?>
@@ -147,13 +152,21 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         <?php endif; ?>
       </span>
 
-      <!-- Las celdas van siempre, aunque estén vacías: es una rejilla y sin
-           ellas las columnas de la fila se corren una posición. -->
+      <!-- Arranque y entrega con banderas: la de cuadros marca el final. -->
+      <?php if ($ini !== '' || $fin !== ''): ?>
+      <span class="req-f-fechas" title="<?= $ini !== '' ? 'Empieza el ' . e($ini) : 'Sin fecha de inicio' ?><?= $fin !== '' ? ' · Entrega el ' . e($fin) : ' · sin fecha de entrega' ?>">
+        <i class="fa-regular fa-flag"></i> <?= $ini !== '' ? e($ini) : '—' ?>
+        <i class="fa-solid fa-arrow-right-long req-f-flecha"></i>
+        <i class="fa-solid fa-flag-checkered"></i> <?= $fin !== '' ? e($fin) : '—' ?>
+      </span>
+      <?php endif; ?>
+
       <span class="req-f-prio"><?= isset($prioridades[$prio]) ? UI::badgePrioridad($prio) : '' ?></span>
 
       <!-- El plazo ya restado: "Faltan 13 días" en vez de una fecha suelta -->
       <span class="req-f-plazo plazo-<?= e($plazoNivel) ?>" title="<?= e($plazoDetalle) ?>">
         <?= e($plazoTxt) ?>
+      </span>
       </span>
 
       <i class="fa-solid fa-chevron-right req-f-mas"></i>
