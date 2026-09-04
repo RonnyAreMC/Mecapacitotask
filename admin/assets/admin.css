@@ -7821,3 +7821,51 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 @media (prefers-reduced-motion: reduce) {
   .obs-estreno, .btn-enviando i { animation: none; }
 }
+/* =========================================================
+   Filtro de fechas del Kanban
+
+   El Product Owner entra al tablero a saber qué se movió HOY, y lo que
+   encontraba eran todas las tarjetas de todas las columnas a la vez. Con el
+   filtro puesto, las columnas solo traen lo del rango elegido.
+   ========================================================= */
+.dia-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.dia-chip {
+  display: inline-flex; align-items: center;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700; text-decoration: none;
+  color: var(--c-text-soft);
+  background: color-mix(in srgb, var(--c-secondary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-secondary) 18%, transparent);
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.dia-chip:hover { color: var(--c-text); background: color-mix(in srgb, var(--c-secondary) 14%, transparent); }
+.dia-chip.activo { color: #fff; background: var(--c-secondary); border-color: var(--c-secondary); }
+.dia-rango { display: flex; align-items: center; gap: 6px; margin: 0; }
+.dia-rango span { font-size: .78rem; color: var(--c-text-soft); }
+.input-dia { padding: 7px 11px; font-size: .78rem; width: auto; min-width: 0; }
+
+/* Línea bajo la barra: qué se está viendo y cómo volver al tablero entero */
+.dia-aviso {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0; padding: 12px 24px 0;
+  font-size: .8rem; font-weight: 600; color: var(--c-text-muted);
+}
+.dia-aviso a { color: var(--c-secondary); font-weight: 700; }
+.dia-aviso-suave { font-weight: 500; color: var(--c-text-soft); }
+
+/* Fecha en la tarjeta: por qué entra en el rango (completada o creada) */
+.kb-dia {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: .68rem; font-weight: 700;
+  color: var(--c-text-soft);
+  background: color-mix(in srgb, var(--c-text) 7%, transparent);
+}
+.kb-dia-fin { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
+
+@media (max-width: 720px) {
+  .dia-filtros { margin-left: 0; width: 100%; }
+  .dia-rango { width: 100%; }
+  .input-dia { flex: 1; }
+  .dia-aviso { padding-left: 16px; padding-right: 16px; }
+}

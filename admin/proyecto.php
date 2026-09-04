@@ -49,6 +49,9 @@ $limiteArch    = date('Y-m-d', strtotime('-7 days'));
 $esArchivada   = fn($t) => in_array($t['estado'] ?? '', $finales, true)
     && (string)($t['completada_en'] ?? '') !== '' && (string)($t['completada_en'] ?? '') < $limiteArch;
 $nArchivadas   = count(array_filter($tareas, $esArchivada));
+// Lista completa (con las archivadas): el cierre por dia mira hacia atras y
+// necesita las completadas viejas cuando se pide un rango de fechas largo.
+$tareasTodas   = $tareas;
 if (!$verArchivadas) {
     $tareas = array_values(array_filter($tareas, fn($t) => !$esArchivada($t)));
 }
@@ -451,6 +454,77 @@ $platElegir    = Reuniones::puedeElegir();         // ¿se ofrece el selector?
 $platDefecto   = Reuniones::plataformaDefecto($proyecto);   // el proyecto puede tener la suya
 $durDefecto    = Reuniones::duracionDefecto();
 $durOpciones   = Reuniones::duraciones();
+
+// ---------------------------------------------------------------------------
+// Filtro de fechas del Kanban.
+//
+// El tablero se abría con TODAS las tarjetas a la vez y no había forma de
+// saber qué se movió hoy. Ahora arranca acotado a HOY: en las columnas solo
+// quedan las tareas que se completaron hoy y las que se crearon hoy. El chip
+// "Todo" devuelve el tablero entero.
+//
+// El rango se lee de ?desde=&hasta=; si vienen en la URL pero vacíos (el chip
+// "Todo") no se filtra nada. Solo se cae a hoy cuando no vienen.
+$dHoy   = date('Y-m-d');
+$dAyer  = date('Y-m-d', strtotime('-1 day'));
+$dPedido = isset($_GET['desde']) || isset($_GET['hasta']);
+$dDesde = ProyectoRepo::fecha($_GET['desde'] ?? '');
+$dHasta = ProyectoRepo::fecha($_GET['hasta'] ?? '');
+if (!$dPedido) {                    // al entrar, solo lo de hoy
+    $dDesde = $dHasta = $dHoy;
+}
+if ($dDesde !== '' && $dHasta === '') $dHasta = $dDesde;   // un solo día
+if ($dHasta !== '' && $dDesde === '') $dDesde = $dHasta;
+if ($dDesde !== '' && $dHasta < $dDesde) { [$dDesde, $dHasta] = [$dHasta, $dDesde]; }
+$kbFiltro = $dDesde !== '';
+$kbUnDia  = $kbFiltro && $dDesde === $dHasta;
+
+/** Día (Y-m-d) en que se creó una tarea; 'creado' guarda fecha y hora. */
+$creadaEl = fn(array $t) => substr((string)($t['creado'] ?? ''), 0, 10);
+
+// Tareas que van al tablero. Sin filtro, las de siempre. Con filtro, las que
+// se movieron en el rango: completadas dentro de él o creadas dentro de él.
+// Se parte de $tareasTodas porque las completadas de hace más de una semana
+// salen del tablero, y justo son las que pide un rango hacia atrás.
+$kbTareas = $tareas;
+if ($kbFiltro) {
+    $kbTareas = array_values(array_filter($tareasTodas, function ($t) use ($dDesde, $dHasta, $creadaEl) {
+        $fin = ProyectoRepo::fecha($t['completada_en'] ?? '');
+        $ini = $creadaEl($t);
+        return ($fin !== '' && $fin >= $dDesde && $fin <= $dHasta)
+            || ($ini !== '' && $ini >= $dDesde && $ini <= $dHasta);
+    }));
+}
+// El filtro de persona ("Ver como" incluido) manda también aquí
+if ($fAsignado) {
+    $kbTareas = array_values(array_filter($kbTareas, fn($t) => TareaRepo::tieneAsignado($t, $fAsignado)));
+}
+// Contadores de las columnas: los del rango, no los del proyecto entero
+$kbResumen = array_fill_keys(array_keys(Catalogo::estadosTarea()), 0);
+foreach ($kbTareas as $t) {
+    $ek = $t['estado'] ?? '';
+    if (isset($kbResumen[$ek])) $kbResumen[$ek]++;
+}
+
+/** Fecha corta para las etiquetas del tablero: "3 sep". */
+$diaCorto = function (string $f): string {
+    $ts = strtotime($f);
+    if (!$ts) return $f;
+    $meses = [1=>'ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return (int)date('j', $ts) . ' ' . $meses[(int)date('n', $ts)];
+};
+
+// Rangos rápidos y enlace que los aplica sin perder el filtro de persona.
+// El #vista-kanban devuelve a esta misma pestaña tras recargar.
+$urlDia = fn(string $desde, string $hasta) => '?id=' . $id
+    . (!$verComo && $fAsignado ? '&asignado=' . $fAsignado : '')
+    . '&desde=' . $desde . '&hasta=' . $hasta . '#vista-kanban';
+$rangosDia = [
+    'Hoy'            => [$dHoy, $dHoy],
+    'Ayer'           => [$dAyer, $dAyer],
+    'Últimos 7 días' => [date('Y-m-d', strtotime('-6 days')), $dHoy],
+    'Todo'           => ['', ''],
+];
 
 // Calendario del proyecto (fechas límite de tareas + reuniones)
 $mesCal = $_GET['mes'] ?? date('Y-m');
@@ -909,11 +983,38 @@ foreach ($tareas as $t) {
 <?php endif; ?>
 <!-- Vista Kanban: columnas por estado, arrastra para cambiar -->
 <div data-vista-panel="kanban"<?= $esSupervisor ? '' : ' hidden' ?>>
+
   <section class="card-base tabla-card">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban</h2>
-      <span class="ajuste-ayuda"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</span>
+      <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban
+        <?php if ($kbFiltro): ?><span class="tabla-count"><?= count($kbTareas) ?></span><?php endif; ?>
+      </h2>
+      <!-- Filtro de fechas del tablero: con "Hoy" las columnas solo traen lo
+           que se completó o se creó hoy. -->
+      <div class="dia-filtros">
+        <?php foreach ($rangosDia as $rot => [$rd, $rh]): ?>
+        <a class="dia-chip<?= ($dDesde === $rd && $dHasta === $rh) ? ' activo' : '' ?>" href="<?= e($urlDia($rd, $rh)) ?>"><?= e($rot) ?></a>
+        <?php endforeach; ?>
+        <form method="get" class="dia-rango">
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <?php if (!$verComo && $fAsignado): ?><input type="hidden" name="asignado" value="<?= $fAsignado ?>"><?php endif; ?>
+          <input class="input-meca input-dia" type="date" name="desde" value="<?= e($dDesde) ?>" max="<?= e($dHoy) ?>" aria-label="Desde">
+          <span>a</span>
+          <input class="input-meca input-dia" type="date" name="hasta" value="<?= e($dHasta) ?>" max="<?= e($dHoy) ?>" aria-label="Hasta">
+          <button class="btn-outline btn-meca btn-sm btn-neutro" title="Ver ese rango"><i class="fa-solid fa-filter"></i></button>
+        </form>
+      </div>
     </div>
+    <?php if ($kbFiltro): ?>
+    <p class="dia-aviso">
+      <i class="fa-solid fa-calendar-day"></i>
+      Solo <?= $kbUnDia ? ($dDesde === $dHoy ? 'lo de hoy' : 'lo del ' . e($dDesde)) : 'lo del ' . e($dDesde) . ' al ' . e($dHasta) ?>:
+      tareas completadas o creadas en esas fechas.
+      <a href="<?= e($urlDia('', '')) ?>">Ver el tablero completo</a>
+    </p>
+    <?php else: ?>
+    <p class="dia-aviso dia-aviso-suave"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</p>
+    <?php endif; ?>
     <?php
       // Lista de estados para el menú de "mover rápido" de cada tarjeta.
       $kbEstados = [];
@@ -923,15 +1024,15 @@ foreach ($tareas as $t) {
           $kbEstados[] = ['k' => $ek, 'label' => $ev[0], 'svg' => UI::icono($ev[1])];
       }
     ?>
-    <div class="kanban" style="--pc:<?= $color ?>" data-estados='<?= e(json_encode($kbEstados, JSON_UNESCAPED_UNICODE)) ?>'>
+    <div class="kanban" style="--pc:<?= $color ?>" data-estados='<?= e(json_encode($kbEstados, JSON_UNESCAPED_UNICODE)) ?>'<?= $kbFiltro ? ' data-filtrado="1"' : '' ?>>
       <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
       <div class="kb-col">
         <div class="kb-head estado-<?= $k ?>">
           <?= UI::icono($icono) ?> <?= e($label) ?>
-          <span class="kb-count"><?= (int)$resumen[$k] ?></span>
+          <span class="kb-count"><?= (int)$kbResumen[$k] ?></span>
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
-          <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
+          <?php foreach ($kbTareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
           <?php $puedoMover = esAdmin() || TareaRepo::tieneAsignado($t, $miId); ?>
           <div class="kb-card <?= $puedoMover ? '' : 'kb-fija' ?>" draggable="<?= $puedoMover ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <?php if ($puedoMover): ?>
@@ -946,6 +1047,20 @@ foreach ($tareas as $t) {
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
+              <?php if ($kbFiltro):
+                  // Por qué esta tarjeta entra en el rango: se completó o se creó.
+                  $fFin = ProyectoRepo::fecha($t['completada_en'] ?? '');
+                  $enFin = $fFin !== '' && $fFin >= $dDesde && $fFin <= $dHasta; ?>
+                <?php if ($enFin): ?>
+                <small class="kb-dia kb-dia-fin" title="Marcada como completada el <?= e($fFin) ?>">
+                  <i class="fa-solid fa-check"></i> <?= e($diaCorto($fFin)) ?>
+                </small>
+                <?php else: ?>
+                <small class="kb-dia" title="Creada el <?= e($creadaEl($t)) ?>">
+                  <i class="fa-solid fa-plus"></i> <?= e($diaCorto($creadaEl($t))) ?>
+                </small>
+                <?php endif; ?>
+              <?php endif; ?>
               <?php if (!empty($t['fecha_limite'])): ?>
               <small><i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?></small>
               <?php endif; ?>

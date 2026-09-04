@@ -1311,10 +1311,16 @@ function guardarEstadoTarea(id, estado) {
    por AJAX deja esos números en el valor viejo. */
 function pintarAvanceProyecto(res) {
   if (res.conteo) {
+    // Con el filtro de fechas puesto, el tablero NO muestra todo el proyecto:
+    // el conteo del servidor (que sí es del proyecto entero) dejaria columnas
+    // diciendo 6 con dos tarjetas dentro. Ahi se cuentan las tarjetas reales.
+    const kbFiltrado = !!document.querySelector('.kanban[data-filtrado]');
     document.querySelectorAll('.kanban .kb-cards[data-estado-drop]').forEach((z) => {
       const k = z.dataset.estadoDrop;
       const head = z.closest('.kb-col')?.querySelector('.kb-count');
-      if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
+      if (!head) return;
+      if (kbFiltrado) head.textContent = z.querySelectorAll('.kb-card').length;
+      else if (res.conteo[k] !== undefined) head.textContent = res.conteo[k];
     });
     // Los estados del encabezado del proyecto (.phk) y las tarjetas sueltas
     // que siguen usando otras pantallas (.estado-tile).
