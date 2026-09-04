@@ -430,6 +430,71 @@ class UI
      * Avatar de miembro: foto si tiene, iniciales con gradiente si no.
      * $extra: html extra dentro del wrapper (ej. tooltip).
      */
+    /**
+     * Icono por nombre. Busca primero un SVG del set en admin/iconos (si esa
+     * carpeta existe) y, si no está, cae a Font Awesome — que es como se
+     * nombran los iconos en este panel. Así el marcado portado desde el otro
+     * panel funciona igual, y el día que se suelte el set del design system
+     * en admin/iconos empieza a usarse solo, sin tocar código.
+     */
+    public static function icono(string $nombre, string $clase = ''): string
+    {
+        static $cache = [];
+        $mapa = self::mapaIconos();
+        $cls  = trim('ico ' . $clase);
+
+        if (!isset($mapa[$nombre])) {
+            if (str_starts_with($nombre, 'fa-')) {
+                return '<i class="fa-solid ' . e($nombre) . ($clase !== '' ? ' ' . e($clase) : '') . '"></i>';
+            }
+            return '';
+        }
+        if (!isset($cache[$nombre])) {
+            $cache[$nombre] = self::normalizarSvg($mapa[$nombre]);
+        }
+        return preg_replace('/<svg\b/', '<svg class="' . e($cls) . '"', $cache[$nombre], 1);
+    }
+
+    /** Mapa [nombreBase => rutaAbsoluta] de los SVG del set (se cachea). */
+    private static function mapaIconos(): array
+    {
+        static $mapa = null;
+        if ($mapa !== null) {
+            return $mapa;
+        }
+        $mapa = [];
+        foreach (glob(__DIR__ . '/../iconos/*/*.svg') ?: [] as $f) {
+            $mapa[basename($f, '.svg')] = $f;
+        }
+        return $mapa;
+    }
+
+    /** ¿Existe ese icono en el set? */
+    public static function hayIcono(string $nombre): bool
+    {
+        return isset(self::mapaIconos()[$nombre]);
+    }
+
+    /**
+     * Deja el SVG listo para pintarse con el color del texto: color fijo a
+     * currentColor, sin defs ni clip-path y sin medidas propias (las pone el
+     * CSS con .ico, que mide en em).
+     */
+    private static function normalizarSvg(string $ruta): string
+    {
+        $svg = @file_get_contents($ruta);
+        if ($svg === false) {
+            return '';
+        }
+        $svg = str_ireplace(['fill="#334155"', 'fill="#292D32"'], 'fill="currentColor"', $svg);
+        $svg = preg_replace('/<defs>.*?<\/defs>/s', '', $svg);
+        $svg = preg_replace('/\sclip-path="[^"]*"/', '', $svg);
+        $svg = preg_replace_callback('/<svg\b[^>]*>/', function ($m) {
+            return preg_replace('/\s(width|height)="[^"]*"/', '', $m[0]);
+        }, $svg, 1);
+        return trim($svg);
+    }
+
     public static function avatar(?array $m, int $size = 40, bool $tooltip = false): string
     {
         if (!$m) {
