@@ -67,6 +67,31 @@ foreach ($susTareas as $t) {
         $comp <= $lim ? $aTiempo++ : $tarde++;
     }
 }
+/* ---------- Requerimientos sueltos de esta persona ----------
+   No son tareas de proyecto y no salían por ningún lado en su ficha, así que
+   la carga real de alguien con muchos requerimientos se veía a cero. */
+$susReqs = array_values(array_filter(
+    (new RequerimientoRepo())->todos(),
+    fn($r) => RequerimientoRepo::tieneAsignado($r, $id)
+));
+$reqTotal    = count($susReqs);
+$reqCerrados = count(array_filter($susReqs, fn($r) => RequerimientoRepo::cerrado($r)));
+$reqAbiertos = $reqTotal - $reqCerrados;
+$reqVencidos = count(array_filter($susReqs, fn($r) => RequerimientoRepo::vencido($r)));
+$reqCumpl    = $reqTotal ? (int)round($reqCerrados * 100 / $reqTotal) : null;
+
+// Reparto por institución, con el color propio de cada una
+$instRepo   = new InstitucionRepo();
+$instMapaC  = $instRepo->mapa();
+$reqPorInst = [];
+foreach ($susReqs as $r) {
+    foreach (RequerimientoRepo::institucionesDe($r) as $iid) {
+        if (!isset($instMapaC[$iid])) continue;
+        $reqPorInst[$iid] = ($reqPorInst[$iid] ?? 0) + 1;
+    }
+}
+arsort($reqPorInst);
+
 $avance       = $totales ? (int)round($hechas * 100 / $totales) : 0;
 $conPuntualidad = $aTiempo + $tarde;
 $puntualidad  = $conPuntualidad ? (int)round($aTiempo * 100 / $conPuntualidad) : null;
@@ -255,6 +280,45 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
   </div>
 
 </section>
+
+<?php if ($reqTotal): /* solo si tiene: si no, es una tarjeta vacía de más */ ?>
+<!-- Requerimientos sueltos: no son tareas de proyecto, así que van aparte y
+     con su propio corte. Sin esto, alguien cargado de requerimientos aparecía
+     libre en su ficha. -->
+<section class="mc-reqs">
+  <div class="card-base mc-chart">
+    <h2 class="font-display"><?= UI::icono('Requerimientos', 'text-secondary') ?> Requerimientos sueltos
+      <span class="tabla-count"><?= $reqTotal ?></span>
+    </h2>
+    <div class="stats-grid stats-grid-4">
+      <?= UI::stat('fa-inbox',        '#2B76F7', (string)$reqTotal,    'Asignados') ?>
+      <?= UI::stat('fa-circle-check', '#2BB673', (string)$reqCerrados, 'Resueltos') ?>
+      <?= UI::stat('fa-hourglass-half', '#C26F0E', (string)$reqAbiertos, 'Abiertos') ?>
+      <?= UI::stat('fa-triangle-exclamation', '#C66B2D', (string)$reqVencidos, 'Vencidos') ?>
+    </div>
+    <?php if ($reqCumpl !== null): ?>
+    <div class="mc-punt">
+      <p class="mc-punt-num"><?= $reqCumpl ?>%</p>
+      <p class="mc-punt-sub">de los que le tocaron ya están cerrados</p>
+      <span class="mc-split">
+        <span class="mc-split-a" style="width:<?= $reqCumpl ?>%"></span>
+        <span class="mc-split-b" style="width:<?= 100 - $reqCumpl ?>%"></span>
+      </span>
+    </div>
+    <?php endif; ?>
+    <?php if ($reqPorInst): ?>
+    <h3 class="mc-chart-tit">Por institución</h3>
+    <?php
+      $itemsInst = [];
+      foreach ($reqPorInst as $iid => $n2) {
+          $itemsInst[] = [$instMapaC[$iid]['nombre'], $n2, InstitucionRepo::colorBase($instMapaC[$iid])];
+      }
+      echo $barras($itemsInst);
+    ?>
+    <?php endif; ?>
+  </div>
+</section>
+<?php endif; ?>
 
 <section class="card-base tabla-card">
   <div class="tabla-toolbar">
