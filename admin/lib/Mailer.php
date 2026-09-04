@@ -815,8 +815,8 @@ class Mailer
             . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
             // Lo que se responde va ARRIBA y apagado; la respuesta, debajo y
             // con el acento: se lee en el orden en que pasó.
-            . ($responde ? $recuadro('Tu observación', (string)$responde['texto'], '#c9ced8') : '')
-            . $recuadro($responde ? 'Su respuesta' : 'La observación', $texto, $acento);
+            . ($responde ? $recuadro('Observación', (string)$responde['texto'], '#c9ced8') : '')
+            . $recuadro($responde ? 'Respuesta' : 'Observación', $texto, $acento);
 
         return self::enviar($miembro['email'],
             ($responde ? 'Respuesta: ' : 'Observación: ') . ($req['titulo'] ?? ''),
