@@ -1719,7 +1719,11 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .vista-fila {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
+  /* Una línea corrida bajo las pestañas las ata a lo que enseñan. Antes
+     flotaban sueltas sobre el contenido y parecían de otra pantalla. */
+  padding-bottom: 12px;
   margin-bottom: 18px;
+  border-bottom: 1px solid var(--c-border-soft);
 }
 .vista-toggle { display: flex; gap: 10px; flex-wrap: wrap; }
 .vista-toggle .tab-btn { padding: 9px 18px; font-size: .82rem; }
@@ -3327,11 +3331,17 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .met-2col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 30px;
-  align-items: start;
-  margin-top: 22px;
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 18px;
 }
-.met-2col > section { margin: 0; }
+/* A la misma altura y el cuerpo ocupando lo que sobra, para que ninguna
+   quede a medias con un hueco debajo. */
+.met-2col > section {
+  margin: 0; height: 100%;
+  display: flex; flex-direction: column;
+}
+.met-2col > section > .metricas-cuerpo { flex: 1; }
 
 /* Un heatmap por repositorio, lado a lado para llenar el ancho */
 .ap-mapas {
