@@ -1029,6 +1029,40 @@ class ObservacionRepo
         return $items;
     }
 
+    /**
+     * El proyecto en hilos: cada observación que abre uno, con sus respuestas
+     * colgando en 'respuestas' y en orden de llegada (la conversación se lee
+     * de arriba abajo, al revés que la lista, que enseña lo último primero).
+     *
+     * Una respuesta cuyo padre ya no existe se trata como si abriera hilo, para
+     * que no desaparezca al borrar la de arriba.
+     */
+    public function hilosDelProyecto(int $proyectoId): array
+    {
+        $items = $this->delProyecto($proyectoId);
+        $existe = [];
+        foreach ($items as $o) $existe[(int)$o['id']] = true;
+
+        $respuestas = [];
+        foreach ($items as $o) {
+            $padre = (int)($o['padre_id'] ?? 0);
+            if ($padre && isset($existe[$padre])) $respuestas[$padre][] = $o;
+        }
+        foreach ($respuestas as &$lista) {
+            usort($lista, fn($a, $b) => strcmp($a['creado'] ?? '', $b['creado'] ?? ''));
+        }
+        unset($lista);
+
+        $hilos = [];
+        foreach ($items as $o) {
+            $padre = (int)($o['padre_id'] ?? 0);
+            if ($padre && isset($existe[$padre])) continue;      // ya cuelga de otra
+            $o['respuestas'] = $respuestas[(int)$o['id']] ?? [];
+            $hilos[] = $o;
+        }
+        return $hilos;
+    }
+
     public function buscar(int $id): ?array
     {
         return $this->store->find($id);
@@ -1051,6 +1085,8 @@ class ObservacionRepo
             // la primera y solo se usa para el avatar y el color de la tarjeta.
             'para'        => self::destinatariosEntrada($datos['para'] ?? []),
             'creado_por'  => (int)($datos['creado_por'] ?? 0),
+            // Respuesta a otra observación: 0 = es la que abre el hilo.
+            'padre_id'    => (int)($datos['padre_id'] ?? 0),
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),
             'estado'      => 'pendiente',
