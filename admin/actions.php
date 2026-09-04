@@ -1027,10 +1027,16 @@ switch ($accion) {
         }
         // A quién va dirigida: una o varias personas del proyecto. Si no se
         // elige a nadie, queda como observación general del proyecto.
-        $paraIds = array_values(array_unique(array_filter(
-            array_map('intval', (array)($_POST['autor_id'] ?? [])),
-            fn($mid) => $mid > 0 && $miembros->buscar($mid) !== null
-        )));
+        // 'all' = a todo el equipo del proyecto; si no, los ids elegidos.
+        $paraRaw = array_map('strval', (array)($_POST['autor_id'] ?? []));
+        if (in_array('all', $paraRaw, true)) {
+            $paraIds = participantesProyecto($pid, $proyectos, $tareas, $miembros);
+        } else {
+            $paraIds = array_values(array_unique(array_filter(
+                array_map('intval', $paraRaw),
+                fn($mid) => $mid > 0 && $miembros->buscar($mid) !== null
+            )));
+        }
         if (!$paraIds) $paraIds = [0];
         // Quien la escribe NO se elige: sale de la sesión.
         $creadorId = (int)(Auth::usuario()['id'] ?? 0);

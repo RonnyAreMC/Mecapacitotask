@@ -1561,6 +1561,9 @@ foreach ($tareas as $t) {
         <?php /* A quién va dirigida: uno o varios. Con varios se crea una
                  observación por persona, igual que ya se hace por tarea. */ ?>
         <select name="autor_id[]" class="select-meca oc-select" multiple data-ph="¿Para quién? — elige una o varias personas">
+          <?php /* 'all' se despliega en el servidor a todos los que participan
+                   en el proyecto: es la opción para no ir marcando uno a uno. */ ?>
+          <option value="all">Todo el equipo</option>
           <?php foreach (array_slice($opcionesFiltro, 1, null, true) as $mid => $lbl): ?>
           <option value="<?= (int)$mid ?>"><?= e($lbl) ?></option>
           <?php endforeach; ?>
