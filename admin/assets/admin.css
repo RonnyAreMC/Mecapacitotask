@@ -1398,8 +1398,9 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
    ========================================================= */
 .proyecto-hero {
   position: relative;
-  border-radius: 28px;
-  padding: 24px 30px 30px;
+  border-radius: 26px;
+  /* Cabecera compacta: antes 24/30/30 con el avance en una fila propia al pie. */
+  padding: 18px 26px 20px;
   /* Ambiente sutil del color del proyecto para que no se vea plano */
   background:
     radial-gradient(720px 320px at 88% -30%, color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, transparent), transparent 72%),
@@ -1443,14 +1444,20 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-actions form { margin: 0; }
 
 .ph-main {
-  display: flex; align-items: center; gap: 24px;
-  margin-top: 22px;
+  display: flex; align-items: center; gap: 22px;
+  margin-top: 14px;
   flex-wrap: wrap;
+}
+/* Columna derecha del hero: estados + avance, uno bajo el otro */
+.ph-lado {
+  position: relative; z-index: 1;
+  flex: 0 0 auto; margin-left: auto;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
 }
 /* Cuadro de quién lleva el proyecto (PO y SM), bajo el título */
 .ph-lideres {
   display: flex; flex-wrap: wrap; gap: 8px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 .ph-lider {
   display: inline-flex; align-items: center; gap: 9px;
@@ -1466,7 +1473,7 @@ html.dark .ph-watermark { opacity: .14; }
 }
 .ph-lider-txt b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .ph-icon {
-  width: 78px; height: 78px; border-radius: 26px; flex-shrink: 0;
+  width: 64px; height: 64px; border-radius: 22px; flex-shrink: 0;
   background: var(--pc, var(--c-secondary));
   display: flex; align-items: center; justify-content: center;
   color: #fff;
@@ -1476,22 +1483,22 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-info { flex: 1; min-width: 240px; }
 .ph-badges { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ph-fecha { font-size: .78rem; color: var(--c-text-soft); display: inline-flex; gap: 6px; align-items: center; }
-.ph-info h1 { margin: 10px 0 4px; font-size: 1.75rem; font-weight: 800; letter-spacing: -.01em; color: var(--c-text); }
+.ph-info h1 { margin: 8px 0 3px; font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--c-text); }
 .ph-info p { margin: 0; color: var(--c-text-muted); font-size: .93rem; max-width: 560px; }
 
-/* Avance abajo a la derecha del hero: barra semaforo, larga y delgada */
+/* Avance bajo los estados, dentro de .ph-lado: barra semaforo delgada */
 .ph-avance-abajo {
   position: relative; z-index: 1;
-  margin-top: 18px;
   display: flex; align-items: center; justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 .ph-avance-abajo small { color: var(--c-text-soft); font-size: .74rem; font-weight: 700; white-space: nowrap; }
 .pam-num { font-size: .98rem; font-weight: 800; line-height: 1; }
 
 .barra-semaforo {
-  width: min(340px, 55%);
-  height: 12px;
+  flex: 1 1 auto;
+  width: auto; min-width: 80px; max-width: 340px;
+  height: 10px;
   border-radius: 999px;
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
