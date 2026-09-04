@@ -162,11 +162,11 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
 }
 
 /** Cabecera de un bloque de la lista, con su cuenta. */
-function bloqueRequerimientos(string $titulo, string $icono, array $items, array $mapa, array $prioridades, array $estados, string $ayuda = ''): void
+function bloqueRequerimientos(string $titulo, string $icono, array $items, array $mapa, array $prioridades, array $estados, string $ayuda = '', string $clase = ''): void
 {
     if (!$items) return;
     ?>
-    <section class="req-bloque">
+    <section class="req-bloque <?= e($clase) ?>">
       <h2 class="req-titulo">
         <?= UI::icono($icono, "text-secondary") ?> <?= e($titulo) ?>
         <span class="tabla-count"><?= count($items) ?></span>

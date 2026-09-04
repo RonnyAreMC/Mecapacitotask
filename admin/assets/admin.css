@@ -6711,15 +6711,29 @@ html.dark .sit-tarde { color: #ff9d5c; }
 /* Lista a la izquierda y carga del equipo a la derecha: repartir es comparar
    lo que hay que hacer con quién lo puede coger, y antes eso obligaba a
    abrir el modal para verlo. */
-.req-tablero {
-  display: grid; grid-template-columns: minmax(0, 1fr) 21rem;
-  align-items: start; gap: 22px;
-}
+/* Sin panel lateral: la carga del equipo se consulta al asignar, dentro del
+   modal, que es cuando de verdad se decide a quién dárselo. Aquí solo robaba
+   ancho a la lista. */
+.req-tablero { display: block; }
 .req-principal { min-width: 0; }
-.req-lateral { position: sticky; top: 18px; }
-@media (max-width: 1180px) {
-  .req-tablero { grid-template-columns: 1fr; }
-  .req-lateral { position: static; }
+
+/* Lo ya cerrado no necesita una fila entera cada uno: son tarjetas en dos
+   columnas, más bajas y sin el filo de estado — ya no hay estado que avisar. */
+.req-bloque-hecho .req-lista {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.req-bloque-hecho .req-fila {
+  grid-template-columns: 2.2rem minmax(0, 1fr) auto;
+  border-left: 0;
+  padding: 11px 14px;
+  background: color-mix(in srgb, var(--n-bg) 88%, transparent);
+}
+/* De la fila cerrada solo interesan quién y qué: el resto se calla y sigue
+   estando en la ficha al pulsarla. */
+.req-bloque-hecho .req-fila > :nth-child(n+4) { display: none; }
+@media (max-width: 900px) {
+  .req-bloque-hecho .req-lista { grid-template-columns: 1fr; }
 }
 
 /* ----- Buscador y filtros ----- */
@@ -7428,3 +7442,31 @@ html.sb-collapsed .nav-badge-fin {
 .reu-plat.plat-enlace { background: color-mix(in srgb, var(--c-text-soft) 18%, transparent); color: var(--c-text-muted); }
 /* El campo del enlace propio aparece solo con esa opción elegida. */
 .nr-enlace[hidden] { display: none; }
+
+/* ---------- Requerimientos: encabezado más ligero ----------
+   Eran cuatro tarjetones altos y una tarjeta entera para las instituciones,
+   antes siquiera de ver la lista. Se bajan a una tira de indicadores y una
+   fila de chips: la misma información, sin tanto cartón. */
+.req-situacion { gap: 10px; }
+.req-situacion .estado-tile {
+  padding: 10px 14px; gap: 10px; border-radius: 14px;
+}
+.req-situacion .et-icono { width: 34px; height: 34px; border-radius: 10px; }
+.req-situacion .et-datos b { font-size: 1.3rem; }
+.req-situacion .et-datos small { font-size: .68rem; letter-spacing: .05em; }
+
+/* Instituciones: deja de ser una tarjeta con borde y pasa a una tira de chips
+   pegada al resto, que es lo que es — un filtro rápido. */
+.inst-metrica,
+html.dark .inst-metrica {          /* gana a html.dark .card-base */
+  background: transparent; border: 0; box-shadow: none;
+  padding: 0; margin-bottom: 16px;
+}
+.inst-metrica-tit { margin-bottom: 8px; font-size: .82rem; }
+.inst-metrica-lista { gap: 8px; }
+.inst-metrica-item {
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+}
+.inst-metrica-logo { width: 24px; height: 24px; }
+.inst-metrica-datos small { display: none; }   /* el x/y se lee en el title */

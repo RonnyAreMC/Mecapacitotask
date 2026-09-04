@@ -267,11 +267,11 @@ UI::inicio('Requerimientos', 'requerimientos');
 UI::cabecera(
     'Requerimientos <span class="text-secondary">sueltos</span>',
     'Peticiones que no pertenecen a ningún proyecto. Repártelas con su plazo, mirando cuánto tiene encima cada persona.',
-    '<a class="btn-outline btn-meca btn-azul" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
-       <i class="fa-solid fa-chart-column"></i> Panel
+    '<a class="btn-outline btn-meca btn-azul btn-icono" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
+       <i class="fa-solid fa-chart-column"></i> <span class="tab-txt">Panel</span>
      </a>
-     <a class="btn-outline btn-meca btn-azul" href="instituciones.php" title="Catálogo de instituciones">
-       <i class="fa-solid fa-building-columns"></i> Instituciones
+     <a class="btn-outline btn-meca btn-azul btn-icono" href="instituciones.php" title="Catálogo de instituciones">
+       <i class="fa-solid fa-building-columns"></i> <span class="tab-txt">Instituciones</span>
      </a>
      <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo requerimiento
@@ -390,52 +390,12 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         bloqueRequerimientos('Sin asignar', 'fa-inbox', $secciones['sin-asignar'], $mapa, $prioridades, $estados,
             'esperan a que decidas quién lo hace');
         bloqueRequerimientos('En curso', 'fa-user-check', $secciones['en-curso'], $mapa, $prioridades, $estados);
-        bloqueRequerimientos('Cerrados', 'fa-circle-check', $secciones['cerrados'], $mapa, $prioridades, $estados);
+        bloqueRequerimientos('Cerrados', 'fa-circle-check', $secciones['cerrados'], $mapa, $prioridades, $estados,
+            '', 'req-bloque-hecho');
       ?>
     <?php endif; ?>
   </div>
 
-  <!-- Carga del equipo. Antes solo se veía dentro del modal, en el momento de
-       asignar; aquí está siempre delante, que es cuando se decide a quién
-       darle lo siguiente. -->
-  <aside class="req-lateral">
-    <section class="card-base carga-panel">
-      <div class="carga-panel-cab">
-        <h2 class="font-display"><i class="fa-solid fa-scale-unbalanced text-secondary"></i> Carga del equipo</h2>
-        <?php $libres = count(array_filter($carga, fn($c) => $c['total'] === 0)); ?>
-        <p class="ajuste-ayuda">
-          Tareas de proyecto abiertas + requerimientos sin cerrar.
-          <?= $libres ? '<b>' . $libres . '</b> sin nada encima ahora mismo.' : 'Todo el mundo tiene algo encima.' ?>
-        </p>
-      </div>
-
-      <?php $topCarga = $carga ? max(array_column($carga, 'total')) : 0; ?>
-      <ul class="carga-panel-lista">
-        <?php foreach ($carga as $c):
-            $m   = $c['miembro'];
-            $mid = (int)$m['id'];
-            $pct = $topCarga > 0 ? round($c['total'] / $topCarga * 100) : 0;
-            $nivel = $pct >= 66 ? 'alta' : ($pct >= 33 ? 'media' : 'baja');
-            $suyos = $fPersona === $mid;
-        ?>
-        <li class="carga-p carga-<?= $nivel ?><?= $suyos ? ' carga-p-activa' : '' ?>">
-          <!-- Pulsar a alguien filtra la lista con lo suyo: de "está cargado"
-               a "esto es lo que tiene" sin cambiar de pantalla. -->
-          <a href="<?= e(urlFiltro(['persona' => $suyos ? '' : $mid])) ?>"
-             title="<?= $suyos ? 'Quitar el filtro' : 'Ver los requerimientos de ' . e($m['nombre']) ?>">
-            <?= UI::avatar($m, 30) ?>
-            <span class="carga-p-datos">
-              <strong class="truncate"><?= e($m['nombre']) ?></strong>
-              <small class="truncate"><?= $c['tareas'] ?> tareas · <?= $c['reqs'] ?> req.</small>
-            </span>
-            <span class="carga-p-barra"><span style="width:<?= max($pct, $c['total'] > 0 ? 8 : 0) ?>%"></span></span>
-            <b class="carga-p-num"><?= $c['total'] ?></b>
-          </a>
-        </li>
-        <?php endforeach; ?>
-      </ul>
-    </section>
-  </aside>
 </div>
 <?php fichaRequerimiento(true); ?>
 
