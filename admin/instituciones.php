@@ -132,7 +132,7 @@ UI::cabecera(
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
+      <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>
 </dialog>

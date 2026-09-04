@@ -48,9 +48,12 @@
 
 /* ----- Modo oscuro ----- */
 html.dark {
-  --n-bg: #262c3a;
-  --n-sh-d: #1a1f2a;
-  --n-sh-l: #313a4c;
+  /* Fondo oscuro en azul marino y más levantado: el #262c3a de antes tiraba a
+     negro. Subirlo baja el contraste de todo lo que va encima, así que los
+     tonos que se quedaban cortos sobre él están corregidos más abajo. */
+  --n-bg: #2E3A57;
+  --n-sh-d: #212a40;
+  --n-sh-l: #3a4972;
 
   /* El #000080 sobre el fondo oscuro se pierde: casi no se distingue del
      propio fondo. En oscuro la pastilla sube a un azul que sí destaca y
@@ -59,10 +62,10 @@ html.dark {
 
   /* Neutrales de mecapacito.css re-mapeados */
   --c-bg: var(--n-bg);
-  --c-bg-soft: #2b3343;
+  --c-bg-soft: #36425f;
   --c-text: #e9edf6;
   --c-text-muted: #b6c0d2;
-  --c-text-soft: #8e99ae;
+  --c-text-soft: #9AA6BC;
   --c-border: rgba(255, 255, 255, .09);
   --c-border-soft: rgba(255, 255, 255, .06);
 
@@ -1126,11 +1129,11 @@ html.dark .btn-ghost.btn-meca:hover {
 }
 html.dark {
   --btn-azul:  #66B2FF;  --btn-azul-h:  #96CBFF;
-  --btn-rojo:  #F1707A;  --btn-rojo-h:  #FF9AA2;
+  --btn-rojo:  #F98A92;  --btn-rojo-h:  #FFB0B6;
   --btn-verde: #35C078;  --btn-verde-h: #5FD396;
   --btn-ambar: #F0A73F;  --btn-ambar-h: #F5BC6B;
   --btn-navy:  #8FA8FF;  --btn-navy-h:  #B3C2FF;
-  --btn-gris:  #8E99AE;
+  --btn-gris:  #9AA6BC;
 }
 
 .btn-outline.btn-meca.btn-azul  { --bc: var(--btn-azul);  --bc-h: var(--btn-azul-h); }
@@ -1464,7 +1467,7 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 html.dark .pestado-completado { color: #7fabff; }
 
 /* Colores por estado (oscuro: mas brillantes) */
-html.dark .estado-pendiente { color: #F1707A; }
+html.dark .estado-pendiente { color: #F98A92; }
 html.dark .estado-progreso  { color: #66B2FF; }
 html.dark .estado-revision  { color: #F0A73F; }
 html.dark .estado-hecho     { color: #35C078; }
@@ -4644,6 +4647,11 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
   border-color: var(--c-tab-activo);
   color: #fff;
 }
+/* Sobre el fondo marino, el relleno que aguanta texto blanco no separa lo
+   suficiente del fondo. Aclararlo rompería el blanco, así que el borde lo
+   marca un aro claro y el relleno se queda como está. */
+html.dark .tab-btn.active,
+html.dark .tab-btn.active:hover { box-shadow: 0 0 0 1px rgba(255, 255, 255, .22); }
 .tab-panel[hidden] { display: none; }
 
 /* =========================================================

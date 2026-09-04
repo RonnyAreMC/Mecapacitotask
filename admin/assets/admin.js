@@ -3352,7 +3352,7 @@ document.addEventListener('change', (e) => {
       pista: '#cfd8e6',                       // canal vacío del medidor
     },
     oscuro: {
-      sup: '#262c3a',
+      sup: '#2E3A57',
       hecho: '#28AC69',
       pendiente: '#7E8FAC',
       tinta: ['#08301c', '#101827'],

@@ -759,7 +759,7 @@ UI::cabecera(
   </div>
 
   <footer class="ajustes-guardar">
-    <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
+    <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
   </footer>
 </form>
 

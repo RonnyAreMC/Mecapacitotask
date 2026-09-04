@@ -227,7 +227,7 @@ UI::inicio('Mi perfil', 'perfil');
     <span class="pf-guardar-txt"><i class="fa-solid fa-circle-dot"></i> Tienes cambios sin guardar</span>
     <div class="pf-guardar-acc">
       <button type="button" class="btn-outline btn-meca btn-rojo" id="pf-descartar">Descartar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </div>
   </div>
 </form>

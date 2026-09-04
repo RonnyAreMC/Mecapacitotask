@@ -153,7 +153,7 @@ UI::cabecera(
       <form method="post" action="actions.php" class="inline-form">
         <input type="hidden" name="accion" value="equipo_importar_confirmar">
         <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-        <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Confirmar carga</button>
+        <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Confirmar carga</button>
       </form>
     </div>
   </div>
@@ -430,7 +430,7 @@ UI::cabecera(
     <?php camposPersona(true, $eq, $equipos); ?>
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>
@@ -462,7 +462,7 @@ UI::cabecera(
     </div>
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>
 </dialog>
