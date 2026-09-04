@@ -181,16 +181,19 @@ require __DIR__ . '/lib/deploy_tira.php';
     <?php $hayEspera = false; foreach ($filas as $pid => $f):
         if (!$f['pendientes']) continue;
         $hayEspera = true;
-        $nEsp = count($f['pendientes']); ?>
+        $nEsp = count($f['pendientes']);
+        // Solo el alias: es el nombre con el que quien sube reconoce la cosa.
+        // Con los dos, la tarjeta repetía "Equipo Delta / ms-talento_humano" y
+        // la mitad que se lee no era la que sirve aquí. El nombre del panel
+        // sigue en el modal y en el título del botón.
+        $aliasEsp = aliasDeploy($pid); ?>
     <button type="button" class="dep-espera-card" aria-haspopup="dialog"
             style="--pc:<?= e(ProyectoRepo::colorBase($f['proyecto'])) ?>"
+            title="<?= e($f['proyecto']['nombre']) ?>"
             onclick="document.getElementById('dlg-espera-<?= $pid ?>').showModal()">
       <span class="dee-ico"><?= UI::icono($f['proyecto']['icono'] ?? 'FolderOpen') ?></span>
       <span class="dee-txt">
-        <b class="truncate"><?= e($f['proyecto']['nombre']) ?></b>
-        <small><?php $aliasEsp = aliasDeploy($pid); ?>
-          <?php if ($aliasEsp): ?><span class="dee-alias"><?= e($aliasEsp) ?></span><?php else: ?><?= UI::icono('Eye') ?> Ver detalle<?php endif; ?>
-        </small>
+        <b class="truncate<?= $aliasEsp ? ' dee-alias' : '' ?>"><?= e($aliasEsp ?: $f['proyecto']['nombre']) ?></b>
       </span>
       <span class="dee-n"><?= $nEsp ?></span>
     </button>

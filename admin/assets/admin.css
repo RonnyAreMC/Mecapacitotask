@@ -8003,12 +8003,6 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   .dep-alias-proy { flex: 1 1 100%; }
 }
 
-/* El alias en la tarjeta de "esperando subida" */
-.dee-alias {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: .7rem; font-weight: 700; color: var(--pc, var(--c-secondary));
-}
-
 /* ---------- Esperando subida ----------
 
    Una tarjeta por proyecto con el número; los títulos, en el modal. Antes cada
@@ -8042,14 +8036,16 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 }
 .dee-ico .ico { width: 19px; height: 19px; }
 /* min-width:0 para que el nombre largo se corte con "…" y no ensanche la tarjeta */
-.dee-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.dee-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
 .dee-txt b { font-size: .88rem; font-weight: 800; color: var(--c-text); }
 .dee-txt .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dee-txt small {
-  display: flex; align-items: center; gap: 5px;
-  font-size: .72rem; font-weight: 600; color: var(--c-text-soft);
+/* El alias hace de título. Va en monoespaciada —es un nombre técnico, no una
+   frase— pero en el color del texto: coloreado por proyecto, un amarillo o un
+   verde claro quedaban ilegibles a este tamaño. */
+.dee-txt b.dee-alias {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .84rem; letter-spacing: -.01em;
 }
-.dee-txt small .ico { width: 12px; height: 12px; }
 .dee-n {
   flex: 0 0 auto; min-width: 36px; padding: 5px 11px; border-radius: 999px;
   background: #C66B2D; color: #fff;
