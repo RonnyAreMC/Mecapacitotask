@@ -35,8 +35,9 @@ $accionesDeCualquiera = [
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
     'dep_recordar',
     // El responsable de un requerimiento suelto puede marcarlo terminado desde
-    // su bandeja (dentro se comprueba que sea suyo).
-    'req_terminar',
+    // su bandeja, y anotar observaciones en el que tenga asignado (dentro se
+    // comprueba que sea suyo).
+    'req_terminar', 'req_observar',
     // Quien sube los cambios al servidor de pruebas suele ser un colaborador
     // sin permisos de gestion: el encargado se comprueba con puedeDesplegar().
     'deploy_registrar',
@@ -1672,6 +1673,81 @@ switch ($accion) {
         $reqTermAct = $reqRepo->buscar((int)$req['id']) ?? $req;
         $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
         redirigir('bandeja.php', 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
+
+    case 'req_observar':
+        // Dejar dicho algo sobre un requerimiento —"estimado, ¿qué pasó con
+        // esto?"— y que le llegue por correo a la otra parte. Nace de los
+        // vencidos: se veía que llevaba dos días pasado de fecha, pero para
+        // preguntar había que salirse del panel a WhatsApp, y lo preguntado
+        // no quedaba en ninguna parte.
+        //
+        // La observación se guarda SIEMPRE, aunque el correo no salga (sin
+        // SMTP configurado, o sin dirección): perder lo escrito porque falló
+        // el envío es peor que quedarse sin aviso.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $volverObs = volverAqui('requerimientos.php');
+        if (!$req) {
+            redirigir($volverObs, 'Ese requerimiento ya no existe.', 'error');
+        }
+        $yoObs = (int)(Auth::usuario()['id'] ?? 0);
+        // La escribe quien lo gestiona o quien lo tiene asignado: es una
+        // conversación entre esas dos partes. El supervisor solo observa.
+        if (Auth::esSupervisor() || (!esAdmin() && !RequerimientoRepo::tieneAsignado($req, $yoObs))) {
+            redirigir($volverObs, 'Solo quien gestiona el requerimiento o lo tiene asignado puede anotar observaciones.', 'error');
+        }
+        $textoObs = trim($_POST['texto'] ?? '');
+        if ($textoObs === '') {
+            redirigir($volverObs, 'Escribe la observación antes de enviarla.', 'error');
+        }
+
+        // ¿Abre hilo o responde a una? Un padre que ya no exista se ignora
+        // dentro de observar() y la observación abre hilo.
+        $padreObs = (int)($_POST['padre_id'] ?? 0);
+        $laQueRespondeObs = $padreObs > 0
+            ? RequerimientoRepo::observacionDe($req, $padreObs)
+            : null;
+
+        // A quién le llega:
+        //
+        //  - Si ABRE hilo, a los responsables y a nadie más. La observación es
+        //    el tirón de orejas a quien no está cumpliendo; quien la registró
+        //    no necesita copia de cada una.
+        //  - Si RESPONDE, a quien escribió aquello que se responde. Así el hilo
+        //    cierra el círculo: Felipe le escribe a Jaione, Jaione contesta y
+        //    Felipe se entera — sin que Ronny, que solo la registró, reciba
+        //    nada en todo el intercambio.
+        //
+        // Quien escribe queda siempre fuera, que si no se mandaría el correo a
+        // sí mismo.
+        $paraObs = [];
+        $destinosObs = $laQueRespondeObs
+            ? [$laQueRespondeObs['autor']]
+            : RequerimientoRepo::asignadosDe($req);
+        foreach ($destinosObs as $midObs) {
+            if ($midObs <= 0 || $midObs === $yoObs || isset($paraObs[$midObs])) continue;
+            if ($mObs = $miembros->buscar($midObs)) $paraObs[$midObs] = $mObs;
+        }
+        $autorObs = $miembros->buscar($yoObs) ?? [];
+        $avisadosObs = [];
+        foreach ($paraObs as $midObs => $mObs) {
+            if (Mailer::observacionRequerimiento($req, $autorObs, $mObs, $textoObs, $laQueRespondeObs) === true) {
+                $avisadosObs[] = $midObs;
+            }
+        }
+        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs);
+
+        $nAvObs = count($avisadosObs);
+        $rotuloObs = $laQueRespondeObs ? 'Respuesta anotada en «' : 'Observación anotada en «';
+        redirigir($volverObs, $rotuloObs . ($req['titulo'] ?? '') . '».'
+            . ($nAvObs
+                ? ' Avisamos por correo a ' . implode(', ', array_map(
+                    fn($mid) => explode(' ', trim((string)($paraObs[$mid]['nombre'] ?? '')))[0], $avisadosObs)) . '.'
+                : (!$paraObs
+                    ? ($laQueRespondeObs
+                        ? ' No salió correo: la escribiste tú o quien la escribió ya no está en el equipo.'
+                        : ' Nadie la tiene asignada todavía, así que no salió ningún correo.')
+                    : ' No salió el correo (revisa Ajustes → Correo), pero queda anotada.')));
 
     case 'req_eliminar':
         $reqRepo = new RequerimientoRepo();

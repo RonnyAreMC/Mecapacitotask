@@ -3158,6 +3158,89 @@ document.addEventListener('change', (e) => {
     }
 
     ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    const idObs = $('fq-id-observar');
+    if (idObs) idObs.value = r.id;
+
+    // Observaciones: la conversación sobre este requerimiento. Se pintan con
+    // textContent y no con innerHTML — las escribe gente y llevan lo que
+    // Observaciones, en hilo: cada una con sus respuestas debajo y con
+    // sangría. Se pintan con textContent y no con innerHTML — las escribe
+    // gente y llevan dentro lo que quieran.
+    const lista = $('fq-obs');
+    if (lista) {
+      const hilos = Array.isArray(r.observaciones) ? r.observaciones : [];
+      const padre = $('fq-obs-padre');
+      const tira = $('fq-obs-respondiendo');
+      const enviar = $('fq-obs-enviar');
+      const caja = $('fq-obs-form') && $('fq-obs-form').querySelector('textarea');
+
+      // Deja de responder: la siguiente vuelve a abrir hilo.
+      const soltar = () => {
+        if (padre) padre.value = '0';
+        if (tira) tira.hidden = true;
+        if (enviar) enviar.textContent = 'Notificar';
+        if (caja) caja.placeholder = 'Estimado, ¿qué pasó con este requerimiento?';
+      };
+      const responderA = (o) => {
+        if (padre) padre.value = o.id;
+        if (tira) {
+          tira.querySelector('span').textContent = 'Respondiendo a ' + o.autor;
+          tira.hidden = false;
+        }
+        if (enviar) enviar.textContent = 'Responder';
+        if (caja) { caja.placeholder = 'Tu respuesta para ' + o.autor + '…'; caja.focus(); }
+      };
+      if (tira && !tira.dataset.listo) {
+        tira.dataset.listo = '1';
+        tira.querySelector('.fq-obs-cancelar').addEventListener('click', soltar);
+      }
+
+      const pinta = (o, esRespuesta) => {
+        const li = document.createElement('li');
+        if (esRespuesta) li.className = 'fq-obs-r';
+        const p = document.createElement('p');
+        p.textContent = o.texto;
+        const meta = document.createElement('small');
+        meta.textContent = [o.autor, o.creado].filter(Boolean).join(' · ');
+        li.append(p, meta);
+        // Se responde AL HILO, no a la respuesta: un solo nivel de sangría.
+        // El correo va igual a quien escribió lo que se está respondiendo.
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fq-obs-responder';
+        btn.innerHTML = '<i class="fa-solid fa-reply"></i> Responder';
+        btn.addEventListener('click', () => responderA(o));
+        li.append(btn);
+        return li;
+      };
+
+      lista.textContent = '';
+      let total = 0;
+      hilos.forEach((o) => {
+        total++;
+        lista.append(pinta(o, false));
+        (o.respuestas || []).forEach((rr) => { total++; lista.append(pinta(rr, true)); });
+      });
+      soltar();
+      lista.hidden = total === 0;
+      const vacio = $('fq-obs-vacio');
+      if (vacio) vacio.hidden = total > 0;
+      const cuantas = $('fq-obs-n');
+      if (cuantas) {
+        cuantas.textContent = total;
+        cuantas.hidden = total === 0;
+      }
+      // A quién le va a llegar: se dice ANTES de escribir, que es cuando
+      // importa. Una que abre hilo va a los responsables; una respuesta, a
+      // quien escribió aquello que se responde (lo dice la tira de arriba).
+      const para = $('fq-obs-para');
+      if (para) {
+        const nombres = (r.personas || []).map((p) => p.nombre.split(' ')[0]);
+        para.textContent = nombres.length
+          ? 'Al enviarla le llega por correo a ' + nombres.join(', ') + '. Al responder, a quien escribió esa observación.'
+          : 'Nadie la tiene asignada, así que no saldrá ningún correo: queda solo anotada.';
+      }
+    }
     // Cerrarlo solo tiene sentido mientras siga abierto
     const resolver = $('fq-resolver');
     if (resolver) resolver.hidden = r.cerrado;

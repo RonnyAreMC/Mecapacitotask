@@ -947,6 +947,109 @@ class RequerimientoRepo
     }
 
     /**
+     * Observaciones de un requerimiento, en plano y de la mas vieja a la mas
+     * nueva. Cada una lleva 'padre': 0 si abre hilo, o el id de aquella a la
+     * que responde.
+     *
+     * Viven DENTRO del requerimiento y no en ObservacionRepo: aquel cuelga de
+     * un proyecto ('proyecto_id') y estos son justamente los que no pertenecen
+     * a ninguno, asi que alli quedarian huerfanos y sin pantalla donde salir.
+     *
+     * El 'id' se rellena por posicion si falta: las primeras que se guardaron
+     * no lo llevaban, y sin el no habria a que colgar una respuesta.
+     */
+    public static function observacionesDe(array $r): array
+    {
+        $obs = [];
+        $n = 0;
+        foreach ((array)($r['observaciones'] ?? []) as $o) {
+            if (!is_array($o) || trim((string)($o['texto'] ?? '')) === '') continue;
+            $n++;
+            $obs[] = [
+                'id'     => (int)($o['id'] ?? 0) ?: $n,
+                'padre'  => (int)($o['padre'] ?? 0),
+                'texto'  => (string)$o['texto'],
+                'autor'  => (int)($o['autor'] ?? 0),
+                'creado' => (string)($o['creado'] ?? ''),
+                'avisados' => array_values(array_filter(array_map('intval', (array)($o['avisados'] ?? [])))),
+            ];
+        }
+        usort($obs, fn($a, $b) => strcmp($a['creado'], $b['creado']) ?: ($a['id'] <=> $b['id']));
+        return $obs;
+    }
+
+    /**
+     * Lo mismo, pero en hilos: cada observacion que abre uno, con sus
+     * respuestas colgando en 'respuestas'. Un solo nivel de sangria — quien
+     * responde a una respuesta cuelga del mismo hilo y no mas adentro, que a
+     * la tercera sangria no queda ancho para leer.
+     *
+     * Una respuesta cuyo padre ya no existe pasa a abrir hilo, para que no
+     * desaparezca de la pantalla.
+     */
+    public static function hilosDe(array $r): array
+    {
+        $obs = self::observacionesDe($r);
+        $raiz = [];                       // id de cualquier observacion => id del hilo
+        foreach ($obs as $o) {
+            $p = $o['padre'];
+            $raiz[$o['id']] = ($p && isset($raiz[$p])) ? $raiz[$p] : $o['id'];
+        }
+        $respuestas = [];
+        foreach ($obs as $o) {
+            if ($raiz[$o['id']] !== $o['id']) $respuestas[$raiz[$o['id']]][] = $o;
+        }
+        $hilos = [];
+        foreach ($obs as $o) {
+            if ($raiz[$o['id']] !== $o['id']) continue;
+            $o['respuestas'] = $respuestas[$o['id']] ?? [];
+            $hilos[] = $o;
+        }
+        return $hilos;
+    }
+
+    /** Una observacion suelta del requerimiento, por su id. */
+    public static function observacionDe(array $r, int $obsId): ?array
+    {
+        foreach (self::observacionesDe($r) as $o) {
+            if ($o['id'] === $obsId) return $o;
+        }
+        return null;
+    }
+
+    /**
+     * Anota una observacion (o una respuesta, si $padre apunta a otra) y
+     * devuelve el requerimiento ya actualizado.
+     *
+     * Se relee dentro y se vuelve a escribir la lista entera porque el store
+     * guarda el campo tal cual: sumar al array en memoria de quien llamo
+     * pisaria lo que otro hubiera anotado mientras tanto.
+     */
+    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0): ?array
+    {
+        $r = $this->buscar($id);
+        if (!$r) return null;
+        $lista = self::observacionesDe($r);
+        $siguiente = 1;
+        foreach ($lista as $o) {
+            if ($o['id'] >= $siguiente) $siguiente = $o['id'] + 1;
+        }
+        // Un padre que no existe se ignora: la observacion abre hilo en vez de
+        // perderse colgada de una nada.
+        if ($padre > 0 && self::observacionDe($r, $padre) === null) $padre = 0;
+        $lista[] = [
+            'id'       => $siguiente,
+            'padre'    => $padre,
+            'texto'    => mb_substr(trim($texto), 0, 1000),
+            'autor'    => $autorId,
+            'creado'   => date('Y-m-d H:i'),
+            'avisados' => array_values(array_unique(array_map('intval', $avisados))),
+        ];
+        $this->store->update($id, ['observaciones' => $lista]);
+        return $this->buscar($id);
+    }
+
+    /**
      * Asigna a una o varias personas CON las fechas del encargo: asignar y
      * poner plazo son la misma decision, asi que se guardan juntas y no en
      * dos pasos (antes las fechas solo se podian escribir al registrarlo).

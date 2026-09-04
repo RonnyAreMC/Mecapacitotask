@@ -7073,6 +7073,60 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .fq-cierre p { margin: 0; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fq-cierre-meta { display: block; margin-top: 6px; color: var(--c-text-soft); font-size: .78rem; }
 
+/* Observaciones del requerimiento: la conversación, y debajo el campo para
+   añadir la siguiente. Se lee de arriba abajo —la más vieja primero—, al
+   revés que la lista de requerimientos, porque aquí es un hilo. */
+.fq-obs { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fq-obs[hidden] { display: none; }
+.fq-obs li {
+  padding: 9px 13px; border-radius: 12px;
+  border: 1px solid var(--c-border-soft);
+  background: color-mix(in srgb, var(--c-secondary) 4%, transparent);
+}
+.fq-obs li p {
+  margin: 0; font-size: .87rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.fq-obs li small { display: block; margin-top: 5px; color: var(--c-text-soft); font-size: .74rem; }
+.fq-obs-vacio { margin: 0 0 10px; color: var(--c-text-soft); font-style: italic; font-size: .86rem; }
+.fq-obs-n {
+  margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 15%, transparent);
+  color: var(--c-secondary); font-size: .72rem; font-weight: 800;
+}
+.fq-obs-form { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.fq-obs-form textarea { resize: vertical; min-height: 52px; }
+.fq-obs-form .btn-meca { align-self: flex-end; }
+/* Las respuestas: sangradas y con la línea del hilo al costado. Un solo nivel
+   —quien responde a una respuesta cuelga igual del hilo—, porque a la tercera
+   sangría no queda ancho para leer nada. */
+.fq-obs li.fq-obs-r {
+  margin-left: 22px;
+  border-left: 2px solid color-mix(in srgb, var(--c-secondary) 30%, transparent);
+  border-radius: 4px 12px 12px 4px;
+}
+.fq-obs-responder {
+  margin-top: 7px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: .74rem; font-weight: 700; color: var(--c-secondary);
+}
+.fq-obs-responder:hover { text-decoration: underline; }
+.fq-obs-responder i { margin-right: 4px; }
+/* "Respondiendo a X", encima del campo: sin esto no se sabe si lo que se
+   escribe abre hilo o contesta, que es lo que decide a quién le llega. */
+.fq-obs-respondiendo {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding: 6px 11px; border-radius: 10px;
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  color: var(--c-secondary); font-size: .76rem; font-weight: 700;
+}
+.fq-obs-respondiendo[hidden] { display: none; }
+.fq-obs-respondiendo span { flex: 1 1 auto; min-width: 0; }
+.fq-obs-cancelar {
+  flex: none; padding: 0; border: 0; background: none; cursor: pointer;
+  color: inherit; font-size: .85rem; line-height: 1;
+}
+#fq-obs-para { display: block; margin-top: 7px; }
+
 /* Selector de personas del paso "Responsables". Vive dentro de un panel del
    asistente, así que se desplaza él solo: con 23 personas, dejar crecer el
    panel obligaba a scrollear el modal entero para llegar a los botones. */

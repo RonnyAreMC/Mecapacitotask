@@ -772,6 +772,59 @@ class Mailer
     }
 
     /**
+     * Observación sobre un requerimiento suelto: la pregunta que alguien deja
+     * escrita ("¿qué pasó con esto?") y que sale por correo a la otra parte.
+     *
+     * Lleva el plazo y el aviso de vencido en la cabecera de datos, que es el
+     * motivo por el que casi siempre se escribe una.
+     *
+     * $responde, si viene, es la observación a la que esta contesta: el correo
+     * cambia de cara —"te respondió"— y cita el texto de arriba, para que quien
+     * lo abre sepa a qué le están contestando sin entrar al panel.
+     */
+    public static function observacionRequerimiento(
+        array $req, array $autor, array $miembro, string $texto, ?array $responde = null
+    ): true|string|null {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $vencido = RequerimientoRepo::vencido($req);
+        $acento  = $vencido ? '#C66B2D' : (Config::all()['color_secundario'] ?? '#2B76F7');
+        $nombre  = $autor['nombre'] ?? 'Alguien';
+        $fin     = RequerimientoRepo::fechaFin($req);
+
+        $filas = [];
+        if (!empty($req['solicitante'])) $filas['Lo pide'] = e((string)$req['solicitante']);
+        if ($fin !== '') {
+            $filas['Entrega'] = e($fin) . ($vencido ? ' <b style="color:' . $acento . '">(vencido)</b>' : '');
+        }
+        $filas['Te escribe'] = e($nombre);
+
+        $recuadro = function (string $titulo, string $cuerpo, string $color) {
+            return '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $color . ';'
+                 . 'background:#f7f8fa;color:#1d1d1f;font-size:14px;line-height:1.55;">'
+                 . '<b>' . $titulo . '</b><br>' . nl2br(e($cuerpo)) . '</div>';
+        };
+
+        $cuerpo = self::encabezado($acento, '&#128172;',
+                    $responde ? 'Respuesta a tu observación' : 'Observación en un requerimiento',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', <b>' . e($nombre) . '</b> '
+                    . ($responde
+                        ? 'respondió a la observación que dejaste.'
+                        : 'dejó una observación sobre un requerimiento que tienes.'))
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            // Lo que se responde va ARRIBA y apagado; la respuesta, debajo y
+            // con el acento: se lee en el orden en que pasó.
+            . ($responde ? $recuadro('Tu observación', (string)$responde['texto'], '#c9ced8') : '')
+            . $recuadro($responde ? 'Su respuesta' : 'La observación', $texto, $acento);
+
+        return self::enviar($miembro['email'],
+            ($responde ? 'Respuesta: ' : 'Observación: ') . ($req['titulo'] ?? ''),
+            self::plantilla($cuerpo));
+    }
+
+
+    /**
      * Avisa de que un requerimiento suelto se TERMINÓ. Lo dispara el responsable
      * desde su bandeja; va a quien lo asignó ($para). Incluye la observación de
      * cómo lo dejó (rama, commits…).

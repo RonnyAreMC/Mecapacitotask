@@ -114,6 +114,20 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
         'cerradoPor'  => (string)($mapa[(int)($r['cerrado_por'] ?? 0)]['nombre'] ?? ''),
         'cerradoEn'   => (string)($r['cerrado_en'] ?? ''),
+        // Las observaciones en hilos, ya con el nombre de quien las escribió:
+        // el JS solo recibe esta fila, no el mapa del equipo entero.
+        'observaciones' => array_map(fn($o) => [
+            'id'     => $o['id'],
+            'texto'  => $o['texto'],
+            'autor'  => (string)($mapa[$o['autor']]['nombre'] ?? 'Alguien'),
+            'creado' => $o['creado'],
+            'respuestas' => array_map(fn($rr) => [
+                'id'     => $rr['id'],
+                'texto'  => $rr['texto'],
+                'autor'  => (string)($mapa[$rr['autor']]['nombre'] ?? 'Alguien'),
+                'creado' => $rr['creado'],
+            ], $o['respuestas']),
+        ], RequerimientoRepo::hilosDe($r)),
     ];
     ?>
     <button type="button" class="req-fila req-e-<?= e($estado) ?><?= $vencido ? ' req-fila-vencida' : '' ?>"
@@ -239,6 +253,38 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
           <h4><i class="fa-solid fa-circle-check text-secondary"></i> Cómo se entregó</h4>
           <p id="fq-nota-cierre"></p>
           <small class="fq-cierre-meta" id="fq-cierre-meta"></small>
+        </div>
+
+        <!-- Observaciones: la conversación sobre el requerimiento. Nace de los
+             vencidos —se veía "vencido hace dos días" y para preguntar había
+             que salirse a WhatsApp, donde lo preguntado no queda—. Se escribe
+             aquí, sale por correo a la otra parte y queda con fecha y autor. -->
+        <div class="fq-bloque">
+          <h4><i class="fa-solid fa-comments text-secondary"></i> Observaciones
+            <span class="fq-obs-n" id="fq-obs-n" hidden></span>
+          </h4>
+          <ul class="fq-obs" id="fq-obs"></ul>
+          <p class="fq-obs-vacio" id="fq-obs-vacio">Todavía no hay ninguna.</p>
+          <form method="post" action="actions.php" class="fq-obs-form" id="fq-obs-form">
+            <input type="hidden" name="accion" value="req_observar">
+            <input type="hidden" name="id" id="fq-id-observar">
+            <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'requerimientos.php')) ?>">
+            <!-- 0 = abre hilo. Lo pone el botón "Responder" de cada
+                 observación, y el aspa de la tira lo devuelve a 0. -->
+            <input type="hidden" name="padre_id" id="fq-obs-padre" value="0">
+            <p class="fq-obs-respondiendo" id="fq-obs-respondiendo" hidden>
+              <span></span>
+              <button type="button" class="fq-obs-cancelar" title="Dejar de responder">
+                <i class="fa-solid fa-xmark"></i>
+              </button>
+            </p>
+            <textarea class="input-meca" name="texto" rows="2" maxlength="1000" required
+                      placeholder="Estimado, ¿qué pasó con este requerimiento?"></textarea>
+            <button class="btn-primary btn-meca">
+              <i class="fa-solid fa-paper-plane"></i> <span id="fq-obs-enviar">Notificar</span>
+            </button>
+          </form>
+          <small class="campo-ayuda" id="fq-obs-para"></small>
         </div>
 
         <footer>
