@@ -25,6 +25,9 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
         if (isset($miembros[(int)$pid2])) $paraNombres[] = $miembros[(int)$pid2]['nombre'];
     }
     $c1      = $autor ? Catalogo::colorDe($autor['color'] ?? 0) : '#64748b';
+    // Color de quien la escribió: tiñe su nombre al pie, que no siempre es
+    // la misma persona a la que va dirigida.
+    $c2      = $creador ? Catalogo::colorDe($creador['color'] ?? 0) : $c1;
     $eqLabel = $equipos[$o['equipo'] ?? '']['0'] ?? 'Equipo';
     $eqIcono = $equipos[$o['equipo'] ?? '']['1'] ?? 'fa-user';
     $pend    = ($o['estado'] ?? 'pendiente') === 'pendiente';
@@ -39,7 +42,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
 
     ob_start();
     ?>
-    <article class="obs-item <?= $esRespuesta ? 'obs-respuesta' : '' ?> <?= $pend ? 'obs-pend' : 'obs-res' ?><?= $esRecord ? ' obs-record' : '' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>">
+    <article class="obs-item <?= $esRespuesta ? 'obs-respuesta' : '' ?> <?= $pend ? 'obs-pend' : 'obs-res' ?><?= $esRecord ? ' obs-record' : '' ?>" data-estado="<?= $pend ? 'pendiente' : 'resuelta' ?>" style="--av-c1:<?= $c1 ?>;--av-c2:<?= $c2 ?>">
       <div class="obs-cabecera">
         <?= UI::avatar($autor, 40) ?>
         <div class="obs-autor">

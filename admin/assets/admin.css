@@ -1719,14 +1719,34 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .vista-fila {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
-  /* Una línea corrida bajo las pestañas las ata a lo que enseñan. Antes
-     flotaban sueltas sobre el contenido y parecían de otra pantalla. */
-  padding-bottom: 12px;
+  /* El riel de pestañas ya se delimita solo; una línea más debajo sobraba. */
   margin-bottom: 18px;
-  border-bottom: 1px solid var(--c-border-soft);
 }
-.vista-toggle { display: flex; gap: 10px; flex-wrap: wrap; }
-.vista-toggle .tab-btn { padding: 9px 18px; font-size: .82rem; }
+/* Las pestañas no son pastillas sueltas flotando sobre el contenido: son una
+   sola barra que ocupa el ancho y se reparte entre todas. Cada una crece por
+   igual, así no queda hueco a la derecha. */
+.vista-toggle {
+  flex: 1 1 420px;
+  display: flex; gap: 4px;
+  padding: 5px; border-radius: 16px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  /* Si de verdad no caben (pantalla estrecha con la barra abierta) la fila
+     rueda de lado; nunca se montan unas sobre otras. */
+  overflow-x: auto; scrollbar-width: none;
+}
+.vista-toggle::-webkit-scrollbar { display: none; }
+.vista-toggle .tab-btn {
+  flex: 1 0 auto; justify-content: center; white-space: nowrap;
+  padding: 10px 12px; font-size: .82rem;
+  border: 0; border-radius: 12px;
+  background: transparent;
+}
+.vista-toggle .tab-btn:hover {
+  background: color-mix(in srgb, var(--c-tab-activo) 9%, transparent);
+  color: var(--c-text);
+}
+.vista-toggle .tab-btn.active,
+.vista-toggle .tab-btn.active:hover { background: var(--c-tab-activo); color: #fff; }
 
 /* Subselector de "Tareas": segmentado compacto embutido */
 .subvista-toggle {
@@ -1760,7 +1780,7 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .tab-badge-neutro { background: var(--c-text-soft) !important; }
 /* Pantallas pequeñas: pestañas y subvistas SOLO icono; el texto queda
    únicamente en la opción activa. El resto se explica con su tooltip. */
-@media (max-width: 900px) {
+@media (max-width: 1150px) {
   .subvista-tit { display: none; }
   .vista-toggle .tab-btn .tab-txt { display: none; }
   .vista-toggle .tab-btn.active .tab-txt { display: inline; }
@@ -7596,3 +7616,32 @@ html.dark .inst-metrica {          /* gana a html.dark .card-base */
 .obs-responder-pie { display: flex; justify-content: flex-end; gap: 8px; }
 .obs-acciones { display: flex; align-items: center; gap: 8px; }
 .obs-acc-admin { display: inline-flex; gap: 8px; margin-left: auto; }
+
+/* Al quitar la franja lateral se fue todo el color y las tarjetas quedaron
+   grises. El color de la persona vuelve, pero repartido —un tinte del fondo,
+   el aro del avatar, la línea del hilo— en vez de una barra a un lado. */
+.obs-item {
+  background: color-mix(in srgb, var(--av-c1) 9%, var(--n-bg));
+  border-color: color-mix(in srgb, var(--av-c1) 38%, var(--c-border-soft));
+}
+html.dark .obs-item {
+  background: color-mix(in srgb, var(--av-c1) 16%, var(--n-card));
+  border-color: color-mix(in srgb, var(--av-c1) 42%, transparent);
+}
+.obs-cabecera .avatar {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--av-c1) 30%, transparent);
+}
+.obs-hilo::before,
+.obs-respuesta::before { background: color-mix(in srgb, var(--av-c1) 45%, transparent); }
+/* El chip de la tarea era un hueco gris: pasa al azul de la casa */
+.obs-destino {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--btn-azul) 13%, transparent);
+  color: var(--btn-azul);
+}
+html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, transparent); }
+.obs-responder { color: var(--btn-azul); }
+.obs-acciones { border-top-color: color-mix(in srgb, var(--av-c1) 30%, transparent); }
+/* El nombre de quien escribió, en su color: es lo que distingue una tarjeta
+   de otra de un vistazo cuando el hilo lo escriben varias personas. */
+.obs-meta .obs-creador { color: color-mix(in srgb, var(--av-c2, var(--av-c1)) 70%, var(--c-text)); font-weight: 700; }
