@@ -47,6 +47,65 @@
 const MC = {
   _iconos: { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' },
 
+  /**
+   * Sonidos cortos, sintetizados con Web Audio: no hay archivos que cargar ni
+   * peticiones que esperar. Se apagan con localStorage['mc-sin-sonido'] = '1'.
+   * El navegador solo deja sonar después de que la persona haya interactuado;
+   * como todos salen de un clic o de Ctrl+Enter, eso ya se cumple.
+   */
+  _audio: null,
+  _ctx() {
+    try {
+      if (localStorage.getItem('mc-sin-sonido') === '1') return null;
+    } catch { /* modo privado: se deja sonar */ }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!this._audio) this._audio = new AC();
+    if (this._audio.state === 'suspended') this._audio.resume();
+    return this._audio;
+  },
+  /** Una nota con caída suave; f2 la desliza para dar el "pop". */
+  _nota(ctx, f1, f2, inicio, dur, vol, tipo = 'sine') {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const t = ctx.currentTime + inicio;
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(f1, t);
+    if (f2 !== f1) osc.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  },
+  /** Al enviar: dos notas que suben, cortas. */
+  sonidoEnviar() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 620, 880, 0, 0.10, 0.055);
+    this._nota(ctx, 900, 1180, 0.07, 0.12, 0.038);
+  },
+  /** Al abrir el cuadro de responder: un toque casi imperceptible. */
+  sonidoAbrir() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 420, 520, 0, 0.06, 0.022);
+  },
+  /**
+   * Estrena un elemento recién insertado: entra con su animación y se queda
+   * un momento resaltado, para saber cuál es el nuevo sin buscarlo.
+   */
+  estrenar(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('obs-estreno');
+    el.addEventListener('animationend', () => el.classList.remove('obs-estreno'), { once: true });
+  },
+
+  /** Cuando algo sale mal: una nota que baja. */
+  sonidoError() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 330, 190, 0, 0.16, 0.05, 'triangle');
+  },
+
   /** Toast apilable con barra de tiempo. tipo: success | error | info */
   toast(mensaje, tipo = 'info', duracion = 4500) {
     const cont = document.getElementById('mc-toasts');
@@ -1092,20 +1151,25 @@ function initComposer(form) {
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
     if (!hayTexto() && !bolsa.files.length) {
+      MC.sonidoError();
       MC.toast('Escribe la observación o adjunta un archivo.', 'error');
       return;
     }
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
+    btn.classList.add('btn-enviando');
     const fd = new FormData(form);
     fd.set('ajax', '1');
     try {
       const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
       const data = await res.json();
-      if (!data.ok) { MC.toast(data.error || 'No se pudo guardar.', 'error'); return; }
+      if (!data.ok) { MC.sonidoError(); MC.toast(data.error || 'No se pudo guardar.', 'error'); return; }
       const lista = document.getElementById('obs-lista');
       lista.querySelector('.empty-state')?.remove();
-      data.items.reverse().forEach((html) => lista.insertAdjacentHTML('afterbegin', html));
+      data.items.reverse().forEach((html) => {
+        lista.insertAdjacentHTML('afterbegin', html);
+        MC.estrenar(lista.firstElementChild);
+      });
       limpiar();
       while (bolsa.items.length) bolsa.items.remove(0);
       pintar();
@@ -1115,12 +1179,15 @@ function initComposer(form) {
       if (chipPend) chipPend.textContent = 'Pendientes' + (data.pendientes ? ' · ' + data.pendientes : '');
       const tabBadge = document.querySelector('.vista-toggle [data-vista="observaciones"] .tab-badge');
       if (tabBadge) tabBadge.textContent = data.pendientes;
+      MC.sonidoEnviar();
       MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
       area.focus();
     } catch {
+      MC.sonidoError();
       MC.toast('Error de red al guardar la observación.', 'error');
     } finally {
       btn.disabled = false;
+      btn.classList.remove('btn-enviando');
     }
   });
 }
@@ -3761,7 +3828,7 @@ document.addEventListener('click', (e) => {
     const caja = abrir.closest('.obs-item')?.querySelector('.obs-responder-caja');
     if (!caja) return;
     caja.hidden = !caja.hidden;
-    if (!caja.hidden) caja.querySelector('textarea')?.focus();
+    if (!caja.hidden) { MC.sonidoAbrir(); caja.querySelector('textarea')?.focus(); }
     return;
   }
   const cancelar = e.target.closest('.obs-responder-cancelar');
@@ -3776,23 +3843,30 @@ document.addEventListener('submit', async (e) => {
   if (!form) return;
   e.preventDefault();
   const txt = form.querySelector('textarea');
-  if (!txt.value.trim()) { MC.toast('Escribe la respuesta.', 'error'); return; }
+  if (!txt.value.trim()) { MC.sonidoError(); MC.toast('Escribe la respuesta.', 'error'); return; }
   const btn = form.querySelector('button[type="submit"], .btn-primary');
   btn.disabled = true;
+  btn.classList.add('btn-enviando');   // el avión despega mientras va
   try {
     const fd = new FormData(form);
     fd.set('ajax', '1');
     const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
     const data = await res.json();
-    if (!data.ok) { MC.toast(data.error || 'No se pudo responder.', 'error'); return; }
+    if (!data.ok) { MC.sonidoError(); MC.toast(data.error || 'No se pudo responder.', 'error'); return; }
     // La respuesta se mete ANTES del cuadro, al final de las que ya había.
-    data.items.forEach((html) => form.insertAdjacentHTML('beforebegin', html));
+    data.items.forEach((html) => {
+      form.insertAdjacentHTML('beforebegin', html);
+      MC.estrenar(form.previousElementSibling);
+    });
     txt.value = '';
     form.hidden = true;
+    MC.sonidoEnviar();
     MC.toast('Respuesta publicada', 'success', 1600);
   } catch {
+    MC.sonidoError();
     MC.toast('Error de red al responder.', 'error');
   } finally {
     btn.disabled = false;
+    btn.classList.remove('btn-enviando');
   }
 });

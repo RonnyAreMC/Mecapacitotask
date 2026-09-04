@@ -1567,8 +1567,9 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
    ========================================================= */
 .proyecto-hero {
   position: relative;
-  border-radius: 28px;
-  padding: 24px 30px 30px;
+  border-radius: 26px;
+  /* Cabecera compacta: antes 24/30/30 con el avance en una fila propia al pie. */
+  padding: 18px 26px 20px;
   /* Ambiente sutil del color del proyecto para que no se vea plano */
   background:
     radial-gradient(720px 320px at 88% -30%, color-mix(in srgb, var(--pc, var(--c-secondary)) 14%, transparent), transparent 72%),
@@ -1612,14 +1613,20 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-actions form { margin: 0; }
 
 .ph-main {
-  display: flex; align-items: center; gap: 24px;
-  margin-top: 22px;
+  display: flex; align-items: center; gap: 22px;
+  margin-top: 14px;
   flex-wrap: wrap;
+}
+/* Columna derecha del hero: estados + avance, uno bajo el otro */
+.ph-lado {
+  position: relative; z-index: 1;
+  flex: 0 0 auto; margin-left: auto;
+  display: flex; flex-direction: column; gap: 8px; min-width: 0;
 }
 /* Cuadro de quién lleva el proyecto (PO y SM), bajo el título */
 .ph-lideres {
   display: flex; flex-wrap: wrap; gap: 8px;
-  margin-top: 14px;
+  margin-top: 10px;
 }
 .ph-lider {
   display: inline-flex; align-items: center; gap: 9px;
@@ -1635,7 +1642,7 @@ html.dark .ph-watermark { opacity: .14; }
 }
 .ph-lider-txt b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .ph-icon {
-  width: 78px; height: 78px; border-radius: 26px; flex-shrink: 0;
+  width: 64px; height: 64px; border-radius: 22px; flex-shrink: 0;
   background: var(--pc, var(--c-secondary));
   display: flex; align-items: center; justify-content: center;
   color: #fff;
@@ -1645,22 +1652,22 @@ html.dark .ph-watermark { opacity: .14; }
 .ph-info { flex: 1; min-width: 240px; }
 .ph-badges { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .ph-fecha { font-size: .78rem; color: var(--c-text-soft); display: inline-flex; gap: 6px; align-items: center; }
-.ph-info h1 { margin: 10px 0 4px; font-size: 1.75rem; font-weight: 800; letter-spacing: -.01em; color: var(--c-text); }
+.ph-info h1 { margin: 8px 0 3px; font-size: 1.55rem; font-weight: 800; letter-spacing: -.01em; color: var(--c-text); }
 .ph-info p { margin: 0; color: var(--c-text-muted); font-size: .93rem; max-width: 560px; }
 
-/* Avance abajo a la derecha del hero: barra semaforo, larga y delgada */
+/* Avance bajo los estados, dentro de .ph-lado: barra semaforo delgada */
 .ph-avance-abajo {
   position: relative; z-index: 1;
-  margin-top: 18px;
   display: flex; align-items: center; justify-content: flex-end;
-  gap: 12px;
+  gap: 10px;
 }
 .ph-avance-abajo small { color: var(--c-text-soft); font-size: .74rem; font-weight: 700; white-space: nowrap; }
 .pam-num { font-size: .98rem; font-weight: 800; line-height: 1; }
 
 .barra-semaforo {
-  width: min(340px, 55%);
-  height: 12px;
+  flex: 1 1 auto;
+  width: auto; min-width: 80px; max-width: 340px;
+  height: 10px;
   border-radius: 999px;
   background: var(--n-bg);
   box-shadow: var(--sh-inset-mini);
@@ -7515,18 +7522,16 @@ html.sb-collapsed .nav-badge-fin {
    ========================================================= */
 .ph-kpis {
   position: relative; z-index: 1;
-  /* Dos columnas y pegado a la derecha del título, no una franja de cuatro
-     tarjetas anchas debajo de todo. */
+  /* Dos columnas de pastillas bajas: en 2x2 pero cuadradas ocupaban ~200px
+     de alto y estiraban toda la cabecera; asi son ~100px. */
   flex: 0 0 auto;
-  display: grid; grid-template-columns: repeat(2, 96px);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 8px; margin-top: 0;
 }
 .phk {
-  /* Tarjeta cuadrada: el icono arriba y la cifra debajo, no todo en una fila
-     larga y baja. */
-  display: flex; flex-direction: column; align-items: flex-start;
-  justify-content: space-between; gap: 5px;
-  aspect-ratio: 1; padding: 9px; border-radius: 14px;
+  /* Pastilla horizontal: circulo con el icono y, al lado, cifra y rotulo. */
+  display: flex; flex-direction: row; align-items: center; gap: 9px;
+  padding: 8px 12px 8px 9px; border-radius: 14px;
   background: color-mix(in srgb, currentColor 7%, transparent);
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   text-decoration: none;
@@ -7537,18 +7542,18 @@ html.sb-collapsed .nav-badge-fin {
 /* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
 .phk-ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 26px; height: 26px; flex: none;
+  width: 24px; height: 24px; flex: none;
   border-radius: 999px; background: currentColor;
 }
 .phk-ico .ico { width: 14px; height: 14px; color: #fff; }
-.phk-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; width: 100%; }
-.phk-linea { display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0; }
+.phk-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
+.phk-linea { display: flex; flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
 .phk-linea b {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.5rem; font-weight: 800; line-height: 1; color: var(--c-text);
+  font-size: 1.25rem; font-weight: 800; line-height: 1; color: var(--c-text);
 }
 .phk-linea small {
-  font-size: .64rem; max-width: 100%; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: .62rem; min-width: 0; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--c-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -7559,12 +7564,12 @@ html.sb-collapsed .nav-badge-fin {
 }
 .phk-barra > span { display: block; height: 100%; border-radius: 999px; background: currentColor; }
 
-/* Cuando ya no cabe al lado del título, baja y ocupa el ancho entero */
+/* Cuando ya no cabe al lado del título, la columna baja y ocupa el ancho */
 @media (max-width: 1150px) {
-  .ph-kpis { margin-top: 6px; grid-template-columns: repeat(4, 96px); }
+  .ph-lado { flex: 1 1 100%; margin-left: 0; margin-top: 4px; }
 }
-@media (max-width: 520px) {
-  .ph-kpis { grid-template-columns: repeat(2, minmax(0, 96px)); }
+@media (max-width: 620px) {
+  .ph-kpis { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* =========================================================
@@ -7782,4 +7787,37 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 .proyectos-admin-grid > * { animation-delay: calc(.24s + var(--i, 0) * .06s); }
 @media (prefers-reduced-motion: reduce) {
   .stats-grid > *, .proyectos-admin-grid > * { animation: none; }
+}
+
+/* =========================================================
+   Cositas del hilo de observaciones: la respuesta recién publicada entra
+   y se queda un momento resaltada, y el avión del botón despega mientras
+   el envío está en el aire.
+   ========================================================= */
+@keyframes obs-estreno {
+  0%   { opacity: 0; transform: translateY(10px) scale(.985); }
+  55%  { opacity: 1; transform: none; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes obs-estreno-aro {
+  0%, 55% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--av-c1, var(--btn-azul)) 40%, transparent); }
+  100%    { box-shadow: 0 0 0 3px transparent; }
+}
+.obs-estreno {
+  animation: obs-estreno .38s cubic-bezier(.2, .8, .3, 1),
+             obs-estreno-aro 1.5s ease-out;
+}
+/* El avión sale volando y vuelve a entrar: dice que algo va en camino sin
+   cambiar el texto del botón. */
+@keyframes btn-volar {
+  0%   { transform: translate(0, 0); opacity: 1; }
+  55%  { transform: translate(14px, -10px); opacity: 0; }
+  56%  { transform: translate(-10px, 8px); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+.btn-enviando i { animation: btn-volar .75s ease-in-out infinite; }
+.btn-enviando { cursor: progress; }
+
+@media (prefers-reduced-motion: reduce) {
+  .obs-estreno, .btn-enviando i { animation: none; }
 }
