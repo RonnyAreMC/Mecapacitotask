@@ -45,11 +45,6 @@ foreach ($miembrosRepo->todos() as $m) {
     }
 }
 
-$finales     = Catalogo::estadosFinales();
-$primerEstadoProyecto = array_key_first(Catalogo::estadosProyecto());
-$activos    = count(array_filter($proyectos, fn($p) => ($p['estado'] ?? '') === $primerEstadoProyecto));
-$abiertas   = count(array_filter($todasTareas, fn($t) => !in_array($t['estado'] ?? '', $finales, true)));
-$hechas     = count($todasTareas) - $abiertas;
 
 UI::inicio('Dashboard', 'dashboard');
 UI::cabecera(
@@ -116,12 +111,23 @@ foreach ($mapaProy as $pid => $p) {
 }
 ?>
 
-<section class="stats-grid">
-  <?= UI::stat('fa-folder-open', '#1A4B99', (string)count($proyectos), 'Proyectos') ?>
-  <?= UI::stat('fa-bolt', '#2B76F7', (string)$activos, 'Activos') ?>
-  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Tareas abiertas') ?>
-  <?= UI::stat('fa-circle-check', '#2BB673', (string)$hechas, 'Tareas completadas') ?>
-</section>
+<?php
+/* Antes aquí iban cuatro KPIs (proyectos, activos, tareas abiertas y
+   completadas) que repetían lo que ya dice cada tarjeta de proyecto. En su
+   lugar va lo que nadie sabía sin preguntar por chat: a qué hora se subieron
+   los últimos cambios al servidor de pruebas. */
+// Solo los proyectos en los que participo: aquí salían los ocho del panel, y
+// a quien no está en SIGE no le importa cuándo subió SIGE. El registro
+// completo sigue en el módulo.
+if (puedeVerDeploys()) {
+    $dtFilas = resumenDeploys(misProyectosDeploys($proyectos));
+    if ($dtFilas) {
+        $dtMiembros = $miembros;
+        $dtVolver   = 'index';
+        require __DIR__ . '/lib/deploy_tira.php';
+    }
+}
+?>
 
 <?php if (empty($proyectos)): ?>
   <?php if ($verComo): ?>
@@ -139,12 +145,9 @@ foreach ($mapaProy as $pid => $p) {
       $avance  = $tareasRepo->avance((int)$p['id']);
       $color   = ProyectoRepo::colorBase($p);
 
-      // Miembros con tareas en este proyecto, y las tareas agrupadas por estado
-      // para la lista que se abre al pasar por encima de cada contador.
+      // Miembros con tareas en este proyecto
       $equipo = [];
-      $porEstado = [];
       foreach ($tareasRepo->delProyecto((int)$p['id']) as $t) {
-          $porEstado[$t['estado'] ?? ''][] = $t;
           foreach (TareaRepo::asignadosDe($t) as $mid) {
               if (isset($miembros[$mid])) $equipo[$mid] = $miembros[$mid];
           }
@@ -166,34 +169,15 @@ foreach ($mapaProy as $pid => $p) {
 
       <div class="pac-estados">
         <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
-            $lista = $porEstado[$k] ?? [];
-            $n     = (int)$resumen[$k];
-            // Lista corta: lo que cabe de un vistazo. El resto se cuenta al pie.
-            $muestra = array_slice($lista, 0, 5); ?>
-          <span class="pac-mini estado-<?= $k ?><?= $n ? '' : ' pac-mini-cero' ?>"
-                <?= $n ? 'tabindex="0"' : '' ?> title="<?= e($label) ?>">
+            $n = (int)$resumen[$k]; ?>
+          <!-- Cerrada es solo icono + número: cuatro rótulos no caben en la
+               tarjeta. Al pasar por encima, la píldora se abre y dice cuál es.
+               Antes se abría aquí un panel con las tareas de ese estado: sobre
+               la tarjeta quedaba una lista con los títulos cortados y el mismo
+               nombre repetido cinco veces, y tapaba media tarjeta. -->
+          <span class="pac-mini estado-<?= $k ?><?= $n ? '' : ' pac-mini-cero' ?>">
             <?= UI::icono($icono) ?> <?= $n ?>
-            <?php if ($muestra): ?>
-            <!-- La píldora se abre sobre sí misma: el panel se apoya en ella y
-                 crece hacia arriba. Por eso la cara (icono + número) se repite
-                 al final: es la parte que queda encima de la píldora. -->
-            <span class="pac-lista" role="tooltip">
-              <?php foreach ($muestra as $t): ?>
-              <span class="pl-item">
-                <span class="pl-txt"><?= e($t['titulo']) ?></span>
-                <?php $quien = TareaRepo::asignadosDe($t);
-                      $q = $quien && isset($miembros[$quien[0]]) ? $miembros[$quien[0]]['nombre'] : ''; ?>
-                <?php if ($q): ?><small><?= e($q) ?><?= count($quien) > 1 ? ' +' . (count($quien) - 1) : '' ?></small><?php endif; ?>
-              </span>
-              <?php endforeach; ?>
-              <?php if ($n > count($muestra)): ?>
-              <span class="pl-mas">y <?= $n - count($muestra) ?> más</span>
-              <?php endif; ?>
-              <span class="pl-cabeza" aria-hidden="true">
-                <?= UI::icono($icono) ?> <b><?= $n ?></b> <em class="pl-rot"><?= e($label) ?></em>
-              </span>
-            </span>
-            <?php endif; ?>
+            <span class="pm-rot"><?= e($label) ?></span>
           </span>
         <?php endforeach; ?>
       </div>

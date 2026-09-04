@@ -37,6 +37,9 @@ $accionesDeCualquiera = [
     // El responsable de un requerimiento suelto puede marcarlo terminado desde
     // su bandeja (dentro se comprueba que sea suyo).
     'req_terminar',
+    // Quien sube los cambios al servidor de pruebas suele ser un colaborador
+    // sin permisos de gestion: el encargado se comprueba con puedeDesplegar().
+    'deploy_registrar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
@@ -1939,6 +1942,29 @@ switch ($accion) {
             'agendar'         => !empty($reuPost['agendar']),
         ];
 
+        // Deploys: a quien deja el administrador pulsar "cambios subidos" y
+        // quien ve el modulo. Los ids se validan contra el equipo real.
+        $depPost = (array)($_POST['deploys'] ?? []);
+        $idsEquipo = array_map(fn($m) => (int)$m['id'], $miembros->todos());
+        $idsValidos = fn($v) => array_values(array_intersect(
+            array_values(array_unique(array_map('intval', (array)$v))), $idsEquipo
+        ));
+        $idsProy = array_map(fn($p) => (int)$p['id'], $proyectos->todos());
+        $clavesEq = array_keys(Catalogo::equipos());
+        $deploysCfg = [
+            'activo'     => !empty($depPost['activo']),
+            'entorno'    => trim($depPost['entorno'] ?? '') ?: $def['deploys']['entorno'],
+            'encargados' => $idsValidos($depPost['encargados'] ?? []),
+            'visores'    => $idsValidos($depPost['visores'] ?? []),
+            'ver_po'     => !empty($depPost['ver_po']),
+            'proyectos'  => array_values(array_intersect(
+                array_values(array_unique(array_map('intval', (array)($depPost['proyectos'] ?? [])))), $idsProy
+            )),
+            'equipos'    => array_values(array_intersect(
+                array_values(array_unique(array_map('strval', (array)($depPost['equipos'] ?? [])))), $clavesEq
+            )),
+        ];
+
         $correoPost = (array)($_POST['correo'] ?? []);
         $correo = [
             'activo'    => !empty($correoPost['activo']),
@@ -2021,6 +2047,7 @@ switch ($accion) {
             'correo'           => $correo,
             'zoom'             => $zoom,
             'reuniones'        => $reunionesCfg,
+            'deploys'          => $deploysCfg,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -2462,6 +2489,91 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones', 'Reunión eliminada.');
         }
         redirigir('index.php', 'Reunión no encontrada.', 'error');
+
+    /* ---------- Deploys: "los cambios ya están arriba" ---------- */
+
+    case 'deploy_registrar':
+        // Un solo botón: la fecha y la hora las pone el servidor. Lo único que
+        // elige el encargado es a qué proyectos afecta esta subida — una misma
+        // subida suele tocar varios— y, si quiere, una nota corta. Saturar a
+        // quien sube los cambios es la forma de que deje de marcarlo.
+        if (!puedeDesplegar()) {
+            redirigir('index.php', 'No estás como encargado de los despliegues.', 'error');
+        }
+        $volverDep = ($_POST['volver'] ?? '') === 'index' ? 'index.php' : 'deploys.php';
+
+        // A qué proyectos afecta: lo dejó dicho el administrador en Ajustes, y
+        // por eso aquí no se pregunta nada — quien sube los cambios pulsa una
+        // vez y se acabó. Si el POST trae proyectos (otra pantalla, más
+        // adelante), se respetan; si no, se usan los configurados.
+        $cfgDep   = configDeploys();
+        $pedidos  = (array)($_POST['proyectos'] ?? []);
+        if (!$pedidos) {
+            $pedidos = $cfgDep['proyectos']
+                ?: array_map(fn($pp) => (int)$pp['id'], $proyectos->todos());
+        }
+        $pidsDep = [];
+        foreach ($pedidos as $pidRaw) {
+            $pidDep = (int)$pidRaw;
+            if ($pidDep <= 0 || isset($pidsDep[$pidDep])) continue;
+            if (!$proyectos->buscar($pidDep) || !proyectoConDeploys($pidDep)) continue;
+            $pidsDep[$pidDep] = true;
+        }
+        $pidsDep = array_keys($pidsDep);
+        if (!$pidsDep) {
+            redirigir($volverDep, 'No hay proyectos configurados para despliegues. Elígelos en Ajustes → Despliegues.', 'error');
+        }
+
+        // Lo que sube este despliegue: las tareas ya completadas de esos
+        // proyectos que ningún despliegue anterior se llevó. Una tarea
+        // terminada anoche entra sola en la subida de esta mañana, que es como
+        // trabaja el equipo.
+        $finalesDep = Catalogo::estadosFinales();
+        $pendientesDep = [];
+        foreach ($pidsDep as $pidDep) {
+            foreach ($tareas->delProyecto($pidDep) as $t) {
+                if (!in_array($t['estado'] ?? '', $finalesDep, true)) continue;
+                if ((int)($t['deploy_id'] ?? 0) > 0) continue;
+                $pendientesDep[] = (int)$t['id'];
+            }
+        }
+
+        $deploysRepo = new DeployRepo();
+        $nuevoDep = $deploysRepo->crear([
+            'proyectos' => $pidsDep,
+            'autor_id'  => (int)(Auth::usuario()['id'] ?? 0),
+            'entorno'   => $cfgDep['entorno'],
+            'nota'      => mb_substr(trim($_POST['nota'] ?? ''), 0, 200),
+            'tareas'    => $pendientesDep,
+        ]);
+        foreach ($pendientesDep as $tid) {
+            $tareas->actualizar($tid, [
+                'deploy_id'     => (int)$nuevoDep['id'],
+                'desplegada_en' => $nuevoDep['fecha'],
+            ]);
+        }
+        $nDep = count($pendientesDep);
+        redirigir($volverDep, 'Subida registrada a las ' . substr($nuevoDep['fecha'], 11, 5)
+            . ' en ' . count($pidsDep) . ' proyecto' . (count($pidsDep) === 1 ? '' : 's')
+            . ($nDep ? ' con ' . $nDep . ' tarea' . ($nDep === 1 ? '' : 's') . '.' : '. No había tareas nuevas completadas.'));
+
+    case 'deploy_eliminar':
+        // Solo el administrador, y las tareas vuelven a quedar "sin subir":
+        // si se borra el registro por error, el PO no puede quedarse creyendo
+        // que algo está arriba cuando no lo está.
+        $depRepo = new DeployRepo();
+        $dep = $depRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$dep) {
+            redirigir('deploys.php', 'Ese despliegue ya no existe.', 'error');
+        }
+        foreach (DeployRepo::tareasDe($dep) as $tid) {
+            $t = $tareas->buscar($tid);
+            if ($t && (int)($t['deploy_id'] ?? 0) === (int)$dep['id']) {
+                $tareas->actualizar($tid, ['deploy_id' => 0, 'desplegada_en' => '']);
+            }
+        }
+        $depRepo->eliminar((int)$dep['id']);
+        redirigir('deploys.php', 'Despliegue eliminado.');
 
     default:
         redirigir('index.php', 'Acción no reconocida.', 'error');

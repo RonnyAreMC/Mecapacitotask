@@ -40,6 +40,7 @@ UI::cabecera(
   <button type="button" class="tab-btn" data-tab="roles"><?= UI::icono('UserAppoint') ?> Roles</button>
   <button type="button" class="tab-btn" data-tab="correo"><?= UI::icono('EmailEnvelope') ?> Correo</button>
   <button type="button" class="tab-btn" data-tab="reuniones"><?= UI::icono('CalendarCheck') ?> Reuniones</button>
+  <button type="button" class="tab-btn" data-tab="deploys"><?= UI::icono('Upload') ?> Despliegues</button>
   <button type="button" class="tab-btn" data-tab="acceso"><?= UI::icono('ShieldTick') ?> Acceso y respaldo</button>
 </div>
 
@@ -600,6 +601,91 @@ UI::cabecera(
   </div>
 
   <!-- ================= TAB: Acceso y respaldo ================= -->
+  <!-- ================= TAB: Despliegues ================= -->
+  <div class="tab-panel" data-panel="deploys" hidden>
+    <div class="ajustes-grid">
+      <section class="card-base ajuste-card ajuste-card-ancha">
+        <h2 class="font-display"><?= UI::icono('Upload') ?> Despliegues al servidor de pruebas</h2>
+        <?php
+          $dp = configDeploys();
+          // Todo el equipo, para los dos selectores. El texto lleva el rol para
+          // no confundir a dos personas que se llamen igual.
+          $opcDeploy = [];
+          foreach ($miembrosDeploy = (new MiembroRepo())->todos() as $m) {
+              $opcDeploy[(int)$m['id']] = $m['nombre'] . ' · ' . ($m['rol'] ?? '');
+          }
+        ?>
+        <p class="ajuste-ayuda">
+          Aquí se deja dicho todo <b>una vez</b>: a qué proyectos afecta una subida y quién la
+          registra. Después, esa persona solo pulsa <b>«Registrar deploy»</b> —un clic, sin
+          formularios— y queda la fecha y la hora. El despliegue se lleva consigo todas las tareas
+          ya completadas que ningún despliegue anterior había subido, así que nadie marca nada
+          tarea por tarea: lo que se terminó anoche entra solo en la subida de mañana.
+        </p>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="deploys[activo]" <?= $dp['activo'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Activar el módulo de despliegues
+        </label>
+
+        <label class="campo"><span>Cómo se llama el destino</span>
+          <input class="input-meca" name="deploys[entorno]" value="<?= e($dp['entorno']) ?>"
+                 placeholder="Servidor de pruebas">
+          <small class="campo-ayuda">Sale en el dashboard y en el módulo: «Último cambio subido a…».</small>
+        </label>
+
+        <div class="dep-cfg-fila">
+          <label class="campo"><span>Encargados de subir los cambios</span>
+            <?= UI::select('deploys[encargados]', $opcDeploy, $dp['encargados'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Los únicos (además de ti) que ven el botón y registran la subida. Ctrl/⌘ + clic para
+              marcar varios.
+            </small>
+          </label>
+          <label class="campo"><span>Quién más ve el módulo</span>
+            <?= UI::select('deploys[visores]', $opcDeploy, $dp['visores'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Gente que solo consulta: entra, ve la hora de la última subida y qué se subió, pero
+              no puede registrar nada.
+            </small>
+          </label>
+        </div>
+
+        <div class="dep-cfg-fila">
+          <label class="campo"><span>Proyectos a los que afecta cada subida</span>
+            <?php $opcProyDep = [];
+                  foreach ((new ProyectoRepo())->todos() as $pp) $opcProyDep[(int)$pp['id']] = $pp['nombre']; ?>
+            <?= UI::select('deploys[proyectos]', $opcProyDep, $dp['proyectos'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Se decide <b>aquí una vez</b>: al pulsar «Registrar deploy» la subida se marca en estos
+              proyectos, sin preguntarle nada al encargado. Si no marcas ninguno, valen todos.
+            </small>
+          </label>
+          <label class="campo"><span>Equipos que lo ven en el dashboard</span>
+            <?php $opcEqDep = [];
+                  foreach (Catalogo::equipos() as $ek => $ev) $opcEqDep[$ek] = $ev[0]; ?>
+            <?= UI::select('deploys[equipos]', $opcEqDep, $dp['equipos'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Equipos enteros, sin ir persona por persona (p. ej. Analistas). Quien no esté aquí ni
+              en las listas de arriba no ve la tira del dashboard.
+            </small>
+          </label>
+        </div>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="deploys[ver_po]" <?= $dp['ver_po'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Que los Product Owner y Scrum Masters lo vean siempre
+        </label>
+        <p class="ajuste-ayuda">
+          Es para quien se hizo el módulo: saber cuándo probar sin preguntar por chat. Si lo
+          apagas, solo entran las personas que marques arriba.
+        </p>
+      </section>
+    </div>
+  </div>
+
   <div class="tab-panel" data-panel="acceso" hidden>
     <div class="ajustes-grid">
       <section class="card-base ajuste-card">

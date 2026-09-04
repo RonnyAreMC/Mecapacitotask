@@ -3876,3 +3876,18 @@ document.addEventListener('submit', async (e) => {
     btn.classList.remove('btn-enviando');
   }
 });
+
+/* Deploys: el botón "Cambios subidos" se marca en cuanto se pulsa. El envío es
+   un POST normal y la página recarga en un parpadeo; sin esa señal el
+   encargado no sabe si registró o si le falló el clic, y vuelve a pulsar.
+   No se deshabilita el botón: un botón deshabilitado en pleno submit no manda
+   su valor. Se marca el formulario y el segundo envío se descarta. */
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  const btn = form.querySelector?.('[data-dep-btn]');
+  if (!btn) return;
+  if (form.dataset.depEnviado) { e.preventDefault(); return; }
+  form.dataset.depEnviado = '1';
+  btn.classList.add('dep-enviando');
+});
+

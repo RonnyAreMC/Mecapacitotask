@@ -527,6 +527,198 @@ function puedeGestionarTareas(int $proyectoId): bool
     return $p && ProyectoRepo::poDe($p) === $yo;
 }
 
+/* ---------- Deploys: quien sube los cambios y quien lo ve ---------- */
+
+/** Config del modulo de deploys, ya normalizada. */
+function configDeploys(): array
+{
+    $d = (array)(Config::get('deploys') ?? []);
+    return [
+        'activo'     => !isset($d['activo']) || !empty($d['activo']),
+        'entorno'    => trim((string)($d['entorno'] ?? '')) ?: 'Servidor de pruebas',
+        'encargados' => array_values(array_filter(array_map('intval', (array)($d['encargados'] ?? [])))),
+        'visores'    => array_values(array_filter(array_map('intval', (array)($d['visores'] ?? [])))),
+        'ver_po'     => !isset($d['ver_po']) || !empty($d['ver_po']),
+        // Proyectos que se siguen. Vacio = todos: no todos los proyectos se
+        // suben a un servidor de pruebas, y los que no, solo hacen ruido.
+        'proyectos'  => array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])))),
+        // Equipos cuyos miembros ven el modulo y la tira del dashboard.
+        'equipos'    => array_values(array_filter(array_map('strval', (array)($d['equipos'] ?? [])))),
+    ];
+}
+
+/**
+ * Proyectos en los que ESTA persona participa, sea cual sea su rol
+ * (administrador incluido): esta en su equipo, lo lleva como PO o Scrum, tiene
+ * una tarea, esta invitada a una reunion o escribio una observacion.
+ *
+ * No es lo mismo que alcanceProyectos(), que para el administrador devuelve
+ * null porque los VE todos. Aqui la pregunta es otra: en cuales esta metido.
+ * La tira de despliegues del dashboard se apoya en esto — al administrador le
+ * salian los ocho proyectos del panel, incluidos los que no toca.
+ *
+ * Devuelve un set [proyecto_id => true].
+ */
+function misProyectosIds(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return $cache = [];
+
+    // El supervisor no "participa": ve los que el administrador le asigno.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
+    $ids = [];
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        $pid = (int)$p['id'];
+        $suEquipo = ProyectoRepo::miembrosDe($p);
+        if ($suEquipo !== null && in_array($yo, $suEquipo, true)) $ids[$pid] = true;
+        if (ProyectoRepo::poDe($p) === $yo)    $ids[$pid] = true;
+        if (ProyectoRepo::scrumDe($p) === $yo) $ids[$pid] = true;
+    }
+    foreach ((new TareaRepo())->todas() as $t) {
+        if (TareaRepo::tieneAsignado($t, $yo)) $ids[(int)$t['proyecto_id']] = true;
+    }
+    foreach ((new JsonStore('reuniones'))->all() as $r) {
+        if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+            $ids[(int)$r['proyecto_id']] = true;
+        }
+    }
+    foreach ((new JsonStore('observaciones'))->all() as $o) {
+        if ((int)($o['autor_id'] ?? 0) === $yo) $ids[(int)$o['proyecto_id']] = true;
+    }
+    return $cache = $ids;
+}
+
+/**
+ * Los proyectos que el modulo sigue Y en los que ESTA persona participa. Es lo
+ * que sale en el dashboard: si no estoy en SIGE, lo de SIGE no es asunto mio.
+ * El registro completo esta en el modulo (deploys.php).
+ */
+function misProyectosDeploys(array $proyectos): array
+{
+    $mios = misProyectosIds();
+    return array_values(array_filter(
+        proyectosDeploys($proyectos),
+        fn($p) => isset($mios[(int)$p['id']])
+    ));
+}
+
+/**
+ * Deja de una lista de proyectos solo los que el modulo sigue (y que la
+ * persona puede ver). Si el administrador no eligio ninguno, se siguen todos.
+ */
+function proyectosDeploys(array $proyectos): array
+{
+    $cfg = configDeploys();
+    $proyectos = soloProyectosVisibles($proyectos);
+    if (!$cfg['proyectos']) return array_values($proyectos);
+    return array_values(array_filter($proyectos, fn($p) => in_array((int)$p['id'], $cfg['proyectos'], true)));
+}
+
+/** ¿Este proyecto se sigue en el modulo de despliegues? */
+function proyectoConDeploys(int $proyectoId): bool
+{
+    $cfg = configDeploys();
+    return $cfg['activo'] && (!$cfg['proyectos'] || in_array($proyectoId, $cfg['proyectos'], true));
+}
+
+/**
+ * ¿Puede REGISTRAR un deploy? El administrador y quien el administrador haya
+ * puesto como encargado. A nadie mas: el registro es el sello de "esto ya
+ * esta arriba" y tiene que responder alguien.
+ */
+function puedeDesplegar(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+    if (Auth::esSupervisor()) return false;   // el supervisor solo observa
+    return in_array((int)(Auth::usuario()['id'] ?? 0), $cfg['encargados'], true);
+}
+
+/**
+ * ¿Puede VER el modulo de deploys? El administrador, los encargados, los
+ * visores que designe el administrador y —si esta marcado en Ajustes— quien
+ * lleva un proyecto (Product Owner o Scrum Master), que es justamente para
+ * quien se hizo esto.
+ */
+function puedeVerDeploys(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    if (in_array($yo, $cfg['encargados'], true)) return true;
+    if (in_array($yo, $cfg['visores'], true)) return true;
+
+    // Equipos completos: el administrador marca "Analistas" y todos los
+    // analistas lo ven, sin ir persona por persona.
+    if ($cfg['equipos']) {
+        $miEquipo = MiembroRepo::equipoDe((array)(Auth::usuario() ?? []));
+        if (in_array($miEquipo, $cfg['equipos'], true)) return true;
+    }
+    if (!$cfg['ver_po']) return false;
+
+    if (Auth::esScrum()) return true;
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        if (ProyectoRepo::poDe($p) === $yo || ProyectoRepo::scrumDe($p) === $yo) return true;
+    }
+    return false;
+}
+
+/**
+ * Estado de despliegue de cada proyecto: su ultimo deploy y cuantas tareas
+ * completadas siguen sin subir. Ordenado por el deploy mas reciente.
+ *
+ * Se calcula aqui y no en cada pantalla porque lo pintan el dashboard y el
+ * modulo, y tienen que decir lo mismo.
+ */
+function resumenDeploys(array $proyectos): array
+{
+    $repo       = new DeployRepo();
+    $tareasRepo = new TareaRepo();
+    $finales    = Catalogo::estadosFinales();
+    $ultimos    = $repo->ultimoPorProyecto();
+
+    $filas = [];
+    foreach ($proyectos as $p) {
+        $pid  = (int)$p['id'];
+        $pend = [];
+        foreach ($tareasRepo->delProyecto($pid) as $t) {
+            if (!in_array($t['estado'] ?? '', $finales, true)) continue;
+            if ((int)($t['deploy_id'] ?? 0) > 0) continue;
+            $pend[] = $t;
+        }
+        $filas[$pid] = [
+            'proyecto'   => $p,
+            'ultimo'     => $ultimos[$pid] ?? null,
+            'pendientes' => $pend,
+        ];
+    }
+    // El que subio hace menos rato, primero; los que nunca subieron, al final
+    uasort($filas, fn($a, $b) => strcmp((string)($b['ultimo']['fecha'] ?? ''), (string)($a['ultimo']['fecha'] ?? '')));
+    return $filas;
+}
+
+/** Corta la pagina si el modulo de deploys no es para esta persona. */
+function exigirDeploys(): void
+{
+    if (!puedeVerDeploys()) {
+        redirigir('index.php', 'El módulo de despliegues no está habilitado para tu cuenta.', 'error');
+    }
+}
+
 /* ---------- Alcance: que proyectos puede ver cada quien ---------- */
 
 /**

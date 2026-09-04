@@ -1372,10 +1372,12 @@ html.dark .proyecto-admin-card {
 .progress-bar { height: 100%; border-radius: 999px; transition: width .5s ease; }
 .progress-num { font-size: .78rem; font-weight: 800; color: var(--c-text-muted); }
 
-/* Los contadores de estado son también el acceso a lo que hay dentro: al
-   pasar por encima se abre la lista de esas tareas sobre la tarjeta. La
-   posición la da .pac-estados para que el panel ocupe todo el ancho y no el
-   del chip. */
+/* Contadores de estado de la tarjeta de proyecto.
+
+   Cerrados son icono + número; el rótulo se abre al pasar por encima. Antes,
+   al pasar por encima se desplegaba un panel con las tareas de ese estado:
+   media tarjeta tapada, títulos cortados a tres letras y el mismo nombre
+   repetido en cada línea. El detalle ya está a un clic, en el tablero. */
 .pac-estados { display: flex; gap: 8px; flex-wrap: wrap; }
 .pac-mini {
   display: inline-flex; align-items: center; gap: 7px;
@@ -1388,66 +1390,28 @@ html.dark .proyecto-admin-card {
 }
 .pac-mini .ico { width: 1.05em; height: 1.05em; }
 .pac-mini-cero { opacity: .45; }
-.pac-mini:not(.pac-mini-cero):hover,
-.pac-mini:focus-visible {
+.pac-mini:not(.pac-mini-cero):hover {
   transform: translateY(-1px);
   box-shadow: var(--sh-inset-mini), 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent);
-  outline: none;
 }
 
-/* El panel NO es un globo colgando debajo: es la propia píldora abriéndose.
-   Se apoya en ella (mismo borde inferior, mismo padding) y crece hacia
-   arriba, que es donde hay sitio dentro de la tarjeta. La cara de la píldora
-   se repite abajo del todo para que quede justo encima de la original. */
-.pac-mini { position: relative; }
-.pac-lista {
-  position: absolute; left: 0; bottom: 0; z-index: 8;
-  width: 232px; max-height: 208px; overflow: auto;
-  display: flex; flex-direction: column; gap: 7px;
-  padding: 12px 14px 8px;
-  border-radius: 19px;
-  background: var(--n-bg);
-  box-shadow: var(--sh-mini), 0 14px 30px rgba(15, 30, 60, .16),
-              inset 0 0 0 1.5px color-mix(in srgb, currentColor 32%, transparent);
-  opacity: 0; visibility: hidden;
-  transform: scale(.92);
-  transform-origin: bottom left;
-  transition: opacity .16s ease, transform .22s cubic-bezier(.2, .9, .3, 1.25), visibility .16s;
-  cursor: default;
-}
-html.dark .pac-lista { background: var(--n-card); box-shadow: 0 14px 30px rgba(0, 0, 0, .5), inset 0 0 0 1.5px color-mix(in srgb, currentColor 40%, transparent); }
-/* Las dos de la derecha se abren hacia el otro lado para no salirse. Al
-   alinear por la derecha, icono y número caen exactamente sobre los de la
-   píldora, porque el padding es el mismo. */
-.pac-estados .pac-mini:nth-child(n+3) .pac-lista {
-  left: auto; right: 0; transform-origin: bottom right;
-}
-.pac-estados .pac-mini:nth-child(n+3) .pl-cabeza { justify-content: flex-end; }
-.pac-estados .pac-mini:nth-child(n+3) .pl-rot { order: -1; }
-.pac-mini:hover .pac-lista,
-.pac-mini:focus-within .pac-lista {
-  opacity: 1; visibility: visible; transform: scale(1);
-}
-/* La cara: idéntica a la píldora cerrada, más el rótulo que aparece al abrir */
-.pl-cabeza {
-  display: flex; align-items: center; gap: 7px;
-  margin-top: 2px;
-  font-size: .86rem; font-weight: 800; color: currentColor;
-}
-.pl-cabeza .ico { width: 1.05em; height: 1.05em; }
-.pl-cabeza b { color: currentColor; }
-.pl-rot {
-  font-style: normal; font-size: .68rem; font-weight: 800;
+/* El rótulo: plegado no ocupa nada y se abre en el sitio, sin globo flotante.
+   El hueco va en el margen del texto, no en el gap de la píldora: si fuera el
+   gap, cerrada quedaría un espacio muerto entre el icono y el número. */
+.pm-rot {
+  max-width: 0; overflow: hidden; white-space: nowrap;
+  font-size: .68rem; font-weight: 800;
   letter-spacing: .05em; text-transform: uppercase;
   color: var(--c-text-soft);
+  opacity: 0;
+  transition: max-width .26s cubic-bezier(.2, .9, .3, 1), opacity .18s ease, margin-left .26s ease;
 }
-.pl-item {
-  display: flex; align-items: baseline; justify-content: space-between; gap: 10px;
-  font-size: .78rem; font-weight: 600; color: var(--c-text);
+.pac-mini:hover .pm-rot {
+  max-width: 150px; opacity: 1; margin-left: 1px;
 }
-.pl-txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.pl-item small { color: var(--c-text-soft); font-size: .68rem; font-weight: 700; white-space: nowrap; }
-.pl-mas { font-size: .7rem; font-weight: 700; color: var(--c-text-soft); }
+@media (prefers-reduced-motion: reduce) {
+  .pm-rot { transition: none; }
+}
 
 .pac-foot {
   margin-top: auto;
@@ -7868,4 +7832,168 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   .dia-rango { width: 100%; }
   .input-dia { flex: 1; }
   .dia-aviso { padding-left: 16px; padding-right: 16px; }
+}
+
+/* =========================================================
+   Despliegues: "¿ya están los cambios en el servidor de pruebas?"
+
+   La tira sustituye a los cuatro KPIs del dashboard, que repetían lo que ya
+   dice cada tarjeta de proyecto. Lo que nadie sabía sin preguntar por chat era
+   esto: a qué hora subió el encargado los últimos cambios.
+   ========================================================= */
+.dep-tira { padding: 18px 22px; margin-bottom: 26px; --card-c: var(--c-secondary); }
+.dep-tira-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+
+/* El icono late despacio cuando la subida es de hoy: se ve de reojo que hay
+   algo fresco, sin un cartel que grite. */
+.dep-pulso {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: 48px; height: 48px; border-radius: 16px;
+  background: color-mix(in srgb, var(--c-secondary) 16%, transparent);
+  color: var(--c-secondary);
+}
+.dep-pulso .ico { width: 22px; height: 22px; }
+.dep-pulso-hoy::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--c-secondary);
+  animation: dep-latido 2.4s ease-out infinite;
+}
+@keyframes dep-latido {
+  0%   { opacity: .8; transform: scale(1); }
+  70%  { opacity: 0;  transform: scale(1.35); }
+  100% { opacity: 0;  transform: scale(1.35); }
+}
+
+.dep-tira-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dep-tira-txt > small {
+  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.dep-tira-txt > b { font-size: 1.12rem; font-weight: 800; color: var(--c-text); }
+.dep-sub { font-size: .82rem; color: var(--c-text-muted); }
+.dep-hace { font-weight: 700; color: var(--c-secondary); }
+.dep-tira-vacia .dep-pulso { background: color-mix(in srgb, var(--c-text) 8%, transparent); color: var(--c-text-soft); }
+
+.dep-tira-fin { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.dep-pend, .dep-aldia {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: .8rem; font-weight: 700;
+}
+.dep-pend  { color: #C66B2D; background: color-mix(in srgb, #C66B2D 14%, transparent); }
+.dep-aldia { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
+.dep-pend .ico, .dep-aldia .ico { width: 15px; height: 15px; }
+
+.dep-form { margin: 0; }
+/* El botón del encargado: un solo clic y listo. Nada de formularios. */
+.dep-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border: 0; border-radius: 11px; cursor: pointer;
+  background: var(--c-secondary); color: #fff;
+  font-size: .78rem; font-weight: 800; font-family: inherit;
+  transition: transform .18s ease, filter .18s ease;
+}
+.dep-btn .ico { width: 14px; height: 14px; }
+.dep-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.dep-btn:active { transform: translateY(0) scale(.97); }
+/* Al pulsar, el icono sale volando: el registro es instantáneo y sin esa
+   señal parecía que no había pasado nada. */
+.dep-btn.dep-enviando .ico { animation: dep-sube .5s ease-in infinite; }
+@keyframes dep-sube {
+  0%   { transform: translateY(3px); opacity: .4; }
+  60%  { transform: translateY(-6px); opacity: 1; }
+  100% { transform: translateY(-9px); opacity: 0; }
+}
+
+/* ---------- Historial ---------- */
+.dep-lista { display: flex; flex-direction: column; gap: 10px; padding: 18px 24px 22px; }
+.dep-dia {
+  display: flex; align-items: baseline; gap: 9px;
+  margin-top: 6px; font-size: .84rem; font-weight: 800; color: var(--c-text);
+}
+.dep-dia small { font-size: .72rem; font-weight: 600; color: var(--c-text-soft); }
+.dep-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 12px 14px; border-radius: 15px;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
+  box-shadow: var(--sh-mini);
+}
+.dep-item-hora { display: flex; flex-direction: column; align-items: center; min-width: 66px; }
+.dep-item-hora b { font-size: 1.05rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.dep-item-hora small { font-size: .68rem; color: var(--c-text-soft); white-space: nowrap; }
+.dep-item-cuerpo { flex: 1; min-width: 0; }
+.dep-item-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dep-item-proy {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--c-text); text-decoration: none; font-size: .9rem; font-weight: 700;
+}
+.dep-item-proy .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); }
+.dep-item-autor { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--c-text-muted); }
+.dep-item-n {
+  padding: 2px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent);
+  color: var(--c-secondary); font-size: .72rem; font-weight: 800;
+}
+.dep-item-nota { margin: 6px 0 0; font-size: .82rem; color: var(--c-text-muted); }
+.dep-item-tareas { margin-top: 8px; }
+.dep-item-tareas summary { cursor: pointer; font-size: .78rem; font-weight: 700; color: var(--c-text-soft); }
+.dep-item-tareas ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.dep-item-tareas li { font-size: .82rem; color: var(--c-text); }
+.dep-item-tareas li small { color: var(--c-text-soft); font-size: .72rem; margin-left: 6px; }
+.dep-item-borrar { margin: 0; }
+
+/* ---------- Esperando subida ---------- */
+.dep-espera { margin-top: 20px; }
+.dep-espera-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 14px; padding: 18px 24px 22px;
+}
+.dep-espera-col {
+  border-radius: 15px; padding: 12px 14px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
+}
+.dep-espera-col h3 {
+  display: flex; align-items: center; gap: 8px;
+  margin: 0 0 8px; font-size: .88rem; font-weight: 800; color: var(--c-text);
+}
+.dep-espera-col h3 .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); }
+.dep-espera-col h3 span {
+  margin-left: auto; padding: 1px 8px; border-radius: 999px;
+  background: #C66B2D; color: #fff; font-size: .7rem;
+}
+.dep-espera-col ul { margin: 0; padding-left: 16px; display: flex; flex-direction: column; gap: 4px; }
+.dep-espera-col li { font-size: .8rem; color: var(--c-text-muted); }
+.dep-espera-col li small { color: var(--c-text-soft); font-size: .7rem; margin-left: 5px; }
+.dep-vacio {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-size: .86rem; color: var(--c-verde-esmeralda); font-weight: 600;
+}
+
+/* ---------- Estado de despliegue en las tareas ---------- */
+.kb-deploy {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: .68rem; font-weight: 700;
+}
+.kb-deploy .ico { width: 11px; height: 11px; }
+.kb-deploy-si { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
+.kb-deploy-no { color: #C66B2D; background: color-mix(in srgb, #C66B2D 13%, transparent); }
+.deploy-tag.deploy-si { color: var(--c-verde-esmeralda); border-color: color-mix(in srgb, var(--c-verde-esmeralda) 35%, transparent); }
+.deploy-tag.deploy-no { color: #C66B2D; border-color: color-mix(in srgb, #C66B2D 35%, transparent); }
+
+/* Ajustes → Despliegues: los dos selectores múltiples, uno al lado del otro */
+.dep-cfg-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.select-alto { min-height: 132px; padding: 8px; }
+
+@media (max-width: 720px) {
+  .dep-tira { padding: 14px 16px; }
+  .dep-tira-fin { margin-left: 0; width: 100%; }
+  .dep-lista, .dep-espera-grid { padding-left: 16px; padding-right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dep-pulso-hoy::after, .dep-btn.dep-enviando .ico { animation: none; }
 }

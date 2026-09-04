@@ -265,6 +265,18 @@ final class Config
                 'vincular_por_nombre' => true,
                 'calendario'          => false,   // enviar tareas al Google Calendar del responsable
             ],
+            // Deploys: quien sube los cambios al servidor de pruebas pulsa un
+            // boton y queda la hora. El administrador decide quien puede
+            // pulsarlo (encargados) y quien ve el modulo (visores).
+            'deploys' => [
+                'activo'     => true,
+                'entorno'    => 'Servidor de pruebas',
+                'encargados' => [],      // ids que registran deploys
+                'visores'    => [],      // ids extra que ven el modulo
+                'ver_po'     => true,    // los PO y Scrum Masters lo ven siempre
+                'proyectos'  => [],      // que proyectos se siguen ([] = todos)
+                'equipos'    => [],      // equipos cuyos miembros lo ven en el dashboard
+            ],
             // Registro publico: quien se registra NO entra al panel, deja una
             // solicitud que un administrador aprueba o rechaza desde Equipo.
             'registro' => [
@@ -1714,5 +1726,128 @@ class ReunionRepo
             $out[(int)$r['id']] = mb_strimwidth($r['topic'], 0, 40, '…') . ' · ' . ($r['inicio'] ?? '');
         }
         return $out;
+    }
+}
+
+/* =========================================================
+   Deploys: "los cambios ya están en el servidor de pruebas".
+
+   El equipo terminaba tareas y el Product Owner no tenía forma de saber
+   cuándo podía ir a probarlas: preguntaba por chat. Aquí quien sube los
+   cambios pulsa UN botón y queda registrada la fecha y la hora.
+
+   Al registrarse, el deploy se lleva consigo todas las tareas del proyecto
+   que ya estaban completadas y que ningún deploy anterior había subido. Por
+   eso no hace falta una columna nueva en el tablero: una tarea completada
+   anoche entra sola en el deploy de mañana por la mañana.
+   ========================================================= */
+class DeployRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('deploys');
+    }
+
+    /** Todos, del más reciente al más antiguo. */
+    public function todos(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
+        return $items;
+    }
+
+    /** Los que tocaron un proyecto, del más reciente al más antiguo. */
+    public function delProyecto(int $proyectoId): array
+    {
+        return array_values(array_filter(
+            $this->todos(),
+            fn($d) => in_array($proyectoId, self::proyectosDe($d), true)
+        ));
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    /** El último deploy de un proyecto (null si nunca se ha subido nada). */
+    public function ultimo(int $proyectoId): ?array
+    {
+        return $this->delProyecto($proyectoId)[0] ?? null;
+    }
+
+    /** El último deploy de cada proyecto: [proyecto_id => deploy]. */
+    public function ultimoPorProyecto(): array
+    {
+        $out = [];
+        foreach ($this->todos() as $d) {   // ya vienen del más nuevo al más viejo
+            foreach (self::proyectosDe($d) as $pid) {
+                if (!isset($out[$pid])) $out[$pid] = $d;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Registra un deploy. 'fecha' es la de AHORA: el encargado solo pulsa el
+     * botón, no escribe la hora (era el punto de todo esto).
+     */
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            // Una subida puede tocar varios proyectos a la vez: es un solo
+            // despliegue del servidor, no uno por tablero.
+            'proyectos'   => array_values(array_unique(array_filter(array_map('intval', (array)($datos['proyectos'] ?? []))))),
+            'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            'fecha'       => date('Y-m-d H:i'),
+            'entorno'     => trim($datos['entorno'] ?? ''),
+            'nota'        => trim($datos['nota'] ?? ''),
+            'tareas'      => array_values(array_map('intval', (array)($datos['tareas'] ?? []))),
+        ]);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
+    }
+
+    /** Tareas que ese deploy subió (ids). */
+    public static function tareasDe(array $d): array
+    {
+        return array_values(array_map('intval', (array)($d['tareas'] ?? [])));
+    }
+
+    /**
+     * Proyectos que tocó (ids). Los primeros registros guardaban un solo
+     * 'proyecto_id'; se siguen leyendo para no perderlos.
+     */
+    public static function proyectosDe(array $d): array
+    {
+        $ids = array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? []))));
+        if (!$ids && (int)($d['proyecto_id'] ?? 0) > 0) {
+            $ids = [(int)$d['proyecto_id']];
+        }
+        return $ids;
+    }
+
+    /**
+     * "hace 5 min", "hace 3 h", "ayer 19:40"... El PO mira esto de un vistazo
+     * para saber si lo que va a probar es de hoy o de la semana pasada.
+     */
+    public static function haceCuanto(string $fecha): string
+    {
+        $ts = strtotime($fecha);
+        if (!$ts) return '';
+        $seg = time() - $ts;
+        return match (true) {
+            $seg < 60      => 'hace un momento',
+            $seg < 3600    => 'hace ' . (int)($seg / 60) . ' min',
+            $seg < 86400   => 'hace ' . (int)($seg / 3600) . ' h',
+            $seg < 172800  => 'ayer ' . date('H:i', $ts),
+            $seg < 604800  => 'hace ' . (int)($seg / 86400) . ' días',
+            default        => date('d/m/Y', $ts),
+        };
     }
 }

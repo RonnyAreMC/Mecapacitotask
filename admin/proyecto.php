@@ -455,6 +455,12 @@ $platDefecto   = Reuniones::plataformaDefecto($proyecto);   // el proyecto puede
 $durDefecto    = Reuniones::duracionDefecto();
 $durOpciones   = Reuniones::duraciones();
 
+// Despliegues: si el módulo está activo, cada tarea completada dice si ya
+// está en el servidor de pruebas o si sigue esperando la próxima subida.
+$depCfgProy = configDeploys();
+$depsOn     = $depCfgProy['activo'];
+$depEntorno = $depCfgProy['entorno'];
+
 // ---------------------------------------------------------------------------
 // Filtro de fechas del Kanban.
 //
@@ -895,6 +901,17 @@ foreach ($tareas as $t) {
                 <i class="fa-solid fa-paperclip"></i> <?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?>
               </small>
               <?php endif; ?>
+              <?php if ($depsOn && $esFinal): ?>
+                <?php if ((int)($t['deploy_id'] ?? 0) > 0): ?>
+                <small class="dep-tag deploy-tag deploy-si" title="Ya está en <?= e($depEntorno) ?>">
+                  <i class="fa-solid fa-cloud-arrow-up"></i> Subida el <?= e($t['desplegada_en'] ?? '') ?>
+                </small>
+                <?php else: ?>
+                <small class="dep-tag deploy-tag deploy-no" title="Completada, pero aún no se ha subido a <?= e($depEntorno) ?>">
+                  <i class="fa-regular fa-clock"></i> Sin subir
+                </small>
+                <?php endif; ?>
+              <?php endif; ?>
             </div>
           </td>
           <td>
@@ -1080,6 +1097,19 @@ foreach ($tareas as $t) {
               <?php endif; ?>
               <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
               <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
+              <?php endif; ?>
+              <?php if ($depsOn && in_array($t['estado'] ?? '', $finales, true)):
+                  // Completada: lo siguiente que preguntan es si ya está arriba.
+                  $depT = (int)($t['deploy_id'] ?? 0); ?>
+                <?php if ($depT > 0): ?>
+                <small class="kb-deploy kb-deploy-si" title="Subida a <?= e($depEntorno) ?> el <?= e($t['desplegada_en'] ?? '') ?>">
+                  <?= UI::icono('Upload') ?> <?= e(substr((string)($t['desplegada_en'] ?? ''), 5, 11)) ?>
+                </small>
+                <?php else: ?>
+                <small class="kb-deploy kb-deploy-no" title="Completada, pero todavía no se ha subido a <?= e($depEntorno) ?>">
+                  <?= UI::icono('Clock') ?> sin subir
+                </small>
+                <?php endif; ?>
               <?php endif; ?>
             </div>
           </div>

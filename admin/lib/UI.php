@@ -242,6 +242,19 @@ class UI
     </a>
     <?php endforeach; ?>
 
+    <?php if (puedeVerDeploys()): /* quien el admin haya dejado entrar */ ?>
+    <?php
+      // Contador: tareas completadas que todavia no ha subido nadie. Es el
+      // numero por el que pregunta el Product Owner.
+      $depFilas = resumenDeploys(misProyectosDeploys((new ProyectoRepo())->todos()));
+      $nDep = array_sum(array_map(fn($f) => count($f['pendientes']), $depFilas));
+    ?>
+    <a href="deploys.php" class="sidebar-link <?= $activo === 'deploys' ? 'active' : '' ?>" title="Despliegues al servidor de pruebas">
+      <?= UI::icono('Upload') ?> <span class="truncate">Despliegues</span>
+      <?php if ($nDep): ?><span class="nav-badge" title="<?= $nDep ?> tarea(s) completada(s) sin subir"><?= $nDep ?></span><?php endif; ?>
+    </a>
+    <?php endif; ?>
+
     <?php if (Auth::esGestor()): ?>
     <span class="sidebar-label">Configuración</span>
     <?php endif; ?>
