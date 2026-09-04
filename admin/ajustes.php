@@ -677,7 +677,12 @@ UI::cabecera(
              panel un proyecto se llama "Equipo Delta", pero quien lo sube al
              servidor lo conoce como "ms-academico", que es lo que ve en la
              carpeta y en el pipeline. Sin esto, al registrar la subida tiene
-             que traducir de memoria. -->
+             que traducir de memoria.
+
+             Se pintan TODOS los proyectos, pero solo se ven los marcados
+             arriba: el JS los filtra al vuelo con lo que haya en el selector,
+             sin esperar a guardar. Los ocultos siguen enviando su alias, así
+             que desmarcar un proyecto un rato no borra lo que ya se escribió. -->
         <div class="dep-alias">
           <span class="dep-alias-tit">Cómo se llama cada proyecto para quien lo sube</span>
           <p class="ajuste-ayuda">
@@ -685,12 +690,13 @@ UI::cabecera(
             el aviso de confirmación, para no tener que traducir «Equipo Delta» de memoria. Déjalo en
             blanco y se usa el nombre del proyecto.
           </p>
-          <div class="dep-alias-grid">
+          <div class="dep-alias-grid" data-alias-de="deploys[proyectos][]">
             <?php foreach ((new ProyectoRepo())->todos() as $pp): $pidA = (int)$pp['id']; ?>
-            <label class="dep-alias-item" style="--pc:<?= e(ProyectoRepo::colorBase($pp)) ?>">
+            <label class="dep-alias-item" data-proy="<?= $pidA ?>"
+                   style="--pc:<?= e(ProyectoRepo::colorBase($pp)) ?>">
               <span class="dep-alias-proy">
                 <?= UI::icono($pp['icono'] ?? 'FolderOpen') ?>
-                <span class="truncate"><?= e($pp['nombre']) ?></span>
+                <span><?= e($pp['nombre']) ?></span>
               </span>
               <input class="input-meca" name="deploys[alias][<?= $pidA ?>]"
                      value="<?= e($dp['alias'][$pidA] ?? '') ?>"

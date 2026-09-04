@@ -7969,28 +7969,38 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   display: block; margin-bottom: 2px;
   font-size: .82rem; font-weight: 800; color: var(--c-text);
 }
-.dep-alias-grid {
-  display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 10px; margin-top: 10px;
-}
+/* Una sola columna. En rejilla de varias, cada tarjeta se quedaba en ~280px y
+   el nombre del proyecto salía cortado a la tercera letra ("Vincul…"): el
+   nombre es justamente lo que hay que leer para saber a qué proyecto se le pone
+   el alias. A lo ancho caben enteros. */
+.dep-alias-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
 .dep-alias-item {
   display: flex; align-items: center; gap: 10px;
   padding: 8px 12px; border-radius: 13px;
   background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
   border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, transparent);
 }
-/* El nombre no se come el input: se corta con "…" y el input manda */
+/* El JS oculta los proyectos que no estén marcados arriba. Hace falta decirlo:
+   el display:flex de la regla de al lado le gana al [hidden] del navegador. */
+.dep-alias-item[hidden] { display: none; }
+/* Ancho fijo para el nombre: así todos los campos empiezan en la misma
+   columna. Si un nombre no cabe, parte de línea — antes que cortarse. */
 .dep-alias-proy {
   display: flex; align-items: center; gap: 7px;
-  flex: 0 1 42%; min-width: 0;
+  flex: 0 0 240px; min-width: 0;
   font-size: .82rem; font-weight: 700; color: var(--c-text);
+  overflow-wrap: anywhere;
 }
 .dep-alias-proy .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); flex: none; }
-.dep-alias-proy .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .dep-alias-item input {
   flex: 1 1 auto; min-width: 0;
   padding: 7px 11px; font-size: .8rem;
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* En estrecho el nombre manda y el campo se va debajo */
+@media (max-width: 560px) {
+  .dep-alias-item { flex-wrap: wrap; }
+  .dep-alias-proy { flex: 1 1 100%; }
 }
 
 /* El alias en la tarjeta de "esperando subida" */

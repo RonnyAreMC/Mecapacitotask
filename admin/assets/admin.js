@@ -3891,3 +3891,25 @@ document.addEventListener('submit', (e) => {
   btn.classList.add('dep-enviando');
 });
 
+
+/* Ajustes → Despliegues: los campos de alias siguen a "Proyectos a los que
+   afecta cada subida". Salen todos en el HTML y aquí se deja ver solo lo
+   marcado, al vuelo: si hubiera que guardar para verlos, marcar un proyecto y
+   no encontrar su casilla parece que la pantalla está rota.
+
+   Sin nada marcado valen todos, igual que en el resto del módulo.
+
+   Los ocultos NO se deshabilitan: siguen enviando su alias, así que desmarcar
+   un proyecto un rato no borra lo que ya se había escrito. */
+document.querySelectorAll('[data-alias-de]').forEach((caja) => {
+  const sel = document.querySelector('select[name="' + caja.dataset.aliasDe + '"]');
+  if (!sel) return;
+  const sincronizar = () => {
+    const marcados = new Set([...sel.selectedOptions].map((o) => o.value));
+    caja.querySelectorAll('[data-proy]').forEach((fila) => {
+      fila.hidden = marcados.size > 0 && !marcados.has(fila.dataset.proy);
+    });
+  };
+  sel.addEventListener('change', sincronizar);
+  sincronizar();
+});
