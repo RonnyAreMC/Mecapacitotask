@@ -6800,7 +6800,6 @@ html.dark .sit-tarde { color: #ff9d5c; }
   width: 100%; padding: 12px 16px;
   border: 0; border-radius: 16px;
   background: var(--n-bg); box-shadow: var(--sh-card);
-  border-left: 4px solid var(--c-text-soft);
   text-align: left; cursor: pointer; font: inherit; color: var(--c-text);
   transition: transform .15s ease, box-shadow .15s ease;
 }
@@ -6808,13 +6807,11 @@ html.dark .sit-tarde { color: #ff9d5c; }
 .req-fila:focus-visible { outline: 2px solid var(--c-secondary); outline-offset: 2px; }
 
 /* El borde dice el estado de un vistazo; lo cerrado se apaga */
-.req-fila.req-e-pendiente { border-left-color: var(--c-warning); }
 .req-fila.req-e-asignado  { border-left-color: var(--c-secondary); }
 .req-fila.req-e-hecho     { border-left-color: var(--c-success); }
 .req-fila.req-e-hecho,
 .req-fila.req-e-descartado { opacity: .62; }
 /* Pasado de fecha y sin cerrar: es lo único que se salta el código de estado */
-.req-fila.req-fila-vencida { border-left-color: var(--c-terracota); }
 
 .req-f-estado {
   width: 2.4rem; height: 2.4rem; border-radius: 50%;
@@ -7503,4 +7500,33 @@ html.dark .inst-metrica {          /* gana a html.dark .card-base */
 
 @media (max-width: 1100px) {
   .req-lista { grid-template-columns: 1fr; }
+}
+/* ---------- Requerimientos: detalles de la tarjeta ----------
+   Sin la franja de la izquierda, el estado lo llevan el icono y el chip. Los
+   dos beben de --req-c, así que un estado se cambia en un sitio. */
+.req-fila { --req-c: var(--c-text-soft); }
+.req-fila.req-e-pendiente  { --req-c: var(--c-warning); }
+.req-fila.req-e-asignado   { --req-c: var(--c-secondary); }
+.req-fila.req-e-hecho      { --req-c: var(--c-success); }
+.req-fila.req-e-descartado { --req-c: var(--c-text-soft); }
+.req-fila.req-fila-vencida { --req-c: var(--c-terracota); }
+
+.req-f-estado { color: var(--req-c); }
+.req-f-estadob {
+  color: var(--req-c);
+  background: color-mix(in srgb, var(--req-c) 15%, transparent);
+}
+
+/* Las fechas van juntas en una pastilla: son un dato, no tres sueltos. */
+.req-f-fechas {
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-text-soft) 12%, transparent);
+  color: var(--c-text);
+}
+.req-f-fechas i { color: var(--c-text-soft); }
+.req-f-flecha { margin: 0 1px; }
+
+/* Al pasar, la tarjeta se tiñe de su propio estado en vez del verde de acento */
+.req-fila:hover {
+  box-shadow: var(--sh-card), 0 0 0 2px color-mix(in srgb, var(--req-c) 45%, transparent);
 }
