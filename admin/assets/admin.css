@@ -1620,10 +1620,34 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .vista-fila {
   display: flex; align-items: center; justify-content: space-between;
   gap: 12px; flex-wrap: wrap;
+  /* El riel de pestañas ya se delimita solo; una línea más debajo sobraba. */
   margin-bottom: 18px;
 }
-.vista-toggle { display: flex; gap: 10px; flex-wrap: wrap; }
-.vista-toggle .tab-btn { padding: 9px 18px; font-size: .82rem; }
+/* Las pestañas no son pastillas sueltas flotando sobre el contenido: son una
+   sola barra que ocupa el ancho y se reparte entre todas. Cada una crece por
+   igual, así no queda hueco a la derecha. */
+.vista-toggle {
+  flex: 1 1 420px;
+  display: flex; gap: 4px;
+  padding: 5px; border-radius: 16px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  /* Si de verdad no caben (pantalla estrecha con la barra abierta) la fila
+     rueda de lado; nunca se montan unas sobre otras. */
+  overflow-x: auto; scrollbar-width: none;
+}
+.vista-toggle::-webkit-scrollbar { display: none; }
+.vista-toggle .tab-btn {
+  flex: 1 0 auto; justify-content: center; white-space: nowrap;
+  padding: 10px 12px; font-size: .82rem;
+  border: 0; border-radius: 12px;
+  background: transparent;
+}
+.vista-toggle .tab-btn:hover {
+  background: color-mix(in srgb, var(--c-tab-activo) 9%, transparent);
+  color: var(--c-text);
+}
+.vista-toggle .tab-btn.active,
+.vista-toggle .tab-btn.active:hover { background: var(--c-tab-activo); color: #fff; }
 
 /* Subselector de "Tareas": segmentado compacto embutido */
 .subvista-toggle {
@@ -1675,7 +1699,7 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .tab-badge-neutro { background: var(--c-text-soft) !important; }
 /* Pantallas pequeñas: pestañas y subvistas SOLO icono; el texto queda
    únicamente en la opción activa. El resto se explica con su tooltip. */
-@media (max-width: 900px) {
+@media (max-width: 1150px) {
   .subvista-tit { display: none; }
   .vista-toggle .tab-btn .tab-txt { display: none; }
   .vista-toggle .tab-btn.active .tab-txt { display: inline; }
