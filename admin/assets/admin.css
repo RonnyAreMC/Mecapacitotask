@@ -1548,6 +1548,24 @@ html.dark .ph-watermark { opacity: .14; }
   margin-top: 22px;
   flex-wrap: wrap;
 }
+/* Cuadro de quién lleva el proyecto (PO y SM), bajo el título */
+.ph-lideres {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 14px;
+}
+.ph-lider {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 6px 14px 6px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
+}
+.ph-lider .avatar { box-shadow: none; }
+.ph-lider-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.ph-lider-txt small {
+  font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.ph-lider-txt b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .ph-icon {
   width: 78px; height: 78px; border-radius: 26px; flex-shrink: 0;
   background: var(--pc, var(--c-secondary));
@@ -7410,12 +7428,15 @@ html.sb-collapsed .nav-badge-fin {
    ========================================================= */
 .ph-kpis {
   position: relative; z-index: 1;
-  display: grid; grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 10px; margin-top: 16px;
+  /* Dos columnas y pegado a la derecha del título, no una franja de cuatro
+     tarjetas anchas debajo de todo. */
+  flex: 0 1 auto; width: min(400px, 40%);
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 0;
 }
 .phk {
-  display: flex; align-items: center; gap: 10px;
-  padding: 9px 12px; border-radius: 13px;
+  display: flex; align-items: center; gap: 9px;
+  padding: 7px 11px; border-radius: 12px;
   background: color-mix(in srgb, currentColor 7%, transparent);
   border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
   text-decoration: none;
@@ -7426,18 +7447,18 @@ html.sb-collapsed .nav-badge-fin {
 /* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
 .phk-ico {
   display: inline-flex; align-items: center; justify-content: center;
-  width: 32px; height: 32px; flex: none;
+  width: 27px; height: 27px; flex: none;
   border-radius: 999px; background: currentColor;
 }
-.phk-ico .ico { width: 17px; height: 17px; color: #fff; }
-.phk-txt { display: flex; flex-direction: column; gap: 5px; min-width: 0; flex: 1; }
+.phk-ico .ico { width: 15px; height: 15px; color: #fff; }
+.phk-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; flex: 1; }
 .phk-linea { display: flex; align-items: baseline; gap: 6px; min-width: 0; }
 .phk-linea b {
   font-family: 'Plus Jakarta Sans', sans-serif;
-  font-size: 1.15rem; font-weight: 800; line-height: 1; color: var(--c-text);
+  font-size: 1rem; font-weight: 800; line-height: 1; color: var(--c-text);
 }
 .phk-linea small {
-  font-size: .7rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  font-size: .64rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
   color: var(--c-text-muted);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
@@ -7448,8 +7469,12 @@ html.sb-collapsed .nav-badge-fin {
 }
 .phk-barra > span { display: block; height: 100%; border-radius: 999px; background: currentColor; }
 
-@media (max-width: 760px) {
-  .ph-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* Cuando ya no cabe al lado del título, baja y ocupa el ancho entero */
+@media (max-width: 1150px) {
+  .ph-kpis { width: 100%; margin-top: 6px; }
+}
+@media (max-width: 520px) {
+  .ph-kpis { grid-template-columns: minmax(0, 1fr); }
 }
 
 /* =========================================================

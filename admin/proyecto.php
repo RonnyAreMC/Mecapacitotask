@@ -578,17 +578,33 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php if ($equipoProyecto !== null): ?>
         <span class="ph-fecha"><i class="fa-solid fa-user-group"></i> <?= count($equipoProyecto) ?> participante<?= count($equipoProyecto) === 1 ? '' : 's' ?></span>
         <?php endif; ?>
-        <?php if ($poProyecto && isset($miembros[$poProyecto])): ?>
-        <span class="ph-fecha ph-po"><i class="fa-solid fa-user-tie"></i> PO: <b><?= e($miembros[$poProyecto]['nombre']) ?></b></span>
-        <?php endif; ?>
       </div>
       <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
-    </div>
-  </div>
 
-  <!-- Estados dentro del encabezado: cada uno con su parte del total. Antes
-       eran cuatro tarjetas sueltas debajo que ocupaban una franja entera. -->
+      <!-- Quién lleva el proyecto: PO y SM juntos en un cuadro bajo el título.
+           El PO estaba suelto entre las badges de arriba y el SM no salía. -->
+      <?php
+      $lideres = [];
+      if ($poProyecto && isset($miembros[$poProyecto]))       $lideres['Product Owner'] = $miembros[$poProyecto];
+      if ($scrumProyecto && isset($miembros[$scrumProyecto])) $lideres['Scrum Master']  = $miembros[$scrumProyecto];
+      if ($lideres): ?>
+      <div class="ph-lideres">
+        <?php foreach ($lideres as $rotulo => $m): ?>
+        <span class="ph-lider" title="<?= e($rotulo) ?> del proyecto">
+          <?= UI::avatar($m, 28) ?>
+          <span class="ph-lider-txt">
+            <small><?= e($rotulo) ?></small>
+            <b><?= e($m['nombre']) ?></b>
+          </span>
+        </span>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+
+  <!-- Estados a la derecha del título, en dos columnas: antes eran una franja
+       de cuatro tarjetas anchas debajo de todo. -->
   <?php $totalTareas = array_sum($resumen); ?>
   <div class="ph-kpis">
     <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
@@ -605,6 +621,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     </a>
     <?php endforeach; ?>
   </div>
+  </div><!-- /.ph-main -->
 
   <!-- Avance abajo a la derecha: barra semaforo (rojo/amarillo/verde) -->
   <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
