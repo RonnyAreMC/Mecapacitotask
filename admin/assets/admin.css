@@ -1447,6 +1447,24 @@ html.dark .ph-watermark { opacity: .14; }
   margin-top: 22px;
   flex-wrap: wrap;
 }
+/* Cuadro de quién lleva el proyecto (PO y SM), bajo el título */
+.ph-lideres {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 14px;
+}
+.ph-lider {
+  display: inline-flex; align-items: center; gap: 9px;
+  padding: 6px 14px 6px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 9%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
+}
+.ph-lider .avatar { box-shadow: none; }
+.ph-lider-txt { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.ph-lider-txt small {
+  font-size: .62rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.ph-lider-txt b { font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .ph-icon {
   width: 78px; height: 78px; border-radius: 26px; flex-shrink: 0;
   background: var(--pc, var(--c-secondary));
