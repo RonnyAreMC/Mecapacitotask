@@ -17,6 +17,10 @@
   --sidebar-w: 264px;
 
   /* ----- Tokens neumorfismo (claro) ----- */
+  /* Pastilla activa de las pestañas: el azul cobalto de la marca. Blanco
+     encima da 7.4:1, así que el texto de la pestaña activa se lee. */
+  --c-tab-activo: var(--c-azul-cobalto);
+
   --n-bg: #e5eaf3;          /* base: fondo Y superficies */
   --n-sh-d: #c2cbdb;        /* sombra oscura */
   --n-sh-l: #ffffff;        /* sombra clara */
@@ -42,6 +46,9 @@ html.dark {
   --n-bg: #1F2740;
   --n-sh-d: #161c30;
   --n-sh-l: #2b3455;
+  /* Sobre el marino, el cobalto se confunde con el fondo: la pastilla activa
+     sube al azul eléctrico, que sí se despega. */
+  --c-tab-activo: var(--c-azul-electrico);
   /* Superficie de las tarjetas: un escalón por encima del fondo. Antes eran del
      mismo color y solo las separaba una línea de 1px; sobre un marino profundo
      eso se pierde. */
@@ -1036,7 +1043,7 @@ html.dark .btn-ghost.btn-meca:hover {
   --btn-rojo:  #B4232F;  --btn-rojo-h:  #8E1A24;
   --btn-verde: #0D7340;  --btn-verde-h: #0B6234;
   --btn-ambar: #9C5511;  --btn-ambar-h: #7A420D;
-  --btn-navy:  #000080;  --btn-navy-h:  #16169E;
+  --btn-navy:  #1A4B99;  --btn-navy-h:  #123A78;
   --btn-gris:  #6B7688;
 }
 html.dark {
@@ -2548,6 +2555,12 @@ html.dark .om-num-pend { color: #ffb35c; }
   border-bottom: 1px solid var(--c-border-soft);
 }
 .tabla-toolbar h2 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; align-items: center; gap: 10px; }
+/* Buscador de tabla reutilizable (data-tabla-buscar) */
+.tabla-buscar { position: relative; display: flex; align-items: center; flex: 1 1 15rem; min-width: 0; max-width: 24rem; }
+.tabla-buscar > i { position: absolute; left: 13px; color: var(--c-text-soft); font-size: .85rem; pointer-events: none; }
+.tabla-buscar .input-meca { width: 100%; padding: 9px 12px 9px 36px; font-size: .88rem; }
+.fila-oculta { display: none !important; }
+.tabla-buscar-vacio { text-align: center; padding: 26px 12px; color: var(--c-text-soft); font-style: italic; }
 .tabla-count {
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 27px; height: 27px; padding: 0 9px;
@@ -5893,3 +5906,546 @@ img[src$="claude.svg"] {
 .mc-bar-track{ height:12px; border-radius:7px; background:color-mix(in srgb,var(--c-text) 8%, transparent); overflow:hidden; }
 .mc-bar-fill{ display:block; height:100%; border-radius:7px; min-width:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
 .mc-bar-val{ font-size:.84rem; font-weight:700; color:var(--c-text); min-width:20px; text-align:right; }
+
+
+/* =========================================================
+   Estados dentro del encabezado del proyecto
+
+   Antes eran cuatro tarjetas sueltas bajo la cabecera, que se comían una
+   franja entera de alto. Aquí van en una fila, con el patrón del design
+   system: círculo con el icono, la cifra con su rótulo y una barra con la
+   parte que le toca del total. Siguen filtrando al pulsarlas.
+
+   El color sale de .estado-<clave>, que ya define el de cada estado y su
+   variante oscura: aquí solo se usa currentColor.
+   ========================================================= */
+.ph-kpis {
+  position: relative; z-index: 1;
+  /* Dos columnas de pastillas bajas: en 2x2 pero cuadradas ocupaban ~200px
+     de alto y estiraban toda la cabecera; asi son ~100px. */
+  flex: 0 0 auto;
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 8px; margin-top: 0;
+}
+.phk {
+  /* Pastilla horizontal: circulo con el icono y, al lado, cifra y rotulo. */
+  display: flex; flex-direction: row; align-items: center; gap: 9px;
+  padding: 8px 12px 8px 9px; border-radius: 14px;
+  background: color-mix(in srgb, currentColor 7%, transparent);
+  border: 1px solid color-mix(in srgb, currentColor 22%, transparent);
+  text-decoration: none;
+  transition: background .18s ease, border-color .18s ease, transform .18s ease;
+}
+.phk:hover { transform: translateY(-1px); background: color-mix(in srgb, currentColor 12%, transparent); }
+.phk-activo { border-color: currentColor; background: color-mix(in srgb, currentColor 16%, transparent); }
+/* Círculo relleno con el color del estado y el icono en blanco, como en el DS. */
+.phk-ico {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; flex: none;
+  border-radius: 999px; background: currentColor;
+}
+.phk-ico .ico { width: 14px; height: 14px; color: #fff; }
+.phk-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
+.phk-linea { display: flex; flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
+.phk-linea b {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 1.25rem; font-weight: 800; line-height: 1; color: var(--c-text);
+}
+.phk-linea small {
+  font-size: .62rem; min-width: 0; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: var(--c-text-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.phk-barra {
+  display: block; height: 3px; border-radius: 999px;
+  background: color-mix(in srgb, currentColor 20%, transparent);
+  overflow: hidden;
+}
+.phk-barra > span { display: block; height: 100%; border-radius: 999px; background: currentColor; }
+
+/* Cuando ya no cabe al lado del título, la columna baja y ocupa el ancho */
+@media (max-width: 1150px) {
+  .ph-lado { flex: 1 1 100%; margin-left: 0; margin-top: 4px; }
+}
+@media (max-width: 620px) {
+  .ph-kpis { grid-template-columns: minmax(0, 1fr); }
+}
+
+/* =========================================================
+   Botón compacto: solo icono, el texto se despliega al pasar por encima o
+   al llegar con el teclado. Mismo comportamiento que el "Ver como", pero
+   como clase suelta para poder ponérsela a cualquier botón de una barra.
+   El hueco va en el margen del texto y no en el gap del botón: plegado, un
+   gap dejaría aire al lado del icono.
+   ========================================================= */
+.btn-icono { gap: 0; padding-left: 11px; padding-right: 11px; }
+.btn-icono .tab-txt {
+  display: inline-block;
+  max-width: 0; margin-left: 0; opacity: 0;
+  overflow: hidden; white-space: nowrap;
+  transition: max-width .22s ease, opacity .16s ease, margin-left .22s ease;
+}
+.btn-icono:hover .tab-txt,
+.btn-icono:focus-visible .tab-txt { max-width: 12rem; margin-left: 7px; opacity: 1; }
+@media (prefers-reduced-motion: reduce) {
+  .btn-icono .tab-txt { transition: none; }
+}
+/* El logo de Claude es un <img>, no hereda color: se atenúa en reposo para
+   que no grite más que los iconos de al lado. */
+.btn-icono img { opacity: .85; }
+.btn-icono:hover img { opacity: 1; }
+/* Enlace puesto a mano: ni Zoom ni Meet, y sin grabación. Neutro a propósito,
+   para que se distinga de las dos plataformas conectadas. */
+.reu-plat.plat-enlace { background: color-mix(in srgb, var(--c-text-soft) 18%, transparent); color: var(--c-text-muted); }
+/* El campo del enlace propio aparece solo con esa opción elegida. */
+.nr-enlace[hidden] { display: none; }
+
+/* ---------- Requerimientos: encabezado más ligero ----------
+   Eran cuatro tarjetones altos y una tarjeta entera para las instituciones,
+   antes siquiera de ver la lista. Se bajan a una tira de indicadores y una
+   fila de chips: la misma información, sin tanto cartón. */
+.req-situacion { gap: 10px; }
+.req-situacion .estado-tile {
+  padding: 10px 14px; gap: 10px; border-radius: 14px;
+}
+.req-situacion .et-icono { width: 34px; height: 34px; border-radius: 10px; }
+.req-situacion .et-datos b { font-size: 1.3rem; }
+.req-situacion .et-datos small { font-size: .68rem; letter-spacing: .05em; }
+
+/* Instituciones: deja de ser una tarjeta con borde y pasa a una tira de chips
+   pegada al resto, que es lo que es — un filtro rápido. */
+.inst-metrica,
+html.dark .inst-metrica {          /* gana a html.dark .card-base */
+  background: transparent; border: 0; box-shadow: none;
+  padding: 0; margin-bottom: 16px;
+}
+.inst-metrica-tit { margin-bottom: 8px; font-size: .82rem; }
+.inst-metrica-lista { gap: 8px; }
+.inst-metrica-item {
+  padding: 7px 12px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+}
+.inst-metrica-logo { width: 24px; height: 24px; }
+.inst-metrica-datos small { display: none; }   /* el x/y se lee en el title */
+/* ---------- Requerimientos: la fila es una tarjeta ---------- */
+.req-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+.req-fila > .req-f-estado { grid-area: ico; align-self: start; margin-top: 2px; }
+.req-fila > .req-f-txt    { grid-area: txt; }
+.req-fila > .req-f-estadob{ grid-area: badge; }
+.req-fila > .req-f-mas    { grid-area: mas; }
+.req-fila > .req-f-meta   { grid-area: meta; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+.req-f-meta .req-f-gente  { display: inline-flex; align-items: center; gap: 7px; min-width: 0; }
+
+/* Estado, en chip, arriba a la derecha de la tarjeta */
+.req-f-estadob {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 3px 9px; border-radius: 999px;
+  background: color-mix(in srgb, currentColor 14%, transparent);
+  font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .04em;
+  white-space: nowrap;
+}
+
+/* Arranque y entrega. La bandera de cuadros es el final: se lee sin leer. */
+.req-f-fechas {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .76rem; font-weight: 600; color: var(--c-text-muted);
+  white-space: nowrap;
+}
+.req-f-fechas i { font-size: .72em; opacity: .85; }
+.req-f-flecha { opacity: .5 !important; }
+
+@media (max-width: 1100px) {
+  .req-lista { grid-template-columns: 1fr; }
+}
+/* ---------- Requerimientos: detalles de la tarjeta ----------
+   Sin la franja de la izquierda, el estado lo llevan el icono y el chip. Los
+   dos beben de --req-c, así que un estado se cambia en un sitio. */
+.req-fila { --req-c: var(--c-text-soft); }
+.req-fila.req-e-pendiente  { --req-c: var(--c-warning); }
+.req-fila.req-e-asignado   { --req-c: var(--c-secondary); }
+.req-fila.req-e-hecho      { --req-c: var(--c-success); }
+.req-fila.req-e-descartado { --req-c: var(--c-text-soft); }
+.req-fila.req-fila-vencida { --req-c: var(--c-terracota); }
+
+.req-f-estado { color: var(--req-c); }
+.req-f-estadob {
+  color: var(--req-c);
+  background: color-mix(in srgb, var(--req-c) 15%, transparent);
+}
+
+/* Las fechas van juntas en una pastilla: son un dato, no tres sueltos. */
+.req-f-fechas {
+  padding: 4px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-text-soft) 12%, transparent);
+  color: var(--c-text);
+}
+.req-f-fechas i { color: var(--c-text-soft); }
+.req-f-flecha { margin: 0 1px; }
+
+/* Al pasar, la tarjeta se tiñe de su propio estado en vez del verde de acento */
+.req-fila:hover {
+  box-shadow: var(--sh-card), 0 0 0 2px color-mix(in srgb, var(--req-c) 45%, transparent);
+}
+
+/* =========================================================
+   Observaciones como hilo
+
+   Fuera la franja de color a la izquierda: el estado ya lo dice el chip de
+   la derecha. Quien la escribe pasa a leerse en grande, que es lo primero
+   que se mira, y las respuestas cuelgan con sangría y una línea que las une
+   a su origen — como una conversación, no como una lista plana.
+   ========================================================= */
+.obs-item { border-left: 0 !important; }
+
+.obs-autor b { font-size: 1rem; letter-spacing: -.01em; }
+.obs-cabecera .avatar { width: 44px !important; height: 44px !important; }
+
+/* El hilo: sangría, y la línea vertical que lo ata a la observación de arriba */
+.obs-hilo {
+  position: relative;
+  margin: 12px 0 0 22px;
+  padding-left: 20px;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.obs-hilo::before {
+  content: ''; position: absolute; left: 0; top: -4px; bottom: 14px;
+  width: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text-soft) 30%, transparent);
+}
+/* Cada respuesta engancha con la vertical con su propio codo */
+.obs-respuesta { position: relative; }
+.obs-respuesta::before {
+  content: ''; position: absolute; left: -20px; top: 26px;
+  width: 14px; height: 2px; border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text-soft) 30%, transparent);
+}
+.obs-respuesta .avatar { width: 32px !important; height: 32px !important; }
+.obs-respuesta .obs-autor b { font-size: .88rem; }
+.obs-respuesta .obs-destino, .obs-respuesta .obs-estado { display: none; }
+
+/* Cuadro para responder */
+.obs-responder-caja { display: flex; flex-direction: column; gap: 8px; }
+/* El display de arriba gana al display:none que el navegador da a [hidden]:
+   sin esto el cuadro sale abierto en todos los hilos. */
+.obs-responder-caja[hidden] { display: none; }
+/* Una respuesta no se resuelve por su cuenta: lo que se cierra es el hilo.
+   El borrado sí se queda, para poder quitar una respuesta suelta. */
+.obs-respuesta .obs-acc-admin form:first-child { display: none; }
+.obs-responder-caja textarea { width: 100%; resize: vertical; }
+.obs-responder-pie { display: flex; justify-content: flex-end; gap: 8px; }
+.obs-acciones { display: flex; align-items: center; gap: 8px; }
+.obs-acc-admin { display: inline-flex; gap: 8px; margin-left: auto; }
+
+/* Al quitar la franja lateral se fue todo el color y las tarjetas quedaron
+   grises. El color de la persona vuelve, pero repartido —un tinte del fondo,
+   el aro del avatar, la línea del hilo— en vez de una barra a un lado. */
+.obs-item {
+  background: color-mix(in srgb, var(--av-c1) 9%, var(--n-bg));
+  border-color: color-mix(in srgb, var(--av-c1) 38%, var(--c-border-soft));
+}
+html.dark .obs-item {
+  background: color-mix(in srgb, var(--av-c1) 16%, var(--n-card));
+  border-color: color-mix(in srgb, var(--av-c1) 42%, transparent);
+}
+.obs-cabecera .avatar {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--av-c1) 30%, transparent);
+}
+.obs-hilo::before,
+.obs-respuesta::before { background: color-mix(in srgb, var(--av-c1) 45%, transparent); }
+/* El chip de la tarea era un hueco gris: pasa al azul de la casa */
+.obs-destino {
+  box-shadow: none;
+  background: color-mix(in srgb, var(--btn-azul) 13%, transparent);
+  color: var(--btn-azul);
+}
+html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, transparent); }
+.obs-responder { color: var(--btn-azul); }
+.obs-acciones { border-top-color: color-mix(in srgb, var(--av-c1) 30%, transparent); }
+/* El nombre de quien escribió, en su color: es lo que distingue una tarjeta
+   de otra de un vistazo cuando el hilo lo escriben varias personas. */
+.obs-meta .obs-creador { color: color-mix(in srgb, var(--av-c2, var(--av-c1)) 70%, var(--c-text)); font-weight: 700; }
+
+
+/* =========================================================
+   Entrada del panel: las tarjetas suben y aparecen en cascada, una detrás
+   de otra. Solo al cargar — nada se mueve después. --i lo pone el PHP en
+   cada tarjeta de proyecto; en las cifras de arriba basta el orden.
+   ========================================================= */
+@keyframes entrada-fresh {
+  from { opacity: 0; transform: translateY(16px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+.stats-grid > *,
+.proyectos-admin-grid > * {
+  animation: entrada-fresh .5s cubic-bezier(.2, .8, .3, 1) backwards;
+}
+.stats-grid > :nth-child(1) { animation-delay: .02s; }
+.stats-grid > :nth-child(2) { animation-delay: .08s; }
+.stats-grid > :nth-child(3) { animation-delay: .14s; }
+.stats-grid > :nth-child(4) { animation-delay: .20s; }
+.proyectos-admin-grid > * { animation-delay: calc(.24s + var(--i, 0) * .06s); }
+@media (prefers-reduced-motion: reduce) {
+  .stats-grid > *, .proyectos-admin-grid > * { animation: none; }
+}
+
+/* =========================================================
+
+/* =========================================================
+   Cositas del hilo de observaciones: la respuesta recién publicada entra
+   y se queda un momento resaltada, y el avión del botón despega mientras
+   el envío está en el aire.
+   ========================================================= */
+@keyframes obs-estreno {
+  0%   { opacity: 0; transform: translateY(10px) scale(.985); }
+  55%  { opacity: 1; transform: none; }
+  100% { opacity: 1; transform: none; }
+}
+@keyframes obs-estreno-aro {
+  0%, 55% { box-shadow: 0 0 0 3px color-mix(in srgb, var(--av-c1, var(--btn-azul)) 40%, transparent); }
+  100%    { box-shadow: 0 0 0 3px transparent; }
+}
+.obs-estreno {
+  animation: obs-estreno .38s cubic-bezier(.2, .8, .3, 1),
+             obs-estreno-aro 1.5s ease-out;
+}
+/* El avión sale volando y vuelve a entrar: dice que algo va en camino sin
+   cambiar el texto del botón. */
+@keyframes btn-volar {
+  0%   { transform: translate(0, 0); opacity: 1; }
+  55%  { transform: translate(14px, -10px); opacity: 0; }
+  56%  { transform: translate(-10px, 8px); opacity: 0; }
+  100% { transform: translate(0, 0); opacity: 1; }
+}
+.btn-enviando i { animation: btn-volar .75s ease-in-out infinite; }
+.btn-enviando { cursor: progress; }
+
+@media (prefers-reduced-motion: reduce) {
+  .obs-estreno, .btn-enviando i { animation: none; }
+}
+
+
+/* =========================================================================
+   Dependencias entre equipos: selector, chips en el tablero, nodos externos
+   del flujo, destinatarios de observaciones y recordatorio.
+   ========================================================================= */
+
+/* --- Selector de dependencias (crear / editar tarea) --- */
+.dp-campo > span { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); display: block; margin-bottom: 6px; }
+.dp-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+.dp-op { flex: 1 1 auto; padding: 9px 12px; border: 0; border-radius: 12px; background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-weight: 600; font-size: .85rem;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: .15s; }
+.dp-op i { font-size: .85em; }
+.dp-op.active { color: #fff; background: var(--c-secondary); box-shadow: var(--clay-pop); }
+.dp-body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.dp-body[hidden] { display: none; }   /* gana al display:flex de arriba cuando está en "Sin dependencias" */
+.dp-fila { display: grid; grid-template-columns: minmax(140px, 40%) 1fr; gap: 8px; }
+.dp-opciones { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  padding: 4px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); }
+.dp-op-tarea { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px;
+  cursor: pointer; font-size: .88rem; color: var(--c-text); }
+.dp-op-tarea:hover { background: color-mix(in srgb, var(--c-secondary) 10%, transparent); }
+.dp-op-tarea.sel { background: color-mix(in srgb, var(--c-secondary) 16%, transparent); }
+.dp-op-tarea input { accent-color: var(--c-secondary); width: 16px; height: 16px; flex: none; }
+.dp-t-tit { flex: 1; }
+.dp-t-fin { color: var(--c-success); font-size: .8em; }
+.dp-vacio { margin: 0; padding: 12px; text-align: center; color: var(--c-text-soft); font-size: .85rem; }
+.dp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.dp-chips:empty { display: none; }
+.dp-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px 6px 10px; border-radius: 999px;
+  font-size: .82rem; font-weight: 600; background: var(--n-bg); box-shadow: var(--sh-mini);
+  color: var(--c-text); border-left: 3px solid var(--dc, var(--c-secondary)); }
+.dp-chip .ico, .dp-chip > i { color: var(--dc, var(--c-secondary)); width: 1em; height: 1em; }
+.dp-chip.externo { box-shadow: var(--sh-mini), inset 0 0 0 1px color-mix(in srgb, var(--dc) 40%, transparent); }
+.dp-chip-tit { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-chip-eq { font-style: normal; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--dc); background: color-mix(in srgb, var(--dc) 14%, transparent); padding: 2px 6px; border-radius: 6px; }
+.dp-quita { border: 0; background: transparent; color: var(--c-text-soft); font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.dp-quita:hover { color: var(--c-danger); }
+.dp-eq-ico, .dp-chip .dp-eq-ico { width: 1em; height: 1em; }
+@media (max-width: 480px) { .dp-fila { grid-template-columns: 1fr; } }
+
+/* --- Chip de dependencia de otro equipo en la tarjeta del tablero --- */
+.kb-meta .kb-dep-eq { display: inline-flex; align-items: center; gap: 2px; color: var(--dc, var(--c-secondary));
+  padding: 1px 5px; border-radius: 6px; background: color-mix(in srgb, var(--dc) 14%, transparent); }
+.kb-dep-eq .ico, .kb-dep-eq .dep-eq-ico { width: .95em; height: .95em; }
+.kb-dep-eq .dep-ok { color: var(--c-success); font-size: .72em; margin-left: 1px; }
+.kb-dep-eq.dep-lista { opacity: .72; }
+.kb-dep-eq.dep-proxima { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-warning) 55%, transparent); }
+.kb-dep-eq.dep-vencida { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-danger) 45%, transparent); }
+
+/* --- Nodos de otro equipo en el flujo de dependencias --- */
+.flujo-nodo.nodo-externo { text-decoration: none; border-left: 4px solid var(--ec, var(--c-secondary));
+  background: color-mix(in srgb, var(--ec) 7%, var(--n-bg)); }
+.nodo-externo b { color: var(--c-text); }
+.fn-equipo { display: inline-flex; align-items: center; gap: 5px; font-size: .68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .4px; color: var(--ec, var(--c-secondary)); margin-bottom: 4px; }
+.fn-eq-ico { width: 1em; height: 1em; }
+
+/* --- Destinatarios en el compositor de observaciones --- */
+/* El bloque de 'Avisar a' quedaba pegado al textarea de abajo: la etiqueta y
+   el selector iban en columna y no había separación con el campo. */
+.oc-destino { display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.oc-destino-lbl { font-size: .78rem; font-weight: 700; color: var(--c-text-soft); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.oc-destino-lbl i { color: var(--c-secondary); }
+.oc-destino .oc-select { flex: 1; min-width: 180px; }
+
+/* --- Observación: destinatarios y marca de recordatorio --- */
+.obs-para { margin: 4px 0 0; font-size: .8rem; color: var(--c-text-soft); }
+.obs-para i { color: var(--c-secondary); margin-right: 4px; }
+.obs-tipo-record { color: #B45309; font-weight: 700; }
+.obs-tipo-record i { margin-right: 3px; }
+
+/* --- Dependencias dentro del detalle de la tarea --- */
+.dt-dep { display: flex; flex-direction: column; gap: 8px; }
+.dt-dep-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 10px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  border-left: 3px solid var(--dc, var(--c-secondary)); }
+.dt-dep-l { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .86rem; }
+.dt-dep-eq { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .3px; color: var(--dc, var(--c-secondary)); }
+.dt-dep-eq.propia { color: var(--c-text-soft); }
+.dt-dep-eq .ico, .dt-dep-eq .dep-eq-ico { width: 1em; height: 1em; }
+.dt-dep-t { color: var(--c-text); font-weight: 600; }
+.dt-dep-ok { color: var(--c-success); }
+.dt-dep-urg { font-size: .72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.dt-dep-urg.prox { color: #B45309; background: color-mix(in srgb, var(--c-warning) 18%, transparent); }
+.dt-dep-urg.venc { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent); }
+.dt-dep-recordar { border: 0; border-radius: 10px; background: var(--c-secondary); color: #fff; font-weight: 700;
+  font-size: .78rem; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: var(--clay-pop); }
+.dt-dep-recordar:hover { filter: brightness(1.06); }
+
+/* --- Modal de recordatorio de dependencia --- */
+.dlg-recordar { width: min(520px, calc(100vw - 40px)); }
+.dlg-recordar .dlg-form { display: flex; flex-direction: column; gap: 14px; padding: 24px 26px 20px; }
+.dr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.dr-head h3 { margin: 0; font-size: 1.15rem; }
+.dr-contexto { margin: 4px 0 0; color: var(--c-text-soft); font-size: .88rem; }
+.dr-para { margin: 0; padding: 10px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--c-secondary) 9%, var(--n-bg)); box-shadow: var(--sh-inset-mini);
+  font-size: .85rem; color: var(--c-text); }
+.dr-para i { color: var(--c-secondary); margin-right: 5px; }
+.dr-pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* ---------- Carga cruzada: la persona tiene un requerimiento suelto en las
+   mismas fechas que la tarea. Es un aviso de "esto se puede demorar", no un
+   error: ámbar, discreto y con el detalle en el title. ---------- */
+.kb-carga {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--btn-ambar) 14%, transparent);
+  color: var(--btn-ambar);
+  font-size: .72rem; font-weight: 800;
+  cursor: help; vertical-align: middle;
+}
+.kb-carga .ico { width: 1.05em; height: 1.05em; }
+.kb-card .kb-carga { position: absolute; top: 8px; right: 30px; }
+/* El mismo aviso, desplegado dentro del detalle de la tarea. */
+.dt-carga {
+  margin: 10px 0 0; padding: 11px 14px;
+  border-left: 3px solid var(--btn-ambar);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--btn-ambar) 10%, transparent);
+  font-size: .84rem; color: var(--c-text);
+}
+.dt-carga b { display: block; margin-bottom: 5px; color: var(--btn-ambar); }
+.dt-carga ul { margin: 0; padding-left: 18px; line-height: 1.6; }
+/* Quién escribió la observación: dato secundario, porque el nombre grande de
+   arriba es la persona A QUIEN va dirigida. */
+.obs-creador { color: var(--c-text-soft); }
+.obs-creador i { font-size: .72em; margin-right: 3px; }
+
+
+/* =========================================================
+   Componente de subida de archivos (UI::archivo) — uno para todo
+   Estados: default · hover · focus · dragging · error · disabled · con-archivo
+   ========================================================= */
+.fx { display: flex; flex-direction: column; gap: 6px; }
+.fx-label { font-size: .8rem; font-weight: 700; color: var(--c-text); }
+.fx-req { color: var(--c-secondary); }
+.fx-error { margin: 2px 0 0; font-size: .78rem; font-weight: 600; color: #e05563; }
+.fx-disparo { border: 0; background: transparent; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
+.fx-off .fx-disparo, .fx-disparo:disabled { cursor: not-allowed; opacity: .55; }
+
+/* --- Drop zone --- */
+.fx-zona .fx-disparo {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: 26px 20px; border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--c-secondary) 32%, var(--c-border-soft));
+  background: color-mix(in srgb, var(--c-secondary) 3%, transparent);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.fx-zona .fx-disparo:hover { border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 9%, transparent); }
+.fx-zona .fx-disparo:focus-visible { outline: none; border-color: var(--c-secondary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-secondary) 22%, transparent); }
+.fx-zona.fx-drag .fx-disparo { border-style: solid; border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 15%, transparent); }
+.fx-up {
+  width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); color: var(--c-secondary); font-size: 1.1rem;
+}
+.fx-zona-txt { display: flex; flex-direction: column; gap: 2px; }
+.fx-zona-txt b { font-weight: 700; color: var(--c-text); font-size: .92rem; }
+.fx-zona-txt small { color: var(--c-text-muted); font-size: .76rem; }
+
+/* --- Inline (como un input) --- */
+.fx-inline .fx-disparo {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); transition: box-shadow .18s ease;
+}
+.fx-inline .fx-disparo:hover { box-shadow: var(--sh-inset-mini), inset 0 0 0 1px color-mix(in srgb, var(--c-secondary) 30%, transparent); }
+.fx-inline .fx-disparo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-inline.fx-drag .fx-disparo { box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-clip { color: var(--c-secondary); flex: none; }
+.fx-inline-txt { flex: 1; min-width: 0; color: var(--c-text-muted); font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-inline-hint { flex: none; font-size: .72rem; font-weight: 700; color: var(--c-text-soft); text-transform: uppercase; letter-spacing: .03em; }
+
+/* --- Error --- */
+.fx-err.fx-zona .fx-disparo { border-color: #e05563; background: color-mix(in srgb, #e05563 6%, transparent); }
+.fx-err.fx-zona .fx-up { background: color-mix(in srgb, #e05563 15%, transparent); color: #e05563; }
+.fx-err.fx-inline .fx-disparo { box-shadow: inset 0 0 0 1.5px #e05563; }
+
+/* --- Con archivo (filled): el chip reemplaza al disparador; en multi se queda para añadir más --- */
+.fx-lleno.fx-zona:not([data-multi]) .fx-disparo,
+.fx-lleno.fx-inline .fx-disparo { display: none; }
+.fx-lleno.fx-zona[data-multi] .fx-disparo { padding: 14px; margin-top: 6px; }
+.fx-files:empty { display: none; }
+.fx-files { display: flex; flex-direction: column; gap: 6px; }
+.fx-file {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--c-success) 9%, var(--n-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-success) 32%, transparent);
+}
+.fx-file-ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--c-success); font-size: .95rem; }
+.fx-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fx-file-info b { font-size: .85rem; font-weight: 700; color: var(--c-text); }
+.fx-file-info small { font-size: .72rem; color: var(--c-text-muted); }
+.fx-file-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-muted); cursor: pointer; }
+.fx-file-x:hover { background: color-mix(in srgb, #e05563 12%, transparent); color: #e05563; }
+
+/* Avatares chicos */
+.ap-av {
+  flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: calc(var(--sz) * .38); font-weight: 700; color: #fff;
+  background: var(--c, var(--c-secondary)); overflow: hidden;
+}
+.ap-av img { width: 100%; height: 100%; object-fit: cover; }
+.ap-av-x { background: var(--c-text-soft); }
+
+/* Lista de commits */
+.ap-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
+.ap-commit {
+  display: flex; align-items: flex-start; gap: 11px;
+  padding: 10px 8px; border-bottom: 1px solid var(--c-border-soft);
+}
+.ap-commit:last-child { border-bottom: 0; }
+.ap-commit-txt { min-width: 0; }
+.ap-msg { display: block; font-size: .88rem; color: var(--c-text); line-height: 1.4; word-break: break-word; }
+.ap-commit small { color: var(--c-text-soft); font-size: .74rem; }
+.ap-commit small a { color: var(--c-secondary); text-decoration: none; font-family: ui-monospace, Menlo, monospace; }
+.ap-tarea {
+  display: inline-block; padding: 0 6px; border-radius: 6px;
+  background: color-mix(in srgb, var(--c-secondary) 15%, transparent);
+  color: var(--c-secondary); font-weight: 700; cursor: help;
+}

@@ -3120,3 +3120,184 @@ document.addEventListener('change', (e) => {
     },
   };
 })();
+
+/* =========================================================
+   Buscador de tabla reutilizable (data-tabla-buscar). Filtra las filas del
+   <tbody> de su tarjeta por el texto tecleado, comparando contra data-buscar
+   (o el texto de la fila). Marca las filas que no coinciden con .fila-oculta
+   y muestra el aviso [data-buscar-vacio] si no queda ninguna.
+   ========================================================= */
+document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
+  const card = input.closest('.tabla-card') || document;
+  const tbody = card.querySelector('table tbody');
+  if (!tbody) return;
+  const vacio = card.querySelector('[data-buscar-vacio]');
+  const contador = card.querySelector('[data-buscar-count]');
+  // Sin tildes y en minúsculas por los dos lados: nadie escribe "planificación"
+  // con tilde en un buscador, y sin esto "planificacion" no encontraba nada.
+  // La ñ también se descompone, así que "ordonez" encuentra a "Ordoñez".
+  const normalizar = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const filtrar = () => {
+    const q = normalizar(input.value.trim());
+    let n = 0;
+    tbody.querySelectorAll('tr').forEach((tr) => {
+      if (tr.hasAttribute('data-no-buscar')) return;
+      const hay = normalizar(tr.dataset.buscar || tr.textContent || '');
+      const ok = !q || hay.includes(q);
+      tr.classList.toggle('fila-oculta', !ok);
+      if (ok) n++;
+    });
+    if (vacio) vacio.hidden = n > 0;
+    if (contador) contador.textContent = n;
+    // La tabla puede estar paginada: se le avisa para que reparta las filas
+    // que SI coinciden, no las de la pagina en la que estabas.
+    tbody.dispatchEvent(new CustomEvent('tabla-filtrada'));
+  };
+  input.addEventListener('input', filtrar);
+});
+
+/* =========================================================
+   Observaciones en hilo: el botón "Responder" abre el cuadro del propio hilo
+   y la respuesta se manda por AJAX, así la conversación no recarga la página.
+   ========================================================= */
+document.addEventListener('click', (e) => {
+  const abrir = e.target.closest('.obs-responder');
+  if (abrir) {
+    const caja = abrir.closest('.obs-item')?.querySelector('.obs-responder-caja');
+    if (!caja) return;
+    caja.hidden = !caja.hidden;
+    if (!caja.hidden) { MC.sonidoAbrir(); caja.querySelector('textarea')?.focus(); }
+    return;
+  }
+  const cancelar = e.target.closest('.obs-responder-cancelar');
+  if (cancelar) {
+    const caja = cancelar.closest('.obs-responder-caja');
+    if (caja) { caja.hidden = true; caja.querySelector('textarea').value = ''; }
+  }
+});
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('.obs-responder-caja');
+  if (!form) return;
+  e.preventDefault();
+  const txt = form.querySelector('textarea');
+  if (!txt.value.trim()) { MC.sonidoError(); MC.toast('Escribe la respuesta.', 'error'); return; }
+  const btn = form.querySelector('button[type="submit"], .btn-primary');
+  btn.disabled = true;
+  btn.classList.add('btn-enviando');   // el avión despega mientras va
+  try {
+    const fd = new FormData(form);
+    fd.set('ajax', '1');
+    const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
+    const data = await res.json();
+    if (!data.ok) { MC.sonidoError(); MC.toast(data.error || 'No se pudo responder.', 'error'); return; }
+    // La respuesta se mete ANTES del cuadro, al final de las que ya había.
+    data.items.forEach((html) => {
+      form.insertAdjacentHTML('beforebegin', html);
+      MC.estrenar(form.previousElementSibling);
+    });
+    txt.value = '';
+    form.hidden = true;
+    MC.sonidoEnviar();
+    MC.toast('Respuesta publicada', 'success', 1600);
+  } catch {
+    MC.sonidoError();
+    MC.toast('Error de red al responder.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('btn-enviando');
+  }
+});
+
+// Componente único de subida (UI::archivo): drag & drop, estado "con archivo"
+// (nombre + peso + quitar) y validación de tipo/tamaño (error). Envuelve un
+// <input type="file"> nativo, así el formulario se envía igual que siempre.
+(() => {
+  const humano = (b) => b < 1024 ? b + ' B'
+    : b < 1048576 ? Math.round(b / 1024) + ' KB'
+    : (b / 1048576).toFixed(1) + ' MB';
+  const iconoDe = (nombre) => {
+    const ext = (nombre.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return 'fa-file-pdf';
+    if (['doc', 'docx'].includes(ext)) return 'fa-file-word';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel';
+    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'fa-file-zipper';
+    return 'fa-file';
+  };
+  const aceptado = (file, accept) => {
+    if (!accept) return true;
+    const nom = file.name.toLowerCase(), tipo = (file.type || '').toLowerCase();
+    return accept.split(',').map((s) => s.trim().toLowerCase()).some((a) => {
+      if (!a) return false;
+      if (a.startsWith('.')) return nom.endsWith(a);
+      if (a.endsWith('/*')) return tipo.startsWith(a.slice(0, -1));
+      return tipo === a;
+    });
+  };
+
+  document.querySelectorAll('[data-archivo]').forEach((fx) => {
+    const input = fx.querySelector('.fx-input');
+    if (!input || fx.dataset.fxListo) return;
+    fx.dataset.fxListo = '1';
+    const disparo = fx.querySelector('.fx-disparo');
+    const cont    = fx.querySelector('.fx-files');
+    const errEl   = fx.querySelector('.fx-error');
+    const maxMB   = parseFloat(fx.dataset.max || '0');
+    const multi   = fx.dataset.multi === '1';
+    const off     = fx.classList.contains('fx-off') || input.disabled;
+
+    const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
+    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
+
+    const pintar = () => {
+      const files = [...input.files];
+      cont.innerHTML = '';
+      fx.classList.toggle('fx-lleno', files.length > 0);
+      files.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'fx-file';
+        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
+          + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
+          + '<small>' + humano(f.size) + '</small></span>'
+          + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        chip.querySelector('.fx-file-x').addEventListener('click', (e) => {
+          e.stopPropagation();
+          rebuild([...input.files].filter((_, j) => j !== i));
+          error(''); pintar();
+        });
+        cont.appendChild(chip);
+      });
+    };
+
+    const validar = (files) => {
+      for (const f of files) {
+        if (!aceptado(f, input.accept)) return 'Ese tipo de archivo no se admite aquí.';
+        if (maxMB > 0 && f.size > maxMB * 1048576) return f.name + ' pesa ' + humano(f.size) + ': el máximo es ' + maxMB + ' MB.';
+      }
+      return '';
+    };
+
+    const tomar = (lista) => {
+      let files = [...lista];
+      if (!multi) files = files.slice(0, 1);
+      const msg = validar(files);
+      if (msg) { error(msg); rebuild([]); pintar(); return; }
+      error(''); rebuild(files); pintar();
+    };
+
+    if (!off) {
+      disparo.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => tomar(input.files));
+      ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
+      ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
+        if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
+      }));
+      fx.addEventListener('drop', (e) => {
+        e.preventDefault(); fx.classList.remove('fx-drag');
+        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
+      });
+    }
+  });
+})();

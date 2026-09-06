@@ -1116,7 +1116,7 @@ foreach ($tareas as $t) {
       <?php
       // Pinta un evento del calendario (tarea con su barra, o reunión). Se usa
       // en la celda y en el desplegable "+N" para no duplicar el HTML.
-      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo) {
+      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo, $puedeTareas) {
           if ($ev['tipo'] === 'tarea') {
               $t = $ev['dato']; $pos = $ev['pos'];
               $esDep = isset($depSolo[(int)$t['id']]);   // ajena, incluida por ser dependencia de una mía

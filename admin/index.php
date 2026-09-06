@@ -76,7 +76,7 @@ UI::cabecera(
   <?php endif; ?>
 <?php else: ?>
 <section class="proyectos-admin-grid">
-  <?php foreach ($proyectos as $p):
+  <?php $iCard = 0; foreach ($proyectos as $p):
       $resumen = $tareasRepo->resumen((int)$p['id']);
       $total   = array_sum($resumen);
       $avance  = $tareasRepo->avance((int)$p['id']);
@@ -90,7 +90,7 @@ UI::cabecera(
           }
       }
   ?>
-  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">
+  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
     <div class="pac-head">
       <div class="pac-icon"><i class="fa-solid <?= e($p['icono']) ?>"></i></div>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>
