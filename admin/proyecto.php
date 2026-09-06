@@ -615,12 +615,13 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
 
-      <!-- Quién lleva el proyecto: PO y SM juntos en un cuadro bajo el título.
-           El PO estaba suelto entre las badges de arriba y el SM no salía. -->
+      <!-- Quién lleva el proyecto, en un cuadro bajo el título: antes el
+           Product Owner iba suelto entre las badges de arriba. Aquí el Scrum
+           Master es un rol del panel, no del proyecto, así que no sale: el
+           cuadro crece solo el día que el proyecto guarde el suyo. -->
       <?php
       $lideres = [];
-      if ($poProyecto && isset($miembros[$poProyecto]))       $lideres['Product Owner'] = $miembros[$poProyecto];
-      if ($scrumProyecto && isset($miembros[$scrumProyecto])) $lideres['Scrum Master']  = $miembros[$scrumProyecto];
+      if ($poProyecto && isset($miembros[$poProyecto])) $lideres['Product Owner'] = $miembros[$poProyecto];
       if ($lideres): ?>
       <div class="ph-lideres">
         <?php foreach ($lideres as $rotulo => $m): ?>

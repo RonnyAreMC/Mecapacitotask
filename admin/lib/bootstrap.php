@@ -390,6 +390,25 @@ function puedeGestionar(int $proyectoId): bool
     return Auth::esScrum() && puedeVerProyecto($proyectoId);
 }
 
+/** ¿Es el Product Owner de este proyecto? (el rol es por proyecto, no global) */
+function esPODelProyecto(int $proyectoId): bool
+{
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p !== null && ProyectoRepo::poDe($p) === (int)$yo['id'];
+}
+
+/**
+ * Reuniones del proyecto: además del admin y su Scrum Master, el Product
+ * Owner. No vale la clase .solo-gestor de siempre: esa se apaga por el ROL
+ * del panel, y un PO puede entrar como solo lectura y aun así mandar aquí.
+ */
+function puedeReunionesDelProyecto(int $proyectoId): bool
+{
+    return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
+}
+
 /**
  * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
  * Master del proyecto y su Product Owner. Los demás participantes ejecutan
