@@ -47,6 +47,65 @@
 const MC = {
   _iconos: { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' },
 
+  /**
+   * Sonidos cortos, sintetizados con Web Audio: no hay archivos que cargar ni
+   * peticiones que esperar. Se apagan con localStorage['mc-sin-sonido'] = '1'.
+   * El navegador solo deja sonar después de que la persona haya interactuado;
+   * como todos salen de un clic o de Ctrl+Enter, eso ya se cumple.
+   */
+  _audio: null,
+  _ctx() {
+    try {
+      if (localStorage.getItem('mc-sin-sonido') === '1') return null;
+    } catch { /* modo privado: se deja sonar */ }
+    const AC = window.AudioContext || window.webkitAudioContext;
+    if (!AC) return null;
+    if (!this._audio) this._audio = new AC();
+    if (this._audio.state === 'suspended') this._audio.resume();
+    return this._audio;
+  },
+  /** Una nota con caída suave; f2 la desliza para dar el "pop". */
+  _nota(ctx, f1, f2, inicio, dur, vol, tipo = 'sine') {
+    const osc = ctx.createOscillator();
+    const g = ctx.createGain();
+    const t = ctx.currentTime + inicio;
+    osc.type = tipo;
+    osc.frequency.setValueAtTime(f1, t);
+    if (f2 !== f1) osc.frequency.exponentialRampToValueAtTime(f2, t + dur);
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(vol, t + 0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + dur);
+    osc.connect(g).connect(ctx.destination);
+    osc.start(t);
+    osc.stop(t + dur + 0.02);
+  },
+  /** Al enviar: dos notas que suben, cortas. */
+  sonidoEnviar() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 620, 880, 0, 0.10, 0.055);
+    this._nota(ctx, 900, 1180, 0.07, 0.12, 0.038);
+  },
+  /** Al abrir el cuadro de responder: un toque casi imperceptible. */
+  sonidoAbrir() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 420, 520, 0, 0.06, 0.022);
+  },
+  /**
+   * Estrena un elemento recién insertado: entra con su animación y se queda
+   * un momento resaltado, para saber cuál es el nuevo sin buscarlo.
+   */
+  estrenar(el) {
+    if (!el || !el.classList) return;
+    el.classList.add('obs-estreno');
+    el.addEventListener('animationend', () => el.classList.remove('obs-estreno'), { once: true });
+  },
+
+  /** Cuando algo sale mal: una nota que baja. */
+  sonidoError() {
+    const ctx = this._ctx(); if (!ctx) return;
+    this._nota(ctx, 330, 190, 0, 0.16, 0.05, 'triangle');
+  },
+
   /** Toast apilable con barra de tiempo. tipo: success | error | info */
   toast(mensaje, tipo = 'info', duracion = 4500) {
     const cont = document.getElementById('mc-toasts');
@@ -407,17 +466,33 @@ const MecaWizard = {
     form.querySelectorAll('.wz-panel .campo').forEach((campo) => {
       if (campo.hasAttribute('data-sin-resumen')) return;
       const etiqueta = campo.querySelector(':scope > span');
+      if (!etiqueta) return;
+
+      const dt = document.createElement('dt');
+      dt.textContent = etiqueta.textContent.replace('*', '').trim();
+      const dd = document.createElement('dd');
+      const fila = document.createElement('div');
+
+      // Editor de texto enriquecido: se muestra RENDERIZADO (con su tabla y
+      // formato), no como HTML crudo. Es lo mismo que se va a guardar.
+      const rico = campo.querySelector('[data-editor-rico]');
+      if (rico) {
+        const html = (rico.querySelector('.rt-fuente')?.value || '').trim();
+        if (html) { dd.innerHTML = html; dd.classList.add('rt-render', 'wz-rico'); }
+        else { dd.textContent = '— sin definir —'; dd.className = 'vacio'; }
+        fila.classList.add('wz-resumen-bloque');
+        fila.append(dt, dd);
+        caja.appendChild(fila);
+        return;
+      }
+
       // Los campos de fecha quedan como input[type=hidden] tras MecaDate,
       // asi que se reconocen por su marca data-md en vez de por el tipo.
       const ctrl = [...campo.querySelectorAll('select, textarea, input')].find((c) =>
         c.dataset.md !== undefined ||
         !['radio', 'checkbox', 'color', 'hidden', 'submit', 'button'].includes(c.type));
-      if (!etiqueta || !ctrl) return;
+      if (!ctrl) return;
       const valor = this.valorDe(ctrl);
-      const fila = document.createElement('div');
-      const dt = document.createElement('dt');
-      const dd = document.createElement('dd');
-      dt.textContent = etiqueta.textContent.replace('*', '').trim();
       dd.textContent = valor || '— sin definir —';
       if (!valor) dd.className = 'vacio';
       fila.append(dt, dd);
@@ -507,6 +582,114 @@ const MecaWizard = {
   },
 };
 MecaWizard.init();
+
+/* =========================================================
+   Selector de dependencias (crear / editar tarea).
+   Paso 1: ¿tiene dependencias? Paso 2 (si sí): se elige el equipo y sus
+   tareas (buscador + casillas). Las elegidas quedan como chips con el icono y
+   color de su equipo, y como <input hidden name="dependencias[]"> del form.
+   Puede depender de tareas de OTRO equipo (dependencia cruzada).
+   ========================================================= */
+(function () {
+  const fuente = document.getElementById('dep-datos');
+  if (!fuente) return;
+  let DATOS = [];
+  try { DATOS = JSON.parse(fuente.textContent || '[]'); } catch (_) { DATOS = []; }
+  if (!Array.isArray(DATOS) || !DATOS.length) return;
+
+  // Índice global: id de tarea → su equipo (título, color, icono, actual)
+  const IDX = {};
+  DATOS.forEach((eq) => (eq.tareas || []).forEach((t) => {
+    IDX[t.id] = { titulo: t.titulo, final: t.final, equipo: eq.nombre, color: eq.color, icono: eq.icono, actual: eq.actual };
+  }));
+
+  function montar(el) {
+    const body   = el.querySelector('.dp-body');
+    const ops    = [...el.querySelectorAll('.dp-op')];
+    const selEq  = el.querySelector('.dp-equipo');
+    const buscar = el.querySelector('.dp-buscar');
+    const lista  = el.querySelector('.dp-opciones');
+    const chips  = el.querySelector('.dp-chips');
+    const hidden = el.querySelector('.dp-hidden');
+    const sel    = new Set();      // ids elegidos
+    let selfId   = 0;              // la tarea que se edita no depende de sí misma
+
+    selEq.innerHTML = DATOS.map((eq) =>
+      `<option value="${eq.id}">${eq.actual ? 'Este equipo · ' : ''}${esc(eq.nombre)}</option>`).join('');
+
+    const equipoActivo = () => DATOS.find((eq) => String(eq.id) === String(selEq.value)) || DATOS[0];
+
+    function pintarLista() {
+      const eq = equipoActivo();
+      const q  = (buscar.value || '').trim().toLowerCase();
+      const items = (eq ? eq.tareas || [] : []).filter((t) =>
+        t.id !== selfId && (!q || t.titulo.toLowerCase().includes(q)));
+      lista.innerHTML = items.length
+        ? items.map((t) =>
+            `<label class="dp-op-tarea${sel.has(t.id) ? ' sel' : ''}">
+               <input type="checkbox" value="${t.id}" ${sel.has(t.id) ? 'checked' : ''}>
+               <span class="dp-t-tit">${esc(t.titulo)}</span>
+               ${t.final ? '<span class="dp-t-fin" title="Ya completada"><i class="fa-solid fa-check"></i></span>' : ''}
+             </label>`).join('')
+        : '<p class="dp-vacio">No hay tareas que coincidan.</p>';
+    }
+
+    function pintarChips() {
+      const arr = [...sel];
+      chips.innerHTML = arr.map((id) => {
+        const info = IDX[id]; if (!info) return '';
+        return `<span class="dp-chip${info.actual ? '' : ' externo'}" style="--dc:${esc(info.color)}">
+                  ${info.actual ? '<i class="fa-solid fa-link"></i>' : info.icono}
+                  <span class="dp-chip-tit">${esc(info.titulo)}</span>
+                  ${info.actual ? '' : `<em class="dp-chip-eq">${esc(info.equipo)}</em>`}
+                  <button type="button" class="dp-quita" data-id="${id}" title="Quitar" aria-label="Quitar">&times;</button>
+                </span>`;
+      }).join('');
+      hidden.innerHTML = arr.map((id) => `<input type="hidden" name="dependencias[]" value="${id}">`).join('');
+    }
+
+    function setModo(si) {
+      ops.forEach((o) => o.classList.toggle('active', (o.dataset.dep === 'si') === si));
+      body.hidden = !si;
+      if (si) { pintarLista(); pintarChips(); }
+      else { hidden.innerHTML = ''; }   // en "Sin dependencias" no se envía ninguna (la selección se conserva por si vuelve)
+    }
+
+    ops.forEach((o) => o.addEventListener('click', () => setModo(o.dataset.dep === 'si')));
+    selEq.addEventListener('change', () => { buscar.value = ''; pintarLista(); });
+    buscar.addEventListener('input', pintarLista);
+    lista.addEventListener('change', (e) => {
+      const cb = e.target.closest('input[type=checkbox]'); if (!cb) return;
+      const id = parseInt(cb.value, 10);
+      if (cb.checked) { if (IDX[id]) sel.add(id); } else { sel.delete(id); }
+      cb.closest('.dp-op-tarea')?.classList.toggle('sel', cb.checked);
+      pintarChips();
+    });
+    chips.addEventListener('click', (e) => {
+      const b = e.target.closest('.dp-quita'); if (!b) return;
+      sel.delete(parseInt(b.dataset.id, 10));
+      pintarChips();
+      pintarLista();
+    });
+
+    el.depAPI = {
+      reset() { sel.clear(); selfId = 0; selEq.value = DATOS[0].id; buscar.value = ''; setModo(false); pintarChips(); },
+      excludeSelf(id) { selfId = parseInt(id, 10) || 0; sel.delete(selfId); pintarLista(); pintarChips(); },
+      setDeps(ids) {
+        (ids || []).map(Number).forEach((id) => { if (IDX[id] && id !== selfId) sel.add(id); });
+        pintarChips();
+        if (sel.size) setModo(true);
+      },
+    };
+    el.depAPI.reset();
+
+    // Al cerrar su modal se limpia, para no arrastrar lo elegido a la próxima.
+    const dlg = el.closest('dialog');
+    if (dlg) dlg.addEventListener('close', () => el.depAPI.reset());
+  }
+
+  document.querySelectorAll('[data-dep-picker]').forEach(montar);
+})();
 
 // Fija el valor de un input de fecha y refresca su MecaDate
 function setFecha(el, valor) {
@@ -895,7 +1078,18 @@ function initComposer(form) {
   form.dataset.init = '1';
   const fileInput = form.querySelector('.oc-file');
   const previews  = form.querySelector('.oc-previews');
-  const textarea  = form.querySelector('.oc-texto');
+  // El campo pasó a editor enriquecido: el HTML viaja en el textarea oculto
+  // (.rt-fuente) y se escribe en el contenteditable (.rt-area). Los eventos de
+  // teclado y de pegar van en el área; el valor, en la fuente.
+  const area      = form.querySelector('.rt-area');
+  const fuente    = form.querySelector('.rt-fuente');
+  const rico      = form.querySelector('[data-editor-rico]');
+  const hayTexto  = () => (area?.innerText || '').trim() !== '' || /<(img|table|li)\b/i.test(fuente?.value || '');
+  const limpiar   = () => {
+    if (area) area.innerHTML = '';
+    if (fuente) fuente.value = '';
+    rico?.classList.add('rt-vacio');
+  };
   const bolsa = new DataTransfer();
 
   const pintar = () => {
@@ -917,7 +1111,7 @@ function initComposer(form) {
   };
   const agregar = (files) => { [...files].forEach((f) => bolsa.items.add(f)); pintar(); };
 
-  textarea.addEventListener('paste', (e) => {
+  area.addEventListener('paste', (e) => {
     const imgs = [...(e.clipboardData?.items || [])].filter((it) => it.type.startsWith('image/'));
     if (!imgs.length) return;
     imgs.forEach((it, k) => {
@@ -940,7 +1134,7 @@ function initComposer(form) {
     bolsa.items.remove(parseInt(b.dataset.i, 10));
     pintar();
   });
-  textarea.addEventListener('keydown', (e) => {
+  area.addEventListener('keydown', (e) => {
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
   });
   // Botón × para quitar el compositor (deja al menos uno)
@@ -951,22 +1145,27 @@ function initComposer(form) {
 
   form.addEventListener('submit', async (e) => {
     e.preventDefault();
-    if (!textarea.value.trim() && !bolsa.files.length) {
+    if (!hayTexto() && !bolsa.files.length) {
+      MC.sonidoError();
       MC.toast('Escribe la observación o adjunta un archivo.', 'error');
       return;
     }
     const btn = form.querySelector('button[type="submit"]');
     btn.disabled = true;
+    btn.classList.add('btn-enviando');
     const fd = new FormData(form);
     fd.set('ajax', '1');
     try {
       const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
       const data = await res.json();
-      if (!data.ok) { MC.toast(data.error || 'No se pudo guardar.', 'error'); return; }
+      if (!data.ok) { MC.sonidoError(); MC.toast(data.error || 'No se pudo guardar.', 'error'); return; }
       const lista = document.getElementById('obs-lista');
       lista.querySelector('.empty-state')?.remove();
-      data.items.reverse().forEach((html) => lista.insertAdjacentHTML('afterbegin', html));
-      textarea.value = '';
+      data.items.reverse().forEach((html) => {
+        lista.insertAdjacentHTML('afterbegin', html);
+        MC.estrenar(lista.firstElementChild);
+      });
+      limpiar();
       while (bolsa.items.length) bolsa.items.remove(0);
       pintar();
       const total = document.querySelector('.obs-card .tabla-count');
@@ -975,12 +1174,15 @@ function initComposer(form) {
       if (chipPend) chipPend.textContent = 'Pendientes' + (data.pendientes ? ' · ' + data.pendientes : '');
       const tabBadge = document.querySelector('.vista-toggle [data-vista="observaciones"] .tab-badge');
       if (tabBadge) tabBadge.textContent = data.pendientes;
+      MC.sonidoEnviar();
       MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
-      textarea.focus();
+      area.focus();
     } catch {
+      MC.sonidoError();
       MC.toast('Error de red al guardar la observación.', 'error');
     } finally {
       btn.disabled = false;
+      btn.classList.remove('btn-enviando');
     }
   });
 }
@@ -1012,7 +1214,7 @@ document.querySelectorAll('.obs-composer').forEach(initComposer);
     MecaSelect.init(nodo);
     initComposer(nodo);
     actualizarAddNota();
-    nodo.querySelector('.oc-texto')?.focus();
+    nodo.querySelector('.rt-area')?.focus();
   });
 })();
 
@@ -1035,12 +1237,13 @@ function dibujarFlujo() {
   const svg = document.getElementById('flujo-lineas');
   if (!wrap || !svg) return;
 
-  // Alinear cada nodo a la altura de su dependencia (flechas casi rectas)
+  const depsDe = (nodo) => (nodo.dataset.deps || nodo.dataset.dep || '').split(',').map((s) => s.trim()).filter((s) => s && s !== '0');
+  // Alinear cada nodo a la altura de su PRIMERA dependencia (flechas casi rectas)
   wrap.querySelectorAll('.flujo-nodo').forEach((n) => { n.style.marginTop = ''; });
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
-    const depId = nodo.dataset.dep;
-    if (!depId || depId === '0') return;
-    const origen = document.getElementById('fn-' + depId);
+    const deps = depsDe(nodo);
+    if (!deps.length) return;
+    const origen = document.getElementById('fn-' + deps[0]);
     if (!origen) return;
     const delta = origen.getBoundingClientRect().top - nodo.getBoundingClientRect().top;
     if (delta > 0) nodo.style.marginTop = delta + 'px';
@@ -1050,23 +1253,31 @@ function dibujarFlujo() {
   svg.setAttribute('width', wrap.scrollWidth);
   svg.setAttribute('height', wrap.scrollHeight);
   const color = getComputedStyle(wrap).getPropertyValue('--pc').trim() || '#2B76F7';
-  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5.5" markerHeight="5.5" orient="auto-start-reverse">' +
-               '<path d="M 0 1.5 L 8 5 L 0 8.5 z" fill="' + color + '"/></marker></defs>';
+  let trazos = '<defs><marker id="flecha" viewBox="0 0 10 10" refX="7.5" refY="5" markerWidth="6" markerHeight="6" orient="auto">' +
+               '<path d="M 0.5 1 L 8.5 5 L 0.5 9 Q 3 5 0.5 1 z" fill="' + color + '"/></marker></defs>';
   wrap.querySelectorAll('.flujo-nodo').forEach((nodo) => {
-    const depId = nodo.dataset.dep;
-    if (!depId || depId === '0') return;
-    const origen = document.getElementById('fn-' + depId);
-    if (!origen) return;
-    const a = origen.getBoundingClientRect();
+    // Todas las dependencias que apuntan a ESTE nodo, ordenadas por la altura
+    // de su origen para que las flechas no se crucen.
+    const origenes = depsDe(nodo)
+      .map((id) => document.getElementById('fn-' + id))
+      .filter(Boolean)
+      .sort((a, c) => a.getBoundingClientRect().top - c.getBoundingClientRect().top);
+    if (!origenes.length) return;
     const b = nodo.getBoundingClientRect();
-    const x1 = a.right - caja.left + wrap.scrollLeft + 2;
-    const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
-    const x2 = b.left - caja.left + wrap.scrollLeft - 8;
-    const y2 = b.top + b.height / 2 - caja.top + wrap.scrollTop;
-    const cx = Math.max(34, (x2 - x1) * 0.55);
-    trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="4" fill="' + color + '"/>' +
-              '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
-              ' fill="none" stroke="' + color + '" stroke-width="2.5" stroke-opacity=".8" stroke-linecap="round" marker-end="url(#flecha)"/>';
+    const x2 = b.left - caja.left + wrap.scrollLeft - 9;
+    origenes.forEach((origen, i) => {
+      const a = origen.getBoundingClientRect();
+      const x1 = a.right - caja.left + wrap.scrollLeft + 2;
+      const y1 = a.top + a.height / 2 - caja.top + wrap.scrollTop;
+      // Reparte los puntos de llegada a lo alto del nodo destino (abanico), así
+      // varias dependencias no chocan en el mismo punto.
+      const frac = origenes.length === 1 ? 0.5 : 0.28 + 0.44 * (i / (origenes.length - 1));
+      const y2 = b.top + b.height * frac - caja.top + wrap.scrollTop;
+      const cx = Math.max(42, (x2 - x1) * 0.5);
+      trazos += '<circle cx="' + x1 + '" cy="' + y1 + '" r="3.5" fill="' + color + '"/>' +
+                '<path d="M ' + x1 + ' ' + y1 + ' C ' + (x1 + cx) + ' ' + y1 + ', ' + (x2 - cx) + ' ' + y2 + ', ' + x2 + ' ' + y2 + '"' +
+                ' fill="none" stroke="' + color + '" stroke-width="2.2" stroke-opacity=".9" stroke-linecap="round" marker-end="url(#flecha)"/>';
+    });
   });
   svg.innerHTML = trazos;
 }
@@ -1095,14 +1306,34 @@ function guardarEstadoTarea(id, estado) {
    por AJAX deja esos números en el valor viejo. */
 function pintarAvanceProyecto(res) {
   if (res.conteo) {
+    // Con el filtro de fechas puesto, el tablero NO muestra todo el proyecto:
+    // el conteo del servidor (que sí es del proyecto entero) dejaria columnas
+    // diciendo 6 con dos tarjetas dentro. Ahi se cuentan las tarjetas reales.
+    const kbFiltrado = !!document.querySelector('.kanban[data-filtrado]');
     document.querySelectorAll('.kanban .kb-cards[data-estado-drop]').forEach((z) => {
       const k = z.dataset.estadoDrop;
       const head = z.closest('.kb-col')?.querySelector('.kb-count');
-      if (head && res.conteo[k] !== undefined) head.textContent = res.conteo[k];
+      if (!head) return;
+      if (kbFiltrado) head.textContent = z.querySelectorAll('.kb-card').length;
+      else if (res.conteo[k] !== undefined) head.textContent = res.conteo[k];
     });
+    // Los estados del encabezado del proyecto (.phk) y las tarjetas sueltas
+    // que siguen usando otras pantallas (.estado-tile).
+    const total = Object.values(res.conteo).reduce((a, n) => a + n, 0);
     Object.keys(res.conteo).forEach((k) => {
-      const num = document.querySelector('.estado-tile.estado-' + k + ' .et-datos b');
-      if (num) num.textContent = res.conteo[k];
+      const n = res.conteo[k];
+      const viejo = document.querySelector('.estado-tile.estado-' + k + ' .et-datos b');
+      if (viejo) viejo.textContent = n;
+
+      const kpi = document.querySelector('.phk.estado-' + k);
+      if (!kpi) return;
+      const cifra = kpi.querySelector('.phk-linea b');
+      if (cifra) cifra.textContent = n;
+      // La barra es la parte del total: sin esto se queda con el ancho viejo.
+      const relleno = kpi.querySelector('.phk-barra > span');
+      if (relleno) relleno.style.width = (total > 0 ? Math.round(n / total * 100) : 0) + '%';
+      const lbl = kpi.querySelector('.phk-linea small');
+      kpi.title = n + ' de ' + total + (lbl ? ' · ' + lbl.textContent : '');
     });
   }
 
@@ -1175,6 +1406,63 @@ if (kanban) {
       });
     });
   });
+
+  /* Mover RÁPIDO sin arrastrar: el botón "⋮" de la tarjeta abre un menú con las
+     otras columnas; un clic la mueve. Imprescindible cuando una columna tiene
+     muchas tarjetas y arrastrar hasta otra es un suplicio. */
+  const kbEstados = (() => { try { return JSON.parse(kanban.dataset.estados || '[]'); } catch (_) { return []; } })();
+  const cerrarMenus = () => kanban.querySelectorAll('.kb-menu').forEach((m) => m.remove());
+
+  const moverTarjeta = (card, est) => {
+    const destino = kanban.querySelector('.kb-cards[data-estado-drop="' + est.k + '"]');
+    if (!destino) return;
+    const previo = card.parentElement;
+    destino.prepend(card);
+    card.classList.add('kb-guardando');
+    guardarEstadoTarea(card.dataset.tarea, est.k).then((res) => {
+      card.classList.remove('kb-guardando');
+      if (res.ok) MC?.toast?.('Movida a «' + est.label + '»', 'success', 1400);
+      else { previo.appendChild(card); MC?.toast?.(res.error || 'No se pudo mover la tarea', 'error'); }
+    });
+  };
+
+  kanban.addEventListener('click', (e) => {
+    const btn = e.target.closest('.kb-mover');
+    if (!btn) return;
+    e.stopPropagation();                 // no abrir el detalle de la tarjeta
+    const yaAbierto = btn.parentElement.querySelector('.kb-menu');
+    cerrarMenus();
+    if (yaAbierto) return;               // segundo clic: cerrar
+    const card = btn.closest('.kb-card');
+    const actual = card.closest('.kb-cards')?.dataset.estadoDrop;
+    const menu = document.createElement('div');
+    menu.className = 'kb-menu';
+    menu.innerHTML = '<span class="kb-menu-tit">Mover a…</span>';
+    kbEstados.filter((s) => s.k !== actual).forEach((s) => {
+      const op = document.createElement('button');
+      op.type = 'button';
+      op.className = 'kb-menu-op';
+      op.innerHTML = '<i class="fa-solid ' + s.icono + '"></i> ' + s.label;
+      op.addEventListener('click', (ev) => { ev.stopPropagation(); cerrarMenus(); moverTarjeta(card, s); });
+      menu.appendChild(op);
+    });
+    btn.parentElement.appendChild(menu);
+  });
+  document.addEventListener('click', cerrarMenus);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrarMenus(); });
+
+  /* Auto-scroll al arrastrar cerca del borde superior/inferior de la ventana:
+     sin esto, con muchas tarjetas no se alcanza la columna destino. */
+  let autoScroll = 0, rafId = null;
+  const tick = () => { if (autoScroll) window.scrollBy(0, autoScroll); rafId = requestAnimationFrame(tick); };
+  const pararScroll = () => { autoScroll = 0; if (rafId) { cancelAnimationFrame(rafId); rafId = null; } };
+  kanban.addEventListener('dragstart', () => { if (!rafId) rafId = requestAnimationFrame(tick); });
+  kanban.addEventListener('dragover', (e) => {
+    const m = 90, paso = 20;
+    autoScroll = e.clientY < m ? -paso : (e.clientY > window.innerHeight - m ? paso : 0);
+  });
+  kanban.addEventListener('dragend', pararScroll);
+  kanban.addEventListener('drop', pararScroll);
 }
 
 // Tabla: el select de estado también guarda por AJAX (no recarga la página)
@@ -1200,21 +1488,35 @@ document.addEventListener('submit', (e) => {
   });
 });
 
-// Paginador de la tabla de tareas (8 por página)
+// Paginador de la tabla de tareas (8 por página).
+//
+// Pagina sobre las filas que PASAN EL FILTRO, no sobre todas. Antes repartía
+// por el índice en la lista completa, así que al buscar solo salían las
+// coincidencias que caían en la página en la que estabas: el contador decía
+// "4" y en pantalla había 2. Se recalcula en cada búsqueda (evento
+// 'tabla-filtrada') y se vuelve a la página 1.
 const cuerpoTabla = document.querySelector('[data-vista-panel="tabla"] .tabla-meca tbody');
 if (cuerpoTabla) {
-  const filas = [...cuerpoTabla.rows];
+  // La fila de "ninguna tarea coincide" vive en el mismo tbody y no es una
+  // tarea: no cuenta para las páginas.
+  const filas = [...cuerpoTabla.rows].filter((f) => !f.hasAttribute('data-no-buscar'));
   const porPagina = 8;
   if (filas.length > porPagina) {
-    const totalPaginas = Math.ceil(filas.length / porPagina);
     const cont = document.createElement('div');
     cont.className = 'paginador';
     document.querySelector('[data-vista-panel="tabla"] .tabla-scroll').after(cont);
     let pagina = 1;
     const pintar = () => {
-      filas.forEach((f, i) => {
-        f.style.display = (i >= (pagina - 1) * porPagina && i < pagina * porPagina) ? '' : 'none';
-      });
+      const visibles = filas.filter((f) => !f.classList.contains('fila-oculta'));
+      const totalPaginas = Math.max(1, Math.ceil(visibles.length / porPagina));
+      if (pagina > totalPaginas) pagina = totalPaginas;
+
+      filas.forEach((f) => { f.style.display = 'none'; });
+      visibles.slice((pagina - 1) * porPagina, pagina * porPagina)
+              .forEach((f) => { f.style.display = ''; });
+
+      // Con los resultados en una sola página, el paginador estorba
+      cont.hidden = visibles.length <= porPagina;
       let html = '<button type="button" class="pg-btn" data-pg="prev" ' + (pagina === 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
       for (let p = 1; p <= totalPaginas; p++) {
         html += '<button type="button" class="pg-btn ' + (p === pagina ? 'active' : '') + '" data-pg="' + p + '">' + p + '</button>';
@@ -1230,6 +1532,8 @@ if (cuerpoTabla) {
       else pagina = parseInt(btn.dataset.pg, 10);
       pintar();
     });
+    // Al buscar, se reparte de nuevo desde la primera página
+    cuerpoTabla.addEventListener('tabla-filtrada', () => { pagina = 1; pintar(); });
     pintar();
   }
 }
@@ -1250,7 +1554,8 @@ function abrirDetalleTarea(t) {
   set('.dt-titulo', t.titulo || '');
 
   const desc = dlg.querySelector('.dt-desc');
-  if (desc) { desc.textContent = t.descripcion || ''; desc.hidden = !t.descripcion; }
+  // La descripción es HTML ya saneado en el servidor (tablas, formato): innerHTML.
+  if (desc) { desc.innerHTML = t.descripcion || ''; desc.hidden = !t.descripcion; }
 
   const chips = dlg.querySelector('.dt-chips');
   if (chips) {
@@ -1269,6 +1574,21 @@ function abrirDetalleTarea(t) {
   else if (t.fecha_inicio) { fechas = 'Arranca: ' + t.fecha_inicio; }
   else { fechas = 'Sin fechas'; }
   set('.dt-fechas', fechas);
+
+  // Carga cruzada: lo que esa misma persona tiene en otros equipos en esas
+  // fechas. Explica por qué la tarea puede ir lenta sin tener que preguntar;
+  // el servidor ya cruzó los rangos.
+  const carga = dlg.querySelector('.dt-carga');
+  if (carga) {
+    const lista = t.carga_extra || [];
+    carga.hidden = !lista.length;
+    carga.innerHTML = lista.length
+      ? '<b>También tiene trabajo en paralelo en estas fechas</b><ul>' + lista.map((c) =>
+          '<li>' + esc(c.persona) + ' — <i>' + esc(c.origen || '') + '</i>: «' + esc(c.titulo) +
+          '» del ' + esc(c.ini) + ' al ' + esc(c.fin) + '</li>'
+        ).join('') + '</ul>'
+      : '';
+  }
 
   // Cuánto queda (o cuánto lleva vencida): es lo primero que uno mira
   const restante = dlg.querySelector('.dt-restante');
@@ -1294,11 +1614,26 @@ function abrirDetalleTarea(t) {
 
   const filaDep = dlg.querySelector('.dt-fila-dep');
   if (filaDep) {
-    filaDep.hidden = !t.dep;
-    if (t.dep) dlg.querySelector('.dt-dep').innerHTML =
-      '<span class="dt-dep-tag ' + (t.dep_lista ? 'ok' : 'bloq') + '">' +
-      '<i class="fa-solid ' + (t.dep_lista ? 'fa-link' : 'fa-lock') + '"></i> ' +
-      (t.dep_lista ? 'Depende de' : 'Espera a') + ': ' + esc(t.dep) + '</span>';
+    const deps = t.deps || [];
+    filaDep.hidden = deps.length === 0;
+    dlg.querySelector('.dt-dep').innerHTML = deps.map((d) => {
+      const urg = d.urgencia === 'vencida' ? '<span class="dt-dep-urg venc"><i class="fa-solid fa-triangle-exclamation"></i> vencida</span>'
+                : d.urgencia === 'proxima' ? '<span class="dt-dep-urg prox"><i class="fa-regular fa-clock"></i> próxima a vencer</span>' : '';
+      const eq = d.externa
+        ? '<span class="dt-dep-eq" style="--dc:' + esc(d.color) + '">' + (d.icono || '') + ' ' + esc(d.equipo) + '</span>'
+        : '<span class="dt-dep-eq propia"><i class="fa-solid fa-link"></i> este tablero</span>';
+      const est = d.final ? '<i class="fa-solid fa-check dt-dep-ok" title="Ya completada"></i>' : '';
+      const btn = d.externa
+        ? '<button type="button" class="dt-dep-recordar" data-tarea-id="' + t.id + '" data-dep-id="' + d.id + '"' +
+          ' data-dep-titulo="' + esc(d.titulo) + '" data-dep-eq="' + esc(d.equipo) + '"' +
+          ' data-dep-avisar="' + esc((d.avisar || []).join(', ')) + '">' +
+          '<i class="fa-solid fa-bell"></i> Recordar</button>'
+        : '';
+      return '<div class="dt-dep-item' + (d.externa ? ' externo' : '') + '" style="--dc:' + esc(d.color || '#64748b') + '">' +
+               '<div class="dt-dep-l">' + eq + ' <span class="dt-dep-t">' + esc(d.titulo) + '</span> ' + est + ' ' + urg + '</div>' +
+               btn +
+             '</div>';
+    }).join('');
   }
   const filaObs = dlg.querySelector('.dt-fila-obs');
   if (filaObs) {
@@ -1418,12 +1753,17 @@ document.querySelectorAll('[data-avisar]').forEach((caja) => {
 // ofrece la descarga y se dice por qué.
 // Solo el PDF se previsualiza. Todo lo demás —imágenes incluidas— se descarga
 // desde su chip: menos elementos moviéndose en la ficha y una regla sola.
-const previsualizable = (ext) => String(ext || '').toLowerCase() === 'pdf';
+/* Qué se puede ver sin descargar: el PDF en un iframe y las imágenes tal
+   cual. Lo demás (doc, docx) no lo pinta el navegador, así que se baja. */
+const IMAGENES_VISIBLES = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg'];
+const esImagen = (ext) => IMAGENES_VISIBLES.includes(String(ext || '').toLowerCase());
+const previsualizable = (ext) => String(ext || '').toLowerCase() === 'pdf' || esImagen(ext);
 
 function pintarPrevia(cont, a) {
   if (!cont || !a || !previsualizable(a.ext)) return;
-  cont.innerHTML = '<iframe class="adj-visor-frame" src="' + esc(a.ruta) +
-    '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
+  cont.innerHTML = esImagen(a.ext)
+    ? '<img class="adj-visor-img" src="' + esc(a.ruta) + '" alt="' + esc(a.nombre || '') + '">'
+    : '<iframe class="adj-visor-frame" src="' + esc(a.ruta) + '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
 }
 
 /* ---------- Previsualización dentro del detalle de la tarea ---------- */
@@ -1535,6 +1875,25 @@ document.querySelectorAll('[data-adjuntos-tarea]').forEach((campo) => {
   });
 });
 
+// "Recordar" en el detalle de una dependencia de otro equipo → abre el modal
+// de recordatorio con el contexto y a quién le llegará.
+document.addEventListener('click', (e) => {
+  const b = e.target.closest('.dt-dep-recordar');
+  if (!b) return;
+  const dlg = document.getElementById('dlg-dep-recordar');
+  if (!dlg) return;
+  dlg.querySelector('#dr-tarea').value = b.dataset.tareaId || '';
+  dlg.querySelector('#dr-dep').value = b.dataset.depId || '';
+  dlg.querySelector('.dr-contexto').textContent =
+    'Tu tarea espera por «' + (b.dataset.depTitulo || '') + '» del equipo ' + (b.dataset.depEq || 'otro equipo') + '.';
+  const avisar = (b.dataset.depAvisar || '').trim();
+  dlg.querySelector('.dr-para').innerHTML = '<i class="fa-solid fa-paper-plane"></i> Se avisará a: <b>' +
+    (avisar ? esc(avisar) : 'los responsables y el Scrum Master de ese equipo') + '</b>';
+  const detalle = document.getElementById('dlg-detalle-tarea');
+  if (detalle && detalle.open) detalle.close();
+  dlg.showModal();
+});
+
 // Clic en una tarea (fila, kanban, flujo, calendario) → detalle de solo lectura
 document.addEventListener('click', (e) => {
   const el = e.target.closest('[data-ver-tarea]');
@@ -1557,11 +1916,16 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const tareas = data.tareas || {};
   const repos = data.repos || [];
 
-  // A cada commit le asigna el miembro del panel (por login o por nombre de git)
+  // A cada commit le asigna el miembro del panel cruzando por CUALQUIERA de sus
+  // identidades de Git: usuario(s), correo o nombre del autor. Así una persona
+  // con varios usernames (misma cuenta) igual suma sus commits.
+  const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
   const porGit = {};
-  miembros.forEach((m) => { porGit[m.git] = m; });
-  const norm = (s) => (s || '').toLowerCase().trim();
-  const mapear = (cs) => { cs.forEach((c) => { c.miembro = porGit[norm(c.login)] || porGit[norm(c.nombre)] || null; }); };
+  miembros.forEach((m) => { (m.gits || (m.git ? [m.git] : [])).forEach((g) => { const k = norm(g); if (k) porGit[k] = m; }); });
+  const mapear = (cs) => { cs.forEach((c) => {
+    const local = (c.email || '').split('@')[0];
+    c.miembro = porGit[norm(c.login)] || porGit[norm(c.email)] || porGit[norm(local)] || porGit[norm(c.nombre)] || null;
+  }); };
   mapear(commits);
 
   const sel = caja.querySelector('.ap-persona');
@@ -1575,11 +1939,14 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const lazy = caja.dataset.aportesLazy === '1';
   const proyecto = caja.dataset.proyecto;
   const ramaWrap = selRama ? selRama.closest('.ms') : null;
-  let ramasListas = false, cargado = false;
+  let cargado = false;
   let dias = 182;        // rango de fechas activo
   let ramaDefecto = '';  // la fijada en Editar proyecto → Repos (vacía = la del repo)
   let truncado = false;  // ¿se alcanzó el tope de commits que se leen del repo?
   let diasCargados = 0;  // rango que se pidió al servidor la última vez
+  const selRepo = caja.querySelector('.ap-repo');   // filtro de repo (si hay varios)
+  let ramasRepo = {}, ramasUnion = [];
+  const repoSel = () => (selRepo ? selRepo.value : '');
 
   const esc = (s) => { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; };
   const avatarHtml = (m, sz) => {
@@ -1596,11 +1963,13 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   // Fecha límite del rango (los commits anteriores no cuentan)
   const desde = () => { const d = hoy0(); d.setDate(d.getDate() - dias + 1); return iso(d); };
 
-  // Commits dentro del filtro (persona + rango de fechas)
+  // Commits dentro del filtro (persona + rango de fechas + repo)
   const filtrar = () => {
     const pid = parseInt(sel.value, 10) || 0;
     const min = desde();
-    return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid)) && (c.fecha || '') >= min);
+    const rp = repoSel();
+    return commits.filter((c) => (!pid || (c.miembro && c.miembro.id === pid))
+      && (c.fecha || '') >= min && (!rp || (c.repo || '') === rp));
   };
 
   const MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -1699,15 +2068,16 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
 
     const vis = filtrar();
     totalEl.textContent = vis.length + ' commits';
-    // Leaderboard según el rango de fechas (no según la persona filtrada)
-    const enRango = commits.filter((c) => (c.fecha || '') >= desde());
+    const rp = repoSel();
+    // Leaderboard según el rango de fechas y el repo (no según la persona filtrada)
+    const enRango = commits.filter((c) => (c.fecha || '') >= desde() && (!rp || (c.repo || '') === rp));
     const cuenta = {};
     enRango.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
     const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
     const maxN = Math.max(1, ...rank.map((x) => x.n));
     lb.innerHTML = rank.map((x) =>
       '<button type="button" class="ap-lb-fila' + (pid === x.m.id ? ' activo' : '') + '" data-persona="' + x.m.id + '">' +
-      avatarHtml(x.m, 30) + '<span class="ap-lb-n">' + esc(x.m.n) + '</span>' +
+      avatarHtml(x.m, 30) + '<span class="ap-lb-n" title="' + esc(x.m.n) + '">' + esc(x.m.n) + '</span>' +
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
     // Sin nadie reconocido (logins que no calzan con el equipo) el ranking
@@ -1718,7 +2088,8 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     vacio.hidden = vis.length > 0;
     mapas.hidden = vis.length === 0;
     const ramaActiva = (selRama && selRama.value) || ramaDefecto;
-    const lista = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    const todosRepos = repos.length ? repos : [...new Set(vis.map((c) => c.repo))];
+    const lista = rp ? [rp] : todosRepos;   // con un repo elegido, solo su mapa
     // Con uno o dos repos la rejilla automática los dejaba en una columna
     // estrecha con medio panel vacío: se reparten el ancho completo.
     const uno = lista.length === 1;
@@ -1767,22 +2138,23 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   // Rellena el selector de ramas una vez que el proveedor las devuelve (solo si
   // hay >1). La opción vacía es "la del proyecto": si hay una rama fijada en
   // Editar → Repos, se dice cuál, para no dejar dudas de qué se está mirando.
-  const rellenarRamas = (ramas) => {
-    if (ramasListas || !selRama) return;
-    ramasListas = true;
-    if (ramaDefecto) {
-      const op0 = selRama.querySelector('option[value=""]');
-      if (op0) op0.textContent = ramaDefecto + ' (del proyecto)';
-    }
-    if (!ramas || ramas.length < 2) { selRama.dispatchEvent(new Event('ms-sync')); return; }
-    ramas.forEach((rn) => {
-      if (rn === ramaDefecto) return;   // ya es la opción de arriba
+  const actualizarRamas = () => {
+    if (!selRama) return;
+    const rp = repoSel();
+    const lista = rp ? (ramasRepo[rp] || []) : ramasUnion;
+    // Deja solo la opción vacía ("por defecto") y re-agrega el resto
+    [...selRama.querySelectorAll('option')].forEach((o) => { if (o.value !== '') o.remove(); });
+    const op0 = selRama.querySelector('option[value=""]');
+    if (op0) op0.textContent = (!rp && ramaDefecto) ? ramaDefecto + ' (del proyecto)' : 'Rama por defecto';
+    lista.forEach((rn) => {
+      if (!rn || (!rp && rn === ramaDefecto)) return;   // la del proyecto ya es la de arriba
       const o = document.createElement('option');
       o.value = rn; o.textContent = rn;
       selRama.appendChild(o);
     });
-    selRama.dispatchEvent(new Event('ms-sync'));
-    if (ramaWrap) ramaWrap.hidden = false;   // MecaSelect relee las opciones al abrir
+    selRama.value = '';
+    selRama.dispatchEvent(new Event('ms-sync'));   // MecaSelect relee las opciones
+    if (ramaWrap) ramaWrap.hidden = lista.length < 2;   // sin ramas que elegir, se oculta
   };
 
   // Trae por AJAX los commits (y ramas) del repo/rama, sin recargar la página
@@ -1798,7 +2170,9 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
           diasCargados = pedidos;
           ramaDefecto = j.rama_defecto || '';
           truncado = !!j.truncado;
-          rellenarRamas(j.ramas);
+          ramasUnion = j.ramas || [];
+          ramasRepo = j.ramas_repo || {};
+          actualizarRamas();
           cargado = true;
           render();
         }
@@ -1808,6 +2182,8 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   };
 
   if (selRama) selRama.addEventListener('change', () => cargar(selRama.value));
+  // Cambiar de repo: reconstruye las ramas de ese repo y re-filtra (sin recargar)
+  if (selRepo) selRepo.addEventListener('change', () => { actualizarRamas(); render(); });
 
   /* ----- Commits a pantalla completa, paginados de 25 en 25 ----- */
   const dlg = caja.querySelector('.ap-dialogo');
@@ -1862,18 +2238,19 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     const dlg = document.getElementById('dlg-editar-tarea');
     dlg.querySelector('#et-id').value = t.id;
     dlg.querySelector('#et-titulo').value = t.titulo;
-    dlg.querySelector('#et-descripcion').value = t.descripcion;
+    window.MecaRT.set('et-descripcion', t.descripcion || '');
     setFecha(dlg.querySelector('#et-inicio'), t.fecha_inicio);
     setFecha(dlg.querySelector('#et-fecha'), t.fecha_limite);
     dlg.querySelectorAll('[data-atajos-fecha] .chip-atajo').forEach((c) => c.classList.remove('activo'));
     setSelect(dlg.querySelector('.js-et-asignado'), t.asignados || (t.asignado_id ? [t.asignado_id] : []));
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);
-    const dep = dlg.querySelector('.js-et-depende');
-    if (dep) {
-      // Una tarea no puede depender de si misma
-      [...dep.options].forEach((o) => { o.disabled = o.value === String(t.id); });
-      setSelect(dep, t.depende_de || 0);
+    const picker = dlg.querySelector('[data-dep-picker]');
+    if (picker && picker.depAPI) {
+      // El selector se rellena vía su API (excluye la propia tarea de la lista).
+      picker.depAPI.reset();
+      picker.depAPI.excludeSelf(t.id);
+      picker.depAPI.setDeps(t.dependencias || (t.depende_de ? [t.depende_de] : []));
     }
     // Documentos que ya tiene: se listan para poder abrirlos o quitarlos
     const campoAdj = dlg.querySelector('[data-adjuntos-tarea]');
@@ -1884,6 +2261,19 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     actualizarDuracion(dlg.querySelector('form'));
     dlg.showModal();
   });
+});
+
+// Calendario: chip "+N" que abre el resto de eventos del día en un desplegable
+document.addEventListener('click', (e) => {
+  const chip = e.target.closest('[data-cal-mas]');
+  // Cierra los abiertos (menos el que corresponde al chip pulsado)
+  document.querySelectorAll('.cal-mas-lista:not([hidden])').forEach((l) => {
+    if (!chip || l !== chip.nextElementSibling) l.hidden = true;
+  });
+  if (chip) {
+    const lista = chip.nextElementSibling;
+    if (lista && lista.classList.contains('cal-mas-lista')) lista.hidden = !lista.hidden;
+  }
 });
 
 // Toggle de plataforma (Zoom / Meet) en "Nueva reunión"
@@ -1985,6 +2375,46 @@ document.querySelectorAll('.form-persona').forEach((form) => {
   refrescar();
 });
 
+// Correos de Git: campo repetible (un input por cuenta) con agregar / quitar
+(() => {
+  const MAX = 5;
+  document.addEventListener('click', (e) => {
+    const add = e.target.closest('.git-email-agregar');
+    if (add) {
+      const cont = add.parentElement.querySelector('[data-git-emails]');
+      if (!cont) return;
+      if (cont.querySelectorAll('.git-email-fila').length >= MAX) return;
+      const f = cont.querySelector('.git-email-fila').cloneNode(true);
+      f.querySelector('input').value = '';
+      cont.appendChild(f);
+      f.querySelector('input').focus();
+      cont.dispatchEvent(new Event('input', { bubbles: true }));   // que se note el cambio
+      return;
+    }
+    const quitar = e.target.closest('.git-email-quitar');
+    if (quitar) {
+      const cont = quitar.closest('[data-git-emails]');
+      const filas = cont.querySelectorAll('.git-email-fila');
+      if (filas.length > 1) quitar.closest('.git-email-fila').remove();
+      else quitar.closest('.git-email-fila').querySelector('input').value = '';   // la última solo se vacía
+      cont.dispatchEvent(new Event('input', { bubbles: true }));
+    }
+  });
+  // Para el modal de editar: rellena las filas con una lista de correos
+  window.setGitEmails = (cont, lista) => {
+    if (!cont) return;
+    const filas = [...cont.querySelectorAll('.git-email-fila')];
+    filas.slice(1).forEach((f) => f.remove());
+    const arr = (lista || []).filter(Boolean);
+    cont.querySelector('.git-email-fila input').value = arr[0] || '';
+    arr.slice(1, MAX).forEach((v) => {
+      const f = filas[0].cloneNode(true);
+      f.querySelector('input').value = v;
+      cont.appendChild(f);
+    });
+  };
+})();
+
 // Rellenar y abrir el modal de edicion de miembro
 document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -1995,9 +2425,15 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form.querySelector('[name="nombre"]').value = m.nombre;
     form.querySelector('[name="rol"]').value = m.rol;
     form.querySelector('[name="git_user"]').value = m.git_user;
+    if (window.setGitEmails) {
+      window.setGitEmails(form.querySelector('[data-git-emails]'),
+        (m.git_emails || '').split(',').map((s) => s.trim()).filter(Boolean));
+    }
     form.querySelector('[name="email"]').value = m.email || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
+    const selAcceso = form.querySelector('[name="acceso"]');
+    if (selAcceso && m.acceso) setSelect(selAcceso, m.acceso);   // sin esto el admin editado se degradaba a lector
     form.querySelector('.pp-file').value = '';
     if (String(m.color).startsWith('#')) {
       form.querySelector('.color-picker input[value="custom"]').checked = true;
@@ -2250,9 +2686,11 @@ document.addEventListener('change', (e) => {
   const txt   = label.querySelector('span');
   const f     = input.files && input.files[0];
   label.classList.toggle('tiene-archivo', !!f);
+  // El texto de "sin archivo" lo pone cada pantalla: este control lo usan el
+  // respaldo (.json) y la carga del equipo (.xlsx / .csv).
   txt.innerHTML = f
     ? '<i class="fa-solid fa-file-circle-check"></i> ' + f.name
-    : '<i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .json';
+    : '<i class="fa-solid fa-file-arrow-up"></i> ' + (label.dataset.vacio || 'Elegir archivo .json');
 });
 
 /* =========================================================
@@ -2309,9 +2747,14 @@ document.addEventListener('change', (e) => {
   const candidato = (target) => {
     const el = target.closest?.(SEL);
     if (!el) return null;
-    // Un data-tip explícito siempre muestra el tooltip (aunque el botón tenga
-    // texto). El title nativo solo se convierte en botones de solo icono.
-    if (el.hasAttribute('data-tip')) return el;
+    // Un data-tip explícito muestra el tooltip. Pero si el botón lleva su
+    // etiqueta (.tab-txt) VISIBLE, no hace falta: el tooltip solo sale cuando el
+    // texto está oculto (p. ej. pestañas en pantallas pequeñas).
+    if (el.hasAttribute('data-tip')) {
+      const etq = el.querySelector('.tab-txt');
+      if (etq && etq.offsetParent !== null) return null;
+      return el;
+    }
     if (el.hasAttribute('title') && iconoSolo(el)) return el;
     return null;
   };
@@ -2359,4 +2802,502 @@ document.addEventListener('change', (e) => {
   menu.addEventListener('click', (e) => { if (e.target.closest('a')) cerrar(); });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape') cerrar(); });
   addEventListener('resize', () => { if (innerWidth > 900) cerrar(); });
+})();
+
+/* Equipo: rechazar una solicitud de acceso (rellena el modal con su nombre) */
+(() => {
+  const dlg = document.getElementById('dlg-rechazar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rechazar]');
+    if (!btn) return;
+    dlg.querySelector('#rc-id').value = btn.dataset.rechazar;
+    dlg.querySelector('#rc-nombre').textContent = btn.dataset.nombre || '';
+    dlg.showModal();
+  });
+})();
+
+/* Requerimientos: el selector de personas de los dos asistentes (el de alta,
+   'nr', y el de asignar, 'dv'). Cada uno filtra SOLO su propia lista, lleva su
+   contador y mantiene un espejo con los nombres marcados para que el paso de
+   Revisión los liste: el asistente resume campos, y un montón de casillas no
+   lo es. */
+(() => {
+  const sincronizar = (picker) => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    const marcados = [...lista.querySelectorAll('input:checked')]
+      .map(c => c.closest('.dv-persona')?.dataset.nombre || '');
+    const n = document.querySelector(`[data-picker-n="${picker}"]`);
+    if (n) n.textContent = marcados.length;
+    const espejo = document.querySelector(`[data-picker-resumen="${picker}"]`);
+    if (espejo) espejo.value = marcados.join(', ');
+  };
+
+  ['nr', 'dv'].forEach(picker => {
+    const lista = document.querySelector(`[data-picker="${picker}"]`);
+    if (!lista) return;
+    lista.addEventListener('change', () => sincronizar(picker));
+    document.querySelector(`.js-${picker}-rol`)?.addEventListener('change', function () {
+      lista.querySelectorAll('.dv-persona').forEach(fila => {
+        fila.classList.toggle('filtrado', this.value !== '' && fila.dataset.rol !== this.value);
+      });
+    });
+    sincronizar(picker);
+  });
+
+  /* El asistente de asignar se rellena con el requerimiento pulsado: id,
+     título, quién lo tiene ahora y su plazo actual. Las fechas van rellenas
+     porque asignar y mover el plazo son la misma operación: si salieran
+     vacías, guardar borraría el plazo que ya había. */
+  const dlg = document.getElementById('dlg-req-derivar');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-derivar]');
+    if (!btn) return;
+    dlg.querySelector('#dv-id').value = btn.dataset.derivar;
+    dlg.querySelector('#dv-titulo').textContent = btn.dataset.titulo || '';
+    // setFecha (y no .value) porque MecaDate sustituye el input por su propio
+    // selector: sin avisarle, la fecha se guardaría pero no se vería.
+    setFecha(dlg.querySelector('[data-req-fecha="dv-inicio"]'), btn.dataset.inicio);
+    setFecha(dlg.querySelector('[data-req-fecha="dv-fin"]'), btn.dataset.fin);
+    // Deja marcados a los que ya lo tienen (data-actual = "3,7")
+    const actuales = (btn.dataset.actual || '').split(',').filter(Boolean);
+    dlg.querySelectorAll('input[name="asignados[]"]').forEach(c => {
+      c.checked = actuales.includes(c.value);
+    });
+    sincronizar('dv');
+    actualizarDuracion(dlg.querySelector('form'));
+    dlg.showModal();
+  });
+})();
+
+/* Requerimientos: la ficha completa se abre al pulsar una fila. La lista solo
+   muestra lo justo; aquí se ve todo y están las acciones. */
+(() => {
+  const dlg = document.getElementById('dlg-req-ficha');
+  if (!dlg) return;
+  const $ = (id) => dlg.querySelector('#' + id);
+
+  document.addEventListener('click', (e) => {
+    const fila = e.target.closest('.req-fila');
+    if (!fila) return;
+    const r = JSON.parse(fila.dataset.req);
+
+    $('fq-titulo').textContent = r.titulo;
+    // El detalle es HTML ya saneado en el servidor: se inyecta tal cual para
+    // que se vean las tablas y el formato. Vacío → nota en gris.
+    const detEl = $('fq-detalle');
+    if (r.detalle) { detEl.innerHTML = r.detalle; detEl.classList.remove('vacio'); }
+    else { detEl.textContent = 'Sin detalle.'; detEl.classList.add('vacio'); }
+    // Documentos: los mismos chips que en el detalle de la tarea, con el ojo
+    // para lo que el navegador sabe pintar y la flecha para lo que hay que
+    // bajarse. El bloque se esconde si no hay ninguno.
+    const docs = Array.isArray(r.adjuntos) ? r.adjuntos : [];
+    const bloqueDocs = $('fq-docs-bloque');
+    if (bloqueDocs) {
+      bloqueDocs.hidden = docs.length === 0;
+      $('fq-docs').innerHTML = docs.map((a) => {
+        const ver = previsualizable(a.ext);
+        return '<a class="adj-chip' + (ver ? '' : ' adj-bajar') + '" href="' + esc(a.ruta) + '"' +
+          (ver ? '' : ' download') + ' target="_blank" rel="noopener"' +
+          ' title="' + (ver ? 'Ver ' : 'Descargar ') + esc(a.nombre) + '">' +
+          '<i class="fa-solid ' + iconoAdjunto(a.ext) + '"></i><span>' + esc(a.nombre) + '</span>' +
+          '<i class="fa-solid ' + (ver ? 'fa-eye' : 'fa-download') + ' adj-chip-acc"></i></a>';
+      }).join('');
+    }
+    $('fq-solicitante').textContent = r.solicitante || '—';
+    $('fq-inicio').textContent = r.inicio || '—';
+    $('fq-fin').textContent = r.fin || '—';
+    $('fq-creado').textContent = r.creado || '—';
+
+    $('fq-chips').innerHTML =
+      `<span class="fq-chip fq-${r.estado}">${r.estadoTxt}</span>` +
+      (r.prioridad ? `<span class="fq-chip">Prioridad ${r.prioridad}</span>` : '') +
+      (r.vencido ? '<span class="fq-chip fq-vencido">Pasado de fecha</span>' : '');
+
+    // Los nombres se pintan con textContent: vienen del equipo, pero un
+    // nombre con "<" no tiene por qué romper la ficha.
+    const personas = $('fq-personas');
+    personas.textContent = '';
+    if (r.personas.length) {
+      r.personas.forEach(p => {
+        const li = document.createElement('li');
+        const b = document.createElement('b');
+        b.textContent = p.nombre;
+        const s = document.createElement('small');
+        s.textContent = p.rol || '';
+        li.append(b, s);
+        personas.append(li);
+      });
+    } else {
+      const li = document.createElement('li');
+      li.className = 'vacio';
+      li.textContent = 'Todavía no está asignado a nadie.';
+      personas.append(li);
+    }
+
+    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    // Cerrarlo solo tiene sentido mientras siga abierto
+    const resolver = $('fq-resolver');
+    if (resolver) resolver.hidden = r.cerrado;
+
+    // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
+    // y con su plazo actual en las fechas
+    const derivar = $('fq-derivar');
+    if (derivar) {
+      derivar.dataset.derivar = r.id;
+      derivar.dataset.titulo = r.titulo;
+      derivar.dataset.actual = r.asignados;
+      derivar.dataset.inicio = r.inicio || '';
+      derivar.dataset.fin = r.fin || '';
+      derivar.onclick = () => { dlg.close(); };
+    }
+    dlg.showModal();
+  });
+})();
+
+/* Horario de reuniones fijas: el mismo formulario sirve para añadir y para
+   editar. Al pulsar el lápiz de una fila se rellena con sus datos y cambia la
+   acción; "Cancelar" lo devuelve a modo alta. Tener dos formularios para lo
+   mismo solo daría dos sitios donde arreglar cada cosa. */
+(() => {
+  const form = document.getElementById('form-rfija');
+  if (!form) return;
+  const $ = (id) => document.getElementById(id);
+
+  const modoAlta = () => {
+    form.classList.remove('editando');
+    $('rf-accion').value = 'rfija_crear';
+    $('rf-id').value = '';
+    $('rf-titulo-form').textContent = 'Añadir al horario';
+    $('rf-guardar').textContent = 'Añadir';
+    $('rf-cancelar').hidden = true;
+    form.reset();
+  };
+
+  document.addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-rfija-editar]');
+    if (!btn) return;
+    const r = JSON.parse(btn.dataset.rfijaEditar);
+    form.classList.add('editando');
+    $('rf-accion').value = 'rfija_editar';
+    $('rf-id').value = r.id;
+    $('rf-titulo').value = r.titulo;
+    $('rf-hora').value = r.hora;
+    $('rf-titulo-form').textContent = 'Cambiando «' + r.titulo + '»';
+    $('rf-guardar').textContent = 'Guardar';
+    $('rf-cancelar').hidden = false;
+    // El select de proyecto es el personalizado del panel: se le avisa
+    const sel = form.querySelector('select[name="proyecto_id"]');
+    if (sel) {
+      sel.value = String(r.pid);
+      sel.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    form.querySelectorAll('#rf-dias input').forEach((c) => {
+      c.checked = r.dias.includes(parseInt(c.value, 10));
+    });
+    // Desplegar el formulario, que arranca cerrado
+    document.getElementById('det-rfija')?.setAttribute('open', '');
+    form.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  });
+
+  $('rf-cancelar')?.addEventListener('click', modoAlta);
+})();
+
+/* =========================================================
+   Editor de texto enriquecido (data-editor-rico). Un contenteditable con
+   barra mínima y un <textarea> oculto que lleva el HTML en el formulario.
+   Sirve para PEGAR contenido con formato y TABLAS (p. ej. un correo). Al
+   pegar se limpia a una lista blanca para que la edición se vea limpia; el
+   servidor vuelve a sanear siempre antes de guardar.
+   ========================================================= */
+(() => {
+  const OK = new Set(['P', 'BR', 'HR', 'STRONG', 'B', 'EM', 'I', 'U', 'S', 'STRIKE',
+    'SUB', 'SUP', 'H1', 'H2', 'H3', 'H4', 'H5', 'H6', 'UL', 'OL', 'LI', 'BLOCKQUOTE',
+    'A', 'TABLE', 'THEAD', 'TBODY', 'TFOOT', 'TR', 'TD', 'TH', 'COL', 'COLGROUP',
+    'CODE', 'PRE', 'SPAN', 'DIV']);
+  const ATTRS = { A: ['href', 'title'], TD: ['colspan', 'rowspan'], TH: ['colspan', 'rowspan'], COL: ['span'], COLGROUP: ['span'] };
+  const FUERA = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'FORM', 'INPUT',
+    'TEXTAREA', 'BUTTON', 'SELECT', 'META', 'LINK', 'BASE', 'NOSCRIPT', 'SVG', 'MATH', 'TITLE', 'O:P']);
+
+  // Recorta un HTML pegado a la lista blanca (mismo criterio que el servidor).
+  function limpiarPegado(html) {
+    const tpl = document.createElement('template');
+    tpl.innerHTML = html;
+    const paso = (nodo) => {
+      [...nodo.childNodes].forEach((n) => {
+        if (n.nodeType === 8) { n.remove(); return; }          // comentario
+        if (n.nodeType !== 1) return;                          // texto: se queda
+        const tag = n.nodeName.toUpperCase();
+        if (FUERA.has(tag)) { n.remove(); return; }
+        paso(n);
+        if (!OK.has(tag)) {                                    // desconocida: desenvolver
+          const p = n.parentNode;
+          while (n.firstChild) p.insertBefore(n.firstChild, n);
+          p.removeChild(n);
+          return;
+        }
+        const keep = ATTRS[tag] || [];
+        [...n.attributes].forEach((a) => {
+          if (!keep.includes(a.name.toLowerCase())) n.removeAttribute(a.name);
+        });
+      });
+    };
+    paso(tpl.content);
+    return tpl.innerHTML;
+  }
+
+  const vacio = (area) => area.textContent.trim() === '' && !area.querySelector('table, img, hr');
+
+  function init(rt) {
+    const area = rt.querySelector('.rt-area');
+    const fuente = rt.querySelector('.rt-fuente');
+    if (!area || !fuente) return;
+
+    const sync = () => {
+      const vac = vacio(area);
+      fuente.value = vac ? '' : area.innerHTML;
+      rt.classList.toggle('rt-vacio', vac);
+    };
+
+    area.addEventListener('input', sync);
+    area.addEventListener('blur', sync);
+
+    // Pegado: se inserta el HTML ya limpio (conserva tablas y formato básico).
+    area.addEventListener('paste', (e) => {
+      const cb = e.clipboardData;
+      if (!cb) return;
+      const html = cb.getData('text/html');
+      if (html) {
+        e.preventDefault();
+        document.execCommand('insertHTML', false, limpiarPegado(html));
+        sync();
+      }
+      // Sin HTML en el portapapeles: se deja el pegado de texto normal.
+    });
+
+    // Barra de formato. mousedown + preventDefault para no perder la selección.
+    rt.querySelectorAll('.rt-b[data-cmd]').forEach((b) => {
+      b.addEventListener('mousedown', (e) => {
+        e.preventDefault();
+        const cmd = b.dataset.cmd;
+        area.focus();
+        if (cmd === 'createLink') {
+          const url = prompt('URL del enlace (https://…):');
+          if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'formatBlock') {
+          // Alternar: si ya es ese bloque, se vuelve a párrafo.
+          const val = (b.dataset.val || 'p').toUpperCase();
+          const actual = (document.queryCommandValue('formatBlock') || '').toUpperCase();
+          document.execCommand('formatBlock', false, actual === val ? 'P' : val);
+        } else {
+          document.execCommand(cmd, false, null);
+        }
+        sync();
+      });
+    });
+
+    const form = rt.closest('form');
+    if (form) form.addEventListener('submit', sync);
+    sync();
+  }
+
+  document.querySelectorAll('[data-editor-rico]').forEach(init);
+
+  // API para rellenar un editor por JS (formularios de edición que se llenan
+  // en el navegador): MecaRT.set('id-del-contenedor', htmlSaneado).
+  window.MecaRT = {
+    set(id, html) {
+      const rt = document.getElementById(id);
+      if (!rt) return;
+      const area = rt.querySelector('.rt-area');
+      const fuente = rt.querySelector('.rt-fuente');
+      if (!area || !fuente) return;
+      area.innerHTML = html || '';
+      fuente.value = html || '';
+      rt.classList.toggle('rt-vacio', vacio(area));
+    },
+  };
+})();
+
+/* =========================================================
+   Buscador de tabla reutilizable (data-tabla-buscar). Filtra las filas del
+   <tbody> de su tarjeta por el texto tecleado, comparando contra data-buscar
+   (o el texto de la fila). Marca las filas que no coinciden con .fila-oculta
+   y muestra el aviso [data-buscar-vacio] si no queda ninguna.
+   ========================================================= */
+document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
+  const card = input.closest('.tabla-card') || document;
+  const tbody = card.querySelector('table tbody');
+  if (!tbody) return;
+  const vacio = card.querySelector('[data-buscar-vacio]');
+  const contador = card.querySelector('[data-buscar-count]');
+  // Sin tildes y en minúsculas por los dos lados: nadie escribe "planificación"
+  // con tilde en un buscador, y sin esto "planificacion" no encontraba nada.
+  // La ñ también se descompone, así que "ordonez" encuentra a "Ordoñez".
+  const normalizar = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  const filtrar = () => {
+    const q = normalizar(input.value.trim());
+    let n = 0;
+    tbody.querySelectorAll('tr').forEach((tr) => {
+      if (tr.hasAttribute('data-no-buscar')) return;
+      const hay = normalizar(tr.dataset.buscar || tr.textContent || '');
+      const ok = !q || hay.includes(q);
+      tr.classList.toggle('fila-oculta', !ok);
+      if (ok) n++;
+    });
+    if (vacio) vacio.hidden = n > 0;
+    if (contador) contador.textContent = n;
+    // La tabla puede estar paginada: se le avisa para que reparta las filas
+    // que SI coinciden, no las de la pagina en la que estabas.
+    tbody.dispatchEvent(new CustomEvent('tabla-filtrada'));
+  };
+  input.addEventListener('input', filtrar);
+});
+
+/* =========================================================
+   Observaciones en hilo: el botón "Responder" abre el cuadro del propio hilo
+   y la respuesta se manda por AJAX, así la conversación no recarga la página.
+   ========================================================= */
+document.addEventListener('click', (e) => {
+  const abrir = e.target.closest('.obs-responder');
+  if (abrir) {
+    const caja = abrir.closest('.obs-item')?.querySelector('.obs-responder-caja');
+    if (!caja) return;
+    caja.hidden = !caja.hidden;
+    if (!caja.hidden) { MC.sonidoAbrir(); caja.querySelector('textarea')?.focus(); }
+    return;
+  }
+  const cancelar = e.target.closest('.obs-responder-cancelar');
+  if (cancelar) {
+    const caja = cancelar.closest('.obs-responder-caja');
+    if (caja) { caja.hidden = true; caja.querySelector('textarea').value = ''; }
+  }
+});
+
+document.addEventListener('submit', async (e) => {
+  const form = e.target.closest('.obs-responder-caja');
+  if (!form) return;
+  e.preventDefault();
+  const txt = form.querySelector('textarea');
+  if (!txt.value.trim()) { MC.sonidoError(); MC.toast('Escribe la respuesta.', 'error'); return; }
+  const btn = form.querySelector('button[type="submit"], .btn-primary');
+  btn.disabled = true;
+  btn.classList.add('btn-enviando');   // el avión despega mientras va
+  try {
+    const fd = new FormData(form);
+    fd.set('ajax', '1');
+    const res = await fetch('actions.php', { method: 'POST', body: fd, headers: { 'X-Requested-With': 'fetch' } });
+    const data = await res.json();
+    if (!data.ok) { MC.sonidoError(); MC.toast(data.error || 'No se pudo responder.', 'error'); return; }
+    // La respuesta se mete ANTES del cuadro, al final de las que ya había.
+    data.items.forEach((html) => {
+      form.insertAdjacentHTML('beforebegin', html);
+      MC.estrenar(form.previousElementSibling);
+    });
+    txt.value = '';
+    form.hidden = true;
+    MC.sonidoEnviar();
+    MC.toast('Respuesta publicada', 'success', 1600);
+  } catch {
+    MC.sonidoError();
+    MC.toast('Error de red al responder.', 'error');
+  } finally {
+    btn.disabled = false;
+    btn.classList.remove('btn-enviando');
+  }
+});
+
+// Componente único de subida (UI::archivo): drag & drop, estado "con archivo"
+// (nombre + peso + quitar) y validación de tipo/tamaño (error). Envuelve un
+// <input type="file"> nativo, así el formulario se envía igual que siempre.
+(() => {
+  const humano = (b) => b < 1024 ? b + ' B'
+    : b < 1048576 ? Math.round(b / 1024) + ' KB'
+    : (b / 1048576).toFixed(1) + ' MB';
+  const iconoDe = (nombre) => {
+    const ext = (nombre.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return 'fa-file-pdf';
+    if (['doc', 'docx'].includes(ext)) return 'fa-file-word';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel';
+    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'fa-file-zipper';
+    return 'fa-file';
+  };
+  const aceptado = (file, accept) => {
+    if (!accept) return true;
+    const nom = file.name.toLowerCase(), tipo = (file.type || '').toLowerCase();
+    return accept.split(',').map((s) => s.trim().toLowerCase()).some((a) => {
+      if (!a) return false;
+      if (a.startsWith('.')) return nom.endsWith(a);
+      if (a.endsWith('/*')) return tipo.startsWith(a.slice(0, -1));
+      return tipo === a;
+    });
+  };
+
+  document.querySelectorAll('[data-archivo]').forEach((fx) => {
+    const input = fx.querySelector('.fx-input');
+    if (!input || fx.dataset.fxListo) return;
+    fx.dataset.fxListo = '1';
+    const disparo = fx.querySelector('.fx-disparo');
+    const cont    = fx.querySelector('.fx-files');
+    const errEl   = fx.querySelector('.fx-error');
+    const maxMB   = parseFloat(fx.dataset.max || '0');
+    const multi   = fx.dataset.multi === '1';
+    const off     = fx.classList.contains('fx-off') || input.disabled;
+
+    const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
+    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
+
+    const pintar = () => {
+      const files = [...input.files];
+      cont.innerHTML = '';
+      fx.classList.toggle('fx-lleno', files.length > 0);
+      files.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'fx-file';
+        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
+          + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
+          + '<small>' + humano(f.size) + '</small></span>'
+          + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        chip.querySelector('.fx-file-x').addEventListener('click', (e) => {
+          e.stopPropagation();
+          rebuild([...input.files].filter((_, j) => j !== i));
+          error(''); pintar();
+        });
+        cont.appendChild(chip);
+      });
+    };
+
+    const validar = (files) => {
+      for (const f of files) {
+        if (!aceptado(f, input.accept)) return 'Ese tipo de archivo no se admite aquí.';
+        if (maxMB > 0 && f.size > maxMB * 1048576) return f.name + ' pesa ' + humano(f.size) + ': el máximo es ' + maxMB + ' MB.';
+      }
+      return '';
+    };
+
+    const tomar = (lista) => {
+      let files = [...lista];
+      if (!multi) files = files.slice(0, 1);
+      const msg = validar(files);
+      if (msg) { error(msg); rebuild([]); pintar(); return; }
+      error(''); rebuild(files); pintar();
+    };
+
+    if (!off) {
+      disparo.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => tomar(input.files));
+      ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
+      ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
+        if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
+      }));
+      fx.addEventListener('drop', (e) => {
+        e.preventDefault(); fx.classList.remove('fx-drag');
+        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
+      });
+    }
+  });
 })();

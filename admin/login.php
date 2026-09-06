@@ -14,6 +14,18 @@ if (Auth::usuario()) {
 }
 $marca      = Config::all();
 $primerUso  = !Auth::hayAdmin();
+
+// ¿Volvemos de Google sin reconocer el correo? Mostramos "¿Quién eres?" con
+// las fichas que aún no tienen correo (y no son admin) para que se autoelija.
+$identificar = $_SESSION['identificar'] ?? null;
+$sinVincular = [];
+if ($identificar) {
+    $sinVincular = array_values(array_filter(
+        (new MiembroRepo())->todos(),
+        fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin'
+    ));
+    if (!$sinVincular) { unset($_SESSION['identificar']); $identificar = null; }
+}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -21,7 +33,7 @@ $primerUso  = !Auth::hayAdmin();
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar · <?= e($marca['titulo']) ?></title>
-<link rel="icon" type="image/png" href="<?= e(logoPanel()) ?>">
+<link rel="icon" type="<?= logoMime(faviconPanel()) ?>" href="<?= e(faviconPanel()) ?>">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
@@ -44,9 +56,9 @@ $primerUso  = !Auth::hayAdmin();
           <span><?= e($marca['subtitulo']) ?></span>
         </div>
       </div>
-      <h2>Del backlog al deploy,<br><em>todo el equipo</em> en un tablero.</h2>
+      <h2>Del backlog al deploy,<br><em>todo el equipo</em> en un tablero</h2>
       <p>Proyectos con tareas encadenadas, observaciones de revisión, reuniones y
-         el avance real de cada persona, actualizado al instante.</p>
+         el avance real de cada persona, actualizado al instante</p>
       <?php
       // Chips que desfilan: la lista se imprime dos veces para que el
       // desplazamiento sea continuo y sin salto.
@@ -84,6 +96,29 @@ $primerUso  = !Auth::hayAdmin();
         </div>
       </div>
 
+        <?php if ($identificar): ?>
+        <!-- ¿Quién eres? — vincular el correo de Google a una ficha del equipo -->
+        <h1 class="font-display">¿Quién eres?</h1>
+        <p class="login-sub">Vamos a vincular <strong><?= e($identificar['email']) ?></strong> a tu ficha. Elige tu nombre:</p>
+        <form method="post" action="actions.php" class="login-identificar">
+          <input type="hidden" name="accion" value="auth_identificar">
+          <?php foreach ($sinVincular as $m): ?>
+          <button class="ident-persona" name="miembro" value="<?= (int)$m['id'] ?>" type="submit">
+            <?= UI::avatar($m, 40) ?>
+            <span class="ident-datos">
+              <strong><?= e($m['nombre']) ?></strong>
+              <small><?= e($m['rol'] ?? '') ?></small>
+            </span>
+            <i class="fa-solid fa-arrow-right-to-bracket"></i>
+          </button>
+          <?php endforeach; ?>
+        </form>
+        <p class="login-pie">
+          <i class="fa-solid fa-circle-info"></i> ¿No estás en la lista?
+          <a href="<?= e(urlPanel('login.php')) ?>">Volver</a> y pídele al administrador que te agregue.
+        </p>
+        <?php else: ?>
+
         <h1 class="font-display">Entrar al panel</h1>
         <p class="login-sub"><?= GoogleLogin::listo() ? 'Entra con tu cuenta de Google o con tu contraseña.' : 'Usa tu correo o tu usuario de Git.' ?></p>
 
@@ -117,9 +152,17 @@ $primerUso  = !Auth::hayAdmin();
           <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
           Créalo por terminal: <code>php admin/crear_admin.php</code>
         </p>
+        <?php elseif (Auth::registroAbierto()): ?>
+        <div class="login-pie">
+          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
+          <p class="lp-cta">¿Todavía no tienes cuenta?
+            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-brands fa-google"></i> Crear una con Google</a>
+          </p>
+        </div>
         <?php else: ?>
         <p class="login-pie"><i class="fa-solid fa-circle-info"></i> ¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
         <?php endif; ?>
+        <?php endif; /* $identificar */ ?>
     </div>
   </main>
 

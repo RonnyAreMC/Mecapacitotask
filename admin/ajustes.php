@@ -356,7 +356,7 @@ UI::cabecera(
         </div>
         <div class="campo-doble">
           <label class="campo"><span>Correo remitente (cuenta que envía)</span>
-            <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="mecapacito.ecuador@gmail.com">
+            <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="tucorreo@gmail.com">
           </label>
           <label class="campo"><span>URL del panel (botón "Ver tablero" del correo)</span>
             <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mchub.mecapacito.com/admin">
@@ -435,6 +435,46 @@ UI::cabecera(
             <input class="input-meca" type="password" name="correo[refresh_token]" value="" placeholder="<?= !empty($co['refresh_token']) ? '•••••••• guardado' : '' ?>">
           </label>
         </div>
+
+        <!-- El refresh token no hay que buscarlo a mano: se consigue autorizando
+             con la cuenta que enviará (Gmail manda desde quien autoriza). -->
+        <div class="conectar-envio <?= !empty($co['refresh_token']) ? 'ok' : '' ?>">
+          <div class="ce-txt">
+            <?php if (!empty($co['refresh_token'])): ?>
+              <strong><i class="fa-solid fa-circle-check"></i> Cuenta de envío conectada</strong>
+              <small>Los correos salen desde <b><?= e($co['usuario'] ?: '—') ?></b>. Vuelve a conectar si cambias de cuenta.</small>
+            <?php else: ?>
+              <strong><i class="fa-solid fa-triangle-exclamation"></i> Falta conectar la cuenta de envío</strong>
+              <small>Guarda primero el Client ID y el Secret. Luego autoriza <b>con la cuenta que enviará</b>
+                     (no con la tuya): Gmail siempre manda desde quien autoriza.</small>
+            <?php endif; ?>
+          </div>
+          <?php if (Mailer::puedeConectar()): ?>
+          <a class="btn-google btn-sm" href="<?= e(Mailer::urlConectar()) ?>">
+            <img src="../assets/google.svg" alt="" width="17" height="17">
+            <?= !empty($co['refresh_token']) ? 'Volver a conectar' : 'Conectar cuenta de envío' ?>
+          </a>
+          <?php else: ?>
+          <span class="ajuste-ayuda">Pon el Client ID y el Client Secret, guarda, y aquí aparecerá el botón.</span>
+          <?php endif; ?>
+        </div>
+        <!-- La URI se calcula desde la URL con la que estás navegando ahora: si
+             entras por localhost es la de localhost, y esa TAMBIÉN hay que
+             registrarla en Google Cloud o sale redirect_uri_mismatch. -->
+        <p class="ajuste-ayuda">
+          URI de redirección que está usando este panel <b>ahora mismo</b> — regístrala en Google Cloud
+          (Credenciales → tu ID de cliente → URIs de redireccionamiento autorizados):
+        </p>
+        <div class="chip-copiar" style="margin-bottom:6px">
+          <code><?= e(GoogleLogin::redirectUri()) ?></code>
+          <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e(GoogleLogin::redirectUri()) ?>" title="Copiar"><i class="fa-regular fa-copy"></i></button>
+        </div>
+        <small class="campo-ayuda">
+          Puedes tener varias registradas (la de local y la del servidor). Además, la pantalla de
+          consentimiento necesita el permiso <code>gmail.send</code> y la <b>Gmail API habilitada</b> en el
+          proyecto; si está en modo <b>Prueba</b>, añade esa cuenta como <b>usuario de prueba</b>
+          (si no, el permiso caduca a los 7 días y los correos dejan de salir).
+        </small>
 
         <div class="correo-prueba">
           <input class="input-meca" type="email" name="para" form="frm-correo-prueba" placeholder="tucorreo@gmail.com" required>
@@ -624,6 +664,49 @@ UI::cabecera(
       </section>
 
       <section class="card-base ajuste-card">
+        <h2 class="font-display"><i class="fa-solid fa-user-plus text-secondary"></i> Registro de cuentas</h2>
+        <?php $rg = Auth::registro(); ?>
+        <label class="chk-linea">
+          <input type="checkbox" name="registro[abierto]" <?= $rg['abierto'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Dejar que alguien cree su cuenta desde el login
+        </label>
+        <p class="ajuste-ayuda">
+          La cuenta se crea <b>con Google</b>, que verifica el correo, y registrarse
+          <b>no da acceso</b>: queda una solicitud que apruebas o rechazas en
+          <a href="equipo.php">Equipo</a>. Hasta que la apruebes, esa persona no existe como
+          colaborador (no sale en tareas, proyectos ni selectores).
+        </p>
+        <?php if (!GoogleLogin::listo()): ?>
+        <p class="ajuste-ayuda ajuste-aviso">
+          <i class="fa-solid fa-triangle-exclamation"></i>
+          Necesita el <b>acceso con Google</b> de aquí arriba: sin él, la pantalla de registro
+          avisa de que no está disponible.
+        </p>
+        <?php endif; ?>
+        <label class="campo">
+          <span>Dominios de correo permitidos</span>
+          <input class="input-meca" name="registro[dominios]" value="<?= e($rg['dominios']) ?>"
+                 placeholder="tuempresa.com, tuinstituto.edu.ec">
+        </label>
+        <small class="campo-ayuda">
+          Separados por comas. Se aceptan también sus subdominios (<code>mail.itb.edu.ec</code>).
+          Déjalo vacío para admitir cualquier cuenta de Google.
+        </small>
+        <label class="chk-linea">
+          <input type="checkbox" name="registro[avisar]" <?= $rg['avisar'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisarme por correo de cada solicitud nueva
+        </label>
+        <small class="campo-ayuda">
+          Se envía a todos los administradores con correo registrado
+          <?php $ae = trim((string)($cfg['correo']['admin_email'] ?? '')); ?>
+          <?= $ae !== '' ? 'y a ' . e($ae) . '.' : '(y al correo de contacto, si lo pones en Correo).' ?>
+          Necesita el correo del panel configurado.
+        </small>
+      </section>
+
+      <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-brands fa-github text-secondary"></i> Repositorios (GitHub y GitLab)</h2>
         <p class="ajuste-ayuda">
           El panel reconoce el proveedor por la dirección del repositorio, así que basta
@@ -687,7 +770,7 @@ UI::cabecera(
   </div>
 
   <footer class="ajustes-guardar">
-    <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
+    <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-floppy-disk"></i> Guardar ajustes</button>
   </footer>
 </form>
 

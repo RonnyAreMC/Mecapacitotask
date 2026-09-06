@@ -241,6 +241,13 @@ final class Config
                 'vincular_por_nombre' => true,
                 'calendario'          => false,   // enviar tareas al Google Calendar del responsable
             ],
+            // Registro publico: quien se registra NO entra al panel, deja una
+            // solicitud que un administrador aprueba o rechaza desde Equipo.
+            'registro' => [
+                'abierto'  => true,
+                'dominios' => '',     // "tuempresa.com, tuinstituto.edu.ec"; vacio = cualquier correo
+                'avisar'   => true,   // avisar por correo a los administradores
+            ],
         ];
     }
 
@@ -375,9 +382,18 @@ class ProyectoRepo
             'color'         => Catalogo::colorEntrada($datos),
             'fecha_inicio'  => self::fecha($datos['fecha_inicio'] ?? ''),
             'miembros'      => self::miembrosEntrada($datos['miembros'] ?? []),
+            // Product Owner del proyecto (id de un analista; 0 = sin PO). La acción
+            // valida que sea analista; aquí solo se guarda el id ya saneado.
+            'po'            => max(0, (int)($datos['po'] ?? 0)),
             // Plataforma de reuniones propia del proyecto ('' = la del panel)
             'plataforma'    => self::plataformaEntrada($datos['plataforma'] ?? ''),
         ]);
+    }
+
+    /** Product Owner del proyecto (id de miembro, 0 si no tiene). */
+    public static function poDe(array $p): int
+    {
+        return max(0, (int)($p['po'] ?? 0));
     }
 
     /** Plataforma de reuniones valida para un proyecto: 'zoom', 'meet' o '' (heredar). */
@@ -546,14 +562,49 @@ class MiembroRepo
     public function crear(array $datos): array
     {
         return $this->store->insert([
-            'nombre'   => trim($datos['nombre'] ?? ''),
-            'rol'      => trim($datos['rol'] ?? 'Developer'),
-            'git_user' => ltrim(trim($datos['git_user'] ?? ''), '@'),
-            'email'    => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
-            'foto'     => $datos['foto'] ?? '',
-            'color'    => Catalogo::colorEntrada($datos),
-            'equipo'   => self::equipoValido($datos['equipo'] ?? ''),
+            'nombre'     => trim($datos['nombre'] ?? ''),
+            'rol'        => trim($datos['rol'] ?? 'Developer'),
+            'git_user'   => ltrim(trim($datos['git_user'] ?? ''), '@'),
+            'git_emails' => self::gitEmailsEntrada($datos['git_emails'] ?? ''),
+            'email'      => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
+            'foto'       => $datos['foto'] ?? '',
+            'color'      => Catalogo::colorEntrada($datos),
+            'equipo'     => self::equipoValido($datos['equipo'] ?? ''),
         ]);
+    }
+
+    /**
+     * Normaliza los CORREOS de Git para cruzar commits (una persona puede tener
+     * varias cuentas GitHub/GitLab; el correo es la identidad estable aunque el
+     * usuario cambie entre máquinas). Coma/;/espacio, válidos, minúscula, sin
+     * repetir, hasta 3. Devuelve una cadena separada por comas.
+     */
+    public static function gitEmailsEntrada($valor): string
+    {
+        // Acepta un arreglo (campos "git_emails[]") o una cadena separada por
+        // coma/;/espacio. Válidos, minúscula, sin repetir, hasta 5.
+        $tokens = is_array($valor) ? $valor : preg_split('/[\s,;]+/', (string)$valor);
+        $out = [];
+        foreach ($tokens as $e) {
+            $e = strtolower(trim((string)$e));
+            if ($e !== '' && filter_var($e, FILTER_VALIDATE_EMAIL) && !in_array($e, $out, true)) {
+                $out[] = $e;
+            }
+        }
+        return implode(', ', array_slice($out, 0, 5));
+    }
+
+    /** Correos de Git de un miembro: los del campo + su correo de acceso. */
+    public static function gitEmailsDe(array $m): array
+    {
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', (string)($m['git_emails'] ?? '')) as $e) {
+            $e = strtolower(trim($e));
+            if ($e !== '') $out[] = $e;
+        }
+        $login = strtolower(trim((string)($m['email'] ?? '')));
+        if ($login !== '') $out[] = $login;
+        return array_values(array_unique($out));
     }
 
     /** Clave de equipo valida (si no existe, el primero del catalogo). */
@@ -599,6 +650,81 @@ class MiembroRepo
             $ini .= mb_strtoupper(mb_substr(end($partes), 0, 1));
         }
         return $ini;
+    }
+}
+
+/* =========================================================
+   Solicitudes de acceso (registro publico)
+
+   Quien se registra en registro.php NO se convierte en colaborador: queda
+   aqui, en una coleccion aparte. Asi no aparece en los selectores de tareas
+   ni en el equipo mientras un administrador no lo apruebe, y rechazarlo es
+   borrar una fila y no deshacer una ficha a medio crear.
+   ========================================================= */
+class SolicitudRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('solicitudes');
+    }
+
+    /** Solicitudes pendientes, de la mas reciente a la mas antigua. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($b['creado'] ?? '', $a['creado'] ?? ''));
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function cuantas(): int
+    {
+        return count($this->store->all());
+    }
+
+    /** Solicitud que corresponde a lo que se escribió en el login, o null. */
+    public function porLogin(string $usuario): ?array
+    {
+        $usuario = trim($usuario);
+        return $usuario === '' ? null : $this->porEmail($usuario);
+    }
+
+    /** ¿Ese correo ya dejó una solicitud? (para no duplicarlas) */
+    public function porEmail(string $email): ?array
+    {
+        foreach ($this->store->all() as $s) {
+            if (strcasecmp($s['email'] ?? '', trim($email)) === 0) return $s;
+        }
+        return null;
+    }
+
+    /**
+     * Guarda la solicitud: solo quién es y cómo entrará. El equipo y el rol los
+     * decide el administrador al aprobarla; el usuario de Git y la foto los
+     * completa cada quien desde Mi perfil una vez dentro.
+     *
+     * La contraseña llega ya hasheada: nunca se guarda en claro, ni siquiera
+     * mientras espera aprobación.
+     */
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'nombre'    => trim($datos['nombre'] ?? ''),
+            'email'     => trim($datos['email'] ?? ''),
+            'pass_hash' => (string)($datos['pass_hash'] ?? ''),
+            'ip'        => substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 45),
+        ]);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
     }
 }
 
@@ -694,7 +820,8 @@ class TareaRepo
             'prioridad'   => $datos['prioridad'] ?? 'media',
             'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
             'fecha_limite'=> ProyectoRepo::fecha($datos['fecha_limite'] ?? ''),
-            'depende_de'  => (int)($datos['depende_de'] ?? 0),
+            'dependencias'=> ($deps = self::dependenciasEntrada($datos)),
+            'depende_de'  => $deps[0] ?? 0,   // compat con lecturas antiguas
             // Documentos de respaldo para quien la ejecute (los sube actions.php)
             'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
         ] + self::camposAsignado($datos));
@@ -784,34 +911,71 @@ class TareaRepo
     }
 
     /**
-     * Valida una dependencia: debe existir, ser del mismo proyecto,
-     * no ser la propia tarea y no formar un ciclo. Devuelve el id
-     * validado o 0 si no es valida.
+     * Ids de las tareas de las que depende (pueden ser VARIAS). Compatible con
+     * el campo antiguo 'depende_de' (una sola): si no hay 'dependencias', se usa.
      */
+    public static function dependenciasDe(array $t): array
+    {
+        $deps = $t['dependencias'] ?? null;
+        if (is_array($deps)) {
+            return array_values(array_unique(array_filter(array_map('intval', $deps), fn($x) => $x > 0)));
+        }
+        $uno = (int)($t['depende_de'] ?? 0);
+        return $uno > 0 ? [$uno] : [];
+    }
+
+    /** Normaliza la lista de dependencias que llega de un formulario/JSON. */
+    public static function dependenciasEntrada(array $datos): array
+    {
+        $raw = $datos['dependencias'] ?? $datos['depende_de'] ?? [];
+        if (!is_array($raw)) $raw = ($raw === '' || $raw === null) ? [] : [$raw];
+        return array_values(array_unique(array_filter(array_map('intval', $raw), fn($x) => $x > 0)));
+    }
+
+    /** Compatibilidad: una sola dependencia (usado por el importador). */
     public function dependenciaValida(int $tareaId, int $dependeDe, int $proyectoId): int
     {
-        if ($dependeDe <= 0 || $dependeDe === $tareaId) {
-            return 0;
-        }
-        $dep = $this->buscar($dependeDe);
-        if (!$dep || (int)$dep['proyecto_id'] !== $proyectoId) {
-            return 0;
-        }
-        // Anti-ciclos: subir por la cadena de dependencias
-        $actual = $dep;
-        $saltos = 0;
-        while ($actual && $saltos++ < 100) {
-            $padre = (int)($actual['depende_de'] ?? 0);
-            if ($padre === 0) break;
-            if ($padre === $tareaId) return 0;   // formaria un ciclo
-            $actual = $this->buscar($padre);
-        }
-        return $dependeDe;
+        return $this->dependenciasValidas($tareaId, [$dependeDe], $proyectoId)[0] ?? 0;
     }
 
     /**
-     * Nivel de cada tarea segun su cadena de dependencias
-     * (0 = sin dependencias). Para la vista de flujo.
+     * Valida una lista de dependencias: cada una debe existir, no ser la propia
+     * tarea y no formar un ciclo. Devuelve las válidas, únicas.
+     *
+     * La dependencia PUEDE ser de otro equipo (proyecto): así una tarea espera a
+     * la de otro equipo. El $proyectoId ya no filtra —se conserva por compat de
+     * firma—; el anti-ciclo sigue funcionando porque sube por la cadena de
+     * dependencias buscando cada tarea por id, cruce o no de equipos.
+     */
+    public function dependenciasValidas(int $tareaId, array $deps, int $proyectoId = 0): array
+    {
+        $ok = [];
+        foreach (array_values(array_unique(array_map('intval', $deps))) as $d) {
+            if ($d <= 0 || $d === $tareaId) continue;
+            $dep = $this->buscar($d);
+            if (!$dep) continue;   // la tarea de la que depende ya no existe
+            // Anti-ciclo: ¿$tareaId es alcanzable subiendo por las dependencias
+            // de $d? Si sí, agregarla cerraría un ciclo.
+            $pila = self::dependenciasDe($dep);
+            $visto = [];
+            $ciclo = false;
+            $saltos = 0;
+            while ($pila && $saltos++ < 1000) {
+                $cur = (int)array_pop($pila);
+                if ($cur === $tareaId) { $ciclo = true; break; }
+                if (isset($visto[$cur])) continue;
+                $visto[$cur] = true;
+                $ct = $this->buscar($cur);
+                if ($ct) foreach (self::dependenciasDe($ct) as $p) $pila[] = $p;
+            }
+            if (!$ciclo) $ok[] = $d;
+        }
+        return array_values(array_unique($ok));
+    }
+
+    /**
+     * Nivel de cada tarea segun su cadena de dependencias (0 = sin
+     * dependencias). Con varias, manda la más profunda. Para la vista de flujo.
      */
     public function niveles(array $tareas): array
     {
@@ -823,8 +987,11 @@ class TareaRepo
         $nivel = function (int $id) use (&$nivel, &$memo, $porId): int {
             if (isset($memo[$id])) return $memo[$id];
             $memo[$id] = 0;   // corta ciclos accidentales
-            $dep = (int)($porId[$id]['depende_de'] ?? 0);
-            return $memo[$id] = ($dep && isset($porId[$dep])) ? $nivel($dep) + 1 : 0;
+            $max = -1;
+            foreach (self::dependenciasDe($porId[$id] ?? []) as $dep) {
+                if (isset($porId[$dep])) $max = max($max, $nivel($dep));
+            }
+            return $memo[$id] = $max < 0 ? 0 : $max + 1;
         };
         $out = [];
         foreach ($porId as $id => $t) {
@@ -862,6 +1029,40 @@ class ObservacionRepo
         return $items;
     }
 
+    /**
+     * El proyecto en hilos: cada observación que abre uno, con sus respuestas
+     * colgando en 'respuestas' y en orden de llegada (la conversación se lee
+     * de arriba abajo, al revés que la lista, que enseña lo último primero).
+     *
+     * Una respuesta cuyo padre ya no existe se trata como si abriera hilo, para
+     * que no desaparezca al borrar la de arriba.
+     */
+    public function hilosDelProyecto(int $proyectoId): array
+    {
+        $items = $this->delProyecto($proyectoId);
+        $existe = [];
+        foreach ($items as $o) $existe[(int)$o['id']] = true;
+
+        $respuestas = [];
+        foreach ($items as $o) {
+            $padre = (int)($o['padre_id'] ?? 0);
+            if ($padre && isset($existe[$padre])) $respuestas[$padre][] = $o;
+        }
+        foreach ($respuestas as &$lista) {
+            usort($lista, fn($a, $b) => strcmp($a['creado'] ?? '', $b['creado'] ?? ''));
+        }
+        unset($lista);
+
+        $hilos = [];
+        foreach ($items as $o) {
+            $padre = (int)($o['padre_id'] ?? 0);
+            if ($padre && isset($existe[$padre])) continue;      // ya cuelga de otra
+            $o['respuestas'] = $respuestas[(int)$o['id']] ?? [];
+            $hilos[] = $o;
+        }
+        return $hilos;
+    }
+
     public function buscar(int $id): ?array
     {
         return $this->store->find($id);
@@ -869,16 +1070,43 @@ class ObservacionRepo
 
     public function crear(array $datos): array
     {
+        // 'nota' (revisión/QA normal) o 'recordatorio' (aviso de dependencia).
+        $tipo = $datos['tipo'] ?? 'nota';
+        if (!in_array($tipo, ['nota', 'recordatorio'], true)) $tipo = 'nota';
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
             'reunion_id'  => (int)($datos['reunion_id'] ?? 0),
+            // 'autor_id' es A QUIÉN va dirigida la observación (así se venía
+            // usando el selector). Quien la escribe se guarda aparte y solo:
+            // sale del usuario en sesión, no se elige.
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            // 'para': todas las personas a las que va dirigida. 'autor_id' es
+            // la primera y solo se usa para el avatar y el color de la tarjeta.
+            'para'        => self::destinatariosEntrada($datos['para'] ?? []),
+            'creado_por'  => (int)($datos['creado_por'] ?? 0),
+            // Respuesta a otra observación: 0 = es la que abre el hilo.
+            'padre_id'    => (int)($datos['padre_id'] ?? 0),
             'equipo'      => (string)($datos['equipo'] ?? ''),
             'texto'       => trim($datos['texto'] ?? ''),
             'estado'      => 'pendiente',
+            // A quién va dirigida: ids de miembros. Vacío = a todo el equipo.
+            'destinatarios' => self::destinatariosEntrada($datos['destinatarios'] ?? []),
+            'tipo'        => $tipo,
             'adjuntos'    => array_values($datos['adjuntos'] ?? []),
         ]);
+    }
+
+    /** Ids de los destinatarios de una observación (lista limpia, puede ir vacía). */
+    public static function destinatariosDe(array $o): array
+    {
+        return self::destinatariosEntrada($o['destinatarios'] ?? []);
+    }
+
+    /** Normaliza una lista de destinatarios: ids únicos y positivos. */
+    public static function destinatariosEntrada(mixed $valor): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', (array)$valor), fn($n) => $n > 0)));
     }
 
     public function actualizar(int $id, array $cambios): bool

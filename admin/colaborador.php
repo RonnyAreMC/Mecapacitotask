@@ -42,6 +42,74 @@ $abiertas = count(array_filter($susTareas, fn($t) => !in_array($t['estado'] ?? '
 $totales  = count($susTareas);
 $hechas   = $totales - $abiertas;
 
+/* ---------- Métricas personales (KPIs + gráficos) ---------- */
+$hoy     = date('Y-m-d');
+$limite7 = date('Y-m-d', strtotime('+7 days'));
+$atrasadas = $porVencer = $aTiempo = $tarde = 0;
+$porEstado    = array_fill_keys(array_keys(Catalogo::estadosTarea()), 0);
+$porPrioridad = array_fill_keys(array_keys(Catalogo::prioridades()), 0);
+$porProyecto  = [];
+foreach ($susTareas as $t) {
+    $est  = $t['estado'] ?? 'pendiente';
+    $prio = $t['prioridad'] ?? 'media';
+    $pid  = (int)$t['proyecto_id'];
+    $porEstado[$est]     = ($porEstado[$est] ?? 0) + 1;
+    $porPrioridad[$prio] = ($porPrioridad[$prio] ?? 0) + 1;
+    $porProyecto[$pid]   = ($porProyecto[$pid] ?? 0) + 1;
+    $esFinal = in_array($est, $finales, true);
+    $lim  = $t['fecha_limite'] ?? '';
+    $comp = $t['completada_en'] ?? '';
+    if (!$esFinal && $lim !== '') {
+        if ($lim < $hoy)        $atrasadas++;
+        elseif ($lim <= $limite7) $porVencer++;
+    }
+    if ($esFinal && $lim !== '' && $comp !== '') {
+        $comp <= $lim ? $aTiempo++ : $tarde++;
+    }
+}
+$avance       = $totales ? (int)round($hechas * 100 / $totales) : 0;
+$conPuntualidad = $aTiempo + $tarde;
+$puntualidad  = $conPuntualidad ? (int)round($aTiempo * 100 / $conPuntualidad) : null;
+
+// Colores de los catálogos (para que los gráficos usen la misma paleta)
+$colEstado = $colPrio = [];
+foreach ((array)Config::get('estados_tarea') as $k => $v) $colEstado[$k] = $v['color'] ?? '#2B76F7';
+foreach ((array)Config::get('prioridades')  as $k => $v) $colPrio[$k]   = $v['color'] ?? '#94a3b8';
+
+/* Donut SVG a partir de segmentos [ [valor, color], ... ] */
+$donut = function (array $segs, string $centro, string $sub): string {
+    $total = array_sum(array_map(fn($s) => $s[0], $segs));
+    $r = 54; $circ = 2 * M_PI * $r; $off = 0;
+    $svg = '<svg viewBox="0 0 140 140" class="mc-donut" role="img">';
+    $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" class="mc-donut-track" stroke-width="15"/>';
+    if ($total > 0) {
+        foreach ($segs as [$v, $col]) {
+            if ($v <= 0) continue;
+            $len = $circ * $v / $total;
+            $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" stroke="' . e($col) . '"'
+                  . ' stroke-width="15" stroke-dasharray="' . round($len, 2) . ' ' . round($circ - $len, 2) . '"'
+                  . ' stroke-dashoffset="' . round(-$off, 2) . '" transform="rotate(-90 70 70)"/>';
+            $off += $len;
+        }
+    }
+    $svg .= '<text x="70" y="68" class="mc-donut-num">' . e($centro) . '</text>';
+    $svg .= '<text x="70" y="88" class="mc-donut-sub">' . e($sub) . '</text></svg>';
+    return $svg;
+};
+/* Barras horizontales a partir de [ [label, valor, color], ... ] */
+$barras = function (array $items): string {
+    $vals = array_map(fn($i) => $i[1], $items);
+    $max = $vals ? max(1, max($vals)) : 1;
+    $h = '<div class="mc-bars">';
+    foreach ($items as [$lab, $val, $col]) {
+        $pct = (int)round($val * 100 / $max);
+        $h .= '<div class="mc-bar-row"><span class="mc-bar-lab">' . e($lab) . '</span>'
+            . '<span class="mc-bar-track"><span class="mc-bar-fill" style="width:' . $pct . '%;background:' . e($col) . '"></span></span>'
+            . '<span class="mc-bar-val">' . (int)$val . '</span></div>';
+    }
+    return $h . '</div>';
+};
+
 // Proyectos en los que participa
 $susProyectos = [];
 foreach ($susTareas as $t) {
@@ -83,7 +151,8 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
       <button class="btn-outline btn-meca btn-sm solo-admin" title="Editar"
         data-editar-miembro='<?= e(json_encode([
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
-            'git_user' => $m['git_user'], 'email' => $m['email'] ?? '',
+            'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '',
+            'acceso' => $m['acceso'] ?? 'lector',
             'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq,
         ], JSON_UNESCAPED_UNICODE)) ?>'>
         <i class="fa-solid fa-pen"></i> Editar
@@ -99,11 +168,92 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
   </div>
 </header>
 
-<section class="stats-grid">
-  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Tareas abiertas') ?>
-  <?= UI::stat('fa-circle-check', '#2BB673', (string)$hechas, 'Completadas') ?>
+<section class="stats-grid stats-grid-6">
   <?= UI::stat('fa-layer-group', '#2B76F7', (string)$totales, 'Asignadas') ?>
-  <?= UI::stat('fa-folder-open', $c1, (string)count($susProyectos), 'Proyectos') ?>
+  <?= UI::stat('fa-circle-check', '#2BB673', (string)$hechas, 'Completadas') ?>
+  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Abiertas') ?>
+  <?= UI::stat('fa-triangle-exclamation', '#E63946', (string)$atrasadas, 'Atrasadas') ?>
+  <?= UI::stat('fa-gauge-high', '#0EA5E9', $avance . '%', 'Avance') ?>
+  <?= UI::stat('fa-clock', '#16A34A', ($puntualidad === null ? '—' : $puntualidad . '%'), 'Puntualidad') ?>
+</section>
+
+<section class="mc-metricas">
+
+  <!-- Distribución por estado (donut) -->
+  <div class="card-base mc-chart">
+    <h3 class="mc-chart-tit"><i class="fa-solid fa-chart-pie"></i> Distribución por estado</h3>
+    <?php if ($totales === 0): ?>
+      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+    <?php else:
+      $segsEstado = [];
+      foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]) {
+          $segsEstado[] = [$porEstado[$k] ?? 0, $colEstado[$k] ?? '#2B76F7'];
+      }
+    ?>
+    <div class="mc-donut-wrap">
+      <?= $donut($segsEstado, (string)$totales, 'tareas') ?>
+      <ul class="mc-legend">
+        <?php foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]): ?>
+        <li><span class="mc-dot" style="background:<?= e($colEstado[$k] ?? '#2B76F7') ?>"></span>
+          <?= e($lab) ?> <b><?= (int)($porEstado[$k] ?? 0) ?></b></li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+    <?php endif; ?>
+  </div>
+
+  <!-- Responsabilidad de tiempos (puntualidad) -->
+  <div class="card-base mc-chart">
+    <h3 class="mc-chart-tit"><i class="fa-solid fa-clock"></i> Responsabilidad de tiempos</h3>
+    <div class="mc-punt">
+      <div class="mc-punt-num" style="color:<?= $puntualidad === null ? '#94a3b8' : ($puntualidad >= 70 ? '#16A34A' : ($puntualidad >= 40 ? '#C26F0E' : '#E63946')) ?>">
+        <?= $puntualidad === null ? '—' : $puntualidad . '%' ?>
+      </div>
+      <p class="mc-punt-sub"><?= $conPuntualidad > 0 ? 'entregadas a tiempo' : 'aún no hay tareas cerradas con fecha límite' ?></p>
+    </div>
+    <?php if ($conPuntualidad > 0): ?>
+    <div class="mc-split">
+      <span class="mc-split-a" style="width:<?= (int)round($aTiempo * 100 / $conPuntualidad) ?>%"></span>
+      <span class="mc-split-b" style="width:<?= (int)round($tarde * 100 / $conPuntualidad) ?>%"></span>
+    </div>
+    <?php endif; ?>
+    <ul class="mc-punt-list">
+      <li><span class="mc-dot" style="background:#16A34A"></span> A tiempo <b><?= $aTiempo ?></b></li>
+      <li><span class="mc-dot" style="background:#E63946"></span> Tarde <b><?= $tarde ?></b></li>
+      <li><span class="mc-dot" style="background:#F7931E"></span> Atrasadas (abiertas) <b><?= $atrasadas ?></b></li>
+      <li><span class="mc-dot" style="background:#0EA5E9"></span> Por vencer (7 días) <b><?= $porVencer ?></b></li>
+    </ul>
+  </div>
+
+  <!-- Carga por prioridad -->
+  <div class="card-base mc-chart">
+    <h3 class="mc-chart-tit"><i class="fa-solid fa-signal"></i> Carga por prioridad</h3>
+    <?php if ($totales === 0): ?>
+      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+    <?php else:
+      $itemsPrio = [];
+      foreach (Catalogo::prioridades() as $k => [$lab, $ic]) {
+          $itemsPrio[] = [$lab, $porPrioridad[$k] ?? 0, $colPrio[$k] ?? '#94a3b8'];
+      }
+      echo $barras($itemsPrio);
+    endif; ?>
+  </div>
+
+  <!-- Tareas por proyecto -->
+  <div class="card-base mc-chart">
+    <h3 class="mc-chart-tit"><i class="fa-solid fa-folder-tree"></i> Tareas por proyecto</h3>
+    <?php if (empty($porProyecto)): ?>
+      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+    <?php else:
+      arsort($porProyecto);
+      $itemsProy = [];
+      foreach ($porProyecto as $pid => $n) {
+          $itemsProy[] = [$nombresProyecto[$pid] ?? '—', $n, $colorProyecto[$pid] ?? '#2B76F7'];
+      }
+      echo $barras($itemsProy);
+    endif; ?>
+  </div>
+
 </section>
 
 <section class="card-base tabla-card">
@@ -171,8 +321,8 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
     camposPersona(true, $eq, Catalogo::equipos());
     ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>

@@ -2,6 +2,8 @@
 admin/data/*.json
 admin/data/*.json.importado
 admin/data/.seeded
+# La semilla del equipo lleva nombres y correos reales: se queda fuera del repo
+admin/data/*.csv
 # Cualquier respaldo o copia de la config: lleva credenciales en texto plano
 admin/data/config.json.*
 admin/data/*.bak
@@ -11,6 +13,9 @@ admin/uploads/*
 admin/data/*.sqlite
 admin/data/*.sqlite-wal
 admin/data/*.sqlite-shm
+
+# Sesiones (se guardan aquí para que no se pierdan en cada deploy)
+admin/data/sessions/
 
 # Mantener las carpetas en el repo
 !admin/data/.gitkeep

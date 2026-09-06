@@ -95,7 +95,7 @@ UI::inicio('Mi perfil', 'perfil');
   </div>
 </section>
 
-<form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data">
+<form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data" novalidate>
   <input type="hidden" name="accion" value="perfil_guardar">
 
   <div class="pf-grid">
@@ -145,9 +145,31 @@ UI::inicio('Mi perfil', 'perfil');
         <div class="pf-cuerpo">
           <span class="pf-label">Correo</span>
           <span class="pf-valor js-valor"><?= !empty($yo['email']) ? e($yo['email']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
-          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@mecapacito.com" hidden>
+          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@correo.com" hidden>
         </div>
         <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
+      </div>
+
+      <div class="pf-fila pf-fila-emails">
+        <div class="pf-ic"><i class="fa-solid fa-code-branch"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Correos de Git (para contar tus commits)</span>
+          <?php
+          $misGitMails = array_values(array_filter(array_map('trim', explode(',', (string)($yo['git_emails'] ?? '')))));
+          if (!$misGitMails) $misGitMails = [''];
+          ?>
+          <div class="git-emails" data-git-emails>
+            <?php foreach ($misGitMails as $ge): ?>
+            <div class="git-email-fila">
+              <div class="input-prefijo"><i class="fa-solid fa-envelope"></i>
+                <input class="input-meca" type="text" inputmode="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com" value="<?= e($ge) ?>"></div>
+              <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <?php endforeach; ?>
+          </div>
+          <button type="button" class="btn-ghost btn-meca btn-sm git-email-agregar"><i class="fa-solid fa-plus"></i> Agregar otro correo</button>
+          <small class="campo-ayuda">El correo con el que commiteas en cada cuenta (GitHub, GitLab…). Así se te cuentan todos tus commits aunque cambies de usuario o de máquina.</small>
+        </div>
       </div>
 
       <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Con cualquiera de los dos entras al panel<?= $googleOn ? '; con el correo, también con «Continuar con Google»' : '' ?>.</p>
@@ -204,8 +226,8 @@ UI::inicio('Mi perfil', 'perfil');
   <div class="pf-guardar" id="pf-guardar" hidden>
     <span class="pf-guardar-txt"><i class="fa-solid fa-circle-dot"></i> Tienes cambios sin guardar</span>
     <div class="pf-guardar-acc">
-      <button type="button" class="btn-outline btn-meca" id="pf-descartar">Descartar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-rojo" id="pf-descartar">Descartar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </div>
   </div>
 </form>
@@ -266,6 +288,23 @@ UI::inicio('Mi perfil', 'perfil');
   form.addEventListener('input', mostrar);
   form.addEventListener('change', mostrar);
   document.getElementById('pf-descartar')?.addEventListener('click', () => location.reload());
+
+  // Foto: el input vive en la cabecera, FUERA del form (asociado con form="…"),
+  // así que su change no llega al form solo. Aquí se previsualiza la imagen
+  // elegida y se muestra la barra para poder guardarla.
+  const file = document.querySelector('.pf-file');
+  file?.addEventListener('change', () => {
+    const f = file.files && file.files[0];
+    if (!f) return;
+    const img = document.querySelector('.pf-img');
+    const ini = document.querySelector('.pf-iniciales');
+    if (img) {
+      img.src = URL.createObjectURL(f);
+      img.hidden = false;
+      if (ini) ini.hidden = true;
+    }
+    mostrar();
+  });
 })();
 </script>
 

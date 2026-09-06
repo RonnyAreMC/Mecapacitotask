@@ -49,15 +49,195 @@ foreach ($tareasRepo->todas() as $t) {
     }
 }
 
+// Solicitudes de acceso pendientes (solo las ve el admin). No están atadas a
+// un equipo: quien se registra solo deja su nombre, correo y contraseña, y es
+// el administrador quien decide aquí a qué equipo y con qué rol entra.
+$solicitudes = esAdmin() ? (new SolicitudRepo())->todas() : [];
+$rolesCat = (array)Config::get('roles');
+
+// Carga masiva pendiente de confirmar (la dejó actions.php al leer el archivo)
+$importe = esAdmin() ? ($_SESSION['import_equipo'] ?? null) : null;
+$importePrevia = $importe ? ImportadorEquipo::aplicar($importe['filas'], true) : null;
+
 UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
-    '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
+    '<button class="btn-outline btn-meca solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
+       <i class="fa-solid fa-file-arrow-up"></i> Cargar desde Excel
+     </button>
+     <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
        <i class="fa-solid fa-user-plus"></i> Agregar colaborador
      </button>'
 );
 ?>
+
+<?php if ($importePrevia): ?>
+<!-- Previsualización de la carga: se ve QUÉ va a pasar antes de escribir nada.
+     Cargar veinte fichas a ciegas no hay forma de deshacerlo. -->
+<section class="card-base imp-card">
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-solid fa-file-arrow-up text-secondary"></i> Revisa la carga
+      <span class="tabla-count"><?= count($importe['filas']) ?></span>
+    </h2>
+    <span class="ajuste-ayuda"><?= e($importe['archivo']) ?></span>
+  </div>
+
+  <div class="imp-resumen">
+    <span class="imp-chip imp-nuevo"><b><?= $importePrevia['nuevos'] ?></b> nuevos</span>
+    <span class="imp-chip imp-actualiza"><b><?= $importePrevia['actualizados'] ?></b> se actualizan</span>
+    <span class="imp-chip imp-igual"><b><?= $importePrevia['iguales'] ?></b> sin cambios</span>
+    <?php foreach ($importePrevia['proyectos'] as $nombreProy => $cuantos): ?>
+    <span class="imp-chip imp-proy"><i class="fa-solid fa-folder-open"></i> <b><?= (int)$cuantos ?></b> a <?= e($nombreProy) ?></span>
+    <?php endforeach; ?>
+    <?php if ($importePrevia['sinProyecto']): ?>
+    <span class="imp-chip"><b><?= $importePrevia['sinProyecto'] ?></b> solo como colaboradores</span>
+    <?php endif; ?>
+  </div>
+
+  <?php if ($importePrevia['desconocidos']): ?>
+  <!-- Un proyecto que no existe no frena la carga: entran igual y se asignan
+       luego. Se dice una vez por nombre, no una por fila. -->
+  <p class="imp-nota">
+    <i class="fa-solid fa-circle-info"></i>
+    <?php $partes = [];
+      foreach ($importePrevia['desconocidos'] as $nom => $n) $partes[] = '«' . e($nom) . '» (' . (int)$n . ')';
+      echo implode(', ', $partes); ?>
+    no <?= count($importePrevia['desconocidos']) === 1 ? 'es un proyecto' : 'son proyectos' ?> del panel.
+    Esas personas entran como colaboradoras y las asignas al proyecto cuando quieras.
+  </p>
+  <?php endif; ?>
+
+  <div class="tabla-scroll imp-scroll">
+    <table class="tabla-meca">
+      <thead>
+        <tr><th></th><th>Colaborador</th><th>Correo</th><th>Equipo</th><th>Proyecto</th><th>Nota</th></tr>
+      </thead>
+      <tbody>
+        <?php foreach ($importePrevia['detalle'] as $d): ?>
+        <tr>
+          <td><span class="imp-tag imp-<?= e($d['accion']) ?>"><?= $d['accion'] === 'nuevo' ? 'nuevo' : ($d['accion'] === 'actualiza' ? 'actualiza' : '=') ?></span></td>
+          <td><?= e($d['nombre']) ?></td>
+          <td><?= $d['correo'] !== '' ? e($d['correo']) : '<span class="celda-muted">—</span>' ?></td>
+          <td><?= e($d['equipo']) ?></td>
+          <td><?= ($d['proyecto'] ?? '') !== ''
+                    ? e($d['proyecto'])
+                    : '<span class="celda-muted">sin asignar</span>' ?></td>
+          <td class="celda-muted"><?= e($d['nota']) ?></td>
+        </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+
+  <?php if ($importePrevia['avisos']): ?>
+  <ul class="imp-avisos">
+    <?php foreach ($importePrevia['avisos'] as $a): ?>
+    <li><i class="fa-solid fa-triangle-exclamation"></i> <?= e($a) ?></li>
+    <?php endforeach; ?>
+  </ul>
+  <?php endif; ?>
+
+  <div class="imp-pie">
+    <small class="ajuste-ayuda">
+      Entran como colaboradores de <b>solo lectura</b>: cargar la lista no le da acceso al panel a nadie.
+    </small>
+    <div class="imp-botones">
+      <form method="post" action="actions.php" class="inline-form">
+        <input type="hidden" name="accion" value="equipo_importar_cancelar">
+        <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+        <button class="btn-outline btn-meca">Descartar</button>
+      </form>
+      <form method="post" action="actions.php" class="inline-form">
+        <input type="hidden" name="accion" value="equipo_importar_confirmar">
+        <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+        <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Confirmar carga</button>
+      </form>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
+
+<?php if ($solicitudes): ?>
+<!-- Solicitudes de acceso: gente que se registró y espera aprobación.
+     Todavía no es del equipo, por eso va en su propia tarjeta y no en la tabla. -->
+<section class="card-base sol-card">
+  <div class="tabla-toolbar">
+    <h2 class="font-display"><i class="fa-solid fa-user-clock text-secondary"></i> Solicitudes de acceso
+      <span class="tabla-count"><?= count($solicitudes) ?></span>
+    </h2>
+    <span class="ajuste-ayuda">Tú decides el equipo y el rol. Entrará con la cuenta de Google con la que se registró.</span>
+  </div>
+
+  <div class="sol-lista">
+    <?php foreach ($solicitudes as $s): $sid = (int)$s['id']; ?>
+    <article class="sol-item">
+      <div class="sol-quien">
+        <?= UI::avatar(['nombre' => $s['nombre'], 'color' => 5], 42) ?>
+        <div class="sol-datos">
+          <strong><?= e($s['nombre']) ?></strong>
+          <small>Pidió acceso el <?= e($s['creado'] ?? '') ?></small>
+          <div class="sol-chips">
+            <span class="sol-chip"><i class="fa-solid fa-envelope"></i> <?= e($s['email']) ?></span>
+            <span class="sol-chip sol-chip-ok" title="El correo lo verificó Google al autorizar">
+              <i class="fa-brands fa-google"></i> verificado
+            </span>
+          </div>
+        </div>
+      </div>
+
+      <form method="post" action="actions.php" class="sol-acciones">
+        <input type="hidden" name="accion" value="solicitud_aprobar">
+        <input type="hidden" name="id" value="<?= $sid ?>">
+        <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+        <label class="sol-campo">
+          <span>Equipo</span>
+          <?= UI::select('equipo', array_map(fn($v) => $v[0], $equipos), $eq, false, 'select-sm') ?>
+        </label>
+        <label class="sol-campo">
+          <span>Rol</span>
+          <?= UI::select('rol', array_combine($rolesCat, $rolesCat), $rolesCat[0] ?? '', false, 'select-sm') ?>
+        </label>
+        <label class="sol-campo">
+          <span>Acceso</span>
+          <?= UI::select('acceso', Auth::ROLES, 'lector', false, 'select-sm') ?>
+        </label>
+        <div class="sol-botones">
+          <button class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-check"></i> Aprobar</button>
+          <button type="button" class="btn-outline btn-meca btn-sm sol-no"
+                  data-rechazar="<?= $sid ?>" data-nombre="<?= e($s['nombre']) ?>">
+            <i class="fa-solid fa-xmark"></i> Rechazar
+          </button>
+        </div>
+      </form>
+    </article>
+    <?php endforeach; ?>
+  </div>
+</section>
+
+<!-- Modal: rechazar (el motivo viaja en el correo de aviso) -->
+<dialog id="dlg-rechazar" class="dlg-meca">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="solicitud_rechazar">
+    <input type="hidden" name="id" id="rc-id">
+    <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-user-xmark text-secondary"></i> Rechazar solicitud</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <p class="ajuste-ayuda">Se borrará la solicitud de <b id="rc-nombre"></b>. Si el correo del panel está
+       configurado, se le avisa con el motivo que escribas (puedes dejarlo vacío).</p>
+    <label class="campo"><span>Motivo (opcional)</span>
+      <textarea class="input-meca" name="motivo" rows="2" maxlength="300"
+                placeholder="Ej. No reconocemos esta cuenta; escríbenos desde tu correo institucional."></textarea>
+    </label>
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-peligro btn-meca"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <?php if (empty($equipo)): ?>
   <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', 'Agrega al primer colaborador con el botón de arriba.') ?>
@@ -132,7 +312,7 @@ UI::cabecera(
                 <input type="hidden" name="accion" value="miembro_acceso_set">
                 <input type="hidden" name="id" value="<?= $mid ?>">
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso ' . ($esAdm ? 'es-admin' : 'es-lector')) ?>
+                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
               </form>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
                 <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
@@ -154,6 +334,58 @@ UI::cabecera(
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/lib/campos_persona.php'; ?>
+
+<!-- Modal: cargar el equipo desde una hoja de cálculo -->
+<dialog id="dlg-importar" class="dlg-meca">
+  <form method="post" action="actions.php" class="dlg-form" enctype="multipart/form-data">
+    <input type="hidden" name="accion" value="equipo_importar">
+    <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-file-arrow-up text-secondary"></i> Cargar equipo</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+
+    <p class="ajuste-ayuda">
+      Sube la hoja de Excel tal cual (<code>.xlsx</code>) o guardada como <code>.csv</code>.
+      La primera fila tiene que ser la de los títulos; el orden de las columnas da igual.
+    </p>
+
+    <!-- Las columnas como fichas y no como tabla de ejemplo: una tabla de
+         cuatro columnas no cabe en el modal y lo desbordaba a lo ancho. -->
+    <div class="imp-cols">
+      <span class="imp-col">Apellidos</span>
+      <span class="imp-col">Nombres</span>
+      <span class="imp-col">Correo</span>
+      <span class="imp-col">Proyecto <em>o equipo</em></span>
+      <span class="imp-col">Rol <em>opcional</em></span>
+    </div>
+    <small class="campo-ayuda">
+      En la última columna puedes poner el <b>nombre de un proyecto</b> que ya exista
+      (<?php
+        $listaProy = array_map(fn($p) => $p['nombre'], soloProyectosVisibles((new ProyectoRepo())->todos()));
+        echo $listaProy ? e(implode(' · ', array_slice($listaProy, 0, 4))) . (count($listaProy) > 4 ? '…' : '')
+                        : 'todavía no hay proyectos';
+      ?>) y esas personas quedan vinculadas a él al cargar. Si lo dejas vacío o el proyecto
+      todavía no existe, entran igual como colaboradores y los asignas cuando quieras.
+      También acepta un equipo (<?= e(implode(' · ', array_map(fn($v) => $v[0], $equipos))) ?>).
+    </small>
+
+    <label class="respaldo-archivo imp-archivo" data-vacio="Elegir archivo .xlsx o .csv">
+      <input type="file" name="archivo" accept=".xlsx,.csv,text/csv" required>
+      <span><i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .xlsx o .csv</span>
+    </label>
+
+    <small class="campo-ayuda">
+      <i class="fa-solid fa-circle-info"></i> No se guarda nada al subirlo: primero verás el
+      resumen de qué se crea y qué se actualiza.
+    </small>
+
+    <footer>
+      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-eye"></i> Leer y revisar</button>
+    </footer>
+  </form>
+</dialog>
 
 <!-- Modal: nuevo colaborador -->
 <dialog id="dlg-nuevo-miembro" class="dlg-meca dlg-persona">
@@ -182,8 +414,8 @@ UI::cabecera(
     </header>
     <?php camposPersona(true, $eq, $equipos); ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>

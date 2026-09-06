@@ -31,8 +31,12 @@ if ($verComo) {
 
 // Equipo completo, para elegir participantes al crear un proyecto
 $opcionesEquipo = [];
+$opcionesAnalistas = [0 => '— Sin PO —'];
 foreach ($miembrosRepo->todos() as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    if (MiembroRepo::equipoDe($m) === 'analistas') {
+        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
 }
 
 $finales     = Catalogo::estadosFinales();
@@ -43,7 +47,7 @@ $hechas     = count($todasTareas) - $abiertas;
 
 UI::inicio('Dashboard', 'dashboard');
 UI::cabecera(
-    'Proyectos <span class="text-secondary">Mecapacito</span>',
+    'Proyectos <span class="text-secondary">' . e(Config::get('titulo')) . '</span>',
     $verComo
         ? 'Viendo solo los proyectos y tareas de <b>' . e($verComo['nombre']) . '</b>.'
         : ($alcance !== null
@@ -72,7 +76,7 @@ UI::cabecera(
   <?php endif; ?>
 <?php else: ?>
 <section class="proyectos-admin-grid">
-  <?php foreach ($proyectos as $p):
+  <?php $iCard = 0; foreach ($proyectos as $p):
       $resumen = $tareasRepo->resumen((int)$p['id']);
       $total   = array_sum($resumen);
       $avance  = $tareasRepo->avance((int)$p['id']);
@@ -86,7 +90,7 @@ UI::cabecera(
           }
       }
   ?>
-  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>">
+  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
     <div class="pac-head">
       <div class="pac-icon"><i class="fa-solid <?= e($p['icono']) ?>"></i></div>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>
@@ -161,6 +165,11 @@ UI::cabecera(
           <span>Participantes del proyecto</span>
           <?= UI::select('miembros', $opcionesEquipo, [], false, '', true) ?>
           <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
+          <?= UI::select('po', $opcionesAnalistas, 0) ?>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
         </label>
       </section>
 

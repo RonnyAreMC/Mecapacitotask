@@ -38,6 +38,21 @@ $urlConFiltros = 'proyecto.php?id=' . $id
     . ($fEstado !== '' ? '&estado=' . urlencode($fEstado) : '')
     . (!$verComo && $fAsignado ? '&asignado=' . $fAsignado : '');
 
+// Completadas viejas (más de una semana): salen del tablero por defecto, pero
+// siguen guardadas (métricas y avance las cuentan igual). ?arch=1 las muestra;
+// y si filtras justo por un estado final, también aparecen.
+$verArchivadas = !empty($_GET['arch']) || in_array($fEstado, $finales, true);
+$limiteArch    = date('Y-m-d', strtotime('-7 days'));
+$esArchivada   = fn($t) => in_array($t['estado'] ?? '', $finales, true)
+    && (string)($t['completada_en'] ?? '') !== '' && (string)($t['completada_en'] ?? '') < $limiteArch;
+$nArchivadas   = count(array_filter($tareas, $esArchivada));
+// Lista completa (con las archivadas): el cierre por dia mira hacia atras y
+// necesita las completadas viejas cuando se pide un rango de fechas largo.
+$tareasTodas   = $tareas;
+if (!$verArchivadas) {
+    $tareas = array_values(array_filter($tareas, fn($t) => !$esArchivada($t)));
+}
+
 $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
     if ($fEstado !== '' && $t['estado'] !== $fEstado) return false;
     if ($fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado)) return false;
@@ -47,9 +62,27 @@ $visibles = array_filter($tareas, function ($t) use ($fEstado, $fAsignado) {
 // Equipo del proyecto: si esta definido, los selectores de tareas y reuniones
 // solo ofrecen a esas personas (null = proyecto abierto a todo el equipo).
 $equipoProyecto = ProyectoRepo::miembrosDe($proyecto);
-$delProyecto = $equipoProyecto === null
-    ? $miembros
-    : array_filter($miembros, fn($m) => in_array((int)$m['id'], $equipoProyecto, true));
+if ($equipoProyecto !== null) {
+    // El proyecto tiene su equipo definido: solo esas personas se asignan.
+    $delProyecto = array_filter($miembros, fn($m) => in_array((int)$m['id'], $equipoProyecto, true));
+} else {
+    // Proyecto abierto: se ofrece SOLO a quien ya participa aquí (tiene tarea,
+    // está invitado a una reunión o escribió una observación). Si aún no hay
+    // nadie (proyecto nuevo), se ofrece a todo el equipo para poder empezar.
+    $participan = [];
+    foreach ($tareas as $t) {
+        foreach (TareaRepo::asignadosDe($t) as $mid) $participan[(int)$mid] = true;
+    }
+    foreach ((new JsonStore('reuniones'))->where('proyecto_id', $id) as $r) {
+        foreach (array_map('intval', (array)($r['invitados'] ?? [])) as $mid) $participan[$mid] = true;
+    }
+    foreach ((new JsonStore('observaciones'))->where('proyecto_id', $id) as $o) {
+        $participan[(int)($o['autor_id'] ?? 0)] = true;
+    }
+    $delProyecto = $participan
+        ? array_filter($miembros, fn($m) => isset($participan[(int)$m['id']]))
+        : $miembros;
+}
 
 // Quien ya tiene tareas aqui pero salio del equipo: se sigue ofreciendo para
 // no perder la asignacion existente al editar la tarea.
@@ -62,19 +95,24 @@ foreach ($tareas as $t) {
 }
 uasort($delProyecto, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
 
-// Para el selector de responsables (múltiple): sin la opción "sin asignar"
+// Responsables de tareas: SOLO desarrolladores (los analistas no ejecutan
+// tareas de código, así que no se ofrecen aquí). El filtro y las reuniones sí
+// los incluyen (más abajo), porque en eso sí participan.
 $opcionesAsignar = [];
 foreach ($delProyecto as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') continue;
     $opcionesAsignar[$m['id']] = $m['nombre'] . ' (@' . $m['git_user'] . ')';
 }
 
 $opcionesMiembros = [0 => '— Sin asignar —'];
 $opcionesFiltro   = [0 => 'Todo el equipo'];
 $opcionesInvitados = [];
+$opcionesDestino   = ['all' => 'Todo el proyecto'];   // destinatarios de una observación
 foreach ($delProyecto as $m) {
     $opcionesMiembros[$m['id']]  = $m['nombre'] . ' (@' . $m['git_user'] . ')';
     $opcionesFiltro[$m['id']]    = $m['nombre'];
     $opcionesInvitados[$m['id']] = $m['nombre'] . (!empty($m['email']) ? ' · ' . $m['email'] : '');
+    $opcionesDestino[$m['id']]   = $m['nombre'];
 }
 
 // Todo el equipo, para el selector de participantes del proyecto
@@ -83,15 +121,142 @@ foreach ($miembros as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
 }
 
-// Dependencias: opciones (todas las tareas del proyecto) y mapa por id
+// Analistas, para elegir el Product Owner del proyecto (el PO sale de ahí)
+$opcionesAnalistas = [0 => '— Sin PO —'];
+foreach ($miembros as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') {
+        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
+}
+$poProyecto = ProyectoRepo::poDe($proyecto);
+// Crear/editar tareas: solo el PO, el Scrum Master del proyecto y el admin.
+$puedeTareas = puedeGestionarTareas($id);
+// Admin o Scrum de este proyecto: manda en el tablero (p. ej. puede bajarse
+// las tareas de todo el equipo, no solo las suyas).
+$puedeGestionar = puedeGestionar($id);
+// Reuniones: además del admin y el Scrum Master, el Product Owner del proyecto.
+// No vale la clase .solo-gestor de siempre: esa se apaga por el ROL del panel, y
+// un PO puede entrar como solo lectura y aun así mandar aquí.
+$puedeReuniones = puedeReunionesDelProyecto($id);
+
+// Dependencias: opciones (todas las tareas del proyecto) y mapa por id.
 $tareasPorId = [];
-$opcionesDependencia = [0 => '— Ninguna —'];
+$opcionesDependencia = [0 => '— Ninguna —'];   // (lo usa también el compositor de observaciones)
+$opcionesDeps = [];                            // para el selector MÚLTIPLE de dependencias (sin "Ninguna")
 foreach ($tareas as $t) {
     $tareasPorId[(int)$t['id']] = $t;
     $opcionesDependencia[(int)$t['id']] = mb_strimwidth($t['titulo'], 0, 46, '…');
+    $opcionesDeps[(int)$t['id']]        = mb_strimwidth($t['titulo'], 0, 46, '…');
 }
-$nivelesFlujo = $tareasRepo->niveles($tareas);
-$hayDependencias = (bool)array_filter($tareas, fn($t) => (int)($t['depende_de'] ?? 0) > 0);
+$hayDependencias = (bool)array_filter($tareas, fn($t) => TareaRepo::dependenciasDe($t) !== []);
+
+// --- Dependencias entre equipos --------------------------------------------
+// Mapa global de TODAS las tareas y proyectos: una dependencia puede apuntar a
+// la tarea de otro equipo, y hay que resolver su id, icono y color.
+$tareaGlobal = [];
+foreach ($tareasRepo->todas() as $tg) $tareaGlobal[(int)$tg['id']] = $tg;
+$proyGlobal = [];
+foreach ($proyectosRepo->todos() as $pg) $proyGlobal[(int)$pg['id']] = $pg;
+
+// El menú lateral aclara los proyectos de color oscuro; hacemos lo mismo aquí
+// para que el chip del equipo se lea sobre fondo claro.
+$colorEquipo = fn(?array $p) => $p
+    ? (ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : ProyectoRepo::colorBase($p))
+    : '#64748b';
+
+// "Próxima a vencer": faltan 3 días o menos (y no está en un estado final).
+$urgenciaDe = function (array $t) use ($finales): string {
+    $lim = (string)($t['fecha_limite'] ?? '');
+    if ($lim === '' || in_array($t['estado'] ?? '', $finales, true)) return '';
+    $dias = (int)floor((strtotime($lim . ' 12:00') - strtotime('today 12:00')) / 86400);
+    if ($dias < 0)  return 'vencida';
+    if ($dias <= 3) return 'proxima';
+    return '';
+};
+
+// Info de una dependencia para chips y modal: equipo dueño, si es externa,
+// estado, urgencia y a quién avisar (responsables + Scrum de su equipo).
+$infoDep = function (int $depId) use ($id, $tareaGlobal, $proyGlobal, $finales, $urgenciaDe, $proyecto, $colorEquipo, $miembros): ?array {
+    $d = $tareaGlobal[$depId] ?? null;
+    if (!$d) return null;
+    $pid     = (int)($d['proyecto_id'] ?? 0);
+    $externa = $pid !== $id;
+    $p       = $externa ? ($proyGlobal[$pid] ?? null) : $proyecto;
+    $avisar  = [];
+    if ($externa && $p) {
+        $ids = TareaRepo::asignadosDe($d);
+        $sm  = ProyectoRepo::scrumDe($p);
+        if ($sm > 0) $ids[] = $sm;
+        foreach (array_values(array_unique($ids)) as $mid) {
+            if (isset($miembros[$mid])) $avisar[] = $miembros[$mid]['nombre'];
+        }
+    }
+    return [
+        'id'       => $depId,
+        'titulo'   => (string)($d['titulo'] ?? ''),
+        'externa'  => $externa,
+        'equipo'   => $p['nombre'] ?? '',
+        'color'    => $colorEquipo($p),
+        'icono'    => $externa && $p ? UI::icono($p['icono'] ?? 'fa-folder-open', 'dep-eq-ico') : '',
+        'estado'   => UI::badgeEstadoTarea($d['estado'] ?? ''),
+        'final'    => in_array($d['estado'] ?? '', $finales, true),
+        'vence'    => (string)($d['fecha_limite'] ?? ''),
+        'urgencia' => $urgenciaDe($d),
+        'avisar'   => $avisar,
+    ];
+};
+
+// Datos para el selector de dependencias (equipo → sus tareas). El proyecto
+// actual va primero; luego el resto de equipos que tengan tareas.
+$depDatos = [];
+foreach (([$id => $proyecto] + $proyGlobal) as $pidD => $pD) {
+    $tareasP = array_values(array_filter($tareaGlobal, fn($t) => (int)$t['proyecto_id'] === (int)$pidD));
+    if (!$tareasP && (int)$pidD !== $id) continue;
+    $depDatos[] = [
+        'id'     => (int)$pidD,
+        'nombre' => (string)($pD['nombre'] ?? ''),
+        'color'  => $colorEquipo($pD),
+        'icono'  => UI::icono($pD['icono'] ?? 'fa-folder-open', 'dp-eq-ico'),
+        'actual' => (int)$pidD === $id,
+        'tareas' => array_map(fn($t) => [
+            'id'     => (int)$t['id'],
+            'titulo' => (string)($t['titulo'] ?? ''),
+            'final'  => in_array($t['estado'] ?? '', $finales, true),
+        ], $tareasP),
+    ];
+}
+
+// Flujo de dependencias: solo entran las tareas que forman parte de alguna,
+// o sea las que dependen de algo y aquellas de las que depende alguien. Las
+// sueltas no dibujan ninguna flecha: solo alargaban la columna "Inicio" y
+// escondían las que sí encadenan.
+$enDependencia = [];
+foreach ($tareas as $t) {
+    $deps = TareaRepo::dependenciasDe($t);
+    if (!$deps) continue;
+    $enDependencia[(int)$t['id']] = true;              // la que depende
+    foreach ($deps as $depId) $enDependencia[$depId] = true;   // y de la que depende
+}
+
+$tareasFlujo = [];
+$enFlujo = [];
+foreach ($tareas as $t) {
+    if (!isset($enDependencia[(int)$t['id']])) continue;
+    $tareasFlujo[] = $t;
+    $enFlujo[(int)$t['id']] = true;
+}
+// Y como nodos externos de solo lectura, las tareas de OTROS equipos de las
+// que dependen las de aquí.
+foreach ($tareas as $t) {
+    foreach (TareaRepo::dependenciasDe($t) as $depId) {
+        if (isset($enFlujo[$depId])) continue;
+        $d = $tareaGlobal[$depId] ?? null;
+        if (!$d || (int)$d['proyecto_id'] === $id) continue;   // solo externas
+        $enFlujo[$depId] = true;
+        $tareasFlujo[] = $d;
+    }
+}
+$nivelesFlujo = $tareasRepo->niveles($tareasFlujo);
 
 // Repos del proyecto. Los datos de GitHub (commits, ramas) se cargan de forma
 // diferida al abrir la vista Métricas, así la página no espera a la API al abrir.
@@ -99,25 +264,89 @@ $reposProyecto = ProyectoRepo::repos($proyecto);
 
 // Observaciones (revision / QA)
 $obsRepo         = new ObservacionRepo();
-$observaciones   = $obsRepo->delProyecto($id);
+$observaciones   = $obsRepo->hilosDelProyecto($id);   // con sus respuestas dentro
 $obsPorTarea     = $obsRepo->pendientesPorTarea($id);   // [tarea_id => n pendientes]
 $obsResumen      = $obsRepo->resumen($id);
 $obsPendientes   = $obsResumen['pendientes'];
 $equiposCat      = Catalogo::equipos();
+
+// Carga cruzada: alguien puede estar en dos o tres tableros a la vez y desde
+// aquí solo se ve el suyo; el SM/PO no lo ve — solo nota que la tarea se
+// demora. Aquí se cruza, por persona, el rango de fechas de cada tarea con el
+// de sus tareas abiertas en OTROS equipos, y lo que se solape se avisa.
+$cargaPorMiembro = [];
+$apunta = function (int $mid, string $origen, string $titulo, string $ini, string $fin) use (&$cargaPorMiembro) {
+    if ($ini === '' && $fin === '') return;                     // sin fechas no hay nada que cruzar
+    $cargaPorMiembro[$mid][] = [
+        'origen' => $origen,                                    // requerimiento suelto o nombre del equipo
+        'titulo' => $titulo,
+        'ini'    => $ini !== '' ? $ini : $fin,                  // si falta una punta, se usa la otra
+        'fin'    => $fin !== '' ? $fin : $ini,
+    ];
+};
+
+// Tareas abiertas de esa persona en cualquier OTRO proyecto.
+$nombreProy = [];
+foreach ((new ProyectoRepo())->todos() as $p2) $nombreProy[(int)$p2['id']] = (string)$p2['nombre'];
+foreach ($tareasRepo->todas() as $t2) {
+    $pid2 = (int)($t2['proyecto_id'] ?? 0);
+    if ($pid2 === $id) continue;                                // el tablero de aquí ya se ve
+    if (in_array($t2['estado'] ?? '', $finales, true)) continue; // lo terminado no ocupa
+    foreach (TareaRepo::asignadosDe($t2) as $mid) {
+        $apunta($mid, $nombreProy[$pid2] ?? 'Otro equipo', (string)($t2['titulo'] ?? ''),
+                (string)($t2['fecha_inicio'] ?? ''), (string)($t2['fecha_limite'] ?? ''));
+    }
+}
+
+/** Texto del aviso de carga cruzada, para el title del tablero y de la tabla. */
+function avisoCargaExtra(array $choques): string
+{
+    $partes = [];
+    foreach ($choques as $c) {
+        $partes[] = $c['persona'] . ' — ' . $c['origen'] . ': «' . $c['titulo'] . '» del ' . $c['ini'] . ' al ' . $c['fin'];
+    }
+    return 'Puede demorarse, tiene trabajo en paralelo: ' . implode('; ', $partes) . '.';
+}
+
+/** Trabajo de los responsables (otros equipos o requerimientos) que pisa las fechas de la tarea. */
+$cargaExtra = function (array $t) use ($miembros, $cargaPorMiembro): array {
+    $tIni = trim((string)($t['fecha_inicio'] ?? ''));
+    $tFin = trim((string)($t['fecha_limite'] ?? ''));
+    if ($tIni === '' && $tFin === '') return [];               // tarea sin fechas: nada que comparar
+    if ($tIni === '') $tIni = $tFin;
+    if ($tFin === '') $tFin = $tIni;
+
+    $choques = [];
+    foreach (TareaRepo::asignadosDe($t) as $mid) {
+        foreach ($cargaPorMiembro[$mid] ?? [] as $r) {
+            // Dos rangos se pisan si cada uno empieza antes de que acabe el otro.
+            if ($r['ini'] > $tFin || $r['fin'] < $tIni) continue;
+            $choques[] = [
+                'persona' => $miembros[$mid]['nombre'] ?? 'Alguien',
+                'origen'  => $r['origen'],
+                'titulo'  => $r['titulo'],
+                'ini'     => $r['ini'],
+                'fin'     => $r['fin'],
+            ];
+        }
+    }
+    return $choques;
+};
 
 // Datos de solo lectura de una tarea para el modal de detalle (cualquiera puede
 // abrirlo, incluidos los programadores). Se calcula una vez y se pega como
 // atributo data-ver-tarea en cada tarjeta/fila/nodo.
 $estadosCat = Catalogo::estadosTarea();
 $prioCat    = Catalogo::prioridades();
-$verTareaAttr = function (array $t) use ($miembros, $tareasPorId, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto): string {
+$verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep): string {
     $nombres = [];
     foreach (TareaRepo::asignadosDe($t) as $mid) {
         if (isset($miembros[$mid])) $nombres[] = $miembros[$mid]['nombre'];
     }
-    $depId = (int)($t['depende_de'] ?? 0);
-    $dep = $depId && isset($tareasPorId[$depId]) ? $tareasPorId[$depId] : null;
+    // Dependencias resueltas con equipo/color/urgencia (propias y de otros equipos).
+    $deps = array_values(array_filter(array_map($infoDep, TareaRepo::dependenciasDe($t))));
     return e(json_encode([
+        'id'           => (int)$t['id'],
         'titulo'       => $t['titulo'] ?? '',
         'descripcion'  => $t['descripcion'] ?? '',
         'proyecto'     => $proyecto['nombre'] ?? '',
@@ -126,8 +355,7 @@ $verTareaAttr = function (array $t) use ($miembros, $tareasPorId, $finales, $obs
         'asignados'    => $nombres,
         'fecha_inicio' => $t['fecha_inicio'] ?? '',
         'fecha_limite' => $t['fecha_limite'] ?? '',
-        'dep'          => $dep['titulo'] ?? '',
-        'dep_lista'    => $dep ? in_array($dep['estado'] ?? '', $finales, true) : false,
+        'deps'         => $deps,
         'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
         'adjuntos'     => TareaRepo::adjuntosDe($t),
         'creado'       => $t['creado'] ?? '',
@@ -188,6 +416,77 @@ $platDefecto   = Reuniones::plataformaDefecto($proyecto);   // el proyecto puede
 $durDefecto    = Reuniones::duracionDefecto();
 $durOpciones   = Reuniones::duraciones();
 
+// ---------------------------------------------------------------------------
+// Filtro de fechas del Kanban.
+//
+// El tablero se abría con TODAS las tarjetas a la vez y no había forma de
+// saber qué se movió hoy. Ahora arranca acotado a HOY: en las columnas solo
+// quedan las tareas que se completaron hoy y las que se crearon hoy. El chip
+// "Todo" devuelve el tablero entero.
+//
+// El rango se lee de ?desde=&hasta=; si vienen en la URL pero vacíos (el chip
+// "Todo") no se filtra nada. Solo se cae a hoy cuando no vienen.
+$dHoy   = date('Y-m-d');
+$dAyer  = date('Y-m-d', strtotime('-1 day'));
+$dPedido = isset($_GET['desde']) || isset($_GET['hasta']);
+$dDesde = ProyectoRepo::fecha($_GET['desde'] ?? '');
+$dHasta = ProyectoRepo::fecha($_GET['hasta'] ?? '');
+if (!$dPedido) {                    // al entrar, solo lo de hoy
+    $dDesde = $dHasta = $dHoy;
+}
+if ($dDesde !== '' && $dHasta === '') $dHasta = $dDesde;   // un solo día
+if ($dHasta !== '' && $dDesde === '') $dDesde = $dHasta;
+if ($dDesde !== '' && $dHasta < $dDesde) { [$dDesde, $dHasta] = [$dHasta, $dDesde]; }
+$kbFiltro = $dDesde !== '';
+$kbUnDia  = $kbFiltro && $dDesde === $dHasta;
+
+/** Día (Y-m-d) en que se creó una tarea; 'creado' guarda fecha y hora. */
+$creadaEl = fn(array $t) => substr((string)($t['creado'] ?? ''), 0, 10);
+
+// Tareas que van al tablero. Sin filtro, las de siempre. Con filtro, las que
+// se movieron en el rango: completadas dentro de él o creadas dentro de él.
+// Se parte de $tareasTodas porque las completadas de hace más de una semana
+// salen del tablero, y justo son las que pide un rango hacia atrás.
+$kbTareas = $tareas;
+if ($kbFiltro) {
+    $kbTareas = array_values(array_filter($tareasTodas, function ($t) use ($dDesde, $dHasta, $creadaEl) {
+        $fin = ProyectoRepo::fecha($t['completada_en'] ?? '');
+        $ini = $creadaEl($t);
+        return ($fin !== '' && $fin >= $dDesde && $fin <= $dHasta)
+            || ($ini !== '' && $ini >= $dDesde && $ini <= $dHasta);
+    }));
+}
+// El filtro de persona ("Ver como" incluido) manda también aquí
+if ($fAsignado) {
+    $kbTareas = array_values(array_filter($kbTareas, fn($t) => TareaRepo::tieneAsignado($t, $fAsignado)));
+}
+// Contadores de las columnas: los del rango, no los del proyecto entero
+$kbResumen = array_fill_keys(array_keys(Catalogo::estadosTarea()), 0);
+foreach ($kbTareas as $t) {
+    $ek = $t['estado'] ?? '';
+    if (isset($kbResumen[$ek])) $kbResumen[$ek]++;
+}
+
+/** Fecha corta para las etiquetas del tablero: "3 sep". */
+$diaCorto = function (string $f): string {
+    $ts = strtotime($f);
+    if (!$ts) return $f;
+    $meses = [1=>'ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+    return (int)date('j', $ts) . ' ' . $meses[(int)date('n', $ts)];
+};
+
+// Rangos rápidos y enlace que los aplica sin perder el filtro de persona.
+// El #vista-kanban devuelve a esta misma pestaña tras recargar.
+$urlDia = fn(string $desde, string $hasta) => '?id=' . $id
+    . (!$verComo && $fAsignado ? '&asignado=' . $fAsignado : '')
+    . '&desde=' . $desde . '&hasta=' . $hasta . '#vista-kanban';
+$rangosDia = [
+    'Hoy'            => [$dHoy, $dHoy],
+    'Ayer'           => [$dAyer, $dAyer],
+    'Últimos 7 días' => [date('Y-m-d', strtotime('-6 days')), $dHoy],
+    'Todo'           => ['', ''],
+];
+
 // Calendario del proyecto (fechas límite de tareas + reuniones)
 $mesCal = $_GET['mes'] ?? date('Y-m');
 if (!preg_match('/^\d{4}-\d{2}$/', $mesCal)) $mesCal = date('Y-m');
@@ -205,8 +504,29 @@ $hoyIso    = date('Y-m-d');
 $eventosCal = [];   // 'Y-m-d' => [ ['tipo'=>, 'dato'=>, 'pos'=>], ... ]
 $mesIni = $mesCal . '-01';
 $mesFin = sprintf('%s-%02d', $mesCal, $calDias);
+// El calendario es PERSONAL: cada quien ve solo sus tareas/reuniones; el admin
+// las ve todas (general). "Ver como X" muestra las de X. Además, se incluyen
+// las tareas de las que DEPENDEN las mías (aunque sean de otro), para saber
+// cuándo terminan y arranca la mía.
+$calScope = $verComo ? (int)$verComo['id'] : (esAdmin() ? 0 : $miId);
+$depSolo = [];   // ids de tareas ajenas que aparecen solo por ser dependencia
+if ($calScope > 0) {
+    $depIds = [];
+    foreach ($tareas as $t) {
+        if (TareaRepo::tieneAsignado($t, $calScope)) {
+            foreach (TareaRepo::dependenciasDe($t) as $d) $depIds[(int)$d] = true;
+        }
+    }
+    $tareasCal = array_values(array_filter($tareas, function ($t) use ($calScope, $depIds, &$depSolo) {
+        $mia   = TareaRepo::tieneAsignado($t, $calScope);
+        $esDep = isset($depIds[(int)$t['id']]);
+        if ($esDep && !$mia) $depSolo[(int)$t['id']] = true;
+        return $mia || $esDep;
+    }));
+} else {
+    $tareasCal = $tareas;
+}
 // Ordenar por inicio para que las barras se apilen parejas entre días
-$tareasCal = $tareas;
 usort($tareasCal, fn($a, $b) =>
     strcmp($a['fecha_inicio'] ?: ($a['fecha_limite'] ?? ''), $b['fecha_inicio'] ?: ($b['fecha_limite'] ?? '')));
 foreach ($tareasCal as $t) {
@@ -225,6 +545,8 @@ foreach ($tareasCal as $t) {
     }
 }
 foreach ($reuniones as $r) {
+    // Calendario personal: solo las reuniones donde participa (el admin, todas)
+    if ($calScope > 0 && !in_array($calScope, array_map('intval', (array)($r['invitados'] ?? [])), true)) continue;
     $dia = substr($r['inicio'] ?? '', 0, 10);
     if ($dia === '') continue;
     if (!Reuniones::esRecurrente($r)) {
@@ -289,12 +611,51 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php if ($equipoProyecto !== null): ?>
         <span class="ph-fecha"><i class="fa-solid fa-user-group"></i> <?= count($equipoProyecto) ?> participante<?= count($equipoProyecto) === 1 ? '' : 's' ?></span>
         <?php endif; ?>
-        <span class="ph-fecha"><i class="fa-regular fa-calendar"></i> Creado <?= e($proyecto['creado'] ?? '') ?></span>
       </div>
-      <h1 class="font-display"><?= e($proyecto['nombre']) ?></h1>
+      <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
       <p><?= e($proyecto['descripcion']) ?></p>
+
+      <!-- Quién lleva el proyecto, en un cuadro bajo el título: antes el
+           Product Owner iba suelto entre las badges de arriba. Aquí el Scrum
+           Master es un rol del panel, no del proyecto, así que no sale: el
+           cuadro crece solo el día que el proyecto guarde el suyo. -->
+      <?php
+      $lideres = [];
+      if ($poProyecto && isset($miembros[$poProyecto])) $lideres['Product Owner'] = $miembros[$poProyecto];
+      if ($lideres): ?>
+      <div class="ph-lideres">
+        <?php foreach ($lideres as $rotulo => $m): ?>
+        <span class="ph-lider" title="<?= e($rotulo) ?> del proyecto">
+          <?= UI::avatar($m, 28) ?>
+          <span class="ph-lider-txt">
+            <small><?= e($rotulo) ?></small>
+            <b><?= e($m['nombre']) ?></b>
+          </span>
+        </span>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
     </div>
+
+  <!-- Estados a la derecha del título, en dos columnas: antes eran una franja
+       de cuatro tarjetas anchas debajo de todo. -->
+  <?php $totalTareas = array_sum($resumen); ?>
+  <div class="ph-kpis">
+    <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
+        $n  = (int)$resumen[$k];
+        $pc = $totalTareas > 0 ? round($n / $totalTareas * 100) : 0; ?>
+    <a class="phk estado-<?= $k ?> <?= $fEstado === $k ? 'phk-activo' : '' ?>"
+       href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>"
+       title="<?= $n ?> de <?= $totalTareas ?> · <?= e($label) ?><?= $fEstado === $k ? ' (quitar filtro)' : ' (filtrar)' ?>">
+      <span class="phk-ico"><?= UI::icono($icono) ?></span>
+      <span class="phk-txt">
+        <span class="phk-linea"><b><?= $n ?></b> <small><?= e($label) ?></small></span>
+        <span class="phk-barra"><span style="width:<?= $pc ?>%"></span></span>
+      </span>
+    </a>
+    <?php endforeach; ?>
   </div>
+  </div><!-- /.ph-main -->
 
   <!-- Avance abajo a la derecha: barra semaforo (rojo/amarillo/verde) -->
   <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
@@ -304,20 +665,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
   </div>
 </header>
-
-<!-- Resumen por estado (mini kanban): icono a un lado, datos al otro -->
-<section class="estados-resumen">
-  <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
-  <a class="estado-tile estado-<?= $k ?> <?= $fEstado === $k ? 'tile-activo' : '' ?>"
-     href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>">
-    <span class="et-icono"><i class="fa-solid <?= $icono ?>"></i></span>
-    <span class="et-datos">
-      <b class="font-display"><?= (int)$resumen[$k] ?></b>
-      <small><?= e($label) ?></small>
-    </span>
-  </a>
-  <?php endforeach; ?>
-</section>
 
 <!-- Cambio de vista + selector de persona -->
 <?php
@@ -333,28 +680,28 @@ foreach ($tareas as $t) {
 ?>
 <div class="vista-fila">
   <div class="vista-toggle">
-    <button type="button" class="tab-btn" data-vista="calendario"><i class="fa-solid fa-calendar-days"></i> Calendario</button>
-    <button type="button" class="tab-btn" data-vista="tareas"><i class="fa-solid fa-list-check"></i> Tareas
+    <button type="button" class="tab-btn" data-vista="calendario" data-tip="Calendario"><i class="fa-solid fa-calendar-days"></i> <span class="tab-txt">Calendario</span></button>
+    <button type="button" class="tab-btn" data-vista="tareas" data-tip="Tareas"><i class="fa-solid fa-list-check"></i> <span class="tab-txt">Tareas</span>
       <span class="tab-badge tab-badge-neutro"><?= count($tareas) ?></span>
     </button>
-    <button type="button" class="tab-btn" data-vista="observaciones"><i class="fa-solid fa-comment-dots"></i> Observaciones
+    <button type="button" class="tab-btn" data-vista="observaciones" data-tip="Observaciones"><i class="fa-solid fa-comment-dots"></i> <span class="tab-txt">Observaciones</span>
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="intercambios"><i class="fa-solid fa-right-left"></i> Intercambios
+    <button type="button" class="tab-btn" data-vista="intercambios" data-tip="Intercambios"><i class="fa-solid fa-right-left"></i> <span class="tab-txt">Intercambios</span>
       <?php if ($interPendientes > 0): ?><span class="tab-badge"><?= $interPendientes ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="reuniones"><i class="fa-solid fa-video"></i> Reuniones
+    <button type="button" class="tab-btn" data-vista="reuniones" data-tip="Reuniones"><i class="fa-solid fa-video"></i> <span class="tab-txt">Reuniones</span>
       <?php if (count($reuniones)): ?><span class="tab-badge tab-badge-zoom"><?= count($reuniones) ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="metricas"><i class="fa-solid fa-chart-simple"></i> Métricas</button>
+    <button type="button" class="tab-btn" data-vista="metricas" data-tip="Métricas"><i class="fa-solid fa-chart-simple"></i> <span class="tab-txt">Métricas</span></button>
   </div>
 
   <!-- Subvistas de "Tareas": la misma lista vista como tabla, kanban o flujo -->
   <div class="subvista-toggle" hidden>
     <span class="subvista-tit">Ver como</span>
-    <button type="button" class="subvista-btn active" data-subvista="tabla"><i class="fa-solid fa-table-list"></i> Tabla</button>
-    <button type="button" class="subvista-btn" data-subvista="kanban"><i class="fa-solid fa-table-columns"></i> Kanban</button>
-    <button type="button" class="subvista-btn" data-subvista="flujo"><i class="fa-solid fa-diagram-project"></i> Flujo</button>
+    <button type="button" class="subvista-btn active" data-subvista="tabla" data-tip="Tabla"><i class="fa-solid fa-table-list"></i> <span class="tab-txt">Tabla</span></button>
+    <button type="button" class="subvista-btn" data-subvista="kanban" data-tip="Kanban"><i class="fa-solid fa-table-columns"></i> <span class="tab-txt">Kanban</span></button>
+    <button type="button" class="subvista-btn" data-subvista="flujo" data-tip="Flujo"><i class="fa-solid fa-diagram-project"></i> <span class="tab-txt">Flujo</span></button>
   </div>
 </div>
 
@@ -363,8 +710,12 @@ foreach ($tareas as $t) {
 <section class="card-base tabla-card">
   <div class="tabla-toolbar">
     <h2 class="font-display"><i class="fa-solid fa-list-check text-secondary"></i> Tareas
-      <span class="tabla-count"><?= count($visibles) ?></span>
+      <span class="tabla-count" data-buscar-count><?= count($visibles) ?></span>
     </h2>
+    <label class="tabla-buscar">
+      <i class="fa-solid fa-magnifying-glass"></i>
+      <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off">
+    </label>
     <div class="tabla-filtros">
       <?php if (!$verComo): ?>
       <form method="get" class="inline-form">
@@ -376,23 +727,39 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
+      <?php if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)): ?>
+        <?php if ($verArchivadas): ?>
+        <a href="?id=<?= $id ?>" class="btn-outline btn-meca btn-sm btn-neutro btn-icono"><i class="fa-solid fa-eye-slash"></i> <span class="tab-txt">Ocultar archivadas</span></a>
+        <?php else: ?>
+        <a href="?id=<?= $id ?>&arch=1" class="btn-outline btn-meca btn-sm btn-neutro btn-icono" title="Completadas hace más de una semana (siguen guardadas)"><i class="fa-solid fa-box-archive"></i> <span class="tab-txt">Ver archivadas (<?= $nArchivadas ?>)</span></a>
+        <?php endif; ?>
+      <?php endif; ?>
       <form method="post" action="actions.php" class="inline-form" data-descarga>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="accion-btn accion-claude" data-tip="Descarga las tareas de este proyecto en JSON (con sus #id) para pasárselas a Claude">
-          <img src="assets/claude.svg" alt="" width="16" height="16"> Descargar
+        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="mias"
+                data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
+          <img src="assets/claude.svg" alt="" width="16" height="16"> <span class="tab-txt">Mis tareas</span>
         </button>
+        <?php if ($puedeGestionar): /* admin o Scrum: también las de todo el equipo */ ?>
+        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="equipo"
+                data-tip="Descarga las tareas de TODO el equipo en este proyecto, en el mismo formato JSON">
+          <i class="fa-solid fa-users"></i> <span class="tab-txt">Tareas del equipo</span>
+        </button>
+        <?php endif; ?>
       </form>
       <?php if ($avisoPersonas): ?>
       <!-- Un correo por persona con las tareas que el admin elija en el modal -->
-      <button type="button" class="accion-btn solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
+      <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-icono solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
               data-tip="Elige a quién avisar y con qué tareas; se manda un correo por persona">
-        <i class="fa-solid fa-paper-plane"></i> Avisar al equipo
+        <i class="fa-solid fa-paper-plane"></i> <span class="tab-txt">Avisar al equipo</span>
       </button>
       <?php endif; ?>
-      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
+      <?php if ($puedeTareas): ?>
+      <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
       </button>
+      <?php endif; ?>
     </div>
   </div>
 
@@ -419,12 +786,26 @@ foreach ($tareas as $t) {
             $esFinal = in_array($t['estado'] ?? '', $finales, true);
             $vencida = !empty($t['fecha_limite']) && $t['fecha_limite'] < date('Y-m-d') && !$esFinal;
         ?>
-        <tr class="fila-tarea <?= $esFinal ? 'fila-hecha' : '' ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+        <?php
+        // Lo que busca el buscador de la tabla. Va explicito porque, sin esto,
+        // el JS cae al texto de la fila — y ahi dentro esta el <select> de
+        // Estado con SUS CUATRO OPCIONES, asi que buscar "completada" o
+        // "progreso" devolvia TODAS las tareas. Aqui va el estado de verdad.
+        $buscarFila = mb_strtolower(trim(
+            '#' . (int)$t['id'] . ' ' . ($t['titulo'] ?? '')
+            . ' ' . HtmlRico::texto($t['descripcion'] ?? '', 200)
+            . ' ' . implode(' ', array_map(fn($m) => ($m['nombre'] ?? '') . ' ' . ($m['git_user'] ?? ''), $asigLista))
+            . ' ' . ($estadosCat[$t['estado'] ?? '']['0'] ?? ($t['estado'] ?? ''))
+            . ' ' . ($prioCat[$t['prioridad'] ?? '']['0'] ?? '')
+        ));
+        ?>
+        <tr class="fila-tarea <?= $esFinal ? 'fila-hecha' : '' ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'
+            data-buscar="<?= e($buscarFila) ?>">
           <td class="celda-tarea">
             <span class="prio-dot prio-<?= e($t['prioridad']) ?>"></span>
             <div>
-              <b><?= e($t['titulo']) ?></b>
-              <?php if (!empty($t['descripcion'])): ?><small><?= e($t['descripcion']) ?></small><?php endif; ?>
+              <b><button type="button" class="tarea-id btn-copiar" data-copiar="#<?= (int)$t['id'] ?>" title="Copiar #<?= (int)$t['id'] ?> para tus commits">#<?= (int)$t['id'] ?></button> <?= e($t['titulo']) ?></b>
+              <?php $descPrev = HtmlRico::texto($t['descripcion'] ?? '', 140); if ($descPrev !== ''): ?><small><?= e($descPrev) ?></small><?php endif; ?>
               <?php
               $depId = (int)($t['depende_de'] ?? 0);
               if ($depId && isset($tareasPorId[$depId])):
@@ -486,7 +867,8 @@ foreach ($tareas as $t) {
             <?php endif; ?>
           </td>
           <td class="celda-acciones">
-            <button class="accion-btn solo-admin" title="Editar"
+            <?php if ($puedeTareas): ?>
+            <button class="accion-btn" title="Editar"
               data-editar-tarea='<?= e(json_encode([
                   'id' => (int)$t['id'],
                   'titulo' => $t['titulo'],
@@ -496,11 +878,12 @@ foreach ($tareas as $t) {
                   'asignados' => TareaRepo::asignadosDe($t),
                   'fecha_inicio' => $t['fecha_inicio'] ?? '',
                   'fecha_limite' => $t['fecha_limite'] ?? '',
-                  'depende_de' => (int)($t['depende_de'] ?? 0),
+                  'depende_de' => (int)($t['depende_de'] ?? 0), 'dependencias' => TareaRepo::dependenciasDe($t),
                   'adjuntos' => TareaRepo::adjuntosDe($t),
               ], JSON_UNESCAPED_UNICODE)) ?>'>
               <i class="fa-solid fa-pen"></i>
             </button>
+            <?php endif; ?>
             <form method="post" action="actions.php" class="inline-form solo-admin"
                   data-confirmar="Se eliminará la tarea «<?= e($t['titulo']) ?>»."
                   data-confirmar-titulo="¿Eliminar tarea?" data-confirmar-ok="Sí, eliminar">
@@ -512,6 +895,9 @@ foreach ($tareas as $t) {
           </td>
         </tr>
         <?php endforeach; ?>
+        <tr data-buscar-vacio data-no-buscar hidden>
+          <td colspan="6" class="tabla-buscar-vacio">Ninguna tarea coincide con la búsqueda.</td>
+        </tr>
       </tbody>
     </table>
   </div>
@@ -523,29 +909,93 @@ foreach ($tareas as $t) {
 <div data-vista-panel="kanban" hidden>
   <section class="card-base tabla-card">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban</h2>
-      <span class="ajuste-ayuda"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</span>
+      <h2 class="font-display"><i class="fa-solid fa-table-columns text-secondary"></i> Kanban
+        <?php if ($kbFiltro): ?><span class="tabla-count"><?= count($kbTareas) ?></span><?php endif; ?>
+      </h2>
+      <!-- Filtro de fechas del tablero: con "Hoy" las columnas solo traen lo
+           que se completó o se creó hoy. -->
+      <div class="dia-filtros">
+        <?php foreach ($rangosDia as $rot => [$rd, $rh]): ?>
+        <a class="dia-chip<?= ($dDesde === $rd && $dHasta === $rh) ? ' activo' : '' ?>" href="<?= e($urlDia($rd, $rh)) ?>"><?= e($rot) ?></a>
+        <?php endforeach; ?>
+        <form method="get" class="dia-rango">
+          <input type="hidden" name="id" value="<?= $id ?>">
+          <?php if (!$verComo && $fAsignado): ?><input type="hidden" name="asignado" value="<?= $fAsignado ?>"><?php endif; ?>
+          <input class="input-meca input-dia" type="date" name="desde" value="<?= e($dDesde) ?>" max="<?= e($dHoy) ?>" aria-label="Desde">
+          <span>a</span>
+          <input class="input-meca input-dia" type="date" name="hasta" value="<?= e($dHasta) ?>" max="<?= e($dHoy) ?>" aria-label="Hasta">
+          <button class="btn-outline btn-meca btn-sm btn-neutro" title="Ver ese rango"><i class="fa-solid fa-filter"></i></button>
+        </form>
+      </div>
     </div>
-    <div class="kanban" style="--pc:<?= $color ?>">
+    <?php if ($kbFiltro): ?>
+    <p class="dia-aviso">
+      <i class="fa-solid fa-calendar-day"></i>
+      Solo <?= $kbUnDia ? ($dDesde === $dHoy ? 'lo de hoy' : 'lo del ' . e($dDesde)) : 'lo del ' . e($dDesde) . ' al ' . e($dHasta) ?>:
+      tareas completadas o creadas en esas fechas.
+      <a href="<?= e($urlDia('', '')) ?>">Ver el tablero completo</a>
+    </p>
+    <?php else: ?>
+    <p class="dia-aviso dia-aviso-suave"><i class="fa-solid fa-hand"></i> Arrastra una tarjeta a otra columna para cambiar su estado.</p>
+    <?php endif; ?>
+    <?php
+      // Lista de estados para el menú de "mover rápido" de cada tarjeta.
+      $kbEstados = [];
+      foreach (Catalogo::estadosTarea() as $ek => $ev) {
+          $kbEstados[] = ['k' => $ek, 'label' => $ev[0], 'icono' => $ev[1]];
+      }
+    ?>
+    <div class="kanban" style="--pc:<?= $color ?>" data-estados='<?= e(json_encode($kbEstados, JSON_UNESCAPED_UNICODE)) ?>'<?= $kbFiltro ? ' data-filtrado="1"' : '' ?>>
       <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
       <div class="kb-col">
         <div class="kb-head estado-<?= $k ?>">
           <i class="fa-solid <?= $icono ?>"></i> <?= e($label) ?>
-          <span class="kb-count"><?= (int)$resumen[$k] ?></span>
+          <span class="kb-count"><?= (int)$kbResumen[$k] ?></span>
         </div>
         <div class="kb-cards" data-estado-drop="<?= e($k) ?>">
-          <?php foreach ($tareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
+          <?php foreach ($kbTareas as $t): if (($t['estado'] ?? '') !== $k) continue; ?>
           <?php $puedoMover = esAdmin() || TareaRepo::tieneAsignado($t, $miId); ?>
           <div class="kb-card <?= $puedoMover ? '' : 'kb-fija' ?>" draggable="<?= $puedoMover ? 'true' : 'false' ?>" data-tarea="<?= (int)$t['id'] ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+            <?php if ($puedoMover): ?>
+            <button type="button" class="kb-mover" title="Mover a otra columna" aria-label="Mover a otra columna"><i class="fa-solid fa-ellipsis-vertical"></i></button>
+            <?php endif; ?>
             <b><?= e($t['titulo']) ?></b>
             <div class="kb-meta">
               <?= UI::avatarsAsignados($t, $miembros, 22) ?>
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
+              <?php if ($kbFiltro):
+                  // Por qué esta tarjeta entra en el rango: se completó o se creó.
+                  $fFin = ProyectoRepo::fecha($t['completada_en'] ?? '');
+                  $enFin = $fFin !== '' && $fFin >= $dDesde && $fFin <= $dHasta; ?>
+                <?php if ($enFin): ?>
+                <small class="kb-dia kb-dia-fin" title="Marcada como completada el <?= e($fFin) ?>">
+                  <i class="fa-solid fa-check"></i> <?= e($diaCorto($fFin)) ?>
+                </small>
+                <?php else: ?>
+                <small class="kb-dia" title="Creada el <?= e($creadaEl($t)) ?>">
+                  <i class="fa-solid fa-plus"></i> <?= e($diaCorto($creadaEl($t))) ?>
+                </small>
+                <?php endif; ?>
+              <?php endif; ?>
               <?php if (!empty($t['fecha_limite'])): ?>
               <small><i class="fa-regular fa-calendar"></i> <?= e($t['fecha_limite']) ?></small>
               <?php endif; ?>
-              <?php if ((int)($t['depende_de'] ?? 0)): ?>
-              <small title="Tiene dependencia"><i class="fa-solid fa-link"></i></small>
+              <?php
+                // Dependencias: las de OTRO equipo salen con su icono y color;
+                // las del propio tablero, con el eslabón de siempre.
+                $propias = 0;
+                foreach (TareaRepo::dependenciasDe($t) as $depId):
+                    $di = $infoDep($depId); if (!$di) continue;
+                    if (!$di['externa']) { $propias++; continue; } ?>
+              <small class="kb-dep-eq<?= $di['urgencia'] ? ' dep-' . $di['urgencia'] : '' ?><?= $di['final'] ? ' dep-lista' : '' ?>" style="--dc:<?= e($di['color']) ?>"
+                     title="Depende de «<?= e($di['titulo']) ?>» · equipo <?= e($di['equipo']) ?><?= $di['urgencia'] === 'vencida' ? ' · vencida' : ($di['urgencia'] === 'proxima' ? ' · próxima a vencer' : '') ?>">
+                <?= $di['icono'] ?><?php if ($di['final']): ?><i class="fa-solid fa-check dep-ok"></i><?php endif; ?>
+              </small>
+              <?php endforeach; if ($propias): ?>
+              <small title="Depende de <?= $propias ?> tarea<?= $propias === 1 ? '' : 's' ?> de este tablero"><i class="fa-solid fa-link"></i><?= $propias > 1 ? ' ' . $propias : '' ?></small>
+              <?php endif; ?>
+              <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
+              <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
               <?php endif; ?>
               <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
               <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
@@ -576,13 +1026,18 @@ foreach ($tareas as $t) {
     </div>
     <?php if (empty($tareas)): ?>
       <?= UI::vacio('fa-diagram-project', 'Sin tareas', 'Crea tareas para ver su flujo.') ?>
+    <?php elseif (!$hayDependencias): ?>
+      <?php /* Sin dependencias no hay nada que encadenar: antes salía el lienzo
+               con todas las tareas en una columna y ni una flecha. */ ?>
+      <?= UI::vacio('fa-diagram-project', 'Todavía no hay dependencias',
+            'Marca "Depende de" al crear o editar una tarea y aquí verás cómo se encadenan.') ?>
     <?php else: ?>
     <div class="flujo-wrap" id="flujo-wrap" style="--pc:<?= $color ?>">
       <svg class="flujo-lineas" id="flujo-lineas"></svg>
       <div class="flujo-cols">
         <?php
         $columnas = [];
-        foreach ($tareas as $t) {
+        foreach ($tareasFlujo as $t) {
             $columnas[$nivelesFlujo[(int)$t['id']] ?? 0][] = $t;
         }
         ksort($columnas);
@@ -591,7 +1046,7 @@ foreach ($tareas as $t) {
         foreach ($columnas as $nivel => $lista) {
             if ($nivel > 0 && $posAnterior) {
                 usort($lista, fn($a, $b) =>
-                    ($posAnterior[(int)($a['depende_de'] ?? 0)] ?? 99) <=> ($posAnterior[(int)($b['depende_de'] ?? 0)] ?? 99));
+                    ($posAnterior[TareaRepo::dependenciasDe($a)[0] ?? 0] ?? 99) <=> ($posAnterior[TareaRepo::dependenciasDe($b)[0] ?? 0] ?? 99));
                 $columnas[$nivel] = $lista;
             }
             $posAnterior = [];
@@ -604,9 +1059,25 @@ foreach ($tareas as $t) {
           <h4><?= $nivel === 0 ? 'Inicio' : 'Fase ' . ($nivel + 1) ?></h4>
           <?php foreach ($lista as $t):
               $esFinalF = in_array($t['estado'] ?? '', $finales, true);
+              $esExt    = (int)$t['proyecto_id'] !== $id;   // nodo de OTRO equipo
+              $pExt     = $esExt ? ($proyGlobal[(int)$t['proyecto_id']] ?? null) : null;
           ?>
+          <?php if ($esExt): ?>
+          <a class="flujo-nodo nodo-externo <?= $esFinalF ? 'nodo-hecho' : '' ?>" style="--ec:<?= e($colorEquipo($pExt)) ?>"
+             id="fn-<?= (int)$t['id'] ?>" data-deps="<?= e(implode(',', TareaRepo::dependenciasDe($t))) ?>"
+             href="proyecto.php?id=<?= (int)$t['proyecto_id'] ?>#fn-<?= (int)$t['id'] ?>"
+             title="Tarea del equipo <?= e($pExt['nombre'] ?? '') ?> — abrir su tablero">
+            <span class="fn-equipo"><?= $pExt ? UI::icono($pExt['icono'] ?? 'fa-folder-open', 'fn-eq-ico') : '' ?> <?= e($pExt['nombre'] ?? 'Otro equipo') ?></span>
+            <b><?= e($t['titulo']) ?></b>
+            <div class="fn-meta">
+              <?= UI::avatarsAsignados($t, $miembros, 24) ?>
+              <?= UI::badgeEstadoTarea($t['estado'] ?? '') ?>
+              <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
+            </div>
+          </a>
+          <?php else: ?>
           <div class="flujo-nodo <?= $esFinalF ? 'nodo-hecho' : '' ?> <?= $fAsignado && !TareaRepo::tieneAsignado($t, $fAsignado) ? 'nodo-ajeno' : '' ?>"
-               id="fn-<?= (int)$t['id'] ?>" data-dep="<?= (int)($t['depende_de'] ?? 0) ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+               id="fn-<?= (int)$t['id'] ?>" data-deps="<?= e(implode(',', TareaRepo::dependenciasDe($t))) ?>" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
             <b><?= e($t['titulo']) ?></b>
             <div class="fn-meta">
               <?= UI::avatarsAsignados($t, $miembros, 24) ?>
@@ -614,6 +1085,7 @@ foreach ($tareas as $t) {
               <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span>
             </div>
           </div>
+          <?php endif; ?>
           <?php endforeach; ?>
         </div>
         <?php endforeach; ?>
@@ -644,6 +1116,43 @@ foreach ($tareas as $t) {
       </div>
     </div>
     <div class="cal-scroll">
+      <?php
+      // Pinta un evento del calendario (tarea con su barra, o reunión). Se usa
+      // en la celda y en el desplegable "+N" para no duplicar el HTML.
+      $pintarEv = function (array $ev) use ($color, $finales, $hoyIso, $id, $verTareaAttr, $depSolo, $puedeTareas) {
+          if ($ev['tipo'] === 'tarea') {
+              $t = $ev['dato']; $pos = $ev['pos'];
+              $esDep = isset($depSolo[(int)$t['id']]);   // ajena, incluida por ser dependencia de una mía
+              $clsDep = $esDep ? ' cal-ev-dep' : '';
+              $notaDep = $esDep ? ' · (de la que depende la tuya)' : '';
+              $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
+              $datos = e(json_encode([
+                  'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
+                  'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
+                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
+                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0), 'dependencias' => TareaRepo::dependenciasDe($t),
+                  'adjuntos' => TareaRepo::adjuntosDe($t),
+              ], JSON_UNESCAPED_UNICODE));
+              $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
+              $attr = $puedeTareas ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'";
+              if ($pos === 'inicio' || $pos === 'solo') {
+                  echo '<button type="button" class="cal-ev cal-ev-tarea cal-' . $pos . $clsDep . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · ' . e($rango) . e($notaDep) . '" ' . $attr . '>'
+                     . '<span class="prio-dot prio-' . e($t['prioridad'] ?? 'media') . '"></span>'
+                     . e(mb_strimwidth($t['titulo'], 0, 22, '…')) . '</button>';
+              } else {
+                  echo '<button type="button" class="cal-ev cal-ev-linea cal-' . $pos . $clsDep . ' ' . ($venc ? 'cal-venc' : '') . '"'
+                     . ' style="--tc:' . $color . '" title="' . e($t['titulo']) . ' · hasta ' . e($ev['fin']) . e($notaDep) . '" ' . $attr . '>'
+                     . ($pos === 'fin' ? '<i class="fa-solid fa-flag-checkered"></i>' : '') . '</button>';
+              }
+          } else {
+              $r = $ev['dato'];
+              echo '<a class="cal-ev cal-ev-reunion" href="?id=' . $id . '#vista-reuniones" title="' . e($r['topic']) . '">'
+                 . '<i class="fa-solid fa-video"></i> ' . e(substr($r['inicio'], 11, 5)) . ' '
+                 . e(mb_strimwidth($r['topic'], 0, 16, '…')) . '</a>';
+          }
+      };
+      ?>
       <div class="cal-dows">
         <?php foreach (['Dom','Lun','Mar','Mié','Jue','Vie','Sáb'] as $d): ?><span class="cal-dow"><?= $d ?></span><?php endforeach; ?>
       </div>
@@ -657,36 +1166,17 @@ foreach ($tareas as $t) {
         ?>
         <div class="cal-cell <?= $iso === $hoyIso ? 'hoy' : '' ?>">
           <span class="cal-num"><?= $d ?></span>
-          <?php foreach ($evs as $ev): if ($ev['tipo'] === 'tarea'):
-              $t = $ev['dato'];
-              $pos = $ev['pos'];
-              $venc = ($ev['fin'] < $hoyIso) && !in_array($t['estado'] ?? '', $finales, true);
-              $datos = e(json_encode([
-                  'id' => (int)$t['id'], 'titulo' => $t['titulo'], 'descripcion' => $t['descripcion'] ?? '',
-                  'prioridad' => $t['prioridad'], 'estado' => $t['estado'], 'asignados' => TareaRepo::asignadosDe($t),
-                  'fecha_inicio' => $t['fecha_inicio'] ?? '',
-                  'fecha_limite' => $t['fecha_limite'] ?? '', 'depende_de' => (int)($t['depende_de'] ?? 0),
-                  'adjuntos' => TareaRepo::adjuntosDe($t),
-              ], JSON_UNESCAPED_UNICODE));
-              // Tooltip con el rango real de la tarea
-              $rango = $ev['ini'] === $ev['fin'] ? $ev['ini'] : ($ev['ini'] . ' → ' . $ev['fin']);
-          ?>
-          <?php if ($pos === 'inicio' || $pos === 'solo'): ?>
-          <button type="button" class="cal-ev cal-ev-tarea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · <?= e($rango) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
-            <span class="prio-dot prio-<?= e($t['prioridad'] ?? 'media') ?>"></span><?= e(mb_strimwidth($t['titulo'], 0, 22, '…')) ?>
-          </button>
-          <?php else: ?>
-          <button type="button" class="cal-ev cal-ev-linea cal-<?= $pos ?> <?= $venc ? 'cal-venc' : '' ?>"
-            style="--tc:<?= $color ?>" title="<?= e($t['titulo']) ?> · hasta <?= e($ev['fin']) ?>" <?= esAdmin() ? "data-editar-tarea='$datos'" : "data-ver-tarea='" . $verTareaAttr($t) . "'" ?>>
-            <?php if ($pos === 'fin'): ?><i class="fa-solid fa-flag-checkered"></i><?php endif; ?>
-          </button>
+          <?php
+          // Para no romper el estilo con días llenos: se muestran pocas y el
+          // resto se guarda tras un chip "+N" que se abre al pulsarlo.
+          $CAL_MAX = 4;
+          $nEv = count($evs);
+          $vis = $nEv > $CAL_MAX ? $CAL_MAX - 1 : $nEv;
+          foreach (array_slice($evs, 0, $vis) as $ev) $pintarEv($ev);
+          if ($nEv > $CAL_MAX): $resto = $nEv - $vis; ?>
+          <button type="button" class="cal-mas" data-cal-mas title="Ver <?= $resto ?> más de este día">+<?= $resto > 99 ? '99+' : $resto ?></button>
+          <div class="cal-mas-lista" hidden><?php foreach (array_slice($evs, $vis) as $ev) $pintarEv($ev); ?></div>
           <?php endif; ?>
-          <?php else: $r = $ev['dato']; ?>
-          <a class="cal-ev cal-ev-reunion" href="?id=<?= $id ?>#vista-reuniones" title="<?= e($r['topic']) ?>">
-            <i class="fa-solid fa-video"></i> <?= e(substr($r['inicio'], 11, 5)) ?> <?= e(mb_strimwidth($r['topic'], 0, 16, '…')) ?>
-          </a>
-          <?php endif; endforeach; ?>
         </div>
         <?php endfor; ?>
       </div>
@@ -875,7 +1365,7 @@ foreach ($tareas as $t) {
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
       <?php if ($reunionesOn): ?>
-      <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
+      <button class="btn-primary btn-meca solo-gestor" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva reunión
       </button>
       <?php else: ?>
@@ -970,8 +1460,8 @@ foreach ($tareas as $t) {
               'dias'      => array_map('intval', (array)($r['dias'] ?? [])),
               'hasta'     => (string)($r['hasta'] ?? ''),
           ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
-          <button type="button" class="accion-btn solo-admin js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
-          <form method="post" action="actions.php" class="inline-form solo-admin"
+          <button type="button" class="accion-btn solo-gestor js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
+          <form method="post" action="actions.php" class="inline-form solo-gestor"
                 data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de <?= $esMeet ? 'Google Calendar' : 'Zoom' ?>."
                 data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
             <input type="hidden" name="accion" value="reunion_eliminar">
@@ -1007,13 +1497,22 @@ foreach ($tareas as $t) {
 
     <?php
     /** Compositor rápido de observación (reutilizable: inicial + template). */
-    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia, array $opcionesReunion): void { ?>
+    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia, array $opcionesReunion, array $opcionesDestino): void { ?>
     <form class="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
       <button type="button" class="oc-cerrar" title="Quitar esta nota"><i class="fa-solid fa-xmark"></i></button>
       <input type="hidden" name="accion" value="obs_crear">
       <input type="hidden" name="proyecto_id" value="<?= $id ?>">
       <div class="oc-top">
-        <?= UI::select('autor_id', $opcionesFiltro, (string)$fAsignado, false, 'oc-select') ?>
+        <?php /* A quién va dirigida: uno o varios. Con varios se crea una
+                 observación por persona, igual que ya se hace por tarea. */ ?>
+        <select name="autor_id[]" class="select-meca oc-select" multiple data-ph="¿Para quién? — elige una o varias personas">
+          <?php /* 'all' se despliega en el servidor a todos los que participan
+                   en el proyecto: es la opción para no ir marcando uno a uno. */ ?>
+          <option value="all">Todo el equipo</option>
+          <?php foreach (array_slice($opcionesFiltro, 1, null, true) as $mid => $lbl): ?>
+          <option value="<?= (int)$mid ?>"><?= e($lbl) ?></option>
+          <?php endforeach; ?>
+        </select>
         <select name="tarea_id[]" class="select-meca oc-select" multiple data-ph="General de la entrega — o elige tareas">
           <?php foreach (array_slice($opcionesDependencia, 1, null, true) as $tid => $lbl): ?>
           <option value="<?= (int)$tid ?>"><?= e($lbl) ?></option>
@@ -1023,9 +1522,21 @@ foreach ($tareas as $t) {
         <?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0', false, 'oc-select') ?>
         <?php endif; ?>
       </div>
+      <div class="oc-destino">
+        <label class="oc-destino-lbl"><i class="fa-solid fa-bell"></i> Avisar a</label>
+        <select name="destinatarios[]" class="select-meca oc-select" multiple data-ph="Nadie (solo se registra) — o elige a quién avisar">
+          <?php foreach ($opcionesDestino as $mid => $lbl): ?>
+          <option value="<?= e((string)$mid) ?>"><?= e($lbl) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </div>
       <div class="oc-campo">
-        <textarea name="texto" class="oc-texto" rows="2"
-          placeholder="Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí."></textarea>
+        <?php /* Editor enriquecido, el mismo de las descripciones: permite pegar
+                 tablas y contenido con formato (p. ej. un correo). */ ?>
+        <?= UI::editorRico([
+              'name' => 'texto',
+              'placeholder' => 'Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí.',
+            ]) ?>
         <div class="oc-previews"></div>
       </div>
       <div class="oc-pie">
@@ -1043,9 +1554,9 @@ foreach ($tareas as $t) {
     <!-- Compositores (hasta 3 en paralelo para anotar en reuniones) -->
     <?php $opcionesReunion = $reunionesRepo->opciones($id); ?>
     <div class="obs-composers" id="obs-composers" data-max="3">
-      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion); ?>
+      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?>
     </div>
-    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion); ?></template>
+    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?></template>
 
     <?php require_once __DIR__ . '/lib/obs_item.php'; ?>
     <div class="obs-lista" id="obs-lista">
@@ -1074,10 +1585,25 @@ $iconoAportes  = count($provsProyecto) === 1
     : 'fa-solid fa-code-branch';
 
 $comMiembros = [];
-foreach ($miembros as $m) {
-    if (empty($m['git_user'])) continue;
+// Aportes del equipo: solo los participantes de ESTE proyecto (no toda la
+// empresa) y SOLO desarrolladores (los analistas no aportan al git).
+foreach ($delProyecto as $m) {
+    if (MiembroRepo::equipoDe($m) === 'analistas') continue;
+    // Una persona puede tener VARIOS usuarios de Git (una máquina distinta, otro
+    // nombre) y/o validar por correo. Se juntan todas sus identidades para cruzar
+    // los commits: usuarios (git_user, separados por coma), correo y su parte local.
+    $ids = [];
+    foreach (preg_split('/[,;]+/', (string)($m['git_user'] ?? '')) as $u) {
+        $u = mb_strtolower(preg_replace('/\s+/', ' ', trim($u, " \t@")), 'UTF-8');
+        if ($u !== '') $ids[] = $u;
+    }
+    foreach (MiembroRepo::gitEmailsDe($m) as $mail) {   // correos de Git + correo de acceso
+        $ids[] = $mail;
+        $ids[] = (string)strtok($mail, '@');            // parte local (el login de GitLab suele serlo)
+    }
+    if (!$ids) continue;   // sin ninguna identidad de Git no se pueden cruzar sus commits
     $comMiembros[] = [
-        'id' => (int)$m['id'], 'git' => strtolower($m['git_user']), 'n' => $m['nombre'],
+        'id' => (int)$m['id'], 'gits' => array_values(array_unique($ids)), 'n' => $m['nombre'],
         'c' => Catalogo::colorDe($m['color'] ?? 0), 'ini' => MiembroRepo::iniciales($m), 'foto' => $m['foto'] ?? '',
     ];
 }
@@ -1107,6 +1633,15 @@ $comData = json_encode([
         <option value="<?= $cm['id'] ?>"><?= e($cm['n']) ?></option>
         <?php endforeach; ?>
       </select>
+      <?php if (count($comReposLabels) > 1): ?>
+      <!-- Con varios repos: elige cuál ver (filtra commits, mapa y ramas) -->
+      <select class="select-meca select-sm ap-repo">
+        <option value="">Todos los repos</option>
+        <?php foreach ($comReposLabels as $rl): ?>
+        <option value="<?= e($rl) ?>"><?= e($rl) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php endif; ?>
       <!-- La lista de ramas la rellena el JS tras traerlas por AJAX -->
       <select class="select-meca select-sm ap-rama" hidden>
         <option value="">Rama por defecto</option>
@@ -1333,12 +1868,40 @@ $comData = json_encode([
       <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
     </footer>
   </form>
 </dialog>
 <?php endif; ?>
+
+<!-- Datos para el selector de dependencias (equipo → sus tareas), compartido
+     por los asistentes de crear y editar tarea. -->
+<script id="dep-datos" type="application/json"><?= json_encode($depDatos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_APOS) ?></script>
+<?php
+/**
+ * Selector de dependencias por pasos: primero "¿tiene dependencias?"; si sí,
+ * se elige el equipo y sus tareas. Lo rellena y controla admin.js (dep-picker).
+ */
+function depPicker(): void { ?>
+  <div class="campo dp-campo" data-dep-picker data-sin-resumen>
+    <span>Dependencias</span>
+    <div class="dp-toggle" role="group" aria-label="¿Depende de otra tarea?">
+      <button type="button" class="dp-op active" data-dep="no"><i class="fa-solid fa-ban"></i> Sin dependencias</button>
+      <button type="button" class="dp-op" data-dep="si"><i class="fa-solid fa-link"></i> Depende de otra(s) tarea(s)</button>
+    </div>
+    <div class="dp-body" hidden>
+      <div class="dp-fila">
+        <select class="select-meca dp-equipo" aria-label="Equipo"></select>
+        <input type="search" class="input-meca dp-buscar" placeholder="Buscar una tarea…" autocomplete="off">
+      </div>
+      <div class="dp-opciones" role="listbox"></div>
+      <div class="dp-chips" aria-live="polite"></div>
+      <div class="dp-hidden" hidden></div>
+      <small class="campo-ayuda">Elige el equipo y sus tareas. La tarea queda «en espera» hasta que TODAS se completen. Si eliges una de <b>otro equipo</b>, se le avisa por correo.</small>
+    </div>
+  </div>
+<?php } ?>
 
 <!-- Modal: nueva tarea (asistente por pasos) -->
 <dialog id="dlg-nueva-tarea" class="dlg-meca dlg-wizard">
@@ -1360,10 +1923,10 @@ $comData = json_encode([
           <span>Título *</span>
           <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google">
         </label>
-        <label class="campo">
+        <div class="campo">
           <span>Descripción</span>
-          <textarea class="input-meca" name="descripcion" rows="3" placeholder="Detalles, criterios de aceptación..."></textarea>
-        </label>
+          <?= UI::editorRico(['name' => 'descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas y texto con formato)']) ?>
+        </div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
           <label class="campo"><span>Estado inicial</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente') ?></label>
@@ -1376,11 +1939,7 @@ $comData = json_encode([
           <?= UI::select('asignados', $opcionesAsignar, [], false, '', true) ?>
           <small class="campo-ayuda">Puedes elegir varias personas. <?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
         </label>
-        <label class="campo">
-          <span>Depende de (opcional)</span>
-          <?= UI::select('depende_de', $opcionesDependencia, '0') ?>
-          <small class="campo-ayuda">La tarea quedará "en espera" hasta que su dependencia se complete.</small>
-        </label>
+        <?php depPicker(); ?>
         <?= UI::adjuntosTarea() ?>
       </section>
 
@@ -1430,7 +1989,7 @@ $comData = json_encode([
 
       <section class="wz-panel">
         <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
-        <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" id="et-descripcion" rows="3"></textarea></label>
+        <div class="campo"><span>Descripción</span><?= UI::editorRico(['name' => 'descripcion', 'id' => 'et-descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas)']) ?></div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
           <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
@@ -1443,11 +2002,7 @@ $comData = json_encode([
           <?= UI::select('asignados', $opcionesAsignar, [], false, 'js-et-asignado', true) ?>
           <small class="campo-ayuda">Puedes elegir varias personas. <?= UI::ayudaEquipoProyecto($equipoProyecto) ?></small>
         </label>
-        <label class="campo">
-          <span>Depende de (opcional)</span>
-          <?= UI::select('depende_de', $opcionesDependencia, '0', false, 'js-et-depende') ?>
-          <small class="campo-ayuda">No puede depender de sí misma ni formar ciclos (se valida al guardar).</small>
-        </label>
+        <?php depPicker(); ?>
         <?= UI::adjuntosTarea() ?>
       </section>
 
@@ -1472,7 +2027,7 @@ $comData = json_encode([
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
         </div>
       </div>
     </div>
@@ -1598,11 +2153,11 @@ $comData = json_encode([
     </header>
     <div class="dt-chips"></div>
     <span class="dt-restante" hidden></span>
-    <p class="dt-desc"></p>
+    <div class="dt-desc rt-render"></div>
     <dl class="dt-datos">
       <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
       <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
-      <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Dependencia</dt><dd class="dt-dep"></dd></div>
+      <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Depende de</dt><dd class="dt-dep"></dd></div>
       <div class="dt-fila-obs" hidden><dt><i class="fa-solid fa-comment-dots"></i> Observaciones</dt><dd class="dt-obs"></dd></div>
       <div class="dt-fila-creada" hidden><dt><i class="fa-regular fa-clock"></i> Creada</dt><dd class="dt-creada"></dd></div>
       <div class="dt-fila-adj" hidden><dt><i class="fa-solid fa-paperclip"></i> Documentos</dt><dd class="dt-adjuntos"></dd></div>
@@ -1621,6 +2176,33 @@ $comData = json_encode([
     </aside>
    </div>
   </div>
+</dialog>
+
+<!-- Modal: recordar una dependencia de otro equipo (lo abre el detalle de tarea) -->
+<dialog id="dlg-dep-recordar" class="dlg-meca dlg-recordar">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="dep_recordar">
+    <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+    <input type="hidden" name="tarea_id" id="dr-tarea">
+    <input type="hidden" name="dep_tarea_id" id="dr-dep">
+    <header class="dr-head">
+      <div>
+        <h3 class="font-display"><i class="fa-solid fa-bell text-secondary"></i> Enviar recordatorio</h3>
+        <p class="dr-contexto"></p>
+      </div>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <p class="dr-para"></p>
+    <label class="campo">
+      <span>Mensaje (opcional)</span>
+      <textarea class="input-meca" name="nota" rows="3" maxlength="500"
+                placeholder="Ej. Necesito esto para avanzar con mi tarea. ¿Para cuándo lo tendrías?"></textarea>
+    </label>
+    <footer class="dr-pie">
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button class="btn-primary btn-meca"><i class="fa-solid fa-paper-plane"></i> Enviar recordatorio</button>
+    </footer>
+  </form>
 </dialog>
 
 <!-- Modal: editar proyecto (asistente por pasos) -->
@@ -1652,6 +2234,11 @@ $comData = json_encode([
           <span>Participantes del proyecto</span>
           <?= UI::select('miembros', $opcionesEquipo, $equipoProyecto ?? [], false, '', true) ?>
           <small class="campo-ayuda">Al asignar tareas solo aparecerán estas personas. Si no eliges a nadie, el proyecto queda abierto a todo el equipo.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
+          <?= UI::select('po', $opcionesAnalistas, $poProyecto) ?>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
         </label>
       </section>
 
@@ -1695,7 +2282,7 @@ $comData = json_encode([
         <div class="wz-acciones">
           <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Guardar</button>
         </div>
       </div>
     </div>

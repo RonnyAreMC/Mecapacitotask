@@ -48,6 +48,104 @@ class Mailer
         return $c['clave'] !== '';
     }
 
+    /* ---------- Conectar la cuenta que envia (modo API de Gmail) ----------
+       El refresh token no se teclea a mano: se consigue autorizando UNA vez
+       con la cuenta que va a enviar. Ojo, tiene que ser esa cuenta y no la
+       del administrador: Gmail manda desde quien autoriza. */
+
+    /** Credenciales OAuth del envio: las del correo o, si faltan, las del acceso. */
+    private static function credOauth(): array
+    {
+        $c = self::conf();
+        $g = GoogleLogin::conf();
+        return [
+            'client_id'     => $c['client_id']     !== '' ? $c['client_id']     : $g['client_id'],
+            'client_secret' => $c['client_secret'] !== '' ? $c['client_secret'] : $g['client_secret'],
+        ];
+    }
+
+    /** ¿Hay credenciales de Google Cloud para poder conectar la cuenta? */
+    public static function puedeConectar(): bool
+    {
+        $o = self::credOauth();
+        return $o['client_id'] !== '' && $o['client_secret'] !== '';
+    }
+
+    /**
+     * URL para autorizar el envio. access_type=offline + prompt=consent son
+     * imprescindibles: sin ellos Google NO devuelve refresh token (y sin
+     * refresh token el panel solo podria enviar durante una hora).
+     */
+    public static function urlConectar(): string
+    {
+        $o = self::credOauth();
+        $_SESSION['oauth_state']  = bin2hex(random_bytes(16));
+        $_SESSION['oauth_correo'] = true;
+        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_registro']);
+        return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
+            'client_id'     => $o['client_id'],
+            'redirect_uri'  => GoogleLogin::redirectUri(),
+            'response_type' => 'code',
+            'scope'         => 'openid email https://www.googleapis.com/auth/gmail.send',
+            'state'         => $_SESSION['oauth_state'],
+            'access_type'   => 'offline',
+            'prompt'        => 'consent select_account',
+        ]);
+    }
+
+    /**
+     * Canjea el código y guarda el refresh token junto con la cuenta que
+     * autorizó (esa pasa a ser el remitente: cualquier otra la rechaza Gmail).
+     * Devuelve el correo conectado, o un string con el error.
+     */
+    public static function guardarConexion(string $code, string $state): array|string
+    {
+        if ($code === '' || !hash_equals((string)($_SESSION['oauth_state'] ?? ''), $state)) {
+            return 'La respuesta de Google no es válida. Intenta de nuevo.';
+        }
+        unset($_SESSION['oauth_state']);
+        $o = self::credOauth();
+
+        [$codigo, $cuerpo] = self::httpPost('https://oauth2.googleapis.com/token', [
+            'code'          => $code,
+            'client_id'     => $o['client_id'],
+            'client_secret' => $o['client_secret'],
+            'redirect_uri'  => GoogleLogin::redirectUri(),
+            'grant_type'    => 'authorization_code',
+        ]);
+        $tok = json_decode($cuerpo, true) ?: [];
+        if ($codigo !== 200 || empty($tok['access_token'])) {
+            return 'Google no autorizó el envío: ' . ($tok['error_description'] ?? $tok['error'] ?? ('HTTP ' . $codigo));
+        }
+        if (empty($tok['refresh_token'])) {
+            // Pasa cuando ya habías concedido el permiso antes: hay que quitar
+            // el acceso a la app en la cuenta de Google y volver a conectar.
+            return 'Google no devolvió el token de larga duración. Entra a myaccount.google.com/permissions con esa cuenta, quita el acceso a esta app y vuelve a conectar.';
+        }
+
+        // ¿Qué cuenta autorizó? Es la que va a aparecer como remitente.
+        $ctx = stream_context_create(['http' => [
+            'method' => 'GET', 'timeout' => 15, 'ignore_errors' => true,
+            'header' => 'Authorization: Bearer ' . $tok['access_token'],
+        ]]);
+        $info  = json_decode((string)@file_get_contents('https://www.googleapis.com/oauth2/v3/userinfo', false, $ctx), true) ?: [];
+        $email = strtolower(trim($info['email'] ?? ''));
+        if ($email === '') {
+            return 'No se pudo leer el correo de la cuenta que autorizó.';
+        }
+
+        $cfg = Config::all();
+        $cfg['correo']['modo']          = 'gmail_api';
+        $cfg['correo']['activo']        = true;
+        $cfg['correo']['usuario']       = $email;
+        $cfg['correo']['refresh_token'] = $tok['refresh_token'];
+        $cfg['correo']['client_id']     = $o['client_id'];
+        $cfg['correo']['client_secret'] = $o['client_secret'];
+        Config::guardar($cfg);
+
+        return ['email' => $email];
+    }
+
     /**
      * Envia un correo HTML. Devuelve true si salio bien,
      * o un string con el motivo del fallo (para mostrarlo en un toast).
@@ -316,6 +414,13 @@ class Mailer
         return $base !== '' ? $base . '/proyecto.php?id=' . $pid : '';
     }
 
+    /** URL absoluta a una página del panel (o '' si no hay url_panel). */
+    private static function urlPagina(string $pagina): string
+    {
+        $base = self::baseUrl();
+        return $base !== '' ? $base . '/' . ltrim($pagina, '/') : '';
+    }
+
     /**
      * Envoltura del correo. Diseño minimalista: tarjeta blanca con borde
      * sutil, cabecera con logo + chip, título con barra de acento, chip de
@@ -359,7 +464,7 @@ class Mailer
 
         // Tarjeta institucional del pie (logo enmarcado + marca)
         $logoPie = $tieneLogo
-            ? '<td valign="middle" width="118" style="padding:22px 0 22px 22px;">
+            ? '<td valign="middle" style="padding:22px 0 22px 22px;">
                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                    <td style="background:linear-gradient(135deg,' . $pri . ',' . $priLight . ');padding:3px;border-radius:16px;">
                      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
@@ -493,8 +598,15 @@ class Mailer
             . '<div style="color:#6e6e73;font-size:15px;line-height:1.5;margin-top:12px;">' . $sub . '</div>';
     }
 
-    /** Caja de detalle minimalista con filas etiqueta / valor. */
-    private static function detalle(string $titulo, array $filas, string $desc = ''): string
+    /**
+     * Caja de detalle minimalista con filas etiqueta / valor.
+     *
+     * $descHtml = true cuando $desc es texto enriquecido (descripción de tarea o
+     * detalle de requerimiento): se saneia y se le ponen estilos en línea para
+     * que las TABLAS y el formato se vean bien en el correo. Con false, $desc es
+     * texto plano y se escapa.
+     */
+    private static function detalle(string $titulo, array $filas, string $desc = '', bool $descHtml = false): string
     {
         $rows = '';
         foreach ($filas as $k => $v) {
@@ -503,9 +615,20 @@ class Mailer
                 . '<td class="mc-val" style="padding:5px 0;color:#1d1d1f;font-size:13px;font-weight:600;text-align:right;">' . $v . '</td>'
                 . '</tr>';
         }
+        if ($descHtml) {
+            $acento  = Config::all()['color_secundario'] ?? '#2B76F7';
+            $descHtm = HtmlRico::paraCorreo($desc, $acento);
+            $bloqueDesc = $descHtm !== ''
+                ? '<div style="color:#4b5563;font-size:14px;line-height:1.5;margin-top:8px;">' . $descHtm . '</div>'
+                : '';
+        } else {
+            $bloqueDesc = $desc !== ''
+                ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>'
+                : '';
+        }
         return '<div class="mc-det" style="margin-top:18px;background:#f5f5f7;border-radius:14px;padding:16px 18px;">'
             . '<div style="color:#1d1d1f;font-size:16px;font-weight:600;letter-spacing:-.2px;">' . e($titulo) . '</div>'
-            . ($desc !== '' ? '<div style="color:#6e6e73;font-size:14px;line-height:1.5;margin-top:6px;">' . e($desc) . '</div>' : '')
+            . $bloqueDesc
             . ($rows !== '' ? '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:10px;">' . $rows . '</table>' : '')
             . '</div>';
     }
@@ -529,7 +652,7 @@ class Mailer
         $acento = Config::all()['color_secundario'] ?? '#2B76F7';
         $cuerpo = self::encabezado($acento, '&#43;', 'Nueva tarea asignada',
                     'Hola ' . e($miembro['nombre']) . ', se te asignó una tarea en ' . e($proyecto['nombre']) . '.')
-            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '', true);
         return self::enviar($miembro['email'], 'Nueva tarea asignada: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
@@ -605,6 +728,72 @@ class Mailer
             . self::detalle($proyecto['nombre'], $filas, $proyecto['descripcion'] ?? '');
         return self::enviar($miembro['email'], 'Ahora participas en ' . $proyecto['nombre'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
+    /* ---------- Registro público ---------- */
+
+    /**
+     * Avisa a un administrador de que alguien pidió acceso al panel.
+     * No depende de los interruptores de "avisar_*": es un aviso de
+     * seguridad, se rige por Ajustes → Registro.
+     */
+    public static function solicitudNueva(array $solicitud, string $paraEmail): true|string|null
+    {
+        if (!self::listo() || trim($paraEmail) === '') {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = [
+            'Correo'     => e($solicitud['email'] ?? ''),
+            'Solicitado' => e($solicitud['creado'] ?? date('Y-m-d H:i')),
+        ];
+
+        $cuerpo = self::encabezado($acento, '&#9679;', 'Alguien pide acceso al panel',
+                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con su cuenta de Google '
+                    . '(correo ya verificado) y espera tu aprobación. Hasta que la apruebes no ve nada '
+                    . 'del panel. Al aprobarla eliges tú su equipo y su rol.')
+            . self::detalle($solicitud['nombre'] ?? '', $filas);
+
+        return self::enviar($paraEmail, 'Solicitud de acceso: ' . ($solicitud['nombre'] ?? ''),
+            self::plantilla($cuerpo, self::urlPagina('equipo.php'), 'Revisar la solicitud'));
+    }
+
+    /** Avisa a la persona de que ya puede entrar. */
+    public static function solicitudAprobada(array $miembro): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2BB673';
+        $rol = ($miembro['acceso'] ?? 'lector') === 'admin' ? 'Administrador' : 'Solo lectura';
+        $cuerpo = self::encabezado($acento, '&#10003;', 'Tu acceso está aprobado',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', ya puedes entrar al panel '
+                    . 'con el botón «Continuar con Google», usando la misma cuenta con la que te registraste.')
+            . self::detalle('Tu cuenta', [
+                'Correo' => e($miembro['email']),
+                'Equipo' => e(Catalogo::equipos()[MiembroRepo::equipoDe($miembro)][0] ?? ''),
+                'Rol'    => e($miembro['rol'] ?? ''),
+                'Perfil' => e($rol),
+            ])
+            . '<div style="color:#86868b;font-size:13px;line-height:1.5;margin-top:14px;">'
+            . 'Cuando entres, completa tu foto y tu usuario de Git en <b>Mi perfil</b>: con el usuario de Git '
+            . 'tus commits aparecen en las métricas de cada proyecto.'
+            . '</div>';
+        return self::enviar($miembro['email'], 'Ya tienes acceso al panel',
+            self::plantilla($cuerpo, self::urlPagina('login.php'), 'Entrar al panel'));
+    }
+
+    /** Avisa de que la solicitud no fue aceptada (con el motivo, si lo hay). */
+    public static function solicitudRechazada(array $solicitud, string $motivo = ''): true|string|null
+    {
+        if (!self::listo() || empty($solicitud['email'])) {
+            return null;
+        }
+        $cuerpo = self::encabezado('#86868b', '&#8212;', 'Tu solicitud no fue aprobada',
+                    'Hola ' . e(explode(' ', trim($solicitud['nombre'] ?? ''))[0] ?: '') . ', por ahora no se te dio '
+                    . 'acceso al panel. Si crees que es un error, responde a este correo.')
+            . ($motivo !== '' ? self::detalle('Motivo', [], $motivo) : '');
+        return self::enviar($solicitud['email'], 'Sobre tu solicitud de acceso', self::plantilla($cuerpo));
     }
 
     /** Invitación a una reunión de Zoom (a cada invitado). */
@@ -689,7 +878,7 @@ class Mailer
         $cuando = $dias <= 0 ? 'vence hoy' : ('vence en ' . $dias . ' día' . ($dias === 1 ? '' : 's'));
         $cuerpo = self::encabezado('#ff9500', '!', 'Tarea por vencer',
                     'Hola ' . e($miembro['nombre']) . ', tu tarea ' . $cuando . '.')
-            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '');
+            . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '', true);
         return self::enviar($miembro['email'], 'Recordatorio: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }

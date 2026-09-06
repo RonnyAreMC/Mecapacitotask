@@ -35,24 +35,40 @@ if (!function_exists('camposPersona')) {
         </div>
         <div class="campo-doble">
           <label class="campo">
-            <span>Usuario de Git</span>
+            <span>Usuario(s) de Git</span>
             <div class="input-prefijo">
               <i class="fa-brands fa-github"></i>
-              <input class="input-meca" name="git_user" maxlength="40" placeholder="usuario-github">
+              <input class="input-meca" name="git_user" maxlength="200" placeholder="usuario-github, otro-usuario">
             </div>
+            <small class="campo-ayuda">Su usuario de GitHub/GitLab. Si usa varios, sepáralos con coma.</small>
           </label>
           <label class="campo">
             <span>Equipo</span>
             <?= UI::select('equipo', $opcionesEquipo, $eqActual) ?>
           </label>
         </div>
+        <div class="campo">
+          <span>Correos de Git (para cruzar sus commits)</span>
+          <div class="git-emails" data-git-emails>
+            <div class="git-email-fila">
+              <div class="input-prefijo">
+                <i class="fa-solid fa-envelope"></i>
+                <input class="input-meca" type="text" inputmode="email" name="git_emails[]" maxlength="80" placeholder="correo-github@ejemplo.com">
+              </div>
+              <button type="button" class="accion-btn accion-peligro git-email-quitar" title="Quitar"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+          </div>
+          <button type="button" class="btn-ghost btn-meca btn-sm git-email-agregar"><i class="fa-solid fa-plus"></i> Agregar otro correo</button>
+          <small class="campo-ayuda">El <b>correo</b> con el que commitea en cada cuenta (GitHub, GitLab…). Agrega uno por cuenta: es lo más seguro para contarle sus commits, porque el usuario cambia entre máquinas.</small>
+        </div>
         <label class="campo">
           <span>Correo (para notificarle sus tareas y para entrar al panel)</span>
           <div class="input-prefijo">
             <i class="fa-solid fa-envelope"></i>
-            <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@mecapacito.com">
+            <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@correo.com">
           </div>
         </label>
+<?php if (!$esEdicion): ?>
         <div class="campo-doble">
           <label class="campo">
             <span>Acceso al panel</span>
@@ -60,13 +76,23 @@ if (!function_exists('camposPersona')) {
             <small class="campo-ayuda">"Solo lectura" ve todo pero no edita nada.</small>
           </label>
           <label class="campo">
-            <span>Contraseña <?= $esEdicion ? '(dejar vacío para no cambiarla)' : '(opcional)' ?></span>
+            <span>Contraseña (opcional)</span>
             <div class="input-prefijo">
               <i class="fa-solid fa-lock"></i>
               <input class="input-meca" type="password" name="clave" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
             </div>
           </label>
         </div>
+<?php else: ?>
+        <label class="campo">
+          <span>Contraseña (dejar vacío para no cambiarla)</span>
+          <div class="input-prefijo">
+            <i class="fa-solid fa-lock"></i>
+            <input class="input-meca" type="password" name="clave" minlength="6" autocomplete="new-password" placeholder="mínimo 6 caracteres">
+          </div>
+          <small class="campo-ayuda">El <b>acceso al panel</b> (admin / Scrum / solo lectura) se cambia desde la columna «Acceso» de la tabla del equipo, no aquí. Así editar los datos no baja permisos sin querer.</small>
+        </label>
+<?php endif; ?>
         <div class="campo">
           <span>Color del avatar</span>
           <?= UI::colorPicker($esEdicion ? null : 0) ?>

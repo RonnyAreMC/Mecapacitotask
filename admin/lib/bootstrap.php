@@ -18,23 +18,61 @@ if (PHP_SAPI !== 'cli') {
     }
 }
 
-// Cookie de sesión endurecida (no accesible por JS, y solo por HTTPS si lo hay)
+// Sesión pensada para que dure HASTA QUE EL USUARIO CIERRE SESIÓN y no se
+// pierda en cada deploy.
 if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+    $vidaSesion = 60 * 60 * 24 * 30;   // 30 días
+
+    // Las sesiones se guardan en el directorio PERSISTENTE de datos, no en el
+    // /tmp del sistema. Así:
+    //  - No se borran en cada deploy (el deploy reemplaza el código, pero data/
+    //    persiste — ahí vive también el SQLite).
+    //  - No las limpia el cron del sistema (en Debian borra /var/lib/php/sessions
+    //    a los ~24 min ignorando nuestro gc_maxlifetime, que era la causa de que
+    //    "se cerraran las cuentas" solas).
+    // data/ está fuera de git y bloqueado al web por su .htaccess.
+    $dirSesiones = __DIR__ . '/../data/sessions';
+    if (!is_dir($dirSesiones)) @mkdir($dirSesiones, 0700, true);
+    if (is_dir($dirSesiones) && is_writable($dirSesiones)) {
+        session_save_path($dirSesiones);
+    }
+    ini_set('session.gc_maxlifetime', (string)$vidaSesion);
+
+    // Cookie endurecida (no accesible por JS, y solo por HTTPS si lo hay) y
+    // PERSISTENTE: sobrevive a cerrar el navegador (antes era de sesión y se
+    // perdía al salir).
+    $seguro = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
     session_set_cookie_params([
+        'lifetime' => $vidaSesion,
         'httponly' => true,
         'samesite' => 'Lax',
-        'secure'   => !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https',
+        'secure'   => $seguro,
     ]);
     session_start();
+
+    // Expiración deslizante: cada visita de alguien con la sesión iniciada
+    // renueva la cookie otros 30 días, para que quien lo usa a diario nunca se
+    // desloguee salvo que pulse "Cerrar sesión".
+    if (!empty($_SESSION['uid'])) {
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + $vidaSesion,
+            'path'     => ini_get('session.cookie_path') ?: '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => $seguro,
+        ]);
+    }
 }
 
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
+require_once __DIR__ . '/HtmlRico.php';
 require_once __DIR__ . '/UI.php';
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/GoogleLogin.php';
 require_once __DIR__ . '/GoogleCalendar.php';
 require_once __DIR__ . '/ImportadorTareas.php';
+require_once __DIR__ . '/ImportadorEquipo.php';
 require_once __DIR__ . '/Mailer.php';
 require_once __DIR__ . '/GitHub.php';
 require_once __DIR__ . '/GitLab.php';
@@ -178,6 +216,28 @@ function logoPanel(): string
 }
 
 /**
+ * Icono para la pestaña del navegador. NO sirve el logo del panel: ese es el
+ * wordmark (281x59), y a 16px el texto se aplasta hasta volverse ilegible.
+ * Se usa el icono cuadrado, que es lo que se lee a ese tamaño.
+ * Si en Ajustes subieron un logo propio, ese manda: es una decisión explícita.
+ */
+function faviconPanel(): string
+{
+    $logo = trim((string)(Config::get('logo') ?? ''));
+    if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
+        return $logo;
+    }
+    return logoPanel();          // sin icono propio, mejor el logo que nada
+}
+
+/** Tipo MIME de una imagen del panel, para el atributo type del favicon. */
+function logoMime(string $ruta = ''): string
+{
+    $ruta = $ruta !== '' ? $ruta : logoPanel();
+    return str_ends_with(strtolower($ruta), '.svg') ? 'image/svg+xml' : 'image/png';
+}
+
+/**
  * Formatos admitidos como adjunto: extension => tipos reales aceptables.
  *
  * Se comprueban los dos. Solo por extension seria confiar en el nombre que
@@ -306,7 +366,7 @@ function iconoAdjunto(string $ext): string
 // logo.php sirve la imagen de marca a los correos: los clientes la piden sin
 // sesión, así que no puede exigir login (no expone nada privado).
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
+if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
     Auth::requiereLogin();
 }
 
@@ -314,6 +374,53 @@ if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'actions.php', 
 function esAdmin(): bool
 {
     return Auth::esAdmin();
+}
+
+/** Atajos de plantilla para el rol Scrum Master. */
+function esScrum(): bool  { return Auth::esScrum(); }
+function esGestor(): bool { return Auth::esGestor(); }   // admin o scrum
+
+/**
+ * ¿Puede GESTIONAR este proyecto (planificar, reuniones, métricas)?
+ * El admin en todos; el Scrum Master solo en los suyos; el lector en ninguno.
+ */
+function puedeGestionar(int $proyectoId): bool
+{
+    if (Auth::esAdmin()) return true;
+    return Auth::esScrum() && puedeVerProyecto($proyectoId);
+}
+
+/** ¿Es el Product Owner de este proyecto? (el rol es por proyecto, no global) */
+function esPODelProyecto(int $proyectoId): bool
+{
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p !== null && ProyectoRepo::poDe($p) === (int)$yo['id'];
+}
+
+/**
+ * Reuniones del proyecto: además del admin y su Scrum Master, el Product
+ * Owner. No vale la clase .solo-gestor de siempre: esa se apaga por el ROL
+ * del panel, y un PO puede entrar como solo lectura y aun así mandar aquí.
+ */
+function puedeReunionesDelProyecto(int $proyectoId): bool
+{
+    return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
+}
+
+/**
+ * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
+ * Master del proyecto y su Product Owner. Los demás participantes ejecutan
+ * (mueven sus tareas por el tablero) pero no arman el backlog.
+ */
+function puedeGestionarTareas(int $proyectoId): bool
+{
+    if (puedeGestionar($proyectoId)) return true;   // admin o Scrum del proyecto
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p && ProyectoRepo::poDe($p) === $yo;
 }
 
 /* ---------- Alcance: que proyectos puede ver cada quien ---------- */
@@ -342,6 +449,9 @@ function alcanceProyectos(): ?array
         foreach ((new ProyectoRepo())->todos() as $p) {
             $suEquipo = ProyectoRepo::miembrosDe($p);
             if ($suEquipo !== null && in_array($yo, $suEquipo, true)) {
+                $ids[(int)$p['id']] = true;
+            }
+            if (ProyectoRepo::poDe($p) === $yo) {   // el Product Owner también ve su proyecto
                 $ids[(int)$p['id']] = true;
             }
         }

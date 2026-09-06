@@ -9,10 +9,16 @@
  * entran con su correo o su usuario de Git + contraseña (hash bcrypt).
  */
 require_once __DIR__ . '/Models.php';
+// El registro publico depende de Google (es quien verifica el correo)
+require_once __DIR__ . '/GoogleLogin.php';
 
 class Auth
 {
-    public const ROLES = ['admin' => 'Administrador', 'lector' => 'Solo lectura'];
+    public const ROLES = [
+        'admin'  => 'Administrador',
+        'scrum'  => 'Scrum Master',
+        'lector' => 'Solo lectura',
+    ];
 
     /** Colaborador con la sesión iniciada, o null. */
     public static function usuario(): ?array
@@ -32,6 +38,24 @@ class Auth
     public static function esAdmin(): bool
     {
         return self::rol() === 'admin';
+    }
+
+    /** Scrum Master: gestiona (planifica, reuniones, métricas) SUS proyectos. */
+    public static function esScrum(): bool
+    {
+        return self::rol() === 'scrum';
+    }
+
+    /** ¿Puede gestionar (admin o scrum)? El alcance por proyecto se ve aparte. */
+    public static function esGestor(): bool
+    {
+        return self::esAdmin() || self::esScrum();
+    }
+
+    /** Normaliza el nivel de acceso que llega de un formulario. */
+    public static function accesoValido(?string $v): string
+    {
+        return isset(self::ROLES[(string)$v]) ? (string)$v : 'lector';
     }
 
     /** ¿Ya existe al menos un administrador con contraseña? */
@@ -83,6 +107,82 @@ class Auth
         return password_hash($clave, PASSWORD_DEFAULT);
     }
 
+    /* ---------- Registro público ---------- */
+
+    /** Config del registro, ya normalizada. */
+    public static function registro(): array
+    {
+        $r = (array)(Config::get('registro') ?? []);
+        return [
+            'abierto'  => !empty($r['abierto']),
+            'dominios' => trim((string)($r['dominios'] ?? '')),
+            'avisar'   => !empty($r['avisar']),
+        ];
+    }
+
+    /** ¿Hay alguien que pueda aprobar una solicitud? */
+    public static function hayQuienApruebe(): bool
+    {
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if (($m['acceso'] ?? '') === 'admin') return true;
+        }
+        return false;
+    }
+
+    /**
+     * ¿Se puede crear una cuenta desde el login?
+     *
+     * Hace falta que esté abierto en Ajustes, que el acceso con Google esté
+     * configurado (es la única forma de registrarse: Google verifica el correo)
+     * y que exista algún administrador que apruebe la solicitud.
+     */
+    public static function registroAbierto(): bool
+    {
+        return self::registro()['abierto'] && GoogleLogin::listo() && self::hayQuienApruebe();
+    }
+
+    /** Lista de dominios permitidos (vacía = cualquier correo). */
+    public static function dominiosPermitidos(): array
+    {
+        $txt = self::registro()['dominios'];
+        $out = [];
+        foreach (preg_split('/[\s,;]+/', $txt) as $d) {
+            $d = ltrim(strtolower(trim($d)), '@');
+            if ($d !== '') $out[] = $d;
+        }
+        return $out;
+    }
+
+    /** ¿El correo pertenece a un dominio permitido? */
+    public static function dominioPermitido(string $email): bool
+    {
+        $dominios = self::dominiosPermitidos();
+        if (!$dominios) return true;
+        $host = strtolower(substr(strrchr($email, '@') ?: '', 1));
+        foreach ($dominios as $d) {
+            // Acepta el dominio y sus subdominios (mail.itb.edu.ec)
+            if ($host === $d || str_ends_with($host, '.' . $d)) return true;
+        }
+        return false;
+    }
+
+    /** Correos de los administradores, para avisarles de una solicitud. */
+    public static function correosAdmin(): array
+    {
+        $out = [];
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if (($m['acceso'] ?? '') === 'admin' && !empty($m['email'])) {
+                $out[strtolower($m['email'])] = $m['email'];
+            }
+        }
+        // El correo de contacto de Ajustes, si está configurado y no repetido
+        $extra = trim((string)(Config::get('correo')['admin_email'] ?? ''));
+        if ($extra !== '' && !isset($out[strtolower($extra)])) {
+            $out[strtolower($extra)] = $extra;
+        }
+        return array_values($out);
+    }
+
     /** Exige sesión iniciada; si no, manda al login. */
     public static function requiereLogin(): void
     {
@@ -100,6 +200,16 @@ class Auth
         self::requiereLogin();
         if (!self::esAdmin()) {
             redirigir('index.php', 'Tu cuenta es de solo lectura: no puedes hacer esa acción.', 'error');
+        }
+    }
+
+    /** Exige gestor (admin o scrum). El scope por proyecto lo revisa cada acción. */
+    public static function requiereGestor(): void
+    {
+        if (PHP_SAPI === 'cli') return;
+        self::requiereLogin();
+        if (!self::esGestor()) {
+            redirigir('index.php', 'No tienes permiso para esa acción.', 'error');
         }
     }
 }

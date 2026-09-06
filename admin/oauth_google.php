@@ -14,10 +14,31 @@ if (!GoogleLogin::listo()) {
     redirigir('login.php', 'El acceso con Google no está configurado.', 'error');
 }
 
-// ¿Es el retorno de "conectar mi calendario" o el de iniciar sesión?
+// ¿De qué flujo volvemos: calendario, cuenta de envío, crear cuenta o entrar?
 $esCalendario = !empty($_SESSION['oauth_calendario']);
-unset($_SESSION['oauth_calendario']);
-$volver = $esCalendario ? 'perfil.php' : 'login.php';
+$esCorreo     = !empty($_SESSION['oauth_correo']);
+$esRegistro   = !empty($_SESSION['oauth_registro']);
+unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro']);
+$volver = match (true) {
+    $esCalendario => 'perfil.php',
+    $esCorreo     => 'ajustes.php#tab-correo',
+    $esRegistro   => 'registro.php',
+    default       => 'login.php',
+};
+
+// --- Conectar la cuenta que envía los correos (solo el administrador) ---
+if ($esCorreo) {
+    Auth::requiereAdmin();
+    if (!empty($_GET['error'])) {
+        redirigir('ajustes.php', 'Cancelaste la conexión de la cuenta de envío.', 'info');
+    }
+    $res = Mailer::guardarConexion($_GET['code'] ?? '', $_GET['state'] ?? '');
+    if (is_string($res)) {
+        redirigir('ajustes.php', $res, 'error');
+    }
+    redirigir('ajustes.php',
+        'Cuenta de envío conectada: ' . $res['email'] . '. Los correos del panel saldrán desde ahí; pruébalo con «Probar envío».');
+}
 
 if (!empty($_GET['error'])) {
     redirigir($volver, $esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.', 'info');
@@ -86,9 +107,58 @@ if (!$miembro && !empty(GoogleLogin::conf()['vincular_por_nombre'])) {
     }
 }
 
-if (!$miembro) {
+// 3a) Venía de "Crear cuenta": no se le conoce de nada, así que deja una
+//     solicitud con el nombre y el correo que Google acaba de verificar. No
+//     entra a ninguna parte hasta que un administrador la apruebe.
+if (!$miembro && $esRegistro) {
+    $solicitudes = new SolicitudRepo();
+
+    if (!Auth::registroAbierto()) {
+        redirigir('login.php', 'El registro de cuentas nuevas está cerrado.', 'error');
+    }
+    if (!Auth::dominioPermitido($correo)) {
+        redirigir('login.php',
+            'Solo se aceptan cuentas de: @' . implode(', @', Auth::dominiosPermitidos()) . '. Entra con tu correo institucional.',
+            'error');
+    }
+    if ($solicitudes->porEmail($correo)) {
+        redirigir('login.php', 'Ya tienes una solicitud con ' . $correo . ' esperando aprobación. Te avisaremos en cuanto la revisen.', 'info');
+    }
+
+    $solicitud = $solicitudes->crear(['nombre' => $nombreG ?: strtok($correo, '@'), 'email' => $correo]);
+
+    $avisados = 0;
+    if (Auth::registro()['avisar']) {
+        foreach (Auth::correosAdmin() as $correoAdmin) {
+            if (Mailer::solicitudNueva($solicitud, $correoAdmin) === true) $avisados++;
+        }
+    }
     redirigir('login.php',
-        'El correo ' . $correo . ' no está registrado en el equipo' . ($nombreG !== '' ? ' y tampoco encontré a nadie llamado "' . $nombreG . '"' : '') . '. Pídele al administrador que lo agregue.',
+        '¡Listo, ' . explode(' ', $solicitud['nombre'])[0] . '! Tu solicitud quedó registrada con ' . $correo
+        . ($avisados > 0 ? ' y ya avisamos al administrador.' : '. Un administrador la revisará.')
+        . ' Cuando la aprueben, entra con el botón de Google.');
+}
+
+// 3b) No lo reconoció: le preguntamos "¿quién eres?" y que se elija a sí mismo
+//    de entre las fichas que todavía no tienen correo (y que no son admin).
+//    Guardamos el correo YA verificado por Google en sesión para vincularlo
+//    cuando confirme (no se puede repetir GoogleLogin::procesar, el code es de un solo uso).
+if (!$miembro) {
+    $sinVincular = array_filter($equipo, fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin');
+    if ($sinVincular) {
+        $_SESSION['identificar'] = [
+            'email'   => $correo,
+            'nombre'  => $nombreG,
+            'refresh' => $r['refresh_token'] ?? '',
+        ];
+        redirigir('login.php', 'No reconocimos tu correo. Dinos quién eres para vincularlo a tu ficha.', 'info');
+    }
+    redirigir('login.php',
+        'El correo ' . $correo . ' no está registrado en el equipo'
+            . ($nombreG !== '' ? ' y tampoco encontré a nadie llamado "' . $nombreG . '"' : '') . '. '
+            . (Auth::registroAbierto()
+                ? 'Puedes pedir acceso desde «Crear una cuenta».'
+                : 'Pídele al administrador que lo agregue.'),
         'error');
 }
 

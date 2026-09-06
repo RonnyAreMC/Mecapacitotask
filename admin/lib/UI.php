@@ -92,8 +92,8 @@ class UI
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title><?= e($titulo) ?> · Mecapacito Admin</title>
-<link rel="icon" type="image/png" href="<?= e(logoPanel()) ?>">
+<title><?= e($titulo) ?> · <?= e(Config::get('titulo')) ?></title>
+<link rel="icon" type="<?= logoMime(faviconPanel()) ?>" href="<?= e(faviconPanel()) ?>">
 <script>
 (function () {
   var params = new URLSearchParams(location.search);
@@ -194,18 +194,30 @@ class UI
       </div>
     </div>
 
-    <span class="sidebar-label">Equipos</span>
+    <?php
+    // Solicitudes de acceso sin resolver. No cuelgan de un equipo concreto
+    // (el admin decide cual al aprobar), asi que el contador va en el titulo
+    // de la seccion y no en un equipo cualquiera.
+    $nSol = Auth::esAdmin() ? (new SolicitudRepo())->cuantas() : 0;
+    ?>
+    <span class="sidebar-label">Equipos
+      <?php if ($nSol): ?><span class="nav-badge" title="<?= $nSol ?> solicitud(es) de acceso por revisar"><?= $nSol ?></span><?php endif; ?>
+    </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
     <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
       <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
 
-    <?php if (Auth::esAdmin()): ?>
+    <?php if (Auth::esGestor()): ?>
     <span class="sidebar-label">Configuración</span>
+    <?php endif; ?>
+    <?php if (Auth::esGestor()): /* Planificar: admin y Scrum Master */ ?>
     <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
       <i class="fa-solid fa-list-check"></i> <span class="truncate">Planificar</span>
     </a>
+    <?php endif; ?>
+    <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
       <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
     </a>
@@ -418,6 +430,71 @@ class UI
      * Avatar de miembro: foto si tiene, iniciales con gradiente si no.
      * $extra: html extra dentro del wrapper (ej. tooltip).
      */
+    /**
+     * Icono por nombre. Busca primero un SVG del set en admin/iconos (si esa
+     * carpeta existe) y, si no está, cae a Font Awesome — que es como se
+     * nombran los iconos en este panel. Así el marcado portado desde el otro
+     * panel funciona igual, y el día que se suelte el set del design system
+     * en admin/iconos empieza a usarse solo, sin tocar código.
+     */
+    public static function icono(string $nombre, string $clase = ''): string
+    {
+        static $cache = [];
+        $mapa = self::mapaIconos();
+        $cls  = trim('ico ' . $clase);
+
+        if (!isset($mapa[$nombre])) {
+            if (str_starts_with($nombre, 'fa-')) {
+                return '<i class="fa-solid ' . e($nombre) . ($clase !== '' ? ' ' . e($clase) : '') . '"></i>';
+            }
+            return '';
+        }
+        if (!isset($cache[$nombre])) {
+            $cache[$nombre] = self::normalizarSvg($mapa[$nombre]);
+        }
+        return preg_replace('/<svg\b/', '<svg class="' . e($cls) . '"', $cache[$nombre], 1);
+    }
+
+    /** Mapa [nombreBase => rutaAbsoluta] de los SVG del set (se cachea). */
+    private static function mapaIconos(): array
+    {
+        static $mapa = null;
+        if ($mapa !== null) {
+            return $mapa;
+        }
+        $mapa = [];
+        foreach (glob(__DIR__ . '/../iconos/*/*.svg') ?: [] as $f) {
+            $mapa[basename($f, '.svg')] = $f;
+        }
+        return $mapa;
+    }
+
+    /** ¿Existe ese icono en el set? */
+    public static function hayIcono(string $nombre): bool
+    {
+        return isset(self::mapaIconos()[$nombre]);
+    }
+
+    /**
+     * Deja el SVG listo para pintarse con el color del texto: color fijo a
+     * currentColor, sin defs ni clip-path y sin medidas propias (las pone el
+     * CSS con .ico, que mide en em).
+     */
+    private static function normalizarSvg(string $ruta): string
+    {
+        $svg = @file_get_contents($ruta);
+        if ($svg === false) {
+            return '';
+        }
+        $svg = str_ireplace(['fill="#334155"', 'fill="#292D32"'], 'fill="currentColor"', $svg);
+        $svg = preg_replace('/<defs>.*?<\/defs>/s', '', $svg);
+        $svg = preg_replace('/\sclip-path="[^"]*"/', '', $svg);
+        $svg = preg_replace_callback('/<svg\b[^>]*>/', function ($m) {
+            return preg_replace('/\s(width|height)="[^"]*"/', '', $m[0]);
+        }, $svg, 1);
+        return trim($svg);
+    }
+
     public static function avatar(?array $m, int $size = 40, bool $tooltip = false): string
     {
         if (!$m) {
@@ -698,6 +775,120 @@ class UI
             . 'Los verá quien tenga la tarea asignada, en el detalle de la tarea. '
             . 'Imágenes, PDF, Word, Excel, PowerPoint, TXT o CSV.</small>'
             . '</div>';
+    }
+
+    /**
+     * Componente ÚNICO de subida de archivos, reutilizable en todo el panel.
+     *
+     * Envuelve un <input type="file"> nativo (sigue enviándose con el formulario)
+     * y lo enriquece por JS (data-archivo): arrastrar y soltar, estado "con
+     * archivo" con nombre + peso + quitar, y validación de tipo/tamaño (error).
+     *
+     * $o admite:
+     *   name*     nombre del input (usa 'x[]' para varios)
+     *   variante  'zona' (drop-zone, por defecto) | 'inline'
+     *   accept    atributo accept ('application/pdf', '.pdf,.docx', 'image/*'…)
+     *   ayuda     formato corto (ej. 'PDF · máx 10 MB')
+     *   multiple / required / disabled  (bool)
+     *   maxMB     tope por archivo (validación en el navegador)
+     *   label     etiqueta encima (opcional)
+     */
+    public static function archivo(array $o): string
+    {
+        $name   = (string)($o['name'] ?? 'archivo');
+        $var    = ($o['variante'] ?? 'zona') === 'inline' ? 'inline' : 'zona';
+        $accept = (string)($o['accept'] ?? '');
+        $ayuda  = (string)($o['ayuda'] ?? '');
+        $mult   = !empty($o['multiple']);
+        $req    = !empty($o['required']);
+        $dis    = !empty($o['disabled']);
+        $maxMB  = (float)($o['maxMB'] ?? 0);
+        $label  = (string)($o['label'] ?? '');
+
+        // OJO: NADA de 'required' en el input (va oculto): un required en un input
+        // hidden bloquea el envío del form con "no es enfocable". Lo obligatorio se
+        // marca con el asterisco y se valida en el servidor.
+        $inp = '<input type="file" class="fx-input" name="' . e($name) . '"'
+             . ($accept !== '' ? ' accept="' . e($accept) . '"' : '')
+             . ($mult ? ' multiple' : '') . ($dis ? ' disabled' : '') . ' hidden>';
+
+        $h = '<div class="fx fx-' . $var . ($dis ? ' fx-off' : '') . '" data-archivo data-variante="' . $var . '"'
+           . ($maxMB > 0 ? ' data-max="' . e((string)$maxMB) . '"' : '') . ($mult ? ' data-multi="1"' : '') . '>';
+        if ($label !== '') {
+            $h .= '<span class="fx-label">' . e($label) . ($req ? ' <b class="fx-req">*</b>' : '') . '</span>';
+        }
+        $h .= $inp;
+        if ($var === 'zona') {
+            $h .= '<button type="button" class="fx-disparo fx-zona-btn"' . ($dis ? ' disabled' : '') . '>'
+               .  '<span class="fx-up"><i class="fa-solid fa-cloud-arrow-up"></i></span>'
+               .  '<span class="fx-zona-txt"><b>Arrastra tu archivo aquí</b>'
+               .  '<small>o haz clic para seleccionar' . ($ayuda !== '' ? ' · ' . e($ayuda) : '') . '</small></span>'
+               .  '</button>';
+        } else {
+            $h .= '<button type="button" class="fx-disparo fx-inline-btn"' . ($dis ? ' disabled' : '') . '>'
+               .  '<i class="fa-solid fa-paperclip fx-clip"></i>'
+               .  '<span class="fx-inline-txt">Seleccionar archivo…</span>'
+               .  ($ayuda !== '' ? '<span class="fx-inline-hint">' . e($ayuda) . '</span>' : '')
+               .  '</button>';
+        }
+        $h .= '<div class="fx-files"></div>';
+        $h .= '<p class="fx-error" hidden></p>';
+        $h .= '</div>';
+        return $h;
+    }
+
+    /**
+     * Editor de texto enriquecido, reutilizable (data-editor-rico).
+     *
+     * Es un contenteditable con barra de formato mínima y un <textarea> oculto
+     * que lleva el HTML en el envío del formulario (con el $name que se pase).
+     * Sirve para PEGAR contenido con formato y TABLAS (p. ej. un correo) y que
+     * se guarde y se muestre bien. El HTML se sanea SIEMPRE en el servidor
+     * (HtmlRico::limpiar) antes de guardar; aquí solo se limpia al pegar para
+     * que la edición se vea limpia.
+     *
+     * $o admite:
+     *   name*        nombre del textarea que se envía
+     *   valor        HTML inicial (ya saneado) — para formularios de edición
+     *   id           id del contenedor (para rellenarlo por JS: MecaRT.set)
+     *   placeholder  texto de ayuda cuando está vacío
+     */
+    public static function editorRico(array $o): string
+    {
+        $name = (string)($o['name'] ?? 'contenido');
+        $val  = (string)($o['valor'] ?? '');
+        $id   = (string)($o['id'] ?? '');
+        $ph   = (string)($o['placeholder'] ?? 'Escribe o pega aquí… (puedes pegar tablas)');
+
+        // Botones de la barra: [comando execCommand, valor, icono, título].
+        $botones = [
+            ['bold',        '',   'fa-bold',          'Negrita'],
+            ['italic',      '',   'fa-italic',        'Cursiva'],
+            ['underline',   '',   'fa-underline',     'Subrayado'],
+            ['formatBlock', 'h3', 'fa-heading',       'Título'],
+            ['insertUnorderedList', '', 'fa-list-ul',  'Lista'],
+            ['insertOrderedList',   '', 'fa-list-ol',  'Lista numerada'],
+            ['formatBlock', 'blockquote', 'fa-quote-right', 'Cita'],
+            ['createLink',  '',   'fa-link',          'Enlace'],
+            ['removeFormat','',   'fa-eraser',        'Quitar formato'],
+        ];
+        $barra = '';
+        foreach ($botones as [$cmd, $cval, $ico, $tit]) {
+            $barra .= '<button type="button" class="rt-b" tabindex="-1" data-cmd="' . e($cmd) . '"'
+                . ($cval !== '' ? ' data-val="' . e($cval) . '"' : '')
+                . ' title="' . e($tit) . '"><i class="fa-solid ' . e($ico) . '"></i></button>';
+        }
+
+        $vacio = HtmlRico::vacio($val);
+        $h  = '<div class="rt' . ($vacio ? ' rt-vacio' : '') . '" data-editor-rico'
+            . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>';
+        $h .= '<div class="rt-barra" role="toolbar">' . $barra . '</div>';
+        // El HTML inicial NO se escapa: es el contenido editable, ya saneado.
+        $h .= '<div class="rt-area rt-render" contenteditable="true" data-ph="' . e($ph) . '">'
+            . ($vacio ? '' : $val) . '</div>';
+        $h .= '<textarea class="rt-fuente" name="' . e($name) . '" hidden>' . e($val) . '</textarea>';
+        $h .= '</div>';
+        return $h;
     }
 
     /** Texto de ayuda bajo el selector de asignado. */
