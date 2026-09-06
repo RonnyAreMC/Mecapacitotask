@@ -731,42 +731,6 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
     }
 
-    /**
-     * Requerimiento suelto que el administrador acaba de asignar a alguien.
-     *
-     * El modulo de requerimientos es solo del administrador, asi que este
-     * correo es lo UNICO que le llega a quien lo tiene que hacer: va con todo
-     * dentro (plazo, quien lo pide, con quien lo comparte) y sin boton al
-     * panel, que le rebotaria por no tener acceso a esa pagina.
-     *
-     * $companeros son los nombres de los demas responsables, si va a varios.
-     */
-    public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
-    {
-        if (!self::listo() || empty($miembro['email'])) {
-            return null;
-        }
-        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
-        $prioridades = Catalogo::prioridades();
-        $inicio = RequerimientoRepo::fechaInicio($req);
-        $fin    = RequerimientoRepo::fechaFin($req);
-
-        $filas = [];
-        if (!empty($req['solicitante']))  $filas['Lo pide']   = e($req['solicitante']);
-        if (isset($prioridades[$req['prioridad'] ?? ''])) $filas['Prioridad'] = e($prioridades[$req['prioridad']][0]);
-        if ($inicio !== '') $filas['Empieza'] = e($inicio);
-        if ($fin !== '')    $filas['Entrega'] = e($fin);
-        if ($companeros)    $filas['Contigo'] = e(implode(', ', $companeros));
-
-        $cuerpo = self::encabezado($acento, '&#9679;', 'Te asignaron un requerimiento',
-                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', esto no pertenece a '
-                    . 'ningún proyecto: llegó suelto y te lo asignaron.')
-            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true);
-
-        return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
-            self::plantilla($cuerpo));
-    }
-
     /* ---------- Registro público ---------- */
 
     /**
