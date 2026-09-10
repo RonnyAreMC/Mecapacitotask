@@ -309,7 +309,12 @@ UI::cabecera(
               <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
             </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
-            <?php if ($puedeAcceso): $esAdm = ($m['acceso'] ?? 'lector') === 'admin'; ?>
+            <?php if ($puedeAcceso):
+                // Los perfiles son varios: lo normal es "administrador y Scrum
+                // Master". El color de la píldora lo pone el de más mando.
+                $susAccesos = MiembroRepo::accesosDe($m);
+                $mandaEn    = MiembroRepo::accesoDominante($susAccesos);
+                $esAdm      = in_array('admin', $susAccesos, true); ?>
             <td class="celda-acceso" onclick="event.stopPropagation()">
               <?php if ($mid === $yoId): ?>
                 <span class="acceso-yo"><i class="fa-solid fa-shield-halved"></i> Tú (admin)</span>
@@ -318,9 +323,13 @@ UI::cabecera(
                 <input type="hidden" name="accion" value="miembro_acceso_set">
                 <input type="hidden" name="id" value="<?= $mid ?>">
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
+                <!-- Sin esto, quitar TODAS las casillas no manda 'accesos' y la
+                     acción no sabría distinguirlo de un formulario antiguo. -->
+                <input type="hidden" name="accesos[]" value="">
+                <?= UI::select('accesos', Auth::ROLES, $susAccesos, true,
+                               'select-sm select-acceso es-' . e($mandaEn), true) ?>
               </form>
-              <?php if (($m['acceso'] ?? '') === 'supervisor'): ?>
+              <?php if (in_array('supervisor', $susAccesos, true)): ?>
                 <button type="button" class="accion-btn sw-config" title="Configurar los proyectos que ve"
                         data-config-super='<?= e(json_encode([
                             'id' => $mid, 'nombre' => $m['nombre'],

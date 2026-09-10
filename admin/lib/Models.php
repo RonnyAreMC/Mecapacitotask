@@ -622,7 +622,7 @@ class MiembroRepo
         $correos = [];
         foreach ($this->store->all() as $m) {
             $email = trim((string)($m['email'] ?? ''));
-            if (($m['acceso'] ?? '') === 'admin' && $email !== '') {
+            if (MiembroRepo::tieneAcceso($m, 'admin') && $email !== '') {
                 $correos[strtolower($email)] = $email;
             }
         }
@@ -693,6 +693,60 @@ class MiembroRepo
     public static function equipoDe(array $m): string
     {
         return self::equipoValido($m['equipo'] ?? '');
+    }
+
+
+    /**
+     * Perfiles de un miembro. Una persona puede llevar varios —lo normal es
+     * "administrador y Scrum Master"—, y por eso lo que manda es 'accesos'.
+     *
+     * 'acceso' (uno solo) sigue guardandose con el perfil de mas mando: es lo
+     * que leen las pantallas que solo enseñan una etiqueta, y es lo que traen
+     * los miembros de antes de que esto existiera.
+     */
+    public static function accesosDe(array $m): array
+    {
+        $lista = [];
+        foreach ((array)($m['accesos'] ?? []) as $r) {
+            $r = (string)$r;
+            if (isset(Auth::ROLES[$r]) && !in_array($r, $lista, true)) $lista[] = $r;
+        }
+        // Sin lista (miembro de antes), vale el perfil unico de siempre.
+        if (!$lista) {
+            $uno = (string)($m['acceso'] ?? 'lector');
+            $lista = [isset(Auth::ROLES[$uno]) ? $uno : 'lector'];
+        }
+        return $lista;
+    }
+
+    /** ¿Lleva este perfil? */
+    public static function tieneAcceso(array $m, string $rol): bool
+    {
+        return in_array($rol, self::accesosDe($m), true);
+    }
+
+    /** El de mas mando de una lista de perfiles (admin > scrum > supervisor > lector). */
+    public static function accesoDominante(array $roles): string
+    {
+        foreach (Auth::ROLES_ORDEN as $r) {
+            if (in_array($r, $roles, true)) return $r;
+        }
+        return 'lector';
+    }
+
+    /** Los perfiles de alguien, escritos y de más a menos mando. */
+    public static function accesosEnTexto(array $m): string
+    {
+        $suyos = self::accesosDe($m);
+        // Por orden de mando y no por como se guardaron: "Administrador y
+        // Supervisor" se lee bien; "Supervisor y Administrador", no.
+        $nombres = [];
+        foreach (Auth::ROLES_ORDEN as $r) {
+            if (in_array($r, $suyos, true)) $nombres[] = Auth::ROLES[$r];
+        }
+        if (count($nombres) <= 1) return $nombres[0] ?? '';
+        $ultimo = array_pop($nombres);
+        return implode(', ', $nombres) . ' y ' . $ultimo;
     }
 
     public function actualizar(int $id, array $datos): bool

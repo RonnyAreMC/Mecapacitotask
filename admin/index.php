@@ -40,7 +40,8 @@ foreach ($miembrosRepo->todos() as $m) {
     if (MiembroRepo::equipoDe($m) === 'analistas') {
         $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     }
-    if (($m['acceso'] ?? '') === 'scrum') {
+    // El administrador también puede llevar un tablero: manda sobre todo.
+    if (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) {
         $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     }
 }

@@ -441,7 +441,7 @@ function puedeHorarioDelProyecto(int $proyectoId): bool
     // los ojos de otro, y parecía que la restricción no existía.
     $yo = verComo() ?: Auth::usuario();
     if (!$yo) return false;
-    if (($yo['acceso'] ?? '') === 'admin') return true;
+    if (MiembroRepo::tieneAcceso($yo, 'admin')) return true;
 
     $p = (new ProyectoRepo())->buscar($proyectoId);
     if ($p === null) return false;

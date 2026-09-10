@@ -21,6 +21,19 @@ class Auth
         'lector'     => 'Solo lectura',
     ];
 
+    /**
+     * De mas a menos mando. Una persona puede llevar varios perfiles a la vez
+     * —lo normal es "administrador y Scrum Master de un par de proyectos"— y
+     * este orden decide cual es el suyo "de cabecera" cuando hay que enseñar
+     * uno solo.
+     *
+     * ADMIN MANDA sobre todo lo demas. Importa porque 'supervisor' y 'lector'
+     * no son poderes sino RECORTES: hay codigo que hace "si es supervisor, que
+     * no pueda". Sin esta regla, un administrador que ademas fuera supervisor
+     * se quedaria sin poder hacer cosas que si puede.
+     */
+    public const ROLES_ORDEN = ['admin', 'scrum', 'supervisor', 'lector'];
+
     /** Colaborador con la sesión iniciada, o null. */
     public static function usuario(): ?array
     {
@@ -30,31 +43,50 @@ class Auth
         return $cache = ($id > 0 ? (new MiembroRepo())->buscar($id) : null);
     }
 
+    /** Perfiles de quien tiene la sesión iniciada. */
+    public static function roles(): array
+    {
+        $u = self::usuario();
+        return $u ? MiembroRepo::accesosDe($u) : [];
+    }
+
+    /** ¿Lleva este perfil? (sin mirar si ademas es administrador) */
+    public static function tiene(string $rol): bool
+    {
+        return in_array($rol, self::roles(), true);
+    }
+
+    /** Su perfil de cabecera: el de mas mando de los que lleva. */
     public static function rol(): string
     {
         $u = self::usuario();
-        return $u ? ($u['acceso'] ?? 'lector') : '';
+        return $u ? MiembroRepo::accesoDominante(MiembroRepo::accesosDe($u)) : '';
     }
 
     public static function esAdmin(): bool
     {
-        return self::rol() === 'admin';
+        return self::tiene('admin');
     }
 
     /** Scrum Master: gestiona (planifica, reuniones, métricas) SUS proyectos. */
     public static function esScrum(): bool
     {
-        return self::rol() === 'scrum';
+        return self::tiene('scrum');
     }
-
     /**
      * Supervisor: rol de solo-observación de ALTO nivel. Ve únicamente los
      * proyectos que el admin le asigna, y dentro de ellos solo el Kanban y el
      * detalle de las tareas. No edita nada.
+     *
+     * Quien ademas gestiona (administrador o Scrum Master) NO cuenta como
+     * supervisor, aunque lleve tambien ese perfil. Esto no da permisos: los
+     * QUITA —hay codigo que hace "si es supervisor, que no pueda"—, asi que
+     * sumarselo a alguien que gestiona le dejaria sin poder hacer cosas que si
+     * puede. Manda el perfil que gestiona.
      */
     public static function esSupervisor(): bool
     {
-        return self::rol() === 'supervisor';
+        return self::tiene('supervisor') && !self::tiene('admin') && !self::tiene('scrum');
     }
 
     /** ¿Puede gestionar (admin o scrum)? El alcance por proyecto se ve aparte. */
@@ -69,11 +101,25 @@ class Auth
         return isset(self::ROLES[(string)$v]) ? (string)$v : 'lector';
     }
 
+    /**
+     * Normaliza la LISTA de perfiles que llega de un formulario. Nunca vuelve
+     * vacia: sin nada marcado, queda en solo lectura.
+     */
+    public static function accesosValidos($v): array
+    {
+        $out = [];
+        foreach ((array)$v as $r) {
+            $r = (string)$r;
+            if (isset(self::ROLES[$r]) && !in_array($r, $out, true)) $out[] = $r;
+        }
+        return $out ?: ['lector'];
+    }
+
     /** ¿Ya existe al menos un administrador con contraseña? */
     public static function hayAdmin(): bool
     {
         foreach ((new MiembroRepo())->todos() as $m) {
-            if (!empty($m['pass_hash']) && ($m['acceso'] ?? '') === 'admin') return true;
+            if (!empty($m['pass_hash']) && MiembroRepo::tieneAcceso($m, 'admin')) return true;
         }
         return false;
     }
@@ -135,7 +181,7 @@ class Auth
     public static function hayQuienApruebe(): bool
     {
         foreach ((new MiembroRepo())->todos() as $m) {
-            if (($m['acceso'] ?? '') === 'admin') return true;
+            if (MiembroRepo::tieneAcceso($m, 'admin')) return true;
         }
         return false;
     }
@@ -182,7 +228,7 @@ class Auth
     {
         $out = [];
         foreach ((new MiembroRepo())->todos() as $m) {
-            if (($m['acceso'] ?? '') === 'admin' && !empty($m['email'])) {
+            if (MiembroRepo::tieneAcceso($m, 'admin') && !empty($m['email'])) {
                 $out[strtolower($m['email'])] = $m['email'];
             }
         }

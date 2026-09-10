@@ -1039,7 +1039,8 @@ class Mailer
             return null;
         }
         $acento = Config::all()['color_secundario'] ?? '#2BB673';
-        $rol = ($miembro['acceso'] ?? 'lector') === 'admin' ? 'Administrador' : 'Solo lectura';
+        // Puede llevar varios perfiles: se nombran todos, no solo el de más mando.
+        $rol = MiembroRepo::accesosEnTexto($miembro);
         $cuerpo = self::encabezado($acento, '&#10003;', 'Tu acceso está aprobado',
                     'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', ya puedes entrar al panel '
                     . 'con el botón «Continuar con Google», usando la misma cuenta con la que te registraste.')
@@ -1155,6 +1156,54 @@ class Mailer
             . self::detalle($tarea['titulo'], self::filasTarea($tarea, $proyecto), $tarea['descripcion'] ?? '', true);
         return self::enviar($miembro['email'], 'Recordatorio: ' . $tarea['titulo'],
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
+    }
+
+    /**
+     * Parte diario al administrador: quien lleva requerimientos sueltos
+     * pasados de fecha.
+     *
+     * Va agrupado POR PERSONA y no un correo por requerimiento: lo que se
+     * quiere saber de un vistazo es a quien hay que preguntarle, y con quince
+     * atrasados quince correos no los lee nadie.
+     *
+     * $porPersona: [ ['nombre' => …, 'items' => [ ['titulo','fin','dias'], … ] ], … ]
+     */
+    public static function atrasosRequerimientos(array $porPersona, string $para): true|string|null
+    {
+        if (!self::listo() || trim($para) === '' || !$porPersona) {
+            return null;
+        }
+        $acento = '#C66B2D';
+        $total  = array_sum(array_map(fn($p) => count($p['items']), $porPersona));
+
+        $bloques = '';
+        foreach ($porPersona as $p) {
+            $filas = '';
+            foreach ($p['items'] as $it) {
+                $filas .= '<tr>'
+                    . '<td style="padding:5px 10px 5px 0;font-size:14px;color:#1d1d1f;">' . e($it['titulo']) . '</td>'
+                    . '<td style="padding:5px 0;font-size:13px;color:' . $acento . ';white-space:nowrap;">'
+                    . e($it['fin']) . ' · ' . (int)$it['dias'] . ' día' . ((int)$it['dias'] === 1 ? '' : 's')
+                    . '</td></tr>';
+            }
+            $bloques .= '<div style="margin-top:14px;padding:12px 16px;border-left:3px solid ' . $acento . ';'
+                . 'background:#f7f8fa;">'
+                . '<b style="font-size:14px;color:#1d1d1f;">' . e($p['nombre']) . '</b>'
+                . ' <span style="font-size:13px;color:#6b7280;">— ' . count($p['items'])
+                . ' atrasado' . (count($p['items']) === 1 ? '' : 's') . '</span>'
+                . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+                . 'style="width:100%;margin-top:6px;">' . $filas . '</table></div>';
+        }
+
+        $cuerpo = self::encabezado($acento, '!', 'Requerimientos pasados de fecha',
+                    'Hay <b>' . $total . '</b> requerimiento' . ($total === 1 ? '' : 's')
+                    . ' suelto' . ($total === 1 ? '' : 's') . ' con la entrega vencida, repartido'
+                    . ($total === 1 ? '' : 's') . ' entre <b>' . count($porPersona) . '</b> persona'
+                    . (count($porPersona) === 1 ? '' : 's') . '.')
+            . $bloques;
+
+        return self::enviar($para, 'Atrasados: ' . $total . ' requerimiento' . ($total === 1 ? '' : 's'),
+            self::plantilla($cuerpo));
     }
 
     /**

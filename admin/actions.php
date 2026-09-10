@@ -437,15 +437,21 @@ function poAnalistaValido(int $id, MiembroRepo $miembros): int
 }
 
 /**
- * Scrum Master válido para un proyecto: el id solo cuenta si esa persona tiene
- * el rol de Scrum Master en el panel. Si no, 0 (el proyecto se queda sin SM y
- * solo el administrador toca su horario).
+ * Scrum Master válido para un proyecto: hace falta llevar el perfil de Scrum
+ * Master, o el de administrador — que manda sobre todo y por tanto también
+ * puede llevar un tablero. Si no, 0 (el proyecto se queda sin SM y solo el
+ * administrador toca su horario).
+ *
+ * Antes se exigía que el perfil ÚNICO fuera 'scrum', así que un administrador
+ * no podía figurar como Scrum Master de su propio proyecto: para aparecer en
+ * la lista tenía que dejar de ser administrador.
  */
 function scrumValido(int $id, MiembroRepo $miembros): int
 {
     if ($id <= 0) return 0;
     $m = $miembros->buscar($id);
-    return ($m && ($m['acceso'] ?? '') === 'scrum') ? $id : 0;
+    if (!$m) return 0;
+    return (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) ? $id : 0;
 }
 
 /**
@@ -1905,23 +1911,31 @@ switch ($accion) {
                  : ($m['nombre'] . ' no verá ningún proyecto hasta que elijas alguno.'));
 
     case 'miembro_acceso_set':
-        // Select de acceso en la tabla de equipo (admin / solo lectura)
+        // Perfiles de una persona. Son VARIOS: lo normal es "administrador y
+        // Scrum Master", y antes había que elegir uno — quien administraba el
+        // panel no podía figurar como Scrum Master de su propio tablero.
         $m = $miembros->buscar((int)($_POST['id'] ?? 0));
         $volver = volverAqui('equipo.php');
         if (!$m) {
             redirigir($volver, 'Colaborador no encontrado.', 'error');
         }
-        $nuevo   = Auth::accesoValido($_POST['acceso'] ?? '');
-        $actual  = $m['acceso'] ?? 'lector';
-        $eraAdmin = $actual === 'admin';
-        if ($nuevo === $actual) {
+        // 'accesos[]' es lo que manda; 'acceso' a secas viene de la pantalla
+        // vieja y de cualquier enlace guardado.
+        $nuevos = isset($_POST['accesos'])
+            ? Auth::accesosValidos($_POST['accesos'])
+            : [Auth::accesoValido($_POST['acceso'] ?? '')];
+        $actuales = MiembroRepo::accesosDe($m);
+        sort($nuevos); sort($actuales);
+        if ($nuevos === $actuales) {
             redirigir($volver);   // sin cambios
         }
-        // Al dejar de ser admin (a scrum o a lector): nunca dejar el panel sin
-        // administrador, ni quitarse uno mismo el acceso.
-        if ($eraAdmin && $nuevo !== 'admin') {
+        $eraAdmin = in_array('admin', $actuales, true);
+        $sigueAdmin = in_array('admin', $nuevos, true);
+        // Al dejar de ser admin: nunca dejar el panel sin administrador, ni
+        // quitarse uno mismo el acceso.
+        if ($eraAdmin && !$sigueAdmin) {
             $otros = array_filter($miembros->todos(), fn($x) =>
-                (int)$x['id'] !== (int)$m['id'] && ($x['acceso'] ?? '') === 'admin');
+                (int)$x['id'] !== (int)$m['id'] && MiembroRepo::tieneAcceso($x, 'admin'));
             if (!$otros) {
                 redirigir($volver, 'No puedes quitar al único administrador del panel.', 'error');
             }
@@ -1929,15 +1943,21 @@ switch ($accion) {
                 redirigir($volver, 'No puedes quitarte a ti mismo el acceso de administrador.', 'error');
             }
         }
-        $miembros->actualizar((int)$m['id'], ['acceso' => $nuevo]);
-        $etiqueta = Auth::ROLES[$nuevo] ?? 'Solo lectura';
-        if ($nuevo === 'lector') {
+        // Se guardan los dos: 'accesos' con todos y 'acceso' con el de más
+        // mando, que es lo que leen las pantallas que enseñan una sola etiqueta.
+        $miembros->actualizar((int)$m['id'], [
+            'accesos' => $nuevos,
+            'acceso'  => MiembroRepo::accesoDominante($nuevos),
+        ]);
+        $mAct = $miembros->buscar((int)$m['id']) ?? $m;
+        if ($nuevos === ['lector']) {
             redirigir($volver, $m['nombre'] . ' vuelve a solo lectura.');
         }
         $falta = empty($m['pass_hash'])
             ? ' Todavía no tiene contraseña: pónsela al editar su ficha o que entre con Google.'
             : '';
-        redirigir($volver, $m['nombre'] . ' ahora es ' . $etiqueta . '.' . $falta, $falta ? 'info' : 'success');
+        redirigir($volver, $m['nombre'] . ' ahora es ' . MiembroRepo::accesosEnTexto($mAct) . '.' . $falta,
+            $falta ? 'info' : 'success');
 
     case 'miembro_eliminar':
         $id = (int)($_POST['id'] ?? 0);
