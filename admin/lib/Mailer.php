@@ -998,7 +998,10 @@ class Mailer
         $cuerpo = self::encabezado($acento, '&#128172;', 'Nueva observación',
                     '<b>' . e($autor['nombre'] ?? 'Alguien') . '</b> te dejó una observación en <b>'
                     . e($proyecto['nombre'] ?? '') . '</b>.')
-            . self::detalle($tareaRef['titulo'] ?? ($proyecto['nombre'] ?? ''), $filas, (string)($obs['texto'] ?? ''));
+            // El texto viene del editor enriquecido y se guarda como HTML ya
+            // limpio: hay que decirle a detalle() que lo es. Sin el 'true' lo
+            // escapaba, y en Gmail se leían las etiquetas: "<p>Hola</p>".
+            . self::detalle($tareaRef['titulo'] ?? ($proyecto['nombre'] ?? ''), $filas, (string)($obs['texto'] ?? ''), true);
 
         return self::enviar($para, 'Observación en ' . ($proyecto['nombre'] ?? ''),
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
