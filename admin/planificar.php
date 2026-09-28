@@ -94,7 +94,7 @@ UI::cabecera(
       <div class="plan-toolbar">
         <h2 class="font-display"><i class="fa-solid fa-file-code text-secondary"></i> JSON de tareas</h2>
         <div class="plan-acc">
-          <label class="btn-outline btn-meca btn-sm plan-file">
+          <label class="btn-outline btn-meca btn-azul btn-sm plan-file">
             <i class="fa-solid fa-file-arrow-up"></i> Subir .json
             <input type="file" name="archivo" accept="application/json,.json" hidden>
           </label>
@@ -111,7 +111,7 @@ UI::cabecera(
         <span>Actualizar las que ya existan (mismo proyecto y título) en vez de duplicarlas</span>
       </label>
       <div class="plan-botones">
-        <button class="btn-outline btn-meca" value="validar" onclick="document.getElementById('plan-modo').value='validar'">
+        <button class="btn-outline btn-meca btn-azul" value="validar" onclick="document.getElementById('plan-modo').value='validar'">
           <i class="fa-solid fa-eye"></i> Validar sin crear
         </button>
         <button class="btn-primary btn-meca" value="importar" onclick="document.getElementById('plan-modo').value='importar'">

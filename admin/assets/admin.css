@@ -9,26 +9,34 @@
   /* Variables que en el sitio inyecta SiteSettings; aqui las fijamos */
   --c-primary: var(--c-azul-cobalto);
   --c-primary-rgb: 26, 75, 153;
-  --c-secondary: var(--c-azul-electrico);
-  --c-secondary-rgb: 43, 118, 247;
-  --c-accent: var(--c-amarillo);
-  --c-accent-rgb: 255, 215, 0;
+  /* Acento del panel: VERDE del design system (#1BC059) y verde claro (#63E396).
+     La barra lateral usa su propio azul (#66B2FF), definido más abajo. */
+  --c-secondary: #1BC059;
+  --c-secondary-rgb: 27, 192, 89;
+  --c-accent: #63E396;
+  --c-accent-rgb: 99, 227, 150;
+  /* Pastilla activa de los tabs: el azul marino del design system. */
+  --c-tab-activo: #000080;
 
   --sidebar-w: 264px;
 
   /* ----- Tokens neumorfismo (claro) ----- */
-  /* Pastilla activa de las pestañas: el azul cobalto de la marca. Blanco
-     encima da 7.4:1, así que el texto de la pestaña activa se lee. */
-  --c-tab-activo: var(--c-azul-cobalto);
-
   --n-bg: #e5eaf3;          /* base: fondo Y superficies */
   --n-sh-d: #c2cbdb;        /* sombra oscura */
   --n-sh-l: #ffffff;        /* sombra clara */
   --n-radius: 20px;
 
-  --sh-card:  9px 9px 20px var(--n-sh-d), -9px -9px 20px var(--n-sh-l);
-  --sh-soft:  5px 5px 12px var(--n-sh-d), -5px -5px 12px var(--n-sh-l);
-  --sh-mini:  3px 3px 7px  var(--n-sh-d), -3px -3px 7px  var(--n-sh-l);
+  /* SIN SOMBRAS. Eran el sello del diseño (doble sombra desplazada, oscura
+     abajo-derecha y blanca arriba-izquierda) y dejaban un pegote gris al lado
+     de cada caja. Lo que queda no es una sombra: es una línea de 1px pegada al
+     borde, sin desenfoque y sin desplazamiento. Hace falta porque aquí la
+     superficie es del MISMO color que la página — a cero, las tarjetas, las
+     filas y los chips desaparecerían del fondo.
+     Las interiores (--sh-inset*) no se tocan: son las que hunden un campo de
+     texto y hacen que parezca un campo, no una mancha alrededor de nada. */
+  --sh-card:  0 0 0 1px rgba(30, 55, 100, .09);
+  --sh-soft:  0 0 0 1px rgba(30, 55, 100, .08);
+  --sh-mini:  0 0 0 1px rgba(30, 55, 100, .07);
   --sh-inset: inset 4px 4px 9px var(--n-sh-d), inset -4px -4px 9px var(--n-sh-l);
   --sh-inset-mini: inset 2px 2px 5px var(--n-sh-d), inset -2px -2px 5px var(--n-sh-l);
 
@@ -46,13 +54,15 @@ html.dark {
   --n-bg: #1F2740;
   --n-sh-d: #161c30;
   --n-sh-l: #2b3455;
-  /* Sobre el marino, el cobalto se confunde con el fondo: la pastilla activa
-     sube al azul eléctrico, que sí se despega. */
-  --c-tab-activo: var(--c-azul-electrico);
   /* Superficie de las tarjetas: un escalón por encima del fondo. Antes eran del
      mismo color y solo las separaba una línea de 1px; sobre un marino profundo
      eso se pierde. */
   --n-card: #2A3458;
+
+  /* El #000080 sobre el fondo oscuro se pierde: casi no se distingue del
+     propio fondo. En oscuro la pastilla sube a un azul que sí destaca y
+     sigue aguantando el texto en blanco. */
+  --c-tab-activo: #1F63D6;
 
   /* Neutrales de mecapacito.css re-mapeados */
   --c-bg: var(--n-bg);
@@ -66,10 +76,12 @@ html.dark {
   --clay-hi: rgba(255, 255, 255, .06);
   --clay-lo: rgba(0, 0, 0, .25);
 
-  /* Sombras recalibradas: menos "agujero negro", relieve mas fino */
-  --sh-card:  9px 9px 22px rgba(0, 0, 0, .38), -6px -6px 16px rgba(255, 255, 255, .035);
-  --sh-soft:  5px 5px 12px rgba(0, 0, 0, .32), -4px -4px 10px rgba(255, 255, 255, .035);
-  --sh-mini:  3px 3px 7px  rgba(0, 0, 0, .28), -2px -2px 6px  rgba(255, 255, 255, .035);
+  /* Mismo criterio en oscuro: línea de 1px, no sombra. Aquí la línea va en
+     claro, que es lo que separa una superficie del fondo cuando todo es
+     oscuro. */
+  --sh-card:  0 0 0 1px rgba(255, 255, 255, .09);
+  --sh-soft:  0 0 0 1px rgba(255, 255, 255, .08);
+  --sh-mini:  0 0 0 1px rgba(255, 255, 255, .07);
   --sh-inset:      inset 4px 4px 9px rgba(0, 0, 0, .32), inset -3px -3px 8px rgba(255, 255, 255, .045);
   --sh-inset-mini: inset 2px 2px 5px rgba(0, 0, 0, .26), inset -2px -2px 5px rgba(255, 255, 255, .045);
 }
@@ -100,7 +112,8 @@ html.dark .select-meca {
 }
 html.dark .input-meca:focus,
 html.dark .select-meca:focus {
-  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .45);
+  /* Igual que en claro: por dentro, para que no lo recorte ningún contenedor */
+  box-shadow: inset 2px 2px 5px rgba(0, 0, 0, .22), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .7);
 }
 html.dark .persona-preview,
 html.dark .icon-galeria,
@@ -169,7 +182,8 @@ body { margin: 0; }
 }
 .sidebar-toggle:hover { color: var(--c-secondary); }
 .sidebar-toggle:active { box-shadow: var(--sh-inset-mini); }
-.sidebar-toggle i { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
+.sidebar-toggle i,
+.sidebar-toggle .ico { transition: transform .3s cubic-bezier(.2,.8,.2,1); }
 
 .sidebar-brand {
   display: flex; align-items: center; gap: 12px;
@@ -184,7 +198,7 @@ body { margin: 0; }
   width: 44px; height: 44px; object-fit: contain;
   background: #fff;
   border-radius: 13px; padding: 5px;
-  box-shadow: 0 4px 10px -4px rgba(15, 23, 42, .25);
+  box-shadow: none;
   transition: transform .3s ease;
 }
 html.dark .sidebar-brand img {
@@ -203,6 +217,58 @@ html.sb-collapsed .sidebar-brand { padding: 8px; border-radius: 16px; }
   display: block;
   font-size: .68rem; font-weight: 700; letter-spacing: .14em; text-transform: uppercase;
   color: var(--c-secondary);
+}
+
+/* --- Logo tipo wordmark (InnoTech Hub): es ancho y ya trae el nombre, así que
+   se muestra a tamaño natural (no aplastado en un cuadro) y reemplaza al texto
+   de marca para no duplicarlo. Sobre pastilla blanca para asegurar contraste. */
+.sidebar-brand img,
+.login-marca img,
+.arte-marca img {
+  width: auto; height: 32px; max-width: 100%;
+  border-radius: 10px; padding: 6px 11px;
+}
+.sidebar-brand img { object-fit: contain; }
+.sidebar-brand > div,
+.login-marca > div,
+.arte-marca > div { display: none; }
+/* Barra plegada: el rail es angosto y el wordmark no cabe (se cortaba). Se
+   muestra SOLO el ícono del logo recortando a la izquierda del SVG. */
+html.sb-collapsed .sidebar-brand img {
+  width: 38px; height: 38px; max-width: 38px;
+  object-fit: cover; object-position: left center;
+  padding: 4px;
+}
+
+/* --- Marca del sidebar con ÍCONO (no wordmark): el ícono cuadrado de InnoTech
+   junto al título, sobre un fondo suave que resalta del celeste del fondo, y con
+   un giro al abrir la página. --- */
+.sidebar-brand-icono {
+  background: linear-gradient(135deg, #ffffff, #e9eff9);   /* suave, no se mezcla con el celeste */
+}
+html.dark .sidebar-brand-icono {
+  background: linear-gradient(135deg, #2f3648, #262c3a);
+  border-color: rgba(255, 255, 255, .07);
+}
+.sidebar-brand-icono .sidebar-logo {
+  width: 44px; height: 44px; max-width: 44px;
+  object-fit: contain; object-position: center;
+  background: #fff; border-radius: 13px; padding: 6px;
+  box-shadow: none;
+  animation: sb-logo-giro .8s cubic-bezier(.34, 1.56, .5, 1) backwards;   /* da la vuelta al abrir */
+}
+.sidebar-brand-icono > div { display: block; }   /* mostrar el título junto al ícono */
+html.sb-collapsed .sidebar-brand-icono .sidebar-logo {
+  width: 38px; height: 38px; max-width: 38px;
+  object-fit: contain; object-position: center; padding: 5px;
+}
+@keyframes sb-logo-giro {
+  0%   { transform: rotate(-360deg) scale(.5); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: rotate(0) scale(1); opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar-brand-icono .sidebar-logo { animation: none; }
 }
 
 /* Chip global "Ver como" en el sidebar */
@@ -306,6 +372,9 @@ html.sb-collapsed .vc-abrir .avatar { margin: 0; }
   transition: box-shadow .22s ease, color .22s ease;
 }
 .sidebar-link i { width: 18px; text-align: center; font-size: .95rem; }
+/* Los del set son SVG y no tienen font-size: se les da la caja a mano para
+   que queden alineados con los de Font Awesome que aún quedan. */
+.sidebar-link .ico { width: 18px; height: 18px; }
 .sidebar-link:hover { box-shadow: var(--sh-mini); color: var(--c-text); }
 /* El item activo se marca solo con el borde iluminado, sin barra al lado */
 .sidebar-link.active {
@@ -385,6 +454,7 @@ html.sb-collapsed .nav-grupo-items .sidebar-link {
 }
 html.sb-collapsed .nav-grupo-items .sidebar-link .truncate { display: inline; }
 html.sb-collapsed .nav-grupo-items .sidebar-link i { width: 18px; font-size: .95rem; }
+html.sb-collapsed .nav-grupo-items .sidebar-link .ico { width: 18px; height: 18px; }
 .nav-grupo-vacio { margin: 6px 10px 10px; font-size: .78rem; color: var(--c-text-soft); }
 
 .sidebar-link-new {
@@ -565,7 +635,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
   background: rgba(255,255,255,.07);
   border: 1px solid rgba(255,255,255,.14);
   backdrop-filter: blur(10px);
-  box-shadow: 0 14px 34px -22px rgba(0,0,0,.9);
+  box-shadow: none;
 }
 .arte-marca img {
   width: 44px; height: 44px; object-fit: contain;
@@ -650,7 +720,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 .login-marca img {
   width: 46px; height: 46px; object-fit: contain;
   background: #fff; border-radius: 13px; padding: 5px;
-  box-shadow: 0 4px 14px -6px rgba(16,32,64,.35);
+  box-shadow: none;
   border: 1px solid #eceff5;
 }
 .login-marca strong { display: block; font-size: 1.1rem; font-weight: 800; color: #101828; }
@@ -724,7 +794,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 }
 .btn-google:hover {
   border-color: #c6cad1;
-  box-shadow: 0 8px 20px -12px rgba(16,32,64,.55);
+  box-shadow: none;
   transform: translateY(-1px);
 }
 .login-sep {
@@ -740,7 +810,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
   width: 100%; justify-content: center;
   margin-top: 8px; padding: 14px;
   border-radius: 12px;
-  box-shadow: 0 10px 24px -14px color-mix(in srgb, var(--c-success, #22a06b) 90%, #000);
+  box-shadow: none;
 }
 .login-pie {
   margin: 24px 0 0; padding-top: 18px;
@@ -759,7 +829,7 @@ html.sb-collapsed .cuenta-menu .sesion-chip { justify-content: center; padding: 
 }
 .ident-persona:hover {
   border-color: var(--c-secondary);
-  box-shadow: 0 10px 24px -16px color-mix(in srgb, var(--c-secondary) 80%, #000);
+  box-shadow: none;
 }
 .ident-persona:active { transform: translateY(1px); }
 .ident-persona .avatar { flex-shrink: 0; }
@@ -881,7 +951,9 @@ html.sb-collapsed { --sidebar-w: 96px; }
 
 html.sb-collapsed .sidebar { padding: 22px 14px; }
 html.sb-collapsed .sidebar-top { flex-direction: column-reverse; gap: 12px; }
-html.sb-collapsed .sidebar-toggle i { transform: rotate(180deg); }
+/* El SVG del set también gira al plegar: la regla apuntaba solo al <i>. */
+html.sb-collapsed .sidebar-toggle i,
+html.sb-collapsed .sidebar-toggle .ico { transform: rotate(180deg); }
 html.sb-collapsed .sidebar-brand {
   padding: 10px;
   justify-content: center;
@@ -914,6 +986,7 @@ html.sb-collapsed .sidebar-link {
 }
 html.sb-collapsed .sidebar-link .truncate { display: none; }
 html.sb-collapsed .sidebar-link i { width: auto; font-size: 1.05rem; }
+html.sb-collapsed .sidebar-link .ico { width: 20px; height: 20px; }
 
 html.sb-collapsed .sidebar-foot {
   flex-direction: column; align-items: center; gap: 8px;
@@ -973,15 +1046,28 @@ html.sb-collapsed.dark .theme-toggle .tt-knob { transform: translateX(26px); }
 /* Primario: acento plano azul con relieve */
 /* Botón primario (guardar / crear / confirmar) — SIEMPRE en verde */
 .btn-primary.btn-meca {
-  background: var(--c-verde-esmeralda);
+  /* Botón primario del design system: azul marino #000080. */
+  background: #000080;
   color: #fff; font-weight: 700;
   box-shadow:
-    6px 6px 14px color-mix(in srgb, var(--c-verde-esmeralda) 30%, var(--n-sh-d)),
-    -5px -5px 12px var(--n-sh-l),
     var(--clay-pop);
 }
-.btn-primary.btn-meca:hover { background: #1e8f5c; transform: translateY(-1px); }
+.btn-primary.btn-meca:hover { background: #16169e; transform: translateY(-1px); }
 .btn-primary.btn-meca:active { box-shadow: var(--sh-inset-mini); transform: none; }
+
+/* Crear / agregar: siempre en verde #00C853, sea cual sea la pantalla. Es la
+   única acción que aparece en casi todas, así que se reconoce por el color
+   antes que por el texto.
+
+   El texto va en blanco por decisión de diseño. Queda en 2.2:1 contra el
+   verde, por debajo del 4.5:1 que pide WCAG para texto: si algún día se ve
+   flojo bajo sol directo o en una pantalla mala, el arreglo es la tinta
+   oscura (#062B14, 6.9:1), no cambiar el verde. */
+.btn-primary.btn-meca.btn-agregar {
+  background: #00C853;
+  color: #fff;
+}
+.btn-primary.btn-meca.btn-agregar:hover { background: #00B84C; }
 
 /* Secundario: superficie neumorfica con texto de acento */
 .btn-outline.btn-meca {
@@ -1043,7 +1129,7 @@ html.dark .btn-ghost.btn-meca:hover {
   --btn-rojo:  #B4232F;  --btn-rojo-h:  #8E1A24;
   --btn-verde: #0D7340;  --btn-verde-h: #0B6234;
   --btn-ambar: #9C5511;  --btn-ambar-h: #7A420D;
-  --btn-navy:  #1A4B99;  --btn-navy-h:  #123A78;
+  --btn-navy:  #000080;  --btn-navy-h:  #16169E;
   --btn-gris:  #6B7688;
 }
 html.dark {
@@ -1093,11 +1179,9 @@ html.dark {
    (--card-c), sombra exterior tenida y brillo interior de arcilla. */
 .card-base {
   --card-c: var(--pc, var(--c-secondary));
-  --sh-clay:
-    10px 10px 24px color-mix(in srgb, var(--card-c) 16%, var(--n-sh-d)),
-    -9px -9px 20px var(--n-sh-l),
-    inset 2.5px 2.5px 5px var(--clay-hi),
-    inset -2.5px -2.5px 5px var(--clay-lo);
+  /* La tarjeta ya tiene su propio borde teñido del color del proyecto, así que
+     aquí no queda nada que dibujar: sin sombra. */
+  --sh-clay: none;
   background: var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--card-c) 22%, var(--n-bg));
   border-radius: 24px;
@@ -1109,12 +1193,10 @@ html.dark {
 }
 .card-base:hover {
   transform: translateY(-3px);
-  border-color: color-mix(in srgb, var(--card-c) 40%, var(--n-bg));
-  box-shadow:
-    14px 14px 30px color-mix(in srgb, var(--card-c) 24%, var(--n-sh-d)),
-    -10px -10px 24px var(--n-sh-l),
-    inset 2.5px 2.5px 5px var(--clay-hi),
-    inset -2.5px -2.5px 5px var(--clay-lo);
+  /* Al pasar por encima sube un poco y el borde se tiñe más. Sin sombra: ese
+     era el aviso de "estoy encima", y el color lo da igual de bien. */
+  border-color: color-mix(in srgb, var(--card-c) 55%, var(--n-bg));
+  box-shadow: none;
 }
 
 /* =========================================================
@@ -1226,13 +1308,25 @@ html.dark .fondo-ramas { opacity: .2; }
     var(--n-bg);
   transition: transform .25s ease, box-shadow .25s ease;
 }
-/* Franja de color arriba: fina, pero suficiente para identificar el proyecto */
-.proyecto-admin-card::before {
-  content: ''; position: absolute; inset: 0 0 auto; height: 4px;
-  background: linear-gradient(90deg,
-    var(--pc, var(--c-secondary)),
-    color-mix(in srgb, var(--pc, var(--c-secondary)) 45%, #fff));
+/* (Se quitó la franja de color de arriba de cada card: el proyecto ya se
+   identifica por su ícono y el tinte de la esquina.) */
+
+/* Marca de agua: el mismo ícono del proyecto en grande al fondo, como en la
+   cabecera de su tablero. El tamaño sale del font-size porque .ico mide 1em.
+   La tarjeta ya es relative con overflow:hidden, así que el ícono se recorta
+   contra su esquina. */
+.pac-watermark {
+  position: absolute; right: -26px; bottom: -34px;
+  font-size: 8.5rem;
+  color: var(--pc, var(--c-secondary));
+  opacity: .07;
+  transform: rotate(-10deg);
+  z-index: 0; pointer-events: none;
 }
+html.dark .pac-watermark { opacity: .13; }
+/* El contenido es estático y se pintaría DEBAJO de la marca, que sí está
+   posicionada: hay que subirlo a su propia capa. */
+.pac-head, .pac-body { position: relative; z-index: 1; }
 .proyecto-admin-card:hover {
   transform: translateY(-3px);
   box-shadow: var(--sh-card), 0 0 0 1.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 40%, transparent);
@@ -1278,13 +1372,45 @@ html.dark .proyecto-admin-card {
 .progress-bar { height: 100%; border-radius: 999px; transition: width .5s ease; }
 .progress-num { font-size: .78rem; font-weight: 800; color: var(--c-text-muted); }
 
+/* Contadores de estado de la tarjeta de proyecto.
+
+   Cerrados son icono + número; el rótulo se abre al pasar por encima. Antes,
+   al pasar por encima se desplegaba un panel con las tareas de ese estado:
+   media tarjeta tapada, títulos cortados a tres letras y el mismo nombre
+   repetido en cada línea. El detalle ya está a un clic, en el tablero. */
 .pac-estados { display: flex; gap: 8px; flex-wrap: wrap; }
 .pac-mini {
-  display: inline-flex; align-items: center; gap: 5px;
-  padding: 5px 11px; border-radius: 999px;
-  font-size: .74rem; font-weight: 700;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border-radius: 999px;
+  font-size: .86rem; font-weight: 800;
   box-shadow: var(--sh-inset-mini);
   background: var(--n-bg) !important;
+  cursor: default;
+  transition: box-shadow .18s ease, transform .18s ease;
+}
+.pac-mini .ico { width: 1.05em; height: 1.05em; }
+.pac-mini-cero { opacity: .45; }
+.pac-mini:not(.pac-mini-cero):hover {
+  transform: translateY(-1px);
+  box-shadow: var(--sh-inset-mini), 0 0 0 1.5px color-mix(in srgb, currentColor 45%, transparent);
+}
+
+/* El rótulo: plegado no ocupa nada y se abre en el sitio, sin globo flotante.
+   El hueco va en el margen del texto, no en el gap de la píldora: si fuera el
+   gap, cerrada quedaría un espacio muerto entre el icono y el número. */
+.pm-rot {
+  max-width: 0; overflow: hidden; white-space: nowrap;
+  font-size: .68rem; font-weight: 800;
+  letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+  opacity: 0;
+  transition: max-width .26s cubic-bezier(.2, .9, .3, 1), opacity .18s ease, margin-left .26s ease;
+}
+.pac-mini:hover .pm-rot {
+  max-width: 150px; opacity: 1; margin-left: 1px;
+}
+@media (prefers-reduced-motion: reduce) {
+  .pm-rot { transition: none; }
 }
 
 .pac-foot {
@@ -1367,10 +1493,10 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 }
 
 /* Colores de texto por estado (claro) */
-.estado-pendiente { color: #0b7ea8; }
-.estado-progreso  { color: var(--c-azul-electrico); }
-.estado-revision  { color: #c26f0e; }
-.estado-hecho     { color: var(--c-verde-esmeralda); }
+.estado-pendiente { color: #B4232F; }
+.estado-progreso  { color: #1F63D6; }
+.estado-revision  { color: #9C5511; }
+.estado-hecho     { color: #0D7340; }
 
 /* Estados de proyecto */
 .pestado-activo     { color: var(--c-verde-esmeralda); }
@@ -1379,10 +1505,10 @@ html.dark .avatar-more { background: var(--c-bg-soft); color: var(--c-text-muted
 html.dark .pestado-completado { color: #7fabff; }
 
 /* Colores por estado (oscuro: mas brillantes) */
-html.dark .estado-pendiente { color: var(--c-cian); }
-html.dark .estado-progreso  { color: #7fabff; }
-html.dark .estado-revision  { color: #ffb35c; }
-html.dark .estado-hecho     { color: #57d99a; }
+html.dark .estado-pendiente { color: #F98A92; }
+html.dark .estado-progreso  { color: #66B2FF; }
+html.dark .estado-revision  { color: #F0A73F; }
+html.dark .estado-hecho     { color: #35C078; }
 
 /* Prioridades */
 .badge-prio.prio-baja  { color: #4e8a24; }
@@ -1414,9 +1540,9 @@ html.dark .prio-dot.prio-alta { background: #ff9d5c; }
     radial-gradient(520px 280px at -8% 130%, color-mix(in srgb, var(--pc, var(--c-secondary)) 8%, transparent), transparent 70%),
     var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 25%, var(--n-bg));
+  /* Sin la caída de 12px: la cabecera ya se distingue por su borde teñido.
+     Solo queda el brillo interior, que es acabado de superficie. */
   box-shadow:
-    12px 12px 28px color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, var(--n-sh-d)),
-    -9px -9px 20px var(--n-sh-l),
     inset 2.5px 2.5px 5px var(--clay-hi),
     inset -2.5px -2.5px 5px var(--clay-lo);
   color: var(--c-text);
@@ -1558,7 +1684,7 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   color: #fff !important;
   font-weight: 700;
   border: 0;
-  box-shadow: 5px 5px 12px color-mix(in srgb, #6e5494 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
   transition: background .2s ease, transform .2s ease;
 }
 .btn-github:hover { background: #8365b1; transform: translateY(-1px); }
@@ -1571,14 +1697,14 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   color: #fff !important;
   font-weight: 700;
   border: 0;
-  box-shadow: 5px 5px 12px color-mix(in srgb, #fc6d26 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
   transition: background .2s ease, transform .2s ease;
 }
 .btn-gitlab:hover, .btn-repo:hover { background: #fd8a4f; transform: translateY(-1px); }
 .btn-gitlab:active, .btn-repo:active { box-shadow: var(--sh-inset-mini); transform: none; }
 .btn-repo {
   background: var(--c-secondary);
-  box-shadow: 5px 5px 12px color-mix(in srgb, var(--c-secondary) 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
 }
 .btn-repo:hover { background: color-mix(in srgb, var(--c-secondary) 80%, #fff); }
 
@@ -1613,8 +1739,6 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
   background: var(--n-bg);
   border: 1.5px solid color-mix(in srgb, currentColor 30%, var(--n-bg));
   box-shadow:
-    7px 7px 16px color-mix(in srgb, currentColor 16%, var(--n-sh-d)),
-    -6px -6px 14px var(--n-sh-l),
     inset 2px 2px 4px var(--clay-hi);
   text-decoration: none;
   transition: transform .25s ease, box-shadow .25s ease, border-color .25s ease;
@@ -1713,8 +1837,8 @@ html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
   text-transform: uppercase; letter-spacing: .05em;
 }
 .subvista-btn {
-  display: inline-flex; align-items: center; gap: 0;
-  padding: 7px 12px;
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 14px;
   border: 0; border-radius: 10px;
   background: transparent;
   color: var(--c-text-muted);
@@ -1724,24 +1848,6 @@ html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
 }
 .subvista-btn:hover { color: var(--c-text); }
 
-/* "Ver como" solo con iconos: el texto se despliega al pasar por encima o al
-   llegar con el teclado. Ocupa un tercio del ancho y se sigue leyendo cuando
-   hace falta. El gap va en el margen del texto, no en el botón, para que
-   plegado no deje un hueco al lado del icono. */
-.subvista-btn .tab-txt {
-  display: inline-block;
-  max-width: 0; margin-left: 0; opacity: 0;
-  overflow: hidden; white-space: nowrap;
-  transition: max-width .22s ease, opacity .16s ease, margin-left .22s ease;
-}
-.subvista-btn:hover .tab-txt,
-.subvista-btn:focus-visible .tab-txt {
-  max-width: 9rem; margin-left: 7px; opacity: 1;
-}
-/* Sin animación para quien la haya desactivado en su sistema. */
-@media (prefers-reduced-motion: reduce) {
-  .subvista-btn .tab-txt { transition: none; }
-}
 .subvista-btn.active {
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
@@ -1912,12 +2018,16 @@ html.dark .dep-tag.dep-bloqueada { color: #ffb35c; }
 .kb-col { display: flex; flex-direction: column; gap: 11px; min-width: 0; }
 .kb-head {
   display: flex; align-items: center; gap: 9px;
+  /* El título va en .78rem, así que un icono a 1em se queda en 12px y no se
+     lee. Se separa del texto para que aguante. */
   padding: 11px 14px;
   border-radius: 13px;
   box-shadow: var(--sh-inset-mini);
   font-size: .78rem; font-weight: 800;
   letter-spacing: .04em; text-transform: uppercase;
 }
+.kb-head .ico { width: 1.35em; height: 1.35em; }
+.et-icono .ico { width: 1.25em; height: 1.25em; }
 .kb-count {
   margin-left: auto;
   min-width: 24px; height: 24px; padding: 0 7px;
@@ -2147,7 +2257,7 @@ html.dark .cal-venc-ley { color: #ff9d5c; }
 .tab-badge-zoom { background: #2D8CFF; }
 .btn-zoom {
   background: #2D8CFF; color: #fff !important; font-weight: 700; border: 0;
-  box-shadow: 5px 5px 12px color-mix(in srgb, #2D8CFF 28%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
   transition: background .2s ease, transform .2s ease;
 }
 .btn-zoom:hover { background: #1f7ae8; transform: translateY(-1px); }
@@ -2240,16 +2350,58 @@ html.dark .reu-plat.plat-meet { color: #7BAAF7; }
 }
 .reu-invitados small { font-size: .74rem; color: var(--c-text-soft); font-weight: 600; }
 .reu-acciones { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+/* Iconos SVG dentro de botones/enlaces (grabación, copiar): tamaño y alineación
+   como un icono de texto, heredando el color del botón. */
+.ico-svg { width: 16px; height: 16px; flex: none; vertical-align: -3px; }
+a:has(> .ico-svg), button:has(> .ico-svg) { display: inline-flex; align-items: center; gap: 7px; }
+a:has(> .ico-svg) .ico-svg, button:has(> .ico-svg) .ico-svg { vertical-align: 0; }
+
+/* Historial por día de una reunión recurrente: se despliega bajo su fila y
+   lista los días que ya ocurrieron (registro de "qué días hubo reunión") con su
+   grabación/resumen, más la de hoy/próxima con "Entrar". */
+.reu-hist {
+  margin: -6px 0 2px; margin-left: 24px;
+  border-left: 2px solid var(--c-border-soft); border-radius: 0 0 12px 12px;
+  padding-left: 4px;
+}
+.reu-hist > summary {
+  list-style: none; cursor: pointer; user-select: none;
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 10px;
+  font-size: .86rem; color: var(--c-text-muted);
+}
+.reu-hist > summary::-webkit-details-marker { display: none; }
+.reu-hist > summary:hover { background: var(--c-bg-hundido); color: var(--c-text); }
+.reu-hist > summary b { color: var(--c-text); }
+.reu-hist > summary i.fa-clock-rotate-left { color: var(--c-secondary); }
+.reu-dias { list-style: none; margin: 2px 0 4px; padding: 0 0 0 4px; display: flex; flex-direction: column; gap: 6px; }
+.reu-dia {
+  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+  padding: 9px 12px; border-radius: 11px;
+  background: var(--c-bg-hundido); font-size: .86rem;
+}
+.reu-dia-fecha { display: inline-flex; align-items: center; gap: 8px; font-weight: 600; color: var(--c-text); }
+.reu-dia-ok { color: var(--c-success); }
+.reu-dia-hoy { background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); }
+.reu-dia-prox .reu-dia-fecha { color: var(--c-text-muted); font-weight: 500; }
+.reu-dia-acc { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.reu-dia-nota, .reu-dia-vacio { color: var(--c-text-soft); font-style: italic; }
+.reu-dia-vacio { padding: 9px 12px; }
+.reu-dia-tag { font-size: .72rem; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .04em; }
+.reu-dia-tag.t-hoy { color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 16%, transparent); }
+
 /* "Ver grabación": botón lleno tipo play, resalta cuando ya hay grabación.
    Doble clase para ganarle al fondo de .accion-btn (declarado más abajo). */
 .accion-btn.accion-grab {
-  background: linear-gradient(135deg, #7C3AED, #A855F7);
+  background: linear-gradient(135deg, #17A34A, #2BC55E);
   color: #fff !important; font-weight: 700; border: 0;
   padding: 8px 14px;
-  box-shadow: 5px 5px 12px color-mix(in srgb, #7C3AED 30%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
+  text-decoration: none;   /* es un <a>: sin subrayado */
   transition: transform .2s ease, filter .2s ease, box-shadow .2s ease;
 }
-.accion-btn.accion-grab i { color: #fff !important; }
+.accion-btn.accion-grab:hover { text-decoration: none; }
+.accion-btn.accion-grab i, .accion-btn.accion-grab .ico-svg { color: #fff !important; }
 .accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
 .accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
 
@@ -2375,7 +2527,7 @@ html.dark .obs-tag { color: #ffb35c !important; }
 }
 html.dark .oc-texto { background: var(--c-bg-soft); }
 .oc-texto::placeholder { color: var(--c-text-soft); }
-.oc-texto:focus { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 30%, transparent); }
+.oc-texto:focus { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px color-mix(in srgb, var(--pc, var(--c-secondary)) 55%, transparent); }
 
 .oc-previews { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
 .oc-previews:empty { display: none; }
@@ -2397,7 +2549,7 @@ html.dark .oc-texto { background: var(--c-bg-soft); }
   width: 22px; height: 22px; border: 0; border-radius: 50%;
   background: var(--c-terracota); color: #fff;
   font-size: .64rem; cursor: pointer;
-  box-shadow: 0 2px 6px -1px rgba(0,0,0,.4);
+  box-shadow: none;
   display: inline-flex; align-items: center; justify-content: center;
 }
 .oc-prev-doc button { top: 50%; right: 8px; transform: translateY(-50%); background: transparent; color: var(--c-text-soft); box-shadow: none; }
@@ -2579,6 +2731,18 @@ html.dark .om-num-pend { color: #ffb35c; }
 html.dark .filtro-clear { color: #ff9d5c; }
 .filtro-clear:hover { text-decoration: underline; }
 
+/* Aviso de "ver como" dentro de la barra de filtros: es un filtro más, y de
+   los que más despistan, así que se ve y se quita desde aquí. */
+.filtro-vercomo {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 6px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  color: var(--c-secondary); font-size: .78rem; font-weight: 700;
+  text-decoration: none; white-space: nowrap;
+}
+.filtro-vercomo:hover { background: color-mix(in srgb, var(--c-secondary) 20%, transparent); }
+.filtro-vercomo .fa-xmark { opacity: .65; font-size: .72rem; }
+
 .tabla-scroll { overflow-x: auto; }
 .tabla-meca { width: 100%; border-collapse: collapse; min-width: 760px; }
 .tabla-meca thead th {
@@ -2605,6 +2769,17 @@ html.dark .filtro-clear { color: #ff9d5c; }
 
 .celda-tarea { display: flex; gap: 11px; align-items: flex-start; min-width: 240px; }
 .celda-tarea b { color: var(--c-text); font-weight: 700; display: block; }
+/* #id de la tarea: el número que va en los commits. Clic para copiarlo. */
+.tarea-id {
+  display: inline-block; vertical-align: middle;
+  font-family: 'JetBrains Mono', ui-monospace, 'SFMono-Regular', monospace;
+  font-size: .72rem; font-weight: 700; line-height: 1;
+  color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  border: 0; border-radius: 7px; padding: 3px 7px; margin-right: 6px;
+  cursor: pointer; transition: background .15s ease;
+}
+.tarea-id:hover { background: color-mix(in srgb, var(--c-secondary) 22%, transparent); }
 .celda-tarea small {
   color: var(--c-text-soft); display: block; margin-top: 2px; line-height: 1.4;
   max-width: 340px;
@@ -2648,10 +2823,19 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   box-shadow: var(--sh-inset-mini);
   border-radius: 12px;
   color: var(--c-text);
+  /* Los <textarea> caen a fuente monoespaciada por defecto del navegador; se
+     fuerza la del panel para que se vean como el resto de campos. */
+  font-family: inherit;
 }
+/* El aviso de foco va por DENTRO del campo, no como un halo alrededor.
+   Alrededor era un box-shadow de 3px hacia fuera, y cualquier contenedor con
+   scroll u overflow:hidden lo recortaba: el panel de un asistente, una tarjeta
+   de tabla, una lista larga... y al pulsar el campo parecia que se cortaba.
+   Por dentro no hay nada que recortar, en ningun sitio y tampoco en los que
+   vengan despues. */
 .input-meca:focus {
   border: 0;
-  box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
 }
 .input-meca::placeholder { color: var(--c-text-soft); }
 
@@ -2671,7 +2855,16 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
 }
 .select-meca:focus {
   outline: none;
-  box-shadow: var(--sh-inset-mini), 0 0 0 3px rgba(var(--c-secondary-rgb), .25);
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
+}
+/* Los dos controles que el panel sustituye por uno propio (el selector con
+   buscador y el calendario) no tenían aviso de foco: se quedaban con el
+   outline del navegador, que además se recorta igual que el halo. Van con el
+   mismo por dentro, así se navega con teclado y se ve dónde estás. */
+.ms-trigger:focus-visible,
+.md-trigger:focus-visible {
+  outline: none;
+  box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55);
 }
 .select-sm { padding: 9px 32px 9px 13px; font-size: .8rem; }
 
@@ -2691,7 +2884,8 @@ html.dark .accion-btn.accion-peligro:hover { color: #ff9d5c; }
   cursor: pointer; text-align: left;
 }
 html.dark .md-trigger { background: var(--c-bg-soft); }
-.md-open .md-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+/* Abierto, por dentro: fuera se lo comía el borde del panel con scroll */
+.md-open .md-trigger { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .md-ph { color: var(--c-text-soft); font-weight: 500; }
 .md-ico { color: var(--c-secondary); flex-shrink: 0; }
 
@@ -2701,7 +2895,7 @@ html.dark .md-trigger { background: var(--c-bg-soft); }
   background: var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--c-secondary) 22%, var(--n-bg));
   border-radius: 16px;
-  box-shadow: 0 28px 56px -22px rgba(0, 0, 0, .55);
+  box-shadow: none;
   padding: 14px;
   animation: ms-in .16s ease;
 }
@@ -2730,7 +2924,7 @@ html.dark .md-trigger { background: var(--c-bg-soft); }
 .md-d.hoy { box-shadow: inset 0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 55%, var(--n-bg)); color: var(--c-secondary); }
 .md-d.sel {
   background: var(--c-secondary); color: #fff;
-  box-shadow: 0 6px 14px -6px var(--c-secondary);
+  box-shadow: none;
 }
 .md-hora {
   display: flex; align-items: center; gap: 8px;
@@ -2780,9 +2974,24 @@ html.dark .md-time { background: var(--c-bg-soft); color-scheme: dark; }
 }
 html.dark .ms-trigger { background: var(--c-bg-soft); }
 .ms-sm .ms-trigger { padding: 9px 12px; font-size: .8rem; }
-.ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), 0 0 0 2.5px rgba(var(--c-secondary-rgb), .3); }
+/* Idem: el selector abierto se marca por dentro y ya no se corta */
+.ms-open .ms-trigger { box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .ms-label { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; gap: 5px; align-items: center; overflow: hidden; }
-.ms-multi .ms-label { padding: 1px 0; }
+/* Con muchas opciones marcadas, las fichas crecían hacia abajo sin tope y
+   estiraban el modal entero. El campo se queda a tres filas y hace su propio
+   scroll; overscroll-behavior evita que al llegar al final arrastre el modal. */
+.ms-multi .ms-label {
+  padding: 1px 0;
+  align-items: flex-start; align-content: flex-start;
+  max-height: 5.4rem; overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+.ms-multi .ms-label::-webkit-scrollbar { width: 6px; }
+.ms-multi .ms-label::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, var(--c-text-soft) 35%, transparent);
+  border-radius: 99px;
+}
 .ms-label > :not(.ms-chip):not(.ms-ph) { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .ms-ph { color: var(--c-text-soft); font-weight: 500; }
 .ms-caret { color: var(--c-text-soft); font-size: .72rem; transition: transform .2s ease; flex-shrink: 0; }
@@ -2806,7 +3015,7 @@ html.dark .ms-trigger { background: var(--c-bg-soft); }
   background: var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--c-secondary) 20%, var(--n-bg));
   border-radius: 14px;
-  box-shadow: 0 26px 54px -22px rgba(0, 0, 0, .5);
+  box-shadow: none;
   padding: 8px;
   animation: ms-in .16s ease;
 }
@@ -2821,7 +3030,7 @@ html.dark .ms-trigger { background: var(--c-bg-soft); }
   color: var(--c-text); font-family: 'Inter', sans-serif; font-size: .82rem;
 }
 html.dark .ms-search input { background: var(--c-bg-soft); }
-.ms-search input:focus { outline: none; box-shadow: var(--sh-inset-mini), 0 0 0 2px rgba(var(--c-secondary-rgb), .3); }
+.ms-search input:focus { outline: none; box-shadow: var(--sh-inset-mini), inset 0 0 0 2px rgba(var(--c-secondary-rgb), .55); }
 .ms-opts { max-height: 260px; overflow-y: auto; display: flex; flex-direction: column; gap: 2px; }
 .ms-opt {
   display: flex; align-items: center; gap: 8px;
@@ -3002,7 +3211,8 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   transition: box-shadow .2s ease, opacity .2s ease;
 }
 /* Elegido: aro de acento. Descartado: se apaga, para verlo de un vistazo. */
-.av-persona:has(.av-todo:checked) { box-shadow: var(--sh-inset-mini), 0 0 0 1.5px rgba(var(--c-secondary-rgb), .35); }
+/* Esta fila vive en una lista con scroll (.av-lista): por dentro también */
+.av-persona:has(.av-todo:checked) { box-shadow: var(--sh-inset-mini), inset 0 0 0 1.5px rgba(var(--c-secondary-rgb), .5); }
 .av-persona.av-fuera { opacity: .45; }
 .av-persona.av-sincorreo { opacity: .6; }
 .av-cab { display: flex; align-items: center; gap: 11px; padding: 11px 13px; }
@@ -3058,7 +3268,9 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   box-shadow: inset 0 0 0 2px var(--c-secondary);
 }
 .av-marca input:disabled + .av-marca-caja { opacity: .4; }
-.av-marca input:focus-visible + .av-marca-caja { box-shadow: 0 0 0 2.5px rgba(var(--c-secondary-rgb), .35); }
+/* La casilla es de 19px y vive en una lista con scroll: el aviso de foco va
+   por dentro, que fuera se lo comía el borde de la lista. */
+.av-marca input:focus-visible + .av-marca-caja { box-shadow: inset 0 0 0 2px rgba(var(--c-secondary-rgb), .8); }
 
 .av-pie {
   display: flex; align-items: center; justify-content: space-between; gap: 14px; flex-wrap: wrap;
@@ -3215,11 +3427,17 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .met-2col {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-  gap: 30px;
-  align-items: start;
-  margin-top: 22px;
+  gap: 18px;
+  align-items: stretch;
+  margin-top: 18px;
 }
-.met-2col > section { margin: 0; }
+/* A la misma altura y el cuerpo ocupando lo que sobra, para que ninguna
+   quede a medias con un hueco debajo. */
+.met-2col > section {
+  margin: 0; height: 100%;
+  display: flex; flex-direction: column;
+}
+.met-2col > section > .metricas-cuerpo { flex: 1; }
 
 /* Un heatmap por repositorio, lado a lado para llenar el ancho */
 .ap-mapas {
@@ -3439,6 +3657,221 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .ap-lb-barra { flex: 1; height: 9px; border-radius: 999px; background: var(--c-bg-soft); overflow: hidden; }
 .ap-lb-barra > span { display: block; height: 100%; border-radius: 999px; background: linear-gradient(90deg, var(--c-verde-lima), var(--c-verde-esmeralda)); }
 .ap-lb-num { flex: none; font-size: .9rem; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
+
+/* "Sin asignar": commits que no calzan con ninguna ficha (correo/usuario a registrar) */
+.ap-sin { margin-top: 12px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); padding: 4px 14px; }
+.ap-sin summary { cursor: pointer; font-size: .85rem; font-weight: 700; color: var(--c-text-muted); display: flex; align-items: center; gap: 8px; padding: 9px 0; }
+.ap-sin summary::-webkit-details-marker { display: none; }
+.ap-sin summary i { color: #e0803a; }
+.ap-sin-ayuda { font-size: .78rem; color: var(--c-text-muted); margin: 2px 0 10px; line-height: 1.5; }
+.ap-sin-lista { display: flex; flex-direction: column; gap: 3px; max-height: 260px; overflow-y: auto; padding-bottom: 10px; }
+.ap-sin-fila { display: flex; align-items: center; gap: 10px; font-size: .82rem; padding: 6px 8px; border-radius: 8px; }
+.ap-sin-fila:hover { background: color-mix(in srgb, var(--c-secondary) 7%, transparent); }
+.ap-sin-id { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--c-text); }
+.ap-sin-id b { color: var(--c-secondary); font-family: 'JetBrains Mono', ui-monospace, monospace; font-size: .95em; font-weight: 700; }
+.ap-sin-prov { font-size: .66rem; text-transform: uppercase; color: var(--c-text-soft); letter-spacing: .05em; }
+.ap-sin-num { flex: none; font-weight: 800; color: var(--c-text); min-width: 26px; text-align: right; }
+
+/* =========================================================
+   Instituciones (catálogo + en requerimientos)
+   ========================================================= */
+/* Catálogo (instituciones.php) */
+.inst-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 16px; margin-top: 22px; }
+.inst-card { display: flex; align-items: center; gap: 14px; padding: 16px 18px; }
+.inst-logo {
+  flex: none; width: 52px; height: 52px; border-radius: 14px;
+  display: flex; align-items: center; justify-content: center; overflow: hidden;
+  background: #fff; box-shadow: var(--sh-inset-mini); color: var(--c-secondary); font-size: 1.2rem;
+}
+.inst-logo img { width: 100%; height: 100%; object-fit: contain; }
+.inst-logo-prev { width: 72px; height: 72px; }
+.inst-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.inst-datos b { color: var(--c-text); font-weight: 700; }
+.inst-datos small { color: var(--c-text-muted); font-size: .8rem; }
+.inst-acciones { flex: none; display: flex; gap: 4px; }
+
+/* Logos de institución en cada fila de requerimiento */
+.req-f-inst { display: flex; flex-wrap: wrap; gap: 5px; margin-top: 4px; }
+.req-inst-chip {
+  display: inline-flex; align-items: center; gap: 5px; max-width: 160px;
+  padding: 2px 8px 2px 3px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 10%, transparent);
+  font-size: .68rem; font-weight: 700; color: var(--c-text-muted);
+}
+.req-inst-chip img { width: 16px; height: 16px; border-radius: 50%; object-fit: cover; background: #fff; flex: none; }
+.req-inst-chip i { font-size: .7rem; color: var(--c-secondary); margin-left: 4px; }
+.req-inst-chip .truncate { min-width: 0; }
+
+/* Métrica por institución (requerimientos.php) */
+/* Dashboard de requerimientos (ApexCharts): rejilla de tarjetas de gráfico. */
+.req-dash { padding: 18px 20px; margin-bottom: 18px; }
+.req-dash-cab { margin-bottom: 14px; }
+.req-dash-cab h2 { display: inline-flex; align-items: center; gap: 9px; margin: 0; font-size: 1.05rem; color: var(--c-text); }
+.req-dash-cab .ajuste-ayuda { margin: 4px 0 0; }
+.req-dash-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; }
+.req-dash-card {
+  background: var(--n-bg); border-radius: 16px; padding: 14px 14px 6px;
+  box-shadow: var(--sh-inset-mini); min-width: 0;
+  /* La rejilla estira todas las tarjetas de la fila a la más alta. En columna,
+     el área del gráfico se queda ese alto sobrante y centra lo que lleve
+     dentro, en vez de dejar el hueco muerto debajo. */
+  display: flex; flex-direction: column;
+}
+.req-dash-card h3 {
+  margin: 0 0 6px; font-size: .82rem; font-weight: 700; letter-spacing: .02em;
+  color: var(--c-text-muted); text-transform: uppercase;
+}
+.req-dash-chart { min-height: 200px; flex: 1 1 auto; }
+.rd-vacio {
+  display: flex; align-items: center; justify-content: center;
+  height: 100%; min-height: 160px; margin: 0; padding: 20px 8px;
+  color: var(--c-text-soft); font-style: italic; font-size: .86rem; text-align: center;
+}
+
+/* Cifra suelta: lo que se dibuja cuando solo hay una categoría y un gráfico
+   sería una dona de una porción o una barra de lado a lado. Cifras
+   proporcionales (no tabulares): a este tamaño el "11" tabular queda suelto. */
+.rd-cifra {
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 6px; min-height: 190px; height: 100%; padding: 12px;
+  text-align: center;
+}
+.rd-cifra b {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-size: 3rem; font-weight: 700; line-height: 1;
+  color: var(--c-text);
+}
+.rd-cifra span {
+  display: inline-flex; align-items: center; gap: 7px;
+  font-size: .88rem; font-weight: 600; color: var(--c-text-muted);
+}
+.rd-cifra .rd-punto { width: 9px; height: 9px; border-radius: 999px; flex: none; }
+/* ApexCharts hereda mal algunos colores en oscuro: forzamos texto legible */
+.req-dash-card .apexcharts-text tspan,
+.req-dash-card .apexcharts-legend-text { fill: var(--c-text); color: var(--c-text) !important; }
+.req-dash-card h3 i { margin-right: 6px; color: var(--c-secondary); }
+
+/* Panel de requerimientos como pantalla aparte: KPIs + rejilla de gráficos */
+.rd-kpis {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px; margin-bottom: 16px;
+}
+.rd-kpi {
+  display: flex; align-items: center; gap: 12px;
+  padding: 14px 16px; border-radius: 15px;
+  background: var(--n-bg); box-shadow: var(--sh-card); border: 1.5px solid var(--c-border-soft);
+}
+.rd-kpi-ico {
+  width: 42px; height: 42px; flex: none; border-radius: 12px;
+  display: grid; place-items: center; font-size: 1.05rem;
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary);
+  box-shadow: var(--sh-inset-mini);
+}
+.rd-kpi-datos { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
+.rd-kpi-datos b { font-size: 1.5rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.rd-kpi-datos small { font-size: .78rem; color: var(--c-text-muted); font-weight: 600; }
+.rd-kpi.kpi-ok .rd-kpi-ico     { background: color-mix(in srgb, var(--c-success) 16%, transparent); color: var(--c-success); }
+.rd-kpi.kpi-info .rd-kpi-ico   { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); }
+.rd-kpi.kpi-alerta .rd-kpi-ico { background: color-mix(in srgb, var(--c-danger) 15%, transparent); color: var(--c-danger); }
+.rd-kpi.kpi-neutro .rd-kpi-ico { background: var(--c-bg-hundido); color: var(--c-text-muted); }
+
+.rd-grid-pagina { grid-template-columns: repeat(3, minmax(0, 1fr)); margin-bottom: 22px; }
+.rd-grid-pagina .rd-ancho-2 { grid-column: span 2; }
+@media (max-width: 1100px) {
+  .rd-grid-pagina { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 720px) {
+  .rd-grid-pagina { grid-template-columns: 1fr; }
+  .rd-grid-pagina .rd-ancho-2 { grid-column: span 1; }
+}
+
+.inst-metrica { padding: 16px 18px; margin-bottom: 18px; }
+.inst-metrica-tit { display: flex; align-items: center; justify-content: space-between; font-weight: 800; font-size: .95rem; color: var(--c-text); margin-bottom: 12px; }
+.inst-metrica-tit span { display: inline-flex; align-items: center; gap: 8px; }
+.inst-metrica-link { font-size: .8rem; font-weight: 700; color: var(--c-secondary); text-decoration: none; display: inline-flex; align-items: center; gap: 5px; }
+.inst-metrica-lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 8px; }
+.inst-metrica-item {
+  display: flex; align-items: center; gap: 10px; padding: 8px 12px;
+  border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  text-decoration: none; color: var(--c-text); transition: box-shadow .15s ease;
+}
+.inst-metrica-item:hover { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--c-secondary) 40%, transparent) inset; }
+.inst-metrica-item.activo { box-shadow: 0 0 0 1.5px var(--c-secondary) inset; }
+.inst-metrica-logo {
+  flex: none; width: 34px; height: 34px; border-radius: 9px; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+  background: #fff; box-shadow: var(--sh-inset-mini); color: var(--c-secondary); font-size: .85rem;
+}
+.inst-metrica-logo img { width: 100%; height: 100%; object-fit: contain; }
+.inst-metrica-datos { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.inst-metrica-datos b { font-size: .84rem; font-weight: 700; }
+.inst-metrica-datos small { font-size: .7rem; color: var(--c-text-muted); }
+.inst-metrica-num { flex: none; font-size: 1.05rem; font-weight: 800; color: var(--c-secondary); }
+
+/* =========================================================
+   Componente de subida de archivos (UI::archivo) — uno para todo
+   Estados: default · hover · focus · dragging · error · disabled · con-archivo
+   ========================================================= */
+.fx { display: flex; flex-direction: column; gap: 6px; }
+.fx-label { font-size: .8rem; font-weight: 700; color: var(--c-text); }
+.fx-req { color: var(--c-secondary); }
+.fx-error { margin: 2px 0 0; font-size: .78rem; font-weight: 600; color: #e05563; }
+.fx-disparo { border: 0; background: transparent; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
+.fx-off .fx-disparo, .fx-disparo:disabled { cursor: not-allowed; opacity: .55; }
+
+/* --- Drop zone --- */
+.fx-zona .fx-disparo {
+  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
+  padding: 26px 20px; border-radius: 16px;
+  border: 2px dashed color-mix(in srgb, var(--c-secondary) 32%, var(--c-border-soft));
+  background: color-mix(in srgb, var(--c-secondary) 3%, transparent);
+  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.fx-zona .fx-disparo:hover { border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 9%, transparent); }
+.fx-zona .fx-disparo:focus-visible { outline: none; border-color: var(--c-secondary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-secondary) 22%, transparent); }
+.fx-zona.fx-drag .fx-disparo { border-style: solid; border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 15%, transparent); }
+.fx-up {
+  width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
+  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); color: var(--c-secondary); font-size: 1.1rem;
+}
+.fx-zona-txt { display: flex; flex-direction: column; gap: 2px; }
+.fx-zona-txt b { font-weight: 700; color: var(--c-text); font-size: .92rem; }
+.fx-zona-txt small { color: var(--c-text-muted); font-size: .76rem; }
+
+/* --- Inline (como un input) --- */
+.fx-inline .fx-disparo {
+  display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); transition: box-shadow .18s ease;
+}
+.fx-inline .fx-disparo:hover { box-shadow: var(--sh-inset-mini), inset 0 0 0 1px color-mix(in srgb, var(--c-secondary) 30%, transparent); }
+.fx-inline .fx-disparo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-inline.fx-drag .fx-disparo { box-shadow: inset 0 0 0 2px var(--c-secondary); }
+.fx-clip { color: var(--c-secondary); flex: none; }
+.fx-inline-txt { flex: 1; min-width: 0; color: var(--c-text-muted); font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fx-inline-hint { flex: none; font-size: .72rem; font-weight: 700; color: var(--c-text-soft); text-transform: uppercase; letter-spacing: .03em; }
+
+/* --- Error --- */
+.fx-err.fx-zona .fx-disparo { border-color: #e05563; background: color-mix(in srgb, #e05563 6%, transparent); }
+.fx-err.fx-zona .fx-up { background: color-mix(in srgb, #e05563 15%, transparent); color: #e05563; }
+.fx-err.fx-inline .fx-disparo { box-shadow: inset 0 0 0 1.5px #e05563; }
+
+/* --- Con archivo (filled): el chip reemplaza al disparador; en multi se queda para añadir más --- */
+.fx-lleno.fx-zona:not([data-multi]) .fx-disparo,
+.fx-lleno.fx-inline .fx-disparo { display: none; }
+.fx-lleno.fx-zona[data-multi] .fx-disparo { padding: 14px; margin-top: 6px; }
+.fx-files:empty { display: none; }
+.fx-files { display: flex; flex-direction: column; gap: 6px; }
+.fx-file {
+  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, var(--c-success) 9%, var(--n-bg));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-success) 32%, transparent);
+}
+.fx-file-ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--c-success); font-size: .95rem; }
+.fx-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.fx-file-info b { font-size: .85rem; font-weight: 700; color: var(--c-text); }
+.fx-file-info small { font-size: .72rem; color: var(--c-text-muted); }
+.fx-file-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-muted); cursor: pointer; }
+.fx-file-x:hover { background: color-mix(in srgb, #e05563 12%, transparent); color: #e05563; }
 
 /* Avatares chicos */
 .ap-av {
@@ -3742,7 +4175,7 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   border-radius: 999px;
   background: var(--n-bg);
   border: 1.5px solid color-mix(in srgb, var(--av-c1) 35%, var(--n-bg));
-  box-shadow: 4px 4px 10px color-mix(in srgb, var(--av-c1) 18%, var(--n-sh-d)), -3px -3px 7px var(--n-sh-l);
+  box-shadow: none;
   color: var(--c-text); text-decoration: none;
   font-size: .78rem; font-weight: 700;
   transition: color .2s ease, transform .2s ease, box-shadow .2s ease;
@@ -3844,8 +4277,9 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   overflow-y: auto;
   background: var(--n-bg);
   color: var(--c-text);
+  /* El modal no necesita 100px de sombra para despegarse: el fondo oscurecido
+     de ::backdrop ya lo separa de la página. */
   box-shadow:
-    0 50px 100px -40px rgba(0, 0, 0, .5),
     inset 2.5px 2.5px 5px var(--clay-hi),
     inset -2.5px -2.5px 5px var(--clay-lo);
 }
@@ -3872,10 +4306,28 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 .dlg-tarea textarea.input-meca { min-height: 90px; }
 .dlg-tarea .campo-doble { gap: 18px; }
 .dlg-form header {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex; align-items: flex-start; justify-content: space-between;
   margin: -4px 0 2px;
 }
-.dlg-form header h3 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; gap: 10px; align-items: center; }
+/* Cabecera con BADGE de ícono arriba del título (estilo del panel: claymorphism).
+   El ícono que va como primer hijo del h3 se convierte en una pastilla suave. */
+.dlg-form header h3 { margin: 0; font-size: 1.15rem; font-weight: 800; color: var(--c-text); display: flex; flex-direction: column; align-items: flex-start; gap: 12px; }
+.dlg-form header h3 > i:first-child {
+  flex: none; width: 46px; height: 46px; border-radius: 13px;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 1.15rem; color: var(--c-secondary);
+  background: color-mix(in srgb, var(--c-secondary) 13%, var(--n-bg));
+  box-shadow: var(--sh-inset-mini);
+}
+/* Variante de peligro (confirmar/anular): badge rojo */
+.dlg-form.dlg-peligro header h3 > i:first-child { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, var(--n-bg)); }
+
+/* --- Iconos en color del sistema (ya no grises) --- */
+/* Menú de la cuenta (Mi perfil, Documentación, Cerrar sesión) */
+.cuenta-panel .sidebar-link i { color: var(--c-secondary); }
+.cuenta-panel .cuenta-salir i { color: var(--c-danger); }
+/* Iconos de las etiquetas de campo (Product Owner, Scrum Master, Institución…) */
+.campo > span > i.fa-solid { color: var(--c-secondary); }
 .dlg-close {
   width: 36px; height: 36px; border: 0; border-radius: 11px;
   /* Sin esto el aspa se apoya en la línea base y queda descentrada */
@@ -3917,7 +4369,7 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
   grid-template-columns: 274px 1fr;
   align-items: stretch;
   gap: 0; padding: 0;
-  min-height: 540px;
+  min-height: 430px;   /* antes 540: dejaba mucho hueco en los pasos cortos */
 }
 
 /* ----- Riel de pasos ----- */
@@ -4127,28 +4579,79 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .git-email-fila .input-prefijo { flex: 1; min-width: 0; }
 .git-email-quitar { flex: none; }
 
+/* Supervisor: elegir qué proyectos ve (modal + botón en la tabla) */
+/* Engranaje: configurar los proyectos del supervisor (solo ícono, morado) */
+.sw-config { color: var(--c-morado, #7c3aed); }
+.sw-config:hover { color: #fff; background: var(--c-morado, #7c3aed); }
+.cs-lista { display: flex; flex-direction: column; gap: 6px; max-height: 320px; overflow-y: auto; margin-top: 10px; padding-right: 2px; }
+.cs-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 12px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  cursor: pointer; font-size: .9rem; color: var(--c-text);
+}
+.cs-item i { color: var(--c-secondary); flex: none; }
+.cs-item .truncate { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cs-item input { flex: none; width: 16px; height: 16px; accent-color: var(--c-secondary); }
+.cs-item:has(input:checked) { box-shadow: 0 0 0 1.5px var(--c-secondary) inset; }
+.cs-vacio { color: var(--c-text-muted); font-size: .9rem; }
+
+/* Supervisor: toggle Kanban / Flujo (no tiene la barra de pestañas normal) */
+.sup-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 16px; }
+.sup-toggle-tit {
+  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-weight: 800; font-size: 1.05rem; color: var(--c-text);
+  display: inline-flex; align-items: center; gap: 8px; margin-right: 6px;
+}
+.sup-toggle-tit i { color: var(--c-morado, #7c3aed); }
+.sup-tab {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 8px 14px; border: 0; border-radius: 12px;
+  background: transparent; box-shadow: var(--sh-soft);
+  color: var(--c-text-soft); font-weight: 700; font-size: .86rem; cursor: pointer;
+  transition: color .2s ease, box-shadow .2s ease;
+}
+.sup-tab:hover { color: var(--c-text); }
+.sup-tab.active { color: var(--c-secondary); box-shadow: var(--sh-inset-mini); }
+
 /* Selector de iconos */
-.icon-picker { display: flex; flex-wrap: wrap; gap: 8px; }
-.icon-picker label { cursor: pointer; }
+/* Icono del design system (SVG /Interface): hereda color (currentColor) y su
+   tamaño es 1em, así lo controla el font-size del contenedor. */
+.ico { display: inline-block; width: 1em; height: 1em; vertical-align: -0.14em; flex: none; }
+.pac-icon .ico { width: 1.55rem; height: 1.55rem; }
+.ph-icon .ico { width: 2.1rem; height: 2.1rem; }
+
+.icon-picker { display: flex; flex-wrap: wrap; gap: 10px; padding: 4px; }
+/* Con el set entero desplegado son 200 y pico: se limita el alto y se pasa a
+   scroll para que el botón de guardar no se vaya fuera de la pantalla. */
+.icon-picker:has(.icono-extra:not([hidden])) { max-height: 260px; overflow-y: auto; }
+.icon-mas { margin: 10px 0 0 4px; }
+.icon-mas i { transition: transform .2s ease; }
+.icon-mas.abierto i { transform: rotate(180deg); }
 .icon-picker input { display: none; }
-.icon-picker i {
-  width: 38px; height: 38px;
+.icon-picker label {
+  cursor: pointer;
+  width: 50px; height: 50px;
   display: inline-flex; align-items: center; justify-content: center;
-  border-radius: 11px;
+  border-radius: 14px;
   background: var(--n-bg);
   box-shadow: var(--sh-mini);
   color: var(--c-text-muted);
-  font-size: .95rem;
   transition: color .18s ease, box-shadow .18s ease;
 }
-.icon-picker input:checked + i {
+.icon-picker .ico { width: 1.5rem; height: 1.5rem; }
+.icon-picker label:has(input:checked) {
   box-shadow: var(--sh-inset-mini);
   color: var(--c-secondary);
 }
-.icon-picker label:hover i { color: var(--c-secondary); }
+/* El display:inline-flex de arriba gana al display:none que el navegador da
+   a [hidden], así que los del set completo salían igual con el desplegable
+   cerrado. Hay que decirlo a mano. */
+.icon-picker label[hidden] { display: none; }
+.icon-picker label:hover { color: var(--c-secondary); }
 
 /* Selector de colores (planos) */
-.color-picker { display: flex; flex-wrap: wrap; gap: 10px; }
+.color-picker { display: flex; flex-wrap: wrap; gap: 10px; padding: 5px; }
 .color-picker label { cursor: pointer; }
 .color-picker input { display: none; }
 .color-picker span {
@@ -4229,28 +4732,32 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 /* =========================================================
    Tabs (Ajustes y reutilizables)
    ========================================================= */
+/* Tabs del design system: la activa es una pastilla azul marina llena y las
+   demás quedan planas con una línea de 1.5px. El icono va en el SVG del set
+   (UI::icono), no en Font Awesome, y hereda el color del botón. */
 .tabs-meca {
-  display: flex; flex-wrap: wrap; gap: 12px;
+  display: flex; flex-wrap: wrap; gap: 10px;
   margin-bottom: 26px;
 }
 .tab-btn {
   display: inline-flex; align-items: center; gap: 9px;
   padding: 11px 20px;
-  border: 1.5px solid transparent;
-  border-radius: 14px;
+  border: 1.5px solid var(--c-border-soft, rgba(30, 55, 100, .12));
+  border-radius: 12px;
   background: var(--n-bg);
-  box-shadow: var(--sh-soft);
   color: var(--c-text-muted);
   font-family: 'Inter', sans-serif;
   font-size: .86rem; font-weight: 700;
   cursor: pointer;
-  transition: box-shadow .22s ease, color .22s ease, border-color .22s ease;
+  transition: background-color .2s ease, color .2s ease, border-color .2s ease;
 }
-.tab-btn:hover { color: var(--c-text); }
-.tab-btn.active {
-  box-shadow: var(--sh-inset-mini);
-  color: var(--c-secondary);
-  border-color: color-mix(in srgb, var(--c-secondary) 30%, var(--n-bg));
+.tab-btn .ico { width: 1.15em; height: 1.15em; }
+.tab-btn:hover { color: var(--c-text); border-color: color-mix(in srgb, var(--c-tab-activo) 35%, transparent); }
+.tab-btn.active,
+.tab-btn.active:hover {
+  background: var(--c-tab-activo);
+  border-color: var(--c-tab-activo);
+  color: #fff;
 }
 /* Sobre el fondo marino, el relleno que aguanta texto blanco no separa lo
    suficiente del fondo. Aclararlo rompería el blanco, así que el borde lo
@@ -4582,14 +5089,13 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
 .btn-peligro-solido {
   background: var(--c-terracota);
   color: #fff; font-weight: 700;
-  box-shadow: 5px 5px 12px color-mix(in srgb, var(--c-terracota) 25%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
 }
 .btn-peligro-solido:hover { background: #a85622; }
 
-/* Boton verde (Restaurar defaults) */
-.btn-verde { color: var(--c-verde-esmeralda) !important; }
-.btn-verde:hover { color: #1e8a5a !important; }
-html.dark .btn-verde:hover { color: #57d99a !important; }
+/* .btn-verde vivía aquí con !important y su propio esmeralda. Ahora es una
+   variante más de la familia de botones (ver "Variantes de color"), que ya
+   trae su paso por tema y su hover. */
 
 /* Fila de catalogo simple (roles): input + quitar */
 .fila-cat.fila-cat-2 { grid-template-columns: 1fr auto; }
@@ -4609,7 +5115,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   color: var(--th-fg);
   font-size: .84rem; font-weight: 800;
   letter-spacing: .09em; text-transform: uppercase;
-  box-shadow: 6px 6px 14px color-mix(in srgb, var(--th-bg) 28%, var(--n-sh-d)), -4px -4px 10px var(--n-sh-l), var(--clay-pop);
+  box-shadow: var(--clay-pop);
 }
 .mc-tabla-head span { display: inline-flex; align-items: center; gap: 10px; font-size: inherit; }
 
@@ -4629,7 +5135,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   font-size: .8rem; font-weight: 800;
   letter-spacing: .03em;
   cursor: pointer;
-  box-shadow: 0 6px 14px -6px rgba(0, 0, 0, .35);
+  box-shadow: none;
   transition: background .2s ease, transform .2s ease;
 }
 .mc-tabla-add:hover { background: #fff; transform: translateY(-1px); }
@@ -4915,6 +5421,7 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
   .sidebar-menu .sidebar-link .truncate,
   .sidebar-menu .vc-abrir .truncate { display: inline !important; }
   .sidebar-menu .sidebar-link i { width: 22px !important; font-size: .95rem !important; }
+  .sidebar-menu .sidebar-link .ico { width: 20px !important; height: 20px !important; }
   html.sb-collapsed .sidebar-menu .nav-grupo:not(.cuenta-menu),
   html.sb-collapsed .sidebar-menu .nav-grupo-items:not(.cuenta-panel) { display: contents !important; }
   html.sb-collapsed .sidebar-menu .nav-grupo-btn,
@@ -5170,9 +5677,11 @@ html.dark .btn-verde:hover { color: #57d99a !important; }
 @media (max-width: 900px) { .plan-grid { grid-template-columns: 1fr; } }
 
 /* ---------- Select de acceso en la tabla de equipo ---------- */
+.celda-acceso { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .celda-acceso .inline-form { display: inline-block; margin: 0; }
 .select-acceso.es-admin + .ms-trigger .ms-label { color: var(--c-success); font-weight: 700; }
 .select-acceso.es-scrum + .ms-trigger .ms-label { color: var(--c-secondary); font-weight: 700; }
+.select-acceso.es-supervisor + .ms-trigger .ms-label { color: var(--c-morado, #7c3aed); font-weight: 700; }
 .select-acceso.es-lector + .ms-trigger .ms-label { color: var(--c-text-soft); }
 .acceso-yo {
   display: inline-flex; align-items: center; gap: 6px;
@@ -5626,7 +6135,7 @@ html.dark .doc-claude-nota { background: color-mix(in srgb, #d97757 14%, var(--c
 #doc-bajar.btn-primary {
   background: linear-gradient(135deg, var(--claude-hi), var(--claude));
   border: none; color: #fff;
-  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--claude) 90%, #000);
+  box-shadow: none;
 }
 #doc-bajar.btn-primary:hover { background: linear-gradient(135deg, var(--claude), var(--claude-lo)); transform: translateY(-1px); }
 #doc-abrir.btn-outline {
@@ -5706,7 +6215,7 @@ img[src$="claude.svg"] {
 }
 .pf-hero-foto { position: relative; cursor: pointer; flex-shrink: 0; }
 .pf-file { position: absolute; inset: 0; opacity: 0; cursor: pointer; }
-.pf-hero-avatar { box-shadow: 0 8px 24px -10px color-mix(in srgb, var(--av-c1) 80%, #000); }
+.pf-hero-avatar { box-shadow: none; }
 .pf-cam {
   position: absolute; right: -2px; bottom: -2px;
   width: 32px; height: 32px; border-radius: 50%;
@@ -5840,7 +6349,7 @@ img[src$="claude.svg"] {
 .pf-claude-acc { display: flex; gap: 10px; flex-wrap: wrap; }
 .pf-claude .btn-primary {
   background: linear-gradient(135deg, #e8926a, #d97757); border: none;
-  box-shadow: 0 8px 20px -10px color-mix(in srgb, #d97757 90%, #000);
+  box-shadow: none;
 }
 .pf-claude .btn-outline { border-color: color-mix(in srgb, #d97757 42%, transparent); color: #c8663f; }
 @media (max-width: 640px) { .pf-claude-acc { width: 100%; } .pf-claude-acc .btn-meca { flex: 1; justify-content: center; } }
@@ -5860,9 +6369,380 @@ img[src$="claude.svg"] {
 @keyframes kb-shimmer { from { background-position: 220% 0; } to { background-position: -220% 0; } }
 
 /* ============================================================
+   Login InnoTech Hub — celeste + verde, plano, wordmark arriba.
+   Override del login neumórfico anterior (gana por orden de fuente).
+   ============================================================ */
+/* Paleta del login, alineada al design system: el acento es el azul marino
+   (foco, iconos y enlaces) y la acción principal el verde de crear/confirmar,
+   igual que el resto del panel. El celeste de antes no salía de ninguna parte
+   del DS. El celeste de la barra lateral NO sale de aquí: está escrito a
+   pelo más abajo, así que esto no lo toca. */
+:root{
+  --it-celeste:#000080; --it-celeste-2:#16169E;   /* acento (era celeste) */
+  --it-verde:#00C853;   --it-verde-2:#00B84C;     /* acción principal */
+  --it-tinta:#101828;   --it-borde:#E4E7EC;
+}
+
+/* Lado marca: verde (degradado mono suave, profundo para que el canvas se lea) */
+.login-arte{
+  background: linear-gradient(165deg,#053d2e 0%,#0a7350 55%,#0e8a5b 100%) !important;
+  background-color:#064e3b !important;
+}
+.login-arte::after{ background: linear-gradient(to top, rgba(5,50,40,.92), transparent 55%) !important; }
+
+/* Wordmark arriba, grande, sobre pastilla blanca (contraste garantizado) */
+.arte-marca{
+  background: rgba(255,255,255,.97) !important; border:none !important;
+  box-shadow: none !important;
+  padding:13px 20px !important; border-radius:16px !important; margin-bottom:30px !important;
+}
+.arte-marca img{ width:auto !important; height:34px !important; max-width:210px !important;
+  background:none !important; padding:0 !important; border-radius:0 !important; }
+
+/* Lado formulario: más plano y con el wordmark arriba */
+.login-panel{ background:#fff !important; }
+.login-marca{ margin-bottom:30px !important; }
+.login-marca img{ width:auto !important; height:30px !important; max-width:200px !important;
+  background:none !important; box-shadow:none !important; border:none !important; padding:0 !important; }
+.login-caja h1{ color:var(--it-tinta) !important; }
+.login-sub{ color:#5b7079 !important; }
+
+/* Inputs planos, foco celeste (sin neumorfismo) */
+.login-caja .input-prefijo,
+.login-caja .campo > .input-meca,
+.login-caja .select-meca{
+  border:1.5px solid var(--it-borde) !important; box-shadow:none !important;
+  border-radius:12px !important; background:#fff !important;
+}
+.login-caja .input-prefijo:focus-within,
+.login-caja .campo > .input-meca:focus,
+.login-caja .select-meca:focus{
+  border-color:var(--it-celeste) !important;
+  box-shadow:0 0 0 4px color-mix(in srgb, var(--it-celeste) 18%, transparent) !important;
+}
+.login-caja .input-prefijo > i{ color:var(--it-celeste) !important; }
+
+/* Botón Entrar: el verde de confirmar del DS, sólido y plano. Es la misma
+   acción que el "Confirmar" de las tarjetas del sistema, así que va del
+   mismo color que crear/agregar en el panel. */
+.login-btn{
+  background:var(--it-verde) !important;
+  color:#fff !important;
+  border:none !important;
+  box-shadow: none !important;
+}
+.login-btn:hover{ background:var(--it-verde-2) !important; }
+
+/* Google y separador: planos, acento celeste */
+.btn-google{ box-shadow:none !important; border:1.5px solid var(--it-borde) !important; border-radius:12px !important; }
+.btn-google:hover{ border-color:var(--it-celeste) !important; background:#f8fbfe !important; }
+.login-sep span{ color:#93a3ab !important; }
+.login-pie i{ color:var(--it-celeste) !important; }
+/* "Crear una cuenta": botón de contorno, no un enlace suelto. Se ve que se
+   puede pulsar y tiene un área de clic de verdad, pero al ser hueco no
+   compite con Entrar — solo una es la acción principal de la pantalla. */
+.lp-cta{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.lp-cta a.lp-cta-btn, .lp-cta a.lp-cta-btn:visited{
+  display:inline-flex; align-items:center; gap:7px;
+  margin-left:0;
+  padding:9px 15px;
+  border:1.5px solid var(--it-celeste) !important;
+  border-radius:11px;
+  color:var(--it-celeste) !important;
+  background:#fff;
+  text-decoration:none;
+  transition:background .18s ease, color .18s ease;
+}
+.lp-cta a.lp-cta-btn:hover{
+  background:var(--it-celeste) !important;
+  color:#fff !important;
+  text-decoration:none;
+}
+.lp-cta a.lp-cta-btn .ico{ width:1.1em; height:1.1em; }
+
+/* Selector "¿Quién eres?": acento celeste al pasar */
+.ident-persona:hover{ border-color:var(--it-celeste) !important;
+  box-shadow: none !important; }
+.ident-persona > i{ color:var(--it-celeste) !important; }
+
+/* ============================================================
+   Barra lateral InnoTech — celeste en claro y oscuro, iconos
+   blancos, activos SOLO con el icono en verde (sin cajas ni bordes).
+   ============================================================ */
+.sidebar, html.dark .sidebar{
+  background: linear-gradient(180deg,#66B2FF 0%,#4FA3F5 100%) !important;
+  /* Sin sombra al lado: el corte de color entre el azul y el panel ya separa */
+  box-shadow: none !important;
+  /* Color al que funde el aviso de "hay mas abajo": el azul del pie de la
+     barra, no el fondo del panel (si no, sale una mancha blanca). */
+  --sb-fade: #4FA3F5;
+}
+/* Marca (título + subtítulo) sobre la barra azul: el subtítulo usaba el azul
+   de marca y quedaba azul-sobre-azul (ilegible). Se unifica en blanco como el
+   resto de la barra; el subtítulo, blanco translúcido para jerarquía. */
+.sidebar .sidebar-brand strong, html.dark .sidebar .sidebar-brand strong{
+  color:#fff !important;
+}
+.sidebar .sidebar-brand span, html.dark .sidebar .sidebar-brand span{
+  color: rgba(255,255,255,.78) !important;
+}
+/* Rótulos de sección */
+.sidebar .sidebar-label, html.dark .sidebar .sidebar-label{
+  color: rgba(255,255,255,.72) !important; background: transparent !important;
+}
+html.sb-collapsed .sidebar-label, html.sb-collapsed.dark .sidebar-label{
+  background: rgba(255,255,255,.18) !important; color:#fff !important;
+}
+/* Enlaces: texto e icono BLANCOS, sin caja ni borde */
+.sidebar .sidebar-link, html.dark .sidebar .sidebar-link{
+  color:#fff !important; background:transparent !important;
+  box-shadow:none !important; border:none !important;
+}
+.sidebar .sidebar-link i, html.dark .sidebar .sidebar-link i{ color:#fff !important; }
+/* Iconos SVG del DS en la barra: tamaño uniforme (el color lo heredan del
+   enlace, que es blanco, vía currentColor). */
+.sidebar .sidebar-link .ico{ width: 1.2rem; height: 1.2rem; }
+/* Excepción: cada proyecto del grupo se identifica con SU color configurado
+   (el mismo de la pantalla de proyectos), no en blanco. */
+.sidebar .sidebar-link-proyecto i, .sidebar .sidebar-link-proyecto .ico,
+html.dark .sidebar .sidebar-link-proyecto i, html.dark .sidebar .sidebar-link-proyecto .ico{ color: var(--pc, #fff) !important; }
+.sidebar .sidebar-link-proyecto .ico{ width: 1.15rem; height: 1.15rem; }
+/* Hover: leve realce translúcido (afordancia), sin borde neumórfico */
+.sidebar .sidebar-link:hover, html.dark .sidebar .sidebar-link:hover{
+  background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
+}
+/* ACTIVO: solo el icono en verde, sin caja/borde. Texto en blanco fuerte. */
+.sidebar .sidebar-link.active, html.dark .sidebar .sidebar-link.active{
+  background: rgba(255,255,255,.14) !important; box-shadow:none !important;
+  color:#fff !important; font-weight:700 !important;
+}
+.sidebar .sidebar-link.active i, html.dark .sidebar .sidebar-link.active i{
+  color:#2FE486 !important;   /* verde InnoTech */
+}
+/* Proyecto activo: conserva SU color (el fondo resaltado + la negrita ya
+   indican que está activo), no el verde genérico. */
+.sidebar .sidebar-link-proyecto.active i, .sidebar .sidebar-link-proyecto.active .ico,
+html.dark .sidebar .sidebar-link-proyecto.active i, html.dark .sidebar .sidebar-link-proyecto.active .ico{ color: var(--pc, #2FE486) !important; }
+/* Botón "ocultar menú" y flechas en blanco */
+.sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{ color:#fff !important; box-shadow:none !important; }
+.sidebar .sidebar-toggle:hover{ color:#eafff5 !important; }
+/* Chip "Ver como" translúcido sobre celeste */
+.sidebar .vc-abrir, html.dark .sidebar .vc-abrir{
+  background: rgba(255,255,255,.16) !important; box-shadow:none !important; color:#fff !important;
+}
+.sidebar .vc-abrir *{ color:#fff !important; }
+.sidebar .vc-quitar{ color:#fff !important; }
+/* Contador de proyectos (grupo plegado) */
+html.sb-collapsed .nav-grupo-n{ background:#2FE486 !important; color:#06324a !important; }
+/* Pie: iconos blancos */
+.sidebar .sidebar-foot i, html.dark .sidebar .sidebar-foot i{ color:#eafff5 !important; }
+/* Menú de cuenta (abajo): texto/roles/avatar legibles sobre celeste */
+.sidebar .sesion-chip, .sidebar .cuenta-menu .sidebar-link{ color:#fff !important; box-shadow:none !important; background:transparent !important; }
+.sidebar .sesion-chip *, .sidebar .cuenta-menu .sidebar-link i{ color:#fff !important; }
+.sidebar .sesion-info small{ color:rgba(255,255,255,.75) !important; }
+.sidebar .sesion-chip:hover, .sidebar .cuenta-menu .sidebar-link:hover{ background:rgba(255,255,255,.16) !important; }
+/* "Nuevo proyecto" (borde punteado) → blanco translúcido */
+.sidebar .sidebar-link-new{ border:1px dashed rgba(255,255,255,.5) !important; color:#fff !important; }
+.sidebar .sidebar-link-new:hover{ border-color:#2FE486 !important; color:#2FE486 !important; background:transparent !important; }
+.sidebar .sidebar-link-new:hover i{ color:#2FE486 !important; }
+
+/* --- Paneles flotantes del menú: NO van sobre el celeste ---
+   El desplegable de cuenta (escritorio) y el menú completo (móvil) son hijos
+   de .sidebar en el HTML, pero se dibujan sobre el fondo de la página. Las
+   reglas de arriba les ponían texto e iconos blancos y en modo claro quedaban
+   blanco sobre blanco (invisibles). Aquí vuelven a los colores del tema. */
+html .sidebar .cuenta-panel .sidebar-link,
+html.dark .sidebar .cuenta-panel .sidebar-link{
+  color: var(--c-text) !important; background: transparent !important;
+}
+html .sidebar .cuenta-panel .sidebar-link i, html .sidebar .cuenta-panel .sidebar-link .ico,
+html.dark .sidebar .cuenta-panel .sidebar-link i, html.dark .sidebar .cuenta-panel .sidebar-link .ico{ color: var(--c-secondary) !important; }
+/* Cada opción del menú de cuenta con su color del DS */
+html .sidebar .cuenta-perfil .ico, html.dark .sidebar .cuenta-perfil .ico{ color:#66B2FF !important; }
+html .sidebar .cuenta-docs .ico,   html.dark .sidebar .cuenta-docs .ico{ color: var(--c-secondary) !important; }
+html .sidebar .cuenta-panel .sidebar-link:hover,
+html.dark .sidebar .cuenta-panel .sidebar-link:hover{
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent) !important;
+  color: var(--c-text) !important;
+}
+html .sidebar .cuenta-panel .sidebar-link.active,
+html.dark .sidebar .cuenta-panel .sidebar-link.active{
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent) !important;
+  color: var(--c-secondary) !important;
+}
+html .sidebar .cuenta-panel .sidebar-link.active i,
+html.dark .sidebar .cuenta-panel .sidebar-link.active i{ color: var(--c-secondary) !important; }
+/* Cerrar sesión: texto apagado pero ÍCONO en rojo (color del DS) */
+html .sidebar .cuenta-panel .cuenta-salir{ color: var(--c-text-muted) !important; }
+html .sidebar .cuenta-panel .cuenta-salir i, html .sidebar .cuenta-panel .cuenta-salir .ico{ color: var(--c-danger) !important; }
+html .sidebar .cuenta-panel .cuenta-salir:hover,
+html .sidebar .cuenta-panel .cuenta-salir:hover i, html .sidebar .cuenta-panel .cuenta-salir:hover .ico{ color: var(--c-danger) !important; }
+html.dark .sidebar .cuenta-panel .cuenta-salir:hover,
+html.dark .sidebar .cuenta-panel .cuenta-salir:hover i, html.dark .sidebar .cuenta-panel .cuenta-salir:hover .ico{ color: #ff9d5c !important; }
+
+@media (max-width: 900px) {
+  /* Móvil: el menú entero es un panel flotante claro, mismo problema */
+  html .sidebar .sidebar-menu .sidebar-link,
+  html.dark .sidebar .sidebar-menu .sidebar-link{
+    color: var(--c-text) !important; background: transparent !important;
+  }
+  html .sidebar .sidebar-menu .sidebar-link i,
+  html.dark .sidebar .sidebar-menu .sidebar-link i{ color: var(--c-text-soft) !important; }
+  html .sidebar .sidebar-menu .sidebar-link:hover,
+  html.dark .sidebar .sidebar-menu .sidebar-link:hover{
+    background: color-mix(in srgb, var(--c-secondary) 12%, transparent) !important;
+    color: var(--c-text) !important;
+  }
+  html .sidebar .sidebar-menu .sidebar-link.active,
+  html.dark .sidebar .sidebar-menu .sidebar-link.active{
+    background: color-mix(in srgb, var(--c-secondary) 14%, transparent) !important;
+    color: var(--c-secondary) !important;
+  }
+  html .sidebar .sidebar-menu .sidebar-link.active i,
+  html.dark .sidebar .sidebar-menu .sidebar-link.active i{ color: var(--c-secondary) !important; }
+  /* Chip "Ver como", pie y cuenta dentro del menú móvil */
+  html .sidebar .sidebar-menu .vc-abrir,
+  html .sidebar .sidebar-menu .vc-abrir *,
+  html .sidebar .sidebar-menu .vc-quitar,
+  html .sidebar .sidebar-menu .sidebar-foot i,
+  html .sidebar .sidebar-menu .sesion-chip,
+  html .sidebar .sidebar-menu .sesion-chip *{ color: var(--c-text) !important; }
+  html .sidebar .sidebar-menu .vc-abrir{
+    background: color-mix(in srgb, var(--c-secondary) 12%, transparent) !important;
+  }
+  html .sidebar .sidebar-menu .sesion-info small,
+  html .sidebar .sidebar-menu .cuenta-cab-txt small{ color: var(--c-text-soft) !important; }
+  html .sidebar .sidebar-menu .sidebar-link-new{
+    border-color: color-mix(in srgb, var(--c-secondary) 45%, transparent) !important;
+    color: var(--c-secondary) !important;
+  }
+  html .sidebar .sidebar-menu .sidebar-link-new i{ color: var(--c-secondary) !important; }
+  /* Rótulos ("GENERAL", "PROYECTOS"…) y pie del menú */
+  html .sidebar .sidebar-menu .sidebar-label,
+  html.dark .sidebar .sidebar-menu .sidebar-label{
+    color: var(--c-text-soft) !important; background: transparent !important;
+  }
+  html .sidebar .sidebar-menu .sidebar-foot,
+  html .sidebar .sidebar-menu .sidebar-foot > span,
+  html.dark .sidebar .sidebar-menu .sidebar-foot,
+  html.dark .sidebar .sidebar-menu .sidebar-foot > span{ color: var(--c-text-soft) !important; }
+  html .sidebar .sidebar-menu .theme-toggle,
+  html.dark .sidebar .sidebar-menu .theme-toggle{
+    background: color-mix(in srgb, var(--c-secondary) 14%, transparent) !important;
+  }
+  html .sidebar .sidebar-menu .theme-toggle .tt-luna{ color: var(--c-text-soft) !important; }
+}
+
+/* Marca en la barra celeste: sin caja/glow neumórfico detrás (se veía feo);
+   queda solo la pastilla blanca del logo. Y el botón de plegar, translúcido. */
+.sidebar .sidebar-brand, html.dark .sidebar .sidebar-brand{
+  background:transparent !important; box-shadow:none !important; border:none !important; padding:0 !important;
+}
+.sidebar .sidebar-brand:active{ box-shadow:none !important; }
+.sidebar .sidebar-toggle, html.dark .sidebar .sidebar-toggle{
+  background:rgba(255,255,255,.18) !important; box-shadow:none !important;
+}
+.sidebar .sidebar-toggle:hover{ background:rgba(255,255,255,.30) !important; color:#fff !important; }
+
+/* Títulos de página en azul marino InnoTech (#150089). Solo en claro:
+   en oscuro se mantienen claros para poder leerlos. */
+.page-title{ color:#150089 !important; }
+html.dark .page-title{ color:var(--c-text) !important; }
+/* El acento del título de página (p. ej. «InnoTech Hub») va en CELESTE, el
+   mismo azul de la barra lateral, no en el verde de acento general. */
+.page-title .text-secondary, html.dark .page-title .text-secondary{ color:#66B2FF !important; }
+
+/* "Ver como" en la barra celeste: borde translúcido (sin borde azul raro) */
+.sidebar .vc-abrir, html.dark .sidebar .vc-abrir{
+  border:1.5px solid rgba(255,255,255,.35) !important;
+}
+.sidebar .vc-abrir:hover{ border-color:#fff !important; }
+
+/* El botón de quitar "Ver como" traía fondo claro y glow neumórfico del tema
+   base: sobre la barra celeste era una mancha blanca, y con la × blanca encima
+   no se veía nada. Se iguala al botón de plegar: translúcido y plano. */
+.sidebar .vc-quitar, html.dark .sidebar .vc-quitar{
+  background: rgba(255,255,255,.18) !important;
+  box-shadow: none !important;
+  color:#fff !important;
+}
+.sidebar .vc-quitar:hover{ background: rgba(255,255,255,.30) !important; }
+
+/* Panel flotante de Proyectos (barra plegada).
+   Vive dentro de .sidebar, así que heredaba el `color:#fff !important` de la
+   barra celeste — pero su fondo es claro, y en modo claro quedaba blanco sobre
+   blanco. Aquí dentro mandan los colores de texto normales, que funcionan en
+   los dos temas porque el panel usa --n-bg. */
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link,
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link i,
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link-new,
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link-new i{
+  color: var(--c-text) !important;
+  background: transparent !important;
+}
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link:hover,
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link-new:hover{
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent) !important;
+  color: var(--c-secondary) !important;
+}
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link:hover i,
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link-new:hover i{
+  color: var(--c-secondary) !important;
+}
+/* El proyecto en el que estás, marcado con el verde InnoTech */
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link.active{
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent) !important;
+  color: var(--c-secondary) !important; font-weight: 700 !important;
+}
+html.sb-collapsed .sidebar .nav-grupo-items .sidebar-link.active i{
+  color:#12b866 !important;      /* verde InnoTech, oscurecido para leerse en claro */
+}
+html.dark .sidebar .nav-grupo-items .sidebar-link.active i{ color:#2FE486 !important; }
+/* Cabecera "PROYECTOS" y el aviso de lista vacía */
+html.sb-collapsed .sidebar .nav-grupo-cab{ color: var(--c-text-soft) !important; }
+html.sb-collapsed .sidebar .nav-grupo-cab i{ color: var(--c-secondary) !important; }
+html.sb-collapsed .sidebar .nav-grupo-vacio{ color: var(--c-text-soft) !important; }
+
+/* Avatar de la cuenta: su relieve neumórfico (--sh-mini + --clay-pop) lleva un
+   realce claro que sobre el celeste se ve como un halo blanco difuso. Se
+   cambia por un aro blanco limpio y una sombra real. */
+.sidebar .sesion-chip .avatar, html.dark .sidebar .sesion-chip .avatar{
+  box-shadow: 0 0 0 2px rgba(255,255,255,.55), 0 4px 10px rgba(0,0,0,.22) !important;
+}
+
+/* Interruptor de tema: la rama no lo reestilizó y seguía con el fondo claro del
+   tema base, o sea una pastilla blanca sobre la barra celeste. */
+.sidebar .theme-toggle, html.dark .sidebar .theme-toggle{
+  background: rgba(255,255,255,.16) !important;
+  box-shadow: none !important;
+}
+.sidebar .theme-toggle:hover{ background: rgba(255,255,255,.26) !important; }
+.sidebar .theme-toggle .tt-knob{
+  background:#fff !important;
+  box-shadow: 0 2px 6px rgba(0,0,0,.28) !important;
+}
+/* "Equipo dev": heredaba --c-text-soft, un gris pensado para fondo claro, que
+   sobre el celeste queda apagado. Blanco translúcido, como el resto del pie. */
+.sidebar .sidebar-foot, html.dark .sidebar .sidebar-foot{ color: rgba(255,255,255,.82) !important; }
+.sidebar .sidebar-foot > span{ color: rgba(255,255,255,.82) !important; }
+
+/* El sol y la luna se pintan aquí porque .sidebar-foot i los deja verde menta */
+.sidebar .theme-toggle .tt-sol{ color:#FFC24D !important; }
+.sidebar .theme-toggle .tt-luna{ color: rgba(255,255,255,.85) !important; }
+html.dark .sidebar .theme-toggle .tt-sol{ color: rgba(255,255,255,.55) !important; }
+html.dark .sidebar .theme-toggle .tt-luna{ color: var(--c-cian) !important; }
+
+/* ============================================================
    Métricas personales (ficha de colaborador): KPIs + gráficos SVG.
    ============================================================ */
 .stats-grid-6{ grid-template-columns:repeat(6,1fr); }
+.stats-grid-4{ grid-template-columns:repeat(4,1fr); }
+@media (max-width:700px){ .stats-grid-4{ grid-template-columns:repeat(2,1fr); } }
+/* Bloque de requerimientos en la ficha del colaborador: una tarjeta a lo
+   ancho, no la rejilla de dos de los gráficos de tareas. */
+.mc-reqs{ margin-bottom:24px; }
+.mc-reqs .stats-grid{ margin-bottom:18px; }
+.mc-reqs .mc-chart-tit{ margin-top:18px; }
 @media (max-width:1100px){ .stats-grid-6{ grid-template-columns:repeat(3,1fr); } }
 @media (max-width:560px){ .stats-grid-6{ grid-template-columns:repeat(2,1fr); } }
 
@@ -5907,6 +6787,750 @@ img[src$="claude.svg"] {
 .mc-bar-fill{ display:block; height:100%; border-radius:7px; min-width:3px; transition:width .5s cubic-bezier(.2,.8,.2,1); }
 .mc-bar-val{ font-size:.84rem; font-weight:700; color:var(--c-text); min-width:20px; text-align:right; }
 
+/* =========================================================
+   Requerimientos sueltos (módulo del administrador)
+   ========================================================= */
+
+/* Pastillas de situación: son el índice de la pantalla y a la vez el filtro.
+   Reusan el .estado-tile del resumen de un proyecto; aquí solo ponen su
+   color, que es lo que el componente lee con currentColor. */
+.req-situacion {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 16px; margin-bottom: 22px;
+}
+.sit-sin     { color: var(--c-warning); }
+.sit-curso   { color: var(--c-secondary); }
+.sit-tarde   { color: var(--c-terracota); }
+.sit-cerrado { color: var(--c-success); }
+.sit-proximo { color: var(--c-secondary); }
+html.dark .sit-tarde { color: #ff9d5c; }
+
+/* Resumen de la bandeja: los mismos tiles, pero aquí solo informan (no
+   filtran), así que ni se levantan al pasar por encima ni hacen de enlace. */
+.bandeja-resumen {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(13rem, 1fr));
+  gap: 16px; margin-bottom: 24px;
+}
+.bandeja-resumen .estado-tile:hover { transform: none; }
+/* Un cero no es una alerta: en gris pesa lo que tiene que pesar */
+.tile-apagado { color: var(--c-text-soft); }
+/* "Faltan 13 días" no cabe en el hueco de un número de dos cifras */
+.bandeja-proximo { font-size: .95rem !important; line-height: 1.3; text-align: right; }
+
+/* Pie de la ficha cuando es de solo lectura */
+.fq-nota { margin: 0 auto 0 0; max-width: 24rem; line-height: 1.45; }
+.fq-nota i { color: var(--c-secondary); margin-right: 6px; }
+
+/* Lista a la izquierda y carga del equipo a la derecha: repartir es comparar
+   lo que hay que hacer con quién lo puede coger, y antes eso obligaba a
+   abrir el modal para verlo. */
+/* Sin panel lateral: la carga del equipo se consulta al asignar, dentro del
+   modal, que es cuando de verdad se decide a quién dárselo. Aquí solo robaba
+   ancho a la lista. */
+.req-tablero { display: block; }
+.req-principal { min-width: 0; }
+
+/* Lo ya cerrado no necesita una fila entera cada uno: son tarjetas en dos
+   columnas, más bajas y sin el filo de estado — ya no hay estado que avisar. */
+.req-bloque-hecho .req-lista {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+.req-bloque-hecho .req-fila {
+  border-left: 0;
+  padding: 11px 14px;
+  background: color-mix(in srgb, var(--n-bg) 88%, transparent);
+}
+/* De la tarjeta cerrada solo interesan quién y qué: la prioridad y el plazo
+   ya no deciden nada y se callan, pero siguen en la ficha al pulsarla. */
+.req-bloque-hecho .req-f-prio,
+.req-bloque-hecho .req-f-plazo { display: none; }
+@media (max-width: 900px) {
+  .req-bloque-hecho .req-lista { grid-template-columns: 1fr; }
+}
+
+/* ----- Buscador y filtros ----- */
+.req-toolbar {
+  display: flex; align-items: flex-end; flex-wrap: wrap; gap: 14px;
+  padding: 14px 18px; margin-bottom: 20px;
+}
+.req-buscar {
+  position: relative; flex: 1 1 16rem; min-width: 0;
+  display: flex; align-items: center;
+}
+.req-buscar i {
+  position: absolute; left: 14px;
+  color: var(--c-text-soft); font-size: .8rem; pointer-events: none;
+}
+.req-buscar .input-meca { width: 100%; padding-left: 36px; }
+.req-buscar input[type="search"]::-webkit-search-cancel-button { cursor: pointer; }
+.req-filtro { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.req-filtro > span {
+  font-size: .68rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.req-filtro .select-meca, .req-filtro .ms-trigger { min-width: 11rem; }
+/* El botón solo hace falta para el buscador: los selects se envían solos */
+.req-buscar-btn { flex: none; }
+.req-limpiar {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .78rem; font-weight: 700; color: var(--c-terracota); text-decoration: none;
+  padding-bottom: 10px;
+}
+.req-limpiar:hover { text-decoration: underline; }
+
+/* .truncate no es una utilidad global del panel: cada componente la define
+   para lo suyo. Estas son las piezas de requerimientos donde un nombre largo
+   partía la fila en dos líneas y descuadraba la rejilla. */
+.req-f-txt .truncate,
+.req-f-gente small,
+.carga-p-datos .truncate,
+.dv-datos .truncate {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.req-bloque { margin-bottom: 26px; }
+.req-titulo {
+  display: flex; align-items: center; gap: 9px;
+  margin: 0 0 12px; font-size: 1.05rem; font-weight: 800; color: var(--c-text);
+}
+.req-titulo small { font-size: .78rem; font-weight: 500; color: var(--c-text-soft); }
+/* La lista es de FILAS, no de tarjetas: en una tarjeta cada requerimiento
+   intentaba mostrarlo todo y no se sabía dónde mirar. Aquí cada fila enseña
+   lo justo para decidir (estado, qué es, prioridad, plazo, quién) y el resto
+   se abre en la ficha al pulsarla. */
+.req-lista { display: flex; flex-direction: column; gap: 9px; }
+.req-fila {
+  display: grid;
+  /* Tarjeta de dos renglones: arriba el estado, de qué va y el badge; abajo
+     la tira con responsables, fechas, prioridad y plazo. Antes eran seis
+     columnas en una línea, que puestas de a dos no había quien las leyera. */
+  grid-template-columns: 2.4rem minmax(0, 1fr) auto 1rem;
+  grid-template-areas:
+    "ico txt badge mas"
+    "ico meta meta meta";
+  align-items: center; gap: 8px 14px;
+  width: 100%; padding: 12px 16px;
+  border: 0; border-radius: 16px;
+  background: var(--n-bg); box-shadow: var(--sh-card);
+  text-align: left; cursor: pointer; font: inherit; color: var(--c-text);
+  transition: transform .15s ease, box-shadow .15s ease;
+}
+.req-fila:hover { transform: translateY(-1px); box-shadow: var(--sh-card), 0 0 0 2px color-mix(in srgb, var(--c-secondary) 30%, transparent); }
+.req-fila:focus-visible { outline: 2px solid var(--c-secondary); outline-offset: 2px; }
+
+/* El borde dice el estado de un vistazo; lo cerrado se apaga */
+.req-fila.req-e-asignado  { border-left-color: var(--c-secondary); }
+.req-fila.req-e-hecho     { border-left-color: var(--c-success); }
+.req-fila.req-e-hecho,
+.req-fila.req-e-descartado { opacity: .62; }
+/* Pasado de fecha y sin cerrar: es lo único que se salta el código de estado */
+
+.req-f-estado {
+  width: 2.4rem; height: 2.4rem; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text-soft);
+}
+.req-e-pendiente .req-f-estado { color: var(--c-warning); }
+.req-e-asignado  .req-f-estado { color: var(--c-secondary); }
+.req-e-hecho     .req-f-estado { color: var(--c-success); }
+
+.req-f-txt { min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.req-f-txt strong { font-size: .95rem; font-weight: 700; }
+.req-f-txt small { font-size: .78rem; color: var(--c-text-soft); }
+
+.req-f-prio { display: inline-flex; }
+
+/* Quién lo hace: avatares Y nombres. Solo con las iniciales de colores hay
+   que pasar el ratón por encima de cada bolita para saber de quién es. */
+.req-f-gente { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.req-f-gente small { font-size: .76rem; color: var(--c-text-soft); min-width: 0; }
+.req-libre {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .76rem; font-weight: 700; color: var(--c-warning); white-space: nowrap;
+}
+
+/* El plazo ya restado. El color es el aviso: se lee sin leerlo. */
+.req-f-plazo {
+  justify-self: end; text-align: right;
+  font-size: .78rem; font-weight: 700; white-space: nowrap;
+  color: var(--c-text-soft);
+}
+.req-f-plazo.plazo-vencido { color: var(--c-terracota); }
+.req-f-plazo.plazo-hoy     { color: var(--c-terracota); }
+.req-f-plazo.plazo-pronto  { color: #a8860a; }
+.req-f-plazo.plazo-sin     { font-weight: 500; opacity: .8; }
+.req-f-plazo.plazo-cerrado { font-weight: 500; opacity: .75; }
+html.dark .req-f-plazo.plazo-vencido,
+html.dark .req-f-plazo.plazo-hoy    { color: #ff9d5c; }
+html.dark .req-f-plazo.plazo-pronto { color: var(--c-amarillo); }
+
+.req-f-mas { color: var(--c-text-soft); opacity: .5; font-size: .8rem; justify-self: end; }
+
+/* Estrechito: prioridad, responsables y plazo se van a una segunda línea
+   antes que apretar el título hasta dejarlo ilegible. */
+@media (max-width: 1000px) {
+  .req-fila { grid-template-columns: 2.4rem minmax(0, 1fr) auto; grid-auto-rows: min-content; row-gap: 9px; }
+  .req-f-gente, .req-f-prio { grid-column: 2; justify-self: start; }
+  .req-f-plazo { grid-column: 3; grid-row: 2; }
+  .req-f-mas { display: none; }
+}
+
+/* ----- Panel de carga del equipo ----- */
+.carga-panel { padding: 16px 4px 12px 16px; }
+.carga-panel-cab { padding-right: 12px; margin-bottom: 12px; }
+.carga-panel-cab h2 { margin: 0 0 6px; font-size: 1rem; font-weight: 800; }
+.carga-panel-cab .ajuste-ayuda { margin: 0; line-height: 1.45; }
+.carga-panel-lista {
+  list-style: none; margin: 0; padding: 0 8px 0 0;
+  display: flex; flex-direction: column; gap: 2px;
+  max-height: 26rem; overflow-y: auto; overscroll-behavior: contain;
+}
+.carga-p > a {
+  display: grid; grid-template-columns: 30px minmax(0, 1fr) 3.4rem 1.5rem;
+  align-items: center; gap: 10px;
+  padding: 7px 9px; border-radius: 12px;
+  text-decoration: none; color: inherit;
+  transition: background .15s ease;
+}
+.carga-p > a:hover { background: color-mix(in srgb, var(--c-secondary) 8%, transparent); }
+.carga-p-activa > a { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); }
+.carga-p-datos { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.carga-p-datos strong { font-size: .82rem; font-weight: 600; color: var(--c-text); }
+.carga-p-datos small { font-size: .7rem; color: var(--c-text-soft); }
+.carga-p-barra {
+  height: 7px; border-radius: 99px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); overflow: hidden;
+}
+.carga-p-barra span { display: block; height: 100%; border-radius: 99px; background: var(--c-secondary); }
+/* Verde libre, ámbar a tope: el mismo código de color que en el selector */
+.carga-p.carga-baja  .carga-p-barra span { background: var(--c-success); }
+.carga-p.carga-media .carga-p-barra span { background: var(--c-secondary); }
+.carga-p.carga-alta  .carga-p-barra span { background: var(--c-warning); }
+.carga-p-num { font-size: .85rem; font-weight: 800; color: var(--c-text-soft); text-align: right; }
+.carga-p.carga-alta .carga-p-num { color: var(--c-warning); }
+
+/* ---------- Ficha del requerimiento ---------- */
+.dlg-ficha { width: min(600px, calc(100vw - 40px)); }
+.fq-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.fq-chip {
+  padding: 5px 12px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .74rem; font-weight: 700; color: var(--c-text-soft);
+}
+.fq-chip.fq-pendiente { color: var(--c-warning); }
+.fq-chip.fq-asignado  { color: var(--c-secondary); }
+.fq-chip.fq-hecho     { color: var(--c-success); }
+.fq-chip.fq-vencido {
+  background: color-mix(in srgb, var(--c-terracota) 15%, transparent);
+  box-shadow: none; color: var(--c-terracota);
+}
+html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
+
+.fq-bloque h4 {
+  margin: 0 0 6px;
+  font-size: .72rem; font-weight: 800; letter-spacing: .07em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.fq-bloque p { margin: 0; font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }
+.fq-bloque p.vacio, .fq-personas li.vacio { color: var(--c-text-soft); font-style: italic; }
+
+.fq-datos {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr)); gap: 12px;
+  padding: 14px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--c-secondary) 5%, transparent);
+}
+.fq-datos > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.fq-datos span {
+  font-size: .68rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.fq-datos b { font-size: .88rem; overflow-wrap: anywhere; }
+
+.fq-personas { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 7px; }
+.fq-personas li {
+  display: flex; align-items: baseline; gap: 9px;
+  padding: 8px 12px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  font-size: .88rem;
+}
+.fq-personas small { color: var(--c-text-soft); font-size: .76rem; }
+.dlg-ficha footer .inline-form { margin: 0; }
+
+/* Formulario "marcar terminado" (bandeja del responsable): ocupa todo el ancho
+   del pie, con la observación arriba y el botón alineado a la derecha. El pie
+   envuelve para que "Cerrar" caiga debajo en vez de compartir fila. */
+.dlg-ficha footer:has(.fq-terminar) { flex-wrap: wrap; }
+.dlg-ficha footer .fq-terminar {
+  flex: 1 1 100%; display: flex; flex-direction: column; gap: 10px; margin: 0;
+}
+.dlg-ficha footer .fq-terminar .campo { margin: 0; }
+.dlg-ficha footer .fq-terminar .campo > span small { color: var(--c-text-soft); font-weight: 500; }
+.dlg-ficha footer .fq-terminar textarea { resize: vertical; min-height: 52px; }
+.dlg-ficha footer .fq-terminar .btn-meca { align-self: flex-end; }
+/* Observación de cierre (cómo se entregó) */
+.fq-cierre p { margin: 0; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+.fq-cierre-meta { display: block; margin-top: 6px; color: var(--c-text-soft); font-size: .78rem; }
+
+/* Observaciones del requerimiento: la conversación, y debajo el campo para
+   añadir la siguiente. Se lee de arriba abajo —la más vieja primero—, al
+   revés que la lista de requerimientos, porque aquí es un hilo. */
+.fq-obs { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.fq-obs[hidden] { display: none; }
+.fq-obs li {
+  padding: 9px 13px; border-radius: 12px;
+  border: 1px solid var(--c-border-soft);
+  background: color-mix(in srgb, var(--c-secondary) 4%, transparent);
+}
+.fq-obs li p {
+  margin: 0; font-size: .87rem; line-height: 1.5;
+  white-space: pre-wrap; overflow-wrap: anywhere;
+}
+.fq-obs li small { display: block; margin-top: 5px; color: var(--c-text-soft); font-size: .74rem; }
+.fq-obs-vacio { margin: 0 0 10px; color: var(--c-text-soft); font-style: italic; font-size: .86rem; }
+.fq-obs-n {
+  margin-left: 6px; padding: 1px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 15%, transparent);
+  color: var(--c-secondary); font-size: .72rem; font-weight: 800;
+}
+.fq-obs-form { display: flex; flex-direction: column; gap: 8px; margin: 0; }
+.fq-obs-form textarea { resize: vertical; min-height: 52px; }
+.fq-obs-form .btn-meca { align-self: flex-end; }
+/* Las respuestas: sangradas y con la línea del hilo al costado. Un solo nivel
+   —quien responde a una respuesta cuelga igual del hilo—, porque a la tercera
+   sangría no queda ancho para leer nada. */
+.fq-obs li.fq-obs-r {
+  margin-left: 22px;
+  border-left: 2px solid color-mix(in srgb, var(--c-secondary) 30%, transparent);
+  border-radius: 4px 12px 12px 4px;
+}
+.fq-obs-responder {
+  margin-top: 7px; padding: 0; border: 0; background: none; cursor: pointer;
+  font: inherit; font-size: .74rem; font-weight: 700; color: var(--c-secondary);
+}
+.fq-obs-responder:hover { text-decoration: underline; }
+.fq-obs-responder i { margin-right: 4px; }
+/* "Respondiendo a X", encima del campo: sin esto no se sabe si lo que se
+   escribe abre hilo o contesta, que es lo que decide a quién le llega. */
+.fq-obs-respondiendo {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  padding: 6px 11px; border-radius: 10px;
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+  color: var(--c-secondary); font-size: .76rem; font-weight: 700;
+}
+.fq-obs-respondiendo[hidden] { display: none; }
+.fq-obs-respondiendo span { flex: 1 1 auto; min-width: 0; }
+.fq-obs-cancelar {
+  flex: none; padding: 0; border: 0; background: none; cursor: pointer;
+  color: inherit; font-size: .85rem; line-height: 1;
+}
+#fq-obs-para { display: block; margin-top: 7px; }
+
+/* Selector de personas del paso "Responsables". Vive dentro de un panel del
+   asistente, así que se desplaza él solo: con 23 personas, dejar crecer el
+   panel obligaba a scrollear el modal entero para llegar a los botones. */
+.dv-lista {
+  flex: 1 1 auto; min-height: 8rem;
+  display: flex; flex-direction: column; gap: 8px;
+  overflow-y: auto; overscroll-behavior: contain;
+  padding-right: 4px;            /* que la sombra de la fila no toque la barra */
+}
+.dv-persona {
+  /* La casilla de dentro es position:absolute. Sin este relative su bloque
+     contenedor es el modal, así que las 23 casillas se salen de la lista y se
+     apilan como desbordamiento del diálogo: aparecía una segunda barra de
+     scroll y se podía arrastrar el modal hasta una zona vacía. */
+  position: relative;
+  display: flex; align-items: center; gap: 11px;
+  padding: 9px 13px; border-radius: 14px; cursor: pointer;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  transition: box-shadow .15s ease, background .15s ease;
+}
+.dv-persona input { position: absolute; opacity: 0; pointer-events: none; }
+.dv-persona:hover { box-shadow: var(--sh-card); }
+.dv-persona:has(input:checked) {
+  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg));
+  box-shadow: 0 0 0 2px var(--c-secondary) inset;
+}
+.dv-datos { display: flex; flex-direction: column; min-width: 0; line-height: 1.25; }
+.dv-datos strong { font-size: .9rem; font-weight: 600; color: var(--c-text); }
+.dv-datos small { font-size: .75rem; color: var(--c-text-soft); }
+.dv-carga {
+  flex: 0 0 2.1rem;
+  padding: 4px 8px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .82rem; font-weight: 800; color: var(--c-text-soft); text-align: center;
+}
+/* Mismo código de color que la carga del equipo: verde libre, ámbar a tope */
+.dv-persona.carga-baja  .dv-barra span { background: var(--c-success); }
+.dv-persona.carga-media .dv-barra span { background: var(--c-secondary); }
+.dv-persona.carga-alta  .dv-barra span { background: var(--c-warning); }
+.dv-persona.carga-alta  .dv-carga { color: var(--c-warning); }
+.dv-medida { flex: 0 0 8.5rem; display: flex; flex-direction: column; gap: 4px; }
+.dv-medida small { font-size: .7rem; color: var(--c-text-soft); }
+/* Cuándo entregó por última vez: es lo que decide el orden cuando varios
+   marcan la misma carga, así que si no se dice, la lista parece arbitraria.
+   Quien acaba de entregar se apaga — es a quien MENOS toca darle el siguiente. */
+.dv-medida .dv-ultima { font-size: .66rem; font-style: italic; }
+.dv-medida .dv-ultima-reciente { opacity: .6; }
+.dv-barra {
+  display: block; height: 7px; border-radius: 99px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); overflow: hidden;
+}
+.dv-barra span { display: block; height: 100%; border-radius: 99px; background: var(--c-secondary); }
+.dv-datos { flex: 1 1 8rem; }
+.dv-sinav {
+  width: 34px; height: 34px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--c-text-soft);
+}
+/* Contador de requerimientos (los que faltan por asignar, o los que uno tiene
+   en su bandeja). Va en ROJO: es trabajo con dueño y fecha, y en azul se
+   perdía entre los iconos de la barra. */
+.nav-badge-fin { background: #E5484D; color: #fff; }
+
+/* Y se ve TAMBIÉN con la barra plegada, que es como se trabaja la mayor parte
+   del tiempo: pasa a ser un punto en la esquina del icono, igual que el
+   contador de proyectos. Los demás contadores siguen ocultos al plegar porque
+   cuelgan de un título de sección, que ahí no existe; este cuelga de un icono,
+   que sí. */
+html.sb-collapsed .sidebar-link:has(.nav-badge-fin) { position: relative; }
+/* Mismas medidas y misma esquina que .nav-grupo-n (el contador de proyectos):
+   los dos puntos van en la misma columna y tienen que leerse como la misma
+   cosa, no como dos avisos distintos. */
+html.sb-collapsed .nav-badge-fin {
+  display: block;
+  position: absolute; top: 3px; right: 11px;
+  min-width: 16px; height: auto; padding: 0 4px;
+  font-size: .6rem; font-weight: 800; line-height: 16px; text-align: center;
+}
+/* En el menú flotante del móvil la barra se ve expandida aunque lleve puesta
+   la clase de plegada, así que ahí el contador vuelve al final de su fila.
+   OJO: esto va DENTRO de la media query. Suelto, pisaba también el escritorio
+   y dejaba el punto rojo a media altura en vez de en la esquina. */
+@media (max-width: 900px) {
+  .sidebar-menu .nav-badge-fin {
+    position: static !important;
+    min-width: 19px !important; height: 19px !important;
+    line-height: 1 !important; font-size: .68rem !important;
+  }
+}
+
+/* Filtro por rol del selector de personas (una fila de nueve botones ocupaba
+   más que la propia lista, así que el filtro es un select) */
+.carga-filtro { display: flex; align-items: center; gap: 9px; min-width: 0; }
+.carga-filtro > span {
+  font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.carga-filtro .select-meca, .carga-filtro .ms-trigger { min-width: 13rem; }
+/* Lo esconde el filtro del modal, no el estado del dato */
+.dv-persona.filtrado { display: none; }
+
+/* Selección múltiple en el selector de personas */
+.dv-check {
+  flex-shrink: 0;
+  width: 20px; height: 20px; border-radius: 7px;
+  display: grid; place-items: center;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: transparent; font-size: .7rem;
+}
+.dv-persona:has(input:checked) .dv-check { background: var(--c-secondary); color: #fff; box-shadow: none; }
+
+/* Los asistentes de requerimientos NO se desplazan: mantienen su tamaño y el
+   único scroll es el interno de la lista de personas. Esto es el cinturón; el
+   tirante es el position:relative de .dv-persona, que es lo que de verdad
+   estiraba el diálogo. Se deja porque de este modal cuelgan más piezas
+   flotantes (los paneles de los selects y el calendario de las fechas). */
+.dlg-req-wz { overflow: hidden; }
+/* El paso de "Responsables" es un solo campo alto (filtro + lista + ayuda):
+   se estira para que la lista aproveche el panel entero, y es ella la que se
+   desplaza por dentro. */
+.wz-panel > .campo:has(.dv-lista) { flex: 1 1 auto; min-height: 0; }
+.dv-filtro { margin-bottom: 2px; }
+.dv-filtro > span { flex: none; }
+/* Buscador + filtro de rol del selector de personas: en fila, el buscador crece */
+.dv-controles { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 4px; }
+.dv-controles .dv-filtro { margin-bottom: 0; }
+.dv-buscar { position: relative; display: flex; align-items: center; flex: 1 1 12rem; min-width: 0; }
+.dv-buscar > i {
+  position: absolute; left: 12px; color: var(--c-text-soft); font-size: .85rem; pointer-events: none;
+}
+.dv-buscar .input-meca { width: 100%; padding-left: 34px; }
+.dv-sinresultados { margin: 2px 0 8px; color: var(--c-text-soft); font-style: italic; font-size: .86rem; }
+/* De qué requerimiento va el asistente de asignar, bajo el título del paso */
+.wz-sobre { margin: 6px 0 0; font-size: .82rem; color: var(--c-text); }
+
+
+/* =========================================================
+   Reuniones diarias (dailies): horario fijo por proyecto
+   ========================================================= */
+
+/* ----- Campo del asistente de proyecto: hora + días ----- */
+/* El input de la hora vive dentro de un .campo, que es una COLUMNA flex: un
+   `flex: 0 0 8rem` aquí fijaba la ALTURA, no el ancho, y salía una caja de
+   128px de alto. El ancho lo pone la rejilla del formulario. */
+.daily-hora { width: 100%; }
+.daily-dias { display: flex; gap: 5px; }
+.daily-dia { cursor: pointer; }
+.daily-dia input { position: absolute; opacity: 0; pointer-events: none; }
+.daily-dia span {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .78rem; font-weight: 800; color: var(--c-text-soft);
+  transition: background .15s ease, color .15s ease;
+}
+.daily-dia:has(input:checked) span { background: var(--c-secondary); color: #fff; box-shadow: none; }
+
+/* ----- Modal del horario ----- */
+.dlg-dailies { width: min(600px, calc(100vw - 40px)); }
+.dlg-dailies .dlg-form { gap: 14px; }
+.dlg-dailies .dlg-form header { align-items: flex-start; }
+.dlg-dailies .dlg-form header .ajuste-ayuda { margin: 4px 0 0; }
+
+/* La siguiente, arriba y aparte: es lo que se viene a mirar */
+.daily-proxima {
+  display: flex; align-items: center; gap: 14px;
+  padding: 12px 16px; border-radius: 16px;
+  background: color-mix(in srgb, var(--c-secondary) 12%, transparent);
+}
+.dp-hora {
+  font-size: 1.5rem; font-weight: 800; line-height: 1;
+  color: var(--c-secondary); font-variant-numeric: tabular-nums;
+}
+.dp-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dp-txt strong { font-size: .95rem; font-weight: 700; }
+.dp-txt small { font-size: .78rem; color: var(--c-text-soft); }
+
+/* Agenda: primero hoy, luego el resto de la semana */
+.daily-grupo {
+  margin: 4px 0 -4px;
+  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--c-text-soft);
+}
+.daily-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.daily-fila {
+  display: grid; grid-template-columns: 3.2rem 2rem minmax(0, 1fr) auto auto;
+  align-items: center; gap: 12px;
+  padding: 9px 14px; border-radius: 14px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+}
+/* La siguiente se marca también en la lista, para no perderla de vista */
+.daily-siguiente { box-shadow: 0 0 0 2px var(--c-secondary); }
+/* Lo que ya pasó se apaga, pero se queda: sirve para saber que existe */
+.daily-pasada { opacity: .5; }
+
+.daily-hora-txt {
+  font-size: .98rem; font-weight: 800; color: var(--c-text);
+  font-variant-numeric: tabular-nums;
+}
+.daily-icono {
+  width: 2rem; height: 2rem; border-radius: 10px;
+  display: grid; place-items: center; color: #fff; font-size: .78rem;
+}
+.daily-datos { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.daily-datos strong { font-size: .9rem; font-weight: 700; }
+.daily-datos small { font-size: .76rem; color: var(--c-text-soft); }
+.daily-datos .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.daily-chip {
+  padding: 3px 9px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .68rem; font-weight: 800; color: var(--c-text-soft); white-space: nowrap;
+}
+/* Editar y quitar: solo salen en las del propio Scrum Master */
+.daily-acciones { display: flex; align-items: center; gap: 4px; }
+.daily-acciones .inline-form { margin: 0; }
+
+.daily-vacio, .daily-nota {
+  margin: 0; padding: 14px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--c-secondary) 7%, transparent);
+  font-size: .84rem; color: var(--c-text-soft); line-height: 1.5;
+}
+.daily-vacio i, .daily-nota i { color: var(--c-secondary); margin-right: 7px; }
+
+/* ----- Alta / edición: plegada, porque casi siempre se viene a mirar ----- */
+.daily-alta { border-top: 1px solid var(--c-border-soft); padding-top: 12px; }
+.daily-alta > summary {
+  cursor: pointer; list-style: none;
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 8px 14px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-mini);
+  font-size: .82rem; font-weight: 700; color: var(--c-secondary);
+}
+.daily-alta > summary::-webkit-details-marker { display: none; }
+.daily-alta > summary:hover { background: color-mix(in srgb, var(--c-secondary) 10%, var(--n-bg)); }
+.daily-alta[open] > summary { margin-bottom: 14px; }
+.daily-alta form { display: flex; flex-direction: column; gap: 12px; }
+/* Proyecto y reunión mandan; la hora ocupa lo justo */
+.daily-alta-campos {
+  display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) 8.5rem; gap: 12px;
+}
+/* Sin esto los campos se estiran a la altura de la fila y el de la hora sale
+   como una caja enorme */
+.daily-alta-campos > .campo { align-self: start; }
+.daily-alta-pie { display: flex; justify-content: flex-end; gap: 10px; }
+/* Los botones del panel traen su propio display, que le gana al atributo
+   [hidden]: sin esto, "Cancelar" se ve también al añadir. */
+.daily-alta-pie button[hidden] { display: none; }
+/* Mientras se edita una existente, el formulario se marca para que no parezca
+   que se está creando otra */
+.daily-alta.editando { box-shadow: 0 0 0 2px var(--c-secondary); border-radius: 14px; padding: 14px; }
+
+/* Días: cuadraditos que se encienden */
+.daily-dias { display: flex; gap: 5px; flex-wrap: wrap; }
+.daily-dia { cursor: pointer; }
+.daily-dia input { position: absolute; opacity: 0; pointer-events: none; }
+.daily-dia span {
+  display: grid; place-items: center;
+  width: 32px; height: 32px; border-radius: 10px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .78rem; font-weight: 800; color: var(--c-text-soft);
+  transition: background .15s ease, color .15s ease;
+}
+.daily-dia:has(input:checked) span { background: var(--c-secondary); color: #fff; box-shadow: none; }
+.daily-hora { width: 100%; }
+
+@media (max-width: 560px) {
+  .daily-fila { grid-template-columns: 3.2rem 2rem minmax(0, 1fr); row-gap: 8px; }
+  .daily-chip, .daily-acciones { grid-column: 3; justify-self: start; }
+  .daily-alta-campos { grid-template-columns: 1fr; }
+}
+
+/* =========================================================================
+   Dependencias entre equipos: selector, chips en el tablero, nodos externos
+   del flujo, destinatarios de observaciones y recordatorio.
+   ========================================================================= */
+
+/* --- Selector de dependencias (crear / editar tarea) --- */
+.dp-campo > span { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); display: block; margin-bottom: 6px; }
+.dp-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
+.dp-op { flex: 1 1 auto; padding: 9px 12px; border: 0; border-radius: 12px; background: var(--n-bg);
+  box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-weight: 600; font-size: .85rem;
+  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: .15s; }
+.dp-op i { font-size: .85em; }
+.dp-op.active { color: #fff; background: var(--c-secondary); box-shadow: var(--clay-pop); }
+.dp-body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+.dp-body[hidden] { display: none; }   /* gana al display:flex de arriba cuando está en "Sin dependencias" */
+.dp-fila { display: grid; grid-template-columns: minmax(140px, 40%) 1fr; gap: 8px; }
+.dp-opciones { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
+  padding: 4px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); }
+.dp-op-tarea { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px;
+  cursor: pointer; font-size: .88rem; color: var(--c-text); }
+.dp-op-tarea:hover { background: color-mix(in srgb, var(--c-secondary) 10%, transparent); }
+.dp-op-tarea.sel { background: color-mix(in srgb, var(--c-secondary) 16%, transparent); }
+.dp-op-tarea input { accent-color: var(--c-secondary); width: 16px; height: 16px; flex: none; }
+.dp-t-tit { flex: 1; }
+.dp-t-fin { color: var(--c-success); font-size: .8em; }
+.dp-vacio { margin: 0; padding: 12px; text-align: center; color: var(--c-text-soft); font-size: .85rem; }
+.dp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.dp-chips:empty { display: none; }
+.dp-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px 6px 10px; border-radius: 999px;
+  font-size: .82rem; font-weight: 600; background: var(--n-bg); box-shadow: var(--sh-mini);
+  color: var(--c-text); border-left: 3px solid var(--dc, var(--c-secondary)); }
+.dp-chip .ico, .dp-chip > i { color: var(--dc, var(--c-secondary)); width: 1em; height: 1em; }
+.dp-chip.externo { box-shadow: var(--sh-mini), inset 0 0 0 1px color-mix(in srgb, var(--dc) 40%, transparent); }
+.dp-chip-tit { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dp-chip-eq { font-style: normal; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
+  color: var(--dc); background: color-mix(in srgb, var(--dc) 14%, transparent); padding: 2px 6px; border-radius: 6px; }
+.dp-quita { border: 0; background: transparent; color: var(--c-text-soft); font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
+.dp-quita:hover { color: var(--c-danger); }
+.dp-eq-ico, .dp-chip .dp-eq-ico { width: 1em; height: 1em; }
+@media (max-width: 480px) { .dp-fila { grid-template-columns: 1fr; } }
+
+/* --- Chip de dependencia de otro equipo en la tarjeta del tablero --- */
+.kb-meta .kb-dep-eq { display: inline-flex; align-items: center; gap: 2px; color: var(--dc, var(--c-secondary));
+  padding: 1px 5px; border-radius: 6px; background: color-mix(in srgb, var(--dc) 14%, transparent); }
+.kb-dep-eq .ico, .kb-dep-eq .dep-eq-ico { width: .95em; height: .95em; }
+.kb-dep-eq .dep-ok { color: var(--c-success); font-size: .72em; margin-left: 1px; }
+.kb-dep-eq.dep-lista { opacity: .72; }
+.kb-dep-eq.dep-proxima { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-warning) 55%, transparent); }
+.kb-dep-eq.dep-vencida { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-danger) 45%, transparent); }
+
+/* --- Nodos de otro equipo en el flujo de dependencias --- */
+.flujo-nodo.nodo-externo { text-decoration: none; border-left: 4px solid var(--ec, var(--c-secondary));
+  background: color-mix(in srgb, var(--ec) 7%, var(--n-bg)); }
+.nodo-externo b { color: var(--c-text); }
+.fn-equipo { display: inline-flex; align-items: center; gap: 5px; font-size: .68rem; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .4px; color: var(--ec, var(--c-secondary)); margin-bottom: 4px; }
+.fn-eq-ico { width: 1em; height: 1em; }
+
+/* --- Destinatarios en el compositor de observaciones --- */
+/* El bloque de 'Avisar a' quedaba pegado al textarea de abajo: la etiqueta y
+   el selector iban en columna y no había separación con el campo. */
+.oc-destino { display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap; }
+.oc-destino-lbl { font-size: .78rem; font-weight: 700; color: var(--c-text-soft); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
+.oc-destino-lbl i { color: var(--c-secondary); }
+.oc-destino .oc-select { flex: 1; min-width: 180px; }
+
+/* --- Observación: destinatarios y marca de recordatorio --- */
+.obs-para { margin: 4px 0 0; font-size: .8rem; color: var(--c-text-soft); }
+.obs-para i { color: var(--c-secondary); margin-right: 4px; }
+.obs-tipo-record { color: #B45309; font-weight: 700; }
+.obs-tipo-record i { margin-right: 3px; }
+
+/* --- Dependencias dentro del detalle de la tarea --- */
+.dt-dep { display: flex; flex-direction: column; gap: 8px; }
+.dt-dep-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
+  padding: 8px 10px; border-radius: 10px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  border-left: 3px solid var(--dc, var(--c-secondary)); }
+.dt-dep-l { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .86rem; }
+.dt-dep-eq { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: .72rem;
+  text-transform: uppercase; letter-spacing: .3px; color: var(--dc, var(--c-secondary)); }
+.dt-dep-eq.propia { color: var(--c-text-soft); }
+.dt-dep-eq .ico, .dt-dep-eq .dep-eq-ico { width: 1em; height: 1em; }
+.dt-dep-t { color: var(--c-text); font-weight: 600; }
+.dt-dep-ok { color: var(--c-success); }
+.dt-dep-urg { font-size: .72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
+.dt-dep-urg.prox { color: #B45309; background: color-mix(in srgb, var(--c-warning) 18%, transparent); }
+.dt-dep-urg.venc { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent); }
+.dt-dep-recordar { border: 0; border-radius: 10px; background: var(--c-secondary); color: #fff; font-weight: 700;
+  font-size: .78rem; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
+  box-shadow: var(--clay-pop); }
+.dt-dep-recordar:hover { filter: brightness(1.06); }
+
+/* --- Modal de recordatorio de dependencia --- */
+.dlg-recordar { width: min(520px, calc(100vw - 40px)); }
+.dlg-recordar .dlg-form { display: flex; flex-direction: column; gap: 14px; padding: 24px 26px 20px; }
+.dr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.dr-head h3 { margin: 0; font-size: 1.15rem; }
+.dr-contexto { margin: 4px 0 0; color: var(--c-text-soft); font-size: .88rem; }
+.dr-para { margin: 0; padding: 10px 12px; border-radius: 10px;
+  background: color-mix(in srgb, var(--c-secondary) 9%, var(--n-bg)); box-shadow: var(--sh-inset-mini);
+  font-size: .85rem; color: var(--c-text); }
+.dr-para i { color: var(--c-secondary); margin-right: 5px; }
+.dr-pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
+
+/* ---------- Carga cruzada: la persona tiene un requerimiento suelto en las
+   mismas fechas que la tarea. Es un aviso de "esto se puede demorar", no un
+   error: ámbar, discreto y con el detalle en el title. ---------- */
+.kb-carga {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--btn-ambar) 14%, transparent);
+  color: var(--btn-ambar);
+  font-size: .72rem; font-weight: 800;
+  cursor: help; vertical-align: middle;
+}
+.kb-carga .ico { width: 1.05em; height: 1.05em; }
+.kb-card .kb-carga { position: absolute; top: 8px; right: 30px; }
+/* El mismo aviso, desplegado dentro del detalle de la tarea. */
+.dt-carga {
+  margin: 10px 0 0; padding: 11px 14px;
+  border-left: 3px solid var(--btn-ambar);
+  border-radius: 0 10px 10px 0;
+  background: color-mix(in srgb, var(--btn-ambar) 10%, transparent);
+  font-size: .84rem; color: var(--c-text);
+}
+.dt-carga b { display: block; margin-bottom: 5px; color: var(--btn-ambar); }
+.dt-carga ul { margin: 0; padding-left: 18px; line-height: 1.6; }
+/* Quién escribió la observación: dato secundario, porque el nombre grande de
+   arriba es la persona A QUIEN va dirigida. */
+.obs-creador { color: var(--c-text-soft); }
+.obs-creador i { font-size: .72em; margin-right: 3px; }
 
 /* =========================================================
    Estados dentro del encabezado del proyecto
@@ -6189,8 +7813,6 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 }
 
 /* =========================================================
-
-/* =========================================================
    Cositas del hilo de observaciones: la respuesta recién publicada entra
    y se queda un momento resaltada, y el avión del botón despega mientras
    el envío está en el aire.
@@ -6222,230 +7844,320 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 @media (prefers-reduced-motion: reduce) {
   .obs-estreno, .btn-enviando i { animation: none; }
 }
+/* =========================================================
+   Filtro de fechas del Kanban
 
+   El Product Owner entra al tablero a saber qué se movió HOY, y lo que
+   encontraba eran todas las tarjetas de todas las columnas a la vez. Con el
+   filtro puesto, las columnas solo traen lo del rango elegido.
+   ========================================================= */
+.dia-filtros { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-left: auto; }
+.dia-chip {
+  display: inline-flex; align-items: center;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: .78rem; font-weight: 700; text-decoration: none;
+  color: var(--c-text-soft);
+  background: color-mix(in srgb, var(--c-secondary) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--c-secondary) 18%, transparent);
+  transition: background .18s ease, color .18s ease, border-color .18s ease;
+}
+.dia-chip:hover { color: var(--c-text); background: color-mix(in srgb, var(--c-secondary) 14%, transparent); }
+.dia-chip.activo { color: #fff; background: var(--c-secondary); border-color: var(--c-secondary); }
+.dia-rango { display: flex; align-items: center; gap: 6px; margin: 0; }
+.dia-rango span { font-size: .78rem; color: var(--c-text-soft); }
+.input-dia { padding: 7px 11px; font-size: .78rem; width: auto; min-width: 0; }
 
-/* =========================================================================
-   Dependencias entre equipos: selector, chips en el tablero, nodos externos
-   del flujo, destinatarios de observaciones y recordatorio.
-   ========================================================================= */
+/* Línea bajo la barra: qué se está viendo y cómo volver al tablero entero */
+.dia-aviso {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  margin: 0; padding: 12px 24px 0;
+  font-size: .8rem; font-weight: 600; color: var(--c-text-muted);
+}
+.dia-aviso a { color: var(--c-secondary); font-weight: 700; }
+.dia-aviso-suave { font-weight: 500; color: var(--c-text-soft); }
 
-/* --- Selector de dependencias (crear / editar tarea) --- */
-.dp-campo > span { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); display: block; margin-bottom: 6px; }
-.dp-toggle { display: flex; gap: 8px; flex-wrap: wrap; }
-.dp-op { flex: 1 1 auto; padding: 9px 12px; border: 0; border-radius: 12px; background: var(--n-bg);
-  box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-weight: 600; font-size: .85rem;
-  cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 7px; transition: .15s; }
-.dp-op i { font-size: .85em; }
-.dp-op.active { color: #fff; background: var(--c-secondary); box-shadow: var(--clay-pop); }
-.dp-body { margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
-.dp-body[hidden] { display: none; }   /* gana al display:flex de arriba cuando está en "Sin dependencias" */
-.dp-fila { display: grid; grid-template-columns: minmax(140px, 40%) 1fr; gap: 8px; }
-.dp-opciones { max-height: 190px; overflow-y: auto; display: flex; flex-direction: column; gap: 4px;
-  padding: 4px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); }
-.dp-op-tarea { display: flex; align-items: center; gap: 9px; padding: 8px 10px; border-radius: 10px;
-  cursor: pointer; font-size: .88rem; color: var(--c-text); }
-.dp-op-tarea:hover { background: color-mix(in srgb, var(--c-secondary) 10%, transparent); }
-.dp-op-tarea.sel { background: color-mix(in srgb, var(--c-secondary) 16%, transparent); }
-.dp-op-tarea input { accent-color: var(--c-secondary); width: 16px; height: 16px; flex: none; }
-.dp-t-tit { flex: 1; }
-.dp-t-fin { color: var(--c-success); font-size: .8em; }
-.dp-vacio { margin: 0; padding: 12px; text-align: center; color: var(--c-text-soft); font-size: .85rem; }
-.dp-chips { display: flex; flex-wrap: wrap; gap: 8px; }
-.dp-chips:empty { display: none; }
-.dp-chip { display: inline-flex; align-items: center; gap: 7px; padding: 6px 8px 6px 10px; border-radius: 999px;
-  font-size: .82rem; font-weight: 600; background: var(--n-bg); box-shadow: var(--sh-mini);
-  color: var(--c-text); border-left: 3px solid var(--dc, var(--c-secondary)); }
-.dp-chip .ico, .dp-chip > i { color: var(--dc, var(--c-secondary)); width: 1em; height: 1em; }
-.dp-chip.externo { box-shadow: var(--sh-mini), inset 0 0 0 1px color-mix(in srgb, var(--dc) 40%, transparent); }
-.dp-chip-tit { max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.dp-chip-eq { font-style: normal; font-size: .68rem; font-weight: 800; text-transform: uppercase; letter-spacing: .4px;
-  color: var(--dc); background: color-mix(in srgb, var(--dc) 14%, transparent); padding: 2px 6px; border-radius: 6px; }
-.dp-quita { border: 0; background: transparent; color: var(--c-text-soft); font-size: 1.1rem; line-height: 1; cursor: pointer; padding: 0 2px; }
-.dp-quita:hover { color: var(--c-danger); }
-.dp-eq-ico, .dp-chip .dp-eq-ico { width: 1em; height: 1em; }
-@media (max-width: 480px) { .dp-fila { grid-template-columns: 1fr; } }
-
-/* --- Chip de dependencia de otro equipo en la tarjeta del tablero --- */
-.kb-meta .kb-dep-eq { display: inline-flex; align-items: center; gap: 2px; color: var(--dc, var(--c-secondary));
-  padding: 1px 5px; border-radius: 6px; background: color-mix(in srgb, var(--dc) 14%, transparent); }
-.kb-dep-eq .ico, .kb-dep-eq .dep-eq-ico { width: .95em; height: .95em; }
-.kb-dep-eq .dep-ok { color: var(--c-success); font-size: .72em; margin-left: 1px; }
-.kb-dep-eq.dep-lista { opacity: .72; }
-.kb-dep-eq.dep-proxima { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-warning) 55%, transparent); }
-.kb-dep-eq.dep-vencida { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-danger) 45%, transparent); }
-
-/* --- Nodos de otro equipo en el flujo de dependencias --- */
-.flujo-nodo.nodo-externo { text-decoration: none; border-left: 4px solid var(--ec, var(--c-secondary));
-  background: color-mix(in srgb, var(--ec) 7%, var(--n-bg)); }
-.nodo-externo b { color: var(--c-text); }
-.fn-equipo { display: inline-flex; align-items: center; gap: 5px; font-size: .68rem; font-weight: 800;
-  text-transform: uppercase; letter-spacing: .4px; color: var(--ec, var(--c-secondary)); margin-bottom: 4px; }
-.fn-eq-ico { width: 1em; height: 1em; }
-
-/* --- Destinatarios en el compositor de observaciones --- */
-/* El bloque de 'Avisar a' quedaba pegado al textarea de abajo: la etiqueta y
-   el selector iban en columna y no había separación con el campo. */
-.oc-destino { display: flex; align-items: center; gap: 8px; margin-top: 8px; margin-bottom: 12px; flex-wrap: wrap; }
-.oc-destino-lbl { font-size: .78rem; font-weight: 700; color: var(--c-text-soft); display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; }
-.oc-destino-lbl i { color: var(--c-secondary); }
-.oc-destino .oc-select { flex: 1; min-width: 180px; }
-
-/* --- Observación: destinatarios y marca de recordatorio --- */
-.obs-para { margin: 4px 0 0; font-size: .8rem; color: var(--c-text-soft); }
-.obs-para i { color: var(--c-secondary); margin-right: 4px; }
-.obs-tipo-record { color: #B45309; font-weight: 700; }
-.obs-tipo-record i { margin-right: 3px; }
-
-/* --- Dependencias dentro del detalle de la tarea --- */
-.dt-dep { display: flex; flex-direction: column; gap: 8px; }
-.dt-dep-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap;
-  padding: 8px 10px; border-radius: 10px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
-  border-left: 3px solid var(--dc, var(--c-secondary)); }
-.dt-dep-l { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: .86rem; }
-.dt-dep-eq { display: inline-flex; align-items: center; gap: 5px; font-weight: 700; font-size: .72rem;
-  text-transform: uppercase; letter-spacing: .3px; color: var(--dc, var(--c-secondary)); }
-.dt-dep-eq.propia { color: var(--c-text-soft); }
-.dt-dep-eq .ico, .dt-dep-eq .dep-eq-ico { width: 1em; height: 1em; }
-.dt-dep-t { color: var(--c-text); font-weight: 600; }
-.dt-dep-ok { color: var(--c-success); }
-.dt-dep-urg { font-size: .72rem; font-weight: 700; padding: 2px 7px; border-radius: 999px; white-space: nowrap; }
-.dt-dep-urg.prox { color: #B45309; background: color-mix(in srgb, var(--c-warning) 18%, transparent); }
-.dt-dep-urg.venc { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 14%, transparent); }
-.dt-dep-recordar { border: 0; border-radius: 10px; background: var(--c-secondary); color: #fff; font-weight: 700;
-  font-size: .78rem; padding: 6px 12px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;
-  box-shadow: var(--clay-pop); }
-.dt-dep-recordar:hover { filter: brightness(1.06); }
-
-/* --- Modal de recordatorio de dependencia --- */
-.dlg-recordar { width: min(520px, calc(100vw - 40px)); }
-.dlg-recordar .dlg-form { display: flex; flex-direction: column; gap: 14px; padding: 24px 26px 20px; }
-.dr-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
-.dr-head h3 { margin: 0; font-size: 1.15rem; }
-.dr-contexto { margin: 4px 0 0; color: var(--c-text-soft); font-size: .88rem; }
-.dr-para { margin: 0; padding: 10px 12px; border-radius: 10px;
-  background: color-mix(in srgb, var(--c-secondary) 9%, var(--n-bg)); box-shadow: var(--sh-inset-mini);
-  font-size: .85rem; color: var(--c-text); }
-.dr-para i { color: var(--c-secondary); margin-right: 5px; }
-.dr-pie { display: flex; justify-content: flex-end; gap: 10px; margin-top: 4px; }
-
-/* ---------- Carga cruzada: la persona tiene un requerimiento suelto en las
-   mismas fechas que la tarea. Es un aviso de "esto se puede demorar", no un
-   error: ámbar, discreto y con el detalle en el title. ---------- */
-.kb-carga {
+/* Fecha en la tarjeta: por qué entra en el rango (completada o creada) */
+.kb-dia {
   display: inline-flex; align-items: center; gap: 4px;
-  padding: 2px 7px; border-radius: 999px;
-  background: color-mix(in srgb, var(--btn-ambar) 14%, transparent);
-  color: var(--btn-ambar);
-  font-size: .72rem; font-weight: 800;
-  cursor: help; vertical-align: middle;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: .68rem; font-weight: 700;
+  color: var(--c-text-soft);
+  background: color-mix(in srgb, var(--c-text) 7%, transparent);
 }
-.kb-carga .ico { width: 1.05em; height: 1.05em; }
-.kb-card .kb-carga { position: absolute; top: 8px; right: 30px; }
-/* El mismo aviso, desplegado dentro del detalle de la tarea. */
-.dt-carga {
-  margin: 10px 0 0; padding: 11px 14px;
-  border-left: 3px solid var(--btn-ambar);
-  border-radius: 0 10px 10px 0;
-  background: color-mix(in srgb, var(--btn-ambar) 10%, transparent);
-  font-size: .84rem; color: var(--c-text);
-}
-.dt-carga b { display: block; margin-bottom: 5px; color: var(--btn-ambar); }
-.dt-carga ul { margin: 0; padding-left: 18px; line-height: 1.6; }
-/* Quién escribió la observación: dato secundario, porque el nombre grande de
-   arriba es la persona A QUIEN va dirigida. */
-.obs-creador { color: var(--c-text-soft); }
-.obs-creador i { font-size: .72em; margin-right: 3px; }
+.kb-dia-fin { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
 
+@media (max-width: 720px) {
+  .dia-filtros { margin-left: 0; width: 100%; }
+  .dia-rango { width: 100%; }
+  .input-dia { flex: 1; }
+  .dia-aviso { padding-left: 16px; padding-right: 16px; }
+}
 
 /* =========================================================
-   Componente de subida de archivos (UI::archivo) — uno para todo
-   Estados: default · hover · focus · dragging · error · disabled · con-archivo
+   Despliegues: "¿ya están los cambios en el servidor de pruebas?"
+
+   La tira sustituye a los cuatro KPIs del dashboard, que repetían lo que ya
+   dice cada tarjeta de proyecto. Lo que nadie sabía sin preguntar por chat era
+   esto: a qué hora subió el encargado los últimos cambios.
    ========================================================= */
-.fx { display: flex; flex-direction: column; gap: 6px; }
-.fx-label { font-size: .8rem; font-weight: 700; color: var(--c-text); }
-.fx-req { color: var(--c-secondary); }
-.fx-error { margin: 2px 0 0; font-size: .78rem; font-weight: 600; color: #e05563; }
-.fx-disparo { border: 0; background: transparent; cursor: pointer; font-family: inherit; width: 100%; text-align: left; }
-.fx-off .fx-disparo, .fx-disparo:disabled { cursor: not-allowed; opacity: .55; }
+.dep-tira { padding: 18px 22px; margin-bottom: 26px; --card-c: var(--c-secondary); }
+.dep-tira-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
 
-/* --- Drop zone --- */
-.fx-zona .fx-disparo {
-  display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center;
-  padding: 26px 20px; border-radius: 16px;
-  border: 2px dashed color-mix(in srgb, var(--c-secondary) 32%, var(--c-border-soft));
-  background: color-mix(in srgb, var(--c-secondary) 3%, transparent);
-  transition: border-color .18s ease, background .18s ease, box-shadow .18s ease;
+/* El icono late despacio cuando la subida es de hoy: se ve de reojo que hay
+   algo fresco, sin un cartel que grite. */
+.dep-pulso {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: 48px; height: 48px; border-radius: 16px;
+  background: color-mix(in srgb, var(--c-secondary) 16%, transparent);
+  color: var(--c-secondary);
 }
-.fx-zona .fx-disparo:hover { border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 9%, transparent); }
-.fx-zona .fx-disparo:focus-visible { outline: none; border-color: var(--c-secondary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-secondary) 22%, transparent); }
-.fx-zona.fx-drag .fx-disparo { border-style: solid; border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 15%, transparent); }
-.fx-up {
-  width: 46px; height: 46px; border-radius: 12px; display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, var(--c-secondary) 12%, var(--n-bg)); color: var(--c-secondary); font-size: 1.1rem;
+.dep-pulso .ico { width: 22px; height: 22px; }
+.dep-pulso-hoy::after {
+  content: ''; position: absolute; inset: 0;
+  border-radius: inherit;
+  border: 2px solid var(--c-secondary);
+  animation: dep-latido 2.4s ease-out infinite;
 }
-.fx-zona-txt { display: flex; flex-direction: column; gap: 2px; }
-.fx-zona-txt b { font-weight: 700; color: var(--c-text); font-size: .92rem; }
-.fx-zona-txt small { color: var(--c-text-muted); font-size: .76rem; }
+@keyframes dep-latido {
+  0%   { opacity: .8; transform: scale(1); }
+  70%  { opacity: 0;  transform: scale(1.35); }
+  100% { opacity: 0;  transform: scale(1.35); }
+}
 
-/* --- Inline (como un input) --- */
-.fx-inline .fx-disparo {
-  display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px;
-  background: var(--n-bg); box-shadow: var(--sh-inset-mini); transition: box-shadow .18s ease;
+.dep-tira-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
+.dep-tira-txt > small {
+  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
+  color: var(--c-text-soft);
 }
-.fx-inline .fx-disparo:hover { box-shadow: var(--sh-inset-mini), inset 0 0 0 1px color-mix(in srgb, var(--c-secondary) 30%, transparent); }
-.fx-inline .fx-disparo:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--c-secondary); }
-.fx-inline.fx-drag .fx-disparo { box-shadow: inset 0 0 0 2px var(--c-secondary); }
-.fx-clip { color: var(--c-secondary); flex: none; }
-.fx-inline-txt { flex: 1; min-width: 0; color: var(--c-text-muted); font-size: .88rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.fx-inline-hint { flex: none; font-size: .72rem; font-weight: 700; color: var(--c-text-soft); text-transform: uppercase; letter-spacing: .03em; }
+.dep-tira-txt > b { font-size: 1.12rem; font-weight: 800; color: var(--c-text); }
+.dep-sub { font-size: .82rem; color: var(--c-text-muted); }
+.dep-hace { font-weight: 700; color: var(--c-secondary); }
+.dep-tira-vacia .dep-pulso { background: color-mix(in srgb, var(--c-text) 8%, transparent); color: var(--c-text-soft); }
 
-/* --- Error --- */
-.fx-err.fx-zona .fx-disparo { border-color: #e05563; background: color-mix(in srgb, #e05563 6%, transparent); }
-.fx-err.fx-zona .fx-up { background: color-mix(in srgb, #e05563 15%, transparent); color: #e05563; }
-.fx-err.fx-inline .fx-disparo { box-shadow: inset 0 0 0 1.5px #e05563; }
-
-/* --- Con archivo (filled): el chip reemplaza al disparador; en multi se queda para añadir más --- */
-.fx-lleno.fx-zona:not([data-multi]) .fx-disparo,
-.fx-lleno.fx-inline .fx-disparo { display: none; }
-.fx-lleno.fx-zona[data-multi] .fx-disparo { padding: 14px; margin-top: 6px; }
-.fx-files:empty { display: none; }
-.fx-files { display: flex; flex-direction: column; gap: 6px; }
-.fx-file {
-  display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 12px;
-  background: color-mix(in srgb, var(--c-success) 9%, var(--n-bg));
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--c-success) 32%, transparent);
+.dep-tira-fin { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
+.dep-pend, .dep-aldia {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border-radius: 999px;
+  font-size: .8rem; font-weight: 700;
 }
-.fx-file-ic { flex: none; width: 34px; height: 34px; border-radius: 9px; display: flex; align-items: center; justify-content: center; background: #fff; color: var(--c-success); font-size: .95rem; }
-.fx-file-info { flex: 1; min-width: 0; display: flex; flex-direction: column; }
-.fx-file-info b { font-size: .85rem; font-weight: 700; color: var(--c-text); }
-.fx-file-info small { font-size: .72rem; color: var(--c-text-muted); }
-.fx-file-x { flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: transparent; color: var(--c-text-muted); cursor: pointer; }
-.fx-file-x:hover { background: color-mix(in srgb, #e05563 12%, transparent); color: #e05563; }
+.dep-pend  { color: #C66B2D; background: color-mix(in srgb, #C66B2D 14%, transparent); }
+.dep-aldia { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
+.dep-pend .ico, .dep-aldia .ico { width: 15px; height: 15px; }
 
-/* Avatares chicos */
-.ap-av {
-  flex: none; width: var(--sz); height: var(--sz); border-radius: 50%;
-  display: inline-flex; align-items: center; justify-content: center;
-  font-size: calc(var(--sz) * .38); font-weight: 700; color: #fff;
-  background: var(--c, var(--c-secondary)); overflow: hidden;
+/* El botón del encargado: abre el modal donde marca QUÉ subió. */
+.dep-btn {
+  display: inline-flex; align-items: center; gap: 7px;
+  padding: 7px 13px; border: 0; border-radius: 11px; cursor: pointer;
+  background: var(--c-secondary); color: #fff;
+  font-size: .78rem; font-weight: 800; font-family: inherit;
+  transition: transform .18s ease, filter .18s ease;
 }
-.ap-av img { width: 100%; height: 100%; object-fit: cover; }
-.ap-av-x { background: var(--c-text-soft); }
+.dep-btn .ico { width: 14px; height: 14px; }
+.dep-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
+.dep-btn:active { transform: translateY(0) scale(.97); }
+/* Al pulsar, el icono sale volando: el registro es instantáneo y sin esa
+   señal parecía que no había pasado nada. */
+.dep-enviando .ico { animation: dep-sube .5s ease-in infinite; }
+@keyframes dep-sube {
+  0%   { transform: translateY(3px); opacity: .4; }
+  60%  { transform: translateY(-6px); opacity: 1; }
+  100% { transform: translateY(-9px); opacity: 0; }
+}
 
-/* Lista de commits */
-.ap-lista { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 2px; }
-.ap-commit {
-  display: flex; align-items: flex-start; gap: 11px;
-  padding: 10px 8px; border-bottom: 1px solid var(--c-border-soft);
+/* ---------- Historial ---------- */
+.dep-lista { display: flex; flex-direction: column; gap: 10px; padding: 18px 24px 22px; }
+.dep-dia {
+  display: flex; align-items: baseline; gap: 9px;
+  margin-top: 6px; font-size: .84rem; font-weight: 800; color: var(--c-text);
 }
-.ap-commit:last-child { border-bottom: 0; }
-.ap-commit-txt { min-width: 0; }
-.ap-msg { display: block; font-size: .88rem; color: var(--c-text); line-height: 1.4; word-break: break-word; }
-.ap-commit small { color: var(--c-text-soft); font-size: .74rem; }
-.ap-commit small a { color: var(--c-secondary); text-decoration: none; font-family: ui-monospace, Menlo, monospace; }
-.ap-tarea {
-  display: inline-block; padding: 0 6px; border-radius: 6px;
-  background: color-mix(in srgb, var(--c-secondary) 15%, transparent);
-  color: var(--c-secondary); font-weight: 700; cursor: help;
+.dep-dia small { font-size: .72rem; font-weight: 600; color: var(--c-text-soft); }
+.dep-item {
+  display: flex; align-items: flex-start; gap: 14px;
+  padding: 12px 14px; border-radius: 15px;
+  background: var(--n-bg);
+  border: 1.5px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 22%, transparent);
+  box-shadow: var(--sh-mini);
+}
+.dep-item-hora { display: flex; flex-direction: column; align-items: center; min-width: 66px; }
+.dep-item-hora b { font-size: 1.05rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.dep-item-hora small { font-size: .68rem; color: var(--c-text-soft); white-space: nowrap; }
+.dep-item-cuerpo { flex: 1; min-width: 0; }
+.dep-item-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.dep-item-proy {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: var(--c-text); text-decoration: none; font-size: .9rem; font-weight: 700;
+}
+.dep-item-proy .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); }
+.dep-item-autor { display: inline-flex; align-items: center; gap: 6px; font-size: .78rem; color: var(--c-text-muted); }
+.dep-item-n {
+  padding: 2px 9px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent);
+  color: var(--c-secondary); font-size: .72rem; font-weight: 800;
+}
+.dep-item-nota { margin: 6px 0 0; font-size: .82rem; color: var(--c-text-muted); }
+.dep-item-tareas { margin-top: 8px; }
+.dep-item-tareas summary { cursor: pointer; font-size: .78rem; font-weight: 700; color: var(--c-text-soft); }
+.dep-item-tareas ul { margin: 8px 0 0; padding-left: 18px; display: flex; flex-direction: column; gap: 4px; }
+.dep-item-tareas li { font-size: .82rem; color: var(--c-text); }
+.dep-item-tareas li small { color: var(--c-text-soft); font-size: .72rem; margin-left: 6px; }
+.dep-item-borrar { margin: 0; }
+
+/* ---------- Registrar: qué se subió ----------
+
+   El modal con los proyectos marcados. Cada línea lleva el alias grande y el
+   nombre del panel debajo: quien sube reconoce "ms-academico", no "Equipo
+   Delta", y quien lo lee después necesita el otro. */
+.dep-reg-item { gap: 10px; }
+.dep-reg-item .ico { width: 16px; height: 16px; color: var(--c-secondary); flex: none; }
+.dep-reg-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.dep-reg-txt b { font-size: .87rem; font-weight: 800; }
+.dep-reg-txt small { font-size: .72rem; color: var(--c-text-soft); }
+.dep-reg-txt .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-reg-n {
+  flex: none; padding: 3px 9px; border-radius: 999px;
+  font-size: .7rem; font-weight: 800;
+  color: #C66B2D; background: color-mix(in srgb, #C66B2D 14%, transparent);
+}
+/* Sin nada pendiente no hay nada que anunciar: se apaga en vez de gritar "0" */
+.dep-reg-n-cero { color: var(--c-text-soft); background: transparent; font-weight: 600; }
+
+/* ---------- Ajustes: alias por proyecto ---------- */
+.dep-alias { margin-top: 6px; }
+.dep-alias-tit {
+  display: block; margin-bottom: 2px;
+  font-size: .82rem; font-weight: 800; color: var(--c-text);
+}
+/* Una sola columna. En rejilla de varias, cada tarjeta se quedaba en ~280px y
+   el nombre del proyecto salía cortado a la tercera letra ("Vincul…"): el
+   nombre es justamente lo que hay que leer para saber a qué proyecto se le pone
+   el alias. A lo ancho caben enteros. */
+.dep-alias-grid { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+.dep-alias-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 12px; border-radius: 13px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 18%, transparent);
+}
+/* El JS oculta los proyectos que no estén marcados arriba. Hace falta decirlo:
+   el display:flex de la regla de al lado le gana al [hidden] del navegador. */
+.dep-alias-item[hidden] { display: none; }
+/* Ancho fijo para el nombre: así todos los campos empiezan en la misma
+   columna. Si un nombre no cabe, parte de línea — antes que cortarse. */
+.dep-alias-proy {
+  display: flex; align-items: center; gap: 7px;
+  flex: 0 0 240px; min-width: 0;
+  font-size: .82rem; font-weight: 700; color: var(--c-text);
+  overflow-wrap: anywhere;
+}
+.dep-alias-proy .ico { width: 15px; height: 15px; color: var(--pc, var(--c-secondary)); flex: none; }
+.dep-alias-item input {
+  flex: 1 1 auto; min-width: 0;
+  padding: 7px 11px; font-size: .8rem;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+/* En estrecho el nombre manda y el campo se va debajo */
+@media (max-width: 560px) {
+  .dep-alias-item { flex-wrap: wrap; }
+  .dep-alias-proy { flex: 1 1 100%; }
+}
+
+/* ---------- Esperando subida ----------
+
+   Una tarjeta por proyecto con el número; los títulos, en el modal. Antes cada
+   proyecto era una columna con TODAS sus tareas listadas: con 116 pendientes la
+   sección medía varias pantallas y las columnas quedaban a alturas dispares. */
+.dep-espera { margin-top: 20px; }
+.dep-espera-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 14px; padding: 18px 24px 22px;
+  align-items: start;
+}
+.dep-espera-card {
+  display: flex; align-items: center; gap: 12px; width: 100%;
+  appearance: none; font: inherit; text-align: left; cursor: pointer;
+  border-radius: 16px; padding: 13px 15px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 7%, transparent);
+  border: 1px solid color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
+  transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease;
+}
+.dep-espera-card:hover,
+.dep-espera-card:focus-visible {
+  transform: translateY(-2px);
+  border-color: color-mix(in srgb, var(--pc, var(--c-secondary)) 48%, transparent);
+  box-shadow: 0 10px 22px color-mix(in srgb, var(--pc, var(--c-secondary)) 20%, transparent);
+}
+.dee-ico {
+  flex: 0 0 auto; display: grid; place-items: center;
+  width: 38px; height: 38px; border-radius: 12px;
+  background: color-mix(in srgb, var(--pc, var(--c-secondary)) 16%, transparent);
+  color: var(--pc, var(--c-secondary));
+}
+.dee-ico .ico { width: 19px; height: 19px; }
+/* min-width:0 para que el nombre largo se corte con "…" y no ensanche la tarjeta */
+.dee-txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.dee-txt b { font-size: .88rem; font-weight: 800; color: var(--c-text); }
+.dee-txt .truncate { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* El alias hace de título. Va en monoespaciada —es un nombre técnico, no una
+   frase— pero en el color del texto: coloreado por proyecto, un amarillo o un
+   verde claro quedaban ilegibles a este tamaño. */
+.dee-txt b.dee-alias {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: .84rem; letter-spacing: -.01em;
+}
+.dee-n {
+  flex: 0 0 auto; min-width: 36px; padding: 5px 11px; border-radius: 999px;
+  background: #C66B2D; color: #fff;
+  font-size: .95rem; font-weight: 800; text-align: center; line-height: 1.15;
+}
+
+/* El detalle, ya en el modal */
+.dlg-espera .dlg-cuerpo { max-height: 62vh; overflow: auto; }
+.dep-espera-lista {
+  margin: 12px 0 0; padding: 0; list-style: none;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.dep-espera-lista li {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  padding: 8px 12px; border-radius: 11px;
+  border: 1px solid var(--c-border-soft);
+  font-size: .82rem; color: var(--c-text);
+}
+.dep-espera-lista li b { color: var(--c-text-soft); font-weight: 800; }
+.dep-espera-lista li span { flex: 1 1 140px; }
+.dep-espera-lista li small { color: var(--c-text-soft); font-size: .72rem; }
+
+@media (prefers-reduced-motion: reduce) {
+  .dep-espera-card { transition: none; }
+  .dep-espera-card:hover, .dep-espera-card:focus-visible { transform: none; }
+}
+
+.dep-vacio {
+  display: flex; align-items: center; gap: 8px; margin: 0;
+  font-size: .86rem; color: var(--c-verde-esmeralda); font-weight: 600;
+}
+
+/* ---------- Estado de despliegue en las tareas ---------- */
+.kb-deploy {
+  display: inline-flex; align-items: center; gap: 4px;
+  padding: 2px 8px; border-radius: 999px;
+  font-size: .68rem; font-weight: 700;
+}
+.kb-deploy .ico { width: 11px; height: 11px; }
+.kb-deploy-si { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
+.kb-deploy-no { color: #C66B2D; background: color-mix(in srgb, #C66B2D 13%, transparent); }
+.deploy-tag.deploy-si { color: var(--c-verde-esmeralda); border-color: color-mix(in srgb, var(--c-verde-esmeralda) 35%, transparent); }
+.deploy-tag.deploy-no { color: #C66B2D; border-color: color-mix(in srgb, #C66B2D 35%, transparent); }
+
+/* Ajustes → Despliegues: los dos selectores múltiples, uno al lado del otro */
+.dep-cfg-fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(230px, 1fr)); gap: 16px; }
+.select-alto { min-height: 132px; padding: 8px; }
+
+@media (max-width: 720px) {
+  .dep-tira { padding: 14px 16px; }
+  .dep-tira-fin { margin-left: 0; width: 100%; }
+  .dep-lista, .dep-espera-grid { padding-left: 16px; padding-right: 16px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dep-pulso-hoy::after, .dep-enviando .ico { animation: none; }
 }

@@ -55,3 +55,62 @@ foreach ($tareas->todas() as $t) {
 }
 
 echo "Recordatorios enviados: $enviados\n";
+
+/* ---------- Parte de requerimientos sueltos atrasados ----------
+
+   Al responsable ya se le puede escribir a mano una observación; lo que
+   faltaba era que el administrador se enterara SIN tener que entrar a mirar.
+   Va agrupado por persona y en un solo correo: con quince atrasados, quince
+   correos no los lee nadie.
+
+   Se manda una vez al día: cada requerimiento se marca con la fecha en la que
+   entró en el parte, igual que las tareas con 'recordado_en'. Si el cron corre
+   dos veces, la segunda no encuentra ninguno sin marcar y no manda nada. */
+$reqRepo  = new RequerimientoRepo();
+$atrasados = [];
+$sinAvisar = [];
+foreach ($reqRepo->todos() as $r) {
+    if (!RequerimientoRepo::vencido($r)) continue;
+    $atrasados[] = $r;
+    if (($r['atraso_avisado_en'] ?? '') !== $hoy->format('Y-m-d')) $sinAvisar[] = (int)$r['id'];
+}
+
+if (!$atrasados) {
+    echo "Requerimientos atrasados: 0\n";
+} elseif (!$sinAvisar) {
+    echo "Requerimientos atrasados: " . count($atrasados) . " (ya avisados hoy)\n";
+} else {
+    // Agrupado por responsable. Los que no tiene nadie van juntos al final:
+    // son los que peor están y no aparecerían en ninguna otra parte.
+    $porPersona = [];
+    $huerfanos  = [];
+    foreach ($atrasados as $r) {
+        $fin  = RequerimientoRepo::fechaFin($r);
+        $dias = (int)$hoy->diff(new DateTime($fin))->format('%a');
+        $item = ['titulo' => (string)($r['titulo'] ?? ''), 'fin' => $fin, 'dias' => $dias];
+        $suyos = RequerimientoRepo::asignadosDe($r);
+        if (!$suyos) { $huerfanos[] = $item; continue; }
+        foreach ($suyos as $mid) {
+            $m = $miembros->buscar((int)$mid);
+            if (!$m) continue;
+            $porPersona[(int)$mid]['nombre'] = (string)$m['nombre'];
+            $porPersona[(int)$mid]['items'][] = $item;
+        }
+    }
+    // Quien más acumula, primero
+    uasort($porPersona, fn($a, $b) => count($b['items']) <=> count($a['items']));
+    $lista = array_values($porPersona);
+    if ($huerfanos) $lista[] = ['nombre' => 'Sin responsable', 'items' => $huerfanos];
+
+    $avisados = 0;
+    foreach (Auth::correosAdmin() as $correoAdmin) {
+        if (Mailer::atrasosRequerimientos($lista, $correoAdmin) === true) $avisados++;
+    }
+    if ($avisados) {
+        foreach ($sinAvisar as $rid) {
+            $reqRepo->actualizar($rid, ['atraso_avisado_en' => $hoy->format('Y-m-d')]);
+        }
+    }
+    echo "Requerimientos atrasados: " . count($atrasados)
+       . " · parte enviado a $avisados administrador" . ($avisados === 1 ? '' : 'es') . "\n";
+}

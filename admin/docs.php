@@ -13,16 +13,16 @@ $docs = [
         'titulo' => 'Estándar del equipo',
         'desc'  => 'Cómo escribimos tareas y commits para que el tablero se enlace y avance solo.',
         'icono' => 'fa-diagram-project',
-        'pdf'   => 'assets/docs/mchub-estandar.pdf',
-        'md'    => 'assets/docs/mchub-estandar.md',
+        'pdf'   => 'assets/docs/innotech-estandar.pdf',
+        'md'    => 'assets/docs/innotech-estandar.md',
     ],
     [
         'clave' => 'guia-claude',
         'titulo' => 'Guía para Claude',
         'desc'  => 'Lo que cada dev ingresa en su proyecto (o guarda como CLAUDE.md) para coordinarse.',
         'icono' => 'claude',
-        'pdf'   => 'assets/docs/mchub-guia-claude.pdf',
-        'md'    => 'assets/docs/mchub-guia-claude.md',
+        'pdf'   => 'assets/docs/innotech-guia-claude.pdf',
+        'md'    => 'assets/docs/innotech-guia-claude.md',
     ],
 ];
 
@@ -75,7 +75,7 @@ UI::cabecera(
     <div class="docs-visor-top">
       <b id="doc-titulo" class="font-display"><?= e($docs[0]['titulo']) ?></b>
       <div class="docs-visor-acc">
-        <a id="doc-abrir" class="btn-outline btn-meca btn-sm" href="<?= e($docs[0]['pdf']) ?>" target="_blank" rel="noopener">
+        <a id="doc-abrir" class="btn-outline btn-meca btn-azul btn-sm" href="<?= e($docs[0]['pdf']) ?>" target="_blank" rel="noopener">
           <i class="fa-solid fa-up-right-from-square"></i> Abrir en pestaña
         </a>
         <a id="doc-bajar" class="btn-primary btn-meca btn-sm" href="descargar.php?d=<?= e($docs[0]['clave']) ?>-pdf">

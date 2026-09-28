@@ -133,12 +133,44 @@ class JsonStore
         ));
     }
 
+    /**
+     * JSON siempre valido. json_encode() devuelve FALSE si algun texto no es
+     * UTF-8 (pegado desde Word, un cliente en Latin-1...) y entonces se
+     * guardaba una fila vacia: el registro se perdia en silencio y nadie se
+     * enteraba hasta abrirlo. Aqui se reintenta convirtiendo y, si aun asi no
+     * se puede, se falla con un motivo en vez de escribir basura.
+     */
+    private static function aJson(array $record): string
+    {
+        $json = json_encode($record, JSON_UNESCAPED_UNICODE);
+        if ($json !== false) {
+            return $json;
+        }
+        $json = json_encode(self::aUtf8($record), JSON_UNESCAPED_UNICODE);
+        if ($json === false) {
+            throw new RuntimeException('No se pudo guardar el registro: ' . json_last_error_msg());
+        }
+        return $json;
+    }
+
+    /** Convierte a UTF-8 los textos que no lo sean, dejando el resto igual. */
+    private static function aUtf8(mixed $v): mixed
+    {
+        if (is_array($v)) {
+            return array_map([self::class, 'aUtf8'], $v);
+        }
+        if (is_string($v) && !mb_check_encoding($v, 'UTF-8')) {
+            return mb_convert_encoding($v, 'UTF-8', 'Windows-1252');
+        }
+        return $v;
+    }
+
     public function insert(array $record): array
     {
         unset($record['id']);   // lo asigna SQLite
         $record['creado'] = $record['creado'] ?? date('Y-m-d H:i');
         $st = self::$pdo->prepare("INSERT INTO {$this->tabla} (data) VALUES (?)");
-        $st->execute([json_encode($record, JSON_UNESCAPED_UNICODE)]);
+        $st->execute([self::aJson($record)]);
         $record['id'] = (int)self::$pdo->lastInsertId();
         $this->invalidar();
         return $record;
@@ -164,7 +196,7 @@ class JsonStore
             $item = array_merge($item, $changes);
             unset($item['id']);
             $up = self::$pdo->prepare("UPDATE {$this->tabla} SET data = ? WHERE id = ?");
-            $up->execute([json_encode($item, JSON_UNESCAPED_UNICODE), $id]);
+            $up->execute([self::aJson($item), $id]);
             self::$pdo->exec('COMMIT');
         } catch (\Throwable $e) {
             self::$pdo->exec('ROLLBACK');

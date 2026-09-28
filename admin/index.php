@@ -32,18 +32,20 @@ if ($verComo) {
 // Equipo completo, para elegir participantes al crear un proyecto
 $opcionesEquipo = [];
 $opcionesAnalistas = [0 => '— Sin PO —'];
+// Quienes tienen rol de Scrum Master: el del proyecto es el único (además del
+// administrador) que pone su horario de reuniones.
+$opcionesScrum = [0 => '— Sin Scrum Master —'];
 foreach ($miembrosRepo->todos() as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     if (MiembroRepo::equipoDe($m) === 'analistas') {
         $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     }
+    // El administrador también puede llevar un tablero: manda sobre todo.
+    if (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) {
+        $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
+    }
 }
 
-$finales     = Catalogo::estadosFinales();
-$primerEstadoProyecto = array_key_first(Catalogo::estadosProyecto());
-$activos    = count(array_filter($proyectos, fn($p) => ($p['estado'] ?? '') === $primerEstadoProyecto));
-$abiertas   = count(array_filter($todasTareas, fn($t) => !in_array($t['estado'] ?? '', $finales, true)));
-$hechas     = count($todasTareas) - $abiertas;
 
 UI::inicio('Dashboard', 'dashboard');
 UI::cabecera(
@@ -53,18 +55,80 @@ UI::cabecera(
         : ($alcance !== null
             ? 'Estos son los proyectos en los que participas.'
             : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.'),
-    '<button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
+    '<button class="btn-outline btn-meca btn-azul" onclick="document.getElementById(\'dlg-dailies\').showModal()"
+             title="A qué hora se junta cada equipo">
+       <i class="fa-solid fa-mug-hot"></i> Dailies
+     </button>
+     <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
      </button>'
 );
+
+/* ---------- Horario de reuniones fijas ("dailies") ----------
+   VER lo puede todo el mundo: un cuadro de horarios se comparte, y por eso se
+   listan todos los proyectos y no solo los de cada quien. AÑADIR es otra cosa:
+   solo el Scrum Master de ESE proyecto (y el administrador).
+
+   El horario no sale del proyecto: se escribe aquí, porque un equipo tiene
+   varias fijas (la daily, el refinamiento…) y porque lo que se consulta es la
+   agenda del día, no el listado por proyecto. */
+$hoyIso    = (int)date('N');
+$ahora     = date('H:i');
+$fijasRepo = new ReunionFijaRepo();
+$mapaProy  = [];
+foreach ($proyectosRepo->todos() as $p) {
+    $mapaProy[(int)$p['id']] = $p;
+}
+
+$fijas = [];
+foreach ($fijasRepo->todas() as $r) {
+    $pid = (int)$r['proyecto_id'];
+    if (!isset($mapaProy[$pid])) continue;   // proyecto borrado: la fija ya no dice nada
+    $dias = ReunionFijaRepo::diasDe($r);
+    $hoy  = in_array($hoyIso, $dias, true);
+    $fijas[] = [
+        'r'        => $r,
+        'proyecto' => $mapaProy[$pid],
+        'dias'     => $dias,
+        'hoy'      => $hoy,
+        'pasada'   => $hoy && ($r['hora'] ?? '') < $ahora,
+        'mia'      => puedeHorarioDelProyecto($pid),
+    ];
+}
+
+// La siguiente de hoy: la primera que toca y todavía no ha pasado
+$siguiente = null;
+foreach ($fijas as $f) {
+    if ($f['hoy'] && !$f['pasada']) { $siguiente = $f; break; }
+}
+
+// Proyectos donde ESTA persona puede poner horario (para el formulario):
+// los que lleva como Scrum Master o como Product Owner.
+$misProyectosScrum = [];
+foreach ($mapaProy as $pid => $p) {
+    if (puedeHorarioDelProyecto($pid)) {
+        $misProyectosScrum[$pid] = $p['nombre'];
+    }
+}
 ?>
 
-<section class="stats-grid">
-  <?= UI::stat('fa-folder-open', '#1A4B99', (string)count($proyectos), 'Proyectos') ?>
-  <?= UI::stat('fa-bolt', '#2B76F7', (string)$activos, 'Activos') ?>
-  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Tareas abiertas') ?>
-  <?= UI::stat('fa-circle-check', '#2BB673', (string)$hechas, 'Tareas completadas') ?>
-</section>
+<?php
+/* Antes aquí iban cuatro KPIs (proyectos, activos, tareas abiertas y
+   completadas) que repetían lo que ya dice cada tarjeta de proyecto. En su
+   lugar va lo que nadie sabía sin preguntar por chat: a qué hora se subieron
+   los últimos cambios al servidor de pruebas. */
+// Solo los proyectos en los que participo: aquí salían los ocho del panel, y
+// a quien no está en SIGE no le importa cuándo subió SIGE. El registro
+// completo sigue en el módulo.
+if (puedeVerDeploys()) {
+    $dtFilas = resumenDeploys(misProyectosDeploys($proyectos));
+    if ($dtFilas) {
+        $dtMiembros = $miembros;
+        $dtVolver   = 'index';
+        require __DIR__ . '/lib/deploy_tira.php';
+    }
+}
+?>
 
 <?php if (empty($proyectos)): ?>
   <?php if ($verComo): ?>
@@ -91,8 +155,9 @@ UI::cabecera(
       }
   ?>
   <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
+    <?= UI::icono($p['icono'] ?? 'FolderOpen', 'pac-watermark') ?>
     <div class="pac-head">
-      <div class="pac-icon"><i class="fa-solid <?= e($p['icono']) ?>"></i></div>
+      <div class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></div>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>
     </div>
     <div class="pac-body">
@@ -104,9 +169,16 @@ UI::cabecera(
       </div>
 
       <div class="pac-estados">
-        <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]): ?>
-          <span class="pac-mini estado-<?= $k ?>" title="<?= e($label) ?>">
-            <i class="fa-solid <?= $icono ?>"></i> <?= (int)$resumen[$k] ?>
+        <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
+            $n = (int)$resumen[$k]; ?>
+          <!-- Cerrada es solo icono + número: cuatro rótulos no caben en la
+               tarjeta. Al pasar por encima, la píldora se abre y dice cuál es.
+               Antes se abría aquí un panel con las tareas de ese estado: sobre
+               la tarjeta quedaba una lista con los títulos cortados y el mismo
+               nombre repetido cinco veces, y tapaba media tarjeta. -->
+          <span class="pac-mini estado-<?= $k ?><?= $n ? '' : ' pac-mini-cero' ?>">
+            <?= UI::icono($icono) ?> <?= $n ?>
+            <span class="pm-rot"><?= e($label) ?></span>
           </span>
         <?php endforeach; ?>
       </div>
@@ -114,12 +186,14 @@ UI::cabecera(
       <div class="pac-foot">
         <?= UI::avatarStack(array_values($equipo)) ?>
         <div class="pac-links">
+          <?php if (!esSupervisor()): /* el supervisor no ve los repositorios */ ?>
           <?php foreach (ProyectoRepo::repos($p) as $repo): ?>
           <a href="<?= e($repo['url']) ?>" target="_blank" rel="noopener" class="pac-repo" title="Repositorio <?= e($repo['label']) ?>">
             <i class="fa-solid <?= e($repo['icono']) ?>"></i>
           </a>
           <?php endforeach; ?>
-          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-sm">
+          <?php endif; ?>
+          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-azul btn-sm">
             Ver tablero <i class="fa-solid fa-arrow-right"></i>
           </a>
         </div>
@@ -169,7 +243,12 @@ UI::cabecera(
         <label class="campo">
           <span><i class="fa-solid fa-user-tie"></i> Product Owner</span>
           <?= UI::select('po', $opcionesAnalistas, 0) ?>
-          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, es quien crea y edita las tareas.</small>
+          <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, crea y edita las tareas y pone el horario de reuniones.</small>
+        </label>
+        <label class="campo">
+          <span><i class="fa-solid fa-user-gear"></i> Scrum Master</span>
+          <?= UI::select('scrum', $opcionesScrum, 0) ?>
+          <small class="campo-ayuda">Quién lleva este proyecto. Junto con el Product Owner, es quien pone su horario de reuniones diarias.</small>
         </label>
       </section>
 
@@ -187,14 +266,7 @@ UI::cabecera(
       <section class="wz-panel">
         <div class="campo" data-sin-resumen>
           <span>Ícono</span>
-          <div class="icon-picker">
-            <?php foreach (Catalogo::iconosProyecto() as $i => $ic): ?>
-            <label>
-              <input type="radio" name="icono" value="<?= $ic ?>" <?= $i === 0 ? 'checked' : '' ?>>
-              <i class="fa-solid <?= $ic ?>"></i>
-            </label>
-            <?php endforeach; ?>
-          </div>
+          <?= UI::selectorIcono() ?>
         </div>
         <div class="campo" data-sin-resumen>
           <span>Color</span>
@@ -205,13 +277,15 @@ UI::cabecera(
       <div class="wz-pie">
         <span class="wz-contador"></span>
         <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
           <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
-          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Crear proyecto</button>
         </div>
       </div>
     </div>
   </form>
 </dialog>
+
+<?php require __DIR__ . '/lib/modal_dailies.php'; ?>
 
 <?php UI::fin(); ?>

@@ -25,7 +25,7 @@ $accion = $_POST['accion'] ?? '';
    públicas      : sin sesión (login y primer acceso)
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
-$accionesPublicas   = ['auth_login', 'auth_identificar'];
+$accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
@@ -34,10 +34,20 @@ $accionesDeCualquiera = [
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
     'dep_recordar',
+    // El responsable de un requerimiento suelto puede marcarlo terminado desde
+    // su bandeja, y anotar observaciones en el que tenga asignado (dentro se
+    // comprueba que sea suyo).
+    'req_terminar', 'req_observar',
+    // Quien sube los cambios al servidor de pruebas suele ser un colaborador
+    // sin permisos de gestion: el encargado se comprueba con puedeDesplegar().
+    'deploy_registrar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
     'reunion_crear', 'reunion_editar', 'reunion_eliminar',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
+    // El horario de reuniones fijas lo escribe quien lleva cada proyecto (su
+    // Scrum Master o su PO); dentro se comprueba con puedeHorarioDelProyecto().
+    'rfija_crear', 'rfija_editar', 'rfija_eliminar',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -56,6 +66,190 @@ $tareas    = new TareaRepo();
  * Revisa si el proyecto acaba de completarse (100% y con tareas) y, si es
  * la primera vez, avisa al administrador. Si baja de 100%, reinicia el flag.
  */
+/**
+ * Asigna un requerimiento a una o varias personas, con las fechas del
+ * encargo, y avisa por correo a cada una. Devuelve la coletilla para el flash
+ * ('' si la lista quedó vacía, o sea que vuelve a «sin asignar»).
+ */
+/**
+ * Fechas del encargo, ya normalizadas. Una entrega ANTES del inicio es un
+ * error de dedo que no se ve hasta que alguien se queja del plazo, asi que se
+ * corta aqui en vez de guardarlo.
+ */
+function fechasRequerimiento(array $post): array
+{
+    $ini = ProyectoRepo::fecha($post['fecha_inicio'] ?? '');
+    $fin = ProyectoRepo::fecha($post['fecha_fin'] ?? '');
+    if ($ini !== '' && $fin !== '' && $fin < $ini) {
+        redirigir('requerimientos.php', 'La fecha de entrega no puede ser anterior a la de inicio.', 'error');
+    }
+    return ['fecha_inicio' => $ini, 'fecha_fin' => $fin];
+}
+
+function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, MiembroRepo $miembros, array $fechas = []): string
+{
+    $validos = [];
+    foreach ($ids as $id) {
+        if ($m = $miembros->buscar((int)$id)) $validos[(int)$m['id']] = $m;
+    }
+    $repo->asignar($reqId, array_keys($validos), $fechas);
+    if (!$validos) {
+        return '';
+    }
+    $req = $repo->buscar($reqId) ?? [];
+    $avisados = 0;
+    $fallo = '';
+    foreach ($validos as $mid => $m) {
+        // A cada quien se le dice con quien lo comparte: si no, dos personas
+        // se ponen a hacer lo mismo sin saberlo.
+        $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validos, [$mid => true]));
+        $r = Mailer::notificarRequerimiento($req, $m, array_values($otros));
+        if ($r === true) $avisados++;
+        elseif (is_string($r)) $fallo = $r;
+    }
+    $nombres = implode(', ', array_map(fn($m) => explode(' ', trim($m['nombre']))[0], $validos));
+    $cuantos = count($validos);
+    // Con varios destinatarios el aviso puede salir a medias: se dice cuántos
+    $correo = match (true) {
+        $avisados === $cuantos && $cuantos === 1 => ' Le avisamos por correo.',
+        $avisados === $cuantos                   => ' Les avisamos por correo.',
+        $avisados === 0 && $fallo === ''         => ' Avísales tú: el correo del panel no está configurado o no tienen correo registrado.',
+        default => ' Avisados por correo: ' . $avisados . ' de ' . $cuantos
+                 . ($fallo !== '' ? ' (' . $fallo . ')' : '') . '.',
+    };
+    return $nombres . '.' . $correo;
+}
+
+/**
+ * UUID de la ocurrencia de $fecha (Y-m-d) de una reunión recurrente, leyendo
+ * las instancias pasadas en Zoom. Devuelve '' y llena $error con un diagnóstico
+ * útil (qué días SÍ tiene Zoom, o el error de la API) cuando no la encuentra.
+ * Tolera ±1 día de desfase por zona horaria.
+ */
+function resolverUuidOcurrencia(array $reu, string $fecha, string &$error): string
+{
+    $error = '';
+    $inst  = Zoom::instancias((string)($reu['zoom_id'] ?? ''));
+    if (($inst['estado'] ?? '') !== 'ok') {
+        $error = ($inst['msg'] ?? 'No se pudieron leer las ocurrencias en Zoom.')
+               . ' — En la app Server-to-Server de Zoom añade el permiso «meeting:read:list_past_instances» (y «cloud_recording:read»); es el que deja ver los días anteriores de una reunión repetida.';
+        return '';
+    }
+    $items = $inst['items'] ?? [];
+    // Coincidencia exacta por fecha; si no, la instancia más cercana (±1 día).
+    $mejor = null; $mejorDif = 2.0;
+    foreach ($items as $it) {
+        if (($it['fecha'] ?? '') === $fecha) return (string)$it['uuid'];
+        $dif = abs((strtotime((string)($it['fecha'] ?? '')) - strtotime($fecha)) / 86400);
+        if ($dif < $mejorDif) { $mejorDif = $dif; $mejor = $it; }
+    }
+    if ($mejor && $mejorDif <= 1.0) return (string)$mejor['uuid'];
+
+    $dias = array_values(array_filter(array_map(fn($i) => (string)($i['fecha'] ?? ''), $items)));
+    $error = $dias
+        ? 'Zoom no tiene una grabación del ' . $fecha . '. Días con grabación en Zoom: ' . implode(', ', $dias) . '.'
+        : 'Zoom todavía no reporta ninguna ocurrencia grabada de esta reunión (aparecen cuando termina de procesarlas, y solo si se grabó en la nube).';
+    return '';
+}
+
+/**
+ * ¿$fecha (Y-m-d) es el ÚLTIMO día ya pasado de la serie? Para ese, Zoom
+ * devuelve la grabación en el endpoint normal de la reunión (sin UUID), así que
+ * se puede recuperar aunque no haya permiso para listar instancias.
+ */
+function esUltimaOcurrencia(array $reu, string $fecha): bool
+{
+    $ocs = Reuniones::fechasOcurrencias((string)($reu['inicio'] ?? ''), (array)($reu['dias'] ?? []), (string)($reu['hasta'] ?? ''));
+    $ultima = '';
+    foreach ($ocs as $oc) {
+        if (strtotime($oc) <= time()) $ultima = substr($oc, 0, 10);
+    }
+    return $ultima !== '' && $ultima === $fecha;
+}
+
+/**
+ * Avisa por correo de que un requerimiento se terminó.
+ *
+ * Van dos avisos, cada uno por su lado:
+ *  - a quien lo creó/asignó, que es el que espera la respuesta;
+ *  - al correo del administrador de Ajustes → Correo, con el mismo
+ *    interruptor que los proyectos completados, para que tenga la foto de
+ *    todo lo que se cierra aunque el requerimiento no lo pidiera él.
+ * Si son el mismo correo solo sale uno. Devuelve la coletilla para el flash.
+ */
+function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, string $nota): string
+{
+    $para    = '';
+    $creador = $miembros->buscar((int)($req['creado_por'] ?? 0));
+    if ($creador && !empty($creador['email'])) {
+        $para = (string)$creador['email'];
+    }
+    if ($para === '') {
+        $para = trim((string)(Mailer::config()['admin_email'] ?? ''));
+    }
+
+    $aQuienPidio = $para !== ''
+        && Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true;
+    $alAdmin = Mailer::avisarAdminRequerimientoHecho($req, $quien, $nota, $para) === true;
+
+    if ($aQuienPidio && $alAdmin) return ' Avisamos por correo a quien lo asignó y al administrador.';
+    if ($aQuienPidio)             return ' Le avisamos por correo a quien lo asignó.';
+    if ($alAdmin)                 return ' Le avisamos por correo al administrador.';
+    return '';
+}
+
+/**
+ * Avisa al OTRO equipo cuando una tarea pasa a depender de una suya. Solo por
+ * las dependencias NUEVAS (comparando antes/después) y solo las de otro equipo:
+ * las del mismo tablero no generan correo. A cada dependencia externa se avisa a
+ * sus responsables y al Scrum Master de su proyecto. Devuelve la coletilla flash.
+ */
+function notificarDepsExternas(array $tareaMia, array $depsAntes, array $depsDespues, ProyectoRepo $proyectos, MiembroRepo $miembros, TareaRepo $tareas): string
+{
+    $nuevas = array_diff(array_map('intval', $depsDespues), array_map('intval', $depsAntes));
+    if (!$nuevas || !Mailer::listo()) {
+        return '';
+    }
+    $miProy = (int)($tareaMia['proyecto_id'] ?? 0);
+    $pMio   = $proyectos->buscar($miProy);
+    if (!$pMio) {
+        return '';
+    }
+    $avisados = 0;
+    foreach ($nuevas as $depId) {
+        $dep = $tareas->buscar((int)$depId);
+        if (!$dep || (int)$dep['proyecto_id'] === $miProy) continue;   // solo dependencias de otro equipo
+        $pDep = $proyectos->buscar((int)$dep['proyecto_id']);
+        if (!$pDep) continue;
+        // Responsables de la dependencia + Scrum Master de su equipo.
+        $ids = TareaRepo::asignadosDe($dep);
+        $sm  = ProyectoRepo::scrumDe($pDep);
+        if ($sm > 0) $ids[] = $sm;
+        foreach (array_values(array_unique($ids)) as $mid) {
+            $m = $miembros->buscar((int)$mid);
+            if ($m && Mailer::notificarDependencia($tareaMia, $pMio, $dep, $pDep, $m) === true) $avisados++;
+        }
+    }
+    return $avisados ? ' Avisamos por correo al otro equipo (' . $avisados . ').' : '';
+}
+
+/**
+ * Ids de todo el que participa en un proyecto: responsables de sus tareas, su
+ * equipo definido y quien lo lleva (PO y Scrum Master). Para "avisar a todos".
+ */
+function participantesProyecto(int $pid, ProyectoRepo $proyectos, TareaRepo $tareas, MiembroRepo $miembros): array
+{
+    $ids = [];
+    foreach ($tareas->delProyecto($pid) as $t) {
+        foreach (TareaRepo::asignadosDe($t) as $mid) $ids[(int)$mid] = true;
+    }
+    if ($p = $proyectos->buscar($pid)) {
+        foreach (ProyectoRepo::miembrosDe($p) ?? [] as $mid) $ids[(int)$mid] = true;
+        foreach ([ProyectoRepo::poDe($p), ProyectoRepo::scrumDe($p)] as $mid) if ($mid > 0) $ids[(int)$mid] = true;
+    }
+    return array_keys($ids);
+}
+
 function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
 {
     $p = $proyectos->buscar($proyectoId);
@@ -243,6 +437,24 @@ function poAnalistaValido(int $id, MiembroRepo $miembros): int
 }
 
 /**
+ * Scrum Master válido para un proyecto: hace falta llevar el perfil de Scrum
+ * Master, o el de administrador — que manda sobre todo y por tanto también
+ * puede llevar un tablero. Si no, 0 (el proyecto se queda sin SM y solo el
+ * administrador toca su horario).
+ *
+ * Antes se exigía que el perfil ÚNICO fuera 'scrum', así que un administrador
+ * no podía figurar como Scrum Master de su propio proyecto: para aparecer en
+ * la lista tenía que dejar de ser administrador.
+ */
+function scrumValido(int $id, MiembroRepo $miembros): int
+{
+    if ($id <= 0) return 0;
+    $m = $miembros->buscar($id);
+    if (!$m) return 0;
+    return (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) ? $id : 0;
+}
+
+/**
  * Avisa por correo a cada responsable NUEVO de la tarea (los que no estaban
  * antes). Devuelve [sufijo para el mensaje flash, tipo de toast].
  */
@@ -271,7 +483,15 @@ switch ($accion) {
 
     case 'auth_login':
         if (Auth::login($_POST['usuario'] ?? '', $_POST['clave'] ?? '')) {
-            redirigir('index.php', '¡Bienvenido, ' . (Auth::usuario()['nombre'] ?? '') . '!');
+            $yoLogin = $miembros->buscar((int)($_SESSION['uid'] ?? 0)) ?? [];
+            $nombre1 = explode(' ', (string)($yoLogin['nombre'] ?? ''))[0];
+            // Primer ingreso de alguien recién aprobado: a Mi perfil a completar
+            // sus datos (usuario de Git, correos, foto). Se limpia la marca.
+            if (!empty($yoLogin['perfil_pendiente'])) {
+                $miembros->actualizar((int)$yoLogin['id'], ['perfil_pendiente' => false]);
+                redirigir('perfil.php', '¡Bienvenido, ' . $nombre1 . '! Completa tus datos (usuario de Git, correos y foto) para que se cuenten tus commits.');
+            }
+            redirigir('index.php', '¡Bienvenido, ' . $nombre1 . '!');
         }
         // Si se registró y todavía no lo aprueban, decírselo: si no, parece
         // que su contraseña está mal y la vuelve a pedir una y otra vez.
@@ -279,6 +499,61 @@ switch ($accion) {
             redirigir('login.php', 'Tu solicitud de acceso sigue pendiente. Te avisaremos por correo en cuanto un administrador la apruebe.', 'info');
         }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
+
+    case 'solicitud_registrar':
+        // Registro por CORREO: la persona deja su correo + datos + clave. No
+        // entra: queda una solicitud que el administrador aprueba o rechaza.
+        // El correo ES su usuario; luego podrá entrar con esa clave o con Google.
+        $volver = 'registro.php';
+        if (!(Auth::registro()['abierto'] && Auth::hayQuienApruebe())) {
+            redirigir($volver, 'El registro de cuentas nuevas está cerrado ahora mismo.', 'error');
+        }
+        $nombreReg = trim($_POST['nombre'] ?? '');
+        $emailReg  = filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '';
+        $claveReg  = (string)($_POST['clave'] ?? '');
+        $clave2Reg = (string)($_POST['clave2'] ?? '');
+        if ($nombreReg === '') {
+            redirigir($volver, 'Escribe tu nombre y apellido.', 'error');
+        }
+        if ($emailReg === '') {
+            redirigir($volver, 'Escribe un correo válido: ese será tu usuario para entrar.', 'error');
+        }
+        if (!Auth::dominioPermitido($emailReg)) {
+            redirigir($volver, 'Solo se aceptan correos de: @' . implode(', @', Auth::dominiosPermitidos()) . '.', 'error');
+        }
+        if (strlen($claveReg) < 6) {
+            redirigir($volver, 'La contraseña debe tener al menos 6 caracteres.', 'error');
+        }
+        if ($claveReg !== $clave2Reg) {
+            redirigir($volver, 'Las dos contraseñas no coinciden.', 'error');
+        }
+        // El correo EXACTO no puede repetirse: ni de un colaborador ni de otra
+        // solicitud. (Antes bastaba con algo "parecido"; ahora es el correo tal cual.)
+        foreach ($miembros->todos() as $m) {
+            if (strcasecmp((string)($m['email'] ?? ''), $emailReg) === 0) {
+                redirigir($volver, 'Ese correo ya tiene una cuenta en el panel. Entra desde el login (o pídele al administrador que te ayude).', 'error');
+            }
+        }
+        $solicitudesReg = new SolicitudRepo();
+        if ($solicitudesReg->porEmail($emailReg)) {
+            redirigir($volver, 'Ya hay una solicitud con ese correo esperando aprobación. Te avisaremos cuando la revisen.', 'info');
+        }
+        $solReg = $solicitudesReg->crear([
+            'nombre'    => $nombreReg,
+            'email'     => $emailReg,
+            'pass_hash' => Auth::hash($claveReg),   // se guarda hasheada, nunca en claro
+        ]);
+        $avisadosReg = 0;
+        if (Auth::registro()['avisar']) {
+            foreach (Auth::correosAdmin() as $correoAdmin) {
+                if (Mailer::solicitudNueva($solReg, $correoAdmin) === true) $avisadosReg++;
+            }
+        }
+        redirigir('login.php',
+            '¡Listo, ' . explode(' ', $nombreReg)[0] . '! Tu solicitud quedó registrada con ' . $emailReg
+            . ($avisadosReg > 0 ? ' y ya avisamos al administrador.' : '. Un administrador la revisará.')
+            . ' Cuando la aprueben, entra con tu correo y contraseña'
+            . (GoogleLogin::listo() ? ' o con Google.' : '.'));
 
     case 'solicitud_aprobar':
         // Convierte la solicitud en colaborador de verdad. Entrará con la misma
@@ -312,9 +587,19 @@ switch ($accion) {
             // Color de la paleta, rotando para que no salgan todos iguales
             'color'    => count($miembros->todos()) % count(Catalogo::COLORES),
         ]);
-        $miembros->actualizar((int)$nuevo['id'], [
+        $cambiosAprob = [
             'acceso' => Auth::accesoValido($_POST['acceso'] ?? ''),
-        ]);
+            // Su primer ingreso lo lleva a Mi perfil para completar sus datos
+            // (usuario de Git, correos, foto). Se limpia al entrar esa vez.
+            'perfil_pendiente' => true,
+        ];
+        // Si se registró con correo y clave, se conserva su clave para que pueda
+        // entrar con correo+contraseña (además de Google). Si se registró con
+        // Google, no hay clave: entra con Google.
+        if (!empty($s['pass_hash'])) {
+            $cambiosAprob['pass_hash'] = $s['pass_hash'];
+        }
+        $miembros->actualizar((int)$nuevo['id'], $cambiosAprob);
         $solicitudes->eliminar((int)$s['id']);
         // Si el correo del panel no está configurado, la persona no se entera
         // de que ya puede entrar: hay que decírselo al admin, no callarlo.
@@ -339,31 +624,12 @@ switch ($accion) {
         redirigir($volver, 'Rechazaste la solicitud de ' . ($s['nombre'] ?? '') . '.' . $avisoRech, 'info');
 
     case 'auth_identificar':
-        // Confirma "¿quién eres?": vincula el correo de Google (ya verificado y
-        // guardado en sesión) a la ficha que la persona eligió, y la deja dentro.
-        $pend = $_SESSION['identificar'] ?? null;
-        if (!$pend || empty($pend['email'])) {
-            redirigir('login.php', 'La sesión de identificación expiró. Entra de nuevo con Google.', 'error');
-        }
-        $repo = new MiembroRepo();
-        $elegido = $repo->buscar((int)($_POST['miembro'] ?? 0));
-        // Solo fichas sin correo y que no sean admin (no se puede reclamar al admin).
-        if (!$elegido || !empty($elegido['email']) || ($elegido['acceso'] ?? '') === 'admin') {
-            redirigir('login.php', 'Esa ficha no está disponible para vincular.', 'error');
-        }
-        // Que ese correo no lo tenga ya otra persona.
-        foreach ($repo->todos() as $m) {
-            if (strcasecmp($m['email'] ?? '', $pend['email']) === 0) {
-                unset($_SESSION['identificar']);
-                redirigir('login.php', 'Ese correo ya está vinculado a otra ficha. Avisa al administrador.', 'error');
-            }
-        }
-        $cambios = ['email' => $pend['email']];
-        if (!empty($pend['refresh'])) $cambios['gcal_refresh'] = $pend['refresh'];
-        $repo->actualizar((int)$elegido['id'], $cambios);
+        // Flujo RETIRADO: "reclamar" una ficha sin correo permitía asociar
+        // cualquier correo de Google a una ficha ajena (entrar como otra persona).
+        // El acceso es por el correo exacto; si no calza, se pide acceso o el
+        // admin pone el correo en la ficha.
         unset($_SESSION['identificar']);
-        Auth::iniciarSesion((int)$elegido['id']);
-        redirigir('index.php', '¡Bienvenido, ' . explode(' ', $elegido['nombre'])[0] . '! Vinculé tu cuenta de Google (' . $pend['email'] . ') a tu ficha.');
+        redirigir('login.php', 'Entra con el correo que ya está registrado en tu ficha, o pide acceso desde «Crear una cuenta».', 'error');
 
     case 'auth_logout':
         Auth::salir();
@@ -375,7 +641,8 @@ switch ($accion) {
         if (trim($_POST['nombre'] ?? '') === '') {
             redirigir('index.php', 'El nombre del proyecto es obligatorio.', 'error');
         }
-        $_POST['po'] = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
+        $_POST['po']    = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
+        $_POST['scrum'] = scrumValido((int)($_POST['scrum'] ?? 0), $miembros);
         $p = $proyectos->crear($_POST);
         $avisoEquipo = avisarNuevosDelProyecto([], (array)($p['miembros'] ?? []), $p, $miembros);
         redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.' . $avisoEquipo);
@@ -395,6 +662,50 @@ switch ($accion) {
             ? 'Equipo del proyecto actualizado: ' . count($equipoNuevo) . ' persona(s).'
             : 'El proyecto queda abierto a todo el equipo.') . $avisoEquipo);
 
+    /* ---------- Horario de reuniones fijas (las "dailies") ---------- */
+    // Lo escribe el Scrum Master de cada proyecto (y el admin en todos). No
+    // crea nada en Zoom ni en el calendario: es solo el cuadro de horarios.
+
+    case 'rfija_crear':
+        $pidFija = (int)($_POST['proyecto_id'] ?? 0);
+        if (!puedeHorarioDelProyecto($pidFija)) {
+            redirigir('index.php', 'Solo quien lleva ese proyecto (su Scrum Master o su Product Owner) pone su horario.', 'error');
+        }
+        if (ProyectoRepo::hora($_POST['hora'] ?? '') === '') {
+            redirigir('index.php', 'Pon la hora de la reunión.', 'error');
+        }
+        (new ReunionFijaRepo())->crear($_POST + ['creador_id' => (int)(Auth::usuario()['id'] ?? 0)]);
+        redirigir('index.php', 'Reunión añadida al horario.');
+
+    case 'rfija_editar':
+        $fijas = new ReunionFijaRepo();
+        $rf = $fijas->buscar((int)($_POST['id'] ?? 0));
+        if (!$rf) {
+            redirigir('index.php', 'Esa reunión ya no existe.', 'error');
+        }
+        // Puede quien manda en el proyecto de ANTES y en el de después: si no,
+        // se podría mover una reunión ajena a un proyecto propio, o al revés.
+        if (!puedeHorarioDelProyecto((int)$rf['proyecto_id']) || !puedeHorarioDelProyecto((int)($_POST['proyecto_id'] ?? 0))) {
+            redirigir('index.php', 'Esa reunión no es de un proyecto tuyo.', 'error');
+        }
+        if (ProyectoRepo::hora($_POST['hora'] ?? '') === '') {
+            redirigir('index.php', 'Pon la hora de la reunión.', 'error');
+        }
+        $fijas->actualizar((int)$rf['id'], $_POST);
+        redirigir('index.php', 'Horario actualizado.');
+
+    case 'rfija_eliminar':
+        $fijas = new ReunionFijaRepo();
+        $rf = $fijas->buscar((int)($_POST['id'] ?? 0));
+        if (!$rf) {
+            redirigir('index.php', 'Esa reunión ya no existe.', 'error');
+        }
+        if (!puedeHorarioDelProyecto((int)$rf['proyecto_id'])) {
+            redirigir('index.php', 'Esa reunión no es de un proyecto tuyo.', 'error');
+        }
+        $fijas->eliminar((int)$rf['id']);
+        redirigir('index.php', 'Reunión quitada del horario.');
+
     case 'proyecto_editar':
         $id = (int)($_POST['id'] ?? 0);
         $p = $proyectos->buscar($id);
@@ -411,11 +722,12 @@ switch ($accion) {
             'repo'          => '',
             'repo_frontend' => '',
             'estado'        => $_POST['estado'] ?? 'activo',
-            'icono'         => $_POST['icono'] ?? 'fa-rocket',
+            'icono'         => $_POST['icono'] ?? 'FolderOpen',
             'color'         => Catalogo::colorEntrada($_POST),
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
             'po'            => poAnalistaValido((int)($_POST['po'] ?? 0), $miembros),
+            'scrum'         => scrumValido((int)($_POST['scrum'] ?? 0), $miembros),
             'plataforma'    => ProyectoRepo::plataformaEntrada($_POST['plataforma'] ?? ''),
         ]);
         $pAhora = $proyectos->buscar($id);
@@ -480,6 +792,10 @@ switch ($accion) {
         if (!$t) {
             $respEstado(false, 'Tarea no encontrada.');
         }
+        // El supervisor es solo vista: nunca cambia estados.
+        if (Auth::esSupervisor()) {
+            $respEstado(false, 'El supervisor solo observa el tablero.');
+        }
         // Cada quien puede mover SUS tareas por el tablero; los demás, solo admin.
         if (!Auth::esAdmin() && !TareaRepo::tieneAsignado($t, (int)(Auth::usuario()['id'] ?? 0))) {
             $respEstado(false, 'Solo puedes cambiar el estado de tus tareas.');
@@ -487,6 +803,8 @@ switch ($accion) {
         $estadoNuevo = $_POST['estado'] ?? 'pendiente';
         $tareas->actualizar((int)$t['id'],
             ['estado' => $estadoNuevo] + completadaEn($estadoNuevo, $t['estado'] ?? 'pendiente'));
+        // Al darla por terminada, quien lleva el proyecto se entera al momento
+        $avisoFin = avisarTareaTerminada($t, $t['estado'] ?? 'pendiente', $estadoNuevo, (int)(Auth::usuario()['id'] ?? 0));
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         // Contadores por estado del proyecto, para que el kanban, los tiles de
         // resumen y la barra de avance se actualicen sin recargar. El avance se
@@ -494,7 +812,7 @@ switch ($accion) {
         // el navegador no puede deducirlo del conteo.
         $pidEstado = (int)$t['proyecto_id'];
         $conteo    = $tareas->resumen($pidEstado);
-        $respEstado(true, 'Estado actualizado.', [
+        $respEstado(true, 'Estado actualizado.' . $avisoFin, [
             'conteo'      => $conteo,
             'avance'      => $tareas->avance($pidEstado),
             'completadas' => $tareas->completadas($pidEstado),
@@ -539,6 +857,7 @@ switch ($accion) {
           + TareaRepo::camposAsignado($_POST));
         $tActual = $tareas->buscar((int)$t['id']);
         [$msg, $tipo] = notificarSiAsignada($tActual, TareaRepo::asignadosDe($tActual), $asignadosAntes, $proyectos, $miembros);
+        $msg .= avisarTareaTerminada($tActual, $t['estado'] ?? 'pendiente', $_POST['estado'] ?? 'pendiente', (int)(Auth::usuario()['id'] ?? 0));
         $msg .= notificarDepsExternas($tActual, $depsAntes, $depsEd, $proyectos, $miembros, $tareas);
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
@@ -711,6 +1030,7 @@ switch ($accion) {
         // Solo se anota en proyectos propios (un lector no puede escribir
         // en un tablero ajeno mandando el id a mano).
         if (!puedeVerProyecto($pid)) $fallar('No participas en ese proyecto.');
+        if (Auth::esSupervisor()) $fallar('Un supervisor solo observa el tablero, no anota observaciones.');
         $adjuntos = guardarAdjuntos('adjuntos');
         if (HtmlRico::vacio($_POST['texto'] ?? '') && empty($adjuntos)) {
             $fallar('Escribe la observación o adjunta un archivo.');
@@ -1068,7 +1388,7 @@ switch ($accion) {
         $salida = json_encode([
             'persona'   => $yo['nombre'],
             'total'     => count($mias),
-            'nota'      => 'Mis tareas en Mecapacito. Cada commit referencia su tarea con el #id (ver estándar del equipo).',
+            'nota'      => 'Mis tareas en InnoTech Hub. Cada commit referencia su tarea con el #id; con una palabra clave pegada (closes/fixes/cierra #id) el panel la avanza de estado solo (ver estándar del equipo).',
             'tareas'    => $mias,
         ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
 
@@ -1080,8 +1400,13 @@ switch ($accion) {
         exit;
 
     case 'proyecto_tareas_json':
-        // Exporta TODAS las tareas de un proyecto como JSON (con su #id), para
-        // que cualquier participante se lo pase a su Claude con contexto.
+        // Exporta MIS tareas de un proyecto como JSON (con su #id y las tareas de
+        // las que dependen), para pasárselo a mi Claude con contexto. Solo las
+        // mías, no las de todo el equipo.
+        $yoJson = Auth::usuario();
+        if (!$yoJson) {
+            redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        }
         $pid = (int)($_POST['id'] ?? 0);
         $p = $proyectos->buscar($pid);
         if (!$p) {
@@ -1103,14 +1428,13 @@ switch ($accion) {
         $porId   = [];
         foreach ($lista as $t) { $porId[(int)$t['id']] = $t; }
 
-        $out = [];
-        foreach ($lista as $t) {
+        $fmtTarea = function ($t) use ($estCat, $priCat, $porId, $memNom, $p) {
             $resp = [];
             foreach (TareaRepo::asignadosDe($t) as $mid) {
                 if (isset($memNom[$mid])) $resp[] = $memNom[$mid];
             }
             $depId = (int)($t['depende_de'] ?? 0);
-            $out[] = [
+            return [
                 'id'           => (int)$t['id'],
                 'ref'          => '#' . (int)$t['id'],
                 'proyecto'     => $p['nombre'],
@@ -1148,8 +1472,8 @@ switch ($accion) {
             'persona'      => $todoElEquipo ? 'Todo el equipo' : $yoJson['nombre'],
             'total'        => count($out),
             'nota'         => ($todoElEquipo
-                ? 'Todas las tareas del proyecto «' . $p['nombre'] . '» en Mecapacito, de todo el equipo.'
-                : 'Mis tareas del proyecto «' . $p['nombre'] . '» en Mecapacito.')
+                ? 'Todas las tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub, de todo el equipo.'
+                : 'Mis tareas del proyecto «' . $p['nombre'] . '» en InnoTech Hub.')
                 . ' Cada commit referencia su tarea con el #id: <tipo>(<área>): <descripción en presente> #<id>. Con una palabra clave pegada (closes/fixes/cierra #id) el panel avanza la tarea de estado solo (ver estándar del equipo). En "dependencias" van las tareas de las que dependen estas, como contexto.',
             'tareas'       => $out,
             'dependencias' => $deps,
@@ -1240,6 +1564,243 @@ switch ($accion) {
             : 'Perfil actualizado.');
 
     /* ---------- Miembros ---------- */
+
+    /* ---------- Requerimientos sueltos (solo administrador) ---------- */
+    // (asigna con fechas y avisa; devuelve la coletilla para el flash — '' si
+    //  no se marcó a nadie)
+
+    case 'req_crear':
+        if (trim($_POST['titulo'] ?? '') === '') {
+            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
+        }
+        $fechasReq = fechasRequerimiento($_POST);
+        // El detalle es texto enriquecido (se puede pegar un correo con su
+        // tabla): se sanea a lista blanca antes de guardar.
+        $_POST['detalle'] = HtmlRico::limpiar($_POST['detalle'] ?? '');
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->crear($_POST + [
+            'creado_por' => (int)(Auth::usuario()['id'] ?? 0),
+            'adjuntos'   => guardarAdjuntos('adjuntos'),
+        ]);
+        // Se puede asignar de una vez, sin pasar dos veces por el formulario
+        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
+        redirigir('requerimientos.php', $avisoReq === ''
+            ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
+            : 'Requerimiento registrado y asignado a ' . $avisoReq);
+
+    case 'req_editar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        if (trim($_POST['titulo'] ?? '') === '') {
+            redirigir('requerimientos.php', 'Escribe qué es lo que piden.', 'error');
+        }
+        $fechasReqEd = fechasRequerimiento($_POST);
+        $antesResp   = RequerimientoRepo::asignadosDe($req);
+
+        // Contenido (el detalle es texto enriquecido: se sanea).
+        $reqRepo->actualizar((int)$req['id'], [
+            'titulo'        => trim($_POST['titulo'] ?? ''),
+            'detalle'       => HtmlRico::limpiar($_POST['detalle'] ?? ''),
+            'solicitante'   => trim($_POST['solicitante'] ?? ''),
+            'prioridad'     => Catalogo::prioridadValida($_POST['prioridad'] ?? ''),
+            'instituciones' => InstitucionRepo::idsEntrada($_POST['instituciones'] ?? []),
+        ]);
+
+        // Responsables + plazo. Se guardan igual que al asignar, pero el aviso
+        // por correo va SOLO a quien se acaba de sumar: a los que ya estaban no
+        // se les reenvía cada vez que se corrige una coma.
+        $validosEd = [];
+        foreach ((array)($_POST['asignados'] ?? []) as $aid) {
+            if ($mEd = $miembros->buscar((int)$aid)) $validosEd[(int)$mEd['id']] = $mEd;
+        }
+        $reqRepo->asignar((int)$req['id'], array_keys($validosEd), $fechasReqEd);
+        $reqActEd = $reqRepo->buscar((int)$req['id']) ?? [];
+        $nuevosEd = array_diff(array_keys($validosEd), $antesResp);
+        $avisadosEd = 0;
+        foreach ($nuevosEd as $mid) {
+            $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validosEd, [$mid => true]));
+            if (Mailer::notificarRequerimiento($reqActEd, $validosEd[$mid], array_values($otros)) === true) {
+                $avisadosEd++;
+            }
+        }
+        $sufijoEd = $avisadosEd
+            ? ' Avisamos por correo a ' . $avisadosEd . ' responsable' . ($avisadosEd === 1 ? '' : 's') . ' nuevo' . ($avisadosEd === 1 ? '' : 's') . '.'
+            : '';
+        redirigir('requerimientos.php', '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd);
+
+    case 'req_asignar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $aviso = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []),
+                                      $miembros, fechasRequerimiento($_POST));
+        if ($aviso === '') {
+            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».', 'info');
+        }
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso);
+
+    case 'req_estado':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
+        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
+
+    case 'req_terminar':
+        // Lo marca el RESPONSABLE desde su bandeja, con una observación de cómo
+        // lo dejó (rama, commits…). Avisa por correo a quien lo asignó.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('bandeja.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        $yoTerm = (int)(Auth::usuario()['id'] ?? 0);
+        if (!RequerimientoRepo::tieneAsignado($req, $yoTerm)) {
+            redirigir('bandeja.php', 'Solo quien lo tiene asignado puede marcarlo terminado.', 'error');
+        }
+        if (RequerimientoRepo::cerrado($req)) {
+            redirigir('bandeja.php', 'Ese requerimiento ya estaba cerrado.', 'info');
+        }
+        $notaTerm = trim($_POST['nota'] ?? '');
+        $reqRepo->actualizar((int)$req['id'], [
+            'estado'      => 'hecho',
+            'nota_cierre' => mb_substr($notaTerm, 0, 600),
+            'cerrado_por' => $yoTerm,
+            'cerrado_en'  => date('Y-m-d H:i'),
+        ]);
+        $reqTermAct = $reqRepo->buscar((int)$req['id']) ?? $req;
+        $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
+        redirigir('bandeja.php', 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
+
+    case 'req_observar':
+        // Dejar dicho algo sobre un requerimiento —"estimado, ¿qué pasó con
+        // esto?"— y que le llegue por correo a la otra parte. Nace de los
+        // vencidos: se veía que llevaba dos días pasado de fecha, pero para
+        // preguntar había que salirse del panel a WhatsApp, y lo preguntado
+        // no quedaba en ninguna parte.
+        //
+        // La observación se guarda SIEMPRE, aunque el correo no salga (sin
+        // SMTP configurado, o sin dirección): perder lo escrito porque falló
+        // el envío es peor que quedarse sin aviso.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $volverObs = volverAqui('requerimientos.php');
+        if (!$req) {
+            redirigir($volverObs, 'Ese requerimiento ya no existe.', 'error');
+        }
+        $yoObs = (int)(Auth::usuario()['id'] ?? 0);
+        // La escribe quien lo gestiona o quien lo tiene asignado: es una
+        // conversación entre esas dos partes. El supervisor solo observa.
+        if (Auth::esSupervisor() || (!esAdmin() && !RequerimientoRepo::tieneAsignado($req, $yoObs))) {
+            redirigir($volverObs, 'Solo quien gestiona el requerimiento o lo tiene asignado puede anotar observaciones.', 'error');
+        }
+        $textoObs = trim($_POST['texto'] ?? '');
+        if ($textoObs === '') {
+            redirigir($volverObs, 'Escribe la observación antes de enviarla.', 'error');
+        }
+
+        // ¿Abre hilo o responde a una? Un padre que ya no exista se ignora
+        // dentro de observar() y la observación abre hilo.
+        $padreObs = (int)($_POST['padre_id'] ?? 0);
+        $laQueRespondeObs = $padreObs > 0
+            ? RequerimientoRepo::observacionDe($req, $padreObs)
+            : null;
+
+        // A quién le llega:
+        //
+        //  - Si ABRE hilo, a los responsables y a nadie más. La observación es
+        //    el tirón de orejas a quien no está cumpliendo; quien la registró
+        //    no necesita copia de cada una.
+        //  - Si RESPONDE, a quien escribió aquello que se responde. Así el hilo
+        //    cierra el círculo: Felipe le escribe a Jaione, Jaione contesta y
+        //    Felipe se entera — sin que Ronny, que solo la registró, reciba
+        //    nada en todo el intercambio.
+        //
+        // Quien escribe queda siempre fuera, que si no se mandaría el correo a
+        // sí mismo.
+        $paraObs = [];
+        $destinosObs = $laQueRespondeObs
+            ? [$laQueRespondeObs['autor']]
+            : RequerimientoRepo::asignadosDe($req);
+        foreach ($destinosObs as $midObs) {
+            if ($midObs <= 0 || $midObs === $yoObs || isset($paraObs[$midObs])) continue;
+            if ($mObs = $miembros->buscar($midObs)) $paraObs[$midObs] = $mObs;
+        }
+        $autorObs = $miembros->buscar($yoObs) ?? [];
+        $avisadosObs = [];
+        foreach ($paraObs as $midObs => $mObs) {
+            if (Mailer::observacionRequerimiento($req, $autorObs, $mObs, $textoObs, $laQueRespondeObs) === true) {
+                $avisadosObs[] = $midObs;
+            }
+        }
+        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs);
+
+        $nAvObs = count($avisadosObs);
+        $rotuloObs = $laQueRespondeObs ? 'Respuesta anotada en «' : 'Observación anotada en «';
+        redirigir($volverObs, $rotuloObs . ($req['titulo'] ?? '') . '».'
+            . ($nAvObs
+                ? ' Avisamos por correo a ' . implode(', ', array_map(
+                    fn($mid) => explode(' ', trim((string)($paraObs[$mid]['nombre'] ?? '')))[0], $avisadosObs)) . '.'
+                : (!$paraObs
+                    ? ($laQueRespondeObs
+                        ? ' No salió correo: la escribiste tú o quien la escribió ya no está en el equipo.'
+                        : ' Nadie la tiene asignada todavía, así que no salió ningún correo.')
+                    : ' No salió el correo (revisa Ajustes → Correo), pero queda anotada.')));
+
+    case 'req_eliminar':
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $reqRepo->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
+
+    /* ---------- Catálogo de instituciones (solo admin) ---------- */
+
+    case 'institucion_crear':
+        $nombreI = trim($_POST['nombre'] ?? '');
+        if ($nombreI === '') {
+            redirigir('instituciones.php', 'Ponle un nombre a la institución.', 'error');
+        }
+        (new InstitucionRepo())->crear([
+            'nombre'    => $nombreI,
+            'imagen'    => guardarFoto('imagen', 'inst_', 'imagen'),
+            // El color del formulario (índice de paleta o "custom" + hex) lo
+            // normaliza el propio repo con Catalogo::colorEntrada.
+            'color'     => $_POST['color'] ?? 0,
+            'color_hex' => $_POST['color_hex'] ?? '',
+        ]);
+        redirigir('instituciones.php', 'Institución «' . $nombreI . '» agregada al catálogo.');
+
+    case 'institucion_editar':
+        $instRepo = new InstitucionRepo();
+        $inst = $instRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$inst) {
+            redirigir('instituciones.php', 'Esa institución ya no existe.', 'error');
+        }
+        $cambiosInst = [
+            'nombre' => trim($_POST['nombre'] ?? ''),
+            'color'  => Catalogo::colorEntrada($_POST),
+        ];
+        $imgInst = guardarFoto('imagen', 'inst_', 'imagen');
+        if ($imgInst !== '') {   // reemplaza la imagen y borra la anterior
+            if (!empty($inst['imagen']) && is_file(__DIR__ . '/' . $inst['imagen'])) {
+                @unlink(__DIR__ . '/' . $inst['imagen']);
+            }
+            $cambiosInst['imagen'] = $imgInst;
+        }
+        $instRepo->actualizar((int)$inst['id'], $cambiosInst);
+        redirigir('instituciones.php', 'Institución actualizada.');
+
+    case 'institucion_eliminar':
+        (new InstitucionRepo())->eliminar((int)($_POST['id'] ?? 0));
+        redirigir('instituciones.php', 'Institución quitada del catálogo.');
 
     case 'equipo_importar':
         // Sube el Excel (o CSV), lo lee y deja la PREVISUALIZACIÓN en sesión.
@@ -1332,24 +1893,49 @@ switch ($accion) {
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
 
+    case 'supervisor_proyectos':
+        // El admin define qué proyectos ve un supervisor (solo esos, nada más).
+        $id = (int)($_POST['id'] ?? 0);
+        $m  = $miembros->buscar($id);
+        if (!$m) {
+            redirigir('equipo.php', 'Colaborador no encontrado.', 'error');
+        }
+        $existentes = array_map(fn($p) => (int)$p['id'], $proyectos->todos());
+        $ids = array_values(array_intersect(
+            ProyectoRepo::miembrosEntrada($_POST['proyectos'] ?? []),   // ids únicos y positivos
+            $existentes
+        ));
+        $miembros->actualizar($id, ['proyectos_sup' => $ids]);
+        redirigir('equipo.php?e=' . MiembroRepo::equipoDe($m),
+            $ids ? ($m['nombre'] . ' verá ' . count($ids) . ' proyecto(s).')
+                 : ($m['nombre'] . ' no verá ningún proyecto hasta que elijas alguno.'));
+
     case 'miembro_acceso_set':
-        // Select de acceso en la tabla de equipo (admin / solo lectura)
+        // Perfiles de una persona. Son VARIOS: lo normal es "administrador y
+        // Scrum Master", y antes había que elegir uno — quien administraba el
+        // panel no podía figurar como Scrum Master de su propio tablero.
         $m = $miembros->buscar((int)($_POST['id'] ?? 0));
         $volver = volverAqui('equipo.php');
         if (!$m) {
             redirigir($volver, 'Colaborador no encontrado.', 'error');
         }
-        $nuevo   = Auth::accesoValido($_POST['acceso'] ?? '');
-        $actual  = $m['acceso'] ?? 'lector';
-        $eraAdmin = $actual === 'admin';
-        if ($nuevo === $actual) {
+        // 'accesos[]' es lo que manda; 'acceso' a secas viene de la pantalla
+        // vieja y de cualquier enlace guardado.
+        $nuevos = isset($_POST['accesos'])
+            ? Auth::accesosValidos($_POST['accesos'])
+            : [Auth::accesoValido($_POST['acceso'] ?? '')];
+        $actuales = MiembroRepo::accesosDe($m);
+        sort($nuevos); sort($actuales);
+        if ($nuevos === $actuales) {
             redirigir($volver);   // sin cambios
         }
-        // Al dejar de ser admin (a scrum o a lector): nunca dejar el panel sin
-        // administrador, ni quitarse uno mismo el acceso.
-        if ($eraAdmin && $nuevo !== 'admin') {
+        $eraAdmin = in_array('admin', $actuales, true);
+        $sigueAdmin = in_array('admin', $nuevos, true);
+        // Al dejar de ser admin: nunca dejar el panel sin administrador, ni
+        // quitarse uno mismo el acceso.
+        if ($eraAdmin && !$sigueAdmin) {
             $otros = array_filter($miembros->todos(), fn($x) =>
-                (int)$x['id'] !== (int)$m['id'] && ($x['acceso'] ?? '') === 'admin');
+                (int)$x['id'] !== (int)$m['id'] && MiembroRepo::tieneAcceso($x, 'admin'));
             if (!$otros) {
                 redirigir($volver, 'No puedes quitar al único administrador del panel.', 'error');
             }
@@ -1357,15 +1943,21 @@ switch ($accion) {
                 redirigir($volver, 'No puedes quitarte a ti mismo el acceso de administrador.', 'error');
             }
         }
-        $miembros->actualizar((int)$m['id'], ['acceso' => $nuevo]);
-        $etiqueta = Auth::ROLES[$nuevo] ?? 'Solo lectura';
-        if ($nuevo === 'lector') {
+        // Se guardan los dos: 'accesos' con todos y 'acceso' con el de más
+        // mando, que es lo que leen las pantallas que enseñan una sola etiqueta.
+        $miembros->actualizar((int)$m['id'], [
+            'accesos' => $nuevos,
+            'acceso'  => MiembroRepo::accesoDominante($nuevos),
+        ]);
+        $mAct = $miembros->buscar((int)$m['id']) ?? $m;
+        if ($nuevos === ['lector']) {
             redirigir($volver, $m['nombre'] . ' vuelve a solo lectura.');
         }
         $falta = empty($m['pass_hash'])
             ? ' Todavía no tiene contraseña: pónsela al editar su ficha o que entre con Google.'
             : '';
-        redirigir($volver, $m['nombre'] . ' ahora es ' . $etiqueta . '.' . $falta, $falta ? 'info' : 'success');
+        redirigir($volver, $m['nombre'] . ' ahora es ' . MiembroRepo::accesosEnTexto($mAct) . '.' . $falta,
+            $falta ? 'info' : 'success');
 
     case 'miembro_eliminar':
         $id = (int)($_POST['id'] ?? 0);
@@ -1446,6 +2038,35 @@ switch ($accion) {
             'agendar'         => !empty($reuPost['agendar']),
         ];
 
+        // Deploys: a quien deja el administrador pulsar "cambios subidos" y
+        // quien ve el modulo. Los ids se validan contra el equipo real.
+        $depPost = (array)($_POST['deploys'] ?? []);
+        $idsEquipo = array_map(fn($m) => (int)$m['id'], $miembros->todos());
+        $idsValidos = fn($v) => array_values(array_intersect(
+            array_values(array_unique(array_map('intval', (array)$v))), $idsEquipo
+        ));
+        $idsProy = array_map(fn($p) => (int)$p['id'], $proyectos->todos());
+        $clavesEq = array_keys(Catalogo::equipos());
+        $deploysCfg = [
+            'activo'     => !empty($depPost['activo']),
+            'entorno'    => trim($depPost['entorno'] ?? '') ?: $def['deploys']['entorno'],
+            'encargados' => $idsValidos($depPost['encargados'] ?? []),
+            'visores'    => $idsValidos($depPost['visores'] ?? []),
+            'ver_po'     => !empty($depPost['ver_po']),
+            'proyectos'  => array_values(array_intersect(
+                array_values(array_unique(array_map('intval', (array)($depPost['proyectos'] ?? [])))), $idsProy
+            )),
+            'equipos'    => array_values(array_intersect(
+                array_values(array_unique(array_map('strval', (array)($depPost['equipos'] ?? [])))), $clavesEq
+            )),
+            // Alias por proyecto. Se guarda solo el de los proyectos que
+            // existen: si se borra un proyecto, su alias no se queda de okupa
+            // en la config para siempre.
+            'alias'      => array_intersect_key(
+                aliasDeploys($depPost['alias'] ?? []), array_flip($idsProy)
+            ),
+        ];
+
         $correoPost = (array)($_POST['correo'] ?? []);
         $correo = [
             'activo'    => !empty($correoPost['activo']),
@@ -1466,6 +2087,16 @@ switch ($accion) {
             'dias_recordatorio'   => max(0, min(30, (int)($correoPost['dias_recordatorio'] ?? 3))),
             'avisar_completado'   => !empty($correoPost['avisar_completado']),
             'admin_email'         => filter_var(trim($correoPost['admin_email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
+            // Otros correos que también reciben los avisos de completado/terminado.
+            // Se aceptan separados por coma, punto y coma o salto de línea; se
+            // guardan solo los válidos, sin repetir, unidos por ", ".
+            'correos_aviso'       => implode(', ', array_values(array_unique(array_filter(
+                array_map(
+                    fn($e) => filter_var(trim($e), FILTER_VALIDATE_EMAIL) ?: '',
+                    preg_split('/[\s,;]+/', (string)($correoPost['correos_aviso'] ?? ''))
+                ),
+                fn($e) => $e !== ''
+            )))),
         ];
 
         // Roles: filas del catalogo (rl[]) o, por compatibilidad, textarea 'roles'
@@ -1518,6 +2149,7 @@ switch ($accion) {
             'correo'           => $correo,
             'zoom'             => $zoom,
             'reuniones'        => $reunionesCfg,
+            'deploys'          => $deploysCfg,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -1582,7 +2214,7 @@ switch ($accion) {
 
     case 'config_exportar':
         $json = json_encode(Config::all(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-        $nombre = 'mecapacito-config-' . date('Y-m-d') . '.json';
+        $nombre = 'innotech-config-' . date('Y-m-d') . '.json';
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="' . $nombre . '"');
         header('Content-Length: ' . strlen($json));
@@ -1627,7 +2259,7 @@ switch ($accion) {
         if (!$proyectos->buscar($pid)) {
             redirigir('index.php', 'Proyecto no encontrado.', 'error');
         }
-        if (!puedeGestionar($pid)) {
+        if (!puedeReunionesDelProyecto($pid)) {
             redirigir('proyecto.php?id=' . $pid, 'Solo puedes crear reuniones en tus proyectos.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
@@ -1647,7 +2279,29 @@ switch ($accion) {
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
         $p = $proyectos->buscar($pid);
 
-        if ($plataforma === 'meet') {
+        if ($plataforma === 'enlace') {
+            // Enlace propio: no se llama a ninguna API, el enlace lo pone quien
+            // crea la reunión. Se guarda el detalle, se agenda y se avisa igual;
+            // lo único que no habrá es grabación.
+            $suUrl = trim($_POST['join_url'] ?? '');
+            if (!filter_var($suUrl, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $suUrl)) {
+                redirigir($volver, 'Pega el enlace de la reunión (tiene que empezar por https://).', 'error');
+            }
+            $reu = $reuniones->crear([
+                'proyecto_id' => $pid,
+                'plataforma'  => 'enlace',
+                'creador_id'  => (int)(Auth::usuario()['id'] ?? 0),
+                'topic'       => $topic,
+                'inicio'      => $inicio,
+                'duracion'    => $dur,
+                'join_url'    => $suUrl,
+                'invitados'   => $invitados,
+                'recurrente'  => $recurrente,
+                'dias'        => $dias,
+                'hasta'       => $hasta,
+            ]);
+            $donde = 'Reunión creada con tu enlace. No quedará grabada.';
+        } elseif ($plataforma === 'meet') {
             // Meet: se crea en el calendario del creador (necesita su Google)
             $yo = Auth::usuario();
             $refresh = (string)($yo['gcal_refresh'] ?? '');
@@ -1740,7 +2394,7 @@ switch ($accion) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
         }
         $pid = (int)$reu['proyecto_id'];
-        if (!puedeGestionar($pid)) {
+        if (!puedeReunionesDelProyecto($pid)) {
             redirigir('proyecto.php?id=' . $pid, 'Solo puedes editar reuniones de tus proyectos.', 'error');
         }
         $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
@@ -1817,13 +2471,43 @@ switch ($accion) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''));
+
+        // Grabación de UN día concreto (ocurrencia de una reunión recurrente):
+        // se localiza la instancia de Zoom de ese día para leer SU grabación,
+        // no la de toda la serie.
+        $ocurrencia = trim((string)($_POST['ocurrencia'] ?? ''));
+        $uuidOc = '';
+        if ($ocurrencia !== '' && Reuniones::esRecurrente($reu)) {
+            $errOc  = '';
+            $uuidOc = resolverUuidOcurrencia($reu, $ocurrencia, $errOc);
+            if ($uuidOc === '' && !esUltimaOcurrencia($reu, $ocurrencia)) {
+                // No es el último día y no se pudo resolver su UUID: sin el UUID
+                // no se puede pedir la grabación de un día anterior.
+                redirigir($volver, $errOc, 'info');
+            }
+            // Si es el último día ya pasado, seguimos con $uuidOc='' y se lee el
+            // endpoint normal de la reunión (Zoom devuelve ahí la última).
+        }
+
+        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''), $uuidOc);
         if ($g['estado'] === 'ok') {
-            $reuniones->actualizar((int)$reu['id'], [
-                'grabaciones'   => $g['archivos'],
-                'share_url'     => $g['share_url'] ?? '',
-                'grab_password' => $g['password'] ?? '',
-            ]);
+            if ($ocurrencia !== '') {
+                // Se guarda en un mapa por día; la lista de reuniones lo lee para
+                // pintar el "▶ Grabación" de ESE día.
+                $mapaOc = is_array($reu['grab_ocurrencias'] ?? null) ? $reu['grab_ocurrencias'] : [];
+                $mapaOc[$ocurrencia] = [
+                    'archivos'      => $g['archivos'],
+                    'share_url'     => $g['share_url'] ?? '',
+                    'grab_password' => $g['password'] ?? '',
+                ];
+                $reuniones->actualizar((int)$reu['id'], ['grab_ocurrencias' => $mapaOc]);
+            } else {
+                $reuniones->actualizar((int)$reu['id'], [
+                    'grabaciones'   => $g['archivos'],
+                    'share_url'     => $g['share_url'] ?? '',
+                    'grab_password' => $g['password'] ?? '',
+                ]);
+            }
             $msg = count($g['archivos']) . ' archivo(s) de grabación disponibles.';
             if (!empty($g['abierto'])) {
                 $msg .= ' Abre sin pedir código.';
@@ -1850,7 +2534,20 @@ switch ($accion) {
             redirigir('index.php', 'No participas en ese proyecto.', 'error');
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-        $tr = Zoom::transcripcion((string)$reu['zoom_id']);
+
+        // Transcripción de UN día (ocurrencia de una serie): se resuelve su UUID.
+        $ocurrenciaT = trim((string)($_POST['ocurrencia'] ?? ''));
+        $uuidT = '';
+        if ($ocurrenciaT !== '' && Reuniones::esRecurrente($reu)) {
+            $errT  = '';
+            $uuidT = resolverUuidOcurrencia($reu, $ocurrenciaT, $errT);
+            if ($uuidT === '' && !esUltimaOcurrencia($reu, $ocurrenciaT)) {
+                redirigir($volver, $errT, 'info');
+            }
+            // Último día pasado: se lee el endpoint normal (Zoom da ahí la última).
+        }
+
+        $tr = Zoom::transcripcion((string)$reu['zoom_id'], $uuidT);
         if ($tr['estado'] !== 'ok') {
             redirigir($volver, $tr['msg'] ?? 'Sin transcripción.', $tr['estado'] === 'vacio' ? 'info' : 'error');
         }
@@ -1862,12 +2559,12 @@ switch ($accion) {
         }
         $cab = '# Transcripción de reunión — ' . ($reu['topic'] ?? '') . "\n\n"
             . 'Proyecto: ' . ($p['nombre'] ?? '') . "\n"
-            . 'Fecha: ' . ($reu['inicio'] ?? '') . "\n"
+            . 'Fecha: ' . ($ocurrenciaT !== '' ? $ocurrenciaT : ($reu['inicio'] ?? '')) . "\n"
             . ($nombres ? 'Participantes: ' . implode(', ', $nombres) . "\n" : '')
             . "\nContexto para Claude: esto es la transcripción automática (Zoom) de una reunión "
-            . "del equipo de Mecapacito. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
+            . "del equipo de InnoTech Hub. Úsala para resumir lo hablado, decisiones y tareas pendientes. "
             . "Las tareas del panel se referencian con su #id.\n\n---\n\n";
-        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower($reu['topic'] ?? 'reunion'));
+        $slug = preg_replace('/[^a-z0-9]+/', '-', strtolower(($reu['topic'] ?? 'reunion') . ($ocurrenciaT !== '' ? '-' . $ocurrenciaT : '')));
         header('Content-Type: text/markdown; charset=utf-8');
         header('Content-Disposition: attachment; filename="transcripcion-' . trim($slug, '-') . '.md"');
         header('Cache-Control: no-store');
@@ -1877,7 +2574,7 @@ switch ($accion) {
     case 'reunion_eliminar':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
-        if ($reu && !puedeGestionar((int)$reu['proyecto_id'])) {
+        if ($reu && !puedeReunionesDelProyecto((int)$reu['proyecto_id'])) {
             redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'], 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
         }
         if ($reu) {
@@ -1894,6 +2591,104 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones', 'Reunión eliminada.');
         }
         redirigir('index.php', 'Reunión no encontrada.', 'error');
+
+    /* ---------- Deploys: "los cambios ya están arriba" ---------- */
+
+    case 'deploy_registrar':
+        // Un solo botón: la fecha y la hora las pone el servidor. Lo único que
+        // elige el encargado es a qué proyectos afecta esta subida — una misma
+        // subida suele tocar varios— y, si quiere, una nota corta. Saturar a
+        // quien sube los cambios es la forma de que deje de marcarlo.
+        if (!puedeDesplegar()) {
+            redirigir('index.php', 'No estás como encargado de los despliegues.', 'error');
+        }
+        $volverDep = ($_POST['volver'] ?? '') === 'index' ? 'index.php' : 'deploys.php';
+
+        // A qué proyectos afecta. El encargado lo elige al registrar, en el
+        // modal, marcado por defecto todo lo que el administrador configuró:
+        // quien sube un solo microservicio desmarca el resto, y quien sube
+        // todo confirma y ya. El campo 'elegidos' distingue "no marcó ninguno"
+        // —que es un error y hay que decírselo— de una petición sin lista
+        // (la tira vieja, o un enlace directo), donde valen los configurados.
+        $cfgDep   = configDeploys();
+        $eligio   = !empty($_POST['elegidos']);
+        $pedidos  = (array)($_POST['proyectos'] ?? []);
+        if (!$pedidos && $eligio) {
+            redirigir($volverDep, 'Marca al menos un proyecto para registrar la subida.', 'error');
+        }
+        if (!$pedidos) {
+            $pedidos = $cfgDep['proyectos']
+                ?: array_map(fn($pp) => (int)$pp['id'], $proyectos->todos());
+        }
+        $pidsDep = [];
+        foreach ($pedidos as $pidRaw) {
+            $pidDep = (int)$pidRaw;
+            if ($pidDep <= 0 || isset($pidsDep[$pidDep])) continue;
+            if (!$proyectos->buscar($pidDep) || !proyectoConDeploys($pidDep)) continue;
+            $pidsDep[$pidDep] = true;
+        }
+        $pidsDep = array_keys($pidsDep);
+        if (!$pidsDep) {
+            redirigir($volverDep, 'No hay proyectos configurados para despliegues. Elígelos en Ajustes → Despliegues.', 'error');
+        }
+
+        // Lo que sube este despliegue: las tareas ya completadas de esos
+        // proyectos que ningún despliegue anterior se llevó. Una tarea
+        // terminada anoche entra sola en la subida de esta mañana, que es como
+        // trabaja el equipo.
+        $finalesDep = Catalogo::estadosFinales();
+        $pendientesDep = [];
+        foreach ($pidsDep as $pidDep) {
+            foreach ($tareas->delProyecto($pidDep) as $t) {
+                if (!in_array($t['estado'] ?? '', $finalesDep, true)) continue;
+                if ((int)($t['deploy_id'] ?? 0) > 0) continue;
+                $pendientesDep[] = (int)$t['id'];
+            }
+        }
+
+        $deploysRepo = new DeployRepo();
+        $nuevoDep = $deploysRepo->crear([
+            'proyectos' => $pidsDep,
+            'autor_id'  => (int)(Auth::usuario()['id'] ?? 0),
+            'entorno'   => $cfgDep['entorno'],
+            'nota'      => mb_substr(trim($_POST['nota'] ?? ''), 0, 200),
+            'tareas'    => $pendientesDep,
+        ]);
+        foreach ($pendientesDep as $tid) {
+            $tareas->actualizar($tid, [
+                'deploy_id'     => (int)$nuevoDep['id'],
+                'desplegada_en' => $nuevoDep['fecha'],
+            ]);
+        }
+        // El mensaje dice A QUÉ se registró, por su alias: "en 3 proyectos" no
+        // le sirve de nada a quien acaba de subir ms-academico y quiere estar
+        // seguro de que marcó ese y no otro.
+        $nDep = count($pendientesDep);
+        $comoSeLlaman = array_map(function ($pidDep) use ($proyectos) {
+            $pDep = $proyectos->buscar($pidDep);
+            return aliasDeploy($pidDep) ?: ($pDep['nombre'] ?? ('#' . $pidDep));
+        }, $pidsDep);
+        redirigir($volverDep, 'Subida registrada a las ' . substr($nuevoDep['fecha'], 11, 5)
+            . ' en ' . implode(', ', $comoSeLlaman)
+            . ($nDep ? ' con ' . $nDep . ' tarea' . ($nDep === 1 ? '' : 's') . '.' : '. No había tareas nuevas completadas.'));
+
+    case 'deploy_eliminar':
+        // Solo el administrador, y las tareas vuelven a quedar "sin subir":
+        // si se borra el registro por error, el PO no puede quedarse creyendo
+        // que algo está arriba cuando no lo está.
+        $depRepo = new DeployRepo();
+        $dep = $depRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$dep) {
+            redirigir('deploys.php', 'Ese despliegue ya no existe.', 'error');
+        }
+        foreach (DeployRepo::tareasDe($dep) as $tid) {
+            $t = $tareas->buscar($tid);
+            if ($t && (int)($t['deploy_id'] ?? 0) === (int)$dep['id']) {
+                $tareas->actualizar($tid, ['deploy_id' => 0, 'desplegada_en' => '']);
+            }
+        }
+        $depRepo->eliminar((int)$dep['id']);
+        redirigir('deploys.php', 'Despliegue eliminado.');
 
     default:
         redirigir('index.php', 'Acción no reconocida.', 'error');

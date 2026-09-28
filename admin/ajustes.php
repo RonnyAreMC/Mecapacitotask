@@ -14,25 +14,10 @@ Auth::requiereAdmin();
 $cfg = Config::all();
 $co  = $cfg['correo'];
 
-// Galeria de iconos disponibles (los ya elegidos se agregan aunque no esten aqui)
-$galeriaIconos = [
-    'fa-rocket', 'fa-store', 'fa-graduation-cap', 'fa-cart-shopping', 'fa-mobile-screen',
-    'fa-globe', 'fa-server', 'fa-robot', 'fa-truck-fast', 'fa-heart-pulse',
-    'fa-gamepad', 'fa-chart-line', 'fa-database', 'fa-cloud', 'fa-code',
-    'fa-terminal', 'fa-bug', 'fa-shield-halved', 'fa-lock', 'fa-key',
-    'fa-credit-card', 'fa-money-bill-wave', 'fa-wallet', 'fa-building', 'fa-city',
-    'fa-house', 'fa-school', 'fa-book', 'fa-newspaper', 'fa-envelope',
-    'fa-comments', 'fa-phone', 'fa-camera', 'fa-image', 'fa-film',
-    'fa-music', 'fa-palette', 'fa-brush', 'fa-wand-magic-sparkles', 'fa-bolt',
-    'fa-fire', 'fa-leaf', 'fa-tree', 'fa-paw', 'fa-car',
-    'fa-plane', 'fa-ship', 'fa-bicycle', 'fa-utensils', 'fa-mug-hot',
-    'fa-pizza-slice', 'fa-stethoscope', 'fa-pills', 'fa-dumbbell', 'fa-futbol',
-    'fa-trophy', 'fa-gift', 'fa-bell', 'fa-calendar', 'fa-map-location-dot',
-    'fa-users', 'fa-user-tie', 'fa-briefcase', 'fa-boxes-stacked', 'fa-industry',
-    'fa-microchip', 'fa-network-wired', 'fa-satellite-dish', 'fa-flask', 'fa-dna',
-    'fa-atom', 'fa-brain', 'fa-puzzle-piece', 'fa-cubes', 'fa-gears',
-];
-$galeriaIconos = array_values(array_unique(array_merge($cfg['iconos'], $galeriaIconos)));
+// Galería: el set completo del design system (admin/iconos). Los ya elegidos
+// van primero y se conservan aunque sean de los viejos fa-*, para no dejar sin
+// ícono a un proyecto que se creó antes de la migración.
+$galeriaIconos = array_values(array_unique(array_merge($cfg['iconos'], UI::nombresIconos())));
 
 UI::inicio('Ajustes', 'ajustes');
 UI::cabecera(
@@ -42,20 +27,21 @@ UI::cabecera(
            data-confirmar="Se perderán todos los ajustes personalizados y el panel volverá a sus valores por defecto."
            data-confirmar-titulo="¿Restaurar los defaults?" data-confirmar-ok="Sí, restaurar">
        <input type="hidden" name="accion" value="config_reset">
-       <button class="btn-outline btn-meca btn-verde"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
+       <button class="btn-outline btn-meca btn-rojo"><i class="fa-solid fa-rotate-left"></i> Restaurar defaults</button>
      </form>'
 );
 ?>
 
 <!-- Tabs -->
 <div class="tabs-meca" data-clave="ajustes">
-  <button type="button" class="tab-btn active" data-tab="identidad"><i class="fa-solid fa-id-badge"></i> Identidad</button>
-  <button type="button" class="tab-btn" data-tab="catalogos"><i class="fa-solid fa-layer-group"></i> Catálogos</button>
-  <button type="button" class="tab-btn" data-tab="iconos"><i class="fa-solid fa-icons"></i> Íconos</button>
-  <button type="button" class="tab-btn" data-tab="roles"><i class="fa-solid fa-user-tag"></i> Roles</button>
-  <button type="button" class="tab-btn" data-tab="correo"><i class="fa-solid fa-envelope"></i> Correo</button>
-  <button type="button" class="tab-btn" data-tab="reuniones"><i class="fa-solid fa-calendar-check"></i> Reuniones</button>
-  <button type="button" class="tab-btn" data-tab="acceso"><i class="fa-solid fa-shield-halved"></i> Acceso y respaldo</button>
+  <button type="button" class="tab-btn active" data-tab="identidad"><?= UI::icono('UserPaper') ?> Identidad</button>
+  <button type="button" class="tab-btn" data-tab="catalogos"><?= UI::icono('MenuBoard') ?> Catálogos</button>
+  <button type="button" class="tab-btn" data-tab="iconos"><?= UI::icono('ArrangeSquare') ?> Íconos</button>
+  <button type="button" class="tab-btn" data-tab="roles"><?= UI::icono('UserAppoint') ?> Roles</button>
+  <button type="button" class="tab-btn" data-tab="correo"><?= UI::icono('EmailEnvelope') ?> Correo</button>
+  <button type="button" class="tab-btn" data-tab="reuniones"><?= UI::icono('CalendarCheck') ?> Reuniones</button>
+  <button type="button" class="tab-btn" data-tab="deploys"><?= UI::icono('Upload') ?> Despliegues</button>
+  <button type="button" class="tab-btn" data-tab="acceso"><?= UI::icono('ShieldTick') ?> Acceso y respaldo</button>
 </div>
 
 <form method="post" action="actions.php" class="ajustes-form" enctype="multipart/form-data">
@@ -101,7 +87,7 @@ UI::cabecera(
           <div class="logo-config">
             <span class="logo-prev"><img src="<?= e(logoPanel()) ?>" alt="Logo actual"></span>
             <div class="logo-config-txt">
-              <input type="file" name="logo" class="input-meca" accept="image/png,image/jpeg,image/webp">
+              <?= UI::archivo(['name' => 'logo', 'variante' => 'inline', 'accept' => 'image/png,image/jpeg,image/webp', 'ayuda' => 'PNG cuadrado · máx 5 MB', 'maxMB' => 5]) ?>
               <small class="campo-ayuda">PNG con fondo transparente, cuadrado (se ve en el menú, el login y la pestaña del navegador).</small>
               <?php if (!empty($cfg['logo'])): ?>
               <label class="logo-quitar"><input type="checkbox" name="logo_quitar" value="1"> Quitar y volver al logo por defecto</label>
@@ -259,11 +245,11 @@ UI::cabecera(
     </div>
 
     <div class="paso-nav">
-      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-prev" disabled>
+      <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" id="paso-prev" disabled>
         <i class="fa-solid fa-arrow-left"></i> Anterior
       </button>
       <span class="paso-indicador" id="paso-indicador">Paso 1 de 4</span>
-      <button type="button" class="btn-outline btn-meca btn-sm" id="paso-next">
+      <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" id="paso-next">
         Siguiente <i class="fa-solid fa-arrow-right"></i>
       </button>
     </div>
@@ -288,18 +274,15 @@ UI::cabecera(
           <?php foreach ($galeriaIconos as $ic): ?>
           <button type="button" class="ig-btn <?= in_array($ic, $cfg['iconos'], true) ? 'sel' : '' ?>"
                   data-icono="<?= e($ic) ?>" title="<?= e($ic) ?>">
-            <i class="fa-solid <?= e($ic) ?>"></i>
+            <?= UI::icono($ic) ?>
           </button>
           <?php endforeach; ?>
         </div>
-        <p class="ajuste-ayuda"><span id="iconos-conteo"><?= count($cfg['iconos']) ?></span> seleccionados.
-          ¿Falta alguno? Busca su clase en <a href="https://fontawesome.com/search?ic=free" target="_blank" rel="noopener">Font Awesome</a>
-          y agrégala aquí:
+        <p class="ajuste-ayuda"><span id="iconos-conteo"><?= count($cfg['iconos']) ?></span> seleccionados
+          de <?= count($galeriaIconos) ?> disponibles. Aquí está el set entero del design
+          system: si falta alguno, se suelta su SVG en <code>admin/iconos</code> y aparece
+          en esta galería sin tocar nada más.
         </p>
-        <div class="icon-extra">
-          <input class="input-meca input-icono" id="icono-extra" placeholder="fa-nombre-del-icono">
-          <button type="button" class="btn-outline btn-meca btn-sm" id="icono-extra-btn"><i class="fa-solid fa-plus"></i> Agregar</button>
-        </div>
       </section>
     </div>
   </div>
@@ -359,7 +342,7 @@ UI::cabecera(
             <input class="input-meca" type="email" name="correo[usuario]" value="<?= e($co['usuario']) ?>" placeholder="tucorreo@gmail.com">
           </label>
           <label class="campo"><span>URL del panel (botón "Ver tablero" del correo)</span>
-            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://mchub.mecapacito.com/admin">
+            <input class="input-meca" type="url" name="correo[url_panel]" value="<?= e($co['url_panel']) ?>" placeholder="https://panel.innotech-solutions.com.ec/admin">
             <?php $urlLogo = Mailer::logoUrlPublica(); ?>
             <small class="campo-ayuda">
               <?php if ($urlLogo !== ''): ?>
@@ -400,13 +383,20 @@ UI::cabecera(
             <input class="input-meca" type="number" min="0" max="30" name="correo[dias_recordatorio]" value="<?= (int)($co['dias_recordatorio'] ?? 3) ?>" style="width:90px">
           </label>
         </div>
+        <p class="ajuste-ayuda">Avisos de <b>proyecto completado</b> (todas sus tareas entregadas) y de
+          <b>requerimiento suelto terminado</b>. Los correos de abajo reciben SIEMPRE (mientras el correo esté configurado).</p>
+        <label class="campo"><span>Correo del administrador (recibe los avisos de proyecto completado y de requerimiento terminado)</span>
+          <input class="input-meca" type="email" name="correo[admin_email]" value="<?= e($co['admin_email'] ?? '') ?>" placeholder="tucorreo@gmail.com">
+        </label>
+        <label class="campo"><span>Otros correos que también reciben estos avisos</span>
+          <textarea class="input-meca" name="correo[correos_aviso]" rows="3"
+                    placeholder="jefe@empresa.com, coordinacion@empresa.com&#10;otro@empresa.com"><?= e($co['correos_aviso'] ?? '') ?></textarea>
+          <small class="campo-ayuda">Uno por línea o separados por coma. Todos reciben el mismo aviso, sin depender de la casilla de abajo.</small>
+        </label>
         <label class="chk-linea">
           <input type="checkbox" name="correo[avisar_completado]" <?= !empty($co['avisar_completado']) ? 'checked' : '' ?>>
           <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-          Avisarme cuando un proyecto se completa (todas sus tareas entregadas)
-        </label>
-        <label class="campo"><span>Correo del administrador (recibe los avisos de proyecto completado)</span>
-          <input class="input-meca" type="email" name="correo[admin_email]" value="<?= e($co['admin_email'] ?? '') ?>" placeholder="tucorreo@gmail.com">
+          Avisar también a TODAS las personas con acceso de administrador
         </label>
 
         <p class="ajuste-ayuda"><b>Solo para SMTP</b> — con Gmail usa una
@@ -478,7 +468,7 @@ UI::cabecera(
 
         <div class="correo-prueba">
           <input class="input-meca" type="email" name="para" form="frm-correo-prueba" placeholder="tucorreo@gmail.com" required>
-          <button class="btn-outline btn-meca btn-sm" form="frm-correo-prueba">
+          <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-correo-prueba">
             <i class="fa-solid fa-paper-plane"></i> Probar envío
           </button>
         </div>
@@ -602,7 +592,7 @@ UI::cabecera(
 
         <div class="correo-prueba">
           <span class="ajuste-ayuda" style="flex:1">Guarda primero; luego prueba la conexión con Zoom.</span>
-          <button class="btn-outline btn-meca btn-sm" form="frm-zoom-prueba">
+          <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-zoom-prueba">
             <i class="fa-solid fa-plug-circle-check"></i> Probar conexión
           </button>
         </div>
@@ -611,6 +601,124 @@ UI::cabecera(
   </div>
 
   <!-- ================= TAB: Acceso y respaldo ================= -->
+  <!-- ================= TAB: Despliegues ================= -->
+  <div class="tab-panel" data-panel="deploys" hidden>
+    <div class="ajustes-grid">
+      <section class="card-base ajuste-card ajuste-card-ancha">
+        <h2 class="font-display"><?= UI::icono('Upload') ?> Despliegues al servidor de pruebas</h2>
+        <?php
+          $dp = configDeploys();
+          // Todo el equipo, para los dos selectores. El texto lleva el rol para
+          // no confundir a dos personas que se llamen igual.
+          $opcDeploy = [];
+          foreach ($miembrosDeploy = (new MiembroRepo())->todos() as $m) {
+              $opcDeploy[(int)$m['id']] = $m['nombre'] . ' · ' . ($m['rol'] ?? '');
+          }
+        ?>
+        <p class="ajuste-ayuda">
+          Aquí se deja dicho todo <b>una vez</b>: a qué proyectos afecta una subida y quién la
+          registra. Después, esa persona solo pulsa <b>«Registrar deploy»</b> —un clic, sin
+          formularios— y queda la fecha y la hora. El despliegue se lleva consigo todas las tareas
+          ya completadas que ningún despliegue anterior había subido, así que nadie marca nada
+          tarea por tarea: lo que se terminó anoche entra solo en la subida de mañana.
+        </p>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="deploys[activo]" <?= $dp['activo'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Activar el módulo de despliegues
+        </label>
+
+        <label class="campo"><span>Cómo se llama el destino</span>
+          <input class="input-meca" name="deploys[entorno]" value="<?= e($dp['entorno']) ?>"
+                 placeholder="Servidor de pruebas">
+          <small class="campo-ayuda">Sale en el dashboard y en el módulo: «Último cambio subido a…».</small>
+        </label>
+
+        <div class="dep-cfg-fila">
+          <label class="campo"><span>Encargados de subir los cambios</span>
+            <?= UI::select('deploys[encargados]', $opcDeploy, $dp['encargados'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Los únicos (además de ti) que ven el botón y registran la subida. Ctrl/⌘ + clic para
+              marcar varios.
+            </small>
+          </label>
+          <label class="campo"><span>Quién más ve el módulo</span>
+            <?= UI::select('deploys[visores]', $opcDeploy, $dp['visores'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Gente que solo consulta: entra, ve la hora de la última subida y qué se subió, pero
+              no puede registrar nada.
+            </small>
+          </label>
+        </div>
+
+        <div class="dep-cfg-fila">
+          <label class="campo"><span>Proyectos a los que afecta cada subida</span>
+            <?php $opcProyDep = [];
+                  foreach ((new ProyectoRepo())->todos() as $pp) $opcProyDep[(int)$pp['id']] = $pp['nombre']; ?>
+            <?= UI::select('deploys[proyectos]', $opcProyDep, $dp['proyectos'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Se decide <b>aquí una vez</b>: al pulsar «Registrar deploy» la subida se marca en estos
+              proyectos, sin preguntarle nada al encargado. Si no marcas ninguno, valen todos.
+            </small>
+          </label>
+          <label class="campo"><span>Equipos que lo ven en el dashboard</span>
+            <?php $opcEqDep = [];
+                  foreach (Catalogo::equipos() as $ek => $ev) $opcEqDep[$ek] = $ev[0]; ?>
+            <?= UI::select('deploys[equipos]', $opcEqDep, $dp['equipos'], false, 'select-alto', true) ?>
+            <small class="campo-ayuda">
+              Equipos enteros, sin ir persona por persona (p. ej. Analistas). Quien no esté aquí ni
+              en las listas de arriba no ve la tira del dashboard.
+            </small>
+          </label>
+        </div>
+
+        <!-- Alias: el nombre con el que quien sube reconoce cada cosa. En el
+             panel un proyecto se llama "Equipo Delta", pero quien lo sube al
+             servidor lo conoce como "ms-academico", que es lo que ve en la
+             carpeta y en el pipeline. Sin esto, al registrar la subida tiene
+             que traducir de memoria.
+
+             Se pintan TODOS los proyectos, pero solo se ven los marcados
+             arriba: el JS los filtra al vuelo con lo que haya en el selector,
+             sin esperar a guardar. Los ocultos siguen enviando su alias, así
+             que desmarcar un proyecto un rato no borra lo que ya se escribió. -->
+        <div class="dep-alias">
+          <span class="dep-alias-tit">Cómo se llama cada proyecto para quien lo sube</span>
+          <p class="ajuste-ayuda">
+            El alias técnico (p. ej. <b>ms-academico</b>). Es lo que sale al registrar la subida y en
+            el aviso de confirmación, para no tener que traducir «Equipo Delta» de memoria. Déjalo en
+            blanco y se usa el nombre del proyecto.
+          </p>
+          <div class="dep-alias-grid" data-alias-de="deploys[proyectos][]">
+            <?php foreach ((new ProyectoRepo())->todos() as $pp): $pidA = (int)$pp['id']; ?>
+            <label class="dep-alias-item" data-proy="<?= $pidA ?>"
+                   style="--pc:<?= e(ProyectoRepo::colorBase($pp)) ?>">
+              <span class="dep-alias-proy">
+                <?= UI::icono($pp['icono'] ?? 'FolderOpen') ?>
+                <span><?= e($pp['nombre']) ?></span>
+              </span>
+              <input class="input-meca" name="deploys[alias][<?= $pidA ?>]"
+                     value="<?= e($dp['alias'][$pidA] ?? '') ?>"
+                     placeholder="sin alias" maxlength="60" spellcheck="false">
+            </label>
+            <?php endforeach; ?>
+          </div>
+        </div>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="deploys[ver_po]" <?= $dp['ver_po'] ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Que los Product Owner y Scrum Masters lo vean siempre
+        </label>
+        <p class="ajuste-ayuda">
+          Es para quien se hizo el módulo: saber cuándo probar sin preguntar por chat. Si lo
+          apagas, solo entran las personas que marques arriba.
+        </p>
+      </section>
+    </div>
+  </div>
+
   <div class="tab-panel" data-panel="acceso" hidden>
     <div class="ajustes-grid">
       <section class="card-base ajuste-card">
@@ -687,7 +795,7 @@ UI::cabecera(
         <label class="campo">
           <span>Dominios de correo permitidos</span>
           <input class="input-meca" name="registro[dominios]" value="<?= e($rg['dominios']) ?>"
-                 placeholder="tuempresa.com, tuinstituto.edu.ec">
+                 placeholder="itb.edu.ec, innotech.ec">
         </label>
         <small class="campo-ayuda">
           Separados por comas. Se aceptan también sus subdominios (<code>mail.itb.edu.ec</code>).
@@ -754,7 +862,7 @@ UI::cabecera(
           y bórralo cuando termines.
         </p>
         <div class="respaldo-acciones">
-          <button class="btn-outline btn-meca" form="frm-config-exportar">
+          <button class="btn-outline btn-meca btn-azul" form="frm-config-exportar">
             <i class="fa-solid fa-download"></i> Exportar configuración
           </button>
           <label class="respaldo-archivo">

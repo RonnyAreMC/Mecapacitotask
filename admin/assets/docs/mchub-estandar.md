@@ -1,8 +1,9 @@
 # Estándar del equipo — MChub
 
-Cómo escribimos **tareas** y **commits** para que el tablero se enlace y se
-actualice **solo**. Si todos seguimos esto, cada commit aparece bajo su tarea y
-el avance se mueve sin que nadie lo toque a mano.
+Cómo escribimos **tareas** y **commits** para que el tablero se enlace y **avance
+solo**. Cada commit dice a qué tarea pertenece con su **`#id`** y, con una palabra
+clave, hace que el panel **mueva la tarea de estado** (al leer los commits en
+*Métricas*). Solo avanza: nunca revierte un cambio que hiciste a mano.
 
 > Regla de oro: **cada commit apunta a una tarea con `#<número>`**.
 
@@ -43,13 +44,18 @@ refactor(nomina): separa el rol de pagos en su módulo  #88
 
 ### Palabras que mueven la tarea sola
 
-Al inicio del `#id` puedes poner una palabra clave y el panel cambia el estado:
+La palabra clave va **pegada al `#id`**. El panel mueve la tarea al leer los
+commits (al abrir *Métricas*), y **solo hacia adelante**:
 
 | Escribes | El panel hace |
 |---|---|
 | `#42` (a secas) | Enlaza el commit y pasa la tarea a **En progreso** |
 | `wip #42` | La deja **En progreso** (trabajo en curso) |
-| `closes #42` / `fixes #42` / `cierra #42` | La manda a **Revisión** (o Hecho si no tiene observaciones pendientes) |
+| `closes #42` / `fixes #42` / `cierra #42` / `resuelve #42` | La manda a **En revisión** (o **Completada** si no tiene observaciones pendientes) |
+
+- La palabra debe ir **junto al `#id`**: `fixes #42` cierra, pero `fix(área): … #42`
+  **no** (ahí `fix` es el *tipo* del commit, no un cierre).
+- **Solo avanza**: si ya moviste la tarea más adelante a mano, el commit no la regresa.
 
 > Un commit puede referenciar varias tareas: `… #42 #43`.
 
@@ -70,7 +76,8 @@ Así, con solo ver la rama sabes de qué tarea es, y el panel también.
 ## 4. Pull Requests (si usan PR)
 
 - **Título**: igual que un commit → `feat(login): … #42`.
-- **Descripción**: incluye `Closes #42` para que al mergear la tarea se cierre.
+- **Descripción**: incluye `Closes #42`. Cuando el panel lea ese commit mandará
+  la tarea a revisión (o completada si no tiene observaciones pendientes).
 
 ---
 
@@ -115,4 +122,5 @@ El admin carga tareas en lote en *Planificar → Importar*. Referencia por
 2. Creo la rama `tipo/id-slug`.
 3. Cada commit lleva `tipo(área): descripción #id`.
 4. Al terminar: `closes #id`.
-5. El tablero se actualiza solo: commits bajo la tarea y estado al día.
+5. El tablero avanza solo al leer los commits (en *Métricas*): commit bajo la
+   tarea y estado al día.

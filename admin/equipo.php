@@ -17,6 +17,8 @@ $eq = MiembroRepo::equipoValido($_GET['e'] ?? '');
 // equipo de analistas: son los jefes que pueden editar el panel.
 $puedeAcceso = esAdmin();
 $yoId = (int)(Auth::usuario()['id'] ?? 0);
+// Todos los proyectos, para el modal donde el admin elige cuáles ve un supervisor
+$proyectosTodos = (new ProyectoRepo())->todos();
 
 $equipo = array_values(array_filter(
     $miembrosRepo->todos(),
@@ -63,10 +65,10 @@ UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
-    '<button class="btn-outline btn-meca solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
+    '<button class="btn-outline btn-meca btn-azul solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
        <i class="fa-solid fa-file-arrow-up"></i> Cargar desde Excel
      </button>
-     <button class="btn-primary btn-meca solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
+     <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
        <i class="fa-solid fa-user-plus"></i> Agregar colaborador
      </button>'
 );
@@ -146,7 +148,7 @@ UI::cabecera(
       <form method="post" action="actions.php" class="inline-form">
         <input type="hidden" name="accion" value="equipo_importar_cancelar">
         <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-        <button class="btn-outline btn-meca">Descartar</button>
+        <button class="btn-outline btn-meca btn-rojo">Descartar</button>
       </form>
       <form method="post" action="actions.php" class="inline-form">
         <input type="hidden" name="accion" value="equipo_importar_confirmar">
@@ -204,7 +206,7 @@ UI::cabecera(
         </label>
         <div class="sol-botones">
           <button class="btn-primary btn-meca btn-sm"><i class="fa-solid fa-check"></i> Aprobar</button>
-          <button type="button" class="btn-outline btn-meca btn-sm sol-no"
+          <button type="button" class="btn-outline btn-meca btn-rojo btn-sm sol-no"
                   data-rechazar="<?= $sid ?>" data-nombre="<?= e($s['nombre']) ?>">
             <i class="fa-solid fa-xmark"></i> Rechazar
           </button>
@@ -232,8 +234,8 @@ UI::cabecera(
                 placeholder="Ej. No reconocemos esta cuenta; escríbenos desde tu correo institucional."></textarea>
     </label>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-peligro btn-meca"><i class="fa-solid fa-xmark"></i> Rechazar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-outline btn-meca btn-rojo"><i class="fa-solid fa-xmark"></i> Rechazar</button>
     </footer>
   </form>
 </dialog>
@@ -247,9 +249,12 @@ UI::cabecera(
   <div class="card-base tabla-card">
     <div class="tabla-toolbar">
       <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
-        <span class="tabla-count"><?= count($equipo) ?></span>
+        <span class="tabla-count" data-buscar-count><?= count($equipo) ?></span>
       </h2>
-      <span class="ajuste-ayuda"><i class="fa-regular fa-copy"></i> copia el usuario o correo<?= esAdmin() ? ' · <i class="fa-solid fa-eye"></i> abre su ficha.' : '.' ?></span>
+      <label class="tabla-buscar">
+        <i class="fa-solid fa-magnifying-glass"></i>
+        <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por nombre, usuario o correo…" autocomplete="off">
+      </label>
     </div>
     <div class="tabla-scroll">
       <table class="tabla-meca tabla-equipo">
@@ -272,6 +277,7 @@ UI::cabecera(
               $ficha = (esAdmin() || $mid === $yo) ? 'colaborador.php?id=' . $mid : '';
           ?>
           <tr class="fila-colab<?= $ficha ? '' : ' fila-sin-ficha' ?>" style="--av-c1:<?= $c1 ?>"
+              data-buscar="<?= e(mb_strtolower(($m['nombre'] ?? '') . ' ' . ($m['rol'] ?? '') . ' ' . ($m['git_user'] ?? '') . ' ' . ($m['email'] ?? ''))) ?>"
               <?php if ($ficha): ?>onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'"<?php endif; ?>>
             <td>
               <div class="celda-persona">
@@ -303,7 +309,12 @@ UI::cabecera(
               <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
             </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
-            <?php if ($puedeAcceso): $esAdm = ($m['acceso'] ?? 'lector') === 'admin'; ?>
+            <?php if ($puedeAcceso):
+                // Los perfiles son varios: lo normal es "administrador y Scrum
+                // Master". El color de la píldora lo pone el de más mando.
+                $susAccesos = MiembroRepo::accesosDe($m);
+                $mandaEn    = MiembroRepo::accesoDominante($susAccesos);
+                $esAdm      = in_array('admin', $susAccesos, true); ?>
             <td class="celda-acceso" onclick="event.stopPropagation()">
               <?php if ($mid === $yoId): ?>
                 <span class="acceso-yo"><i class="fa-solid fa-shield-halved"></i> Tú (admin)</span>
@@ -312,8 +323,21 @@ UI::cabecera(
                 <input type="hidden" name="accion" value="miembro_acceso_set">
                 <input type="hidden" name="id" value="<?= $mid ?>">
                 <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <?= UI::select('acceso', Auth::ROLES, $m['acceso'] ?? 'lector', true, 'select-sm select-acceso es-' . e($m['acceso'] ?? 'lector')) ?>
+                <!-- Sin esto, quitar TODAS las casillas no manda 'accesos' y la
+                     acción no sabría distinguirlo de un formulario antiguo. -->
+                <input type="hidden" name="accesos[]" value="">
+                <?= UI::select('accesos', Auth::ROLES, $susAccesos, true,
+                               'select-sm select-acceso es-' . e($mandaEn), true) ?>
               </form>
+              <?php if (in_array('supervisor', $susAccesos, true)): ?>
+                <button type="button" class="accion-btn sw-config" title="Configurar los proyectos que ve"
+                        data-config-super='<?= e(json_encode([
+                            'id' => $mid, 'nombre' => $m['nombre'],
+                            'proyectos' => array_map('intval', (array)($m['proyectos_sup'] ?? [])),
+                        ], JSON_UNESCAPED_UNICODE)) ?>'>
+                  <i class="fa-solid fa-gear"></i>
+                </button>
+              <?php endif; ?>
               <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
                 <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
               <?php endif; ?>
@@ -327,6 +351,9 @@ UI::cabecera(
             </td>
           </tr>
           <?php endforeach; ?>
+          <tr data-buscar-vacio data-no-buscar hidden>
+            <td colspan="<?= $puedeAcceso ? 6 : 5 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
+          </tr>
         </tbody>
       </table>
     </div>
@@ -370,10 +397,7 @@ UI::cabecera(
       También acepta un equipo (<?= e(implode(' · ', array_map(fn($v) => $v[0], $equipos))) ?>).
     </small>
 
-    <label class="respaldo-archivo imp-archivo" data-vacio="Elegir archivo .xlsx o .csv">
-      <input type="file" name="archivo" accept=".xlsx,.csv,text/csv" required>
-      <span><i class="fa-solid fa-file-arrow-up"></i> Elegir archivo .xlsx o .csv</span>
-    </label>
+    <?= UI::archivo(['name' => 'archivo', 'variante' => 'zona', 'accept' => '.xlsx,.csv,text/csv', 'ayuda' => 'Excel .xlsx o .csv']) ?>
 
     <small class="campo-ayuda">
       <i class="fa-solid fa-circle-info"></i> No se guarda nada al subirlo: primero verás el
@@ -381,7 +405,7 @@ UI::cabecera(
     </small>
 
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-eye"></i> Leer y revisar</button>
     </footer>
   </form>
@@ -397,8 +421,8 @@ UI::cabecera(
     </header>
     <?php camposPersona(false, $eq, $equipos); ?>
     <footer>
-      <button type="button" class="btn-outline btn-meca" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Agregar al equipo</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Agregar al equipo</button>
     </footer>
   </form>
 </dialog>
@@ -416,6 +440,38 @@ UI::cabecera(
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
       <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+    </footer>
+  </form>
+</dialog>
+
+<!-- Modal: proyectos que puede ver un Supervisor (se rellena por JS) -->
+<dialog id="dlg-config-super" class="dlg-meca dlg-persona">
+  <form method="post" action="actions.php" class="dlg-form">
+    <input type="hidden" name="accion" value="supervisor_proyectos">
+    <input type="hidden" name="id" id="cs-id">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-user-shield text-secondary"></i> Proyectos de <span id="cs-nombre">…</span></h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dlg-cuerpo">
+      <p class="campo-ayuda">Marca los proyectos que este supervisor podrá ver. Solo verá esos, y dentro solo el <b>Kanban</b> y el <b>detalle</b> de las tareas.</p>
+      <?php if (!$proyectosTodos): ?>
+        <p class="cs-vacio">Aún no hay proyectos que asignar.</p>
+      <?php else: ?>
+      <div class="cs-lista">
+        <?php foreach ($proyectosTodos as $p): ?>
+        <label class="cs-item">
+          <input type="checkbox" name="proyectos[]" value="<?= (int)$p['id'] ?>">
+          <?= UI::icono($p['icono'] ?? 'FolderOpen') ?>
+          <span class="truncate"><?= e($p['nombre']) ?></span>
+        </label>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+    </div>
+    <footer>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-check"></i> Guardar</button>
     </footer>
   </form>
 </dialog>

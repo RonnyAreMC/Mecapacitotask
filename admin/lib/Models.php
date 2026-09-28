@@ -11,11 +11,17 @@ require_once __DIR__ . '/Storage.php';
 final class Catalogo
 {
     /** Estados de tarea: clave => [etiqueta, icono] */
+    /**
+     * Estados de tarea con el icono del design system (admin/iconos).
+     * Siguen la familia de estados del DS: información, aviso y confirmación.
+     * "En progreso" no tiene icono de estado propio en el set, así que usa el
+     * de recarga, que es lo que se entiende por "en marcha".
+     */
     public const ESTADOS_TAREA = [
-        'pendiente' => ['Por hacer',   'fa-circle-dot'],
-        'progreso'  => ['En progreso', 'fa-spinner'],
-        'revision'  => ['En revision', 'fa-magnifying-glass-chart'],
-        'hecho'     => ['Completada',  'fa-circle-check'],
+        'pendiente' => ['Por hacer',   'OctagonCheck'],
+        'progreso'  => ['En progreso', 'RefreshCircle'],
+        'revision'  => ['En revision', 'OctagonHelp'],
+        'hecho'     => ['Completada',  'WavyCheck'],
     ];
 
     public const PRIORIDADES = [
@@ -31,10 +37,15 @@ final class Catalogo
     ];
 
     /** Iconos disponibles para proyectos */
+    // Iconos del design system (/Interface) que se ofrecen para los proyectos.
+    // Se guarda el NOMBRE del SVG; UI::icono() lo pinta (y cae a Font Awesome
+    // para los proyectos viejos que aún tengan un fa-*).
     public const ICONOS_PROYECTO = [
-        'fa-rocket', 'fa-store', 'fa-graduation-cap', 'fa-cart-shopping',
-        'fa-mobile-screen', 'fa-globe', 'fa-server', 'fa-robot',
-        'fa-truck-fast', 'fa-heart-pulse', 'fa-gamepad', 'fa-chart-line',
+        'Graduation', 'Book', 'ChalkboardTeacher', 'Bank',
+        'Wallet', 'CreditCard', 'Calculator', 'House',
+        'Global', 'Map', 'SuitCase', 'Monitor',
+        'Laptop', 'Task', 'Contracts', 'DocumentCloud',
+        'Settings', 'ShieldTick', 'Bell', 'FolderOpen',
     ];
 
     /**
@@ -120,6 +131,14 @@ final class Catalogo
         return $out ?: self::PRIORIDADES;
     }
 
+    /** Prioridad del catalogo; si no existe, la del medio (o la primera). */
+    public static function prioridadValida(?string $v): string
+    {
+        $claves = array_keys(self::prioridades());
+        if (in_array($v, $claves, true)) return (string)$v;
+        return $claves[(int)floor((count($claves) - 1) / 2)] ?? 'media';
+    }
+
     /** Estados de proyecto (dinamicos): clave => [etiqueta, icono]. */
     public static function estadosProyecto(): array
     {
@@ -170,7 +189,7 @@ final class Config
     public static function defaults(): array
     {
         return [
-            'titulo'           => 'Mecapacito',
+            'titulo'           => 'InnoTech Hub',
             'subtitulo'        => 'Panel Dev',
             'logo'             => '',          // imagen subida; vacío = logo por defecto
             'github_token'     => '',
@@ -178,11 +197,15 @@ final class Config
             'gitlab_host'      => '',   // host de una instancia autogestionada
             'color_secundario' => '#2B76F7',   // acento principal (botones, links)
             'color_acento'     => '#FFD700',   // acento secundario
+            // Iconos y colores del design system. El color es el del tema claro:
+            // mientras sea el de aquí, estilosConfig() no emite nada y manda
+            // admin.css, que además tiene su paso para el tema oscuro. En cuanto
+            // alguien lo cambia en Ajustes, ese color pasa a mandar en los dos.
             'estados_tarea' => [
-                'pendiente' => ['label' => 'Por hacer',   'color' => '#0B7EA8', 'icono' => 'fa-circle-dot',              'final' => false],
-                'progreso'  => ['label' => 'En progreso', 'color' => '#2B76F7', 'icono' => 'fa-spinner',                 'final' => false],
-                'revision'  => ['label' => 'En revision', 'color' => '#C26F0E', 'icono' => 'fa-magnifying-glass-chart',  'final' => false],
-                'hecho'     => ['label' => 'Completada',  'color' => '#2BB673', 'icono' => 'fa-circle-check',            'final' => true],
+                'pendiente' => ['label' => 'Por hacer',   'color' => '#B4232F', 'icono' => 'OctagonCheck',  'final' => false],
+                'progreso'  => ['label' => 'En progreso', 'color' => '#1F63D6', 'icono' => 'RefreshCircle', 'final' => false],
+                'revision'  => ['label' => 'En revision', 'color' => '#9C5511', 'icono' => 'OctagonHelp',   'final' => false],
+                'hecho'     => ['label' => 'Completada',  'color' => '#0D7340', 'icono' => 'WavyCheck',     'final' => true],
             ],
             'prioridades' => [
                 'baja'  => ['label' => 'Baja',  'color' => '#4E8A24', 'icono' => 'fa-angle-down'],
@@ -195,8 +218,8 @@ final class Config
                 'completado' => ['label' => 'Completado', 'icono' => 'fa-flag-checkered'],
             ],
             'equipos' => [
-                'programacion' => ['label' => 'Programadores', 'icono' => 'fa-code'],
-                'analistas'    => ['label' => 'Analistas',     'icono' => 'fa-chart-line'],
+                'programacion' => ['label' => 'Programadores', 'icono' => 'Desarrolladores'],
+                'analistas'    => ['label' => 'Analistas',     'icono' => 'Analistas'],
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],
@@ -221,7 +244,7 @@ final class Config
                 'puerto'    => 587,
                 'usuario'   => '',
                 'clave'     => '',
-                'remitente' => 'Panel Mecapacito',
+                'remitente' => 'InnoTech Hub',
                 'url_panel' => '',
                 'client_id'     => '',
                 'client_secret' => '',
@@ -233,6 +256,7 @@ final class Config
                 'dias_recordatorio'   => 3,
                 'avisar_completado'   => false,
                 'admin_email'         => '',
+                'correos_aviso'       => '',
             ],
             'google_login' => [
                 'activo'              => true,
@@ -241,11 +265,26 @@ final class Config
                 'vincular_por_nombre' => true,
                 'calendario'          => false,   // enviar tareas al Google Calendar del responsable
             ],
+            // Deploys: quien sube los cambios al servidor de pruebas pulsa un
+            // boton y queda la hora. El administrador decide quien puede
+            // pulsarlo (encargados) y quien ve el modulo (visores).
+            'deploys' => [
+                'activo'     => true,
+                'entorno'    => 'Servidor de pruebas',
+                'encargados' => [],      // ids que registran deploys
+                'visores'    => [],      // ids extra que ven el modulo
+                'ver_po'     => true,    // los PO y Scrum Masters lo ven siempre
+                'proyectos'  => [],      // que proyectos se siguen ([] = todos)
+                'equipos'    => [],      // equipos cuyos miembros lo ven en el dashboard
+                // Alias tecnico por proyecto ("ms-academico"): es el nombre con
+                // el que quien sube los cambios reconoce lo que esta subiendo.
+                'alias'      => [],      // [proyecto_id => "ms-academico"]
+            ],
             // Registro publico: quien se registra NO entra al panel, deja una
             // solicitud que un administrador aprueba o rechaza desde Equipo.
             'registro' => [
                 'abierto'  => true,
-                'dominios' => '',     // "tuempresa.com, tuinstituto.edu.ec"; vacio = cualquier correo
+                'dominios' => '',     // "itb.edu.ec, innotech.ec"; vacio = cualquier correo
                 'avisar'   => true,   // avisar por correo a los administradores
             ],
         ];
@@ -385,6 +424,10 @@ class ProyectoRepo
             // Product Owner del proyecto (id de un analista; 0 = sin PO). La acción
             // valida que sea analista; aquí solo se guarda el id ya saneado.
             'po'            => max(0, (int)($datos['po'] ?? 0)),
+            // Scrum Master DE ESTE proyecto (id de un miembro con rol scrum;
+            // 0 = sin asignar). El rol es global, pero mandar en un proyecto
+            // no: esto es lo que dice en cual.
+            'scrum'         => max(0, (int)($datos['scrum'] ?? 0)),
             // Plataforma de reuniones propia del proyecto ('' = la del panel)
             'plataforma'    => self::plataformaEntrada($datos['plataforma'] ?? ''),
         ]);
@@ -394,6 +437,19 @@ class ProyectoRepo
     public static function poDe(array $p): int
     {
         return max(0, (int)($p['po'] ?? 0));
+    }
+
+    /** Scrum Master del proyecto (id de miembro, 0 si no tiene). */
+    public static function scrumDe(array $p): int
+    {
+        return max(0, (int)($p['scrum'] ?? 0));
+    }
+
+    /** Hora 'HH:MM' valida; '' si no lo es. La usa el horario de reuniones. */
+    public static function hora(?string $v): string
+    {
+        $v = trim((string)$v);
+        return preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $v) ? $v : '';
     }
 
     /** Plataforma de reuniones valida para un proyecto: 'zoom', 'meet' o '' (heredar). */
@@ -554,6 +610,25 @@ class MiembroRepo
         return $map;
     }
 
+    /**
+     * Correos de todas las personas con acceso de administrador.
+     *
+     * Los avisos de "algo se terminó" van a este grupo y no a una dirección
+     * suelta: si entra o sale un administrador, la lista se ajusta sola sin
+     * que nadie tenga que acordarse de Ajustes → Correo.
+     */
+    public function correosAdmin(): array
+    {
+        $correos = [];
+        foreach ($this->store->all() as $m) {
+            $email = trim((string)($m['email'] ?? ''));
+            if (MiembroRepo::tieneAcceso($m, 'admin') && $email !== '') {
+                $correos[strtolower($email)] = $email;
+            }
+        }
+        return array_values($correos);
+    }
+
     public function buscar(int $id): ?array
     {
         return $this->store->find($id);
@@ -618,6 +693,60 @@ class MiembroRepo
     public static function equipoDe(array $m): string
     {
         return self::equipoValido($m['equipo'] ?? '');
+    }
+
+
+    /**
+     * Perfiles de un miembro. Una persona puede llevar varios —lo normal es
+     * "administrador y Scrum Master"—, y por eso lo que manda es 'accesos'.
+     *
+     * 'acceso' (uno solo) sigue guardandose con el perfil de mas mando: es lo
+     * que leen las pantallas que solo enseñan una etiqueta, y es lo que traen
+     * los miembros de antes de que esto existiera.
+     */
+    public static function accesosDe(array $m): array
+    {
+        $lista = [];
+        foreach ((array)($m['accesos'] ?? []) as $r) {
+            $r = (string)$r;
+            if (isset(Auth::ROLES[$r]) && !in_array($r, $lista, true)) $lista[] = $r;
+        }
+        // Sin lista (miembro de antes), vale el perfil unico de siempre.
+        if (!$lista) {
+            $uno = (string)($m['acceso'] ?? 'lector');
+            $lista = [isset(Auth::ROLES[$uno]) ? $uno : 'lector'];
+        }
+        return $lista;
+    }
+
+    /** ¿Lleva este perfil? */
+    public static function tieneAcceso(array $m, string $rol): bool
+    {
+        return in_array($rol, self::accesosDe($m), true);
+    }
+
+    /** El de mas mando de una lista de perfiles (admin > scrum > supervisor > lector). */
+    public static function accesoDominante(array $roles): string
+    {
+        foreach (Auth::ROLES_ORDEN as $r) {
+            if (in_array($r, $roles, true)) return $r;
+        }
+        return 'lector';
+    }
+
+    /** Los perfiles de alguien, escritos y de más a menos mando. */
+    public static function accesosEnTexto(array $m): string
+    {
+        $suyos = self::accesosDe($m);
+        // Por orden de mando y no por como se guardaron: "Administrador y
+        // Supervisor" se lee bien; "Supervisor y Administrador", no.
+        $nombres = [];
+        foreach (Auth::ROLES_ORDEN as $r) {
+            if (in_array($r, $suyos, true)) $nombres[] = Auth::ROLES[$r];
+        }
+        if (count($nombres) <= 1) return $nombres[0] ?? '';
+        $ultimo = array_pop($nombres);
+        return implode(', ', $nombres) . ' y ' . $ultimo;
     }
 
     public function actualizar(int $id, array $datos): bool
@@ -725,6 +854,367 @@ class SolicitudRepo
     public function eliminar(int $id): bool
     {
         return $this->store->delete($id);
+    }
+}
+
+/* =========================================================
+   Requerimientos sueltos
+
+   Peticiones que llegan y no caen en ningun proyecto. Las gestiona SOLO el
+   administrador: las registra y las reparte entre una o varias personas
+   poniendole a cada encargo su fecha de inicio y de entrega. Para decidir a
+   quien, mira la carga que ya tiene cada quien (ver la carga en el picker de
+   requerimientos.php). El resto del equipo las ve en su bandeja (bandeja.php).
+   ========================================================= */
+class RequerimientoRepo
+{
+    /** clave => [etiqueta, icono, ¿cerrado?] */
+    public const ESTADOS = [
+        'pendiente'  => ['Sin asignar', 'fa-inbox',        false],
+        'asignado'   => ['Asignado',    'fa-user-check',   false],
+        'hecho'      => ['Resuelto',    'fa-circle-check', true],
+        'descartado' => ['Descartado',  'fa-ban',          true],
+    ];
+
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('requerimientos');
+    }
+
+    /** Los abiertos primero y, dentro, el mas reciente arriba. */
+    public function todos(): array
+    {
+        $items = $this->store->all();
+        usort($items, function ($a, $b) {
+            $ca = self::cerrado($a) ? 1 : 0;
+            $cb = self::cerrado($b) ? 1 : 0;
+            if ($ca !== $cb) return $ca <=> $cb;
+            return strcmp($b['creado'] ?? '', $a['creado'] ?? '');
+        });
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public static function estadoValido(?string $v): string
+    {
+        return isset(self::ESTADOS[$v]) ? $v : 'pendiente';
+    }
+
+    /** ¿Está cerrado (resuelto o descartado)? */
+    public static function cerrado(array $r): bool
+    {
+        return self::ESTADOS[self::estadoValido($r['estado'] ?? '')][2];
+    }
+
+    /**
+     * Responsables de un requerimiento. Puede ir a varias personas a la vez;
+     * 'asignado_a' es el formato viejo (una sola) y se sigue leyendo.
+     */
+    public static function asignadosDe(array $r): array
+    {
+        $ids = isset($r['asignados']) ? (array)$r['asignados'] : [(int)($r['asignado_a'] ?? 0)];
+        return array_values(array_unique(array_filter(array_map('intval', $ids), fn($n) => $n > 0)));
+    }
+
+    public static function tieneAsignado(array $r, int $miembroId): bool
+    {
+        return in_array($miembroId, self::asignadosDe($r), true);
+    }
+
+    /** Fecha de entrega ('fecha_limite' es como se llamaba antes). */
+    public static function fechaFin(array $r): string
+    {
+        return trim((string)($r['fecha_fin'] ?? $r['fecha_limite'] ?? ''));
+    }
+
+    public static function fechaInicio(array $r): string
+    {
+        return trim((string)($r['fecha_inicio'] ?? ''));
+    }
+
+    /**
+     * ¿Se le paso la fecha de entrega y sigue abierto? Es lo unico que el
+     * administrador necesita ver de un vistazo en la lista: lo demas son
+     * fechas, esto es un aviso.
+     */
+    public static function vencido(array $r): bool
+    {
+        $fin = self::fechaFin($r);
+        return $fin !== '' && !self::cerrado($r) && $fin < date('Y-m-d');
+    }
+
+    /** Requerimientos sin asignar todavia: es el numero que urge al admin. */
+    public function sinAsignar(): int
+    {
+        $n = 0;
+        foreach ($this->store->all() as $r) {
+            if (!self::cerrado($r) && !self::asignadosDe($r)) $n++;
+        }
+        return $n;
+    }
+
+    /** Abiertos que tiene encima una persona (lo que suma a su carga). */
+    public function abiertosDe(int $miembroId): int
+    {
+        $n = 0;
+        foreach ($this->store->all() as $r) {
+            if (!self::cerrado($r) && self::tieneAsignado($r, $miembroId)) $n++;
+        }
+        return $n;
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            'titulo'      => trim($datos['titulo'] ?? ''),
+            'detalle'     => trim($datos['detalle'] ?? ''),
+            'solicitante' => trim($datos['solicitante'] ?? ''),
+            'prioridad'   => Catalogo::prioridadValida($datos['prioridad'] ?? ''),
+            'fecha_inicio'=> ProyectoRepo::fecha($datos['fecha_inicio'] ?? ''),
+            'fecha_fin'   => ProyectoRepo::fecha($datos['fecha_fin'] ?? ''),
+            'estado'      => 'pendiente',
+            'asignados'   => [],
+            'asignado_en' => '',
+            // Una o varias instituciones del catálogo (a veces un requerimiento
+            // atiende a dos a la vez). Sirve para métricas por institución.
+            'instituciones' => InstitucionRepo::idsEntrada($datos['instituciones'] ?? []),
+            'creado_por'  => (int)($datos['creado_por'] ?? 0),
+            'adjuntos'    => array_values((array)($datos['adjuntos'] ?? [])),
+        ]);
+    }
+
+    /** Ids de institución de un requerimiento. */
+    public static function institucionesDe(array $r): array
+    {
+        return InstitucionRepo::idsEntrada($r['instituciones'] ?? []);
+    }
+
+    public function actualizar(int $id, array $datos): bool
+    {
+        return $this->store->update($id, $datos);
+    }
+
+    /**
+     * Observaciones de un requerimiento, en plano y de la mas vieja a la mas
+     * nueva. Cada una lleva 'padre': 0 si abre hilo, o el id de aquella a la
+     * que responde.
+     *
+     * Viven DENTRO del requerimiento y no en ObservacionRepo: aquel cuelga de
+     * un proyecto ('proyecto_id') y estos son justamente los que no pertenecen
+     * a ninguno, asi que alli quedarian huerfanos y sin pantalla donde salir.
+     *
+     * El 'id' se rellena por posicion si falta: las primeras que se guardaron
+     * no lo llevaban, y sin el no habria a que colgar una respuesta.
+     */
+    public static function observacionesDe(array $r): array
+    {
+        $obs = [];
+        $n = 0;
+        foreach ((array)($r['observaciones'] ?? []) as $o) {
+            if (!is_array($o) || trim((string)($o['texto'] ?? '')) === '') continue;
+            $n++;
+            $obs[] = [
+                'id'     => (int)($o['id'] ?? 0) ?: $n,
+                'padre'  => (int)($o['padre'] ?? 0),
+                'texto'  => (string)$o['texto'],
+                'autor'  => (int)($o['autor'] ?? 0),
+                'creado' => (string)($o['creado'] ?? ''),
+                'avisados' => array_values(array_filter(array_map('intval', (array)($o['avisados'] ?? [])))),
+            ];
+        }
+        usort($obs, fn($a, $b) => strcmp($a['creado'], $b['creado']) ?: ($a['id'] <=> $b['id']));
+        return $obs;
+    }
+
+    /**
+     * Lo mismo, pero en hilos: cada observacion que abre uno, con sus
+     * respuestas colgando en 'respuestas'. Un solo nivel de sangria — quien
+     * responde a una respuesta cuelga del mismo hilo y no mas adentro, que a
+     * la tercera sangria no queda ancho para leer.
+     *
+     * Una respuesta cuyo padre ya no existe pasa a abrir hilo, para que no
+     * desaparezca de la pantalla.
+     */
+    public static function hilosDe(array $r): array
+    {
+        $obs = self::observacionesDe($r);
+        $raiz = [];                       // id de cualquier observacion => id del hilo
+        foreach ($obs as $o) {
+            $p = $o['padre'];
+            $raiz[$o['id']] = ($p && isset($raiz[$p])) ? $raiz[$p] : $o['id'];
+        }
+        $respuestas = [];
+        foreach ($obs as $o) {
+            if ($raiz[$o['id']] !== $o['id']) $respuestas[$raiz[$o['id']]][] = $o;
+        }
+        $hilos = [];
+        foreach ($obs as $o) {
+            if ($raiz[$o['id']] !== $o['id']) continue;
+            $o['respuestas'] = $respuestas[$o['id']] ?? [];
+            $hilos[] = $o;
+        }
+        return $hilos;
+    }
+
+    /** Una observacion suelta del requerimiento, por su id. */
+    public static function observacionDe(array $r, int $obsId): ?array
+    {
+        foreach (self::observacionesDe($r) as $o) {
+            if ($o['id'] === $obsId) return $o;
+        }
+        return null;
+    }
+
+    /**
+     * Anota una observacion (o una respuesta, si $padre apunta a otra) y
+     * devuelve el requerimiento ya actualizado.
+     *
+     * Se relee dentro y se vuelve a escribir la lista entera porque el store
+     * guarda el campo tal cual: sumar al array en memoria de quien llamo
+     * pisaria lo que otro hubiera anotado mientras tanto.
+     */
+    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0): ?array
+    {
+        $r = $this->buscar($id);
+        if (!$r) return null;
+        $lista = self::observacionesDe($r);
+        $siguiente = 1;
+        foreach ($lista as $o) {
+            if ($o['id'] >= $siguiente) $siguiente = $o['id'] + 1;
+        }
+        // Un padre que no existe se ignora: la observacion abre hilo en vez de
+        // perderse colgada de una nada.
+        if ($padre > 0 && self::observacionDe($r, $padre) === null) $padre = 0;
+        $lista[] = [
+            'id'       => $siguiente,
+            'padre'    => $padre,
+            'texto'    => mb_substr(trim($texto), 0, 1000),
+            'autor'    => $autorId,
+            'creado'   => date('Y-m-d H:i'),
+            'avisados' => array_values(array_unique(array_map('intval', $avisados))),
+        ];
+        $this->store->update($id, ['observaciones' => $lista]);
+        return $this->buscar($id);
+    }
+
+    /**
+     * Asigna a una o varias personas CON las fechas del encargo: asignar y
+     * poner plazo son la misma decision, asi que se guardan juntas y no en
+     * dos pasos (antes las fechas solo se podian escribir al registrarlo).
+     *
+     * $fechas puede traer 'fecha_inicio' y 'fecha_fin'; la clave que no venga
+     * se deja como estaba. Con la lista de personas vacia vuelve a pendiente.
+     *
+     * Escribe tambien 'asignado_a' en 0 para que no quede el dato viejo (una
+     * sola persona) contradiciendo a la lista nueva.
+     */
+    public function asignar(int $id, array $miembroIds, array $fechas = []): bool
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', $miembroIds), fn($n) => $n > 0)));
+        $cambios = [
+            'asignados'   => $ids,
+            'asignado_a'  => 0,
+            'asignado_en' => $ids ? date('Y-m-d H:i') : '',
+            'estado'      => $ids ? 'asignado' : 'pendiente',
+        ];
+        foreach (['fecha_inicio', 'fecha_fin'] as $campo) {
+            if (array_key_exists($campo, $fechas)) {
+                $cambios[$campo] = ProyectoRepo::fecha($fechas[$campo]);
+            }
+        }
+        return $this->store->update($id, $cambios);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $r = $this->buscar($id);
+        if ($r && !empty($r['adjuntos'])) borrarAdjuntos((array)$r['adjuntos']);
+        return $this->store->delete($id);
+    }
+}
+
+/* =========================================================
+   Catálogo de instituciones (para los requerimientos sueltos)
+
+   El administrador mantiene el catálogo: cada institución tiene un nombre y,
+   opcionalmente, una imagen (logo). Un requerimiento puede ser para una o
+   varias instituciones, y así salen métricas de cuánto se asiste a cada una.
+   ========================================================= */
+class InstitucionRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('instituciones');
+    }
+
+    /** Todas, ordenadas por nombre. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+        return $items;
+    }
+
+    /** [id => institución], para pintar rápido en las listas. */
+    public function mapa(): array
+    {
+        $out = [];
+        foreach ($this->store->all() as $i) {
+            $out[(int)$i['id']] = $i;
+        }
+        return $out;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $d): array
+    {
+        return $this->store->insert([
+            'nombre' => trim($d['nombre'] ?? ''),
+            'imagen' => trim($d['imagen'] ?? ''),
+            // Color propio de la institución (índice de la paleta o hex custom).
+            // Se usa para identificarla en los gráficos del panel.
+            'color'  => Catalogo::colorEntrada($d),
+        ]);
+    }
+
+    public function actualizar(int $id, array $d): bool
+    {
+        return $this->store->update($id, $d);
+    }
+
+    /** Color de la institución resuelto a hex, para pintarla en los gráficos. */
+    public static function colorBase(array $i): string
+    {
+        return Catalogo::colorDe($i['color'] ?? 0);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        $i = $this->buscar($id);
+        if ($i && !empty($i['imagen']) && is_file(__DIR__ . '/../' . $i['imagen'])) {
+            @unlink(__DIR__ . '/../' . $i['imagen']);
+        }
+        return $this->store->delete($id);
+    }
+
+    /** Normaliza una lista de ids (del multiselect): positivos y únicos. */
+    public static function idsEntrada(mixed $v): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)$v), fn($n) => $n > 0)));
+        sort($ids);
+        return $ids;
     }
 }
 
@@ -1263,6 +1753,74 @@ class IntercambioRepo
 /* =========================================================
    Reuniones - videollamadas de Zoom vinculadas a un proyecto.
    ========================================================= */
+/* =========================================================
+   Reuniones fijas (las "dailies")
+
+   El horario que cada equipo ya tiene: "todos los dias a las 9". No son
+   reuniones de verdad (no crean nada en Zoom ni en el calendario, no se
+   invita a nadie): son el cuadro de horarios, para saber a que hora le toca
+   a cada quien. Las escribe su Scrum Master desde el propio horario.
+
+   Se guardan aparte del proyecto a proposito: un equipo tiene VARIAS fijas
+   (la daily, el refinamiento, la retro), asi que no cabian en un campo del
+   proyecto.
+   ========================================================= */
+class ReunionFijaRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('reuniones_fijas');
+    }
+
+    /** Todas, de la mas temprana a la mas tardia: es un horario. */
+    public function todas(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($a['hora'] ?? '', $b['hora'] ?? '')
+            ?: strcmp($a['titulo'] ?? '', $b['titulo'] ?? ''));
+        return $items;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    public function crear(array $datos): array
+    {
+        return $this->store->insert(self::campos($datos) + ['creador_id' => (int)($datos['creador_id'] ?? 0)]);
+    }
+
+    public function actualizar(int $id, array $datos): bool
+    {
+        return $this->store->update($id, self::campos($datos));
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
+    }
+
+    /** Campos saneados. El titulo por defecto es el caso normal: la daily. */
+    private static function campos(array $d): array
+    {
+        return [
+            'proyecto_id' => max(0, (int)($d['proyecto_id'] ?? 0)),
+            'titulo'      => trim($d['titulo'] ?? '') !== '' ? mb_substr(trim($d['titulo']), 0, 60) : 'Daily',
+            'hora'        => ProyectoRepo::hora($d['hora'] ?? ''),
+            'dias'        => Reuniones::diasValidos($d['dias'] ?? []) ?: [1, 2, 3, 4, 5],
+        ];
+    }
+
+    /** Dias de una fija (nunca vacio: sin dias, un horario no dice nada). */
+    public static function diasDe(array $r): array
+    {
+        return Reuniones::diasValidos($r['dias'] ?? []) ?: [1, 2, 3, 4, 5];
+    }
+}
+
 class ReunionRepo
 {
     private JsonStore $store;
@@ -1289,7 +1847,7 @@ class ReunionRepo
     {
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
-            'plataforma'  => in_array($datos['plataforma'] ?? '', ['zoom', 'meet'], true) ? $datos['plataforma'] : 'zoom',
+            'plataforma'  => in_array($datos['plataforma'] ?? '', ['zoom', 'meet', 'enlace'], true) ? $datos['plataforma'] : 'zoom',
             'zoom_id'     => (string)($datos['zoom_id'] ?? ''),
             'gcal_event'  => (string)($datos['gcal_event'] ?? ''),
             'creador_id'  => (int)($datos['creador_id'] ?? 0),
@@ -1328,5 +1886,128 @@ class ReunionRepo
             $out[(int)$r['id']] = mb_strimwidth($r['topic'], 0, 40, '…') . ' · ' . ($r['inicio'] ?? '');
         }
         return $out;
+    }
+}
+
+/* =========================================================
+   Deploys: "los cambios ya están en el servidor de pruebas".
+
+   El equipo terminaba tareas y el Product Owner no tenía forma de saber
+   cuándo podía ir a probarlas: preguntaba por chat. Aquí quien sube los
+   cambios pulsa UN botón y queda registrada la fecha y la hora.
+
+   Al registrarse, el deploy se lleva consigo todas las tareas del proyecto
+   que ya estaban completadas y que ningún deploy anterior había subido. Por
+   eso no hace falta una columna nueva en el tablero: una tarea completada
+   anoche entra sola en el deploy de mañana por la mañana.
+   ========================================================= */
+class DeployRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('deploys');
+    }
+
+    /** Todos, del más reciente al más antiguo. */
+    public function todos(): array
+    {
+        $items = $this->store->all();
+        usort($items, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
+        return $items;
+    }
+
+    /** Los que tocaron un proyecto, del más reciente al más antiguo. */
+    public function delProyecto(int $proyectoId): array
+    {
+        return array_values(array_filter(
+            $this->todos(),
+            fn($d) => in_array($proyectoId, self::proyectosDe($d), true)
+        ));
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    /** El último deploy de un proyecto (null si nunca se ha subido nada). */
+    public function ultimo(int $proyectoId): ?array
+    {
+        return $this->delProyecto($proyectoId)[0] ?? null;
+    }
+
+    /** El último deploy de cada proyecto: [proyecto_id => deploy]. */
+    public function ultimoPorProyecto(): array
+    {
+        $out = [];
+        foreach ($this->todos() as $d) {   // ya vienen del más nuevo al más viejo
+            foreach (self::proyectosDe($d) as $pid) {
+                if (!isset($out[$pid])) $out[$pid] = $d;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Registra un deploy. 'fecha' es la de AHORA: el encargado solo pulsa el
+     * botón, no escribe la hora (era el punto de todo esto).
+     */
+    public function crear(array $datos): array
+    {
+        return $this->store->insert([
+            // Una subida puede tocar varios proyectos a la vez: es un solo
+            // despliegue del servidor, no uno por tablero.
+            'proyectos'   => array_values(array_unique(array_filter(array_map('intval', (array)($datos['proyectos'] ?? []))))),
+            'autor_id'    => (int)($datos['autor_id'] ?? 0),
+            'fecha'       => date('Y-m-d H:i'),
+            'entorno'     => trim($datos['entorno'] ?? ''),
+            'nota'        => trim($datos['nota'] ?? ''),
+            'tareas'      => array_values(array_map('intval', (array)($datos['tareas'] ?? []))),
+        ]);
+    }
+
+    public function eliminar(int $id): bool
+    {
+        return $this->store->delete($id);
+    }
+
+    /** Tareas que ese deploy subió (ids). */
+    public static function tareasDe(array $d): array
+    {
+        return array_values(array_map('intval', (array)($d['tareas'] ?? [])));
+    }
+
+    /**
+     * Proyectos que tocó (ids). Los primeros registros guardaban un solo
+     * 'proyecto_id'; se siguen leyendo para no perderlos.
+     */
+    public static function proyectosDe(array $d): array
+    {
+        $ids = array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? []))));
+        if (!$ids && (int)($d['proyecto_id'] ?? 0) > 0) {
+            $ids = [(int)$d['proyecto_id']];
+        }
+        return $ids;
+    }
+
+    /**
+     * "hace 5 min", "hace 3 h", "ayer 19:40"... El PO mira esto de un vistazo
+     * para saber si lo que va a probar es de hoy o de la semana pasada.
+     */
+    public static function haceCuanto(string $fecha): string
+    {
+        $ts = strtotime($fecha);
+        if (!$ts) return '';
+        $seg = time() - $ts;
+        return match (true) {
+            $seg < 60      => 'hace un momento',
+            $seg < 3600    => 'hace ' . (int)($seg / 60) . ' min',
+            $seg < 86400   => 'hace ' . (int)($seg / 3600) . ' h',
+            $seg < 172800  => 'ayer ' . date('H:i', $ts),
+            $seg < 604800  => 'hace ' . (int)($seg / 86400) . ' días',
+            default        => date('d/m/Y', $ts),
+        };
     }
 }

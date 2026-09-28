@@ -65,7 +65,7 @@ if (!function_exists('camposPersona')) {
           <span>Correo (para notificarle sus tareas y para entrar al panel)</span>
           <div class="input-prefijo">
             <i class="fa-solid fa-envelope"></i>
-            <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@correo.com">
+            <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@innotech-solutions.com.ec">
           </div>
         </label>
 <?php if (!$esEdicion): ?>

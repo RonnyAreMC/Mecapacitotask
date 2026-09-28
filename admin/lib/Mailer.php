@@ -18,7 +18,7 @@ class Mailer
             'puerto'    => 587,
             'usuario'   => '',
             'clave'     => '',
-            'remitente' => 'Panel Mecapacito',
+            'remitente' => 'InnoTech Hub',
             'url_panel' => '',
             // Modo gmail_api (OAuth de un proyecto de Google Cloud)
             'client_id'     => '',
@@ -30,6 +30,7 @@ class Mailer
             'dias_recordatorio'   => 3,
             'avisar_completado'   => false,
             'admin_email'         => '',
+            'correos_aviso'       => '',   // otros correos que también reciben los avisos de completado/terminado
         ], (array)Config::get('correo'));
     }
 
@@ -163,10 +164,13 @@ class Mailer
     {
         // Versión chica y liviana para el correo (el logo grande, 167 KB, se
         // veía "cargando"). Si no está, cae al logo normal.
-        // Los clientes de correo NO renderizan SVG: siempre una imagen rasterizada.
+        // Los clientes de correo NO renderizan SVG: siempre PNG. Preferimos el
+        // logo de InnoTech (rasterizado del SVG) si existe.
+        // En el correo va SOLO el ícono (sin el texto del wordmark), al lado de
+        // la marca. Preferimos el ícono; si no, cae al wordmark o al logo base.
 
         // Antes que nada, el logo que se haya subido en Ajustes: es el de esta
-        // instalación. Solo si es PNG/JPG; un SVG no se vería.
+        // instalación. Solo si es rasterizado; un SVG no se vería.
         $propio = trim((string)(Config::get('logo') ?? ''));
         if ($propio !== '' && preg_match('/\.(png|jpe?g|gif|webp)$/i', $propio)) {
             $ruta = __DIR__ . '/../' . $propio;
@@ -174,7 +178,7 @@ class Mailer
         }
 
         $base = __DIR__ . '/../../assets/';
-        foreach (['mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
+        foreach (['innotech-hub-icon-email.png', 'innotech-hub-logo-email.png', 'mecapacito-logo-email.png', 'mecapacito-logo.png'] as $f) {
             if (is_file($base . $f)) return $base . $f;
         }
         return '';
@@ -445,11 +449,12 @@ class Mailer
         // mostraban roto). Sin URL pública no hay imagen: se usa la inicial.
         $logoSrc   = self::logoUrl();
         $tieneLogo = $logoSrc !== '';
+        // Solo el ícono (cuadrado), en su pastilla, al lado de la marca.
         $logoHead = $tieneLogo
             ? '<td valign="middle" width="52" style="padding:0 14px 0 0;">
                  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                    <td align="center" valign="middle" width="44" height="44" style="width:44px;height:44px;background:#f9fafb;border:1px solid #ececec;border-radius:11px;text-align:center;">
-                     <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;object-fit:contain;">
+                     <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="30" height="30" style="display:inline-block;vertical-align:middle;border:0;width:30px;height:30px;">
                    </td>
                  </tr></table>
                </td>'
@@ -469,7 +474,7 @@ class Mailer
                    <td style="background:linear-gradient(135deg,' . $pri . ',' . $priLight . ');padding:3px;border-radius:16px;">
                      <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
                        <td style="background:#ffffff;border-radius:13px;padding:9px;">
-                         <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="72" height="72" style="display:block;border:0;width:72px;height:72px;object-fit:contain;border-radius:8px;">
+                         <img src="' . e($logoSrc) . '" alt="' . $marca . '" width="64" height="64" style="display:block;border:0;width:64px;height:64px;border-radius:8px;">
                        </td>
                      </tr></table>
                    </td>
@@ -730,6 +735,278 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
     }
 
+    /**
+     * Requerimiento suelto que el administrador acaba de asignar a alguien.
+     *
+     * El modulo de requerimientos es solo del administrador, asi que este
+     * correo es lo UNICO que le llega a quien lo tiene que hacer: va con todo
+     * dentro (plazo, quien lo pide, con quien lo comparte) y sin boton al
+     * panel, que le rebotaria por no tener acceso a esa pagina.
+     *
+     * $companeros son los nombres de los demas responsables, si va a varios.
+     */
+    public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $prioridades = Catalogo::prioridades();
+        $inicio = RequerimientoRepo::fechaInicio($req);
+        $fin    = RequerimientoRepo::fechaFin($req);
+
+        $filas = [];
+        if (!empty($req['solicitante']))  $filas['Lo pide']   = e($req['solicitante']);
+        if (isset($prioridades[$req['prioridad'] ?? ''])) $filas['Prioridad'] = e($prioridades[$req['prioridad']][0]);
+        if ($inicio !== '') $filas['Empieza'] = e($inicio);
+        if ($fin !== '')    $filas['Entrega'] = e($fin);
+        if ($companeros)    $filas['Contigo'] = e(implode(', ', $companeros));
+
+        $cuerpo = self::encabezado($acento, '&#9679;', 'Te asignaron un requerimiento',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', esto no pertenece a '
+                    . 'ningún proyecto: llegó suelto y te lo asignaron.')
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true);
+
+        return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
+            self::plantilla($cuerpo));
+    }
+
+    /**
+     * Observación sobre un requerimiento suelto: la pregunta que alguien deja
+     * escrita ("¿qué pasó con esto?") y que sale por correo a la otra parte.
+     *
+     * Lleva el plazo y el aviso de vencido en la cabecera de datos, que es el
+     * motivo por el que casi siempre se escribe una.
+     *
+     * $responde, si viene, es la observación a la que esta contesta: el correo
+     * cambia de cara —"te respondió"— y cita el texto de arriba, para que quien
+     * lo abre sepa a qué le están contestando sin entrar al panel.
+     */
+    public static function observacionRequerimiento(
+        array $req, array $autor, array $miembro, string $texto, ?array $responde = null
+    ): true|string|null {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $vencido = RequerimientoRepo::vencido($req);
+        $acento  = $vencido ? '#C66B2D' : (Config::all()['color_secundario'] ?? '#2B76F7');
+        $nombre  = $autor['nombre'] ?? 'Alguien';
+        $fin     = RequerimientoRepo::fechaFin($req);
+
+        $filas = [];
+        if (!empty($req['solicitante'])) $filas['Lo pide'] = e((string)$req['solicitante']);
+        if ($fin !== '') {
+            $filas['Entrega'] = e($fin) . ($vencido ? ' <b style="color:' . $acento . '">(vencido)</b>' : '');
+        }
+        $filas['Te escribe'] = e($nombre);
+
+        $recuadro = function (string $titulo, string $cuerpo, string $color) {
+            return '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $color . ';'
+                 . 'background:#f7f8fa;color:#1d1d1f;font-size:14px;line-height:1.55;">'
+                 . '<b>' . $titulo . '</b><br>' . nl2br(e($cuerpo)) . '</div>';
+        };
+
+        $cuerpo = self::encabezado($acento, '&#128172;',
+                    $responde ? 'Respuesta a tu observación' : 'Observación en un requerimiento',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', <b>' . e($nombre) . '</b> '
+                    . ($responde
+                        ? 'respondió a la observación que dejaste.'
+                        : 'dejó una observación sobre un requerimiento que tienes.'))
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            // Lo que se responde va ARRIBA y apagado; la respuesta, debajo y
+            // con el acento: se lee en el orden en que pasó.
+            . ($responde ? $recuadro('Observación', (string)$responde['texto'], '#c9ced8') : '')
+            . $recuadro($responde ? 'Respuesta' : 'Observación', $texto, $acento);
+
+        return self::enviar($miembro['email'],
+            ($responde ? 'Respuesta: ' : 'Observación: ') . ($req['titulo'] ?? ''),
+            self::plantilla($cuerpo));
+    }
+
+
+    /**
+     * Avisa de que un requerimiento suelto se TERMINÓ. Lo dispara el responsable
+     * desde su bandeja; va a quien lo asignó ($para). Incluye la observación de
+     * cómo lo dejó (rama, commits…).
+     */
+    public static function notificarRequerimientoHecho(array $req, array $quien, string $para, string $nota): true|string|null
+    {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = '#2BB673';
+        $nombre = $quien['nombre'] ?? 'Alguien';
+        $filas  = ['Lo terminó' => e($nombre)];
+        if (!empty($req['cerrado_en'])) $filas['Cuándo'] = e((string)$req['cerrado_en']);
+        if (!empty($req['solicitante'])) $filas['Lo pedía'] = e((string)$req['solicitante']);
+
+        $cuerpo = self::encabezado($acento, '&#10003;', 'Requerimiento terminado',
+                    '<b>' . e($nombre) . '</b> marcó como terminado un requerimiento que asignaste.')
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#f6fbf8;'
+                  . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Cómo lo dejó</b><br>' . nl2br(e($nota)) . '</div>'
+                : '');
+
+        return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo));
+    }
+
+    /**
+     * Copia del requerimiento terminado al correo del administrador.
+     *
+     * Va con el mismo interruptor que los proyectos completados
+     * (avisar_completado): es el mismo encargo — "avísame cuando algo se
+     * termine" — y separarlo en dos casillas obligaría a marcar las dos.
+     *
+     * $yaAvisado evita el duplicado cuando quien lo pidió ES el administrador.
+     */
+    public static function avisarAdminRequerimientoHecho(
+        array $req, array $quien, string $nota, string $yaAvisado = ''
+    ): true|string|null {
+        $destinos = self::listo() ? self::destinatariosAdmin($yaAvisado) : [];
+        if (!$destinos) {
+            return null;
+        }
+        $alguno = null;
+        foreach ($destinos as $email) {
+            $r = self::notificarRequerimientoHecho($req, $quien, $email, $nota);
+            if ($r === true) $alguno = true;
+            elseif ($alguno === null) $alguno = $r;
+        }
+        return $alguno;
+    }
+
+    /**
+     * A quién avisar cuando algo se termina: todas las personas con acceso de
+     * administrador, más la dirección suelta de Ajustes → Correo si la hay
+     * (puede ser un buzón compartido que no es de nadie del equipo).
+     *
+     * Sin duplicados y saltándose $excluir, que es a quien ya se avisó por
+     * otra vía — normalmente el propio administrador que pidió el trabajo.
+     */
+    public static function destinatariosAdmin(string $excluir = ''): array
+    {
+        $c = self::conf();
+        $lista = [];
+
+        // Los correos escritos A MANO en Ajustes → Correo SIEMPRE reciben (la
+        // etiqueta lo promete): el "Correo del administrador" y la lista de
+        // "Otros correos". No dependen de la casilla.
+        $suelto = trim((string)($c['admin_email'] ?? ''));
+        if ($suelto !== '') {
+            $lista[] = $suelto;
+        }
+        foreach (preg_split('/[\s,;]+/', (string)($c['correos_aviso'] ?? '')) as $extra) {
+            $extra = trim($extra);
+            if ($extra !== '') $lista[] = $extra;
+        }
+
+        // La casilla "avisar_completado" añade, ADEMÁS, a todo el que tenga
+        // acceso de administrador (aunque no esté en los campos de arriba).
+        if (!empty($c['avisar_completado'])) {
+            $lista = array_merge((new MiembroRepo())->correosAdmin(), $lista);
+        }
+
+        $fuera = strtolower(trim($excluir));
+        $unicos = [];
+        foreach ($lista as $email) {
+            $k = strtolower(trim($email));
+            if ($k === '' || $k === $fuera) continue;
+            $unicos[$k] = $email;
+        }
+        return array_values($unicos);
+    }
+
+    /* ---------- Dependencias entre equipos ---------- */
+
+    /**
+     * Avisa a alguien del OTRO equipo de que una tarea nuestra pasó a depender
+     * de la suya. Así se entera de que su trabajo bloquea a otro equipo aunque
+     * no comparta tablero. $miembro es el destinatario (responsable de la
+     * dependencia o su Scrum Master).
+     */
+    public static function notificarDependencia(
+        array $tareaMia, array $proyectoMio, array $tareaDep, array $proyectoDep, array $miembro
+    ): true|string|null {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = [
+            'Equipo que espera' => e($proyectoMio['nombre'] ?? ''),
+            'Su tarea'          => e($tareaMia['titulo'] ?? ''),
+        ];
+        if (!empty($tareaDep['fecha_limite'])) $filas['Entrega tu tarea'] = e((string)$tareaDep['fecha_limite']);
+
+        $cuerpo = self::encabezado($acento, '&#128279;', 'Otro equipo depende de tu tarea',
+                    'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', el equipo de <b>'
+                    . e($proyectoMio['nombre'] ?? '') . '</b> registró que su tarea depende de la tuya. '
+                    . 'Mientras no la termines, la de ellos queda en espera.')
+            . self::detalle($tareaDep['titulo'] ?? '', $filas);
+
+        return self::enviar($miembro['email'], 'Dependencia: tu tarea «' . ($tareaDep['titulo'] ?? '') . '» bloquea a otro equipo',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyectoDep['id']), 'Ver mi tablero'));
+    }
+
+    /**
+     * Recordatorio MANUAL: alguien que depende de una tarea de otro equipo le
+     * pide avanzar. $quien lo envía, $para es el correo del responsable de la
+     * dependencia, $nota es el mensaje ("necesito esto para avanzar…").
+     */
+    public static function recordatorioDependencia(
+        array $tareaMia, array $proyectoMio, array $tareaDep, array $proyectoDep, array $quien, string $para, string $nota
+    ): true|string|null {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = '#F59E0B';
+        $filas = [
+            'Te lo recuerda' => e($quien['nombre'] ?? 'Alguien'),
+            'Su equipo'      => e($proyectoMio['nombre'] ?? ''),
+            'Espera por'     => e($tareaDep['titulo'] ?? ''),
+        ];
+        if (!empty($tareaDep['fecha_limite'])) $filas['Entrega'] = e((string)$tareaDep['fecha_limite']);
+
+        $cuerpo = self::encabezado($acento, '&#9200;', 'Recordatorio de una dependencia',
+                    '<b>' . e($quien['nombre'] ?? 'Alguien') . '</b> está esperando tu tarea para avanzar con la suya («'
+                    . e($tareaMia['titulo'] ?? '') . '», del equipo ' . e($proyectoMio['nombre'] ?? '') . ').')
+            . self::detalle($tareaDep['titulo'] ?? '', $filas)
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#fffaf0;'
+                  . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Mensaje</b><br>' . nl2br(e($nota)) . '</div>'
+                : '');
+
+        return self::enviar($para, 'Recordatorio: te esperan para «' . ($tareaDep['titulo'] ?? '') . '»',
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyectoDep['id']), 'Ver mi tablero'));
+    }
+
+    /**
+     * Envía una observación a un destinatario elegido. Con el texto de la
+     * observación y, si va sobre una tarea concreta, a cuál.
+     */
+    public static function notificarObservacion(
+        array $obs, array $autor, array $proyecto, ?array $tareaRef, string $para
+    ): true|string|null {
+        if (!self::listo() || trim($para) === '') {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $filas = ['Proyecto' => e($proyecto['nombre'] ?? '')];
+        if ($tareaRef) $filas['Sobre la tarea'] = e($tareaRef['titulo'] ?? '');
+        else           $filas['Sobre'] = 'General de la entrega';
+
+        $cuerpo = self::encabezado($acento, '&#128172;', 'Nueva observación',
+                    '<b>' . e($autor['nombre'] ?? 'Alguien') . '</b> te dejó una observación en <b>'
+                    . e($proyecto['nombre'] ?? '') . '</b>.')
+            // El texto viene del editor enriquecido y se guarda como HTML ya
+            // limpio: hay que decirle a detalle() que lo es. Sin el 'true' lo
+            // escapaba, y en Gmail se leían las etiquetas: "<p>Hola</p>".
+            . self::detalle($tareaRef['titulo'] ?? ($proyecto['nombre'] ?? ''), $filas, (string)($obs['texto'] ?? ''), true);
+
+        return self::enviar($para, 'Observación en ' . ($proyecto['nombre'] ?? ''),
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+    }
+
     /* ---------- Registro público ---------- */
 
     /**
@@ -749,9 +1026,9 @@ class Mailer
         ];
 
         $cuerpo = self::encabezado($acento, '&#9679;', 'Alguien pide acceso al panel',
-                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con su cuenta de Google '
-                    . '(correo ya verificado) y espera tu aprobación. Hasta que la apruebes no ve nada '
-                    . 'del panel. Al aprobarla eliges tú su equipo y su rol.')
+                    '<b>' . e($solicitud['nombre'] ?? '') . '</b> pidió acceso con el correo de arriba '
+                    . 'y espera tu aprobación. Hasta que la apruebes no ve nada del panel. Al aprobarla '
+                    . 'eliges tú su equipo y su rol.')
             . self::detalle($solicitud['nombre'] ?? '', $filas);
 
         return self::enviar($paraEmail, 'Solicitud de acceso: ' . ($solicitud['nombre'] ?? ''),
@@ -765,7 +1042,8 @@ class Mailer
             return null;
         }
         $acento = Config::all()['color_secundario'] ?? '#2BB673';
-        $rol = ($miembro['acceso'] ?? 'lector') === 'admin' ? 'Administrador' : 'Solo lectura';
+        // Puede llevar varios perfiles: se nombran todos, no solo el de más mando.
+        $rol = MiembroRepo::accesosEnTexto($miembro);
         $cuerpo = self::encabezado($acento, '&#10003;', 'Tu acceso está aprobado',
                     'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', ya puedes entrar al panel '
                     . 'con el botón «Continuar con Google», usando la misma cuenta con la que te registraste.')
@@ -883,11 +1161,86 @@ class Mailer
             self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver la tarea'));
     }
 
+    /**
+     * Parte diario al administrador: quien lleva requerimientos sueltos
+     * pasados de fecha.
+     *
+     * Va agrupado POR PERSONA y no un correo por requerimiento: lo que se
+     * quiere saber de un vistazo es a quien hay que preguntarle, y con quince
+     * atrasados quince correos no los lee nadie.
+     *
+     * $porPersona: [ ['nombre' => …, 'items' => [ ['titulo','fin','dias'], … ] ], … ]
+     */
+    public static function atrasosRequerimientos(array $porPersona, string $para): true|string|null
+    {
+        if (!self::listo() || trim($para) === '' || !$porPersona) {
+            return null;
+        }
+        $acento = '#C66B2D';
+        $total  = array_sum(array_map(fn($p) => count($p['items']), $porPersona));
+
+        $bloques = '';
+        foreach ($porPersona as $p) {
+            $filas = '';
+            foreach ($p['items'] as $it) {
+                $filas .= '<tr>'
+                    . '<td style="padding:5px 10px 5px 0;font-size:14px;color:#1d1d1f;">' . e($it['titulo']) . '</td>'
+                    . '<td style="padding:5px 0;font-size:13px;color:' . $acento . ';white-space:nowrap;">'
+                    . e($it['fin']) . ' · ' . (int)$it['dias'] . ' día' . ((int)$it['dias'] === 1 ? '' : 's')
+                    . '</td></tr>';
+            }
+            $bloques .= '<div style="margin-top:14px;padding:12px 16px;border-left:3px solid ' . $acento . ';'
+                . 'background:#f7f8fa;">'
+                . '<b style="font-size:14px;color:#1d1d1f;">' . e($p['nombre']) . '</b>'
+                . ' <span style="font-size:13px;color:#6b7280;">— ' . count($p['items'])
+                . ' atrasado' . (count($p['items']) === 1 ? '' : 's') . '</span>'
+                . '<table role="presentation" cellpadding="0" cellspacing="0" border="0" '
+                . 'style="width:100%;margin-top:6px;">' . $filas . '</table></div>';
+        }
+
+        $cuerpo = self::encabezado($acento, '!', 'Requerimientos pasados de fecha',
+                    'Hay <b>' . $total . '</b> requerimiento' . ($total === 1 ? '' : 's')
+                    . ' suelto' . ($total === 1 ? '' : 's') . ' con la entrega vencida, repartido'
+                    . ($total === 1 ? '' : 's') . ' entre <b>' . count($porPersona) . '</b> persona'
+                    . (count($porPersona) === 1 ? '' : 's') . '.')
+            . $bloques;
+
+        return self::enviar($para, 'Atrasados: ' . $total . ' requerimiento' . ($total === 1 ? '' : 's'),
+            self::plantilla($cuerpo));
+    }
+
+    /**
+     * Una tarea acaba de darse por terminada: se avisa a quien LLEVA el
+     * proyecto (su Scrum Master y su Product Owner) para que lo sepan en el
+     * momento y no al revisar el tablero.
+     *
+     * $quien es la persona que la terminó, o null si la cerró un commit.
+     */
+    public static function notificarTareaTerminada(array $tarea, array $proyecto, ?array $quien, array $destino, string $rol): true|string|null
+    {
+        if (!self::listo() || empty($destino['email'])) {
+            return null;
+        }
+        $autor  = $quien ? trim($quien['nombre'] ?? '') : '';
+        $hizo   = $autor !== '' ? e($autor) : 'Un commit';
+        $filas  = self::filasTarea($tarea, $proyecto);
+        $filas['Terminada'] = e(date('Y-m-d H:i'));
+        if ($autor !== '') $filas['La cerró'] = e($autor);
+
+        $cuerpo = self::encabezado('#34c759', '&#10003;', 'Tarea terminada',
+                    'Hola ' . e(explode(' ', trim($destino['nombre'] ?? ''))[0] ?: '') . ', te avisamos como '
+                    . e($rol) . ' de ' . e($proyecto['nombre']) . ': ' . $hizo . ' dio por terminada una tarea.')
+            . self::detalle($tarea['titulo'] ?? '', $filas, $tarea['descripcion'] ?? '', true);
+
+        return self::enviar($destino['email'], 'Terminada: ' . ($tarea['titulo'] ?? ''),
+            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el tablero'));
+    }
+
     /** Aviso de proyecto/fase concluida — SOLO al correo del administrador. */
     public static function notificarProyectoCompleto(array $proyecto, int $total): true|string|null
     {
-        $c = self::conf();
-        if (!self::listo() || empty($c['avisar_completado']) || empty($c['admin_email'])) {
+        $destinos = self::listo() ? self::destinatariosAdmin() : [];
+        if (!$destinos) {
             return null;
         }
         $cuerpo = self::encabezado('#34c759', '&#10003;', 'Proyecto completado',
@@ -896,7 +1249,13 @@ class Mailer
                 'Estado'  => '<span style="color:#34c759;">Completado</span>',
                 'Tareas'  => $total . ' de ' . $total,
             ]);
-        return self::enviar($c['admin_email'], $proyecto['nombre'] . ' — proyecto completado',
-            self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto'));
+        $html = self::plantilla($cuerpo, self::urlProyecto((int)$proyecto['id']), 'Ver el proyecto');
+        $alguno = null;
+        foreach ($destinos as $email) {
+            $r = self::enviar($email, $proyecto['nombre'] . ' — proyecto completado', $html);
+            if ($r === true) $alguno = true;
+            elseif ($alguno === null) $alguno = $r;
+        }
+        return $alguno;
     }
 }

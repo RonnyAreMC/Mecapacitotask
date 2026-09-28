@@ -149,7 +149,7 @@ const MC = {
           '<h3 class="font-display"></h3>' +
           '<p></p>' +
           '<footer>' +
-            '<button type="button" class="btn-outline btn-meca mcc-no"></button>' +
+            '<button type="button" class="btn-outline btn-meca btn-neutro mcc-no"></button>' +
             '<button type="button" class="btn-meca mcc-si ' + (peligro ? 'btn-peligro-solido' : 'btn-primary') + '"></button>' +
           '</footer>' +
         '</div>';
@@ -708,9 +708,11 @@ function actualizarDuracion(form) {
   const txt = form.querySelector('.wz-duracion');
   if (!txt) return;
   const ini = form.querySelector('input[name="fecha_inicio"]')?.value || '';
-  const fin = form.querySelector('input[name="fecha_limite"]')?.value || '';
+  // Las tareas la llaman fecha_limite y los requerimientos fecha_fin: es la
+  // misma fecha de cierre y el aviso vale igual para las dos.
+  const fin = form.querySelector('input[name="fecha_limite"], input[name="fecha_fin"]')?.value || '';
   txt.classList.remove('duracion-mal');
-  if (!ini && !fin) { txt.textContent = 'Sin fechas: la tarea no aparecerá en el calendario.'; return; }
+  if (!ini && !fin) { txt.textContent = 'Sin fechas: no aparecerá en el calendario.'; return; }
   if (!ini || !fin) {
     txt.textContent = ini ? 'Arranca el ' + ini + ', sin fecha límite.' : 'Con fecha límite el ' + fin + ', sin fecha de inicio.';
     return;
@@ -754,7 +756,7 @@ document.addEventListener('click', (e) => {
 // Recalcular el aviso cuando se toca cualquiera de las dos fechas
 document.addEventListener('change', (e) => {
   const inp = e.target;
-  if (inp.name !== 'fecha_inicio' && inp.name !== 'fecha_limite') return;
+  if (!['fecha_inicio', 'fecha_limite', 'fecha_fin'].includes(inp.name)) return;
   const form = inp.closest('form');
   if (form) actualizarDuracion(form);
 });
@@ -856,6 +858,9 @@ if (themeToggle) {
   themeToggle.addEventListener('click', () => {
     const dark = document.documentElement.classList.toggle('dark');
     localStorage.setItem('meca-theme', dark ? 'dark' : 'light');
+    // Lo que se pinta en un <canvas>/SVG no se entera de que cambió el CSS:
+    // los gráficos del panel escuchan esto para repintarse con la otra paleta.
+    document.dispatchEvent(new CustomEvent('meca:tema', { detail: { oscuro: dark } }));
   });
 }
 
@@ -1442,7 +1447,7 @@ if (kanban) {
       const op = document.createElement('button');
       op.type = 'button';
       op.className = 'kb-menu-op';
-      op.innerHTML = '<i class="fa-solid ' + s.icono + '"></i> ' + s.label;
+      op.innerHTML = (s.svg || '') + ' ' + s.label;
       op.addEventListener('click', (ev) => { ev.stopPropagation(); cerrarMenus(); moverTarjeta(card, s); });
       menu.appendChild(op);
     });
@@ -1546,6 +1551,8 @@ if (location.hash === '#nuevo-colaborador') {
 
 /* ---------- Detalle de tarea (solo lectura, para cualquiera) ---------- */
 function abrirDetalleTarea(t) {
+  const esc = (x) => String(x == null ? '' : x).replace(/[&<>"]/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const dlg = document.getElementById('dlg-detalle-tarea');
   if (!dlg) return;
   const set = (sel, val) => { const el = dlg.querySelector(sel); if (el) el.textContent = val; };
@@ -1575,9 +1582,9 @@ function abrirDetalleTarea(t) {
   else { fechas = 'Sin fechas'; }
   set('.dt-fechas', fechas);
 
-  // Carga cruzada: lo que esa misma persona tiene en otros equipos en esas
-  // fechas. Explica por qué la tarea puede ir lenta sin tener que preguntar;
-  // el servidor ya cruzó los rangos.
+  // Carga cruzada: requerimientos sueltos que le cayeron a la misma persona en
+  // esas fechas. Explica por qué la tarea puede ir lenta sin tener que
+  // preguntar; el servidor ya cruzó los rangos.
   const carga = dlg.querySelector('.dt-carga');
   if (carga) {
     const lista = t.carga_extra || [];
@@ -1905,6 +1912,41 @@ document.addEventListener('click', (e) => {
   try { abrirDetalleTarea(JSON.parse(el.dataset.verTarea)); } catch (_) {}
 });
 
+/* El flujo del estándar movió tareas según los commits (lo hace el servidor al
+   traer los aportes). Refleja el nuevo estado en la tabla —sin re-guardar, porque
+   fijar .value no dispara el onchange— y avisa con un toast. */
+function aplicarMovidasEnTabla(movidas) {
+  let n = 0;
+  movidas.forEach((mv) => {
+    const idi = [...document.querySelectorAll('form.inline-form input[name="id"]')]
+      .find((el) => el.value == mv.tarea && el.form && el.form.querySelector('[name="accion"]') &&
+                    el.form.querySelector('[name="accion"]').value === 'tarea_estado');
+    if (idi) {
+      const sel = idi.form.querySelector('select[name="estado"]');
+      if (sel && sel.value !== mv.a) {
+        sel.value = mv.a;
+        sel.className = sel.className.replace(/\bestado-[a-z0-9_]+/gi, '').replace(/\s+/g, ' ').trim() + ' estado-' + mv.a;
+      }
+      const fila = idi.closest('.fila-tarea');
+      if (fila) fila.classList.toggle('fila-hecha', mv.a === 'hecho');
+    }
+    // Kanban: mover la tarjeta a la columna del nuevo estado
+    const card = document.querySelector('.kb-card[data-tarea="' + mv.tarea + '"]');
+    const destino = document.querySelector('.kb-cards[data-estado-drop="' + mv.a + '"]');
+    if (card && destino && card.parentElement !== destino) destino.appendChild(card);
+    n++;
+  });
+  // Recontar las columnas del kanban tras mover
+  document.querySelectorAll('.kb-cards[data-estado-drop]').forEach((z) => {
+    const head = z.closest('.kb-col') ? z.closest('.kb-col').querySelector('.kb-count') : null;
+    if (head) head.textContent = z.querySelectorAll('.kb-card').length;
+  });
+  if (n && window.MC && MC.toast) {
+    MC.toast(n === 1 ? 'Una tarea avanzó según los commits.'
+                     : n + ' tareas avanzaron según los commits.', 'success');
+  }
+}
+
 /* ---------- Aportes del equipo: commits por persona (Métricas) ---------- */
 document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const dataEl = caja.querySelector('[data-aportes-data]');
@@ -1917,8 +1959,9 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
   const repos = data.repos || [];
 
   // A cada commit le asigna el miembro del panel cruzando por CUALQUIERA de sus
-  // identidades de Git: usuario(s), correo o nombre del autor. Así una persona
-  // con varios usernames (misma cuenta) igual suma sus commits.
+  // identidades de Git: usuario(s), correo, parte local del correo o nombre del
+  // autor. Así una persona con varios usuarios (misma cuenta) igual suma sus
+  // commits, y GitLab (cuyo login es la parte local del correo) también cuadra.
   const norm = (s) => (s || '').toLowerCase().trim().replace(/\s+/g, ' ');
   const porGit = {};
   miembros.forEach((m) => { (m.gits || (m.git ? [m.git] : [])).forEach((g) => { const k = norm(g); if (k) porGit[k] = m; }); });
@@ -2075,14 +2118,45 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
     enRango.forEach((c) => { if (c.miembro) cuenta[c.miembro.id] = (cuenta[c.miembro.id] || 0) + 1; });
     const rank = miembros.map((m) => ({ m, n: cuenta[m.id] || 0 })).filter((x) => x.n > 0).sort((a, b) => b.n - a.n);
     const maxN = Math.max(1, ...rank.map((x) => x.n));
-    lb.innerHTML = rank.map((x) =>
+    const rankHtml = rank.map((x) =>
       '<button type="button" class="ap-lb-fila' + (pid === x.m.id ? ' activo' : '') + '" data-persona="' + x.m.id + '">' +
       avatarHtml(x.m, 30) + '<span class="ap-lb-n" title="' + esc(x.m.n) + '">' + esc(x.m.n) + '</span>' +
       '<span class="ap-lb-barra"><span style="width:' + Math.round(x.n * 100 / maxN) + '%"></span></span>' +
       '<b class="ap-lb-num">' + x.n + '</b></button>').join('');
-    // Sin nadie reconocido (logins que no calzan con el equipo) el ranking
-    // vacío solo dejaba un hueco: se esconde.
-    lb.hidden = rank.length === 0;
+
+    // "Sin asignar": commits que no calzan con ninguna ficha, agrupados por su
+    // identidad real (correo / usuario) para saber QUÉ registrar. Es la clave
+    // para cuadrar a quien no sale: se copia ese correo/usuario a su ficha.
+    const grupos = {};
+    enRango.forEach((c) => {
+      if (c.miembro) return;
+      const key = (c.email || c.login || c.nombre || '?').toLowerCase();
+      if (!grupos[key]) grupos[key] = { nombre: c.nombre || '', email: c.email || '', login: c.login || '', prov: c.prov || '', n: 0 };
+      grupos[key].n++;
+    });
+    const sinList = Object.values(grupos).sort((a, b) => b.n - a.n);
+    const sinTotal = sinList.reduce((s, g) => s + g.n, 0);
+    let sinHtml = '';
+    if (sinList.length) {
+      const filas = sinList.slice(0, 15).map((g) =>
+        '<div class="ap-sin-fila">' +
+          '<span class="ap-sin-id">' + esc(g.nombre || '(sin nombre)') +
+            (g.email ? ' · <b>' + esc(g.email) + '</b>'
+                     : (g.login ? ' · <b>@' + esc(g.login) + '</b>' : '')) +
+            (g.prov ? ' <span class="ap-sin-prov">' + esc(g.prov) + '</span>' : '') +
+          '</span>' +
+          '<b class="ap-sin-num">' + g.n + '</b>' +
+        '</div>').join('');
+      sinHtml = '<details class="ap-sin">' +
+        '<summary><i class="fa-solid fa-user-slash"></i> Sin asignar: ' + sinTotal +
+        ' commit' + (sinTotal === 1 ? '' : 's') + ' de ' + sinList.length + ' identidad' + (sinList.length === 1 ? '' : 'es') + '</summary>' +
+        '<p class="ap-sin-ayuda">No calzan con ninguna ficha. Copia el <b>correo</b> (o el usuario) tal cual sale aquí a "Correos de Git" / "Usuario(s) de Git" de esa persona y volverán a contarse.</p>' +
+        '<div class="ap-sin-lista">' + filas + '</div></details>';
+    }
+
+    lb.innerHTML = rankHtml + sinHtml;
+    // Se esconde solo si no hay nada que mostrar (ni ranking ni sin-asignar).
+    lb.hidden = rank.length === 0 && sinList.length === 0;
 
     // Un mapa por repositorio, con lo filtrado por persona y fechas
     vacio.hidden = vis.length > 0;
@@ -2175,6 +2249,7 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
           actualizarRamas();
           cargado = true;
           render();
+          if (Array.isArray(j.movidas) && j.movidas.length) aplicarMovidasEnTabla(j.movidas);
         }
       })
       .catch(() => { if (skel) skel.hidden = true; lb.hidden = false; vacio.hidden = false; })
@@ -2221,11 +2296,14 @@ document.querySelectorAll('[data-aportes]').forEach((caja) => {
 
   if (ramaWrap) ramaWrap.hidden = true;   // se muestra solo si hay varias ramas
   if (lazy) {
-    // Cargar los commits al abrir la vista Métricas (cuando la card se hace visible)
-    const io = new IntersectionObserver((entradas) => {
-      if (!cargado && entradas.some((e) => e.isIntersecting)) { io.disconnect(); cargar(''); }
-    });
-    io.observe(caja);
+    // Se cargan los commits al abrir el PROYECTO (en segundo plano, tras pintar la
+    // página), no solo al ver Métricas: así el flujo del estándar mueve las tareas
+    // aunque nadie abra esa pestaña. El fetch usa caché, y el render va a una
+    // sección oculta hasta que se elige Métricas. Los movimientos se reflejan en
+    // la tabla y el kanban (aplicarMovidasEnTabla).
+    const arranque = () => { if (!cargado) cargar(''); };
+    if ('requestIdleCallback' in window) requestIdleCallback(arranque, { timeout: 2500 });
+    else setTimeout(arranque, 1200);
   } else {
     render();
   }
@@ -2276,17 +2354,25 @@ document.addEventListener('click', (e) => {
   }
 });
 
-// Toggle de plataforma (Zoom / Meet) en "Nueva reunión"
+// Toggle de plataforma (Zoom / Meet / enlace propio) en "Nueva reunión"
 document.querySelectorAll('.nr-plat').forEach((tg) => {
   const campo = tg.closest('.campo');
   const hidden = campo?.querySelector('input[name="plataforma"]');
   const hint = campo?.querySelector('.nr-meet-hint');
+  // El campo del enlace es hermano del .campo de la plataforma, no hijo.
+  const enlace = campo?.parentElement?.querySelector('.nr-enlace');
+  const urlInp = enlace?.querySelector('input[name="join_url"]');
   tg.addEventListener('click', (e) => {
     const b = e.target.closest('[data-plat]');
     if (!b) return;
+    const plat = b.dataset.plat;
     tg.querySelectorAll('[data-plat]').forEach((x) => x.classList.toggle('active', x === b));
-    if (hidden) hidden.value = b.dataset.plat;
-    if (hint) hint.hidden = b.dataset.plat !== 'meet';
+    if (hidden) hidden.value = plat;
+    if (hint) hint.hidden = plat !== 'meet';
+    if (enlace) enlace.hidden = plat !== 'enlace';
+    // Obligatorio solo cuando es la opción elegida: si no, el navegador
+    // bloquearía el envío de una reunión de Zoom por un campo oculto.
+    if (urlInp) urlInp.required = plat === 'enlace';
   });
 });
 
@@ -2375,6 +2461,99 @@ document.querySelectorAll('.form-persona').forEach((form) => {
   refrescar();
 });
 
+// Componente único de subida (UI::archivo): drag & drop, estado "con archivo"
+// (nombre + peso + quitar) y validación de tipo/tamaño (error). Envuelve un
+// <input type="file"> nativo, así el formulario se envía igual que siempre.
+(() => {
+  const humano = (b) => b < 1024 ? b + ' B'
+    : b < 1048576 ? Math.round(b / 1024) + ' KB'
+    : (b / 1048576).toFixed(1) + ' MB';
+  const iconoDe = (nombre) => {
+    const ext = (nombre.split('.').pop() || '').toLowerCase();
+    if (ext === 'pdf') return 'fa-file-pdf';
+    if (['doc', 'docx'].includes(ext)) return 'fa-file-word';
+    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel';
+    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image';
+    if (['zip', 'rar', '7z'].includes(ext)) return 'fa-file-zipper';
+    return 'fa-file';
+  };
+  const aceptado = (file, accept) => {
+    if (!accept) return true;
+    const nom = file.name.toLowerCase(), tipo = (file.type || '').toLowerCase();
+    return accept.split(',').map((s) => s.trim().toLowerCase()).some((a) => {
+      if (!a) return false;
+      if (a.startsWith('.')) return nom.endsWith(a);
+      if (a.endsWith('/*')) return tipo.startsWith(a.slice(0, -1));
+      return tipo === a;
+    });
+  };
+
+  document.querySelectorAll('[data-archivo]').forEach((fx) => {
+    const input = fx.querySelector('.fx-input');
+    if (!input || fx.dataset.fxListo) return;
+    fx.dataset.fxListo = '1';
+    const disparo = fx.querySelector('.fx-disparo');
+    const cont    = fx.querySelector('.fx-files');
+    const errEl   = fx.querySelector('.fx-error');
+    const maxMB   = parseFloat(fx.dataset.max || '0');
+    const multi   = fx.dataset.multi === '1';
+    const off     = fx.classList.contains('fx-off') || input.disabled;
+
+    const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
+    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
+
+    const pintar = () => {
+      const files = [...input.files];
+      cont.innerHTML = '';
+      fx.classList.toggle('fx-lleno', files.length > 0);
+      files.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'fx-file';
+        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
+          + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
+          + '<small>' + humano(f.size) + '</small></span>'
+          + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        chip.querySelector('.fx-file-x').addEventListener('click', (e) => {
+          e.stopPropagation();
+          rebuild([...input.files].filter((_, j) => j !== i));
+          error(''); pintar();
+        });
+        cont.appendChild(chip);
+      });
+    };
+
+    const validar = (files) => {
+      for (const f of files) {
+        if (!aceptado(f, input.accept)) return 'Ese tipo de archivo no se admite aquí.';
+        if (maxMB > 0 && f.size > maxMB * 1048576) return f.name + ' pesa ' + humano(f.size) + ': el máximo es ' + maxMB + ' MB.';
+      }
+      return '';
+    };
+
+    const tomar = (lista) => {
+      let files = [...lista];
+      if (!multi) files = files.slice(0, 1);
+      const msg = validar(files);
+      if (msg) { error(msg); rebuild([]); pintar(); return; }
+      error(''); rebuild(files); pintar();
+    };
+
+    if (!off) {
+      disparo.addEventListener('click', () => input.click());
+      input.addEventListener('change', () => tomar(input.files));
+      ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
+      ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
+        if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
+      }));
+      fx.addEventListener('drop', (e) => {
+        e.preventDefault(); fx.classList.remove('fx-drag');
+        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
+      });
+    }
+  });
+})();
+
 // Correos de Git: campo repetible (un input por cuenta) con agregar / quitar
 (() => {
   const MAX = 5;
@@ -2449,6 +2628,39 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     form._fotoPreview(m.foto || '');
     form._refrescarPersona();
     dlg.showModal();
+  });
+});
+
+// Supervisor: el admin elige qué proyectos ve (rellena el modal con los suyos)
+document.querySelectorAll('[data-config-super]').forEach((btn) => {
+  btn.addEventListener('click', () => {
+    let d;
+    try { d = JSON.parse(btn.dataset.configSuper); } catch (_) { return; }
+    const dlg = document.getElementById('dlg-config-super');
+    if (!dlg) return;
+    dlg.querySelector('#cs-id').value = d.id;
+    dlg.querySelector('#cs-nombre').textContent = d.nombre || 'supervisor';
+    const marcados = new Set((d.proyectos || []).map(Number));
+    dlg.querySelectorAll('input[name="proyectos[]"]').forEach((c) => {
+      c.checked = marcados.has(Number(c.value));
+    });
+    dlg.showModal();
+  });
+});
+
+// Supervisor: alterna entre Kanban y Flujo (sus únicas dos vistas, solo lectura)
+document.querySelectorAll('.sup-toggle').forEach((tog) => {
+  const paneles = {
+    kanban: document.querySelector('[data-vista-panel="kanban"]'),
+    flujo:  document.querySelector('[data-vista-panel="flujo"]'),
+  };
+  tog.querySelectorAll('[data-sup-vista]').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const v = btn.dataset.supVista;
+      tog.querySelectorAll('[data-sup-vista]').forEach((b) => b.classList.toggle('active', b === btn));
+      Object.keys(paneles).forEach((k) => { if (paneles[k]) paneles[k].hidden = k !== v; });
+      if (v === 'flujo' && typeof dibujarFlujo === 'function') dibujarFlujo();
+    });
   });
 });
 
@@ -2527,6 +2739,19 @@ document.querySelectorAll('.tabs-meca').forEach((tabs) => {
   if (guardado && tabs.querySelector('[data-tab="' + guardado + '"]')) activar(guardado);
 });
 
+// "Más íconos": el selector de proyecto enseña primero los de Ajustes y
+// despliega el resto del set aquí mismo, sin salir del formulario.
+document.querySelectorAll('.icon-mas').forEach((btn) => {
+  const picker = btn.previousElementSibling;
+  if (!picker || !picker.classList.contains('icon-picker')) return;
+  const txt = btn.querySelector('.icon-mas-txt');
+  btn.addEventListener('click', () => {
+    const abierto = btn.classList.toggle('abierto');
+    picker.querySelectorAll('.icono-extra').forEach((l) => { l.hidden = !abierto; });
+    if (txt) txt.textContent = abierto ? btn.dataset.menos : btn.dataset.mas;
+  });
+});
+
 // Galeria de iconos: clic para elegir; el valor se arma solo en el hidden
 const galeriaIconos = document.querySelector('.icon-galeria');
 if (galeriaIconos) {
@@ -2538,33 +2763,12 @@ if (galeriaIconos) {
     if (conteo) conteo.textContent = sel.length;
   };
   galeriaIconos.addEventListener('click', (e) => {
+    // closest() desde el <path> del SVG: el clic casi nunca cae en el <button>.
     const btn = e.target.closest('.ig-btn');
     if (!btn) return;
     btn.classList.toggle('sel');
     sincronizar();
   });
-
-  // Agregar un icono que no este en la galeria (por clase FA)
-  const extraBtn = document.getElementById('icono-extra-btn');
-  const extraInp = document.getElementById('icono-extra');
-  if (extraBtn && extraInp) {
-    extraBtn.addEventListener('click', () => {
-      const ic = extraInp.value.trim();
-      if (!/^fa-[a-z0-9-]+$/.test(ic)) {
-        MC.toast('Escribe una clase válida de Font Awesome, ej. fa-rocket', 'error');
-        return;
-      }
-      let btn = galeriaIconos.querySelector('[data-icono="' + ic + '"]');
-      if (!btn) {
-        galeriaIconos.insertAdjacentHTML('afterbegin',
-          '<button type="button" class="ig-btn sel" data-icono="' + ic + '" title="' + ic + '"><i class="fa-solid ' + ic + '"></i></button>');
-      } else {
-        btn.classList.add('sel');
-      }
-      extraInp.value = '';
-      sincronizar();
-    });
-  }
 }
 
 // Stepper de catalogos: un paso a la vez con navegacion
@@ -2834,15 +3038,31 @@ document.addEventListener('change', (e) => {
     if (espejo) espejo.value = marcados.join(', ');
   };
 
-  ['nr', 'dv'].forEach(picker => {
+  ['nr', 'dv', 're'].forEach(picker => {
     const lista = document.querySelector(`[data-picker="${picker}"]`);
     if (!lista) return;
     lista.addEventListener('change', () => sincronizar(picker));
-    document.querySelector(`.js-${picker}-rol`)?.addEventListener('change', function () {
+
+    const rolSel = document.querySelector(`.js-${picker}-rol`);
+    const buscar = document.querySelector(`.js-${picker}-buscar`);
+    const vacio  = document.querySelector(`[data-picker-vacio="${picker}"]`);
+    // Filtro combinado: por rol Y por nombre. Una fila se oculta (.filtrado) si
+    // no cumple ambos.
+    const aplicar = () => {
+      const rol = rolSel ? rolSel.value : '';
+      const q = (buscar ? buscar.value : '').trim().toLowerCase();
+      let visibles = 0;
       lista.querySelectorAll('.dv-persona').forEach(fila => {
-        fila.classList.toggle('filtrado', this.value !== '' && fila.dataset.rol !== this.value);
+        const okRol = !rol || fila.dataset.rol === rol;
+        const okQ = !q || (fila.dataset.nombre || '').toLowerCase().includes(q);
+        const oculto = !(okRol && okQ);
+        fila.classList.toggle('filtrado', oculto);
+        if (!oculto) visibles++;
       });
-    });
+      if (vacio) vacio.hidden = visibles > 0;
+    };
+    rolSel?.addEventListener('change', aplicar);
+    buscar?.addEventListener('input', aplicar);
     sincronizar(picker);
   });
 
@@ -2937,10 +3157,112 @@ document.addEventListener('change', (e) => {
       personas.append(li);
     }
 
-    ['fq-id-borrar', 'fq-id-estado'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    const idObs = $('fq-id-observar');
+    if (idObs) idObs.value = r.id;
+
+    // Observaciones: la conversación sobre este requerimiento. Se pintan con
+    // textContent y no con innerHTML — las escribe gente y llevan lo que
+    // Observaciones, en hilo: cada una con sus respuestas debajo y con
+    // sangría. Se pintan con textContent y no con innerHTML — las escribe
+    // gente y llevan dentro lo que quieran.
+    const lista = $('fq-obs');
+    if (lista) {
+      const hilos = Array.isArray(r.observaciones) ? r.observaciones : [];
+      const padre = $('fq-obs-padre');
+      const tira = $('fq-obs-respondiendo');
+      const enviar = $('fq-obs-enviar');
+      const caja = $('fq-obs-form') && $('fq-obs-form').querySelector('textarea');
+
+      // Deja de responder: la siguiente vuelve a abrir hilo.
+      const soltar = () => {
+        if (padre) padre.value = '0';
+        if (tira) tira.hidden = true;
+        if (enviar) enviar.textContent = 'Notificar';
+        if (caja) caja.placeholder = 'Estimado, ¿qué pasó con este requerimiento?';
+      };
+      const responderA = (o) => {
+        if (padre) padre.value = o.id;
+        if (tira) {
+          tira.querySelector('span').textContent = 'Respondiendo a ' + o.autor;
+          tira.hidden = false;
+        }
+        if (enviar) enviar.textContent = 'Responder';
+        if (caja) { caja.placeholder = 'Tu respuesta para ' + o.autor + '…'; caja.focus(); }
+      };
+      if (tira && !tira.dataset.listo) {
+        tira.dataset.listo = '1';
+        tira.querySelector('.fq-obs-cancelar').addEventListener('click', soltar);
+      }
+
+      const pinta = (o, esRespuesta) => {
+        const li = document.createElement('li');
+        if (esRespuesta) li.className = 'fq-obs-r';
+        const p = document.createElement('p');
+        p.textContent = o.texto;
+        const meta = document.createElement('small');
+        meta.textContent = [o.autor, o.creado].filter(Boolean).join(' · ');
+        li.append(p, meta);
+        // Se responde AL HILO, no a la respuesta: un solo nivel de sangría.
+        // El correo va igual a quien escribió lo que se está respondiendo.
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'fq-obs-responder';
+        btn.innerHTML = '<i class="fa-solid fa-reply"></i> Responder';
+        btn.addEventListener('click', () => responderA(o));
+        li.append(btn);
+        return li;
+      };
+
+      lista.textContent = '';
+      let total = 0;
+      hilos.forEach((o) => {
+        total++;
+        lista.append(pinta(o, false));
+        (o.respuestas || []).forEach((rr) => { total++; lista.append(pinta(rr, true)); });
+      });
+      soltar();
+      lista.hidden = total === 0;
+      const vacio = $('fq-obs-vacio');
+      if (vacio) vacio.hidden = total > 0;
+      const cuantas = $('fq-obs-n');
+      if (cuantas) {
+        cuantas.textContent = total;
+        cuantas.hidden = total === 0;
+      }
+      // A quién le va a llegar: se dice ANTES de escribir, que es cuando
+      // importa. Una que abre hilo va a los responsables; una respuesta, a
+      // quien escribió aquello que se responde (lo dice la tira de arriba).
+      const para = $('fq-obs-para');
+      if (para) {
+        const nombres = (r.personas || []).map((p) => p.nombre.split(' ')[0]);
+        para.textContent = nombres.length
+          ? 'Al enviarla le llega por correo a ' + nombres.join(', ') + '. Al responder, a quien escribió esa observación.'
+          : 'Nadie la tiene asignada, así que no saldrá ningún correo: queda solo anotada.';
+      }
+    }
     // Cerrarlo solo tiene sentido mientras siga abierto
     const resolver = $('fq-resolver');
     if (resolver) resolver.hidden = r.cerrado;
+
+    // Observación de cierre (cómo se entregó): se muestra si existe
+    const cierre = $('fq-cierre');
+    if (cierre) {
+      if (r.notaCierre) {
+        $('fq-nota-cierre').textContent = r.notaCierre;
+        const meta = [r.cerradoPor && ('por ' + r.cerradoPor), r.cerradoEn].filter(Boolean).join(' · ');
+        $('fq-cierre-meta').textContent = meta;
+        cierre.hidden = false;
+      } else {
+        cierre.hidden = true;
+      }
+    }
+    // Formulario de "marcar terminado" (bandeja del responsable): solo mientras
+    // siga abierto; si ya está cerrado, se muestra el aviso en su lugar.
+    const fTerm = $('fq-terminar');
+    if (fTerm) fTerm.hidden = r.cerrado;
+    const yaCerr = $('fq-ya-cerrado');
+    if (yaCerr) yaCerr.hidden = !r.cerrado;
 
     // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
     // y con su plazo actual en las fechas
@@ -2952,6 +3274,34 @@ document.addEventListener('change', (e) => {
       derivar.dataset.inicio = r.inicio || '';
       derivar.dataset.fin = r.fin || '';
       derivar.onclick = () => { dlg.close(); };
+    }
+
+    // "Editar": abre EL MISMO asistente que "Nuevo requerimiento", relleno con
+    // este requerimiento (contenido + responsables + plazo actuales).
+    const editar = $('fq-editar');
+    if (editar) {
+      editar.onclick = () => {
+        const em = document.getElementById('dlg-req-editar');
+        if (!em) return;
+        em.querySelector('#re-id').value = r.id;
+        em.querySelector('#re-titulo').value = r.titulo || '';
+        em.querySelector('#re-solicitante').value = r.solicitante || '';
+        setSelect(em.querySelector('.js-re-prioridad'), r.prioridadKey || 'media');
+        setSelect(em.querySelector('.js-re-inst'), r.instituciones || []);
+        window.MecaRT.set('re-detalle', r.detalle || '');
+        // Plazo actual (setFecha, no .value: MecaDate sustituye el input)
+        setFecha(em.querySelector('[data-req-fecha="re-inicio"]'), r.inicio || '');
+        setFecha(em.querySelector('[data-req-fecha="re-fin"]'), r.fin || '');
+        // Deja marcados a los responsables actuales (r.asignados = "3,7")
+        const actuales = (r.asignados || '').split(',').filter(Boolean);
+        em.querySelectorAll('input[name="asignados[]"]').forEach(c => { c.checked = actuales.includes(c.value); });
+        const lista = em.querySelector('[data-picker="re"]');
+        if (lista) lista.dispatchEvent(new Event('change'));
+        const fEm = em.querySelector('form');
+        if (typeof actualizarDuracion === 'function') actualizarDuracion(fEm);
+        dlg.close();
+        em.showModal();
+      };
     }
     dlg.showModal();
   });
@@ -3122,6 +3472,407 @@ document.addEventListener('change', (e) => {
 })();
 
 /* =========================================================
+   Panel de requerimientos (ApexCharts 6). Los datos llegan en window.REQ_DASH
+   desde req_dashboard.php; la librería se carga antes que este archivo.
+
+   Criterios que se aplican igual en todos los gráficos:
+   - Colores propios de datos, no los tokens de interfaz. Los del CSS sirven
+     para texto y bordes, pero puestos uno al lado del otro dentro de un
+     gráfico no se distinguen. Los de aquí están medidos contra la superficie
+     real de cada tema (#e5eaf3 claro, #262c3a oscuro) y siguen separándose
+     con daltonismo.
+   - El color rojo/naranja de una institución identifica a la institución, no
+     dice "va mal": por eso solo se usa donde la institución ES el dato (el
+     reparto). Cumplido/pendiente va en verde contra gris.
+   - Ejes de enteros calculados desde el máximo. Con 3 requerimientos, Apex
+     repartía 6 marcas y al redondear salían etiquetas repetidas (0,0,1,1).
+   - Marcas finas, punta redondeada, rejilla continua de 1px y 2px de hueco
+     del color del fondo entre porciones (hueco, nunca un borde dibujado).
+   - Se redibujan al cambiar de tema (evento meca:tema).
+   ========================================================= */
+(() => {
+  const D = window.REQ_DASH;
+  if (!D || typeof ApexCharts === 'undefined' || !document.getElementById('rd-inst')) return;
+
+  const PALETAS = {
+    claro: {
+      sup: '#e5eaf3',
+      hecho: '#129251',
+      pendiente: '#8B9CB8',
+      tinta: ['#ffffff', '#16233a'],          // texto sobre hecho / sobre pendiente
+      serie: '#129251',
+      situacion: ['#3DB878', '#129251', '#0B6234'],   // sin asignar → en curso → cerrados
+      prioridad: { Alta: '#8C4711', Media: '#BE6A18', Baja: '#DD9436' },
+      tintaPrio: ['#ffffff', '#ffffff', '#3a2408'],   // Alta / Media / Baja
+      estado: { bien: '#0E8E4E', ojo: '#BE6A18', mal: '#B23A2E' },
+      pista: '#cfd8e6',                       // canal vacío del medidor
+    },
+    oscuro: {
+      sup: '#2E3A57',
+      hecho: '#28AC69',
+      pendiente: '#7E8FAC',
+      tinta: ['#08301c', '#101827'],
+      serie: '#28AC69',
+      situacion: ['#7FE3AE', '#35C078', '#178A4E'],
+      prioridad: { Alta: '#B0641A', Media: '#DE8A2E', Baja: '#F5B860' },
+      tintaPrio: ['#ffffff', '#2a1a06', '#2a1a06'],
+      estado: { bien: '#28AC69', ojo: '#DE8A2E', mal: '#E06A5C' },
+      pista: '#333c4e',
+    },
+  };
+
+  const vivos = [];
+
+  const dibujar = () => {
+    // Al repintar por cambio de tema hay que soltar los anteriores: si no,
+    // Apex deja el SVG viejo debajo del nuevo.
+    while (vivos.length) { try { vivos.pop().destroy(); } catch (e) { /* ya no estaba */ } }
+
+    const oscuro = document.documentElement.classList.contains('dark');
+    const P = oscuro ? PALETAS.oscuro : PALETAS.claro;
+    const css = getComputedStyle(document.documentElement);
+    const v = (n, d) => (css.getPropertyValue(n).trim() || d);
+    const cText  = v('--c-text', oscuro ? '#e9edf6' : '#1e2430');
+    const cMuted = v('--c-text-muted', oscuro ? '#b6c0d2' : '#6b7688');
+    const cGrid  = oscuro ? 'rgba(255,255,255,.08)' : 'rgba(30,55,100,.10)';
+
+    const base = {
+      chart: {
+        fontFamily: 'inherit', foreColor: cMuted, background: 'transparent',
+        toolbar: { show: false },
+        // Sin "animateGradually": si no, las barras crecen en fila india y
+        // durante medio segundo unas miden menos de lo que valen.
+        animations: { enabled: true, speed: 420, animateGradually: { enabled: false } },
+        parentHeightOffset: 0,
+      },
+      grid: { borderColor: cGrid, strokeDashArray: 0, padding: { top: 0, right: 14, bottom: 0, left: 6 } },
+      dataLabels: { enabled: false },
+      tooltip: { theme: oscuro ? 'dark' : 'light' },
+      legend: {
+        position: 'bottom', horizontalAlign: 'center', fontSize: '12.5px', fontWeight: 600,
+        labels: { colors: cText }, markers: { width: 9, height: 9, radius: 9 },
+        itemMargin: { horizontal: 9, vertical: 3 },
+      },
+      noData: { text: 'Sin datos todavía', style: { color: cMuted, fontSize: '13px' } },
+      states: { hover: { filter: { type: 'lighten', value: 0.08 } } },
+    };
+
+    // Eje de enteros: fija el tope y el número de marcas para que cada una
+    // caiga justo en un entero y no se repitan las etiquetas.
+    const ejeEntero = (max) => {
+      const alto = Math.max(1, Math.ceil(max));
+      const marcas = alto <= 5 ? alto : 5;
+      return {
+        min: 0, max: Math.ceil(alto / marcas) * marcas, tickAmount: marcas,
+        forceNiceScale: false,
+        labels: { formatter: (n) => String(Math.round(n)) },
+      };
+    };
+
+    const req = (n) => n + (n === 1 ? ' requerimiento' : ' requerimientos');
+    // Altura a partir del número de barras, para que cada una salga de ~22px
+    // en vez de estirarse hasta llenar la tarjeta cuando hay dos o tres.
+    const altoBarras = (n, extra) => Math.max(170, n * 48 + (extra || 70));
+    const vacio = (id, msg) => {
+      const el = document.getElementById(id);
+      if (el) el.innerHTML = '<p class="rd-vacio">' + msg + '</p>';
+    };
+
+    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+
+    /* Cuando solo hay UNA categoría no hay nada que comparar: una dona de una
+       porción es un aro y una barra de una categoría es una raya de lado a
+       lado. En ese caso el número es el gráfico, así que se escribe y ya.
+       Cuando entren más datos, cada uno vuelve solo a su forma. */
+    const cifra = (id, valor, etiqueta, color) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML =
+        '<div class="rd-cifra">' +
+          '<b>' + esc(valor) + '</b>' +
+          '<span>' +
+            (color ? '<i class="rd-punto" style="background:' + esc(color) + '"></i>' : '') +
+            esc(etiqueta) +
+          '</span>' +
+        '</div>';
+    };
+    const pintar = (id, opts) => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.innerHTML = '';
+      try {
+        const c = new ApexCharts(el, opts);
+        c.render();
+        vivos.push(c);
+      } catch (e) {
+        el.innerHTML = '<p class="rd-vacio">No se pudo dibujar el gráfico.</p>';
+      }
+    };
+
+    /* 1) Cumplidos por institución. Barras apiladas: lo cumplido y lo que
+       falta, en horizontal porque los nombres de institución son largos. La
+       barra entera mide el total, así que ya no hace falta la etiqueta "1/3"
+       encima de una barra que medía otra cosa. */
+    const inst = D.inst || [];
+    if (inst.length === 1) {
+      cifra('rd-inst', inst[0].cumplidos + '/' + inst[0].total, 'cumplidos en ' + inst[0].nombre, inst[0].color);
+    } else if (inst.length) {
+      pintar('rd-inst', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', stacked: true, height: altoBarras(inst.length, 104) },
+        series: [
+          { name: 'Cumplidos',  data: inst.map((i) => i.cumplidos) },
+          { name: 'Pendientes', data: inst.map((i) => Math.max(0, i.total - i.cumplidos)) },
+        ],
+        colors: [P.hecho, P.pendiente],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '42%' } },
+        stroke: { show: true, width: 2, colors: [P.sup] },
+        xaxis: { categories: inst.map((i) => i.nombre), ...ejeEntero(Math.max(...inst.map((i) => i.total))) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        dataLabels: {
+          enabled: true,
+          // Solo dentro del trozo que tenga sitio; si no, lo cuenta el eje.
+          formatter: (val) => (val >= 1 ? val : ''),
+          style: { fontSize: '12px', fontWeight: 700, colors: P.tinta },
+          dropShadow: { enabled: false },
+        },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-inst', 'Sin instituciones asignadas todavía.');
+    }
+
+    /* 2) Reparto por institución. Único gráfico donde manda el color propio
+       de cada institución, porque aquí el dato ES la institución. */
+    if (inst.length === 1) {
+      cifra('rd-inst-dona', inst[0].total, 'todos de ' + inst[0].nombre, inst[0].color);
+    } else if (inst.length) {
+      pintar('rd-inst-dona', {
+        ...base,
+        chart: { ...base.chart, type: 'donut', height: 260 },
+        series: inst.map((i) => i.total),
+        labels: inst.map((i) => i.nombre),
+        colors: inst.map((i) => i.color || P.serie),
+        stroke: { width: 2, colors: [P.sup] },
+        plotOptions: { pie: { donut: { size: '68%', labels: {
+          show: true, name: { fontSize: '13px', color: cMuted },
+          value: { fontSize: '24px', fontWeight: 700, color: cText },
+          total: { show: true, label: 'Total', color: cMuted, formatter: () => inst.reduce((a, i) => a + i.total, 0) },
+        } } } },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-inst-dona', 'Sin instituciones asignadas.');
+    }
+
+    /* 3) Situación de la carga. Las tres situaciones están ordenadas (sin
+       asignar → en curso → cerrado), así que van en una rampa de un solo
+       tono: el orden se lee por lo oscuro, no por el tono. */
+    const sit = (D.sit || []).filter((s) => s[1] > 0);
+    const ordenSit = ['Sin asignar', 'En curso', 'Cerrados'];
+    if (sit.length === 1) {
+      cifra('rd-sit', sit[0][1], 'todos en "' + sit[0][0] + '"',
+            P.situacion[Math.max(0, ordenSit.indexOf(sit[0][0]))]);
+    } else if (sit.length) {
+      const orden = ordenSit;
+      pintar('rd-sit', {
+        ...base,
+        chart: { ...base.chart, type: 'donut', height: 260 },
+        series: sit.map((s) => s[1]),
+        labels: sit.map((s) => s[0]),
+        colors: sit.map((s) => P.situacion[Math.max(0, orden.indexOf(s[0]))]),
+        stroke: { width: 2, colors: [P.sup] },
+        plotOptions: { pie: { donut: { size: '68%', labels: {
+          show: true, name: { fontSize: '13px', color: cMuted },
+          value: { fontSize: '24px', fontWeight: 700, color: cText },
+          total: { show: true, label: 'Total', color: cMuted, formatter: () => sit.reduce((a, s) => a + s[1], 0) },
+        } } } },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-sit', 'Sin requerimientos.');
+    }
+
+    /* 4) Por prioridad. Era un radial de tres anillos que no se podía
+       comparar: tres barras sobre la misma línea se leen de un vistazo. */
+    const prio = (D.prio || []).filter((p) => p[1] > 0);
+    if (prio.length === 1) {
+      cifra('rd-prio', prio[0][1], 'todos de prioridad ' + prio[0][0].toLowerCase(),
+            P.prioridad[prio[0][0]] || P.serie);
+    } else if (prio.length) {
+      pintar('rd-prio', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(prio.length) },
+        series: [{ name: 'Requerimientos', data: prio.map((p) => p[1]) }],
+        colors: prio.map((p) => P.prioridad[p[0]] || P.serie),
+        plotOptions: { bar: { horizontal: true, distributed: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: prio.map((p) => p[0]), ...ejeEntero(Math.max(...prio.map((p) => p[1]))) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-prio', 'Sin prioridades registradas.');
+    }
+
+    /* 5) Recibidos por mes. Un área necesita recorrido: con uno o dos meses
+       no hay tendencia que dibujar y quedaba un punto suelto en medio de una
+       tarjeta vacía, así que hasta el tercer mes se cuentan en columnas. */
+    const meses = D.meses || [];
+    const hayTendencia = meses.length >= 3;
+    if (meses.length === 1) {
+      cifra('rd-meses', meses[0][1], 'recibidos en ' + meses[0][0], P.serie);
+    } else if (meses.length) {
+      pintar('rd-meses', {
+        ...base,
+        chart: { ...base.chart, type: hayTendencia ? 'area' : 'bar', height: 280, zoom: { enabled: false } },
+        series: [{ name: 'Recibidos', data: meses.map((m) => m[1]) }],
+        colors: [P.serie],
+        plotOptions: { bar: {
+          columnWidth: meses.length === 1 ? '56px' : '38%',
+          borderRadius: 4, borderRadiusApplication: 'end',
+          dataLabels: { position: 'top' },     // el número va sobre la columna
+        } },
+        dataLabels: hayTendencia ? { enabled: false } : {
+          enabled: true, offsetY: -20,
+          style: { fontSize: '12.5px', fontWeight: 700, colors: [cText] },
+          background: { enabled: false }, dropShadow: { enabled: false },
+        },
+        stroke: hayTendencia ? { curve: 'smooth', width: 2, lineCap: 'round' } : { width: 0 },
+        fill: { type: 'solid', opacity: hayTendencia ? 0.1 : 1 },
+        markers: { size: 0, strokeColors: P.sup, strokeWidth: 2, hover: { size: 6 } },
+        xaxis: {
+          categories: meses.map((m) => m[0]),
+          // 'on' pone cada mes justo debajo de su punto; por defecto Apex los
+          // reparte entre marcas y el primero y el último quedan descolgados.
+          tickPlacement: 'on',
+          axisBorder: { show: false }, axisTicks: { show: false },
+          labels: { style: { fontSize: '12px' }, hideOverlappingLabels: true },
+        },
+        yaxis: ejeEntero(Math.max(...meses.map((m) => m[1]))),
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-meses', 'Sin histórico todavía.');
+    }
+
+    /* 6) Quién los cumplió. Una sola serie, un solo color: pintar cada
+       persona de un color distinto no añadía información. */
+    const quien = D.quien || [];
+    if (quien.length === 1) {
+      cifra('rd-quien', quien[0][1], 'cumplidos por ' + quien[0][0], P.serie);
+    } else if (quien.length) {
+      pintar('rd-quien', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(quien.length) },
+        series: [{ name: 'Cumplidos', data: quien.map((q) => q[1]) }],
+        colors: [P.serie],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: quien.map((q) => q[0]), ...ejeEntero(Math.max(...quien.map((q) => q[1]))) },
+        yaxis: { labels: { maxWidth: 170, style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-quien', 'Nadie ha resuelto requerimientos todavía.');
+    }
+
+    /* 7) Prioridad por institución. Era un mapa de calor donde las filas en
+       cero salían en blanco y parecía roto. Apilado por prioridad se ve el
+       total de cada institución y su mezcla, con la misma rampa que el
+       gráfico de prioridad. */
+    const heat = (D.heat || []).filter((s) => (s.data || []).length);
+    const hayHeat = heat.length && heat.some((s) => s.data.some((d) => d.y > 0));
+    if (hayHeat && heat[0].data.length === 1) {
+      // Una sola institución: cruzarla contra la prioridad no cruza nada.
+      const mezcla = heat.filter((s) => s.data[0].y > 0)
+                         .map((s) => s.data[0].y + ' ' + s.name.toLowerCase());
+      cifra('rd-heat', heat.reduce((a, s) => a + s.data[0].y, 0),
+            heat[0].data[0].x + ' · ' + mezcla.join(', '));
+    } else if (hayHeat) {
+      const cats = heat[0].data.map((d) => d.x);
+      const totales = cats.map((_, i) => heat.reduce((a, s) => a + (s.data[i] ? s.data[i].y : 0), 0));
+      pintar('rd-heat', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', stacked: true, height: altoBarras(cats.length, 104) },
+        series: heat.map((s) => ({ name: s.name, data: s.data.map((d) => d.y) })),
+        colors: heat.map((s) => P.prioridad[s.name] || P.serie),
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '42%' } },
+        stroke: { show: true, width: 2, colors: [P.sup] },
+        xaxis: { categories: cats, ...ejeEntero(Math.max(...totales)) },
+        yaxis: { labels: { style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        dataLabels: {
+          enabled: true,
+          formatter: (val) => (val >= 1 ? val : ''),
+          // El naranja claro de "Baja" no aguanta texto blanco: cada
+          // prioridad lleva la tinta que contrasta con su relleno.
+          style: { fontSize: '12px', fontWeight: 700, colors: P.tintaPrio },
+          dropShadow: { enabled: false },
+        },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-heat', 'Sin datos por institución y prioridad.');
+    }
+
+    /* 8) Carga abierta por persona. Era un treemap: con dos personas eran dos
+       bloques enormes de colores que parecían un semáforo. En barras se
+       compara de verdad quién lleva más. */
+    const carga = D.carga || [];
+    if (carga.length === 1) {
+      cifra('rd-carga', carga[0][1], 'abiertos, todos de ' + carga[0][0], P.pendiente);
+    } else if (carga.length) {
+      pintar('rd-carga', {
+        ...base,
+        chart: { ...base.chart, type: 'bar', height: altoBarras(carga.length) },
+        series: [{ name: 'Abiertos', data: carga.map((c) => c[1]) }],
+        colors: [P.pendiente],
+        plotOptions: { bar: { horizontal: true, borderRadius: 4, borderRadiusApplication: 'end', barHeight: '46%' } },
+        xaxis: { categories: carga.map((c) => c[0]), ...ejeEntero(Math.max(...carga.map((c) => c[1]))) },
+        yaxis: { labels: { maxWidth: 170, style: { colors: cText, fontSize: '12.5px', fontWeight: 600 } } },
+        legend: { show: false },
+        tooltip: { ...base.tooltip, y: { formatter: (val) => req(val) } },
+      });
+    } else {
+      vacio('rd-carga', 'Nadie tiene requerimientos abiertos.');
+    }
+
+    /* 9) Cumplimiento global. El número grande del panel: medidor limpio, sin
+       degradado, y el color lo pone el tramo en el que cae. */
+    if (typeof D.pct === 'number') {
+      const col = D.pct >= 66 ? P.estado.bien : (D.pct >= 33 ? P.estado.ojo : P.estado.mal);
+      pintar('rd-pct', {
+        ...base,
+        chart: { ...base.chart, type: 'radialBar', height: 270 },
+        series: [D.pct],
+        labels: ['Cumplimiento'],
+        colors: [col],
+        fill: { type: 'solid' },
+        // A 0% la punta redondeada deja igualmente su media caña dibujada, y
+        // se ve una pastilla suelta al inicio del canal que no significa nada.
+        stroke: { lineCap: D.pct > 0 ? 'round' : 'butt' },
+        plotOptions: {
+          radialBar: {
+            startAngle: -135, endAngle: 135,
+            // Aro fino: el protagonista es el número del centro, no la rosca.
+            hollow: { size: '76%' },
+            track: { background: P.pista, strokeWidth: '100%', margin: 0 },
+            dataLabels: {
+              name: { color: cMuted, fontSize: '13px', fontWeight: 600, offsetY: 26 },
+              value: { color: cText, fontSize: '38px', fontWeight: 700, offsetY: -6, formatter: (n) => Math.round(n) + '%' },
+            },
+          },
+        },
+      });
+    }
+  };
+
+  dibujar();
+  document.addEventListener('meca:tema', dibujar);
+})();
+
+/* =========================================================
    Buscador de tabla reutilizable (data-tabla-buscar). Filtra las filas del
    <tbody> de su tarjeta por el texto tecleado, comparando contra data-buscar
    (o el texto de la fila). Marca las filas que no coinciden con .fila-oculta
@@ -3209,95 +3960,39 @@ document.addEventListener('submit', async (e) => {
   }
 });
 
-// Componente único de subida (UI::archivo): drag & drop, estado "con archivo"
-// (nombre + peso + quitar) y validación de tipo/tamaño (error). Envuelve un
-// <input type="file"> nativo, así el formulario se envía igual que siempre.
-(() => {
-  const humano = (b) => b < 1024 ? b + ' B'
-    : b < 1048576 ? Math.round(b / 1024) + ' KB'
-    : (b / 1048576).toFixed(1) + ' MB';
-  const iconoDe = (nombre) => {
-    const ext = (nombre.split('.').pop() || '').toLowerCase();
-    if (ext === 'pdf') return 'fa-file-pdf';
-    if (['doc', 'docx'].includes(ext)) return 'fa-file-word';
-    if (['xls', 'xlsx', 'csv'].includes(ext)) return 'fa-file-excel';
-    if (['ppt', 'pptx'].includes(ext)) return 'fa-file-powerpoint';
-    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'svg'].includes(ext)) return 'fa-file-image';
-    if (['zip', 'rar', '7z'].includes(ext)) return 'fa-file-zipper';
-    return 'fa-file';
-  };
-  const aceptado = (file, accept) => {
-    if (!accept) return true;
-    const nom = file.name.toLowerCase(), tipo = (file.type || '').toLowerCase();
-    return accept.split(',').map((s) => s.trim().toLowerCase()).some((a) => {
-      if (!a) return false;
-      if (a.startsWith('.')) return nom.endsWith(a);
-      if (a.endsWith('/*')) return tipo.startsWith(a.slice(0, -1));
-      return tipo === a;
+/* Deploys: el botón "Cambios subidos" se marca en cuanto se pulsa. El envío es
+   un POST normal y la página recarga en un parpadeo; sin esa señal el
+   encargado no sabe si registró o si le falló el clic, y vuelve a pulsar.
+   No se deshabilita el botón: un botón deshabilitado en pleno submit no manda
+   su valor. Se marca el formulario y el segundo envío se descarta. */
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  const btn = form.querySelector?.('[data-dep-btn]');
+  if (!btn) return;
+  if (form.dataset.depEnviado) { e.preventDefault(); return; }
+  form.dataset.depEnviado = '1';
+  btn.classList.add('dep-enviando');
+});
+
+
+/* Ajustes → Despliegues: los campos de alias siguen a "Proyectos a los que
+   afecta cada subida". Salen todos en el HTML y aquí se deja ver solo lo
+   marcado, al vuelo: si hubiera que guardar para verlos, marcar un proyecto y
+   no encontrar su casilla parece que la pantalla está rota.
+
+   Sin nada marcado valen todos, igual que en el resto del módulo.
+
+   Los ocultos NO se deshabilitan: siguen enviando su alias, así que desmarcar
+   un proyecto un rato no borra lo que ya se había escrito. */
+document.querySelectorAll('[data-alias-de]').forEach((caja) => {
+  const sel = document.querySelector('select[name="' + caja.dataset.aliasDe + '"]');
+  if (!sel) return;
+  const sincronizar = () => {
+    const marcados = new Set([...sel.selectedOptions].map((o) => o.value));
+    caja.querySelectorAll('[data-proy]').forEach((fila) => {
+      fila.hidden = marcados.size > 0 && !marcados.has(fila.dataset.proy);
     });
   };
-
-  document.querySelectorAll('[data-archivo]').forEach((fx) => {
-    const input = fx.querySelector('.fx-input');
-    if (!input || fx.dataset.fxListo) return;
-    fx.dataset.fxListo = '1';
-    const disparo = fx.querySelector('.fx-disparo');
-    const cont    = fx.querySelector('.fx-files');
-    const errEl   = fx.querySelector('.fx-error');
-    const maxMB   = parseFloat(fx.dataset.max || '0');
-    const multi   = fx.dataset.multi === '1';
-    const off     = fx.classList.contains('fx-off') || input.disabled;
-
-    const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
-    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
-
-    const pintar = () => {
-      const files = [...input.files];
-      cont.innerHTML = '';
-      fx.classList.toggle('fx-lleno', files.length > 0);
-      files.forEach((f, i) => {
-        const chip = document.createElement('div');
-        chip.className = 'fx-file';
-        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
-          + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
-          + '<small>' + humano(f.size) + '</small></span>'
-          + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
-        chip.querySelector('.fx-file-x').addEventListener('click', (e) => {
-          e.stopPropagation();
-          rebuild([...input.files].filter((_, j) => j !== i));
-          error(''); pintar();
-        });
-        cont.appendChild(chip);
-      });
-    };
-
-    const validar = (files) => {
-      for (const f of files) {
-        if (!aceptado(f, input.accept)) return 'Ese tipo de archivo no se admite aquí.';
-        if (maxMB > 0 && f.size > maxMB * 1048576) return f.name + ' pesa ' + humano(f.size) + ': el máximo es ' + maxMB + ' MB.';
-      }
-      return '';
-    };
-
-    const tomar = (lista) => {
-      let files = [...lista];
-      if (!multi) files = files.slice(0, 1);
-      const msg = validar(files);
-      if (msg) { error(msg); rebuild([]); pintar(); return; }
-      error(''); rebuild(files); pintar();
-    };
-
-    if (!off) {
-      disparo.addEventListener('click', () => input.click());
-      input.addEventListener('change', () => tomar(input.files));
-      ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
-      ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
-        if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
-      }));
-      fx.addEventListener('drop', (e) => {
-        e.preventDefault(); fx.classList.remove('fx-drag');
-        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
-      });
-    }
-  });
-})();
+  sel.addEventListener('change', sincronizar);
+  sincronizar();
+});

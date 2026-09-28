@@ -15,17 +15,12 @@ if (Auth::usuario()) {
 $marca      = Config::all();
 $primerUso  = !Auth::hayAdmin();
 
-// ¿Volvemos de Google sin reconocer el correo? Mostramos "¿Quién eres?" con
-// las fichas que aún no tienen correo (y no son admin) para que se autoelija.
-$identificar = $_SESSION['identificar'] ?? null;
+// Flujo "¿quién eres?" RETIRADO: reclamar una ficha sin correo dejaba asociar
+// cualquier correo a una ficha ajena. El acceso es por el correo exacto. Si
+// quedó algo en sesión de antes, se descarta.
+unset($_SESSION['identificar']);
+$identificar = null;
 $sinVincular = [];
-if ($identificar) {
-    $sinVincular = array_values(array_filter(
-        (new MiembroRepo())->todos(),
-        fn($m) => empty($m['email']) && ($m['acceso'] ?? '') !== 'admin'
-    ));
-    if (!$sinVincular) { unset($_SESSION['identificar']); $identificar = null; }
-}
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -152,11 +147,11 @@ if ($identificar) {
           <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
           Créalo por terminal: <code>php admin/crear_admin.php</code>
         </p>
-        <?php elseif (Auth::registroAbierto()): ?>
+        <?php elseif (Auth::registro()['abierto'] && Auth::hayQuienApruebe()): ?>
         <div class="login-pie">
           <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
           <p class="lp-cta">¿Todavía no tienes cuenta?
-            <a href="<?= e(urlPanel('registro.php')) ?>"><i class="fa-brands fa-google"></i> Crear una con Google</a>
+            <a class="lp-cta-btn" href="<?= e(urlPanel('registro.php')) ?>"><?= UI::icono('PlusCircle') ?> Crear una cuenta</a>
           </p>
         </div>
         <?php else: ?>

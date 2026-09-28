@@ -13,7 +13,8 @@ $rama = trim($_GET['rama'] ?? '');
 // Rango visible en Métricas: se lee solo ese tramo del historial
 $dias = max(7, min(400, (int)($_GET['dias'] ?? 182)));
 $proyecto = (new ProyectoRepo())->buscar($id);
-if (!$proyecto || !puedeVerProyecto($id)) {
+if (!$proyecto || !puedeVerProyecto($id) || Auth::esSupervisor()) {
+    // El supervisor solo ve el Kanban y el detalle: nada de métricas/aportes.
     http_response_code(403);
     echo json_encode(['error' => 'Proyecto no disponible.']);
     exit;
@@ -53,12 +54,23 @@ foreach ($repos as $rp) {
     $cr = Repos::commitsRecientes($rp['url'], 3000, $ramaRepo, $dias);
     if (($cr['estado'] ?? '') !== 'ok') continue;
     $truncado = $truncado || !empty($cr['truncado']);
+    $prov = Repos::proveedor($rp['url']);   // 'github' | 'gitlab' — el cruce depende de esto
     foreach ($cr['commits'] as $c) {
         $c['repo'] = $rp['label'];
+        $c['prov'] = $prov;
         $commits[] = $c;
     }
 }
 usort($commits, fn($a, $b) => strcmp($b['fecha'] ?? '', $a['fecha'] ?? ''));
+
+// Flujo del estándar: los commits mueven la tarea (#id + palabra clave). Se
+// procesa aquí, al traer los commits, sin romper las métricas si algo falla.
+$movidas = [];
+try {
+    $movidas = AutoEstado::aplicar($id, $commits);
+} catch (\Throwable $e) {
+    // que un fallo al mover tareas no deje sin gráfico de aportes
+}
 
 echo json_encode([
     'commits'      => $commits,
@@ -67,4 +79,5 @@ echo json_encode([
     'repos'        => $labelsRepo,
     'rama_defecto' => $ramaDefecto,
     'truncado'     => $truncado,
+    'movidas'      => $movidas,
 ], JSON_UNESCAPED_UNICODE);

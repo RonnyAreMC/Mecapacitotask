@@ -67,6 +67,7 @@ if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
 require_once __DIR__ . '/HtmlRico.php';
+require_once __DIR__ . '/AutoEstado.php';
 require_once __DIR__ . '/UI.php';
 require_once __DIR__ . '/Auth.php';
 require_once __DIR__ . '/GoogleLogin.php';
@@ -212,6 +213,13 @@ function logoPanel(): string
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
     }
+    // Marca de esta instancia: si está el logo de InnoTech Hub (SVG preferido,
+    // luego PNG), se usa por defecto sin tener que subirlo en Ajustes.
+    foreach (['innotech-hub-logo.svg', 'innotech-hub-logo.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
+    }
     return '../assets/mecapacito-logo.png';
 }
 
@@ -226,6 +234,11 @@ function faviconPanel(): string
     $logo = trim((string)(Config::get('logo') ?? ''));
     if ($logo !== '' && is_file(__DIR__ . '/../' . $logo)) {
         return $logo;
+    }
+    foreach (['innotech-hub-icon.svg', 'innotech-hub-icon.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
     }
     return logoPanel();          // sin icono propio, mejor el logo que nada
 }
@@ -379,6 +392,7 @@ function esAdmin(): bool
 /** Atajos de plantilla para el rol Scrum Master. */
 function esScrum(): bool  { return Auth::esScrum(); }
 function esGestor(): bool { return Auth::esGestor(); }   // admin o scrum
+function esSupervisor(): bool { return Auth::esSupervisor(); }
 
 /**
  * ¿Puede GESTIONAR este proyecto (planificar, reuniones, métricas)?
@@ -390,7 +404,15 @@ function puedeGestionar(int $proyectoId): bool
     return Auth::esScrum() && puedeVerProyecto($proyectoId);
 }
 
-/** ¿Es el Product Owner de este proyecto? (el rol es por proyecto, no global) */
+/**
+ * ¿Es el Scrum Master DE ESTE proyecto (o el administrador)?
+ *
+ * Distinto de puedeGestionar(): aquel se conforma con "tiene el rol scrum y
+ * participa aqui", que es demasiado ancho para lo que manda de verdad —con una
+ * tarea suelta en otro proyecto ya podia tocarlo. Esto exige estar puesto como
+ * Scrum Master de ese proyecto.
+ */
+/** ¿Es el Product Owner de este proyecto? ("ver como" contesta por esa persona) */
 function esPODelProyecto(int $proyectoId): bool
 {
     $yo = verComo() ?: Auth::usuario();
@@ -400,13 +422,95 @@ function esPODelProyecto(int $proyectoId): bool
 }
 
 /**
- * Reuniones del proyecto: además del admin y su Scrum Master, el Product
- * Owner. No vale la clase .solo-gestor de siempre: esa se apaga por el ROL
- * del panel, y un PO puede entrar como solo lectura y aun así mandar aquí.
+ * ¿Puede crear y editar las REUNIONES de este proyecto (las de Zoom/Meet)?
+ *
+ * Lo de siempre —el administrador y el Scrum Master— más el Product Owner del
+ * proyecto: convoca al equipo tanto como el SM, y tenía que pedirle a otro que
+ * agendara sus propias reuniones. Se suma a puedeGestionar() en vez de
+ * sustituirlo para no quitarle permiso a nadie que ya lo tuviera.
  */
 function puedeReunionesDelProyecto(int $proyectoId): bool
 {
     return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
+}
+
+function puedeHorarioDelProyecto(int $proyectoId): bool
+{
+    // Con "ver como" activo se contesta por ESA persona. Si no, el panel
+    // enseñaba lo que puede el administrador mientras dice estar mirando con
+    // los ojos de otro, y parecía que la restricción no existía.
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    if (MiembroRepo::tieneAcceso($yo, 'admin')) return true;
+
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    if ($p === null) return false;
+    // Manda quien LLEVA el proyecto: su Scrum Master y su Product Owner. Son
+    // los dos que convocan al equipo, así que los dos ponen el horario. Basta
+    // con estar puesto como tal: el rol ya se valida al guardar el proyecto.
+    $id = (int)$yo['id'];
+    return ProyectoRepo::scrumDe($p) === $id || ProyectoRepo::poDe($p) === $id;
+}
+
+/**
+ * Avisa por correo al Scrum Master del proyecto de que una tarea acaba de darse
+ * por TERMINADA. (El Product Owner NO recibe este aviso, a propósito.)
+ *
+ * Solo dispara en el paso a terminada: si ya lo estaba (se reedita, se vuelve
+ * a guardar) no se avisa otra vez, que si no cada retoque manda un correo.
+ *
+ * A quien la termina no se le avisa de lo que acaba de hacer: si el propio
+ * Scrum Master cierra su tarea, ya lo sabe.
+ *
+ * $quienId es quien la cerro (0 = la cerro un commit, sin sesion detras).
+ * Devuelve la coletilla para el flash ('' si no habia a quien avisar).
+ */
+function avisarTareaTerminada(array $tarea, string $antes, string $ahora, int $quienId = 0): string
+{
+    $finales = Catalogo::estadosFinales();
+    if (!in_array($ahora, $finales, true) || in_array($antes, $finales, true)) {
+        return '';
+    }
+    $proyecto = (new ProyectoRepo())->buscar((int)($tarea['proyecto_id'] ?? 0));
+    if (!$proyecto) {
+        return '';
+    }
+
+    // Solo el Scrum Master del proyecto. El Product Owner NO recibe el aviso de
+    // tarea terminada (decisión del equipo).
+    $roles = [];
+    if (($sm = ProyectoRepo::scrumDe($proyecto)) > 0) $roles[$sm][] = 'Scrum Master';
+    unset($roles[$quienId]);
+    if (!$roles) {
+        return '';
+    }
+
+    $miembros = new MiembroRepo();
+    $quien    = $quienId > 0 ? $miembros->buscar($quienId) : null;
+    $avisados = [];
+    $sinCorreo = [];
+    $fallo = '';
+    foreach ($roles as $mid => $comoQue) {
+        $m = $miembros->buscar((int)$mid);
+        if (!$m) continue;
+        $r = Mailer::notificarTareaTerminada($tarea, $proyecto, $quien, $m, implode(' y ', $comoQue));
+        if ($r === true) {
+            $avisados[] = explode(' ', trim($m['nombre']))[0];
+        } else {
+            $sinCorreo[] = explode(' ', trim($m['nombre']))[0];
+            if (is_string($r)) $fallo = $r;
+        }
+    }
+    // Callar que el aviso no salio deja al equipo pensando que ya se enteraron.
+    // Las ramas van con (bool) a proposito: match compara en ESTRICTO, y un
+    // array no es === true, asi que sin el casteo nunca entrarian.
+    $motivo = $fallo ?: 'no tiene correo registrado, o el correo del panel no está configurado';
+    return match (true) {
+        (bool)$avisados && !$sinCorreo => ' Avisamos a ' . implode(' y ', $avisados) . '.',
+        (bool)$avisados                => ' Avisamos a ' . implode(' y ', $avisados) . '; a ' . implode(' y ', $sinCorreo) . ' no (' . $motivo . ').',
+        (bool)$sinCorreo               => ' No salió el aviso a ' . implode(' y ', $sinCorreo) . ' (' . $motivo . ').',
+        default                        => '',
+    };
 }
 
 /**
@@ -421,6 +525,220 @@ function puedeGestionarTareas(int $proyectoId): bool
     if ($yo <= 0) return false;
     $p = (new ProyectoRepo())->buscar($proyectoId);
     return $p && ProyectoRepo::poDe($p) === $yo;
+}
+
+/* ---------- Deploys: quien sube los cambios y quien lo ve ---------- */
+
+/** Config del modulo de deploys, ya normalizada. */
+function configDeploys(): array
+{
+    $d = (array)(Config::get('deploys') ?? []);
+    return [
+        'activo'     => !isset($d['activo']) || !empty($d['activo']),
+        'entorno'    => trim((string)($d['entorno'] ?? '')) ?: 'Servidor de pruebas',
+        'encargados' => array_values(array_filter(array_map('intval', (array)($d['encargados'] ?? [])))),
+        'visores'    => array_values(array_filter(array_map('intval', (array)($d['visores'] ?? [])))),
+        'ver_po'     => !isset($d['ver_po']) || !empty($d['ver_po']),
+        // Proyectos que se siguen. Vacio = todos: no todos los proyectos se
+        // suben a un servidor de pruebas, y los que no, solo hacen ruido.
+        'proyectos'  => array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])))),
+        // Equipos cuyos miembros ven el modulo y la tira del dashboard.
+        'equipos'    => array_values(array_filter(array_map('strval', (array)($d['equipos'] ?? [])))),
+        // Alias tecnico por proyecto ("ms-academico"). Es con lo que reconoce
+        // lo que sube quien lo sube: el nombre del proyecto en el panel
+        // ("Equipo Delta") no es el de la carpeta ni el del microservicio.
+        'alias'      => aliasDeploys($d['alias'] ?? []),
+    ];
+}
+
+/** [proyecto_id => alias], sin vacios ni espacios de mas. */
+function aliasDeploys($crudo): array
+{
+    $out = [];
+    foreach ((array)$crudo as $pid => $a) {
+        $pid = (int)$pid;
+        $a   = trim(preg_replace('/\s+/', ' ', (string)$a));
+        if ($pid > 0 && $a !== '') $out[$pid] = mb_substr($a, 0, 60);
+    }
+    return $out;
+}
+
+/** El alias de un proyecto, o '' si no se le puso ninguno. */
+function aliasDeploy(int $proyectoId): string
+{
+    return configDeploys()['alias'][$proyectoId] ?? '';
+}
+
+/**
+ * Proyectos en los que ESTA persona participa, sea cual sea su rol
+ * (administrador incluido): esta en su equipo, lo lleva como PO o Scrum, tiene
+ * una tarea, esta invitada a una reunion o escribio una observacion.
+ *
+ * No es lo mismo que alcanceProyectos(), que para el administrador devuelve
+ * null porque los VE todos. Aqui la pregunta es otra: en cuales esta metido.
+ * La tira de despliegues del dashboard se apoya en esto — al administrador le
+ * salian los ocho proyectos del panel, incluidos los que no toca.
+ *
+ * Devuelve un set [proyecto_id => true].
+ */
+function misProyectosIds(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return $cache = [];
+
+    // El supervisor no "participa": ve los que el administrador le asigno.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
+    $ids = [];
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        $pid = (int)$p['id'];
+        $suEquipo = ProyectoRepo::miembrosDe($p);
+        if ($suEquipo !== null && in_array($yo, $suEquipo, true)) $ids[$pid] = true;
+        if (ProyectoRepo::poDe($p) === $yo)    $ids[$pid] = true;
+        if (ProyectoRepo::scrumDe($p) === $yo) $ids[$pid] = true;
+    }
+    foreach ((new TareaRepo())->todas() as $t) {
+        if (TareaRepo::tieneAsignado($t, $yo)) $ids[(int)$t['proyecto_id']] = true;
+    }
+    foreach ((new JsonStore('reuniones'))->all() as $r) {
+        if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+            $ids[(int)$r['proyecto_id']] = true;
+        }
+    }
+    foreach ((new JsonStore('observaciones'))->all() as $o) {
+        if ((int)($o['autor_id'] ?? 0) === $yo) $ids[(int)$o['proyecto_id']] = true;
+    }
+    return $cache = $ids;
+}
+
+/**
+ * Los proyectos que el modulo sigue Y en los que ESTA persona participa. Es lo
+ * que sale en el dashboard: si no estoy en SIGE, lo de SIGE no es asunto mio.
+ * El registro completo esta en el modulo (deploys.php).
+ */
+function misProyectosDeploys(array $proyectos): array
+{
+    $mios = misProyectosIds();
+    return array_values(array_filter(
+        proyectosDeploys($proyectos),
+        fn($p) => isset($mios[(int)$p['id']])
+    ));
+}
+
+/**
+ * Deja de una lista de proyectos solo los que el modulo sigue (y que la
+ * persona puede ver). Si el administrador no eligio ninguno, se siguen todos.
+ */
+function proyectosDeploys(array $proyectos): array
+{
+    $cfg = configDeploys();
+    $proyectos = soloProyectosVisibles($proyectos);
+    if (!$cfg['proyectos']) return array_values($proyectos);
+    return array_values(array_filter($proyectos, fn($p) => in_array((int)$p['id'], $cfg['proyectos'], true)));
+}
+
+/** ¿Este proyecto se sigue en el modulo de despliegues? */
+function proyectoConDeploys(int $proyectoId): bool
+{
+    $cfg = configDeploys();
+    return $cfg['activo'] && (!$cfg['proyectos'] || in_array($proyectoId, $cfg['proyectos'], true));
+}
+
+/**
+ * ¿Puede REGISTRAR un deploy? El administrador y quien el administrador haya
+ * puesto como encargado. A nadie mas: el registro es el sello de "esto ya
+ * esta arriba" y tiene que responder alguien.
+ */
+function puedeDesplegar(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+    if (Auth::esSupervisor()) return false;   // el supervisor solo observa
+    return in_array((int)(Auth::usuario()['id'] ?? 0), $cfg['encargados'], true);
+}
+
+/**
+ * ¿Puede VER el modulo de deploys? El administrador, los encargados, los
+ * visores que designe el administrador y —si esta marcado en Ajustes— quien
+ * lleva un proyecto (Product Owner o Scrum Master), que es justamente para
+ * quien se hizo esto.
+ */
+function puedeVerDeploys(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    if (in_array($yo, $cfg['encargados'], true)) return true;
+    if (in_array($yo, $cfg['visores'], true)) return true;
+
+    // Equipos completos: el administrador marca "Analistas" y todos los
+    // analistas lo ven, sin ir persona por persona.
+    if ($cfg['equipos']) {
+        $miEquipo = MiembroRepo::equipoDe((array)(Auth::usuario() ?? []));
+        if (in_array($miEquipo, $cfg['equipos'], true)) return true;
+    }
+    if (!$cfg['ver_po']) return false;
+
+    if (Auth::esScrum()) return true;
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        if (ProyectoRepo::poDe($p) === $yo || ProyectoRepo::scrumDe($p) === $yo) return true;
+    }
+    return false;
+}
+
+/**
+ * Estado de despliegue de cada proyecto: su ultimo deploy y cuantas tareas
+ * completadas siguen sin subir. Ordenado por el deploy mas reciente.
+ *
+ * Se calcula aqui y no en cada pantalla porque lo pintan el dashboard y el
+ * modulo, y tienen que decir lo mismo.
+ */
+function resumenDeploys(array $proyectos): array
+{
+    $repo       = new DeployRepo();
+    $tareasRepo = new TareaRepo();
+    $finales    = Catalogo::estadosFinales();
+    $ultimos    = $repo->ultimoPorProyecto();
+
+    $filas = [];
+    foreach ($proyectos as $p) {
+        $pid  = (int)$p['id'];
+        $pend = [];
+        foreach ($tareasRepo->delProyecto($pid) as $t) {
+            if (!in_array($t['estado'] ?? '', $finales, true)) continue;
+            if ((int)($t['deploy_id'] ?? 0) > 0) continue;
+            $pend[] = $t;
+        }
+        $filas[$pid] = [
+            'proyecto'   => $p,
+            'ultimo'     => $ultimos[$pid] ?? null,
+            'pendientes' => $pend,
+        ];
+    }
+    // El que subio hace menos rato, primero; los que nunca subieron, al final
+    uasort($filas, fn($a, $b) => strcmp((string)($b['ultimo']['fecha'] ?? ''), (string)($a['ultimo']['fecha'] ?? '')));
+    return $filas;
+}
+
+/** Corta la pagina si el modulo de deploys no es para esta persona. */
+function exigirDeploys(): void
+{
+    if (!puedeVerDeploys()) {
+        redirigir('index.php', 'El módulo de despliegues no está habilitado para tu cuenta.', 'error');
+    }
 }
 
 /* ---------- Alcance: que proyectos puede ver cada quien ---------- */
@@ -444,6 +762,17 @@ function alcanceProyectos(): ?array
     }
 
     $yo  = (int)(Auth::usuario()['id'] ?? 0);
+
+    // Supervisor: ve EXCLUSIVAMENTE los proyectos que el admin le asignó. No
+    // hereda visibilidad por tareas, reuniones ni observaciones.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
     $ids = [];
     if ($yo > 0) {
         foreach ((new ProyectoRepo())->todos() as $p) {
@@ -452,6 +781,9 @@ function alcanceProyectos(): ?array
                 $ids[(int)$p['id']] = true;
             }
             if (ProyectoRepo::poDe($p) === $yo) {   // el Product Owner también ve su proyecto
+                $ids[(int)$p['id']] = true;
+            }
+            if (ProyectoRepo::scrumDe($p) === $yo) {   // y el Scrum Master que lo lleva
                 $ids[(int)$p['id']] = true;
             }
         }
@@ -558,31 +890,62 @@ function sembrarDatos(): void
 
     if (count($miembros->todos()) > 0 || count($proyectos->todos()) > 0) return;
 
-    // Equipo de programadores
-    $miembros->crear(['nombre' => 'Kevin',           'rol' => 'Frontend Dev',        'git_user' => 'kevin',          'color' => 1,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',           'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Dulce Villacis',  'rol' => 'Backend Dev',         'git_user' => 'dulcevillacis', 'color' => 12, 'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer','git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion']);
-    $miembros->crear(['nombre' => 'Jordy Pincay',    'rol' => 'Backend Dev',         'git_user' => 'jordypincay',    'color' => 2,  'equipo' => 'programacion']);
+    // Equipo de programadores (InnoTech Académico), ya con su correo institucional.
+    $dominio = '@innotech-solutions.com.ec';
+    $eder    = $miembros->crear(['nombre' => 'Eder Ordoñez',    'rol' => 'Developer',            'git_user' => 'ederordonez',    'color' => 1,  'equipo' => 'programacion', 'email' => 'elordonezg' . $dominio]);
+    $jaione  = $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer', 'git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion', 'email' => 'jecherresc' . $dominio]);
+    $miller  = $miembros->crear(['nombre' => 'Miller Moran',    'rol' => 'Developer',            'git_user' => 'millermoran',    'color' => 2,  'equipo' => 'programacion', 'email' => 'mrmorana' . $dominio]);
+    // Vanessa: su correo institucional aún no está confirmado (no hay "murillo"
+    // en el listado de cPanel), así que queda sin vincular por ahora.
+    $vanessa = $miembros->crear(['nombre' => 'Vanessa Murillo', 'rol' => 'Developer',            'git_user' => 'vanessamurillo', 'color' => 12, 'equipo' => 'programacion']);
+    $carlos  = $miembros->crear(['nombre' => 'Carlos Rodriguez','rol' => 'Developer',            'git_user' => 'carlosrodriguez','color' => 5,  'equipo' => 'programacion', 'email' => 'clrodriguezn' . $dominio]);
+    // Ronny mantiene su Gmail como correo de acceso (a pedido), no el institucional.
+    $ronny   = $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',            'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
+
+    // Ronny es el administrador del panel (queda fijo en el seed), con acceso
+    // por correo+contraseña listo desde el primer arranque (sin usar la shell).
+    $miembros->actualizar((int)$ronny['id'], [
+        'acceso'    => 'admin',
+        'email'     => 'ronnyareu22@gmail.com',
+        'pass_hash' => Auth::hash('academico2026'),
+    ]);
 
     // Equipo de analistas
-    $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas']);
-    $miembros->crear(['nombre' => 'Erick Pastrano',  'rol' => 'Analista de Datos',   'git_user' => 'erickpastrano',  'color' => 7,  'equipo' => 'analistas']);
-    $miembros->crear(['nombre' => 'Ronald',          'rol' => 'Analista Funcional',  'git_user' => 'ronald',         'color' => 5,  'equipo' => 'analistas']);
+    $felipe  = $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas', 'email' => 'fearevaloc' . $dominio]);
+    $gabriel = $miembros->crear(['nombre' => 'Gabriel Alavera', 'rol' => 'Analista Funcional',  'git_user' => 'gabrielalavera', 'color' => 7,  'equipo' => 'analistas', 'email' => 'jgalaverac' . $dominio]);
 
-    // Proyectos
+    // Único proyecto: SIGE Académico (lo ve todo el equipo por no fijar miembros).
     $proyectos->crear([
-        'nombre' => 'SIGE', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
-        'descripcion' => 'Sistema integrado de gestión educativa.',
+        'nombre' => 'SIGE Académico', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
+        'descripcion' => 'Sistema integrado de gestión educativa — módulo académico.',
     ]);
-    $proyectos->crear([
-        'nombre' => 'TPV', 'icono' => 'fa-store', 'color' => 3, 'estado' => 'activo',
-        'descripcion' => 'Terminal punto de venta.',
-    ]);
-    $proyectos->crear([
-        'nombre' => 'CONTABILIDAD', 'icono' => 'fa-money-bill-wave', 'color' => 2, 'estado' => 'activo',
-        'descripcion' => 'Módulo de contabilidad y finanzas.',
-    ]);
+
+    // Catálogo de correos institucionales de InnoTech (cPanel). Los de las
+    // fichas quedan vinculados (miembro_id); el resto disponibles (null).
+    // Dominio innotech-solutions.com.ec.
+    $correos = new JsonStore('correos_innotech');
+    $vinculos = [
+        'elordonezg'  => (int)$eder['id'],
+        'jecherresc'  => (int)$jaione['id'],
+        'mrmorana'    => (int)$miller['id'],
+        'clrodriguezn'=> (int)$carlos['id'],
+        'fearevaloc'  => (int)$felipe['id'],
+        'jgalaverac'  => (int)$gabriel['id'],
+    ];
+    $usuarios = [
+        'aamariduenal', 'aavilesn', 'admin.claude1', 'admin.claude2', 'bavitev',
+        'bgbarcom', 'celockem', 'clrodriguezn', 'contacto', 'crm-uniebec',
+        'cscoelloa', 'dsuarezs', 'elordonezg', 'evramirezc', 'fearevaloc',
+        'fwbravor', 'gasalazarc', 'htramireza', 'info', 'innotech',
+        'its.itb', 'its.ube', 'jdbrioness', 'jdpincaym', 'jecherresc',
+        'jgalaverac', 'jjcaverog', 'kbastudilloc', 'mrmorana', 'nsolmedom',
+        'oaguzmana', 'pgnoboar', 'prueba.unidadeducativa', 'regonzalezr',
+        'requerimiento', 'reramirezc', 'riarellanou', 'riramireza', 'safreirel',
+        'slsalanc', 'vmgomezd', 'wlvelezd',
+    ];
+    foreach ($usuarios as $u) {
+        $correos->insert(['email' => $u . $dominio, 'miembro_id' => $vinculos[$u] ?? null]);
+    }
 }
 
 sembrarDatos();

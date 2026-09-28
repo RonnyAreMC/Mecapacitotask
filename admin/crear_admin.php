@@ -38,7 +38,7 @@ function tabla(array $equipo): void
         printf("  [%2d] %-18s %-22s %-30s %s\n",
             $m['id'], $m['nombre'], $m['rol'] ?: '—',
             $m['email'] ?: '(sin correo)',
-            ($m['acceso'] ?? 'lector') === 'admin' ? 'ADMIN' : 'solo lectura');
+            MiembroRepo::accesosEnTexto($m));
     }
     fwrite(STDOUT, "\n");
 }

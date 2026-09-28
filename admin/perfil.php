@@ -91,7 +91,7 @@ UI::inicio('Mi perfil', 'perfil');
       <input type="hidden" name="accion" value="mis_tareas_json">
       <button class="btn-primary btn-meca"><i class="fa-solid fa-file-arrow-down"></i> Descargar mis tareas (JSON)</button>
     </form>
-    <a href="docs.php" class="btn-outline btn-meca"><i class="fa-solid fa-book-open"></i> Ver el estándar</a>
+    <a href="docs.php" class="btn-outline btn-meca btn-azul"><i class="fa-solid fa-book-open"></i> Ver el estándar</a>
   </div>
 </section>
 
@@ -145,7 +145,7 @@ UI::inicio('Mi perfil', 'perfil');
         <div class="pf-cuerpo">
           <span class="pf-label">Correo</span>
           <span class="pf-valor js-valor"><?= !empty($yo['email']) ? e($yo['email']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
-          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@correo.com" hidden>
+          <input class="input-meca pf-input" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@innotech-solutions.com.ec" hidden>
         </div>
         <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
       </div>

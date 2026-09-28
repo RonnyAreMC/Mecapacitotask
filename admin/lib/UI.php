@@ -115,18 +115,17 @@ class UI
 <?php self::estilosConfig(); ?>
 </head>
 <body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
-<?php if ($activo === 'dashboard') self::fondoRamas(); ?>
 <aside class="sidebar">
   <div class="sidebar-top">
-    <a href="index.php" class="sidebar-brand">
-      <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
+    <a href="index.php" class="sidebar-brand sidebar-brand-icono">
+      <img class="sidebar-logo" src="<?= e(faviconPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
       <div>
         <strong><?= e($marca['titulo']) ?></strong>
         <span><?= e($marca['subtitulo']) ?></span>
       </div>
     </a>
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
-      <i class="fa-solid fa-angles-left"></i>
+      <?= UI::icono('PanelLateral') ?>
     </button>
     <!-- Solo en móvil: abre el menú flotante -->
     <button type="button" id="sidebar-burger" class="sidebar-burger" aria-label="Menú" aria-expanded="false">
@@ -145,11 +144,11 @@ class UI
         <?= self::avatar($verComo, 26) ?>
         <span class="truncate">Viendo a <b><?= e(explode(' ', $verComo['nombre'])[0]) ?></b></span>
       <?php else: ?>
-        <i class="fa-regular fa-eye"></i> <span class="truncate">Ver como...</span>
+        <?= UI::icono('Eye') ?> <span class="truncate">Ver como...</span>
       <?php endif; ?>
     </button>
     <?php if ($verComo): ?>
-    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><i class="fa-solid fa-xmark"></i></a>
+    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><?= UI::icono('Close') ?></a>
     <?php endif; ?>
   </div>
   <?php endif; ?>
@@ -157,7 +156,7 @@ class UI
   <nav class="sidebar-nav">
     <span class="sidebar-label">General</span>
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
-      <i class="fa-solid fa-table-columns"></i> <span class="truncate">Dashboard</span>
+      <?= UI::icono('Dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
 
     <?php
@@ -170,17 +169,19 @@ class UI
       <span class="sidebar-label">Proyectos</span>
       <button type="button" class="sidebar-link nav-grupo-btn <?= $enProyecto ? 'active' : '' ?>"
               aria-expanded="false" title="Proyectos">
-        <i class="fa-solid fa-folder-open"></i>
+        <?= UI::icono('FolderOpen') ?>
         <span class="truncate">Proyectos</span>
         <?php if ($proyectos): ?><span class="nav-grupo-n"><?= count($proyectos) ?></span><?php endif; ?>
       </button>
 
       <div class="nav-grupo-items">
-        <div class="nav-grupo-cab"><i class="fa-solid fa-folder-open"></i> Proyectos</div>
+        <div class="nav-grupo-cab"><?= UI::icono('FolderOpen') ?> Proyectos</div>
         <?php foreach ($proyectos as $p): ?>
         <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
-           class="sidebar-link <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>" title="<?= e($p['nombre']) ?>">
-          <i class="fa-solid <?= e($p['icono']) ?>" style="color:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>"></i>
+           class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
+           title="<?= e($p['nombre']) ?>"
+           style="--pc:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>">
+          <?= UI::icono($p['icono'] ?? 'FolderOpen') ?>
           <span class="truncate"><?= e($p['nombre']) ?></span>
         </a>
         <?php endforeach; ?>
@@ -189,10 +190,42 @@ class UI
         <?php endif; ?>
 
         <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
-          <i class="fa-solid fa-plus"></i> <span class="truncate">Nuevo proyecto</span>
+          <?= UI::icono('Plus') ?> <span class="truncate">Nuevo proyecto</span>
         </a>
       </div>
     </div>
+
+    <?php
+    // Requerimientos sueltos. El administrador tiene el modulo entero, donde
+    // los reparte, y su contador es lo que le falta por asignar. El resto del
+    // equipo tiene su bandeja, y el contador es lo que tiene encima. Con "ver
+    // como" activo se muestra la bandeja de esa persona, que es lo que ella
+    // vería.
+    $reqVerComo = verComo();
+    $reqAdmin   = Auth::esAdmin() && !$reqVerComo;
+    $reqRepoNav = new RequerimientoRepo();
+    if ($reqAdmin) {
+        $reqHref  = 'requerimientos.php';
+        $reqClave = 'requerimientos';
+        $reqTexto = 'Requerimientos';
+        $reqTitle = 'Requerimientos sueltos';
+        $nReq     = $reqRepoNav->sinAsignar();
+        $reqTitleN = $nReq . ' sin asignar todavía';
+    } else {
+        $reqHref  = 'bandeja.php';
+        $reqClave = 'bandeja';
+        $reqTexto = 'Bandeja de entrada';
+        $reqTitle = 'Requerimientos que te asignaron';
+        $nReq     = $reqRepoNav->abiertosDe((int)($reqVerComo['id'] ?? Auth::usuario()['id'] ?? 0));
+        $reqTitleN = $nReq . ' sin cerrar';
+    }
+    ?>
+    <a href="<?= $reqHref ?>" class="sidebar-link <?= $activo === $reqClave ? 'active' : '' ?>"
+       title="<?= e($reqTitle) ?>">
+      <?= UI::icono('Requerimientos') ?>
+      <span class="truncate"><?= e($reqTexto) ?></span>
+      <?php if ($nReq): ?><span class="nav-badge nav-badge-fin" title="<?= e($reqTitleN) ?>"><?= $nReq ?></span><?php endif; ?>
+    </a>
 
     <?php
     // Solicitudes de acceso sin resolver. No cuelgan de un equipo concreto
@@ -205,21 +238,34 @@ class UI
     </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
     <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
-      <i class="fa-solid <?= e($eIcono) ?>"></i> <span class="truncate"><?= e($eLabel) ?></span>
+      <?= UI::icono($eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
+
+    <?php if (puedeVerDeploys()): /* quien el admin haya dejado entrar */ ?>
+    <?php
+      // Contador: tareas completadas que todavia no ha subido nadie. Es el
+      // numero por el que pregunta el Product Owner.
+      $depFilas = resumenDeploys(misProyectosDeploys((new ProyectoRepo())->todos()));
+      $nDep = array_sum(array_map(fn($f) => count($f['pendientes']), $depFilas));
+    ?>
+    <a href="deploys.php" class="sidebar-link <?= $activo === 'deploys' ? 'active' : '' ?>" title="Despliegues al servidor de pruebas">
+      <?= UI::icono('Upload') ?> <span class="truncate">Despliegues</span>
+      <?php if ($nDep): ?><span class="nav-badge" title="<?= $nDep ?> tarea(s) completada(s) sin subir"><?= $nDep ?></span><?php endif; ?>
+    </a>
+    <?php endif; ?>
 
     <?php if (Auth::esGestor()): ?>
     <span class="sidebar-label">Configuración</span>
     <?php endif; ?>
     <?php if (Auth::esGestor()): /* Planificar: admin y Scrum Master */ ?>
     <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
-      <i class="fa-solid fa-list-check"></i> <span class="truncate">Planificar</span>
+      <?= UI::icono('Task') ?> <span class="truncate">Planificar</span>
     </a>
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
-      <i class="fa-solid fa-sliders"></i> <span class="truncate">Ajustes</span>
+      <?= UI::icono('SettingsGear') ?> <span class="truncate">Ajustes</span>
     </a>
     <?php endif; ?>
   </nav>
@@ -245,16 +291,16 @@ class UI
           <small><?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></small>
         </span>
       </div>
-      <a href="perfil.php" class="sidebar-link <?= $activo === 'perfil' ? 'active' : '' ?>">
-        <i class="fa-solid fa-id-badge"></i> <span class="truncate">Mi perfil</span>
+      <a href="perfil.php" class="sidebar-link cuenta-perfil <?= $activo === 'perfil' ? 'active' : '' ?>">
+        <?= UI::icono('SecurityUser') ?> <span class="truncate">Mi perfil</span>
       </a>
-      <a href="docs.php" class="sidebar-link <?= $activo === 'docs' ? 'active' : '' ?>">
-        <i class="fa-solid fa-book-open"></i> <span class="truncate">Documentación</span>
+      <a href="docs.php" class="sidebar-link cuenta-docs <?= $activo === 'docs' ? 'active' : '' ?>">
+        <?= UI::icono('Book') ?> <span class="truncate">Documentación</span>
       </a>
       <form method="post" action="actions.php" class="cuenta-form">
         <input type="hidden" name="accion" value="auth_logout">
         <button class="sidebar-link cuenta-salir">
-          <i class="fa-solid fa-right-from-bracket"></i> <span class="truncate">Cerrar sesión</span>
+          <?= UI::icono('Door') ?> <span class="truncate">Cerrar sesión</span>
         </button>
       </form>
     </div>
@@ -267,7 +313,7 @@ class UI
       <span class="tt-knob"></span>
       <i class="fa-solid fa-moon tt-luna"></i>
     </button>
-    <span><i class="fa-solid fa-code"></i> Equipo dev</span>
+    <span><?= UI::icono('Laptop') ?> Equipo dev</span>
   </div>
   </div><!-- /.sidebar-menu -->
 </aside>
@@ -375,9 +421,15 @@ class UI
         }
         // Estados de tarea: los personalizados siempre emiten su color; los de
         // fabrica solo si cambiaron (para conservar las variantes del modo oscuro).
+        // Los COLORES_JUBILADOS son defaults de antes: quien nunca tocó el color
+        // los tiene guardados y, al cambiar el default, pasarían por
+        // personalizados y se quedarían con el color viejo pisando el nuevo con
+        // !important. Cuentan como default para que el panel se actualice solo.
         foreach ($cfg['estados_tarea'] as $k => $v) {
             $color = $v['color'] ?? '#64748b';
-            $esDefault = isset($def['estados_tarea'][$k]) && strcasecmp($color, $def['estados_tarea'][$k]['color']) === 0;
+            $esDefault = isset($def['estados_tarea'][$k])
+                && (strcasecmp($color, $def['estados_tarea'][$k]['color']) === 0
+                    || in_array(strtolower($color), self::COLORES_JUBILADOS[$k] ?? [], true));
             if (!$esDefault) {
                 $css .= '.estado-' . $k . ',.select-pill.estado-' . $k . '{color:' . $color . ' !important;}';
             }
@@ -430,71 +482,6 @@ class UI
      * Avatar de miembro: foto si tiene, iniciales con gradiente si no.
      * $extra: html extra dentro del wrapper (ej. tooltip).
      */
-    /**
-     * Icono por nombre. Busca primero un SVG del set en admin/iconos (si esa
-     * carpeta existe) y, si no está, cae a Font Awesome — que es como se
-     * nombran los iconos en este panel. Así el marcado portado desde el otro
-     * panel funciona igual, y el día que se suelte el set del design system
-     * en admin/iconos empieza a usarse solo, sin tocar código.
-     */
-    public static function icono(string $nombre, string $clase = ''): string
-    {
-        static $cache = [];
-        $mapa = self::mapaIconos();
-        $cls  = trim('ico ' . $clase);
-
-        if (!isset($mapa[$nombre])) {
-            if (str_starts_with($nombre, 'fa-')) {
-                return '<i class="fa-solid ' . e($nombre) . ($clase !== '' ? ' ' . e($clase) : '') . '"></i>';
-            }
-            return '';
-        }
-        if (!isset($cache[$nombre])) {
-            $cache[$nombre] = self::normalizarSvg($mapa[$nombre]);
-        }
-        return preg_replace('/<svg\b/', '<svg class="' . e($cls) . '"', $cache[$nombre], 1);
-    }
-
-    /** Mapa [nombreBase => rutaAbsoluta] de los SVG del set (se cachea). */
-    private static function mapaIconos(): array
-    {
-        static $mapa = null;
-        if ($mapa !== null) {
-            return $mapa;
-        }
-        $mapa = [];
-        foreach (glob(__DIR__ . '/../iconos/*/*.svg') ?: [] as $f) {
-            $mapa[basename($f, '.svg')] = $f;
-        }
-        return $mapa;
-    }
-
-    /** ¿Existe ese icono en el set? */
-    public static function hayIcono(string $nombre): bool
-    {
-        return isset(self::mapaIconos()[$nombre]);
-    }
-
-    /**
-     * Deja el SVG listo para pintarse con el color del texto: color fijo a
-     * currentColor, sin defs ni clip-path y sin medidas propias (las pone el
-     * CSS con .ico, que mide en em).
-     */
-    private static function normalizarSvg(string $ruta): string
-    {
-        $svg = @file_get_contents($ruta);
-        if ($svg === false) {
-            return '';
-        }
-        $svg = str_ireplace(['fill="#334155"', 'fill="#292D32"'], 'fill="currentColor"', $svg);
-        $svg = preg_replace('/<defs>.*?<\/defs>/s', '', $svg);
-        $svg = preg_replace('/\sclip-path="[^"]*"/', '', $svg);
-        $svg = preg_replace_callback('/<svg\b[^>]*>/', function ($m) {
-            return preg_replace('/\s(width|height)="[^"]*"/', '', $m[0]);
-        }, $svg, 1);
-        return trim($svg);
-    }
-
     public static function avatar(?array $m, int $size = 40, bool $tooltip = false): string
     {
         if (!$m) {
@@ -667,6 +654,24 @@ class UI
         ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.'],
     ];
 
+    /**
+     * Los dos asistentes de requerimientos comparten el orden de "Nueva
+     * tarea" (qué → quién → cuándo → revisar) para que el administrador no
+     * tenga que aprender dos flujos distintos.
+     */
+    public const PASOS_REQUERIMIENTO = [
+        ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.'],
+        ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
+    ];
+
+    public const PASOS_ASIGNAR = [
+        ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.'],
+    ];
+
     public const PASOS_PROYECTO = [
         ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
         ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],
@@ -742,7 +747,7 @@ class UI
 
         return '<div class="repos-editor" id="repos-editor" data-repos-editor data-repo-siguiente="' . $i . '">'
             . '<div class="repos-filas">' . $filas . '</div>'
-            . '<button type="button" class="btn-outline btn-meca btn-sm repo-agregar">'
+            . '<button type="button" class="btn-outline btn-meca btn-azul btn-sm repo-agregar">'
             . '<i class="fa-solid fa-plus"></i> Agregar repositorio</button>'
             . $plantilla
             . '<small class="campo-ayuda">Elige el tipo y, si tienes varios del mismo (p. ej. dos instituciones), ponle un nombre para distinguirlos. '
@@ -891,6 +896,175 @@ class UI
         return $h;
     }
 
+    /** Icono SVG "video/reproducir" (grabación). Hereda el color (currentColor). */
+    public static function iconoVideo(): string
+    {
+        return '<svg class="ico-svg" width="16" height="16" viewBox="0 0 24 23" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            . '<path d="M16.1859 20.9296C16.6483 20.9296 17.0235 21.3048 17.0235 21.7671C17.0235 22.2295 16.6483 22.6047 16.1859 22.6047H7.81408C7.35172 22.6047 6.97653 22.2295 6.97653 21.7671C6.97653 21.3048 7.35172 20.9296 7.81408 20.9296H16.1859ZM22.3249 5.29781C22.3249 4.5043 22.3249 3.95913 22.2904 3.53641C22.2566 3.12337 22.1941 2.90112 22.1123 2.74065C21.9255 2.37418 21.6259 2.07533 21.2575 1.88766C21.0967 1.80576 20.8747 1.74337 20.4618 1.70961C20.0387 1.67504 19.4929 1.6751 18.6977 1.6751H5.30326C4.50829 1.6751 3.96167 1.67506 3.53823 1.70961C3.12445 1.74341 2.90139 1.80576 2.74065 1.88766C2.37332 2.0749 2.0749 2.37332 1.88766 2.74065C1.80576 2.90138 1.74341 3.12445 1.70961 3.53823C1.67506 3.96167 1.6751 4.50829 1.6751 5.30326V13.1164C1.6751 13.9116 1.67504 14.4575 1.70961 14.8805C1.74337 15.2935 1.80576 15.5155 1.88766 15.6763C2.07533 16.0446 2.37418 16.3443 2.74065 16.5311C2.90112 16.6129 3.12337 16.6754 3.53641 16.7092C3.95913 16.7437 4.5043 16.7437 5.29781 16.7437H18.7022C19.4955 16.7437 20.0403 16.7437 20.4627 16.7092C20.8752 16.6754 21.097 16.6129 21.2575 16.5311C21.6251 16.3438 21.9251 16.0439 22.1123 15.6763C22.1941 15.5157 22.2567 15.294 22.2904 14.8815C22.3249 14.4591 22.3249 13.9143 22.3249 13.121V5.29781ZM8.81423 4.28494C9.08636 4.13933 9.41674 4.15561 9.67358 4.32672L15.9525 8.51264C16.1854 8.66791 16.3258 8.92947 16.3258 9.20939C16.3258 9.4893 16.1854 9.75086 15.9525 9.90613L9.67358 14.0921C9.41674 14.2632 9.08636 14.2794 8.81423 14.1338C8.54202 13.9882 8.37184 13.7041 8.37184 13.3953V5.02347C8.37184 4.71472 8.54202 4.43062 8.81423 4.28494ZM10.0469 11.8301L13.9785 9.20939L10.0469 6.58774V11.8301ZM24 13.121C24 13.8866 24.0005 14.5113 23.9591 15.0177C23.9169 15.534 23.8268 16.0009 23.6048 16.4366C23.257 17.1193 22.7005 17.6758 22.0179 18.0236C21.5821 18.2456 21.1152 18.3357 20.5989 18.3779C20.0926 18.4193 19.4679 18.4188 18.7022 18.4188H5.29781C4.53192 18.4188 3.90685 18.4193 3.40015 18.3779C2.88379 18.3357 2.41699 18.2456 1.98123 18.0236C1.29771 17.6753 0.743411 17.1183 0.396064 16.4366C0.173876 16.0006 0.0831413 15.5338 0.0408785 15.0168C-0.000554495 14.5098 4.10332e-07 13.8839 4.10332e-07 13.1164V5.30326C4.10332e-07 4.53562 -0.000570502 3.90853 0.0408785 3.40106C0.0831299 2.8841 0.173923 2.41728 0.396064 1.98123C0.743873 1.29861 1.29861 0.743873 1.98123 0.396064C2.41728 0.173923 2.8841 0.0831299 3.40106 0.0408785C3.90853 -0.000570502 4.53562 4.10332e-07 5.30326 4.10332e-07H18.6977C19.4651 4.10332e-07 20.091 -0.000554565 20.598 0.0408785C21.115 0.0831413 21.5818 0.173876 22.0179 0.396064C22.6996 0.743411 23.2566 1.29771 23.6048 1.98123C23.8268 2.41699 23.9169 2.88379 23.9591 3.40015C24.0005 3.90685 24 4.53192 24 5.29781V13.121Z" fill="currentColor"/></svg>';
+    }
+
+    /** Icono SVG "copiar enlace". Hereda el color (currentColor). */
+    public static function iconoCopiar(): string
+    {
+        return '<svg class="ico-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">'
+            . '<path d="M5.60328 4.15504C5.60348 1.85664 7.45992 0.000196182 9.75832 0H16.0347C16.1134 2.78423e-05 16.189 0.0123772 16.2608 0.0337437C16.5369 -0.0469334 16.8377 0.0260256 17.0442 0.232558L23.7674 6.95577C23.9163 7.10463 24 7.30703 24 7.51756V14.4542C24 16.6296 22.2329 18.3967 20.0575 18.3967C19.6191 18.3967 19.264 18.0417 19.264 17.6033C19.264 17.1649 19.6191 16.8099 20.0575 16.8098C21.3561 16.8098 22.4131 15.7528 22.4131 14.4542V8.31099H19.845C18.5402 8.31099 17.4174 8.10408 16.6566 7.34337C15.8959 6.58265 15.689 5.45975 15.689 4.15504V1.58687H9.75832C8.33673 1.58706 7.19035 2.73344 7.19015 4.15504C7.19015 4.59344 6.83512 4.94938 6.39672 4.94938C5.95831 4.94938 5.60328 4.59344 5.60328 4.15504ZM18.3967 16.9311C18.3967 19.2506 17.938 21.0807 16.7077 22.311C15.4775 23.5412 13.6473 24 11.3279 24H7.06886C4.74937 24 2.91926 23.5412 1.68901 22.311C0.458763 21.0807 3.36065e-05 19.2506 0 16.9311V12.6721C3.38416e-05 10.3527 0.458764 8.52254 1.68901 7.29229C2.91926 6.06205 4.74937 5.60332 7.06886 5.60328H10.4314L10.5098 5.60693C10.6914 5.62503 10.8621 5.70565 10.9922 5.83584L18.1642 13.0078C18.313 13.1565 18.3966 13.3582 18.3967 13.5686V16.9311ZM1.58687 16.9311C1.5869 19.094 2.02482 20.4015 2.81167 21.1883C3.59853 21.9752 4.90599 22.4131 7.06886 22.4131H11.3279C13.4907 22.4131 14.7982 21.9752 15.585 21.1883C16.3719 20.4015 16.8098 19.094 16.8098 16.9311V14.363H14.0173C12.6286 14.363 11.4496 14.1418 10.6539 13.3461C9.85816 12.5504 9.63703 11.3714 9.63703 9.98267V7.19015H7.06886C4.90599 7.19018 3.59853 7.6281 2.81167 8.41496C2.02481 9.20181 1.5869 10.5093 1.58687 12.6721V16.9311ZM11.2248 9.98267C11.2248 11.2835 11.4516 11.8985 11.7766 12.2234C12.1015 12.5484 12.7165 12.7752 14.0173 12.7752H15.6872L11.2248 8.31281V9.98267ZM17.2768 4.15504C17.2768 5.3718 17.4894 5.9308 17.7793 6.2207C18.0692 6.5106 18.6282 6.72321 19.845 6.72321H21.2905L17.2768 2.70953V4.15504Z" fill="currentColor"/></svg>';
+    }
+
+    /**
+     * Icono del design system (SVG de la carpeta /Interface). Devuelve el SVG
+     * ya normalizado: color heredado (currentColor), tamaño por CSS (.ico) y sin
+     * IDs de clip que choquen al repetirse. Si el nombre no existe pero es un
+     * "fa-…", cae a Font Awesome, así la migración es gradual y nada se rompe.
+     */
+    /**
+     * Equivalencias de los iconos que ya se migraron.
+     *
+     * Cambiar el default en Config no basta: en cuanto alguien guarda Ajustes,
+     * su config.json se queda con el nombre viejo y pisa el default para
+     * siempre. Pasaba con los equipos y los estados de tarea, que en local
+     * salían nuevos y en producción seguían en Font Awesome.
+     *
+     * Se traduce AL PINTAR y no se toca lo guardado: así cada entorno se
+     * arregla solo al desplegar, sin migración ni entrar a Ajustes.
+     */
+    /** Colores que fueron default de un estado antes de la paleta del DS. */
+    private const COLORES_JUBILADOS = [
+        'pendiente' => ['#0b7ea8', '#0f6e92'],
+        'progreso'  => ['#2b76f7'],
+        'revision'  => ['#c26f0e'],
+        'hecho'     => ['#2bb673'],
+    ];
+
+    private const ICONOS_MIGRADOS = [
+        // Equipos
+        'fa-code'                    => 'Desarrolladores',
+        'fa-chart-line'              => 'Analistas',
+        // Estados de tarea
+        'fa-circle-dot'              => 'OctagonCheck',
+        'fa-spinner'                 => 'RefreshCircle',
+        'fa-magnifying-glass-chart'  => 'OctagonHelp',
+        'fa-circle-check'            => 'WavyCheck',
+    ];
+
+    public static function icono(string $nombre, string $clase = ''): string
+    {
+        static $cache = [];
+        $mapa = self::mapaIconos();
+        $cls  = trim('ico ' . $clase);
+
+        $nombre = self::ICONOS_MIGRADOS[$nombre] ?? $nombre;
+
+        if (!isset($mapa[$nombre])) {
+            // Compatibilidad: los iconos aún no migrados siguen siendo fa-*
+            if (str_starts_with($nombre, 'fa-')) {
+                return '<i class="fa-solid ' . e($nombre) . ($clase !== '' ? ' ' . e($clase) : '') . '"></i>';
+            }
+            return '';
+        }
+        if (!isset($cache[$nombre])) {
+            $cache[$nombre] = self::normalizarSvg($mapa[$nombre]);
+        }
+        // Inyecta la clase en el <svg> (para tamaño/alineación desde CSS).
+        return preg_replace('/<svg\b/', '<svg class="' . e($cls) . '"', $cache[$nombre], 1);
+    }
+
+    /** Mapa [nombreBase => rutaAbsoluta] de los SVG de /Interface (se cachea). */
+    private static function mapaIconos(): array
+    {
+        static $mapa = null;
+        if ($mapa !== null) {
+            return $mapa;
+        }
+        $mapa = [];
+        foreach (glob(__DIR__ . '/../iconos/*/*.svg') ?: [] as $f) {
+            $mapa[basename($f, '.svg')] = $f;
+        }
+        return $mapa;
+    }
+
+    /** ¿Existe ese icono en el set del DS? */
+    public static function hayIcono(string $nombre): bool
+    {
+        return isset(self::mapaIconos()[$nombre]);
+    }
+
+    /**
+     * Nombres de todos los iconos del set, ordenados. La galería de ajustes
+     * los saca de aquí en vez de una lista escrita a mano: al soltar un SVG
+     * nuevo en admin/iconos aparece solo, sin tocar código.
+     */
+    public static function nombresIconos(): array
+    {
+        $nombres = array_keys(self::mapaIconos());
+        sort($nombres, SORT_NATURAL | SORT_FLAG_CASE);
+        return $nombres;
+    }
+
+    /**
+     * Selector de ícono de proyecto.
+     *
+     * Enseña primero los elegidos en Ajustes, que son los de uso habitual, y
+     * detrás de "Más íconos" el resto del set. Antes solo se veían los de
+     * Ajustes: si el que querías no estaba, había que salir del formulario,
+     * ir a Ajustes, marcarlo, guardar y volver.
+     *
+     * $actual entra siempre aunque no esté en la lista corta, para que un
+     * proyecto viejo no pierda su ícono al abrir el formulario.
+     */
+    public static function selectorIcono(?string $actual = null): string
+    {
+        $cortos = Catalogo::iconosProyecto();
+        if ($actual !== null && $actual !== '' && !in_array($actual, $cortos, true)) {
+            array_unshift($cortos, $actual);
+        }
+        $resto = array_values(array_diff(self::nombresIconos(), $cortos));
+        $marcado = $actual !== null && $actual !== '' ? $actual : ($cortos[0] ?? '');
+
+        $opcion = function (string $ic, bool $extra) use ($marcado): string {
+            return '<label' . ($extra ? ' class="icono-extra" hidden' : '') . '>'
+                 . '<input type="radio" name="icono" value="' . e($ic) . '"'
+                 . ($ic === $marcado ? ' checked' : '') . '>'
+                 . self::icono($ic) . '</label>';
+        };
+
+        $html = '<div class="icon-picker">';
+        foreach ($cortos as $ic) $html .= $opcion($ic, false);
+        foreach ($resto  as $ic) $html .= $opcion($ic, true);
+        $html .= '</div>';
+
+        if ($resto) {
+            $html .= '<button type="button" class="btn-outline btn-meca btn-sm btn-azul icon-mas"'
+                   . ' data-mas="Más íconos (' . count($resto) . ')" data-menos="Ver menos">'
+                   . '<i class="fa-solid fa-chevron-down"></i> '
+                   . '<span class="icon-mas-txt">Más íconos (' . count($resto) . ')</span></button>';
+        }
+        return $html;
+    }
+
+    /**
+     * Deja un SVG listo para incrustar varias veces en la página:
+     *  - el color pasa a currentColor (para heredar del texto/estado),
+     *  - se quitan width/height del <svg> (el tamaño lo pone .ico por CSS),
+     *  - se eliminan <defs> y clip-path (evita IDs repetidos que colisionan).
+     */
+    private static function normalizarSvg(string $ruta): string
+    {
+        $svg = @file_get_contents($ruta);
+        if ($svg === false) {
+            return '';
+        }
+        // Color fijo → currentColor
+        $svg = str_ireplace(['fill="#334155"', 'fill="#292D32"'], 'fill="currentColor"', $svg);
+        // Quita <defs>…</defs> y los clip-path (solo unos pocos iconos los traen)
+        $svg = preg_replace('/<defs>.*?<\/defs>/s', '', $svg);
+        $svg = preg_replace('/\sclip-path="[^"]*"/', '', $svg);
+        // Quita width/height del <svg> de apertura (conserva viewBox)
+        $svg = preg_replace_callback('/<svg\b[^>]*>/', function ($m) {
+            return preg_replace('/\s(width|height)="[^"]*"/', '', $m[0]);
+        }, $svg, 1);
+        return trim($svg);
+    }
+
     /** Texto de ayuda bajo el selector de asignado. */
     public static function ayudaEquipoProyecto(?array $equipoProyecto): string
     {
@@ -921,6 +1095,7 @@ class UI
         $html .= '<button type="button" class="chip-atajo chip-atajo-off" data-limpiar="1">Sin fecha</button></div>';
         return $html . '<p class="campo-ayuda wz-duracion"></p>';
     }
+
 
     /* ---------- Varios ---------- */
 
