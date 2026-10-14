@@ -1,0 +1,368 @@
+{
+ "titulo": "Resumen de Release",
+ "subtitulo": "Estado de avance de todas las líneas de producto en desarrollo",
+ "pie": "InnoTech Solutions · Informe interno",
+ "descontar_observadas": true,
+ "lineas": {
+  "web itb": [
+   {
+    "nombre": "Base de datos, despliegue y entorno",
+    "claves": "mysql, railway, despliegue, entorno, migra, esquema, credenciales, redirecciones, rutas limpias, proxy, repo, bom, 404, compatibilidad, desde la base"
+   },
+   {
+    "nombre": "Biblioteca de archivos e imágenes",
+    "claves": "biblioteca, visor, selector de imagenes, subida de archivos, animacion de subida, tamano de imagenes"
+   },
+   {
+    "nombre": "Imagen del sitio y sistema de componentes",
+    "claves": "sistema de componentes, componentes, css, espaciado, estilos, estilizar, animacion, colores, efecto, maquetacion, refactorizar, boton, botones, flecha, scroll, movimiento, logotipo, rediseno, amplitud, cambios sugeridos, divs, hero"
+   },
+   {
+    "nombre": "Sitio público y contenido institucional",
+    "claves": "landing, sobre nosotros, transparencia, leyes, oferta, programa, institucional, himno, co gobierno, autoridades, alianzas, bienestar, mapa, whatsapp, insignia, release, footer, completar seccion, pagina anidada"
+   },
+   {
+    "nombre": "Panel de administración y editor de páginas",
+    "claves": "panel, editor, menu, pagina, paginas, navbar, vista previa, administrable, acceso, admin, sesion, persistencia, guardar"
+   }
+  ],
+  "app movil siau ube": [
+   {
+    "nombre": "Homologación y carga de recaudos",
+    "claves": "homologacion, recaudos"
+   },
+   {
+    "nombre": "Pago de la especie valorada",
+    "claves": "pago, especie, cobro, transferencia"
+   },
+   {
+    "nombre": "Acceso a la app y base técnica",
+    "claves": "login, base movil, typescript, probar, dispositivo"
+   },
+   {
+    "nombre": "Ficha del estudiante y formularios en línea",
+    "claves": "formulario, ficha, domicilio, procedencia, socioeconomica, documentos, acta, nee, adaptaciones, seguimiento, mi proceso"
+   }
+  ],
+  "vinculacion con la sociedad y emprendimiento": [
+   {
+    "nombre": "Prácticas preprofesionales",
+    "claves": "practicas, bitacora"
+   },
+   {
+    "nombre": "Bases y documentación del proceso",
+    "claves": "base, bases, pdf"
+   },
+   {
+    "nombre": "Convocatoria de emprendimiento",
+    "claves": "convocatoria, emprendimiento"
+   }
+  ],
+  "web uniebec": [
+   {
+    "nombre": "Cronogramas académicos",
+    "claves": "cronograma"
+   },
+   {
+    "nombre": "Contenido académico y multimedia",
+    "claves": "plan de estudios, videos"
+   },
+   {
+    "nombre": "Canales de contacto",
+    "claves": "whatsapp"
+   }
+  ],
+  "buckingham": [
+   {
+    "nombre": "Reportería, búsquedas y avisos por correo",
+    "claves": "reporteria, buscador, correo, correos"
+   },
+   {
+    "nombre": "Integración con WordPress y sistemas externos",
+    "claves": "wordpress, externo"
+   },
+   {
+    "nombre": "Panel administrativo, roles y permisos",
+    "claves": "panel, rol, roles, permisos"
+   },
+   {
+    "nombre": "Reserva de cupos y oferta académica",
+    "claves": "cupo, oferta, ofertas, confirmar"
+   }
+  ],
+  "equipo omega": [
+   {
+    "nombre": "Admisiones y matrícula",
+    "claves": "adm0, admision, admisiones, ingreso, carga de alumnos, solicitudes por correo"
+   },
+   {
+    "nombre": "Bienestar y participación estudiantil",
+    "claves": "dece, gob0, socioemocional, conectate, votacion, gobierno estudiantil, campanas"
+   },
+   {
+    "nombre": "Finanzas, nómina y contabilidad",
+    "claves": "nomina, contable, tesoreria, abonos, pagos, biometrico"
+   },
+   {
+    "nombre": "Planificación académica y aula virtual",
+    "claves": "planificacion, aula virtual, periodos, docente, faltas ortograficas, formativa, plataforma educativa, ofertas, estado de la solicitud"
+   },
+   {
+    "nombre": "Rediseño de interfaz y otros ajustes",
+    "claves": "rediseno, modificacion visual, modals, cambio de seccion, menu, horarios"
+   }
+  ],
+  "equipo delta": [
+   {
+    "nombre": "Otros ajustes: contabilidad, catálogos legales y soporte",
+    "claves": "contable, cierre mensual, normas legales, endpoint, registro de sesion, mocks"
+   },
+   {
+    "nombre": "Rediseño de módulos de Talento Humano y expedientes",
+    "claves": "rediseno, reformar, directorio, expediente, cargos, configuracion th"
+   },
+   {
+    "nombre": "Contratos docentes y evaluación de desempeño",
+    "claves": "contrato, contratos, desempeno, evalucion, titulos, afinidad"
+   },
+   {
+    "nombre": "Vacaciones y solicitudes del personal",
+    "claves": "vacaciones, devengo, caducidad, solicitud, solicitudes, periodos cumplidos, goce, feriados, fechas bloqueadas, cadena de mando, solapamiento, estructura de 4 niveles"
+   },
+   {
+    "nombre": "Portal de empleo y postulaciones",
+    "claves": "portal, empleo, postulacion, postulaciones, vacante, examen, carnet, carreras, institucion"
+   }
+  ],
+  "equipo gamma": [
+   {
+    "nombre": "Recaudación y pasarela de pagos",
+    "claves": "recaudacion, pasarela, pasarelas, rubros, convenios"
+   },
+   {
+    "nombre": "Facturación docente y otros ajustes de configuración",
+    "claves": "facturacion, espacios fisicos, periodos de entrega"
+   },
+   {
+    "nombre": "Microservicios y reportes",
+    "claves": "ms, microservice, microservicio, reporte"
+   },
+   {
+    "nombre": "Contabilidad, cierre y presupuesto",
+    "claves": "contable, contables, cierre, presupuestario, kafka, grupos de analisis, indicadores"
+   }
+  ],
+  "equipo alpha": [
+   {
+    "nombre": "Atención al estudiante: mesa de ayuda y chatbot con IA",
+    "claves": "mesa de ayuda, chatbot"
+   },
+   {
+    "nombre": "Sitio web público institucional",
+    "claves": "landing"
+   },
+   {
+    "nombre": "Trámites en línea y venta de cupos",
+    "claves": "venta de cupos, tramites, pre matricula"
+   },
+   {
+    "nombre": "Portal del aspirante: inscripción y homologación en línea",
+    "claves": "aspirante"
+   }
+  ],
+  "siau agraria": [
+   {
+    "nombre": "Portal del docente",
+    "claves": "^docencia, planificacion con ia"
+   },
+   {
+    "nombre": "Portal del estudiante",
+    "claves": "^estudiante"
+   },
+   {
+    "nombre": "Servicios administrativos del personal",
+    "claves": "^administrativa"
+   },
+   {
+    "nombre": "Migración al sistema nuevo y retiro del antiguo",
+    "claves": "migra, migrar, migracion, legacy, hoja de ruta"
+   },
+   {
+    "nombre": "Acceso único, perfiles y plataforma base",
+    "claves": "login, sesion, iam, panel, perfiles, kafka, correos, contrasena, arquitectura, menu, colores, paleta, api, portal del estudiante, usuarios, auditoria, sin conexion, asistencia, implementar"
+   }
+  ],
+  "equipo betta": [
+   {
+    "nombre": "Homologación de asignaturas",
+    "claves": "homologacion"
+   },
+   {
+    "nombre": "Orientación vocacional y NEE",
+    "claves": "nee, orientacion vocacional"
+   },
+   {
+    "nombre": "Implementación de IA",
+    "claves": "ia"
+   },
+   {
+    "nombre": "Admisiones e inscripción de aspirantes",
+    "claves": "admision, admisiones, aspirante, aspirantes, inscripcion, venta de cupos, credenciales, ficha socioeconomica, procedencia, requisitos, instituciones educativas, panel de estudiantes"
+   },
+   {
+    "nombre": "Planificación académica",
+    "claves": "planificacion, distributivo, horarios, periodos academicos, espacios fisicos, aulas"
+   },
+   {
+    "nombre": "Creación de carreras: proyecto, pertinencia y nomenclatura",
+    "claves": "pertinencia, nomenclatura, nomenclaturas, proyecto, creacion, resolucion, cronograma, lugar de ejecucion, lugares de ejecucion, localidades, marco institucional, modalidad de estudio, convenios, informacion institucional, titulos"
+   },
+   {
+    "nombre": "Diseño curricular y malla",
+    "claves": "diseno curricular, malla, asignatura, asignaturas, creditos, prerrequisitos, resumen curricular, componentes academicos, duracion de componentes, horas, itinerario, practicas, curricular, curriculares, cohortes, titulacion, personal academico"
+   },
+   {
+    "nombre": "Plataforma, catálogos y configuración",
+    "claves": "catalogo, catalogos, design system, ds, componentes, legacy, tooltip, notificacion, mensajes, iconos, colores, roles, maquetacion, microservicio, arranque, mantenimiento, configuraciones, configuracion, modal, diseno, bug, guardado, textos, reporteria, script, herencia, cuenta contable, tipos de resoluciones, modalidades, interfaz, visual"
+   }
+  ]
+ },
+ "secciones": [
+  {
+   "id": "release-betta",
+   "ubicacion": "proyecto",
+   "proyecto": "Equipo Betta",
+   "kicker": "Equipo Betta · última entrega",
+   "titulo": "Release Académico / Admisiones — 13 y 14 de octubre de 2026",
+   "intro": "Resumen de lo entregado por módulo en la última entrega.",
+   "kpis": [],
+   "columnas": [
+    "Módulo",
+    "Qué se entregó",
+    "Estado"
+   ],
+   "filas": [
+    [
+     "Lectura inteligente de documentos",
+     "Lectura automática de cédula, título de bachiller y malla; la ficha se completa sola y se valida que el documento sea el pedido y del aspirante. Configurable documento por documento.",
+     "Finalizado"
+    ],
+    [
+     "Admisiones: inscripción y expediente",
+     "Documentos pasa a segundo paso con tarjetas para adjuntar, aprobar y observar; datos complementarios reordenados y copia de correos y teléfonos con un clic.",
+     "Finalizado"
+    ],
+    [
+     "Credenciales y correos",
+     "Reenvío de credenciales con corrección de correo, cambio de clave obligatorio y recuperación. Los 14 correos del proceso con el diseño y la marca de cada institución.",
+     "Finalizado"
+    ],
+    [
+     "Cupos",
+     "La sede se toma de Académico y el modal incorpora el asistente al costado, sin desplazamiento.",
+     "Finalizado"
+    ],
+    [
+     "Homologación",
+     "El expediente avisa y permite reintentar cuando falla una carga, sin estados ni ceros falsos. Malla más compacta y línea de tiempo con el avance real.",
+     "Finalizado"
+    ],
+    [
+     "Necesidades educativas especiales (NEE)",
+     "Flujo completo por fases —derivación, valoración, adaptaciones, acta e informe— con cada rol viendo solo sus casos. Documentos oficiales con las plantillas de Bienestar y firmas según el género; firma electrónica, gráfica o subida del documento ya firmado. El informe firmado queda bloqueado y solo se reabre con una observación, que queda en el historial. Expediente con cifras del caso, adaptaciones por tipo y recomendaciones para docentes; avisos por rol en la campana y por correo, sin datos clínicos en el plan docente. El aspirante tiene su propia pantalla con sus datos, avisos y acta por firmar, y la verificación al cargar revisa carné CONADIS y certificado NEE.",
+     "En revisión"
+    ],
+    [
+     "Orientación vocacional",
+     "Cuestionario CHASIDE en pestañas con la geografía oficial (provincia, cantón y parroquia), informes descargables del resultado y revisión con Aprobar u Observar. El aspirante tiene su pantalla «Mi orientación» con la misma presentación que NEE, y el correo de reorientación se rediseñó con enlace directo a esa pantalla. Corregido además el envío con la institución correcta en ese correo y en el plan para docentes.",
+     "En revisión"
+    ],
+    [
+     "Carrera de referencia",
+     "Ingeniería en Desarrollo de Software (UBE-2026-0008): 144 créditos, 8 niveles y 39 asignaturas con horas, prerrequisitos y resumen curricular.",
+     "En revisión"
+    ],
+    [
+     "Integraciones",
+     "Académico envía los proyectos aprobados con sus sedes y la malla se consulta en vivo; el sitio público exporta la preinscripción como inscripción con carga real de documentos; credenciales contra IAM y correos con la marca institucional.",
+     "Finalizado"
+    ],
+    [
+     "Plataforma",
+     "La sesión deja de cerrarse a hora fija mientras se trabaja. Design System: copia de textos, cambio de clave obligatorio, pie fijo en modales, asistente vertical y malla compacta.",
+     "Finalizado"
+    ]
+   ],
+   "nota": ""
+  },
+  {
+   "id": "capacitacion-faces",
+   "ubicacion": "requerimientos",
+   "proyecto": "",
+   "kicker": "Requerimiento #19 · cerrado",
+   "titulo": "Capacitación FACES — Integración SGA · EVA",
+   "intro": "Jornadas del 8, 9 y 10 de septiembre de 2026 en el Campus Naval del ITB, en modalidad presencial y virtual simultánea, impartidas por InnoTech Solutions.",
+   "kpis": [
+    [
+     "100",
+     "Docentes"
+    ],
+    [
+     "65",
+     "Presenciales"
+    ],
+    [
+     "35",
+     "Virtuales"
+    ],
+    [
+     "3",
+     "Jornadas"
+    ]
+   ],
+   "columnas": [
+    "Aspecto",
+    "Resultado"
+   ],
+   "filas": [
+    [
+     "Alcance",
+     "Facultad de Ciencias Empresariales y Sistemas (FACES), en su totalidad"
+    ],
+    [
+     "Docentes capacitados",
+     "100 — 65 presenciales (65 %) y 35 virtuales (35 %)"
+    ],
+    [
+     "Jornada 1",
+     "Flujo e integración, designaciones y Programa de Estudio con prevalidación asistida"
+    ],
+    [
+     "Jornada 2",
+     "Plan Analítico, circuito de revisión y aprobación con firma electrónica y réplica a paralelos"
+    ],
+    [
+     "Jornada 3",
+     "Aula virtual, migración al EVA, importación de notas, cierre de materia y acta"
+    ],
+    [
+     "Estado",
+     "La facultad opera en producción con la integración e inició con ella su nuevo ciclo académico"
+    ],
+    [
+     "Soporte",
+     "Acompañamiento vía Zoom en el arranque del ciclo; incidencias canalizadas al equipo técnico"
+    ],
+    [
+     "Material",
+     "Presentación navegable del flujo, videos por módulo y manual de usuario"
+    ]
+   ],
+   "nota": "Recomendación: replicar el esquema —presencial en campus con alternativa virtual en las mismas fechas— en las demás facultades conforme se incorporen al proceso integrado."
+  }
+ ],
+ "conclusiones_extra": [
+  "FACES opera en producción con la integración SGA · EVA: 100 docentes capacitados."
+ ],
+ "excluir": []
+}

@@ -263,6 +263,11 @@ class UI
       <?= UI::icono('Task') ?> <span class="truncate">Planificar</span>
     </a>
     <?php endif; ?>
+    <?php if (Auth::esAdmin()): /* Reportería: el estado de todos los proyectos */ ?>
+    <a href="reporteria.php" class="sidebar-link <?= $activo === 'reporteria' ? 'active' : '' ?>" title="Reporte ejecutivo en PowerPoint, Word o PDF">
+      <?= UI::icono('TrendingUp') ?> <span class="truncate">Reportería</span>
+    </a>
+    <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
       <?= UI::icono('SettingsGear') ?> <span class="truncate">Ajustes</span>
