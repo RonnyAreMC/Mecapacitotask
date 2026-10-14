@@ -853,6 +853,27 @@ UI::cabecera(
         </small>
       </section>
 
+      <!-- Panorama: el trabajo del panel entero en un JSON. Armar ese contexto a
+           mano —ir proyecto por proyecto exportando tareas y luego pegar a ojo
+           los requerimientos— llevaba un rato cada vez que había que contar en
+           qué anda el equipo o preguntarle algo a Claude sobre todo el trabajo. -->
+      <section class="card-base ajuste-card">
+        <h2 class="font-display"><?= UI::icono('Dashboard') ?> Panorama completo</h2>
+        <p class="ajuste-ayuda">
+          Un archivo con <b>todo el trabajo del panel, por proyecto</b>: cada aplicativo con <b>todas</b> sus
+          tareas —terminadas o no—, sus observaciones y sus subidas al servidor de pruebas, más los requerimientos
+          sueltos, que no pertenecen a ninguno. Lleva un resumen por aplicativo —cuántas tareas en
+          cada estado, cuántas terminadas de verdad y cuántas sin subir— y uno general.
+          Sirve para pasárselo a Claude con todo el contexto de una, o para dejar un corte de lo hecho.
+          <b>No lleva personas</b>: es un retrato de qué hay y en qué estado, no de quién hace qué.
+        </p>
+        <div class="respaldo-acciones">
+          <button class="btn-primary btn-meca" form="frm-panorama">
+            <?= UI::icono('ArrangeSquare') ?> Descargar panorama (.json)
+          </button>
+        </div>
+      </section>
+
       <section class="card-base ajuste-card">
         <h2 class="font-display"><i class="fa-solid fa-file-arrow-down text-secondary"></i> Respaldo de la configuración</h2>
         <p class="ajuste-ayuda">
@@ -898,6 +919,12 @@ UI::cabecera(
       data-confirmar="Se reemplazarán los ajustes actuales con los del archivo. Tus proyectos, tareas y personas no se tocan."
       data-confirmar-titulo="¿Importar configuración?" data-confirmar-ok="Sí, importar">
   <input type="hidden" name="accion" value="config_importar">
+</form>
+
+<!-- Panorama completo (descarga). data-descarga: sin eso el JS deja el spinner
+     girando para siempre, porque una descarga no recarga la página. -->
+<form id="frm-panorama" method="post" action="actions.php" data-descarga>
+  <input type="hidden" name="accion" value="panorama_json">
 </form>
 
 <!-- Plantillas para filas nuevas -->
