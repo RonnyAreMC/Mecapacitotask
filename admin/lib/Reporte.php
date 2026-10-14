@@ -1,20 +1,19 @@
 <?php
 /**
  * Reportería: el resumen ejecutivo del portafolio —PowerPoint, Word y PDF—
- * armado con los datos vivos del panel.
+ * armado SOLO con lo que hay en el panel: proyectos, tareas, observaciones y
+ * requerimientos sueltos. No se edita ni se le agrega nada a mano: lo que
+ * diga el reporte es lo que dice el panel.
  *
  * Nace de tener que hacerlo a mano en cada release: exportar el panorama,
  * agrupar las tareas por línea de trabajo, contar, maquetar en tres formatos...
  * Aquí el panel hace la cuenta una sola vez (construir()) y los tres formatos
  * salen de ese mismo modelo, así que no pueden contradecirse entre sí.
  *
- * Las tareas no tienen un campo de "módulo", así que las líneas de trabajo se
- * definen con palabras clave sobre el título (clasificar()). Lo que no cae en
- * ninguna va a "Otras actividades": es la señal de que hay que afinar claves.
- *
- * La configuración vive en data/reporteria.json y no en config.json: la
- * acción de Ajustes reescribe config.json entero con las claves que conoce, y
- * esto se perdería cada vez que alguien guarda los ajustes.
+ * Las tareas no tienen un campo de "módulo", así que las líneas de trabajo de
+ * cada proyecto son palabras clave sobre el título (lib/reporteria/semilla.json,
+ * ajustadas con las tareas reales). Lo que no cae en ninguna va a "Otras
+ * actividades", y un proyecto que no está en la semilla sale con una sola fila.
  */
 final class Reporte
 {
@@ -22,69 +21,21 @@ final class Reporte
 
     private static ?array $semilla = null;
 
-    public static function archivoConfig(): string
-    {
-        return __DIR__ . '/../data/reporteria.json';
-    }
-
-    /** Lo que trae el panel de fábrica: las líneas del primer reporte hecho a mano. */
+    /** Títulos de la portada y líneas de trabajo por proyecto (por nombre normalizado). */
     public static function semilla(): array
     {
         if (self::$semilla === null) {
             $txt = @file_get_contents(self::DIR . '/semilla.json');
-            self::$semilla = json_decode((string)$txt, true) ?: [];
+            self::$semilla = (json_decode((string)$txt, true) ?: []) + [
+                'titulo' => 'Resumen de Release', 'subtitulo' => '', 'pie' => '', 'lineas' => [],
+            ];
         }
-        return self::$semilla + [
-            'titulo' => 'Resumen de Release', 'subtitulo' => '', 'pie' => '',
-            'descontar_observadas' => true, 'lineas' => [], 'secciones' => [],
-            'conclusiones_extra' => [], 'excluir' => [],
-        ];
+        return self::$semilla;
     }
 
-    /** Configuración guardada; lo que falte, de la semilla. */
-    public static function config(): array
+    /** Líneas de trabajo de un proyecto (las de la semilla, por nombre). */
+    public static function lineasDe(array $proyecto): array
     {
-        $sem = self::semilla();
-        $g = [];
-        if (is_file(self::archivoConfig())) {
-            $g = json_decode((string)file_get_contents(self::archivoConfig()), true) ?: [];
-        }
-        $texto = fn(string $k) => trim((string)($g[$k] ?? '')) ?: (string)$sem[$k];
-        return [
-            'titulo'               => $texto('titulo'),
-            'subtitulo'            => $texto('subtitulo'),
-            'pie'                  => $texto('pie'),
-            'descontar_observadas' => array_key_exists('descontar_observadas', $g)
-                                        ? !empty($g['descontar_observadas']) : !empty($sem['descontar_observadas']),
-            // Por id de proyecto. Las de la semilla van por nombre: ver lineasDe().
-            'lineas'               => (array)($g['lineas'] ?? []),
-            'secciones'            => array_values((array)($g['secciones'] ?? $sem['secciones'])),
-            'conclusiones_extra'   => array_values((array)($g['conclusiones_extra'] ?? $sem['conclusiones_extra'])),
-            'excluir'              => array_values(array_map('intval', (array)($g['excluir'] ?? []))),
-            'guardada'             => $g !== [],
-        ];
-    }
-
-    public static function guardarConfig(array $cfg): void
-    {
-        unset($cfg['guardada']);
-        file_put_contents(
-            self::archivoConfig(),
-            json_encode($cfg, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
-        );
-    }
-
-    /**
-     * Líneas de un proyecto: las guardadas para su id o, si nunca se guardaron,
-     * las de la semilla por nombre (los ids de la semilla no serían los de
-     * esta instalación).
-     */
-    public static function lineasDe(array $cfg, array $proyecto): array
-    {
-        $id = (int)$proyecto['id'];
-        if (array_key_exists($id, $cfg['lineas'])) {
-            return array_values((array)$cfg['lineas'][$id]);
-        }
         return array_values((array)(self::semilla()['lineas'][self::clave((string)$proyecto['nombre'])] ?? []));
     }
 
@@ -112,7 +63,7 @@ final class Reporte
         return ' ' . trim((string)$s) . ' ';
     }
 
-    /** Claves de una línea, ya normalizadas: [['prefijo' => bool, 'txt' => string], ...]. */
+    /** Claves de una línea, ya normalizadas: [['inicio' => bool, 'txt' => string], ...]. */
     private static function claves(string $texto): array
     {
         $out = [];
@@ -149,26 +100,20 @@ final class Reporte
     /* ------------------------------------------------------------------ */
 
     /** El reporte con los datos de este panel. */
-    public static function desdePanel(?array $cfg = null): array
+    public static function desdePanel(): array
     {
-        $cfg ??= self::config();
         $tareasRepo = new TareaRepo();
         $proyectos  = [];
         foreach ((new ProyectoRepo())->todos() as $p) {
             $p['_tareas'] = $tareasRepo->delProyecto((int)$p['id']);
             $proyectos[] = $p;
         }
-        $estados = [];
-        foreach (Catalogo::estadosTarea() as $k => $v) {
-            $estados[$k] = $v[0];
-        }
         return self::construir(
             $proyectos,
             (new ObservacionRepo())->tareasConPendientes(),
             (new RequerimientoRepo())->todos(),
-            array_keys($estados),
-            Catalogo::estadosFinales(),
-            $cfg
+            array_keys(Catalogo::estadosTarea()),
+            Catalogo::estadosFinales()
         );
     }
 
@@ -176,27 +121,26 @@ final class Reporte
      * El modelo del reporte. Recibe los datos en crudo para poder probarlo
      * fuera del panel (con un panorama exportado, por ejemplo).
      *
-     * Cómo se cuenta cada tarea:
-     *  - completada: en estado final; si "descontar observadas" está activo
-     *    (por defecto, como el avance del panel), además sin observaciones
-     *    pendientes. Una terminada con una observación abierta va a "en curso":
-     *    así completadas + en curso + por hacer suman el total y el % cuadra.
+     * Cómo se cuenta cada tarea —igual que el avance del panel—:
+     *  - completada: en estado final y sin observaciones pendientes. Una
+     *    terminada con una observación abierta va a "en curso", así
+     *    completadas + en curso + por hacer suman el total y el % es el mismo
+     *    que muestra el panel.
      *  - por hacer: el primer estado del catálogo (el de partida).
      *  - en curso: cualquier otro.
      */
     public static function construir(array $proyectos, array $observadas, array $requerimientos,
-                                     array $ordenEstados, array $finales, array $cfg): array
+                                     array $ordenEstados, array $finales): array
     {
-        $inicial  = '';
+        $inicial = '';
         foreach ($ordenEstados as $k) {
             if (!in_array($k, $finales, true)) { $inicial = $k; break; }
         }
-        $descontar = !empty($cfg['descontar_observadas']);
 
-        $cubo = function (array $t) use ($finales, $inicial, $observadas, $descontar): string {
+        $cubo = function (array $t) use ($finales, $inicial, $observadas): string {
             $e = (string)($t['estado'] ?? '');
             if (in_array($e, $finales, true)) {
-                return ($descontar && !empty($observadas[(int)($t['id'] ?? 0)])) ? 'observada' : 'completada';
+                return !empty($observadas[(int)($t['id'] ?? 0)]) ? 'observada' : 'completada';
             }
             return $e === $inicial ? 'por_hacer' : 'en_curso';
         };
@@ -211,33 +155,23 @@ final class Reporte
             }
         };
 
-        $secciones = array_map([self::class, 'seccionLimpia'], (array)($cfg['secciones'] ?? []));
-        $excluir   = array_map('intval', (array)($cfg['excluir'] ?? []));
-
         $salida = [];
         $global = $vacio();
         foreach ($proyectos as $p) {
-            $pid    = (int)$p['id'];
             $tareas = (array)($p['_tareas'] ?? []);
-            if (in_array($pid, $excluir, true) || !$tareas) continue;
+            if (!$tareas) continue;   // un proyecto sin tareas no tiene nada que contar
 
-            $lineas  = self::lineasDe($cfg, $p);
-            $claves  = array_map(fn($l) => self::claves((string)($l['claves'] ?? '')), $lineas);
-            $porLin  = array_map(fn() => $vacio(), $lineas);
-            $otras   = $vacio();
-            $sueltas = [];
-            $tot     = $vacio();
+            $lineas = self::lineasDe($p);
+            $claves = array_map(fn($l) => self::claves((string)($l['claves'] ?? '')), $lineas);
+            $porLin = array_map(fn() => $vacio(), $lineas);
+            $otras  = $vacio();
+            $tot    = $vacio();
             foreach ($tareas as $t) {
                 $c = $cubo($t);
                 $sumar($tot, $c);
                 $sumar($global, $c);
                 $i = $lineas ? self::clasificar((string)($t['titulo'] ?? ''), $claves) : -1;
-                if ($i >= 0) {
-                    $sumar($porLin[$i], $c);
-                } else {
-                    $sumar($otras, $c);
-                    if ($lineas) $sueltas[] = (string)($t['titulo'] ?? '');
-                }
+                if ($i >= 0) $sumar($porLin[$i], $c); else $sumar($otras, $c);
             }
             $filas = [];
             foreach ($lineas as $i => $l) {
@@ -245,20 +179,13 @@ final class Reporte
                 $filas[] = ['nombre' => trim((string)$l['nombre'])] + $porLin[$i];
             }
             if ($otras['entregables'] > 0) {
-                $filas[] = ['nombre' => $lineas ? 'Otras actividades' : 'Actividades del proyecto', 'otras' => true] + $otras;
+                $filas[] = ['nombre' => $lineas ? 'Otras actividades' : 'Actividades del proyecto'] + $otras;
             }
             $salida[] = [
-                'id'        => $pid,
-                'nombre'    => (string)$p['nombre'],
-                'avance'    => self::pct($tot['completados'], $tot['entregables']),
-                'lineas'    => $filas,
-                'otras'     => $lineas ? $otras['entregables'] : 0,
-                // Para afinar las claves en la configuración: qué quedó fuera.
-                'otras_titulos' => array_slice($sueltas, 0, 40),
-                'lineas_conf'   => array_map(fn($l, $c) => ['nombre' => (string)$l['nombre'], 'claves' => (string)($l['claves'] ?? ''),
-                                                            'entregables' => $c['entregables']], $lineas, $porLin),
-                'secciones' => array_values(array_filter($secciones, fn($s) =>
-                    $s['ubicacion'] === 'proyecto' && self::esDelProyecto($s, $p))),
+                'id'     => (int)$p['id'],
+                'nombre' => (string)$p['nombre'],
+                'avance' => self::pct($tot['completados'], $tot['entregables']),
+                'lineas' => $filas,
             ] + $tot;
         }
         // Más avanzados primero; a igual avance, el más grande.
@@ -280,32 +207,21 @@ final class Reporte
         }
         // Vencidos arriba: es lo que hay que mirar.
         usort($req['abiertos'], fn($a, $b) => [$b['vencido'], $a['entrega'] ?: '9999'] <=> [$a['vencido'], $b['entrega'] ?: '9999']);
-        $req['secciones'] = array_values(array_filter($secciones, fn($s) => $s['ubicacion'] === 'requerimientos'));
 
         $global['cumplimiento'] = self::pct($global['completados'], $global['entregables']);
         $global['proyectos']    = count($salida);
 
+        $sem = self::semilla();
         $rep = [
-            'titulo'      => (string)$cfg['titulo'],
-            'subtitulo'   => (string)$cfg['subtitulo'],
-            'pie'         => (string)$cfg['pie'],
-            'generado'    => date('Y-m-d H:i'),
-            'descontar'   => $descontar,
-            'resumen'     => $global,
-            'proyectos'   => $salida,
+            'titulo'         => (string)$sem['titulo'],
+            'subtitulo'      => (string)$sem['subtitulo'],
+            'pie'            => (string)$sem['pie'],
+            'generado'       => date('Y-m-d H:i'),
+            'resumen'        => $global,
+            'proyectos'      => $salida,
             'requerimientos' => $req,
-            // Las de un proyecto que ya no está en el reporte van al final:
-            // mejor que perderlas en silencio.
-            'secciones_finales' => array_values(array_filter($secciones, function ($s) use ($salida) {
-                if ($s['ubicacion'] === 'final') return true;
-                if ($s['ubicacion'] !== 'proyecto') return false;
-                foreach ($salida as $p) {
-                    if (self::esDelProyecto($s, ['id' => $p['id'], 'nombre' => $p['nombre']])) return false;
-                }
-                return true;
-            })),
         ];
-        $rep['conclusiones'] = self::conclusiones($rep, (array)($cfg['conclusiones_extra'] ?? []));
+        $rep['conclusiones'] = self::conclusiones($rep);
         return $rep;
     }
 
@@ -314,62 +230,18 @@ final class Reporte
         return $total > 0 ? (int)round($parte * 100 / $total) : 0;
     }
 
-    /** ¿La sección va dentro de este proyecto? Por id si se guardó; si no, por nombre (semilla). */
-    private static function esDelProyecto(array $s, array $p): bool
-    {
-        if ((int)($s['proyecto_id'] ?? 0) > 0) return (int)$s['proyecto_id'] === (int)$p['id'];
-        return ($s['proyecto'] ?? '') !== '' && self::clave((string)$s['proyecto']) === self::clave((string)$p['nombre']);
-    }
-
-    /** Una sección con todas sus claves y sin filas vacías. */
-    public static function seccionLimpia(array $s): array
-    {
-        $ubic = in_array($s['ubicacion'] ?? '', ['proyecto', 'requerimientos', 'final'], true) ? $s['ubicacion'] : 'final';
-        $cols = array_values(array_filter(array_map('trim', array_map('strval', (array)($s['columnas'] ?? [])))));
-        $filas = [];
-        foreach ((array)($s['filas'] ?? []) as $f) {
-            $f = array_map(fn($v) => trim((string)$v), (array)$f);
-            if (implode('', $f) === '') continue;
-            $filas[] = $cols ? array_slice(array_pad($f, count($cols), ''), 0, count($cols)) : $f;
-        }
-        if (!$cols && $filas) {
-            $cols = array_fill(0, max(array_map('count', $filas)), '');
-        }
-        $kpis = [];
-        foreach ((array)($s['kpis'] ?? []) as $k) {
-            $k = array_values((array)$k);
-            if (trim((string)($k[0] ?? '')) === '') continue;
-            $kpis[] = [trim((string)$k[0]), trim((string)($k[1] ?? ''))];
-        }
-        return [
-            'id'          => (string)($s['id'] ?? '') ?: substr(md5((string)($s['titulo'] ?? '')), 0, 8),
-            'ubicacion'   => $ubic,
-            'proyecto'    => (string)($s['proyecto'] ?? ''),
-            'proyecto_id' => (int)($s['proyecto_id'] ?? 0),
-            'kicker'      => trim((string)($s['kicker'] ?? '')),
-            'titulo'      => trim((string)($s['titulo'] ?? '')) ?: 'Sección',
-            'intro'       => trim((string)($s['intro'] ?? '')),
-            'kpis'        => array_slice($kpis, 0, 5),
-            'columnas'    => $cols,
-            'filas'       => $filas,
-            'nota'        => trim((string)($s['nota'] ?? '')),
-        ];
-    }
-
     /**
-     * La lectura ejecutiva. Se escribe sola con las cifras del momento —antes
-     * se redactaba a mano y se quedaba vieja en cuanto cambiaba un número—, y
-     * al final van las que el administrador agregue a mano.
+     * La lectura ejecutiva, escrita con las cifras del momento: antes se
+     * redactaba a mano y quedaba vieja en cuanto cambiaba un número.
      */
-    private static function conclusiones(array $rep, array $extra): array
+    private static function conclusiones(array $rep): array
     {
         $R  = $rep['resumen'];
         $ps = $rep['proyectos'];
-        $out = [];
-        if (!$ps) return array_values(array_filter(array_map('trim', $extra)));
+        if (!$ps) return [];
 
-        $out[] = sprintf('El portafolio alcanza un %d%% de cumplimiento, con %d de los %d entregables completados.',
-            $R['cumplimiento'], $R['completados'], $R['entregables']);
+        $out = [sprintf('El portafolio alcanza un %d%% de cumplimiento, con %d de los %d entregables completados.',
+            $R['cumplimiento'], $R['completados'], $R['entregables'])];
 
         $cerrados = array_values(array_map(fn($p) => $p['nombre'], array_filter($ps, fn($p) => $p['avance'] === 100)));
         if ($cerrados) {
@@ -394,7 +266,7 @@ final class Reporte
             $out[] = sprintf('%s, con un %d%% de avance, es el proyecto más rezagado y requiere atención de la dirección.',
                 $rezagado['nombre'], $rezagado['avance']);
         }
-        if ($rep['descontar'] && $R['observadas'] > 0) {
+        if ($R['observadas'] > 0) {
             $out[] = sprintf('%d %s con observaciones abiertas: cuentan como en curso hasta que se resuelvan.',
                 $R['observadas'], $R['observadas'] === 1 ? 'entregable terminado sigue' : 'entregables terminados siguen');
         }
@@ -402,9 +274,6 @@ final class Reporte
         if ($v > 0) {
             $out[] = $v === 1 ? 'Un requerimiento suelto está vencido y debe reprogramarse o cerrarse.'
                               : sprintf('%d requerimientos sueltos están vencidos y deben reprogramarse o cerrarse.', $v);
-        }
-        foreach ($extra as $x) {
-            if (trim((string)$x) !== '') $out[] = trim((string)$x);
         }
         return $out;
     }
@@ -418,7 +287,7 @@ final class Reporte
         return implode(', ', $xs) . ' y ' . $ult;
     }
 
-    /** Nombre de archivo de una descarga: INNOTECH-Resumen-Release-2026-10-14.pptx */
+    /** Nombre de archivo de una descarga: INNOTECH-Resumen-de-Release-2026-10-14.pptx */
     public static function nombreArchivo(array $rep, string $ext): string
     {
         $ascii = function_exists('iconv') ? (string)@iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $rep['titulo']) : '';

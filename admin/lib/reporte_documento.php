@@ -38,12 +38,6 @@ $tabla = function (array $cabeceras, array $filas): void {
     echo '</tbody></table>';
 };
 
-$seccion = function (array $s, bool $conTitulo = true) use ($tabla): void {
-    if ($conTitulo) echo '<h4>' . e($s['titulo']) . '</h4>';
-    if ($s['intro'] !== '') echo '<p class="gris chico">' . e($s['intro']) . '</p>';
-    if ($s['filas']) $tabla($s['columnas'], $s['filas']);
-    if ($s['nota'] !== '') echo '<p class="chico">' . e($s['nota']) . '</p>';
-};
 ?>
 <!doctype html>
 <html lang="es">
@@ -138,7 +132,7 @@ $seccion = function (array $s, bool $conTitulo = true) use ($tabla): void {
   <p>El portafolio comprende <?= (int)$R['proyectos'] ?> proyectos en desarrollo con <?= (int)$R['entregables'] ?> entregables registrados.
      El nivel de cumplimiento global es del <?= (int)$R['cumplimiento'] ?>%: <?= (int)$R['completados'] ?> completados,
      <?= (int)$R['en_curso'] ?> en ejecución o validación y <?= (int)$R['por_hacer'] ?> pendientes de iniciar.</p>
-  <?php if ($rep['descontar'] && $R['observadas'] > 0): ?>
+  <?php if ($R['observadas'] > 0): ?>
   <p>De los entregables en ejecución, <?= (int)$R['observadas'] ?> ya están terminados pero tienen observaciones abiertas:
      cuentan como en curso hasta que se resuelvan.</p>
   <?php endif; ?>
@@ -159,7 +153,6 @@ $seccion = function (array $s, bool $conTitulo = true) use ($tabla): void {
     <?php
     $tabla(['Línea de trabajo', 'Entregables', 'Completados', 'En curso', 'Por hacer'],
         array_map(fn($l) => [$l['nombre'], $l['entregables'], $l['completados'], $l['en_curso'], $l['por_hacer']], $p['lineas']));
-    foreach ($p['secciones'] as $s) $seccion($s);
     ?>
   <?php endforeach; ?>
 
@@ -170,13 +163,7 @@ $seccion = function (array $s, bool $conTitulo = true) use ($tabla): void {
       $tabla(['Requerimiento abierto', 'Entrega', 'Situación'],
           array_map(fn($q) => [$q['titulo'], $q['entrega'] ?: '—', $q['vencido'] ? 'Vencido' : 'En plazo'], $rq['abiertos']));
   }
-  foreach ($rq['secciones'] as $s) $seccion($s);
   ?>
-
-  <?php foreach ($rep['secciones_finales'] as $s): ?>
-    <h2><?= ++$n ?>. <?= e($s['titulo']) ?></h2>
-    <?php $seccion($s, false); ?>
-  <?php endforeach; ?>
 
   <h2><?= ++$n ?>. Conclusiones</h2>
   <ul class="concl">

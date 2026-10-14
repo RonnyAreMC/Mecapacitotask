@@ -2,7 +2,7 @@
 /**
  * El reporte como presentación interactiva (.pptx): portada, índice con una
  * tarjeta por proyecto que lleva a su diapositiva, tablero, listado, una
- * diapositiva por proyecto, requerimientos sueltos, secciones extra y cierre.
+ * diapositiva por proyecto, requerimientos sueltos y cierre.
  *
  * Se escribe el XML de PresentationML a mano sobre las piezas fijas de
  * lib/reporteria/plantilla-pptx.json (maestro, diseños, tema y logos), que se
@@ -43,13 +43,8 @@ final class ReportePptx
         $this->indice($rep);
         $this->tablero($rep);
         $this->listado($rep);
-        foreach ($ps as $p) {
-            $this->proyecto($p, $rep['descontar']);
-            foreach ($p['secciones'] as $s) $this->seccion($s);
-        }
+        foreach ($ps as $p) $this->proyecto($p);
         $this->requerimientos($rep['requerimientos']);
-        foreach ($rep['requerimientos']['secciones'] as $s) $this->seccion($s);
-        foreach ($rep['secciones_finales'] as $s) $this->seccion($s);
         $this->cierre($rep);
 
         return $this->empaquetar($rep);
@@ -104,11 +99,8 @@ final class ReportePptx
             $this->rect($x + 0.45, $y + $alto - 0.65, max(0.12, 6.5 * $p['avance'] / 100), 0.3, self::VERDE);
         }
 
-        $extras = [['Tablero de control', 'tablero'], ['Listado de proyectos', 'listado'], ['Requerimientos sueltos', 'requerimientos']];
-        foreach (array_merge($rep['requerimientos']['secciones'], $rep['secciones_finales']) as $s) {
-            $extras[] = [self::corto($s['titulo']), 'seccion:' . $s['id']];
-        }
-        $extras = array_slice($extras, 0, 5);
+        $extras = [['Tablero de control', 'tablero'], ['Listado de proyectos', 'listado'],
+                   ['Requerimientos sueltos', 'requerimientos'], ['Lectura ejecutiva', 'cierre']];
         $n  = count($extras);
         $an = (self::ANCHO_UTIL - 0.5 * ($n - 1)) / $n;
         foreach ($extras as $i => [$txt, $destino]) {
@@ -168,7 +160,7 @@ final class ReportePptx
         $this->volver();
     }
 
-    private function proyecto(array $p, bool $descontar): void
+    private function proyecto(array $p): void
     {
         $this->nueva('proyecto:' . $p['id']);
         $this->cabecera('Proyecto', $p['nombre']);
@@ -176,7 +168,7 @@ final class ReportePptx
                           [$p['en_curso'], 'En curso'], [$p['por_hacer'], 'Por hacer'], [$p['avance'] . '%', 'Avance']]);
         $this->caja(1.4, 7.2, 20, 0.7, 'LÍNEAS DE TRABAJO', 11, true, self::NAVY);
         $filas = array_map(fn($l) => [$l['nombre'], $l['entregables'], $l['completados'], $l['en_curso'], $l['por_hacer']], $p['lineas']);
-        $hayNota = $descontar && $p['observadas'] > 0;
+        $hayNota = $p['observadas'] > 0;
         $alto = min(1.15, (self::Y_MAX - 8.0 - ($hayNota ? 0.8 : 0)) / (count($filas) + 1));
         $fin = $this->tablaPaginada(8.0, ['Línea de trabajo', 'Entregables', 'Completados', 'En curso', 'Por hacer'],
             $filas, [15.5, 3.8, 4.2, 3.8, 3.8], max(0.62, $alto), 10.5, 'Proyecto', $p['nombre']);
@@ -199,43 +191,6 @@ final class ReportePptx
                 [20.9, 5.2, 5.0], 0.74, 10.5, 'Fuera de proyecto', 'Requerimientos sueltos');
         } else {
             $this->caja(1.4, 7.4, 30, 0.8, 'No hay requerimientos abiertos.', 13, false, self::GRIS);
-        }
-        $this->volver();
-    }
-
-    private function seccion(array $s): void
-    {
-        $this->nueva('seccion:' . $s['id']);
-        $kicker = $s['kicker'] !== '' ? $s['kicker'] : 'Detalle';
-        $this->cabecera($kicker, $s['titulo']);
-        $y = 3.8;
-        if ($s['kpis']) {
-            $this->kpis(3.9, $s['kpis']);
-            $y = 7.2;
-        }
-        if ($s['intro'] !== '') {
-            $lin = $this->lineas($s['intro'], 31, 12, false);
-            $this->caja(1.4, $y, 31, $lin * 0.55, $s['intro'], 12, false, self::GRIS, 'l', 1.05);
-            $y += $lin * 0.55 + 0.45;
-        }
-        if ($s['filas']) {
-            $n = count($s['columnas']);
-            $anchos = match (true) {
-                $n === 2 => [6.0, 25.1],
-                $n === 3 => [6.0, 20.1, 5.0],
-                default  => array_fill(0, $n, self::ANCHO_UTIL / max(1, $n)),
-            };
-            $y = $this->tablaPaginada($y, $s['columnas'], $s['filas'], $anchos, 0.7, 10, $kicker, $s['titulo']);
-        }
-        if ($s['nota'] !== '') {
-            $lin = $this->lineas($s['nota'], 31, 11, false);
-            if ($y + 0.3 + $lin * 0.5 > self::Y_MAX) {
-                $this->volver();
-                $this->nueva(null);
-                $this->cabecera($kicker, $s['titulo'] . ' (cont.)');
-                $y = 3.5;
-            }
-            $this->caja(1.4, $y + 0.3, 31, $lin * 0.5, $s['nota'], 11, false, self::NAVY, 'l', 1.05);
         }
         $this->volver();
     }

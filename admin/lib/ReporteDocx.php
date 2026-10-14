@@ -43,7 +43,7 @@ final class ReporteDocx
             . 'El nivel de cumplimiento global es del %d%%: %d completados, %d en ejecución o validación '
             . 'y %d pendientes de iniciar.', $R['proyectos'], $R['entregables'], $R['cumplimiento'],
             $R['completados'], $R['en_curso'], $R['por_hacer']));
-        if ($rep['descontar'] && $R['observadas'] > 0) {
+        if ($R['observadas'] > 0) {
             $this->p(sprintf('De los entregables en ejecución, %d ya están terminados pero tienen observaciones abiertas: '
                 . 'cuentan como en curso hasta que se resuelvan.', $R['observadas']));
         }
@@ -67,7 +67,6 @@ final class ReporteDocx
             $this->tabla(['Línea de trabajo', 'Entregables', 'Completados', 'En curso', 'Por hacer'],
                 array_map(fn($l) => [$l['nombre'], $l['entregables'], $l['completados'], $l['en_curso'], $l['por_hacer']], $p['lineas']),
                 [6.0, 2.6, 2.7, 2.1, 2.1]);
-            foreach ($p['secciones'] as $s) $this->seccion($s);
         }
 
         /* ---- 4. Requerimientos sueltos ---- */
@@ -79,35 +78,12 @@ final class ReporteDocx
                 array_map(fn($q) => [$q['titulo'], $q['entrega'] ?: '—', $q['vencido'] ? 'Vencido' : 'En plazo'], $rq['abiertos']),
                 [10.4, 2.8, 2.8]);
         }
-        foreach ($rq['secciones'] as $s) $this->seccion($s);
-
-        /* ---- Secciones al final, cada una con su número ---- */
-        foreach ($rep['secciones_finales'] as $s) {
-            $this->titulo(++$n . '. ' . $s['titulo']);
-            $this->seccion($s, false);
-        }
 
         /* ---- Conclusiones ---- */
         $this->titulo(++$n . '. Conclusiones');
         foreach ($rep['conclusiones'] as $c) {
             $this->p('•  ' . $c, 10.5, false, self::TEXTO, 2, 2);
         }
-    }
-
-    private function seccion(array $s, bool $conTitulo = true): void
-    {
-        if ($conTitulo) $this->p($s['titulo'], 10.5, true, self::NAVY, 12, 2, true);
-        if ($s['intro'] !== '') $this->p($s['intro'], 9.5, false, self::GRIS, 0, 4);
-        if ($s['filas']) {
-            $n = count($s['columnas']);
-            $anchos = match (true) {
-                $n === 2 => [3.6, 12.2],
-                $n === 3 => [4.0, 9.4, 2.4],
-                default  => array_fill(0, $n, 15.8 / max(1, $n)),
-            };
-            $this->tabla($s['columnas'], $s['filas'], $anchos);
-        }
-        if ($s['nota'] !== '') $this->p($s['nota'], 9.5, false, self::TEXTO, 4, 2);
     }
 
     /* ======================= WordprocessingML ======================= */

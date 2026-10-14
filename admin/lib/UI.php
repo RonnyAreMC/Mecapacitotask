@@ -265,7 +265,7 @@ class UI
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Reportería: el estado de todos los proyectos */ ?>
     <a href="reporteria.php" class="sidebar-link <?= $activo === 'reporteria' ? 'active' : '' ?>" title="Reporte ejecutivo en PowerPoint, Word o PDF">
-      <?= UI::icono('TrendingUp') ?> <span class="truncate">Reportería</span>
+      <?= UI::icono('Reporteria') ?> <span class="truncate">Reportería</span>
     </a>
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
