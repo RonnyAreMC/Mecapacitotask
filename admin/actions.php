@@ -2210,6 +2210,236 @@ switch ($accion) {
         }
         redirigir('ajustes.php', 'El envío falló: ' . $r, 'error');
 
+    /* ---------- Panorama: todo el panel en un JSON ---------- */
+
+    case 'panorama_json':
+        // Todo el trabajo del panel en un archivo, ordenado POR PROYECTO: cada
+        // uno con sus tareas, sus observaciones y sus subidas al servidor de
+        // pruebas, más los requerimientos sueltos. Nace de tener que armar ese
+        // contexto a mano —proyecto por proyecto— cada vez que hay que contar
+        // en qué anda el equipo o pasárselo entero a Claude.
+        //
+        // NO lleva personas: ni responsables, ni quién escribió cada
+        // observación, ni el equipo. Es un corte de QUÉ hay y en qué estado,
+        // no de quién hace qué; así además el archivo no reparte los correos
+        // del equipo por ahí.
+        //
+        // Solo para el administrador: no está en las listas de acciones
+        // abiertas, así que actions.php ya exigió admin más arriba.
+        $obsRepoPan  = new ObservacionRepo();
+        $depRepoPan  = new DeployRepo();
+        $reqRepoPan  = new RequerimientoRepo();
+        $instRepoPan = new InstitucionRepo();
+
+        $estCatPan  = Catalogo::estadosTarea();
+        $priCatPan  = Catalogo::prioridades();
+        $finalesPan = Catalogo::estadosFinales();
+        $etiqueta   = fn(array $cat, string $k) => $cat[$k][0] ?? $k;
+        $nomInst    = array_map(fn($i) => (string)$i['nombre'], $instRepoPan->mapa());
+
+        // Todas las tareas indexadas: hace falta para nombrar una dependencia
+        // que apunta a otro proyecto, que es el caso que de verdad importa.
+        $tareaPorId = [];
+        foreach ($tareas->todas() as $t) { $tareaPorId[(int)$t['id']] = $t; }
+        $proyNombre = [];
+        foreach ($proyectos->todos() as $p) { $proyNombre[(int)$p['id']] = (string)$p['nombre']; }
+
+        $refTarea = function (int $id) use ($tareaPorId, $proyNombre) {
+            $t = $tareaPorId[$id] ?? null;
+            if (!$t) return '';
+            return '#' . $id . ' · ' . ($t['titulo'] ?? '')
+                 . ' (' . ($proyNombre[(int)$t['proyecto_id']] ?? '') . ')';
+        };
+
+        $fmtTareaPan = function (array $t) use ($estCatPan, $priCatPan, $etiqueta, $refTarea, $tareaPorId) {
+            $propio   = (int)($t['proyecto_id'] ?? 0);
+            $deps     = [];
+            $externas = 0;
+            foreach (TareaRepo::dependenciasDe($t) as $d) {
+                $ref = $refTarea((int)$d);
+                if ($ref === '') continue;
+                $deps[] = $ref;
+                $otra = $tareaPorId[(int)$d] ?? null;
+                if ($otra && (int)$otra['proyecto_id'] !== $propio) $externas++;
+            }
+            return [
+                'id'            => (int)$t['id'],
+                'ref'           => '#' . (int)$t['id'],
+                'titulo'        => (string)($t['titulo'] ?? ''),
+                'descripcion'   => (string)($t['descripcion'] ?? ''),
+                'estado'        => $etiqueta($estCatPan, (string)($t['estado'] ?? '')),
+                'prioridad'     => $etiqueta($priCatPan, (string)($t['prioridad'] ?? '')),
+                'fecha_inicio'  => (string)($t['fecha_inicio'] ?? ''),
+                'fecha_limite'  => (string)($t['fecha_limite'] ?? ''),
+                'completada_en' => (string)($t['completada_en'] ?? ''),
+                'subida_en'     => (string)($t['desplegada_en'] ?? ''),
+                'dependencias'  => $deps,
+                'dependencias_de_otro_proyecto' => $externas,
+                'adjuntos'      => count((array)($t['adjuntos'] ?? [])),
+            ];
+        };
+
+        $fmtObsPan = function (array $o) use ($refTarea) {
+            $tid = (int)($o['tarea_id'] ?? 0);
+            return [
+                'sobre'  => $tid ? $refTarea($tid) : 'General de la entrega',
+                'texto'  => (string)($o['texto'] ?? ''),
+                'estado' => (string)($o['estado'] ?? 'pendiente'),
+                'creado' => (string)($o['creado'] ?? ''),
+            ];
+        };
+
+        $aplicativos     = [];
+        $totTareas       = 0;
+        $porEstadoGlobal = [];
+        $totObs          = 0;
+        $totDeploys      = 0;
+        $totSinSubir     = 0;
+
+        foreach ($proyectos->todos() as $p) {
+            $pid     = (int)$p['id'];
+            $lista   = $tareas->delProyecto($pid);
+            $resumen = $tareas->resumen($pid);
+
+            $porEstado = [];
+            foreach ($resumen as $k => $n) {
+                $et = $etiqueta($estCatPan, (string)$k);
+                $porEstado[$et] = (int)$n;
+                $porEstadoGlobal[$et] = ($porEstadoGlobal[$et] ?? 0) + (int)$n;
+            }
+            // Terminadas que ningún despliegue se ha llevado todavía.
+            $sinSubir = 0;
+            foreach ($lista as $t) {
+                if (in_array($t['estado'] ?? '', $finalesPan, true) && (int)($t['deploy_id'] ?? 0) === 0) $sinSubir++;
+            }
+            $totSinSubir += $sinSubir;
+
+            $obsPlanas = [];
+            foreach ($obsRepoPan->hilosDelProyecto($pid) as $h) {
+                $fila = $fmtObsPan($h);
+                $fila['respuestas'] = array_map($fmtObsPan, $h['respuestas'] ?? []);
+                $obsPlanas[] = $fila;
+                $totObs += 1 + count($h['respuestas'] ?? []);
+            }
+
+            $subidas = [];
+            foreach ($depRepoPan->todos() as $d) {
+                if (!in_array($pid, DeployRepo::proyectosDe($d), true)) continue;
+                $subidas[] = [
+                    'fecha'   => (string)($d['fecha'] ?? ''),
+                    'entorno' => (string)($d['entorno'] ?? ''),
+                    'nota'    => (string)($d['nota'] ?? ''),
+                    'tareas'  => array_map(fn($x) => '#' . (int)$x, DeployRepo::tareasDe($d)),
+                ];
+            }
+            $totDeploys += count($subidas);
+            $totTareas  += count($lista);
+
+            $aplicativos[] = [
+                'proyecto'         => (string)$p['nombre'],
+                'alias_despliegue' => aliasDeploy($pid),
+                'estado'           => (string)($p['estado'] ?? ''),
+                'descripcion'      => (string)($p['descripcion'] ?? ''),
+                'repositorios'     => array_map(fn($r) => $r['url'], ProyectoRepo::repos($p)),
+                'avance'           => $tareas->avance($pid),
+                'resumen'          => [
+                    'tareas'        => count($lista),
+                    'por_estado'    => $porEstado,
+                    // El avance NO es «completadas / total»: una tarea en estado
+                    // final con una observación abierta no cuenta como terminada
+                    // (es el control de calidad del panel). Por eso va también
+                    // este número; si no, el avance y el recuento por estado
+                    // parecen contradecirse al leer el archivo.
+                    'completadas_netas' => $tareas->completadas($pid),
+                    'sin_subir'     => $sinSubir,
+                    'observaciones' => count($obsPlanas),
+                    'despliegues'   => count($subidas),
+                ],
+                'tareas'           => array_map($fmtTareaPan, $lista),
+                'observaciones'    => $obsPlanas,
+                'despliegues'      => $subidas,
+            ];
+        }
+
+        /* ---- Requerimientos sueltos: no pertenecen a ningún proyecto, así que
+                van aparte y no dentro de los aplicativos. ---- */
+        $reqsPan      = [];
+        $reqPorEstado = [];
+        $reqVencidos  = 0;
+        foreach ($reqRepoPan->todos() as $r) {
+            $et = RequerimientoRepo::ESTADOS[RequerimientoRepo::estadoValido($r['estado'] ?? '')][0];
+            $reqPorEstado[$et] = ($reqPorEstado[$et] ?? 0) + 1;
+            if (RequerimientoRepo::vencido($r)) $reqVencidos++;
+            $hilosReq = [];
+            foreach (RequerimientoRepo::hilosDe($r) as $h) {
+                $hilosReq[] = [
+                    'texto'      => $h['texto'],
+                    'creado'     => $h['creado'],
+                    'respuestas' => array_map(
+                        fn($x) => ['texto' => $x['texto'], 'creado' => $x['creado']],
+                        $h['respuestas']
+                    ),
+                ];
+            }
+            $reqsPan[] = [
+                'id'            => (int)$r['id'],
+                'ref'           => '#' . (int)$r['id'],
+                'titulo'        => (string)($r['titulo'] ?? ''),
+                'detalle'       => (string)($r['detalle'] ?? ''),
+                'solicitante'   => (string)($r['solicitante'] ?? ''),
+                'instituciones' => array_values(array_filter(array_map(
+                    fn($i) => $nomInst[(int)$i] ?? '', RequerimientoRepo::institucionesDe($r)
+                ))),
+                'estado'        => $et,
+                'prioridad'     => $etiqueta($priCatPan, (string)($r['prioridad'] ?? '')),
+                'fecha_inicio'  => RequerimientoRepo::fechaInicio($r),
+                'fecha_entrega' => RequerimientoRepo::fechaFin($r),
+                'vencido'       => RequerimientoRepo::vencido($r),
+                'nota_cierre'   => (string)($r['nota_cierre'] ?? ''),
+                'cerrado_en'    => (string)($r['cerrado_en'] ?? ''),
+                'observaciones' => $hilosReq,
+            ];
+        }
+
+        $marcaPan  = Config::all();
+        $salidaPan = json_encode([
+            'panel'    => (string)($marcaPan['titulo'] ?? 'Panel'),
+            'generado' => date('Y-m-d H:i'),
+            'nota'     => 'Todo el trabajo del panel, por proyecto: cada aplicativo con TODAS sus '
+                        . 'tareas —terminadas o no—, sus observaciones y sus subidas al servidor de '
+                        . 'pruebas, más los requerimientos sueltos, que no pertenecen a ninguno. Cada '
+                        . 'tarea se referencia con su #id. No lleva personas: es un corte de qué hay '
+                        . 'y en qué estado. Ojo con «avance»: no es completadas/total, porque una '
+                        . 'tarea terminada con una observación abierta no cuenta; para eso está '
+                        . '«completadas_netas» en el resumen de cada aplicativo.',
+            'resumen'  => [
+                'aplicativos'       => count($aplicativos),
+                'tareas'            => $totTareas,
+                'tareas_por_estado' => $porEstadoGlobal,
+                'sin_subir'         => $totSinSubir,
+                'observaciones'     => $totObs,
+                'despliegues'       => $totDeploys,
+                'requerimientos'    => [
+                    'total'      => count($reqsPan),
+                    'por_estado' => $reqPorEstado,
+                    'vencidos'   => $reqVencidos,
+                ],
+            ],
+            'aplicativos'            => $aplicativos,
+            'requerimientos_sueltos' => $reqsPan,
+        ], JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+
+        $nombrePan = 'panorama-'
+                   . preg_replace('/[^a-z0-9]+/', '-', strtolower((string)($marcaPan['titulo'] ?? 'panel')))
+                   . '-' . date('Y-m-d') . '.json';
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="' . trim($nombrePan, '-') . '"');
+        header('Content-Length: ' . strlen($salidaPan));
+        header('Cache-Control: no-store');
+        echo $salidaPan;
+        exit;
+
+
     /* ---------- Respaldo de la configuracion ---------- */
 
     case 'config_exportar':
