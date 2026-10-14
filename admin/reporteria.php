@@ -58,10 +58,12 @@ UI::cabecera(
 <form id="frm-rep-docx" method="post" action="actions.php" data-descarga><input type="hidden" name="accion" value="reporte_docx"></form>
 
 <script>
-  // El iframe crece con su contenido (lo avisa la propia vista del documento).
+  // El iframe toma el alto de la hoja (lo avisa la propia vista del documento).
   window.addEventListener('message', (e) => {
     const ifr = document.getElementById('rep-preview');
-    if (e.origin === location.origin && e.data && e.data.reporteAlto && ifr) ifr.style.height = (e.data.reporteAlto + 24) + 'px';
+    const alto = e.origin === location.origin && e.data ? Number(e.data.reporteAlto) : 0;
+    if (!ifr || !(alto > 0)) return;
+    if (Math.abs(ifr.offsetHeight - alto) > 2) ifr.style.height = alto + 'px';
   });
 </script>
 <?php UI::fin(); ?>

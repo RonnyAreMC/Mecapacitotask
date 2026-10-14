@@ -183,11 +183,19 @@ $tabla = function (array $cabeceras, array $filas): void {
 </script>
 <?php else: ?>
 <script>
-  // Vista previa dentro del iframe de Reportería: avisa su alto para que el
-  // iframe crezca y no haya doble barra de desplazamiento.
-  const avisar = () => parent.postMessage({ reporteAlto: document.documentElement.scrollHeight }, location.origin);
-  window.addEventListener('load', avisar);
-  window.addEventListener('resize', avisar);
+  // Vista previa dentro del iframe de Reportería: avisa el alto de la HOJA
+  // para que el iframe crezca y no haya doble barra de desplazamiento.
+  // No sirve documentElement.scrollHeight: nunca es menor que la ventana, así
+  // que en cuanto el iframe crecía, informaba el alto del propio iframe, este
+  // volvía a crecer y la página se alargaba sin fin.
+  (() => {
+    const papel = document.querySelector('.papel');
+    const avisar = () => parent.postMessage(
+      { reporteAlto: Math.ceil(papel.getBoundingClientRect().bottom + window.scrollY + 18) }, location.origin);
+    window.addEventListener('load', avisar);
+    // Solo cuando cambia la hoja (p. ej. el ancho), no cuando cambia el iframe.
+    if (window.ResizeObserver) new ResizeObserver(avisar).observe(papel);
+  })();
 </script>
 <?php endif; ?>
 </body>
