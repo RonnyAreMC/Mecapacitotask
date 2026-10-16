@@ -41,6 +41,98 @@
 })();
 
 /* =========================================================
+   Previsualización de los adjuntos de una observación.
+   Una imagen o un PDF adjunto abre un modal con el archivo dentro, flechas
+   (y ← →) para pasar por los de esa misma observación, y abajo Regresar y
+   Descargar. Ctrl/Cmd+clic sigue abriéndolo en otra pestaña; los Word se
+   descargan (el navegador no los muestra).
+
+   Va al principio del archivo, con sus propias funciones y escuchando en
+   captura, a propósito: así un error en otra parte de admin.js no lo apaga
+   y ningún otro listener se queda con el clic. Y reconoce el tipo por la
+   dirección del archivo, no por una marca del HTML, para que funcione aunque
+   el obs_item.php del servidor sea uno anterior.
+   ========================================================= */
+(function () {
+  const IMG = ['png', 'jpg', 'jpeg', 'webp', 'gif', 'avif', 'svg', 'bmp'];
+  const extDe = (a) => (a.dataset.ext
+    || (a.getAttribute('href') || '').split(/[?#]/)[0].split('.').pop() || '').toLowerCase();
+  const esImg = (a) => a.classList.contains('obs-img') || IMG.includes(extDe(a));
+  const sePuedeVer = (a) => esImg(a) || extDe(a) === 'pdf';
+  const nombreDe = (a) => a.dataset.nombre || a.getAttribute('title') || a.textContent.trim()
+    || decodeURIComponent((a.getAttribute('href') || '').split('/').pop());
+  const escapar = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
+    (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+  let dlg = null, lista = [], idx = 0;
+
+  function crear() {
+    dlg = document.createElement('dialog');
+    dlg.className = 'dlg-meca dlg-visor-obs';
+    dlg.innerHTML =
+        '<div class="dlg-form">'
+      +   '<header>'
+      +     '<h3 class="font-display"><i class="fa-solid fa-file"></i><span class="vo-nombre"></span></h3>'
+      +     '<div class="vo-acciones">'
+      +       '<span class="vo-cont"></span>'
+      +       '<button type="button" class="dlg-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>'
+      +     '</div>'
+      +   '</header>'
+      +   '<div class="vo-cuerpo">'
+      +     '<div class="vo-previa"></div>'
+      +     '<button type="button" class="vo-flecha vo-ant" title="Anterior (←)"><i class="fa-solid fa-chevron-left"></i></button>'
+      +     '<button type="button" class="vo-flecha vo-sig" title="Siguiente (→)"><i class="fa-solid fa-chevron-right"></i></button>'
+      +   '</div>'
+      +   '<footer>'
+      +     '<button type="button" class="btn-outline btn-meca vo-regresar"><i class="fa-solid fa-arrow-left"></i> Regresar</button>'
+      +     '<a class="btn-primary btn-meca vo-bajar" download><i class="fa-solid fa-download"></i> Descargar</a>'
+      +   '</footer>'
+      + '</div>';
+    document.body.appendChild(dlg);
+    const cerrar = () => dlg.close();
+    dlg.querySelector('.dlg-close').addEventListener('click', cerrar);
+    dlg.querySelector('.vo-regresar').addEventListener('click', cerrar);
+    dlg.querySelector('.vo-ant').addEventListener('click', () => ver(idx - 1));
+    dlg.querySelector('.vo-sig').addEventListener('click', () => ver(idx + 1));
+    // Un clic en el fondo oscurecido (fuera de la caja) también regresa
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) cerrar(); });
+    dlg.addEventListener('keydown', (e) => {
+      if (e.key === 'ArrowLeft')  { e.preventDefault(); ver(idx - 1); }
+      if (e.key === 'ArrowRight') { e.preventDefault(); ver(idx + 1); }
+    });
+    // Al cerrar se vacía: si no, un PDF abierto se queda vivo por detrás
+    dlg.addEventListener('close', () => { dlg.querySelector('.vo-previa').innerHTML = ''; lista = []; });
+  }
+
+  function ver(i) {
+    if (!lista.length) return;
+    idx = (i + lista.length) % lista.length;
+    const a = lista[idx];
+    dlg.querySelector('.vo-nombre').textContent = a.nombre;
+    dlg.querySelector('header h3 > i').className = 'fa-solid ' + (a.img ? 'fa-file-image' : 'fa-file-pdf');
+    dlg.querySelector('.vo-cont').textContent = lista.length > 1 ? (idx + 1) + ' / ' + lista.length : '';
+    const bajar = dlg.querySelector('.vo-bajar');
+    bajar.href = a.ruta;
+    bajar.setAttribute('download', a.nombre);
+    dlg.querySelectorAll('.vo-flecha').forEach((b) => { b.hidden = lista.length < 2; });
+    dlg.querySelector('.vo-previa').innerHTML = a.img
+      ? '<img class="adj-visor-img" src="' + escapar(a.ruta) + '" alt="' + escapar(a.nombre) + '">'
+      : '<iframe class="adj-visor-frame" src="' + escapar(a.ruta) + '#view=FitH" title="' + escapar(a.nombre) + '"></iframe>';
+  }
+
+  document.addEventListener('click', (e) => {
+    const el = e.target.closest && e.target.closest('.obs-adjuntos a[href]');
+    if (!el || !sePuedeVer(el) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
+    e.preventDefault();
+    const items = [...el.closest('.obs-adjuntos').querySelectorAll('a[href]')].filter(sePuedeVer);
+    lista = items.map((x) => ({ ruta: x.getAttribute('href'), nombre: nombreDe(x), img: esImg(x) }));
+    if (!dlg) crear();
+    ver(items.indexOf(el));
+    if (!dlg.open) dlg.showModal();
+  }, true);
+})();
+
+/* =========================================================
    MC — componente de alertas Mecapacito.
    Nunca usar alert()/confirm() nativos: MC.toast y MC.confirm.
    ========================================================= */
@@ -1773,80 +1865,6 @@ function pintarPrevia(cont, a) {
     : '<iframe class="adj-visor-frame" src="' + esc(a.ruta) + '#view=FitH" title="' + esc(a.nombre || '') + '"></iframe>';
 }
 
-/* ---------- Previsualización de los adjuntos de una observación ---------- */
-// Las imágenes y los PDF de una observación se abren en un modal, con flechas
-// (y ← →) para pasar por los de esa misma observación. Ctrl/Cmd+clic sigue
-// abriendo el archivo en otra pestaña. El modal se crea la primera vez que
-// hace falta: así sirve en cualquier página con observaciones, también en las
-// que entran por AJAX después de enviar una.
-(() => {
-  let dlg = null, lista = [], idx = 0;
-
-  function crear() {
-    dlg = document.createElement('dialog');
-    dlg.className = 'dlg-meca dlg-visor-obs';
-    dlg.innerHTML =
-        '<div class="dlg-form">'
-      +   '<header>'
-      +     '<h3 class="font-display"><i class="fa-solid fa-file"></i><span class="vo-nombre"></span></h3>'
-      +     '<div class="vo-acciones">'
-      +       '<span class="vo-cont"></span>'
-      +       '<a class="vo-btn vo-abrir" target="_blank" rel="noopener" title="Abrir en otra pestaña"><i class="fa-solid fa-up-right-from-square"></i></a>'
-      +       '<a class="vo-btn vo-bajar" download title="Descargar"><i class="fa-solid fa-download"></i></a>'
-      +       '<button type="button" class="dlg-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>'
-      +     '</div>'
-      +   '</header>'
-      +   '<div class="vo-cuerpo">'
-      +     '<div class="vo-previa"></div>'
-      +     '<button type="button" class="vo-flecha vo-ant" title="Anterior (←)"><i class="fa-solid fa-chevron-left"></i></button>'
-      +     '<button type="button" class="vo-flecha vo-sig" title="Siguiente (→)"><i class="fa-solid fa-chevron-right"></i></button>'
-      +   '</div>'
-      + '</div>';
-    document.body.appendChild(dlg);
-    dlg.querySelector('.dlg-close').addEventListener('click', () => dlg.close());
-    dlg.querySelector('.vo-ant').addEventListener('click', () => ver(idx - 1));
-    dlg.querySelector('.vo-sig').addEventListener('click', () => ver(idx + 1));
-    // Un clic en el fondo oscurecido (fuera de la caja) cierra
-    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
-    dlg.addEventListener('keydown', (e) => {
-      if (e.key === 'ArrowLeft')  { e.preventDefault(); ver(idx - 1); }
-      if (e.key === 'ArrowRight') { e.preventDefault(); ver(idx + 1); }
-    });
-    // Al cerrar se vacía: si no, un PDF abierto se queda vivo por detrás
-    dlg.addEventListener('close', () => { dlg.querySelector('.vo-previa').innerHTML = ''; lista = []; });
-  }
-
-  function ver(i) {
-    if (!lista.length) return;
-    idx = (i + lista.length) % lista.length;
-    const a = lista[idx];
-    dlg.querySelector('.vo-nombre').textContent = a.nombre;
-    dlg.querySelector('header h3 > i').className = 'fa-solid ' + iconoAdjunto(a.ext);
-    dlg.querySelector('.vo-cont').textContent = lista.length > 1 ? (idx + 1) + ' / ' + lista.length : '';
-    dlg.querySelector('.vo-abrir').href = a.ruta;
-    const bajar = dlg.querySelector('.vo-bajar');
-    bajar.href = a.ruta;
-    bajar.setAttribute('download', a.nombre);
-    dlg.querySelectorAll('.vo-flecha').forEach((b) => { b.hidden = lista.length < 2; });
-    pintarPrevia(dlg.querySelector('.vo-previa'), a);
-  }
-
-  document.addEventListener('click', (e) => {
-    const el = e.target.closest('.obs-adjuntos a[data-visor]');
-    if (!el || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
-    e.preventDefault();
-    const items = [...el.closest('.obs-adjuntos').querySelectorAll('a[data-visor]')];
-    lista = items.map((x) => ({
-      ruta: x.getAttribute('href'),
-      nombre: x.dataset.nombre || '',
-      // Una miniatura es imagen aunque su extensión no esté en la lista conocida
-      ext: x.classList.contains('obs-img') && !esImagen(x.dataset.ext) ? 'png' : (x.dataset.ext || ''),
-    }));
-    if (!dlg) crear();
-    ver(items.indexOf(el));
-    if (!dlg.open) dlg.showModal();
-  });
-})();
 
 /* ---------- Previsualización dentro del detalle de la tarea ---------- */
 let dtAdjuntos = [], dtIdx = 0;
