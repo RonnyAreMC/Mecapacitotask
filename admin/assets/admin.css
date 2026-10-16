@@ -2627,6 +2627,40 @@ html.dark .obs-estado.e-res  { color: #57d99a; }
 .obs-doc .fa-download { color: var(--c-text-soft); margin-left: auto; font-size: .8rem; }
 .obs-doc:hover { color: var(--c-secondary); }
 
+/* Visor de los adjuntos de una observación (el <dialog> lo crea admin.js) */
+/* .dlg-meca va más abajo en este archivo y fijaría 560px: hace falta la doble clase */
+.dlg-meca.dlg-visor-obs { width: min(1100px, calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: hidden; }
+.dlg-visor-obs .dlg-form { gap: 12px; padding: 18px 20px 20px; }
+.dlg-visor-obs .dlg-form header { align-items: center; gap: 12px; margin: 0; }
+.dlg-visor-obs .dlg-form header h3 { flex-direction: row; align-items: center; gap: 10px; min-width: 0; font-size: 1rem; }
+.dlg-visor-obs .dlg-form header h3 > i:first-child { width: 36px; height: 36px; border-radius: 10px; font-size: 1rem; }
+.dlg-visor-obs .vo-nombre { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dlg-visor-obs .vo-acciones { display: flex; align-items: center; gap: 8px; flex: none; }
+.dlg-visor-obs .vo-cont { font-size: .82rem; font-weight: 700; color: var(--c-text-muted); margin-right: 4px; }
+.dlg-visor-obs .vo-btn {
+  width: 36px; height: 36px; border-radius: 11px;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: var(--n-bg); box-shadow: var(--sh-mini); color: var(--c-text-muted);
+  transition: color .2s ease;
+}
+.dlg-visor-obs .vo-btn:hover { color: var(--c-secondary); }
+.dlg-visor-obs .vo-cuerpo { position: relative; }
+.dlg-visor-obs .vo-previa { height: min(76vh, 860px); border-radius: 14px; overflow: hidden; background: #fff; }
+.dlg-visor-obs .vo-flecha {
+  position: absolute; top: 50%; transform: translateY(-50%);
+  width: 42px; height: 42px; border: 0; border-radius: 50%;
+  display: inline-flex; align-items: center; justify-content: center;
+  background: rgba(15, 23, 42, .6); color: #fff; cursor: pointer;
+  transition: background .2s ease;
+}
+.dlg-visor-obs .vo-flecha:hover { background: rgba(15, 23, 42, .85); }
+.dlg-visor-obs .vo-ant { left: 12px; }
+/* A la derecha deja libre la barra de desplazamiento del visor de PDF */
+.dlg-visor-obs .vo-sig { right: 26px; }
+/* display:inline-flex le gana al [hidden] del navegador: hay que decirlo */
+.dlg-visor-obs .vo-flecha[hidden] { display: none; }
+@media (max-width: 640px) { .dlg-visor-obs .vo-previa { height: 68vh; } }
+
 .obs-acciones {
   display: flex; justify-content: flex-end; gap: 10px;
   margin-top: 14px; padding-top: 12px;

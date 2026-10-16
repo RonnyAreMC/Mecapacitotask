@@ -85,13 +85,23 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
 
       <?php if (!empty($o['adjuntos'])): ?>
       <div class="obs-adjuntos">
-        <?php foreach ($o['adjuntos'] as $a): if (($a['tipo'] ?? '') === 'img'): ?>
-        <a class="obs-img" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" title="<?= e($a['nombre']) ?>">
+        <?php /* data-visor: se abre en el modal de previsualización (admin.js).
+                 El href queda para Ctrl/Cmd+clic y para cuando no hay JS. */ ?>
+        <?php foreach ($o['adjuntos'] as $a): $extA = strtolower((string)($a['ext'] ?? '')); if (($a['tipo'] ?? '') === 'img'): ?>
+        <a class="obs-img" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" title="<?= e($a['nombre']) ?>"
+           data-visor data-nombre="<?= e($a['nombre']) ?>" data-ext="<?= e($extA ?: 'png') ?>">
           <img src="<?= e($a['ruta']) ?>" alt="<?= e($a['nombre']) ?>" loading="lazy">
         </a>
-        <?php else: ?>
+        <?php elseif ($extA === 'pdf'): ?>
+        <a class="obs-doc" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" title="Ver <?= e($a['nombre']) ?>"
+           data-visor data-nombre="<?= e($a['nombre']) ?>" data-ext="pdf">
+          <i class="fa-solid fa-file-pdf"></i>
+          <span><?= e($a['nombre']) ?></span>
+          <i class="fa-solid fa-eye"></i>
+        </a>
+        <?php else: /* Word: el navegador no lo muestra, se descarga */ ?>
         <a class="obs-doc" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" download>
-          <i class="fa-solid <?= ($a['ext'] ?? '') === 'pdf' ? 'fa-file-pdf' : 'fa-file-word' ?>"></i>
+          <i class="fa-solid fa-file-word"></i>
           <span><?= e($a['nombre']) ?></span>
           <i class="fa-solid fa-download"></i>
         </a>
