@@ -41,10 +41,13 @@ final class ReportePptx
 
         $this->portada($rep);
         $this->indice($rep);
-        $this->tablero($rep);
-        $this->listado($rep);
+        // Con un solo proyecto, el tablero y el listado repetirían su diapositiva.
+        if (count($ps) > 1) {
+            $this->tablero($rep);
+            $this->listado($rep);
+        }
         foreach ($ps as $p) $this->proyecto($p);
-        $this->requerimientos($rep['requerimientos']);
+        if ($rep['con_requerimientos']) $this->requerimientos($rep['requerimientos']);
         $this->cierre($rep);
 
         return $this->empaquetar($rep);
@@ -65,7 +68,7 @@ final class ReportePptx
         $this->rect(2.2, 13.6, 6.4, 1.3, self::VERDE, null, true, ['Comenzar  ▶', 14, true, self::BLANCO], 'indice');
 
         $this->rect(21.6, 3.2, 10.9, 12.6, self::NAVY, null, true);
-        $cifras = [[(string)$R['proyectos'], 'PROYECTOS EN DESARROLLO'],
+        $cifras = [[(string)$R['proyectos'], $R['proyectos'] === 1 ? 'PROYECTO EN DESARROLLO' : 'PROYECTOS EN DESARROLLO'],
                    [(string)$R['entregables'], 'ENTREGABLES GESTIONADOS'],
                    [$R['cumplimiento'] . '%', 'NIVEL DE CUMPLIMIENTO']];
         foreach ($cifras as $i => [$n, $et]) {
@@ -101,6 +104,9 @@ final class ReportePptx
 
         $extras = [['Tablero de control', 'tablero'], ['Listado de proyectos', 'listado'],
                    ['Requerimientos sueltos', 'requerimientos'], ['Lectura ejecutiva', 'cierre']];
+        if (!$rep['con_requerimientos']) unset($extras[2]);
+        if (count($ps) <= 1) unset($extras[0], $extras[1]);
+        $extras = array_values($extras);
         $n  = count($extras);
         $an = (self::ANCHO_UTIL - 0.5 * ($n - 1)) / $n;
         foreach ($extras as $i => [$txt, $destino]) {

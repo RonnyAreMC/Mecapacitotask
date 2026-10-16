@@ -125,26 +125,31 @@ $tabla = function (array $cabeceras, array $filas): void {
     <p class="tit"><?= e(mb_strtoupper($rep['titulo'])) ?></p>
     <p class="sub"><?= e(mb_strtoupper($rep['subtitulo'])) ?></p>
     <p class="fecha">Fecha de corte: <?= e($rep['generado']) ?></p>
-    <p class="cifras"><?= (int)$R['proyectos'] ?> proyectos &nbsp;·&nbsp; <?= (int)$R['entregables'] ?> entregables &nbsp;·&nbsp; <?= (int)$R['cumplimiento'] ?>% de cumplimiento</p>
+    <p class="cifras"><?= e(Reporte::n($R['proyectos'], 'proyecto', 'proyectos')) ?> &nbsp;·&nbsp; <?= e(Reporte::n($R['entregables'], 'entregable', 'entregables')) ?> &nbsp;·&nbsp; <?= (int)$R['cumplimiento'] ?>% de cumplimiento</p>
   </div>
 
   <h2><?= ++$n ?>. Resumen ejecutivo</h2>
-  <p>El portafolio comprende <?= (int)$R['proyectos'] ?> proyectos en desarrollo con <?= (int)$R['entregables'] ?> entregables registrados.
-     El nivel de cumplimiento global es del <?= (int)$R['cumplimiento'] ?>%: <?= (int)$R['completados'] ?> completados,
+  <p><?php if ($R['proyectos'] === 1): ?>El reporte cubre el proyecto <?= e($rep['proyectos'][0]['nombre']) ?>, con <?= e(Reporte::n($R['entregables'], 'entregable', 'entregables')) ?> registrados.
+     <?php else: ?>El portafolio comprende <?= (int)$R['proyectos'] ?> proyectos en desarrollo con <?= e(Reporte::n($R['entregables'], 'entregable', 'entregables')) ?> registrados.
+     <?php endif; ?>El nivel de cumplimiento global es del <?= (int)$R['cumplimiento'] ?>%: <?= (int)$R['completados'] ?> completados,
      <?= (int)$R['en_curso'] ?> en ejecución o validación y <?= (int)$R['por_hacer'] ?> pendientes de iniciar.</p>
   <?php if ($R['observadas'] > 0): ?>
   <p>De los entregables en ejecución, <?= (int)$R['observadas'] ?> ya están terminados pero tienen observaciones abiertas:
      cuentan como en curso hasta que se resuelvan.</p>
   <?php endif; ?>
+  <?php if ($rep['con_requerimientos']): ?>
   <p>Se gestionan además <?= (int)$rq['total'] ?> requerimientos sueltos, de los cuales <?= count($rq['abiertos']) ?> siguen abiertos
      y <?= (int)$rq['vencidos'] ?> están vencidos.</p>
+  <?php endif; ?>
 
+  <?php if (count($rep['proyectos']) > 1): /* con uno solo, sería repetir su tabla */ ?>
   <h2><?= ++$n ?>. Proyectos y volumen de trabajo</h2>
   <?php
   $filas = array_map(fn($p) => [$p['nombre'], $p['avance'] . '%', $p['entregables'], $p['completados'], $p['en_curso'], $p['por_hacer']], $rep['proyectos']);
   $filas[] = ['TOTAL', $R['cumplimiento'] . '%', $R['entregables'], $R['completados'], $R['en_curso'], $R['por_hacer']];
   $tabla(['Proyecto', 'Avance', 'Entregables', 'Completados', 'En curso', 'Por hacer'], $filas);
   ?>
+  <?php endif; ?>
 
   <h2><?= ++$n ?>. Líneas de trabajo por proyecto</h2>
   <p class="gris" style="font-size:10pt">Qué se está construyendo en cada proyecto, agrupado por área funcional, con el número de entregables que agrupa cada línea.</p>
@@ -156,6 +161,7 @@ $tabla = function (array $cabeceras, array $filas): void {
     ?>
   <?php endforeach; ?>
 
+  <?php if ($rep['con_requerimientos']): ?>
   <h2><?= ++$n ?>. Requerimientos sueltos</h2>
   <p>Peticiones que no pertenecen a ningún proyecto: <?= (int)$rq['total'] ?> en total, <?= count($rq['abiertos']) ?> abiertas y <?= (int)$rq['vencidos'] ?> vencidas.</p>
   <?php
@@ -164,6 +170,7 @@ $tabla = function (array $cabeceras, array $filas): void {
           array_map(fn($q) => [$q['titulo'], $q['entrega'] ?: '—', $q['vencido'] ? 'Vencido' : 'En plazo'], $rq['abiertos']));
   }
   ?>
+  <?php endif; ?>
 
   <h2><?= ++$n ?>. Conclusiones</h2>
   <ul class="concl">

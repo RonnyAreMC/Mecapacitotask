@@ -99,21 +99,47 @@ final class Reporte
 
     /* ------------------------------------------------------------------ */
 
-    /** El reporte con los datos de este panel. */
-    public static function desdePanel(): array
+    /**
+     * Qué entra en el reporte, leído de la petición (?p[]=3&p[]=8&req=0).
+     * Devuelve [ids de proyecto o null = todos, ¿con requerimientos sueltos?].
+     * No se guarda en ningún lado: va en la dirección, así quien entra después
+     * ve el reporte completo y no uno filtrado sin darse cuenta.
+     */
+    public static function seleccion(array $src): array
+    {
+        $ids = array_values(array_unique(array_filter(array_map('intval', (array)($src['p'] ?? [])), fn($n) => $n > 0)));
+        return [$ids ?: null, ($src['req'] ?? '1') !== '0'];
+    }
+
+    /** Lo mismo, como parámetros de una dirección (vacío si es el reporte completo). */
+    public static function consulta(?array $ids, bool $conReq): string
+    {
+        $q = [];
+        if ($ids) $q['p'] = array_values($ids);
+        if (!$conReq) $q['req'] = '0';
+        return $q ? http_build_query($q) : '';
+    }
+
+    /** El reporte con los datos de este panel; $ids = solo esos proyectos. */
+    public static function desdePanel(?array $ids = null, bool $conReq = true): array
     {
         $tareasRepo = new TareaRepo();
         $proyectos  = [];
+        $conTareas  = 0;
         foreach ((new ProyectoRepo())->todos() as $p) {
             $p['_tareas'] = $tareasRepo->delProyecto((int)$p['id']);
+            if ($p['_tareas']) $conTareas++;
+            if ($ids !== null && !in_array((int)$p['id'], $ids, true)) continue;
             $proyectos[] = $p;
         }
+        $parcial = $ids !== null && count(array_filter($proyectos, fn($p) => $p['_tareas'])) < $conTareas;
         return self::construir(
             $proyectos,
             (new ObservacionRepo())->tareasConPendientes(),
-            (new RequerimientoRepo())->todos(),
+            $conReq ? (new RequerimientoRepo())->todos() : [],
             array_keys(Catalogo::estadosTarea()),
-            Catalogo::estadosFinales()
+            Catalogo::estadosFinales(),
+            ['con_requerimientos' => $conReq, 'parcial' => $parcial]
         );
     }
 
@@ -130,8 +156,10 @@ final class Reporte
      *  - en curso: cualquier otro.
      */
     public static function construir(array $proyectos, array $observadas, array $requerimientos,
-                                     array $ordenEstados, array $finales): array
+                                     array $ordenEstados, array $finales, array $op = []): array
     {
+        $conReq  = $op['con_requerimientos'] ?? true;
+        $parcial = !empty($op['parcial']);
         $inicial = '';
         foreach ($ordenEstados as $k) {
             if (!in_array($k, $finales, true)) { $inicial = $k; break; }
@@ -212,9 +240,19 @@ final class Reporte
         $global['proyectos']    = count($salida);
 
         $sem = self::semilla();
+        // Con una selección, el subtítulo dice de qué proyectos es el reporte.
+        $subtitulo = (string)$sem['subtitulo'];
+        if ($parcial && $salida) {
+            $nombres = array_map(fn($p) => $p['nombre'], $salida);
+            $subtitulo = count($nombres) === 1 ? 'Estado de avance del proyecto ' . $nombres[0]
+                : (count($nombres) <= 3 ? 'Estado de avance de ' . self::lista($nombres)
+                                        : 'Estado de avance de ' . count($nombres) . ' proyectos seleccionados');
+        }
         $rep = [
             'titulo'         => (string)$sem['titulo'],
-            'subtitulo'      => (string)$sem['subtitulo'],
+            'subtitulo'      => $subtitulo,
+            'parcial'        => $parcial,
+            'con_requerimientos' => $conReq,
             'pie'            => (string)$sem['pie'],
             'generado'       => date('Y-m-d H:i'),
             'resumen'        => $global,
@@ -240,7 +278,8 @@ final class Reporte
         $ps = $rep['proyectos'];
         if (!$ps) return [];
 
-        $out = [sprintf('El portafolio alcanza un %d%% de cumplimiento, con %d de los %d entregables completados.',
+        $out = [sprintf('%s alcanza un %d%% de cumplimiento, con %d de los %d entregables completados.',
+            count($ps) === 1 ? 'El proyecto ' . $ps[0]['nombre'] : 'El portafolio',
             $R['cumplimiento'], $R['completados'], $R['entregables'])];
 
         $cerrados = array_values(array_map(fn($p) => $p['nombre'], array_filter($ps, fn($p) => $p['avance'] === 100)));
@@ -262,7 +301,7 @@ final class Reporte
         }
 
         $rezagado = $ps[count($ps) - 1];
-        if ($rezagado['avance'] < 50) {
+        if (count($ps) >= 2 && $rezagado['avance'] < 50) {
             $out[] = sprintf('%s, con un %d%% de avance, es el proyecto más rezagado y requiere atención de la dirección.',
                 $rezagado['nombre'], $rezagado['avance']);
         }
@@ -270,12 +309,18 @@ final class Reporte
             $out[] = sprintf('%d %s con observaciones abiertas: cuentan como en curso hasta que se resuelvan.',
                 $R['observadas'], $R['observadas'] === 1 ? 'entregable terminado sigue' : 'entregables terminados siguen');
         }
-        $v = $rep['requerimientos']['vencidos'];
+        $v = $rep['con_requerimientos'] ? $rep['requerimientos']['vencidos'] : 0;
         if ($v > 0) {
             $out[] = $v === 1 ? 'Un requerimiento suelto está vencido y debe reprogramarse o cerrarse.'
                               : sprintf('%d requerimientos sueltos están vencidos y deben reprogramarse o cerrarse.', $v);
         }
         return $out;
+    }
+
+    /** "1 proyecto", "3 proyectos". */
+    public static function n(int $n, string $uno, string $varios): string
+    {
+        return $n . ' ' . ($n === 1 ? $uno : $varios);
     }
 
     /** "A, B y C". */
@@ -292,6 +337,10 @@ final class Reporte
     {
         $ascii = function_exists('iconv') ? (string)@iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $rep['titulo']) : '';
         if ($ascii === '') $ascii = ucwords(self::clave($rep['titulo']));
+        if (!empty($rep['parcial']) && count($rep['proyectos']) === 1) {
+            $uno = function_exists('iconv') ? (string)@iconv('UTF-8', 'ASCII//TRANSLIT//IGNORE', $rep['proyectos'][0]['nombre']) : '';
+            $ascii .= ' ' . ($uno !== '' ? $uno : ucwords(self::clave($rep['proyectos'][0]['nombre'])));
+        }
         $base = trim((string)preg_replace('/[^A-Za-z0-9]+/', '-', $ascii), '-') ?: 'Reporte';
         return 'INNOTECH-' . $base . '-' . date('Y-m-d') . '.' . $ext;
     }

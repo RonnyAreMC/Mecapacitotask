@@ -33,30 +33,37 @@ final class ReporteDocx
         $this->p(mb_strtoupper($rep['titulo']), 28, true, self::NAVY, 0, 2);
         $this->p(mb_strtoupper($rep['subtitulo']), 13, true, self::NAVY, 0, 8);
         $this->p('Fecha de corte: ' . $rep['generado'], 10, false, self::GRIS, 0, 2);
-        $this->p(sprintf('%d proyectos   ·   %d entregables   ·   %d%% de cumplimiento',
-            $R['proyectos'], $R['entregables'], $R['cumplimiento']), 13, true, self::VERDE, 4, 0);
+        $this->p(sprintf('%s   ·   %s   ·   %d%% de cumplimiento', Reporte::n($R['proyectos'], 'proyecto', 'proyectos'),
+            Reporte::n($R['entregables'], 'entregable', 'entregables'), $R['cumplimiento']), 13, true, self::VERDE, 4, 0);
 
         $n = 0;
         /* ---- 1. Resumen ejecutivo ---- */
         $this->titulo(++$n . '. Resumen ejecutivo');
-        $this->p(sprintf('El portafolio comprende %d proyectos en desarrollo con %d entregables registrados. '
-            . 'El nivel de cumplimiento global es del %d%%: %d completados, %d en ejecución o validación '
-            . 'y %d pendientes de iniciar.', $R['proyectos'], $R['entregables'], $R['cumplimiento'],
-            $R['completados'], $R['en_curso'], $R['por_hacer']));
+        $this->p(($R['proyectos'] === 1
+                ? sprintf('El reporte cubre el proyecto %s, con %s registrados. ', $rep['proyectos'][0]['nombre'],
+                          Reporte::n($R['entregables'], 'entregable', 'entregables'))
+                : sprintf('El portafolio comprende %d proyectos en desarrollo con %s registrados. ', $R['proyectos'],
+                          Reporte::n($R['entregables'], 'entregable', 'entregables')))
+            . sprintf('El nivel de cumplimiento global es del %d%%: %d completados, %d en ejecución o validación '
+            . 'y %d pendientes de iniciar.', $R['cumplimiento'], $R['completados'], $R['en_curso'], $R['por_hacer']));
         if ($R['observadas'] > 0) {
             $this->p(sprintf('De los entregables en ejecución, %d ya están terminados pero tienen observaciones abiertas: '
                 . 'cuentan como en curso hasta que se resuelvan.', $R['observadas']));
         }
-        $this->p(sprintf('Se gestionan además %d requerimientos sueltos, de los cuales %d siguen abiertos y %d están vencidos.',
-            $rq['total'], count($rq['abiertos']), $rq['vencidos']));
+        if ($rep['con_requerimientos']) {
+            $this->p(sprintf('Se gestionan además %d requerimientos sueltos, de los cuales %d siguen abiertos y %d están vencidos.',
+                $rq['total'], count($rq['abiertos']), $rq['vencidos']));
+        }
 
-        /* ---- 2. Proyectos y volumen ---- */
-        $this->titulo(++$n . '. Proyectos y volumen de trabajo');
-        $filas = array_map(fn($p) => [$p['nombre'], $p['avance'] . '%', $p['entregables'], $p['completados'],
-                                      $p['en_curso'], $p['por_hacer']], $rep['proyectos']);
-        $filas[] = ['TOTAL', $R['cumplimiento'] . '%', $R['entregables'], $R['completados'], $R['en_curso'], $R['por_hacer']];
-        $this->tabla(['Proyecto', 'Avance', 'Entregables', 'Completados', 'En curso', 'Por hacer'],
-            $filas, [4.9, 1.7, 2.6, 2.7, 2.0, 2.1]);
+        /* ---- 2. Proyectos y volumen (con uno solo, sería repetir su tabla) ---- */
+        if (count($rep['proyectos']) > 1) {
+            $this->titulo(++$n . '. Proyectos y volumen de trabajo');
+            $filas = array_map(fn($p) => [$p['nombre'], $p['avance'] . '%', $p['entregables'], $p['completados'],
+                                          $p['en_curso'], $p['por_hacer']], $rep['proyectos']);
+            $filas[] = ['TOTAL', $R['cumplimiento'] . '%', $R['entregables'], $R['completados'], $R['en_curso'], $R['por_hacer']];
+            $this->tabla(['Proyecto', 'Avance', 'Entregables', 'Completados', 'En curso', 'Por hacer'],
+                $filas, [4.9, 1.7, 2.6, 2.7, 2.0, 2.1]);
+        }
 
         /* ---- 3. Líneas de trabajo ---- */
         $this->titulo(++$n . '. Líneas de trabajo por proyecto');
@@ -69,14 +76,16 @@ final class ReporteDocx
                 [6.0, 2.6, 2.7, 2.1, 2.1]);
         }
 
-        /* ---- 4. Requerimientos sueltos ---- */
-        $this->titulo(++$n . '. Requerimientos sueltos');
-        $this->p(sprintf('Peticiones que no pertenecen a ningún proyecto: %d en total, %d abiertas y %d vencidas.',
-            $rq['total'], count($rq['abiertos']), $rq['vencidos']));
-        if ($rq['abiertos']) {
-            $this->tabla(['Requerimiento abierto', 'Entrega', 'Situación'],
-                array_map(fn($q) => [$q['titulo'], $q['entrega'] ?: '—', $q['vencido'] ? 'Vencido' : 'En plazo'], $rq['abiertos']),
-                [10.4, 2.8, 2.8]);
+        /* ---- 4. Requerimientos sueltos (si entran en el reporte) ---- */
+        if ($rep['con_requerimientos']) {
+            $this->titulo(++$n . '. Requerimientos sueltos');
+            $this->p(sprintf('Peticiones que no pertenecen a ningún proyecto: %d en total, %d abiertas y %d vencidas.',
+                $rq['total'], count($rq['abiertos']), $rq['vencidos']));
+            if ($rq['abiertos']) {
+                $this->tabla(['Requerimiento abierto', 'Entrega', 'Situación'],
+                    array_map(fn($q) => [$q['titulo'], $q['entrega'] ?: '—', $q['vencido'] ? 'Vencido' : 'En plazo'], $rq['abiertos']),
+                    [10.4, 2.8, 2.8]);
+            }
         }
 
         /* ---- Conclusiones ---- */

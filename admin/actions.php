@@ -2446,7 +2446,9 @@ switch ($accion) {
         require_once __DIR__ . '/lib/Reporte.php';
         require_once __DIR__ . '/lib/ReportePptx.php';
         require_once __DIR__ . '/lib/ReporteDocx.php';
-        $repDesc = Reporte::desdePanel();
+        // La misma selección que se ve en la página (Configurar): ?p[]=…&req=0
+        [$selDesc, $reqDesc] = Reporte::seleccion($_POST);
+        $repDesc = Reporte::desdePanel($selDesc, $reqDesc);
         $esPpt   = $accion === 'reporte_pptx';
         $binRep  = $esPpt ? ReportePptx::generar($repDesc) : ReporteDocx::generar($repDesc);
         header('Content-Type: ' . ($esPpt
