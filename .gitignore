@@ -8,6 +8,11 @@ admin/data/*.csv
 admin/data/config.json.*
 # Llave que cifra las claves de la IA (data/ia.json): nunca al repo
 admin/data/ia.secreto
+# Llave que cifra las contraseñas del correo InnoTech: nunca al repo
+admin/data/correo.secreto
+# Notificaciones nativas: claves del panel (push.json va por *.json) y archivos de trabajo del cron
+admin/data/openssl-min.cnf
+admin/data/cron_correo.lock
 admin/data/*.bak
 admin/uploads/*
 

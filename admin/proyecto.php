@@ -46,7 +46,12 @@ $urlConFiltros = 'proyecto.php?id=' . $id
 // y si filtras justo por un estado final, también aparecen.
 $verArchivadas = !empty($_GET['arch']) || in_array($fEstado, $finales, true);
 $limiteArch    = date('Y-m-d', strtotime('-7 days'));
+// Solo se archiva lo terminado DE VERDAD (el mismo criterio de «Completadas»):
+// una tarea en estado final con observaciones pendientes sigue en el tablero,
+// porque falta corregirla; si no, quedaba oculta y fuera de las completadas.
+$tareasObservadas = (new ObservacionRepo())->tareasConPendientes();
 $esArchivada   = fn($t) => in_array($t['estado'] ?? '', $finales, true)
+    && empty($tareasObservadas[(int)($t['id'] ?? 0)])
     && (string)($t['completada_en'] ?? '') !== '' && (string)($t['completada_en'] ?? '') < $limiteArch;
 $nArchivadas   = count(array_filter($tareas, $esArchivada));
 // Lista completa (con las archivadas): el cierre por dia mira hacia atras y
@@ -655,7 +660,10 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>
       <?php endif; ?>
       <dl class="ph-cifras">
-        <div><dt>Tareas</dt><dd><?= $totalTareas ?></dd></div>
+        <div><dt>Tareas</dt><dd><?= $totalTareas ?></dd>
+          <?php if ($nArchivadas > 0): /* el total incluye las archivadas; la pestaña «Tareas» no */ ?>
+          <small class="ph-cifra-nota"><?= $totalTareas - $nArchivadas ?> en el tablero · <?= $nArchivadas ?> archivada<?= $nArchivadas === 1 ? '' : 's' ?></small>
+          <?php endif; ?></div>
         <div class="ph-cifra-hechas"><dt>Completadas</dt><dd><?= $completadas ?></dd></div>
         <div class="ph-cifra-avance"><dt>Avance</dt><dd><?= $avance ?>%</dd>
           <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span></div>
@@ -688,7 +696,7 @@ foreach ($tareas as $t) {
   <div class="vista-toggle">
     <button type="button" class="tab-btn" data-vista="calendario" data-tip="Calendario"><i class="fa-solid fa-calendar-days"></i> <span class="tab-txt">Calendario</span></button>
     <button type="button" class="tab-btn" data-vista="tareas" data-tip="Tareas"><i class="fa-solid fa-list-check"></i> <span class="tab-txt">Tareas</span>
-      <span class="tab-badge tab-badge-neutro"><?= count($tareas) ?></span>
+      <span class="tab-badge tab-badge-neutro"<?= $nArchivadas > 0 && !$verArchivadas ? ' title="En el tablero, sin las ' . $nArchivadas . ' archivadas (completadas hace más de una semana)"' : '' ?>><?= count($tareas) ?></span>
     </button>
     <button type="button" class="tab-btn" data-vista="observaciones" data-tip="Observaciones"><i class="fa-solid fa-comment-dots"></i> <span class="tab-txt">Observaciones</span>
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>

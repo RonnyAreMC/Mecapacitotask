@@ -94,6 +94,14 @@ class UI
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title><?= e($titulo) ?> · <?= e(Config::get('titulo')) ?></title>
 <link rel="icon" type="<?= logoMime(faviconPanel()) ?>" href="<?= e(faviconPanel()) ?>">
+<?php if (is_file(__DIR__ . '/../manifest.webmanifest')): /* nombre e ícono del panel en el teléfono (iPhone pide esto para dar avisos) */ ?>
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#10285A">
+<link rel="apple-touch-icon" href="iconos/pwa/apple-touch-180.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="InnoTech">
+<?php endif; ?>
 <script>
 (function () {
   var params = new URLSearchParams(location.search);
@@ -397,8 +405,44 @@ class UI
         $rol = Auth::ROLES[Auth::rol()] ?? 'Solo lectura';
         $iconosNotif = [];
         if ($conNotif) foreach (Notif::TIPOS as $t => [, $ico, $tono]) $iconosNotif[$t] = [self::iconoDS($ico, 18), $tono];
+        // Correo InnoTech en la campana (el conteo guardado; la campana lo refresca)
+        $correoOn = false;
+        $nCorreo = null;
+        if ($conNotif && is_file(__DIR__ . '/Correo.php') && is_file(__DIR__ . '/correo_vista.php')) {
+            require_once __DIR__ . '/Correo.php';
+            $correoOn = Correo::activo();
+            $nCorreo = $correoOn ? Correo::noLeidos($mid) : null;
+        }
+        // Notificaciones nativas: la clave pública del panel y cómo se llama este dispositivo
+        $pushClave = '';
+        $pushEquipo = '';
+        if (is_file(__DIR__ . '/Push.php') && is_file(__DIR__ . '/../sw.js')) {
+            require_once __DIR__ . '/Push.php';
+            if (Push::activo()) {
+                $pushClave = Push::clavePublica();
+                $pushEquipo = Push::equipo((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
+            }
+        }
         ?>
-<header class="ds-enc" id="ds-topbar">
+<header class="ds-enc" id="ds-topbar"<?= $pushClave !== '' ? ' data-push="' . e($pushClave) . '"' : '' ?>>
+  <?php if ($pushClave !== ''): ?>
+  <!-- Pregunta arriba si activamos los avisos en este dispositivo (assets/ds.js la muestra
+       mientras la persona no acepte ni diga «No, gracias»). Solo avisos: no se instala nada. -->
+  <div class="ds-push" role="dialog" aria-labelledby="ds-push-t" aria-describedby="ds-push-d" data-push-modal hidden>
+    <span class="mc-tile mc-tile--azul ds-push__ico"><?= self::iconoDS('notificaciones', 22) ?></span>
+    <div class="ds-push__txt">
+      <p class="ds-push__t" id="ds-push-t">¿Activamos las notificaciones en este dispositivo?</p>
+      <p class="ds-push__d" id="ds-push-d" data-push-normal>Te avisamos al instante cuando te llegue un correo InnoTech o te asignen algo, aunque el panel esté cerrado.</p>
+      <p class="ds-push__d" data-push-ios hidden>En iPhone y iPad, Apple solo deja avisar si abres el panel desde la pantalla de inicio: toca <b>Compartir</b> → <b>Agregar a inicio</b>, entra desde ese ícono y ahí activas las notificaciones.</p>
+      <span class="ds-push__equipo"><?= self::iconoDS('computadora', 14) ?> <span data-push-equipo><?= e($pushEquipo) ?></span></span>
+    </div>
+    <div class="ds-push__acciones">
+      <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-push-si><span class="mc-btn__label">Activar notificaciones</span></button>
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-push-no><span class="mc-btn__label">No, gracias</span></button>
+    </div>
+    <button type="button" class="mc-iconbtn mc-iconbtn--sm ds-push__cerrar" data-push-cerrar aria-label="Cerrar (te lo preguntamos otra vez)"><?= self::iconoDS('cerrar', 16) ?></button>
+  </div>
+  <?php endif; ?>
   <div class="ds-enc__fila">
 
     <div class="ds-enc__tools">
@@ -421,6 +465,15 @@ class UI
             <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-notif-todas<?= $sin ? '' : ' hidden' ?>>
               <?= self::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todo leído</span></button>
           </div>
+          <?php if ($correoOn): ?>
+          <a class="ds-correo-fila" href="notificaciones.php?tab=correo" data-correo-fila<?= $nCorreo === null ? ' data-correo-sin' : '' ?>>
+            <span class="mc-tile mc-tile--sm mc-tile--azul"><?= self::iconoDS('correo', 18) ?></span>
+            <span class="ds-correo-fila__txt"><b>Correo InnoTech</b>
+              <small data-correo-sub><?= $nCorreo === null ? 'Sincroniza tu buzón y léelo aquí' : ($nCorreo ? $nCorreo . ' sin leer' : 'Estás al día') ?></small></span>
+            <?php if ($nCorreo === null): ?><span class="ds-correo-fila__cta">Sincronizar</span>
+            <?php else: ?><span class="ds-correo-fila__n" data-correo-n<?= $nCorreo ? '' : ' hidden' ?>><?= $nCorreo > 999 ? '999+' : $nCorreo ?></span><?php endif; ?>
+          </a>
+          <?php endif; ?>
           <ul class="mc-notif__list" data-notif-lista>
             <?php foreach ($items as $n) echo self::itemNotif($n, $iconosNotif); ?>
           </ul>
@@ -1585,6 +1638,44 @@ class UI
     {
         $v = (string)$v;
         return isset(self::PORTADAS[$v]) || $v === 'ninguna' ? $v : '';
+    }
+
+    /** Escenas de la pantalla de entrada (login y crear cuenta): se van turnando. */
+    private const ESCENAS_ENTRADA = [
+        ['entrada-colaborativo', 'Todo el equipo en un mismo tablero', 'Tareas encadenadas, observaciones y avances que todos ven al instante.'],
+        ['entrada-equipo',       'Un líder, un equipo, un mismo objetivo', 'Scrum Master, Product Owner y desarrolladores coordinados en cada sprint.'],
+        ['entrada-reunion',      'Dailies y reuniones sin perder el hilo', 'La agenda, las actas y los acuerdos de cada reunión, en el mismo lugar.'],
+        ['entrada-crm',          'Cada proyecto y cada institución en orden', 'Con su PO, su equipo, sus requerimientos y todo su historial.'],
+        ['entrada-avance',       'El avance real de cada persona', 'Métricas y reportes listos para compartir con un clic.'],
+    ];
+
+    /**
+     * Lado izquierdo del login y del registro: ilustraciones con su texto que
+     * se turnan solas (assets/entrada.js) y puntos para elegir una. Sin el JS
+     * queda fija la primera.
+     */
+    public static function entradaArte(): string
+    {
+        $h = '<aside class="ent-arte" aria-label="Lo que puedes hacer en el panel"><div class="ent-carrusel" data-ent-carrusel>';
+        foreach (self::ESCENAS_ENTRADA as $i => [$img, $titulo, $texto]) {
+            $h .= '<figure class="ent-escena' . ($i === 0 ? ' is-activa' : '') . '"' . ($i === 0 ? '' : ' aria-hidden="true"') . '>'
+                . '<img src="' . e(asset('iconos/ilustraciones/' . $img . '.svg')) . '" alt="" width="520" height="420" decoding="async"'
+                . ($i === 0 ? ' fetchpriority="high"' : '') . '>'
+                . '<figcaption><h2>' . e($titulo) . '</h2><p>' . e($texto) . '</p></figcaption></figure>';
+        }
+        $h .= '</div><div class="ent-puntos">';
+        foreach (self::ESCENAS_ENTRADA as $i => [, $titulo]) {
+            $h .= '<button type="button" class="ent-punto' . ($i === 0 ? ' is-activo' : '') . '" data-ent-punto aria-label="' . e($titulo) . '"'
+                . ($i === 0 ? ' aria-current="true"' : '') . '></button>';
+        }
+        return $h . '</div></aside>';
+    }
+
+    /** Botón «ver / ocultar» dentro de un campo de contraseña (lo maneja assets/entrada.js). */
+    public static function botonVerClave(): string
+    {
+        return '<button type="button" class="mc-input__btn ent-ver" data-ver-clave aria-label="Mostrar contraseña" aria-pressed="false">'
+            . self::iconoDS('ver', 18, 'ent-ver__si') . self::iconoDS('ocultar', 18, 'ent-ver__no') . '</button>';
     }
 
     /** Elegir la portada de un proyecto: miniaturas, más «automática» y «sin portada». */

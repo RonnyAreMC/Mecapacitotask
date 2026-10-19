@@ -260,6 +260,47 @@ entorno, y nunca se guardan en el repositorio.
 **Sin terminal (solo FTP):** entra como administrador a **Ajustes → Actualizar el
 panel** (o a `admin/actualizar.php`) y pulsa *Actualizar ahora*. Hace lo mismo.
 
+## Correo InnoTech dentro del panel
+
+Cada persona lee, responde y escribe su correo `@innotech-solutions.com.ec` desde
+**Notificaciones → Correo InnoTech**, sin entrar al webmail del hosting. La campana
+avisa cuántos correos tiene sin leer.
+
+- **Sincronizar:** la persona escribe su correo y la contraseña del buzón. El panel la
+  prueba contra el servidor y la guarda **cifrada** (llave en `admin/data/correo.secreto`,
+  que nunca va a git). Queda conectado hasta que pulse «Desconectar».
+- **Servidor:** por defecto lee de `mail.innotech-solutions.com.ec:993` (IMAP) y envía por
+  el puerto 465 (SMTP). Un administrador lo cambia en la misma pestaña → «Servidor de correo».
+- **Requisitos de PHP:** `openssl` (obligatorio) y `dom` (para ver los correos con su
+  formato). `php admin/actualizar.php` los revisa y crea la tabla `correo_cuentas`.
+- **Seguridad:** el HTML de cada correo se limpia y se muestra en un marco aislado, sin
+  scripts; las imágenes externas quedan bloqueadas hasta que la persona las pide. Tras 5
+  contraseñas malas seguidas se frena 15 minutos, y si la contraseña del buzón cambia, el
+  panel la pide de nuevo en lugar de insistir (así cPanel no bloquea al servidor).
+
+## Notificaciones nativas (celular y computadora)
+
+El panel avisa al instante en el celular o la computadora —Windows, Mac, Android,
+iPhone— aunque el panel esté cerrado: los avisos de la campana (tareas, reuniones,
+pedidos…) y los **correos InnoTech nuevos** (quién escribe y el asunto). Es el estándar
+Web Push de los navegadores: gratis, sin servicios de pago; el texto va cifrado.
+
+- **Al entrar**, el panel pregunta arriba si activa los avisos en ese dispositivo y
+  muestra cuál es («Chrome en Windows», «Safari en iPhone»…). Sigue preguntando hasta
+  que la persona acepte o diga «No, gracias». Cada uno ve y quita sus dispositivos en
+  **Notificaciones → Tus dispositivos**, y elige qué le llega.
+- **Requiere HTTPS** (AutoSSL del subdominio). Las claves del panel se crean solas en
+  `admin/data/push.json` (no va a git).
+- **iPhone/iPad (iOS 16.4+):** Apple solo deja avisar si el panel se abre desde la
+  pantalla de inicio: Safari → Compartir → **Agregar a inicio**, y entrar desde ese ícono.
+- **Correos al minuto — cron (cPanel → Cron Jobs), cada minuto:**
+
+      * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_correo.php
+
+  Revisa solo los buzones sincronizados de quienes tienen avisos de correo encendidos.
+  Notificaciones → Tus dispositivos (como administrador) y `php admin/actualizar.php`
+  dicen si el cron está corriendo.
+
 ## Migrar de JSON a SQLite (una sola vez, si ya tenías datos)
 
 Las versiones viejas guardaban en archivos `.json`. Al actualizar a la versión con

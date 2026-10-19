@@ -257,6 +257,190 @@
     if (e.target.classList && e.target.classList.contains('ds-select-nativo')) pintar(e.target.closest('.mc-select'));
   });
 
+  /* ---------- Ver / ocultar contraseña (UI::botonVerClave) ---------- */
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-ver-clave]');
+    if (!b) return;
+    const campo = b.parentElement.querySelector('input');
+    if (!campo) return;
+    const ver = campo.type === 'password';
+    campo.type = ver ? 'text' : 'password';
+    b.classList.toggle('is-viendo', ver);
+    b.setAttribute('aria-pressed', ver ? 'true' : 'false');
+    b.setAttribute('aria-label', ver ? 'Ocultar contraseña' : 'Mostrar contraseña');
+  });
+
+  /* ---------- Correo: el marco del mensaje toma la altura de su contenido ---------- */
+  const ajustarMarco = (f) => {
+    try {
+      const d = f.contentDocument;
+      if (!d || !d.documentElement) return;
+      f.style.height = Math.max(240, d.documentElement.scrollHeight + 4) + 'px';
+      d.querySelectorAll('img').forEach((im) => { if (!im.complete) im.addEventListener('load', () => ajustarMarco(f), { once: true }); });
+    } catch (err) { /* sin acceso al contenido: queda la altura mínima */ }
+  };
+  document.querySelectorAll('[data-correo-marco]').forEach((f) => {
+    f.addEventListener('load', () => ajustarMarco(f));
+    if (f.contentDocument && f.contentDocument.readyState === 'complete') ajustarMarco(f);
+  });
+  if (document.querySelector('[data-correo-marco]')) {
+    let t = null;
+    window.addEventListener('resize', () => { clearTimeout(t); t = setTimeout(() => document.querySelectorAll('[data-correo-marco]').forEach(ajustarMarco), 150); });
+  }
+
+  /* ---------- Zona de adjuntos (data-adjuntos) ----------
+     Suma lo que se suelta o se elige (sin repetir), lo lista con su tamaño y
+     una × para quitarlo, y frena el envío si pasa del tope. */
+  const tamBonito = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
+  document.querySelectorAll('[data-adjuntos]').forEach((caja) => {
+    const input = caja.querySelector('[data-adjuntos-input]');
+    const zona = caja.querySelector('[data-adjuntos-zona]');
+    const lista = caja.querySelector('[data-adjuntos-lista]');
+    const total = caja.querySelector('[data-adjuntos-total]');
+    const tope = parseInt(caja.dataset.tope, 10) || 0;
+    if (!input || !zona || typeof DataTransfer === 'undefined') return;
+    let archivos = [];
+    const pintar = () => {
+      const dt = new DataTransfer();
+      archivos.forEach((f) => dt.items.add(f));
+      input.files = dt.files;
+      lista.innerHTML = '';
+      archivos.forEach((f, i) => {
+        const li = document.createElement('li');
+        li.className = 'ds-adjuntos__item';
+        li.innerHTML = '<svg class="mc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3.5H7.5a2 2 0 0 0-2 2v13a2 2 0 0 0 2 2h9a2 2 0 0 0 2-2V8z"/><path d="M14 3.5V8h4.5"/></svg>'
+          + '<span class="ds-adjuntos__nombre"></span><small></small>'
+          + '<button type="button" class="mc-iconbtn mc-iconbtn--sm ds-adjuntos__quitar"><svg class="mc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button>';
+        li.querySelector('.ds-adjuntos__nombre').textContent = f.name;
+        li.querySelector('small').textContent = tamBonito(f.size);
+        const q = li.querySelector('button');
+        q.setAttribute('aria-label', 'Quitar ' + f.name);
+        q.addEventListener('click', () => { archivos.splice(i, 1); pintar(); input.focus(); });
+        lista.appendChild(li);
+      });
+      const suma = archivos.reduce((s, f) => s + f.size, 0);
+      const pasa = tope > 0 && suma > tope;
+      total.hidden = !archivos.length;
+      total.textContent = archivos.length + (archivos.length === 1 ? ' archivo' : ' archivos') + ' · ' + tamBonito(suma)
+        + (pasa ? ' — pasa del límite de ' + tamBonito(tope) + '. Quita alguno para poder enviar.' : '');
+      caja.classList.toggle('is-error', pasa);
+      const form = caja.closest('form');
+      const enviar = form && form.querySelector('[data-enviar]');
+      if (enviar) enviar.disabled = pasa;
+    };
+    const sumar = (nuevos) => {
+      [...nuevos].forEach((f) => {
+        if (!archivos.some((a) => a.name === f.name && a.size === f.size && a.lastModified === f.lastModified)) archivos.push(f);
+      });
+      pintar();
+    };
+    input.addEventListener('change', () => sumar(input.files));
+    ['dragenter', 'dragover'].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.add('is-sobre'); }));
+    ['dragleave', 'dragend', 'drop'].forEach((ev) => zona.addEventListener(ev, (e) => { e.preventDefault(); zona.classList.remove('is-sobre'); }));
+    zona.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files.length) sumar(e.dataTransfer.files); });
+  });
+
+  /* ---------- Notificaciones nativas (Web Push) ----------
+     Pregunta arriba, en cada página, mientras la persona no acepte ni diga
+     «No, gracias». Aceptar: el navegador pide permiso y el dispositivo queda
+     anotado en el panel. Si ya aceptó antes, se anota solo. Solo avisos: no
+     se descarga ni se instala nada. */
+  const encPush = document.getElementById('ds-topbar');
+  const clavePush = encPush && encPush.dataset.push;
+  if (clavePush && 'serviceWorker' in navigator && window.isSecureContext) {
+    const modal = encPush.querySelector('[data-push-modal]');
+    const RECHAZO = 'meca-push-no';
+    const ua = navigator.userAgent;
+    const esIOS = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const instalada = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+    const soporta = 'PushManager' in window && 'Notification' in window;
+    const leer = (k) => { try { return localStorage.getItem(k); } catch (e) { return null; } };
+    const anotar = (k, v) => { try { v === null ? localStorage.removeItem(k) : localStorage.setItem(k, v); } catch (e) { /* sin almacenamiento */ } };
+    const bytes = (b64) => {
+      const s = atob((b64 + '='.repeat((4 - b64.length % 4) % 4)).replace(/-/g, '+').replace(/_/g, '/'));
+      return Uint8Array.from(s, (c) => c.charCodeAt(0));
+    };
+    const registro = navigator.serviceWorker.register('sw.js').catch(() => null);
+    const guardar = async (sub) => {
+      const fd = new FormData();
+      fd.append('accion', 'push_suscribir');
+      fd.append('sub', JSON.stringify(sub));
+      const r = await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } });
+      const j = r.ok ? await r.json() : null;
+      if (!j || !j.ok) throw new Error((j && j.error) || 'No se pudo anotar este dispositivo.');
+      return j;
+    };
+    const suscribir = async () => {
+      const reg = await registro;
+      if (!reg) throw new Error('Este navegador no deja recibir avisos aquí.');
+      await navigator.serviceWorker.ready;
+      let sub = await reg.pushManager.getSubscription();
+      if (!sub) sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: bytes(clavePush) });
+      return guardar(sub);
+    };
+    const aviso = (t, tipo, desc) => { if (window.MC && MC.toast) MC.toast(t, tipo, 7000, desc ? { desc } : undefined); };
+    const activar = async () => {
+      if (!soporta) return;
+      const permiso = await Notification.requestPermission();
+      if (permiso === 'granted') {
+        anotar(RECHAZO, null);
+        try {
+          const j = await suscribir();
+          aviso('Listo: este dispositivo recibirá los avisos', 'success', j.equipo || '');
+        } catch (e) { aviso('No se pudo activar en este dispositivo', 'error', e.message); }
+      } else if (permiso === 'denied') {
+        aviso('Bloqueaste los avisos en el navegador', 'warning', 'Para activarlos, toca el candado junto a la dirección del panel y permite las notificaciones.');
+      }
+    };
+    window.MCPush = { activar, suscribir, soporta, esIOS, instalada, olvidarRechazo: () => anotar(RECHAZO, null) };
+
+    // En «Tus dispositivos», marca cuál es este
+    const filasPush = document.querySelectorAll('[data-push-endpoint]');
+    if (filasPush.length && soporta) {
+      registro.then((r) => (r ? r.pushManager.getSubscription() : null)).then((sub) => {
+        if (!sub) return;
+        filasPush.forEach((f) => {
+          if (f.dataset.pushEndpoint !== sub.endpoint) return;
+          f.classList.add('is-este');
+          const marca = f.querySelector('.push-equipo__este');
+          if (marca) marca.hidden = false;
+        });
+      }).catch(() => {});
+    }
+
+    // Ya aceptó en este navegador: se asegura de que el panel lo tenga (sin preguntar)
+    if (soporta && Notification.permission === 'granted') suscribir().catch(() => {});
+
+    if (modal) {
+      const cerrar = () => { modal.classList.remove('is-visible'); setTimeout(() => { modal.hidden = true; }, 200); };
+      const iosSinInstalar = esIOS && !instalada && !soporta;
+      const preguntar = leer(RECHAZO) !== '1' && ((soporta && Notification.permission === 'default') || iosSinInstalar);
+      if (iosSinInstalar) {
+        modal.querySelector('[data-push-normal]').hidden = true;
+        modal.querySelector('[data-push-ios]').hidden = false;
+        modal.querySelector('[data-push-si] .mc-btn__label').textContent = 'Entendido';
+      }
+      modal.querySelector('[data-push-si]').addEventListener('click', () => { cerrar(); if (!iosSinInstalar) activar(); });
+      modal.querySelector('[data-push-no]').addEventListener('click', () => { anotar(RECHAZO, '1'); cerrar(); });
+      modal.querySelector('[data-push-cerrar]').addEventListener('click', cerrar);
+      if (preguntar) {
+        setTimeout(() => { modal.hidden = false; requestAnimationFrame(() => modal.classList.add('is-visible')); }, 900);
+      }
+    }
+  }
+  // «Activar en este dispositivo» desde Notificaciones → Tus dispositivos
+  document.querySelectorAll('[data-push-activar]').forEach((b) => b.addEventListener('click', async () => {
+    if (!window.MCPush) return;
+    MCPush.olvidarRechazo();
+    if (!MCPush.soporta) {
+      if (window.MC && MC.toast) MC.toast(MCPush.esIOS ? 'Primero agrega el panel a tu pantalla de inicio' : 'Este navegador no permite avisos aquí', 'warning', 7000,
+        { desc: MCPush.esIOS ? 'Toca Compartir → Agregar a inicio y abre el panel desde ese ícono.' : 'Prueba con Chrome, Edge, Firefox o Safari actualizados.' });
+      return;
+    }
+    await MCPush.activar();
+    setTimeout(() => location.reload(), 1200);
+  }));
+
   /* ---------- Teléfono: solo números (soloNumerosTel) ---------- */
   document.addEventListener('input', (e) => {
     const t = e.target;
@@ -357,6 +541,22 @@
 
       desplegable(notif, '[data-notif-btn]', '[data-notif-panel]');
 
+      // Correo InnoTech: la fila de la campana con lo que no se ha leído
+      const correoFila = notif.querySelector('[data-correo-fila]');
+      const correoN = correoFila && correoFila.querySelector('[data-correo-n]');
+      let correoAntes = correoN && !correoN.hidden ? (parseInt(correoN.textContent, 10) || 0) : 0;
+      const correoContador = (n) => {
+        if (!correoFila || correoFila.hasAttribute('data-correo-sin') || typeof n !== 'number') return;
+        const sEl = correoFila.querySelector('[data-correo-sub]');
+        if (correoN) { correoN.hidden = !n; correoN.textContent = n > 999 ? '999+' : String(n); }
+        if (sEl) sEl.textContent = n ? n + ' sin leer' : 'Estás al día';
+        if (n > correoAntes && window.MC && MC.toast) {
+          const d = n - correoAntes;
+          MC.toast(d === 1 ? 'Te llegó un correo nuevo' : d + ' correos nuevos', 'info', 6000, { desc: 'Míralos en Notificaciones → Correo InnoTech.' });
+        }
+        correoAntes = n;
+      };
+
       const contador = (n) => {
         badge.hidden = !n;
         badge.textContent = n > 99 ? '99+' : String(n);
@@ -386,6 +586,7 @@
           const j = r.ok ? await r.json() : null;
           if (j && j.ok) {
             contador(j.sinLeer);
+            if ('correo' in j) correoContador(j.correo);
             const nuevas = (j.items || []).filter((n) => n.id > ultimo);
             if (nuevas.length) {
               nuevas.slice().reverse().forEach((n) => lista.prepend(fila(n)));

@@ -1,10 +1,11 @@
 <?php
 /**
- * Acceso al panel. Si todavía no existe ningún administrador,
- * muestra el "primer acceso" para crear la cuenta de admin.
+ * Acceso al panel. Si todavía no existe ningún administrador, avisa cómo
+ * crearlo por terminal.
  *
- * Pantalla partida: a la izquierda la escena animada del flujo de tareas
- * (assets/login-flujo.js) y a la derecha el formulario, siempre en claro.
+ * Pantalla partida y en claro, con el design system: a la izquierda las
+ * ilustraciones que se van turnando (UI::entradaArte + assets/entrada.js) y a
+ * la derecha el formulario.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
 
@@ -12,15 +13,13 @@ if (Auth::usuario()) {
     header('Location: ' . urlPanel('index.php'));
     exit;
 }
-$marca      = Config::all();
-$primerUso  = !Auth::hayAdmin();
+$marca     = Config::all();
+$primerUso = !Auth::hayAdmin();
 
 // Flujo "¿quién eres?" RETIRADO: reclamar una ficha sin correo dejaba asociar
 // cualquier correo a una ficha ajena. El acceso es por el correo exacto. Si
 // quedó algo en sesión de antes, se descarta.
 unset($_SESSION['identificar']);
-$identificar = null;
-$sinVincular = [];
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -29,141 +28,60 @@ $sinVincular = [];
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar · <?= e($marca['titulo']) ?></title>
 <link rel="icon" type="<?= logoMime(faviconPanel()) ?>" href="<?= e(faviconPanel()) ?>">
+<?php if (is_file(__DIR__ . '/manifest.webmanifest')): ?><link rel="manifest" href="manifest.webmanifest"><meta name="theme-color" content="#10285A"><link rel="apple-touch-icon" href="iconos/pwa/apple-touch-180.png"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="InnoTech"><?php endif; ?>
 <link rel="preload" href="<?= asset('assets/fonts/Inter-Variable.woff2') ?>" as="font" type="font/woff2" crossorigin>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
-<link rel="stylesheet" href="<?= asset('../assets/mecapacito.css') ?>">
-<link rel="stylesheet" href="<?= asset('assets/admin.css') ?>">
-<?php if (is_file(__DIR__ . '/assets/ds.css')): /* avisos (toast) del design system */ ?><link rel="stylesheet" href="<?= asset('assets/ds.css') ?>"><?php endif; ?>
+<link rel="stylesheet" href="<?= asset('assets/ds.css') ?>">
 </head>
-<body class="admin-body login-body">
+<body class="ent-body">
 <?php UI::flashes(); ?>
 
-<div class="login-split">
+<div class="ent">
+  <?= UI::entradaArte() ?>
 
-  <!-- Lado izquierdo: flujo de tareas animado -->
-  <aside class="login-arte">
-    <canvas id="lg-flujo" aria-hidden="true"></canvas>
-    <div class="arte-txt">
-      <div class="arte-marca">
-        <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
-        <div>
-          <strong class="font-display"><?= e($marca['titulo']) ?></strong>
-          <span><?= e($marca['subtitulo']) ?></span>
+  <main class="ent-panel">
+    <div class="ent-caja">
+      <img class="ent-logo" src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
+
+      <?php if ($primerUso): ?>
+      <?= UI::alertaDS('warning', 'Este panel todavía no tiene administrador', 'Créalo por terminal: <code>php admin/crear_admin.php</code>', false, 'ent-alerta') ?>
+      <?php endif; ?>
+
+      <?php if (GoogleLogin::listo()): ?>
+      <a class="mc-btn mc-btn--lg mc-btn--block ent-google" href="<?= e(GoogleLogin::urlAutorizacion()) ?>">
+        <img src="../assets/google.svg" alt="" width="18" height="18"><span class="mc-btn__label">Continuar con Google</span>
+      </a>
+      <div class="ent-sep"><span>o con tu contraseña</span></div>
+      <?php endif; ?>
+
+      <form method="post" action="actions.php" class="ent-form">
+        <input type="hidden" name="accion" value="auth_login">
+        <div class="mc-field">
+          <label class="mc-field__label" for="ent-usuario">Correo o usuario de Git</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('usuario', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="ent-usuario" name="usuario" required autofocus autocomplete="username" placeholder="tucorreo@empresa.com"></div>
         </div>
-      </div>
-      <h2>Del backlog al deploy,<br><em>todo el equipo</em> en un tablero</h2>
-      <p>Proyectos con tareas encadenadas, observaciones de revisión, reuniones y
-         el avance real de cada persona, actualizado al instante</p>
-      <?php
-      // Chips que desfilan: la lista se imprime dos veces para que el
-      // desplazamiento sea continuo y sin salto.
-      $chips = [
-          ['fa-solid fa-diagram-project', 'Dependencias'],
-          ['fa-solid fa-table-columns',   'Kanban'],
-          ['fa-solid fa-clipboard-check', 'Observaciones de QA'],
-          ['fa-brands fa-github',         'Actividad de repos'],
-          ['fa-solid fa-calendar-days',   'Calendario'],
-          ['fa-solid fa-video',           'Reuniones Zoom'],
-          ['fa-solid fa-bell',            'Recordatorios'],
-          ['fa-solid fa-chart-line',      'Métricas del equipo'],
-      ];
-      ?>
-      <div class="arte-marquee">
-        <div class="arte-pista">
-          <?php for ($v = 0; $v < 2; $v++): foreach ($chips as $i => [$ic, $tx]): ?>
-          <span class="arte-chip c<?= $i % 4 ?>" <?= $v ? 'aria-hidden="true"' : '' ?>>
-            <i class="<?= e($ic) ?>"></i> <?= e($tx) ?>
-          </span>
-          <?php endforeach; endfor; ?>
+        <div class="mc-field">
+          <label class="mc-field__label" for="ent-clave">Contraseña</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('candado', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="ent-clave" type="password" name="clave" required autocomplete="current-password">
+            <?= UI::botonVerClave() ?></div>
         </div>
-      </div>
-    </div>
-  </aside>
+        <button class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"><span class="mc-btn__label">Entrar</span></button>
+      </form>
 
-  <!-- Lado derecho: el formulario -->
-  <main class="login-panel">
-    <div class="login-caja">
-      <div class="login-marca">
-        <img src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
-        <div>
-          <strong class="font-display"><?= e($marca['titulo']) ?></strong>
-          <span><?= e($marca['subtitulo']) ?></span>
-        </div>
-      </div>
-
-        <?php if ($identificar): ?>
-        <!-- ¿Quién eres? — vincular el correo de Google a una ficha del equipo -->
-        <h1 class="font-display">¿Quién eres?</h1>
-        <p class="login-sub">Vamos a vincular <strong><?= e($identificar['email']) ?></strong> a tu ficha. Elige tu nombre:</p>
-        <form method="post" action="actions.php" class="login-identificar">
-          <input type="hidden" name="accion" value="auth_identificar">
-          <?php foreach ($sinVincular as $m): ?>
-          <button class="ident-persona" name="miembro" value="<?= (int)$m['id'] ?>" type="submit">
-            <?= UI::avatar($m, 40) ?>
-            <span class="ident-datos">
-              <strong><?= e($m['nombre']) ?></strong>
-              <small><?= e($m['rol'] ?? '') ?></small>
-            </span>
-            <i class="fa-solid fa-arrow-right-to-bracket"></i>
-          </button>
-          <?php endforeach; ?>
-        </form>
-        <p class="login-pie">
-          <i class="fa-solid fa-circle-info"></i> ¿No estás en la lista?
-          <a href="<?= e(urlPanel('login.php')) ?>">Volver</a> y pídele al administrador que te agregue.
-        </p>
-        <?php else: ?>
-
-        <h1 class="font-display">Entrar al panel</h1>
-        <p class="login-sub"><?= GoogleLogin::listo() ? 'Entra con tu cuenta de Google o con tu contraseña.' : 'Usa tu correo o tu usuario de Git.' ?></p>
-
-        <form method="post" action="actions.php" class="login-form">
-          <input type="hidden" name="accion" value="auth_login">
-          <label class="campo"><span>Correo o usuario de Git</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-user"></i>
-              <input class="input-meca" name="usuario" required autofocus placeholder="tucorreo@gmail.com">
-            </div>
-          </label>
-          <label class="campo"><span>Contraseña</span>
-            <div class="input-prefijo">
-              <i class="fa-solid fa-lock"></i>
-              <input class="input-meca" type="password" name="clave" required>
-            </div>
-          </label>
-          <button class="btn-primary btn-meca login-btn"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</button>
-        </form>
-
-        <?php if (GoogleLogin::listo()): ?>
-        <div class="login-sep"><span>o</span></div>
-        <a class="btn-google" href="<?= e(GoogleLogin::urlAutorizacion()) ?>">
-          <img src="../assets/google.svg" alt="" width="19" height="19">
-          Continuar con Google
-        </a>
+      <div class="ent-pie">
+        <?php if (!$primerUso && Auth::registro()['abierto'] && Auth::hayQuienApruebe()): ?>
+        <p>¿Todavía no tienes cuenta? <a class="ent-link" href="<?= e(urlPanel('registro.php')) ?>">Crear una cuenta<?= UI::iconoDS('chevron-der', 16) ?></a></p>
+        <p class="ent-nota">Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
+        <?php elseif (!$primerUso): ?>
+        <p class="ent-nota">¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
         <?php endif; ?>
-
-        <?php if ($primerUso): ?>
-        <p class="login-pie login-pie-alerta">
-          <i class="fa-solid fa-triangle-exclamation"></i> Este panel todavía no tiene administrador.
-          Créalo por terminal: <code>php admin/crear_admin.php</code>
-        </p>
-        <?php elseif (Auth::registro()['abierto'] && Auth::hayQuienApruebe()): ?>
-        <div class="login-pie">
-          <p class="lp-nota"><i class="fa-solid fa-circle-info"></i> Un administrador aprueba cada cuenta nueva antes de darle acceso.</p>
-          <p class="lp-cta">¿Todavía no tienes cuenta?
-            <a class="lp-cta-btn" href="<?= e(urlPanel('registro.php')) ?>"><?= UI::icono('PlusCircle') ?> Crear una cuenta</a>
-          </p>
-        </div>
-        <?php else: ?>
-        <p class="login-pie"><i class="fa-solid fa-circle-info"></i> ¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
-        <?php endif; ?>
-        <?php endif; /* $identificar */ ?>
+      </div>
     </div>
   </main>
-
 </div>
 
 <script src="<?= asset('assets/admin.js') ?>"></script>
-<script src="<?= asset('assets/login-flujo.js') ?>"></script>
+<script src="<?= asset('assets/entrada.js') ?>"></script>
 </body>
 </html>

@@ -429,10 +429,30 @@ final class IA
         return [$st, json_decode((string)$resp, true) ?: [], (string)$resp];
     }
 
+    /**
+     * '' si la clave tiene la forma de las de ese proveedor; si no, el motivo.
+     * Evita guardar otro texto pegado por error (OpenAI: «sk-…»; Gemini: «AIza…»).
+     */
+    public static function validarClave(string $prov, string $v): string
+    {
+        $nombre = self::PROVEEDORES[$prov]['nombre'] ?? $prov;
+        if (preg_match('/\s/u', $v)) return 'La clave de ' . $nombre . ' no lleva espacios: revisa que copiaste solo la clave.';
+        $prefijo = ['openai' => 'sk-', 'gemini' => 'AIza'][$prov] ?? '';
+        if ($prefijo !== '' && !str_starts_with($v, $prefijo)) {
+            return 'Eso no parece una clave de ' . $nombre . ': empiezan con «' . $prefijo . '». Revisa que copiaste la clave y no otro texto.';
+        }
+        if (strlen($v) < 12 || strlen($v) > 300) return 'La clave de ' . $nombre . ' no tiene el largo esperado: revisa que esté completa.';
+        return '';
+    }
+
     /** El motivo legible de un error de la API (clave inválida, sin saldo, modelo inexistente…). */
     private static function errorApi(int $st, array $j, string $crudo): string
     {
+        if ($st === 401) return 'clave inválida: el proveedor no la reconoce (revisa que esté completa o crea una nueva)';
         $msg = (string)($j['error']['message'] ?? $j[0]['error']['message'] ?? '');
+        // El proveedor repite la clave enmascarada («sk-ab****…»): no hace falta mostrarla
+        $msg = (string)preg_replace('/\S*\*{3,}\S*/', '••••', $msg);
+        $msg = (string)preg_replace('/\s*You can find your API key at \S+/i', '', $msg);
         $pre = match (true) {
             $st === 401, $st === 403 => 'clave inválida o sin permiso',
             $st === 429              => 'sin cupo o demasiadas solicitudes',

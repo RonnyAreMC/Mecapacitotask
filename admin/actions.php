@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -63,6 +63,11 @@ $accionesDeCualquiera = [
     'notif_leer_todas', 'pedido_crear', 'pedido_responder', 'pedido_estado',
     // Cada quien guarda su teléfono cuando el panel se lo pide al entrar
     'perfil_telefono',
+    // Correo InnoTech: cada persona maneja SOLO su buzón (dentro se usa la
+    // sesión de quien entró). correo_conf queda para el administrador.
+    'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_eliminar',
+    // Notificaciones nativas: cada persona anota y quita SUS dispositivos
+    'push_suscribir', 'push_quitar', 'push_prefs', 'push_prueba',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -817,6 +822,169 @@ switch ($accion) {
         if ($tel === '') redirigir(paginaOrigen(), 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
         $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
+
+    /* ---------- Notificaciones nativas (lib/Push.php) ---------- */
+    case 'push_suscribir':
+    case 'push_quitar':
+    case 'push_prefs':
+    case 'push_prueba':
+        $yoP   = Auth::usuario();          // siempre quien entró, nunca el «ver como»
+        $midP  = (int)$yoP['id'];
+        $uaP   = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+        $volverP = 'notificaciones.php?tab=dispositivos';
+        $listoP = class_exists('Push') && Push::activo();
+        if ($accion === 'push_suscribir') {
+            // Lo llama assets/ds.js (o el service worker): responde JSON
+            header('Content-Type: application/json; charset=utf-8');
+            header('Cache-Control: no-store');
+            if (!$listoP) exit(json_encode(['ok' => false, 'error' => 'Los avisos nativos no están disponibles en este servidor.'], JSON_UNESCAPED_UNICODE));
+            if (!empty($_POST['anterior'])) Push::quitarEndpoint($midP, (string)$_POST['anterior']);
+            $errP = Push::suscribir($midP, (string)($_POST['sub'] ?? ''), $uaP);
+            exit(json_encode($errP === '' ? ['ok' => true, 'equipo' => Push::equipo($uaP)] : ['ok' => false, 'error' => $errP], JSON_UNESCAPED_UNICODE));
+        }
+        if (!$listoP) redirigir($volverP, 'Los avisos nativos no están disponibles en este servidor.', 'error');
+        if ($accion === 'push_quitar') {
+            Push::quitar($midP, (int)($_POST['id'] ?? 0));
+            redirigir($volverP, 'Ese dispositivo ya no recibirá avisos.');
+        }
+        if ($accion === 'push_prefs') {
+            Push::guardarPrefs($midP, ['correo' => !empty($_POST['correo']), 'avisos' => !empty($_POST['avisos'])]);
+            redirigir($volverP, 'Guardamos qué avisos te llegan.');
+        }
+        $nP = Push::enviar([$midP], [
+            'titulo' => 'Así te llegan los avisos',
+            'texto'  => 'Aviso de prueba de InnoTech Hub: si lo ves, este dispositivo está listo.',
+            'url'    => $volverP,
+            'tag'    => 'prueba',
+        ], 'prueba');
+        redirigir($volverP, $nP ? 'Enviamos un aviso de prueba a ' . $nP . ($nP === 1 ? ' dispositivo.' : ' dispositivos.')
+                                : 'No llegó a ningún dispositivo: primero actívalo en el equipo donde quieras recibirlo.', $nP ? 'success' : 'error');
+
+    /* ---------- Correo InnoTech (lib/Correo.php) ---------- */
+    case 'correo_conectar':
+    case 'correo_desconectar':
+    case 'correo_enviar':
+    case 'correo_marcar':
+    case 'correo_eliminar':
+    case 'correo_conf':
+        if (!class_exists('Correo')) redirigir('notificaciones.php', 'El correo dentro del panel no está instalado.', 'error');
+        @set_time_limit(120);   // enviar con adjuntos puede tardar
+        $yoC   = Auth::usuario();          // siempre quien entró, nunca el «ver como»
+        $midC  = (int)$yoC['id'];
+        $cC    = (string)($_POST['c'] ?? '');
+        $urlC  = fn(array $q = []) => 'notificaciones.php?' . http_build_query(['tab' => 'correo'] + array_filter($q, fn($v) => $v !== '' && $v !== 0));
+        if ($accion === 'correo_conf') {
+            $hostOk = fn($h) => preg_match('/^[a-z0-9.-]{3,120}$/i', trim((string)$h)) ? strtolower(trim((string)$h)) : '';
+            $imapH = $hostOk($_POST['imap_host'] ?? '');
+            $smtpH = $hostOk($_POST['smtp_host'] ?? '');
+            if ($imapH === '' || $smtpH === '') redirigir($urlC(), 'Revisa los servidores: solo letras, números, puntos y guiones.', 'error');
+            $doms = implode(', ', array_filter(array_map(fn($d) => preg_match('/^[a-z0-9.-]+\.[a-z]{2,}$/', $d) ? $d : '',
+                preg_split('/[\s,;]+/', strtolower(str_replace('@', '', (string)($_POST['dominio'] ?? '')))))));
+            Config::guardar(['correo_buzon' => [
+                'activo'        => !empty($_POST['activo']),
+                'imap_host'     => $imapH,
+                'imap_puerto'   => max(1, min(65535, (int)($_POST['imap_puerto'] ?? 993))),
+                'smtp_host'     => $smtpH,
+                'smtp_puerto'   => max(1, min(65535, (int)($_POST['smtp_puerto'] ?? 465))),
+                'dominio'       => $doms,
+                'verificar_ssl' => !empty($_POST['verificar_ssl']),
+            ]]);
+            unset($_SESSION['correo_carpetas']);
+            redirigir($urlC(), 'Guardamos el servidor de correo.');
+        }
+        if ($accion === 'correo_conectar') {
+            $errC = Correo::sincronizar($midC, (string)($_POST['email'] ?? ''), (string)($_POST['clave'] ?? ''));
+            if ($errC !== '') redirigir($urlC(), $errC, 'error');
+            redirigir($urlC(), '¡Listo! Tu correo quedó sincronizado.');
+        }
+        if ($accion === 'correo_desconectar') {
+            Correo::desconectar($midC);
+            redirigir($urlC(), 'Desconectamos tu correo y borramos la contraseña guardada. Tu buzón sigue igual.');
+        }
+        if (!Correo::conectado($midC)) redirigir($urlC(), 'Primero sincroniza tu correo.', 'error');
+        try {
+            if ($accion === 'correo_marcar' || $accion === 'correo_eliminar') {
+                $uidC   = (int)($_POST['uid'] ?? 0);
+                $imapC  = Correo::abrir($midC);
+                $carpsC = Correo::carpetas($imapC, $midC);
+                $carpC  = Correo::carpetaValida($carpsC, $cC);
+                $imapC->abrir($carpC['nombre'], true);
+                if ($accion === 'correo_marcar') {
+                    $leidoC = !empty($_POST['leido']);
+                    $imapC->marcar($uidC, '\\Seen', $leidoC);
+                    $imapC->cerrar();
+                    redirigir($urlC(['c' => $carpC['nombre']]), $leidoC ? 'Marcado como leído.' : 'Lo marcamos como no leído.');
+                }
+                $papeleraC = Correo::carpetaDeTipo($carpsC, 'trash');
+                if ($carpC['tipo'] === 'trash' || $papeleraC === null) {
+                    $imapC->borrar($uidC);
+                    $msgC = 'Correo borrado.';
+                } else {
+                    $imapC->mover($uidC, $papeleraC);
+                    $msgC = 'Lo movimos a la papelera.';
+                }
+                $imapC->cerrar();
+                redirigir($urlC(['c' => $carpC['nombre']]), $msgC);
+            }
+
+            // correo_enviar. Si algo falla, lo escrito vuelve al formulario.
+            $_SESSION['correo_borrador'] = [
+                'para' => (string)($_POST['para'] ?? ''), 'cc' => (string)($_POST['cc'] ?? ''), 'cco' => (string)($_POST['cco'] ?? ''),
+                'asunto' => (string)($_POST['asunto'] ?? ''), 'texto' => (string)($_POST['texto'] ?? ''),
+                'en_respuesta_a' => (string)($_POST['en_respuesta_a'] ?? ''), 'referencias' => (string)($_POST['referencias'] ?? ''),
+                'reenviar_uid' => (int)($_POST['reenviar_uid'] ?? 0),
+            ];
+            $adjC = [];
+            $totalC = 0;
+            if (!empty($_FILES['adjuntos']['name']) && is_array($_FILES['adjuntos']['name'])) {
+                foreach ($_FILES['adjuntos']['name'] as $k => $nomC) {
+                    $errU = (int)($_FILES['adjuntos']['error'][$k] ?? UPLOAD_ERR_NO_FILE);
+                    if ($errU === UPLOAD_ERR_NO_FILE) continue;
+                    if ($errU !== UPLOAD_ERR_OK) {
+                        throw new CorreoError('El adjunto «' . $nomC . '» no se pudo subir: quizá pesa más de lo que deja el servidor (' . ini_get('upload_max_filesize') . ').', 'uso');
+                    }
+                    $tmpC = (string)$_FILES['adjuntos']['tmp_name'][$k];
+                    if (!is_uploaded_file($tmpC)) continue;
+                    $totalC += (int)filesize($tmpC);
+                    if ($totalC > Correo::TOPE_ADJUNTOS) throw new CorreoError('Los adjuntos pasan de 20 MB en total.', 'uso');
+                    $tipoC = 'application/octet-stream';
+                    if (class_exists('finfo')) $tipoC = (string)((new finfo(FILEINFO_MIME_TYPE))->file($tmpC) ?: $tipoC);
+                    $adjC[] = ['nombre' => (string)$nomC, 'tipo' => $tipoC, 'datos' => (string)file_get_contents($tmpC)];
+                }
+            }
+            // Reenviar: van también los adjuntos del correo original
+            $reUid = (int)($_POST['reenviar_uid'] ?? 0);
+            if ($reUid > 0) {
+                $imapC = Correo::abrir($midC);
+                $carpC = Correo::carpetaValida(Correo::carpetas($imapC, $midC), $cC);
+                $imapC->abrir($carpC['nombre']);
+                $origC = $imapC->crudo($reUid);
+                $imapC->cerrar();
+                if ($origC !== '') {
+                    foreach (CorreoMime::analizar($origC)['adjuntos'] as $a) {
+                        if ($a['inline'] && $a['cid'] !== '') continue;
+                        $totalC += (int)$a['tam'];
+                        if ($totalC > Correo::TOPE_ADJUNTOS) throw new CorreoError('Con los adjuntos del original se pasa de 20 MB.', 'uso');
+                        $adjC[] = ['nombre' => $a['nombre'], 'tipo' => $a['tipo'], 'datos' => $a['datos']];
+                    }
+                }
+            }
+            Correo::enviar($midC, trim((string)$yoC['nombre']), [
+                'para' => $_POST['para'] ?? '', 'cc' => $_POST['cc'] ?? '', 'cco' => $_POST['cco'] ?? '',
+                'asunto' => $_POST['asunto'] ?? '', 'texto' => $_POST['texto'] ?? '',
+                'en_respuesta_a' => $_POST['en_respuesta_a'] ?? '', 'referencias' => $_POST['referencias'] ?? '',
+                'adjuntos' => $adjC,
+            ]);
+            unset($_SESSION['correo_borrador']);
+            redirigir($urlC(['c' => $cC]), 'Correo enviado.');
+        } catch (CorreoError $e) {
+            if ($e->tipo === 'auth') {
+                unset($_SESSION['correo_borrador']);
+                redirigir($urlC(), $e->getMessage(), 'error');
+            }
+            // Si falló al enviar, de vuelta al formulario con lo escrito
+            redirigir($accion === 'correo_enviar' ? $urlC(['redactar' => 1, 'c' => $cC]) : paginaOrigen(), $e->getMessage(), 'error');
+        }
 
     case 'auth_logout':
         Auth::salir();
@@ -2710,6 +2878,9 @@ switch ($accion) {
             }
             $nuevaIa = trim((string)($postIa['nueva'][$provIa]['valor'] ?? ''));
             if ($nuevaIa !== '') {
+                // Que sea una clave de verdad (no otro texto pegado por error) antes de guardarla
+                $errClaveIa = method_exists('IA', 'validarClave') ? IA::validarClave($provIa, $nuevaIa) : '';
+                if ($errClaveIa !== '') redirigir('ia.php#claves', $errClaveIa . ' No se guardó ningún cambio.', 'error');
                 $listaIa[] = [
                     'id'       => bin2hex(random_bytes(4)),
                     'etiqueta' => mb_substr(trim((string)($postIa['nueva'][$provIa]['etiqueta'] ?? '')), 0, 40) ?: 'Clave ' . (count($listaIa) + 1),

@@ -65,7 +65,8 @@ function actualizarPanel(array $opc): void
         : nota('error', 'PHP ' . PHP_VERSION . ': el panel necesita PHP 8.0 o más nuevo.');
     $ext = [
         'pdo_sqlite' => ['error', 'la base de datos del panel (data/panel.sqlite)'],
-        'openssl'    => ['aviso', 'cifrar las claves de IA (sin él quedan solo protegidas por data/.htaccess)'],
+        'openssl'    => ['aviso', 'cifrar las claves de IA y conectar el correo InnoTech (sin él no aparece el correo)'],
+        'dom'        => ['aviso', 'mostrar los correos con su formato (sin él se leen como texto)'],
         'curl'       => ['aviso', 'llamar a OpenAI y Gemini (sin él se usa un método más lento)'],
         'zlib'       => ['aviso', 'generar los reportes en PowerPoint y Word comprimidos'],
         'mbstring'   => ['error', 'textos con tildes y eñes'],
@@ -85,6 +86,10 @@ function actualizarPanel(array $opc): void
         'lib/reporteria/plantilla-pptx.json', 'lib/reporteria/plantilla-docx.json', 'lib/reporteria/semilla.json',
         'lib/reporteria/logo-color.png', 'lib/reporteria/logo-blanco.png',
         'iconos/OfficeEditing/Reporteria.svg', 'iconos/DS/ds-requerimiento.svg',
+        'lib/Correo.php', 'lib/correo_vista.php', 'assets/entrada.js',
+        'lib/Push.php', 'sw.js', 'manifest.webmanifest', 'cron_correo.php',
+        'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
+        'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -94,18 +99,24 @@ function actualizarPanel(array $opc): void
     $ilus = ['notificaciones-vacio', 'reportes-vacio', 'instructores-equipo', 'asistente-ia', 'sin-resultados-cursos', 'curso-sin-modulos',
              'banco-vacio', 'sin-ordenes', 'error-amable', 'construccion', 'despliegue', 'universidad-agraria', 'ingles',
              'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual',
-             'app-movil', 'emprendimiento'];
+             'app-movil', 'emprendimiento', 'entrada-colaborativo', 'entrada-equipo', 'entrada-reunion', 'entrada-crm',
+             'entrada-avance', 'correo-sincronizar'];
     $faltanIlus = array_values(array_filter($ilus, fn($n) => !is_file($dir . '/iconos/ilustraciones/' . $n . '.svg')));
     $faltanIlus ? nota('error', 'Faltan ilustraciones en iconos/ilustraciones: ' . implode(', ', $faltanIlus) . '.') : nota('ok', count($ilus) . ' ilustraciones (portadas y estados vacíos)');
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'"],
+        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal'],
+        'lib/Notificaciones.php' => ['Push::avisar'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido'],
-        'assets/ds.js'      => ['soloNumerosTel'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar'],
+        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush'],
         'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos'],
+        'lib/Correo.php'    => ['revisarNuevos'],
+        'login.php'         => ['entradaArte'],
+        'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot'],
         'index.php'         => ['ds-indicadores', 'portadaDe'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo'],
@@ -151,7 +162,9 @@ function actualizarPanel(array $opc): void
     if (!JsonStore::disponible()) {
         nota('error', 'Este PHP no tiene SQLite: no se pueden crear las tablas.');
     } else {
-        foreach (['notificaciones' => 'Notificaciones (campana)', 'pedidos' => 'Pedidos entre equipos', 'ia_uso' => 'Consumo de IA'] as $t => $etq) {
+        foreach (['notificaciones' => 'Notificaciones (campana)', 'pedidos' => 'Pedidos entre equipos', 'ia_uso' => 'Consumo de IA',
+                  'correo_cuentas' => 'Correo InnoTech (cuentas sincronizadas)',
+                  'push_suscripciones' => 'Notificaciones nativas (dispositivos)'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');
@@ -242,6 +255,35 @@ function actualizarPanel(array $opc): void
     if ($telMalos) nota('aviso', 'Teléfono no válido ' . ($seco ? '(se borraría' : '(lo borré') . ' y el panel lo pedirá de nuevo): ' . implode(', ', $telMalos) . '.');
     $sinTel = array_values(array_filter($repoTel->todos(), fn($m) => trim((string)($m['telefono'] ?? '')) === ''));
     nota($sinTel ? 'aviso' : 'ok', $sinTel ? count($sinTel) . ' persona(s) sin teléfono: el panel se lo pedirá cuando entren.' : 'Todas las personas tienen teléfono');
+    // Notificaciones nativas: las claves del panel y el cron que avisa los correos
+    if (is_file($dir . '/lib/Push.php')) {
+        require_once $dir . '/lib/Push.php';
+        if ($seco && !is_file($dir . '/data/push.json')) {
+            nota('info', 'Notificaciones nativas: se crearían las claves del panel (data/push.json)');
+        } elseif (Push::activo()) {
+            $nDisp = $seco ? 0 : count((new JsonStore('push_suscripciones'))->all());
+            nota('ok', 'Notificaciones nativas listas (claves en data/push.json) · ' . $nDisp . ' dispositivo(s) anotado(s)');
+        } else {
+            nota('aviso', 'Este PHP no pudo crear las claves de las notificaciones nativas (falta openssl con curvas EC): el panel funciona igual, sin avisos al celular.');
+        }
+        $cronC = json_decode((string)@file_get_contents($dir . '/data/cron_correo.json'), true);
+        $haceC = is_array($cronC) ? time() - (int)($cronC['t'] ?? 0) : null;
+        ($haceC !== null && $haceC < 300)
+            ? nota('ok', 'Cron de correos nuevos corriendo (última revisión hace ' . max(1, (int)round($haceC / 60)) . ' min)')
+            : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_correo.php (avisa los correos al instante).');
+    }
+    // Correo InnoTech: a qué servidor se conecta y cuántos ya lo sincronizaron
+    if (is_file($dir . '/lib/Correo.php')) {
+        require_once $dir . '/lib/Correo.php';
+        $cc = Correo::conf();
+        if (!Correo::activo()) {
+            nota('aviso', 'Correo InnoTech apagado' . (function_exists('openssl_encrypt') ? ' (se prende en Notificaciones → Correo → Servidor de correo)' : ': falta la extensión openssl'));
+        } else {
+            $tc = $seco ? ['ok' => 0, 'reconectar' => 0] : Correo::totalCuentas();
+            nota('info', 'Correo InnoTech: lee de ' . $cc['imap_host'] . ':' . $cc['imap_puerto'] . ' y envía por ' . $cc['smtp_host'] . ':' . $cc['smtp_puerto']
+                . ' · ' . $tc['ok'] . ' persona(s) sincronizada(s)' . ($tc['reconectar'] ? ', ' . $tc['reconectar'] . ' por reconectar' : ''));
+        }
+    }
 
     /* 7. Caché de PHP */
     paso('Caché');

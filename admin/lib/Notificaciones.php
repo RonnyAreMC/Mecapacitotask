@@ -48,10 +48,11 @@ final class Notif
         if (!isset(self::TIPOS[$tipo])) $tipo = 'proyecto';
         $url = self::urlSegura($url);
         $n = 0;
+        $creadas = [];
         try {
             foreach (array_unique(array_map('intval', $para)) as $mid) {
                 if ($mid <= 0 || $mid === $de) continue;
-                self::store()->insert([
+                $fila = self::store()->insert([
                     'para'   => $mid,
                     'tipo'   => $tipo,
                     'titulo' => mb_substr(trim($titulo), 0, 140),
@@ -60,12 +61,30 @@ final class Notif
                     'de'     => $de,
                     'leida'  => 0,
                 ]);
+                $creadas[$mid] = (int)($fila['id'] ?? 0);
                 $n++;
             }
             if ($n) self::podar();
         } catch (\Throwable $e) {
             // Un aviso que no se pudo guardar nunca debe tumbar la acción que lo provocó
             error_log('Notif: ' . $e->getMessage());
+        }
+        // También como notificación nativa (teléfono o computadora), si la persona la aceptó.
+        // Sale al terminar la petición: quien hizo la acción no espera.
+        if ($creadas && is_file(__DIR__ . '/Push.php')) {
+            try {
+                require_once __DIR__ . '/Push.php';
+                foreach ($creadas as $mid => $id) {
+                    Push::avisar([$mid], [
+                        'titulo' => trim($titulo),
+                        'texto'  => trim(preg_replace('/\s+/u', ' ', $texto)),
+                        'url'    => 'notificaciones.php?abrir=' . $id,
+                        'tag'    => 'notif-' . $id,
+                    ], 'avisos');
+                }
+            } catch (\Throwable $e) {
+                error_log('Push: ' . $e->getMessage());
+            }
         }
         return $n;
     }
