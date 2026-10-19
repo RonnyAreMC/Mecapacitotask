@@ -301,6 +301,9 @@ const MC = {
     });
   },
 };
+// Disponible para los demás archivos (ds.js, ia.js): un «const» de arriba no
+// queda en window, y sin esto ellos caían en el alert() del navegador.
+window.MC = MC;
 
 // Activar los toasts que ya vienen renderizados por PHP (mensajes flash)
 document.querySelectorAll('#mc-toasts .mc-toast-slot').forEach((t) => MC._activarToast(t));

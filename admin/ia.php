@@ -171,7 +171,7 @@ UI::cabecera(
               <div style="flex:1;min-width:160px"><?= $input('name="' . $base . '[etiqueta]" value="' . e($k['etiqueta']) . '" maxlength="40" aria-label="Nombre de la clave"', 'sm') ?></div>
               <code class="mc-code-inline">••••<?= e($k['final']) ?></code>
               <?= $switch($base . '[activa]', (bool)$k['activa'], 'Activa', '', 'sm') ?>
-              <?= $quitar($base . '[quitar]') ?>
+              <button type="submit" form="frm-quitar-<?= e($prov . '-' . $k['id']) ?>" class="mc-btn mc-btn--ghost mc-btn--sm ia-quitar"><?= UI::iconoDS('eliminar', 16) ?><span class="mc-btn__label">Quitar</span></button>
             </div>
             <?php endforeach; ?>
             <hr class="ds-sep">
@@ -247,6 +247,15 @@ UI::cabecera(
       </div>
     </section>
   </form>
+  <?php foreach (IA::PROVEEDORES as $prov => $pv): foreach ($cfg['claves'][$prov] as $k): ?>
+  <form id="frm-quitar-<?= e($prov . '-' . $k['id']) ?>" method="post" action="actions.php" hidden
+        data-confirmar="La clave «<?= e($k['etiqueta']) ?>» (••••<?= e($k['final']) ?>) se borra del panel ahora mismo. La IA sigue con las que queden."
+        data-confirmar-titulo="¿Quitar esta clave de <?= e($pv['nombre']) ?>?" data-confirmar-ok="Sí, quitar">
+    <input type="hidden" name="accion" value="ia_clave_quitar">
+    <input type="hidden" name="proveedor" value="<?= e($prov) ?>">
+    <input type="hidden" name="id" value="<?= e($k['id']) ?>">
+  </form>
+  <?php endforeach; endforeach; ?>
 
   <!-- ============ Consumo (fuera del formulario) ============ -->
   <section class="ds-panel" id="panel-consumo" role="tabpanel" aria-labelledby="tab-consumo" data-panel="consumo" hidden>

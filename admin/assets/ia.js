@@ -10,7 +10,24 @@
 (function () {
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-  const toast = (m, t, ms) => (window.MC && MC.toast ? MC.toast(m, t || 'info', ms || 4000) : alert(m));
+  // Nunca el alert() del navegador: el aviso del sistema (o, si faltara, la consola)
+  const toast = (m, t, ms) => (window.MC && MC.toast ? MC.toast(m, t || 'info', ms || 4000) : console.warn(m));
+
+  /** Un error: dentro del modal si el botón está en uno (un aviso suelto quedaría detrás), si no, aviso. */
+  function avisarError(btn, msg) {
+    const dlg = btn && btn.closest && btn.closest('dialog');
+    const cuerpo = dlg && dlg.querySelector('.ia-cuerpo');
+    if (!cuerpo) { toast(msg, 'error', 6000); return; }
+    let a = cuerpo.querySelector('.ia-error');
+    if (!a) {
+      a = document.createElement('div');
+      a.className = 'mc-alert mc-alert--danger mc-alert--compact ia-error';
+      a.setAttribute('role', 'alert');
+      cuerpo.prepend(a);
+    }
+    a.innerHTML = '<div class="mc-alert__content"><p class="mc-alert__desc">' + esc(msg) + '</p></div>';
+    a.scrollIntoView({ block: 'nearest' });
+  }
 
   /* ---------- Llamar al servidor ---------- */
   async function pedir(accion, datos) {
@@ -39,8 +56,12 @@
     const antes = btn.innerHTML;
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pensando…';
-    try { await fn(); }
-    catch (e) { toast(e.message, 'error', 6000); }
+    try {
+      const viejo = btn.closest('dialog')?.querySelector('.ia-error');
+      if (viejo) viejo.remove();
+      await fn();
+    }
+    catch (e) { avisarError(btn, e.message); }
     finally { btn.disabled = false; btn.innerHTML = antes; delete btn.dataset.iaOcupado; }
   }
 
@@ -169,17 +190,27 @@
     if (!b) return;
     e.preventDefault();
     const conZoom = b.dataset.zoom === '1';
+    const ICO = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
     const dlg = modal('Acta con IA — ' + (b.dataset.titulo || 'Reunión'), 'fa-file-signature',
       '<div class="ia-acta-origen">'
-      + (conZoom ? '<button type="button" class="btn-primary btn-meca" data-ia-acta-zoom><i class="fa-solid fa-wand-magic-sparkles"></i> Generar desde la transcripción de Zoom</button>'
-                 + '<p class="campo-ayuda">O, si no hay transcripción, pega el texto de la reunión:</p>'
-                 : '<p class="campo-ayuda">Pega el texto o las notas de la reunión:</p>')
-      + '<textarea class="input-meca" rows="6" data-ia-acta-texto placeholder="Texto de la reunión…"></textarea>'
-      + '<button type="button" class="btn-outline btn-meca" data-ia-acta-pegado><i class="fa-solid fa-wand-magic-sparkles"></i> Generar desde el texto</button>'
+      // «Generar desde la transcripción» solo aparece si Zoom la tiene (se pregunta al abrir)
+      + (conZoom ? '<div class="ia-acta-zoom" data-ia-acta-zoom-caja><span class="ia-buscando"><span class="mc-spinner"></span> Buscando la transcripción en Zoom…</span></div>' : '')
+      + '<label class="mc-field__label" for="ia-acta-texto" data-ia-acta-rotulo>Pega el texto o las notas de la reunión</label>'
+      + '<div class="mc-input mc-input--multiline"><textarea class="mc-input__control" id="ia-acta-texto" rows="6" data-ia-acta-texto placeholder="Texto de la reunión…"></textarea></div>'
+      + '<button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--md mc-btn--block" data-ia-acta-pegado>' + ICO + '<span class="mc-btn__label">Generar desde el texto</span></button>'
       + '</div><div data-ia-acta-res></div>',
-      '<button type="button" class="btn-outline btn-meca" data-ia-acta-copiar hidden><i class="fa-regular fa-copy"></i> Copiar acta</button>'
-      + '<button type="button" class="btn-primary btn-meca" data-ia-acta-crear hidden><i class="fa-solid fa-list-check"></i> Crear tareas marcadas</button>');
+      '<button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--md" data-ia-acta-copiar hidden><i class="fa-regular fa-copy"></i><span class="mc-btn__label">Copiar acta</span></button>'
+      + '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-ia-acta-crear hidden><i class="fa-solid fa-list-check"></i><span class="mc-btn__label">Crear tareas marcadas</span></button>');
     dlg.classList.add('dlg-ia-ancho');
+    if (conZoom) {
+      const caja = dlg.querySelector('[data-ia-acta-zoom-caja]');
+      pedir('ia_acta_hay', { reunion_id: b.dataset.reunion, ocurrencia: b.dataset.ocurrencia || '' }).then((r) => {
+        if (!r.hay) { caja.remove(); return; }
+        caja.innerHTML = '<button type="button" class="mc-btn mc-btn--primary mc-btn--md mc-btn--block" data-ia-acta-zoom>' + ICO + '<span class="mc-btn__label">Generar desde la transcripción de Zoom</span></button>';
+        dlg.querySelector('[data-ia-acta-rotulo]').textContent = 'O, si prefieres, pega el texto de la reunión';
+        caja.querySelector('[data-ia-acta-zoom]').addEventListener('click', (ev) => generar(ev.currentTarget, ''));
+      }).catch(() => caja.remove());
+    }
     let res = null;
     const generar = (btn, texto) => conBoton(btn, async () => {
       res = await pedir('ia_acta', { reunion_id: b.dataset.reunion, ocurrencia: b.dataset.ocurrencia || '', texto: texto || '' });
@@ -188,10 +219,9 @@
       dlg.querySelector('[data-ia-acta-copiar]').hidden = false;
       dlg.querySelector('[data-ia-acta-crear]').hidden = !(res.tareas && res.tareas.length);
     });
-    dlg.querySelector('[data-ia-acta-zoom]')?.addEventListener('click', (ev) => generar(ev.currentTarget, ''));
     dlg.querySelector('[data-ia-acta-pegado]').addEventListener('click', (ev) => {
       const t = dlg.querySelector('[data-ia-acta-texto]').value.trim();
-      if (t.length < 30) { toast('Pega el texto de la reunión.', 'error'); return; }
+      if (t.length < 30) { avisarError(ev.currentTarget, 'Pega el texto de la reunión (al menos unas líneas).'); return; }
       generar(ev.currentTarget, t);
     });
     dlg.querySelector('[data-ia-acta-copiar]').addEventListener('click', () => res && copiar(res.texto));

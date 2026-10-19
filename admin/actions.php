@@ -55,7 +55,7 @@ $accionesDeCualquiera = [
     'rfija_crear', 'rfija_editar', 'rfija_eliminar',
     // IA: administrador y Scrum Master. Cada acción comprueba por dentro el
     // perfil (IA::puedeUsar) y que el proyecto sea suyo (puedeGestionar).
-    'ia_plan_documento', 'ia_acta', 'ia_req_texto', 'ia_obs_redaccion', 'ia_obs_adjunto', 'ia_obs_resumen',
+    'ia_plan_documento', 'ia_acta', 'ia_acta_hay', 'ia_req_texto', 'ia_obs_redaccion', 'ia_obs_adjunto', 'ia_obs_resumen',
     'ia_tarea_descripcion', 'ia_tarea_desglose', 'ia_tarea_dependencias', 'ia_crear_tareas',
     'ia_deploy_notas', 'ia_daily',
     // Campana: cada quien marca las suyas. Pedidos entre equipos: los hace y
@@ -2856,6 +2856,23 @@ switch ($accion) {
 
     /* ---------- IA: consola (solo administrador) ---------- */
 
+    case 'ia_clave_quitar':
+        // Quitar una clave al instante (botón «Quitar» de la consola, con confirmación)
+        require_once __DIR__ . '/lib/IA.php';
+        $provQ = (string)($_POST['proveedor'] ?? '');
+        $idQ   = (string)($_POST['id'] ?? '');
+        if (!isset(IA::PROVEEDORES[$provQ])) redirigir('ia.php#claves', 'Proveedor desconocido.', 'error');
+        $cfgQ = IA::config();
+        $quitadaQ = null;
+        $cfgQ['claves'][$provQ] = array_values(array_filter((array)$cfgQ['claves'][$provQ], function ($k) use ($idQ, &$quitadaQ) {
+            if ((string)$k['id'] !== $idQ) return true;
+            $quitadaQ = $k;
+            return false;
+        }));
+        if ($quitadaQ === null) redirigir('ia.php#claves', 'Esa clave ya no estaba.', 'error');
+        IA::guardar($cfgQ);
+        redirigir('ia.php#claves', 'Quitamos la clave «' . $quitadaQ['etiqueta'] . '» de ' . IA::PROVEEDORES[$provQ]['nombre'] . '.');
+
     case 'ia_guardar':
         require_once __DIR__ . '/lib/IA.php';
         $cfgIa  = IA::config();
@@ -2947,6 +2964,7 @@ switch ($accion) {
 
     case 'ia_plan_documento':
     case 'ia_acta':
+    case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
@@ -2993,6 +3011,29 @@ switch ($accion) {
             }
             return $out;
         };
+
+        // ¿Zoom ya tiene la transcripción de esta reunión? (el acta solo ofrece
+        // «Generar desde la transcripción» si la hay)
+        if ($accion === 'ia_acta_hay') {
+            $reuH = (new ReunionRepo())->buscar((int)($_POST['reunion_id'] ?? 0));
+            if (!$reuH || !puedeGestionar((int)$reuH['proyecto_id'])) $iaFin(['ok' => false, 'error' => 'No gestionas ese proyecto.'], 403);
+            $hayH = false;
+            if (($reuH['plataforma'] ?? 'zoom') !== 'meet' && !empty($reuH['zoom_id'])) {
+                $ocH = trim((string)($_POST['ocurrencia'] ?? ''));
+                $uuidH = '';
+                $buscarH = true;
+                if ($ocH !== '' && Reuniones::esRecurrente($reuH)) {
+                    $errH = '';
+                    $uuidH = resolverUuidOcurrencia($reuH, $ocH, $errH);
+                    if ($uuidH === '' && !esUltimaOcurrencia($reuH, $ocH)) $buscarH = false;
+                }
+                if ($buscarH) {
+                    $trH = Zoom::transcripcion((string)$reuH['zoom_id'], $uuidH);
+                    $hayH = ($trH['estado'] ?? '') === 'ok' && trim((string)($trH['texto'] ?? '')) !== '';
+                }
+            }
+            $iaFin(['ok' => true, 'hay' => $hayH]);
+        }
 
         try {
             switch ($accion) {

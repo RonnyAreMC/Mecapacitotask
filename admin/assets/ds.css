@@ -2273,3 +2273,13 @@ a.mc-btn, a.mc-btn:hover, a.mc-btn:focus { text-decoration: none; }
 /* Que nada empuje las tarjetas más allá de su columna (p. ej. un texto largo sin espacios en un aviso) */
 .ds-grid > *, .ds-grid-2 > * { min-width: 0; }
 .mc-alert__title, .mc-alert__desc { overflow-wrap: anywhere; }
+
+/* Consola de IA: «Quitar» una clave (acción inmediata, en rojo suave) */
+.ia-quitar { --_fg: var(--danger-ink); --_bgh: var(--danger-soft); --_fgh: var(--danger-ink); color: var(--danger-ink); }
+
+/* Acta con IA: botones a lo ancho, «Buscando la transcripción…» discreto y el error dentro del modal */
+.ia-acta-origen { display: flex; flex-direction: column; gap: 10px; }
+.ia-acta-zoom { display: flex; flex-direction: column; }
+.ia-buscando { display: inline-flex; align-items: center; gap: 8px; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink-muted); }
+.dlg-ia .ia-error { margin: 0 0 12px; }
+.dlg-ia .mc-btn { text-decoration: none; }
