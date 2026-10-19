@@ -1373,12 +1373,19 @@ html.dark .ds-tema .ds-tema__luna { display: none; }
   font: 500 var(--mc-fs-sm, .8125rem)/1.25rem var(--font-sans); text-align: left; text-decoration: none; cursor: pointer;
   transition: background-color var(--mc-dur-1, .12s) ease;
 }
-.ds-cuenta__op .mc-icon { color: var(--ink-muted); flex: none; }
+/* Cada opción con su ícono de color sobre un fondo suave (el tono de la opción) */
+.ds-cuenta__op > .mc-icon {
+  flex: none; box-sizing: content-box; padding: 5px; border-radius: var(--radius-sm);
+  background: var(--_op-bg, var(--surface-sunken)); color: var(--_op-fg, var(--ink-muted));
+}
+.ds-cuenta__op--azul    { --_op-bg: var(--tone-azul-bg);    --_op-fg: var(--tone-azul-fg); }
+.ds-cuenta__op--naranja { --_op-bg: var(--tone-naranja-bg); --_op-fg: var(--tone-naranja-fg); }
+.ds-cuenta__op--verde   { --_op-bg: var(--tone-verde-bg);   --_op-fg: var(--tone-verde-fg); }
+.ds-cuenta__op--cian    { --_op-bg: var(--tone-cian-bg);    --_op-fg: var(--tone-cian-fg); }
 .ds-cuenta__op:hover, .ds-cuenta__op:focus-visible { background: var(--surface-hover); outline: none; }
 .ds-cuenta__op.is-actual { color: var(--primary-ink); font-weight: 600; }
-.ds-cuenta__op.is-actual .mc-icon { color: var(--primary-ink); }
 .ds-cuenta__salir { margin: 4px 0 0; padding-top: 4px; border-top: 1px solid var(--line); }
-.ds-cuenta__salir .ds-cuenta__op, .ds-cuenta__salir .ds-cuenta__op .mc-icon { color: var(--danger-ink); }
+.ds-cuenta__salir .ds-cuenta__op { color: var(--danger-ink); --_op-bg: var(--danger-soft); --_op-fg: var(--danger-ink); }
 .ds-cuenta__salir .ds-cuenta__op:hover { background: var(--danger-soft); }
 
 /* Avisos (toast) debajo del encabezado: así no tapan la campana */
@@ -1905,3 +1912,12 @@ html td.celda-acceso { display: table-cell; vertical-align: middle; white-space:
 html td.celda-acceso > * { display: inline-flex; vertical-align: middle; }
 html td.celda-acceso > * + * { margin-left: 8px; }
 html td.celda-acceso > .inline-form { display: inline-block; }
+
+/* Pantallas anchas: los íconos del menú lateral, apenas un poco más grandes */
+@media (min-width: 1440px) {
+  html .sidebar .sidebar-link .ico, html.dark .sidebar .sidebar-link .ico,
+  html.sb-collapsed .sidebar .sidebar-link .ico { width: 22px; height: 22px; }
+  html .sidebar .sidebar-link > i, html.sb-collapsed .sidebar .sidebar-link > i { font-size: 1.15rem; }
+  html .sidebar .sidebar-toggle .ico, html .sidebar .sidebar-toggle svg,
+  html .sidebar .vc-abrir > .ico, html .sidebar .vc-abrir > svg { width: 24px; height: 24px; }
+}

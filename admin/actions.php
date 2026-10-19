@@ -88,15 +88,21 @@ function avisoPanel(array $para, string $tipo, string $titulo, string $texto = '
 }
 
 /**
- * Teléfono tal como lo escriben (dígitos, +, espacios, guiones, paréntesis).
- * '' si viene vacío o no parece un número (de 7 a 15 dígitos).
+ * Teléfono: solo números, de 7 a 15 dígitos (sin +, espacios, guiones ni
+ * paréntesis). '' si viene vacío o trae cualquier otra cosa.
  */
 function telefonoEntrada(?string $v): string
 {
-    $v = trim(preg_replace('/[^\d+\-\s()]/', '', (string)$v));
-    $digitos = preg_replace('/\D/', '', $v);
-    if ($v === '' || strlen($digitos) < 7 || strlen($digitos) > 15) return '';
-    return mb_substr(preg_replace('/\s+/', ' ', $v), 0, 25);
+    $v = trim((string)$v);
+    return preg_match('/^\d{7,15}$/', $v) ? $v : '';
+}
+
+/** Si escribieron un teléfono que no es válido, vuelve con el aviso (vacío sí se permite). */
+function exigirTelefonoValido(?string $v, string $volver): void
+{
+    if (trim((string)$v) !== '' && telefonoEntrada($v) === '') {
+        redirigir($volver, 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
+    }
 }
 
 /** Ids de los administradores (para los avisos que también van a ellos). */
@@ -808,7 +814,7 @@ switch ($accion) {
     case 'perfil_telefono':
         $yoTel = Auth::usuario();
         $tel = telefonoEntrada($_POST['telefono'] ?? '');
-        if ($tel === '') redirigir(paginaOrigen(), 'Ese número no parece un teléfono: escribe entre 7 y 15 dígitos.', 'error');
+        if ($tel === '') redirigir(paginaOrigen(), 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
         $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
 
@@ -1737,9 +1743,7 @@ switch ($accion) {
         ];
         if (array_key_exists('telefono', $_POST)) {
             $telNuevo = telefonoEntrada($_POST['telefono']);
-            if (trim((string)$_POST['telefono']) !== '' && $telNuevo === '') {
-                redirigir($volver, 'Ese teléfono no parece válido: escribe entre 7 y 15 dígitos.', 'error');
-            }
+            exigirTelefonoValido($_POST['telefono'], $volver);
             $cambios['telefono'] = $telNuevo;
         }
 
@@ -2067,6 +2071,7 @@ switch ($accion) {
         if (trim($_POST['nombre'] ?? '') === '') {
             redirigir('equipo.php', 'El nombre del colaborador es obligatorio.', 'error');
         }
+        exigirTelefonoValido($_POST['telefono'] ?? '', 'equipo.php');
         $datos = $_POST;
         $datos['foto'] = guardarFoto('foto');
         $m = $miembros->crear($datos);
@@ -2085,6 +2090,7 @@ switch ($accion) {
         if (!$m) {
             redirigir('equipo.php', 'Colaborador no encontrado.', 'error');
         }
+        exigirTelefonoValido($_POST['telefono'] ?? '', paginaOrigen());
         $cambios = [
             'nombre'     => trim($_POST['nombre'] ?? ''),
             'rol'        => trim($_POST['rol'] ?? ''),

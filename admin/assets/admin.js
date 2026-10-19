@@ -2745,7 +2745,7 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     }
     form.querySelector('[name="email"]').value = m.email || '';
     const telEl = form.querySelector('[name="telefono"]');
-    if (telEl) telEl.value = m.telefono || '';
+    if (telEl) telEl.value = String(m.telefono || '').replace(/\D/g, '');
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
     const selAcceso = form.querySelector('[name="acceso"]');

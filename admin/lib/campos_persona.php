@@ -72,9 +72,9 @@ if (!function_exists('camposPersona')) {
           <span>Teléfono</span>
           <div class="input-prefijo">
             <i class="fa-solid fa-phone"></i>
-            <input class="input-meca" type="tel" name="telefono" maxlength="25" inputmode="tel" autocomplete="tel" placeholder="Ej.: 0991234567">
+            <input class="input-meca" type="tel" name="telefono" minlength="7" maxlength="15" inputmode="numeric" pattern="[0-9]{7,15}" title="Solo números: de 7 a 15 dígitos" autocomplete="tel" placeholder="Ej.: 0991234567">
           </div>
-          <small class="campo-ayuda">Si lo dejas vacío, se lo pedimos la próxima vez que entre al panel.</small>
+          <small class="campo-ayuda">Solo números, sin espacios ni guiones. Si lo dejas vacío, se lo pedimos la próxima vez que entre al panel.</small>
         </label>
 <?php if (!$esEdicion): ?>
         <div class="campo-doble">

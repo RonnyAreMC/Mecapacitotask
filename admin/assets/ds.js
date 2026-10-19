@@ -257,6 +257,14 @@
     if (e.target.classList && e.target.classList.contains('ds-select-nativo')) pintar(e.target.closest('.mc-select'));
   });
 
+  /* ---------- Teléfono: solo números (soloNumerosTel) ---------- */
+  document.addEventListener('input', (e) => {
+    const t = e.target;
+    if (!(t instanceof HTMLInputElement) || t.name !== 'telefono') return;
+    const limpio = t.value.replace(/\D/g, '').slice(0, 15);
+    if (limpio !== t.value) t.value = limpio;
+  });
+
   /* ---------- Casilla ---------- */
   document.addEventListener('change', (e) => {
     const inp = e.target;

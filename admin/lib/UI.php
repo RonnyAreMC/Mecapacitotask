@@ -445,10 +445,10 @@ class UI
         <div class="mc-pop mc-pop--end ds-cuenta__menu" data-cuenta-menu role="menu" hidden>
           <div class="ds-cuenta__cab"><?= self::avatar($yo, 40) ?>
             <span><b><?= e($yo['nombre']) ?></b><small><?= e($rol) ?><?= !empty($yo['email']) ? ' · ' . e($yo['email']) : '' ?></small></span></div>
-          <a role="menuitem" class="ds-cuenta__op<?= $activo === 'perfil' ? ' is-actual' : '' ?>" href="perfil.php"><?= self::iconoDS('perfil', 18) ?>Mi perfil</a>
-          <?php if ($conNotif): ?><a role="menuitem" class="ds-cuenta__op<?= $activo === 'notificaciones' ? ' is-actual' : '' ?>" href="notificaciones.php"><?= self::iconoDS('notificaciones', 18) ?>Notificaciones</a><?php endif; ?>
-          <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
-          <a role="menuitem" class="ds-cuenta__op<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
+          <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--azul<?= $activo === 'perfil' ? ' is-actual' : '' ?>" href="perfil.php"><?= self::iconoDS('perfil', 18) ?>Mi perfil</a>
+          <?php if ($conNotif): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--naranja<?= $activo === 'notificaciones' ? ' is-actual' : '' ?>" href="notificaciones.php"><?= self::iconoDS('notificaciones', 18) ?>Notificaciones</a><?php endif; ?>
+          <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--verde<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
+          <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--cian<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
           <form method="post" action="actions.php" class="ds-cuenta__salir">
             <input type="hidden" name="accion" value="auth_logout">
             <button role="menuitem" class="ds-cuenta__op"><?= self::iconoDS('salir', 18) ?>Cerrar sesión</button>
@@ -555,9 +555,9 @@ class UI
     <div class="ds-modal__body">
       <div class="mc-field"><label class="mc-field__label" for="tel-num">Teléfono</label>
         <div class="mc-input mc-input--md"><?= self::iconoDS('telefono', 18, 'mc-input__icon') ?>
-          <input class="mc-input__control" id="tel-num" type="tel" name="telefono" required minlength="7" maxlength="25"
-                 inputmode="tel" autocomplete="tel" placeholder="Ej.: 0991234567"></div>
-        <div class="mc-field__foot"><span class="mc-field__hint">Si no es de Ecuador, con el código del país (ej.: +57 300 123 4567).</span></div>
+          <input class="mc-input__control" id="tel-num" type="tel" name="telefono" minlength="7" maxlength="15" inputmode="numeric" pattern="[0-9]{7,15}" title="Solo números: de 7 a 15 dígitos" autocomplete="tel" required
+                 placeholder="Ej.: 0991234567"></div>
+        <div class="mc-field__foot"><span class="mc-field__hint">Solo números, sin espacios ni guiones. Si no es de Ecuador, empieza con el código del país (ej.: 573001234567).</span></div>
       </div>
     </div>
     <footer class="ds-modal__foot">
@@ -1538,6 +1538,8 @@ class UI
         'mesa-ayuda'          => 'Mesa de Ayuda',
         'sitios-web'          => 'Sitios web públicos',
         'asistente-virtual'   => 'Asistente virtual',
+        'app-movil'           => 'Apps móviles',
+        'emprendimiento'      => 'Emprendimiento y vinculación',
     ];
 
     /**
@@ -1545,6 +1547,7 @@ class UI
      * más específica a la más general (sin tildes, en minúsculas).
      */
     private const PORTADA_CLAVES = [
+        'app-movil'           => ['app movil', ' movil', 'mobile', 'android', ' ios ', ' apk'],
         'universidad-agraria' => ['agrari', 'agro'],
         'ingles'              => ['ingles', 'english', 'buckingham', 'idioma'],
         'unidad-educativa'    => ['unidad educativa', 'uniebec', 'escuela', 'colegio', 'gestion educativa'],
@@ -1552,6 +1555,7 @@ class UI
         'talento-humano'      => ['talento', 'humano', 'rrhh', 'nomina'],
         'financiero'          => ['financ', 'contab', 'tesorer', 'factur', 'tpv', 'punto de venta', 'pagos'],
         'mesa-ayuda'          => ['mesa de ayuda', 'soporte', 'helpdesk', 'ticket'],
+        'emprendimiento'      => ['emprend', 'vinculacion', 'sociedad', 'comunidad', 'startup'],
         'asistente-virtual'   => ['asistente', 'chatbot', 'bot '],
         'sitios-web'          => ['web', 'sitio', 'portal', 'pagina', 'landing'],
     ];

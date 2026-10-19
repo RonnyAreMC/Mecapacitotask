@@ -93,15 +93,17 @@ function actualizarPanel(array $opc): void
     $nIconos >= 116 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (116).');
     $ilus = ['notificaciones-vacio', 'reportes-vacio', 'instructores-equipo', 'asistente-ia', 'sin-resultados-cursos', 'curso-sin-modulos',
              'banco-vacio', 'sin-ordenes', 'error-amable', 'construccion', 'despliegue', 'universidad-agraria', 'ingles',
-             'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual'];
+             'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual',
+             'app-movil', 'emprendimiento'];
     $faltanIlus = array_values(array_filter($ilus, fn($n) => !is_file($dir . '/iconos/ilustraciones/' . $n . '.svg')));
     $faltanIlus ? nota('error', 'Faltan ilustraciones en iconos/ilustraciones: ' . implode(', ', $faltanIlus) . '.') : nota('ok', count($ilus) . ' ilustraciones (portadas y estados vacíos)');
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior'],
+        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'"],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido'],
+        'assets/ds.js'      => ['soloNumerosTel'],
         'lib/req_ui.php'    => ['req-tr'],
         'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot'],
@@ -224,7 +226,21 @@ function actualizarPanel(array $opc): void
     nota('info', count($conPortada) . ' de ' . count($proyectos) . ' proyectos con portada' . ($conPortada ? ': ' . implode('; ', $conPortada) : ''));
     if ($sinPortada) nota('aviso', 'Sin portada (se elige en Editar proyecto → Portada): ' . implode(', ', $sinPortada) . '.');
     nota('info', $conRelevo . ' proyecto(s) con PO de relevo');
-    $sinTel = array_values(array_filter((new MiembroRepo())->todos(), fn($m) => trim((string)($m['telefono'] ?? '')) === ''));
+    // Teléfonos: van solo con números. Los guardados con +, espacios o guiones quedan en dígitos.
+    $repoTel = new MiembroRepo();
+    $telLimpios = 0;
+    $telMalos = [];
+    foreach ($repoTel->todos() as $m) {
+        $tel = trim((string)($m['telefono'] ?? ''));
+        if ($tel === '' || preg_match('/^\d{7,15}$/', $tel)) continue;
+        $digitos = preg_replace('/\D/', '', $tel);
+        $nuevo = preg_match('/^\d{7,15}$/', $digitos) ? $digitos : '';
+        $nuevo === '' ? $telMalos[] = $m['nombre'] : $telLimpios++;
+        if (!$seco) $repoTel->actualizar((int)$m['id'], ['telefono' => $nuevo]);
+    }
+    if ($telLimpios) nota('ok', $telLimpios . ' teléfono(s) ' . ($seco ? 'se dejarían' : 'dejados') . ' solo con números (sin +, espacios ni guiones)');
+    if ($telMalos) nota('aviso', 'Teléfono no válido ' . ($seco ? '(se borraría' : '(lo borré') . ' y el panel lo pedirá de nuevo): ' . implode(', ', $telMalos) . '.');
+    $sinTel = array_values(array_filter($repoTel->todos(), fn($m) => trim((string)($m['telefono'] ?? '')) === ''));
     nota($sinTel ? 'aviso' : 'ok', $sinTel ? count($sinTel) . ' persona(s) sin teléfono: el panel se lo pedirá cuando entren.' : 'Todas las personas tienen teléfono');
 
     /* 7. Caché de PHP */
