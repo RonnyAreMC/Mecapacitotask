@@ -275,6 +275,12 @@ function actualizarPanel(array $opc): void
     // Correo InnoTech: a qué servidor se conecta y cuántos ya lo sincronizaron
     if (is_file($dir . '/lib/Correo.php')) {
         require_once $dir . '/lib/Correo.php';
+        // Semilla: el buzón del mismo cPanel (mail.innotech-solutions.com.ec, IMAP 993 y SMTP 465,
+        // certificado verificado). Solo si nunca se configuró: lo que el admin cambió se respeta.
+        if (empty((array)(Config::get('correo_buzon') ?? []))) {
+            if (!$seco) Config::guardar(['correo_buzon' => Correo::DEFECTO]);
+            nota('ok', 'Servidor de correo ' . ($seco ? 'se sembraría' : 'sembrado') . ': ' . Correo::DEFECTO['imap_host'] . ' (IMAP ' . Correo::DEFECTO['imap_puerto'] . ', SMTP ' . Correo::DEFECTO['smtp_puerto'] . ') para @' . Correo::DEFECTO['dominio']);
+        }
         $cc = Correo::conf();
         if (!Correo::activo()) {
             nota('aviso', 'Correo InnoTech apagado' . (function_exists('openssl_encrypt') ? ' (se prende en Notificaciones → Correo → Servidor de correo)' : ': falta la extensión openssl'));
