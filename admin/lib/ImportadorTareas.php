@@ -228,7 +228,9 @@ final class ImportadorTareas
                 'datos' => [
                     'proyecto_id'  => (int)$proyecto['id'],
                     'titulo'       => $titulo,
-                    'descripcion'  => trim((string)($t['descripcion'] ?? '')),
+                    // Se limpia: el JSON puede venir de un documento o de la IA, y la
+                    // descripción se pinta como HTML en el panel.
+                    'descripcion'  => HtmlRico::limpiar(trim((string)($t['descripcion'] ?? ''))),
                     'estado'       => $est,
                     'prioridad'    => $prio,
                     'fecha_inicio' => $fi,

@@ -113,10 +113,42 @@ foreach ($mapaProy as $pid => $p) {
 ?>
 
 <?php
-/* Antes aquí iban cuatro KPIs (proyectos, activos, tareas abiertas y
-   completadas) que repetían lo que ya dice cada tarjeta de proyecto. En su
-   lugar va lo que nadie sabía sin preguntar por chat: a qué hora se subieron
-   los últimos cambios al servidor de pruebas. */
+/* Indicadores de arriba: lo que suman los proyectos que esta persona ve
+   (con «ver como», los de esa persona). Cada tarjeta de abajo dice lo suyo. */
+$finalesDash = Catalogo::estadosFinales();
+$resumenes = [];
+$indTotal = $indHechas = $indActivos = 0;
+foreach ($proyectos as $p) {
+    $pidDash = (int)$p['id'];
+    $resumenes[$pidDash] = $tareasRepo->resumen($pidDash);
+    $indTotal  += array_sum($resumenes[$pidDash]);
+    $indHechas += $tareasRepo->completadas($pidDash);
+    if (($p['estado'] ?? 'activo') === 'activo') $indActivos++;
+}
+$indPend = max(0, $indTotal - $indHechas);
+$indPct  = $indTotal ? (int)round($indHechas * 100 / $indTotal) : 0;
+$indicadores = [
+    ['Proyectos activos', $indActivos, 'carpeta', 'azul'],
+    ['Tareas', $indTotal, 'completar', 'petroleo'],
+    ['Terminadas', $indHechas, 'exito', 'verde'],
+    ['Pendientes', $indPend, 'reloj', 'amarillo'],
+    ['Avance', $indPct . '%', 'progreso', 'cian'],
+];
+?>
+<?php if ($proyectos): ?>
+<section class="ds-indicadores" aria-label="Resumen de tus proyectos">
+  <?php foreach ($indicadores as [$rot, $num, $ico, $tono]): ?>
+  <div class="ds-ind ds-ind--<?= $tono ?>">
+    <span class="mc-tile mc-tile--<?= $tono === 'amarillo' ? 'naranja' : $tono ?>"><?= UI::iconoDS($ico, 20) ?></span>
+    <span class="ds-ind__txt"><span class="ds-ind__rot"><?= e($rot) ?></span><span class="ds-ind__num"><?= e((string)$num) ?></span></span>
+  </div>
+  <?php endforeach; ?>
+</section>
+<?php endif; ?>
+
+<?php
+/* Debajo de los indicadores, lo que nadie sabía sin preguntar por chat: a
+   qué hora se subieron los últimos cambios al servidor de pruebas. */
 // Solo los proyectos en los que participo: aquí salían los ocho del panel, y
 // a quien no está en SIGE no le importa cuándo subió SIGE. El registro
 // completo sigue en el módulo.
@@ -141,9 +173,11 @@ if (puedeVerDeploys()) {
 <?php else: ?>
 <section class="proyectos-admin-grid">
   <?php $iCard = 0; foreach ($proyectos as $p):
-      $resumen = $tareasRepo->resumen((int)$p['id']);
+      $resumen = $resumenes[(int)$p['id']] ?? $tareasRepo->resumen((int)$p['id']);
       $total   = array_sum($resumen);
       $avance  = $tareasRepo->avance((int)$p['id']);
+      $hechas  = $tareasRepo->completadas((int)$p['id']);
+      $portada = UI::portadaDe($p);
       $color   = ProyectoRepo::colorBase($p);
 
       // Miembros con tareas en este proyecto
@@ -154,33 +188,28 @@ if (puedeVerDeploys()) {
           }
       }
   ?>
-  <article class="proyecto-admin-card card-base" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
-    <?= UI::icono($p['icono'] ?? 'FolderOpen', 'pac-watermark') ?>
-    <div class="pac-head">
-      <div class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></div>
+  <article class="proyecto-admin-card card-base<?= $portada ? '' : ' sin-portada' ?>" style="--pc:<?= $color ?>;--i:<?= $iCard++ ?>">
+    <a class="pac-portada" href="proyecto.php?id=<?= (int)$p['id'] ?>" tabindex="-1" aria-hidden="true">
+      <?php if ($portada): ?>
+      <img src="<?= e(asset('iconos/ilustraciones/' . $portada . '.svg')) ?>" alt="" width="520" height="420" loading="lazy" decoding="async">
+      <?php else: ?>
+      <span class="pac-portada-icono"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></span>
+      <?php endif; ?>
       <?= UI::badgeEstadoProyecto($p['estado']) ?>
-    </div>
+      <span class="pac-icon"><?= UI::icono($p['icono'] ?? 'FolderOpen') ?></span>
+    </a>
     <div class="pac-body">
       <h2 class="font-display"><a href="proyecto.php?id=<?= (int)$p['id'] ?>"><?= e($p['nombre']) ?></a></h2>
       <p class="pac-desc"><?= e($p['descripcion']) ?: 'Sin descripción.' ?></p>
 
+      <!-- Solo lo que se pregunta: cuántas tareas hay y cuántas ya están
+           terminadas (el detalle por estado está en el tablero). -->
+      <p class="pac-resumen">
+        <span><b><?= $total ?></b> <?= $total === 1 ? 'tarea' : 'tareas' ?></span>
+        <span class="pac-hechas"><b><?= $hechas ?></b> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?></span>
+      </p>
       <div class="pac-progress">
         <?= UI::progreso($avance, $color) ?>
-      </div>
-
-      <div class="pac-estados">
-        <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
-            $n = (int)$resumen[$k]; ?>
-          <!-- Cerrada es solo icono + número: cuatro rótulos no caben en la
-               tarjeta. Al pasar por encima, la píldora se abre y dice cuál es.
-               Antes se abría aquí un panel con las tareas de ese estado: sobre
-               la tarjeta quedaba una lista con los títulos cortados y el mismo
-               nombre repetido cinco veces, y tapaba media tarjeta. -->
-          <span class="pac-mini estado-<?= $k ?><?= $n ? '' : ' pac-mini-cero' ?>">
-            <?= UI::icono($icono) ?> <?= $n ?>
-            <span class="pm-rot"><?= e($label) ?></span>
-          </span>
-        <?php endforeach; ?>
       </div>
 
       <div class="pac-foot">
@@ -246,6 +275,11 @@ if (puedeVerDeploys()) {
           <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, crea y edita las tareas y pone el horario de reuniones.</small>
         </label>
         <label class="campo">
+          <span><i class="fa-solid fa-user-shield"></i> Product Owner de relevo</span>
+          <?= UI::select('po_relevo', [0 => '— Sin PO de relevo —'] + array_diff_key($opcionesAnalistas, [0 => true]), 0) ?>
+          <small class="campo-ayuda">Cubre al PO principal cuando no está (vacaciones, permisos): tiene sus mismos permisos en el proyecto.</small>
+        </label>
+        <label class="campo">
           <span><i class="fa-solid fa-user-gear"></i> Scrum Master</span>
           <?= UI::select('scrum', $opcionesScrum, 0) ?>
           <small class="campo-ayuda">Quién lleva este proyecto. Junto con el Product Owner, es quien pone su horario de reuniones diarias.</small>
@@ -264,6 +298,10 @@ if (puedeVerDeploys()) {
       </section>
 
       <section class="wz-panel">
+        <div class="campo" data-sin-resumen>
+          <span>Portada</span>
+          <?= UI::selectorPortada() ?>
+        </div>
         <div class="campo" data-sin-resumen>
           <span>Ícono</span>
           <?= UI::selectorIcono() ?>

@@ -114,6 +114,9 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
         <button type="button" class="accion-btn obs-responder" data-obs="<?= (int)$o['id'] ?>">
           <i class="fa-solid fa-reply"></i> Responder
         </button>
+        <?php if (!empty($o['respuestas']) && UI::ia('obs_resumen') && puedeGestionar((int)($o['proyecto_id'] ?? 0))): ?>
+        <?= UI::botonIA('Resumir hilo', ['ia-obs-resumen' => (int)$o['id']], 'Resumen de la observación y sus respuestas') ?>
+        <?php endif; ?>
         <?php endif; ?>
         <span class="obs-acc-admin solo-admin">
         <form method="post" action="actions.php" class="inline-form">

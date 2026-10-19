@@ -29,11 +29,11 @@ $sinVincular = [];
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Entrar · <?= e($marca['titulo']) ?></title>
 <link rel="icon" type="<?= logoMime(faviconPanel()) ?>" href="<?= e(faviconPanel()) ?>">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="<?= asset('assets/fonts/Inter-Variable.woff2') ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="<?= asset('../assets/mecapacito.css') ?>">
 <link rel="stylesheet" href="<?= asset('assets/admin.css') ?>">
+<?php if (is_file(__DIR__ . '/assets/ds.css')): /* avisos (toast) del design system */ ?><link rel="stylesheet" href="<?= asset('assets/ds.css') ?>"><?php endif; ?>
 </head>
 <body class="admin-body login-body">
 <?php UI::flashes(); ?>

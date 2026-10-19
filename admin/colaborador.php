@@ -170,13 +170,19 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
         <?php else: ?>
         <span class="cuenta-chip cuenta-off"><i class="fa-solid fa-envelope-circle-check"></i> Sin correo registrado</span>
         <?php endif; ?>
+        <?php if (!empty($m['telefono'])): ?>
+        <span class="cuenta-chip">
+          <a href="tel:<?= e(preg_replace('/[^\d+]/', '', (string)$m['telefono'])) ?>"><i class="fa-solid fa-phone"></i> <?= e($m['telefono']) ?></a>
+          <button type="button" class="btn-copiar mini" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono"><i class="fa-regular fa-copy"></i></button>
+        </span>
+        <?php endif; ?>
       </div>
     </div>
     <div class="colab-acciones">
       <button class="btn-outline btn-meca btn-sm btn-azul solo-admin" title="Editar"
         data-editar-miembro='<?= e(json_encode([
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
-            'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '',
+            'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '', 'telefono' => $m['telefono'] ?? '',
             'acceso' => $m['acceso'] ?? 'lector',
             'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq,
         ], JSON_UNESCAPED_UNICODE)) ?>'>

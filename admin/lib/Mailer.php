@@ -1258,4 +1258,34 @@ class Mailer
         }
         return $alguno;
     }
+
+    /**
+     * Pedido entre equipos. $evento: nuevo (a quien lo recibe), respuesta (al
+     * otro lado), hecho o rechazar (a quien lo pidió). $de es quien lo provoca.
+     */
+    public static function notificarPedido(array $pedido, array $de, array $destino, string $evento, string $nota = ''): true|string|null
+    {
+        if (!self::listo() || empty($destino['email'])) {
+            return null;
+        }
+        $acento  = Config::all()['color_secundario'] ?? '#2B76F7';
+        $equipos = Catalogo::equipos();
+        $titulo  = (string)($pedido['titulo'] ?? 'Pedido');
+        [$cab, $sub, $asunto, $color] = match ($evento) {
+            'respuesta' => ['Respondieron un pedido', e($de['nombre'] ?? '') . ' escribió en «' . e($titulo) . '».', 'Respuesta en el pedido: ' . $titulo, $acento],
+            'hecho'     => ['Tu pedido está hecho', e($de['nombre'] ?? '') . ' lo marcó como terminado.', 'Pedido hecho: ' . $titulo, '#34c759'],
+            'rechazar'  => ['Rechazaron tu pedido', e($de['nombre'] ?? '') . ' no puede atenderlo.', 'Pedido rechazado: ' . $titulo, '#ff3b30'],
+            default     => ['Te hicieron un pedido', 'Hola ' . e($destino['nombre'] ?? '') . ', ' . e($de['nombre'] ?? '') . ' le pide algo a '
+                            . e($equipos[$pedido['para_equipo'] ?? ''][0] ?? 'tu equipo') . '.', 'Pedido de ' . ($de['nombre'] ?? '') . ': ' . $titulo, $acento],
+        };
+        $filas = [
+            'De'   => e(($de['nombre'] ?? '') . ' · ' . ($equipos[$pedido['de_equipo'] ?? ''][0] ?? '')),
+            'Para' => e($equipos[$pedido['para_equipo'] ?? ''][0] ?? ''),
+        ];
+        if (!empty($pedido['fecha_limite'])) $filas['Para cuándo'] = e((string)$pedido['fecha_limite']);
+        $texto = $evento === 'nuevo' ? (string)($pedido['detalle'] ?? '') : $nota;
+        $cuerpo = self::encabezado($color, '&#9993;', $cab, $sub) . self::detalle($titulo, $filas, mb_substr($texto, 0, 600));
+        return self::enviar($destino['email'], $asunto,
+            self::plantilla($cuerpo, self::urlPagina('pedidos.php#p-' . (int)($pedido['id'] ?? 0)), 'Ver el pedido'));
+    }
 }

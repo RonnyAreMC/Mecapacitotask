@@ -5026,63 +5026,8 @@ html.dark .input-color-linea { background: var(--c-bg-soft); }
 .empty-state h3 { margin: 0 0 6px; color: var(--c-text); font-size: 1.2rem; font-weight: 800; }
 .empty-state p { margin: 0; font-size: .9rem; }
 
-/* =========================================================
-   MC Toasts (componente de alertas Mecapacito)
-   ========================================================= */
-.mc-toasts {
-  position: fixed; top: 20px; right: 22px; z-index: 200;
-  display: flex; flex-direction: column; gap: 12px;
-  width: min(380px, calc(100vw - 40px));
-  pointer-events: none;
-}
-.mc-toast {
-  position: relative;
-  display: flex; align-items: flex-start; gap: 12px;
-  padding: 15px 42px 16px 16px;
-  border-radius: 16px;
-  background: var(--n-bg);
-  border: 1.5px solid var(--c-border);
-  box-shadow: var(--sh-card);
-  overflow: hidden;
-  pointer-events: auto;
-  animation: mc-toast-in .4s cubic-bezier(.2,.8,.2,1);
-}
-.mc-toast.out { animation: mc-toast-out .3s ease forwards; }
-@keyframes mc-toast-in  { from { opacity: 0; transform: translateX(30px) scale(.97); } to { opacity: 1; transform: none; } }
-@keyframes mc-toast-out { to { opacity: 0; transform: translateY(-10px) scale(.97); } }
-
-.mc-toast > i { font-size: 1.1rem; margin-top: 1px; flex-shrink: 0; }
-.mc-toast-txt { font-size: .86rem; font-weight: 600; color: var(--c-text); line-height: 1.5; }
-
-.mc-toast-x {
-  position: absolute; top: 9px; right: 9px;
-  width: 26px; height: 26px;
-  border: 0; border-radius: 8px;
-  background: transparent;
-  color: var(--c-text-soft);
-  font-size: .72rem;
-  cursor: pointer;
-  transition: background .2s ease, color .2s ease;
-}
-.mc-toast-x:hover { background: rgba(var(--c-secondary-rgb), .12); color: var(--c-text); }
-
-.mc-toast-barra {
-  position: absolute; left: 0; bottom: 0;
-  height: 3px; width: 100%;
-  border-radius: 0 3px 3px 0;
-  animation: mc-barra linear forwards;   /* duracion la pone JS */
-}
-@keyframes mc-barra { from { width: 100%; } to { width: 0; } }
-.mc-toast:hover .mc-toast-barra { animation-play-state: paused; }
-
-.mc-success { border-color: color-mix(in srgb, var(--c-verde-esmeralda) 40%, var(--n-bg)); }
-.mc-success > i, .mc-success .mc-toast-barra { color: var(--c-verde-esmeralda); background-color: var(--c-verde-esmeralda); }
-.mc-error { border-color: color-mix(in srgb, var(--c-terracota) 45%, var(--n-bg)); }
-.mc-error > i, .mc-error .mc-toast-barra { color: var(--c-terracota); background-color: var(--c-terracota); }
-html.dark .mc-error > i, html.dark .mc-error .mc-toast-barra { color: #ff9d5c; background-color: #ff9d5c; }
-.mc-info { border-color: color-mix(in srgb, var(--c-secondary) 35%, var(--n-bg)); }
-.mc-info > i, .mc-info .mc-toast-barra { color: var(--c-secondary); background-color: var(--c-secondary); }
-.mc-toast > i { background: none !important; }
+/* Los avisos (toast) usan el componente del design system: assets/ds.css
+   (.mc-toast-viewport, .mc-toast...), con UI::toastDS y MC.toast. */
 
 /* =========================================================
    MC Confirm (dialogo de confirmacion)
@@ -5522,7 +5467,6 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
   .dlg-form { padding: 20px 18px 18px; gap: 12px; }
   .tabs-meca { gap: 8px; margin-bottom: 18px; }
   .tab-btn { padding: 9px 14px; font-size: .78rem; }
-  .mc-toasts { top: 12px; right: 12px; width: calc(100vw - 24px); }
   .flujo-cols { gap: 40px; }
   .actividad-cuerpo { padding: 14px 16px 18px; }
 }
@@ -8190,3 +8134,47 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 @media (prefers-reduced-motion: reduce) {
   .dep-pulso-hoy::after, .dep-enviando .ico { animation: none; }
 }
+
+/* =========================================================
+   IA (GPT y Gemini): botones y modales de assets/ia.js
+   ========================================================= */
+.ia-btn { display: inline-flex; align-items: center; gap: 6px; border: 1px dashed color-mix(in srgb, var(--c-secondary) 55%, transparent);
+          background: color-mix(in srgb, var(--c-secondary) 9%, var(--n-bg)); color: var(--c-secondary);
+          border-radius: 10px; padding: 5px 11px; font: inherit; font-size: .8rem; font-weight: 700; cursor: pointer;
+          transition: background .2s ease; white-space: nowrap; }
+.ia-btn:hover { background: color-mix(in srgb, var(--c-secondary) 16%, var(--n-bg)); }
+.ia-btn:disabled { opacity: .7; cursor: progress; }
+.ia-acciones { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; margin-top: 6px; }
+.ia-deshacer { font-size: .78rem; }
+.dlg-meca.dlg-ia { width: min(640px, calc(100vw - 32px)); }
+.dlg-meca.dlg-ia.dlg-ia-ancho { width: min(900px, calc(100vw - 32px)); }
+.dlg-ia .dlg-form header h3 { flex-direction: row; align-items: center; gap: 10px; font-size: 1.05rem; }
+.dlg-ia .dlg-form header h3 > i:first-child { width: 38px; height: 38px; border-radius: 11px; font-size: 1rem; }
+.dlg-ia .ia-cuerpo { display: grid; gap: 10px; max-height: 66vh; overflow: auto; padding-right: 2px; }
+.dlg-ia .ia-cuerpo h4 { margin: 10px 0 2px; font-size: .9rem; }
+.dlg-ia .ia-cuerpo ul { margin: 0; padding-left: 20px; }
+.dlg-ia .ia-cuerpo li { margin: 3px 0; }
+.dlg-ia textarea.input-meca { width: 100%; }
+.ia-acta-origen { display: grid; gap: 10px; }
+.ia-firma { font-size: .76rem; opacity: .7; margin: 8px 0 0; }
+.ia-tareas { list-style: none; padding: 0 !important; display: grid; gap: 6px; }
+.ia-tareas .chk-linea { align-items: flex-start; }
+.ia-tareas small { display: block; font-weight: 400; opacity: .8; margin-top: 2px; }
+.ia-tareas .ia-meta { opacity: .6; font-size: .74rem; }
+.ia-aviso { padding: 10px 12px; border-radius: 12px; background: color-mix(in srgb, #f59e0b 14%, var(--n-bg)); font-size: .88rem; }
+.ia-estado { display: inline-block; padding: 2px 10px; border-radius: 99px; font-size: .78rem; font-weight: 800; text-transform: uppercase;
+             background: rgba(127,140,170,.18); }
+.ia-estado-resuelto { background: color-mix(in srgb, #16a34a 18%, var(--n-bg)); color: #0d7340; }
+.ia-estado-pendiente { background: color-mix(in srgb, #dc2626 15%, var(--n-bg)); color: #b4232f; }
+.ia-daily-gen { font-weight: 600; }
+.ia-daily-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 10px; }
+.ia-daily-p { padding: 10px 12px; border-radius: 12px; background: rgba(127,140,170,.1); font-size: .86rem; }
+.ia-daily-p h4 { margin: 0 0 4px !important; }
+.ia-daily-p b { display: block; margin-top: 4px; font-size: .78rem; text-transform: uppercase; opacity: .75; }
+.ia-daily-p .ia-bloq { color: var(--c-danger, #b4232f); opacity: 1; }
+.ia-plan-card .campo-doble { align-items: end; }
+.ia-plan-notas { font-size: .88rem; margin: 6px 0 0; }
+.ia-plan-notas:empty { display: none; }
+.dep-reg-notas { margin-top: 12px; }
+.dep-reg-notas summary { cursor: pointer; font-weight: 700; font-size: .88rem; }
+.dep-reg-notas textarea { width: 100%; margin-top: 8px; }

@@ -68,6 +68,14 @@ if (!function_exists('camposPersona')) {
             <input class="input-meca" type="email" name="email" maxlength="80" placeholder="nombre@innotech-solutions.com.ec">
           </div>
         </label>
+        <label class="campo">
+          <span>Teléfono</span>
+          <div class="input-prefijo">
+            <i class="fa-solid fa-phone"></i>
+            <input class="input-meca" type="tel" name="telefono" maxlength="25" inputmode="tel" autocomplete="tel" placeholder="Ej.: 0991234567">
+          </div>
+          <small class="campo-ayuda">Si lo dejas vacío, se lo pedimos la próxima vez que entre al panel.</small>
+        </label>
 <?php if (!$esEdicion): ?>
         <div class="campo-doble">
           <label class="campo">

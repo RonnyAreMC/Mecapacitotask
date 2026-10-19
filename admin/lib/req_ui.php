@@ -129,63 +129,54 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
             ], $o['respuestas']),
         ], RequerimientoRepo::hilosDe($r)),
     ];
+    $estTono = ['pendiente' => 'warning', 'asignado' => 'info', 'hecho' => 'success', 'descartado' => 'neutral'][$estado] ?? 'neutral';
+    $insts   = RequerimientoRepo::institucionesDe($r);
+    $imapa   = reqUiInst();
     ?>
-    <button type="button" class="req-fila req-e-<?= e($estado) ?><?= $vencido ? ' req-fila-vencida' : '' ?>"
-            data-req="<?= e(json_encode($datos, JSON_UNESCAPED_UNICODE)) ?>">
-      <span class="req-f-estado" title="<?= e($etEstado) ?>"><i class="fa-solid <?= e($icEstado) ?>"></i></span>
-
-      <span class="req-f-txt">
-        <strong class="truncate"><?= e($r['titulo']) ?></strong>
-        <small class="truncate">
-          <?= !empty($r['solicitante']) ? 'Lo pide ' . e($r['solicitante']) : 'Sin remitente anotado' ?>
-        </small>
-        <?php $insts = RequerimientoRepo::institucionesDe($r); $imapa = reqUiInst(); if ($insts): ?>
-        <span class="req-f-inst">
-          <?php foreach ($insts as $iid): if (!isset($imapa[$iid])) continue; $ii = $imapa[$iid]; ?>
-          <span class="req-inst-chip" title="<?= e($ii['nombre']) ?>">
-            <?php if (!empty($ii['imagen'])): ?><img src="<?= e($ii['imagen']) ?>" alt=""><?php else: ?><i class="fa-solid fa-building-columns"></i><?php endif; ?>
-            <span class="truncate"><?= e($ii['nombre']) ?></span>
+    <tr class="req-tr req-e-<?= e($estado) ?><?= $vencido ? ' req-tr-vencida' : '' ?>" tabindex="0" role="button"
+        aria-label="Abrir «<?= e((string)$r['titulo']) ?>»" data-req="<?= e(json_encode($datos, JSON_UNESCAPED_UNICODE)) ?>">
+      <td class="is-primary" data-label="Requerimiento"><div class="mc-table__cell req-c-titulo">
+        <span class="req-c-ico req-ico-<?= e($estado) ?>"><i class="fa-solid <?= e($icEstado) ?>"></i></span>
+        <span class="req-c-txt">
+          <b class="truncate"><?= e($r['titulo']) ?></b>
+          <small class="truncate"><?= !empty($r['solicitante']) ? 'Lo pide ' . e($r['solicitante']) : 'Sin remitente anotado' ?></small>
+          <?php if ($insts): ?>
+          <span class="req-f-inst">
+            <?php foreach ($insts as $iid): if (!isset($imapa[$iid])) continue; $ii = $imapa[$iid]; ?>
+            <span class="req-inst-chip" title="<?= e($ii['nombre']) ?>">
+              <?php if (!empty($ii['imagen'])): ?><img src="<?= e($ii['imagen']) ?>" alt=""><?php else: ?><i class="fa-solid fa-building-columns"></i><?php endif; ?>
+              <span class="truncate"><?= e($ii['nombre']) ?></span>
+            </span>
+            <?php endforeach; ?>
           </span>
-          <?php endforeach; ?>
+          <?php endif; ?>
         </span>
-        <?php endif; ?>
-      </span>
-
-      <span class="req-f-estadob"><i class="fa-solid <?= e($icEstado) ?>"></i> <?= e($etEstado) ?></span>
-
-      <!-- Todo lo secundario en una sola tira, para que la tarjeta tenga dos
-           renglones y no seis columnas que se estrechan al ponerlas de a dos. -->
-      <span class="req-f-meta">
-      <!-- Quién lo hace. Es lo que más se mira: va con nombre. -->
-      <span class="req-f-gente" title="<?= $gente ? e(implode(', ', array_column($gente, 'nombre'))) : 'Todavía no tiene responsable' ?>">
+      </div></td>
+      <td data-label="Responsables"><div class="mc-table__cell req-c-gente" title="<?= $gente ? e(implode(', ', array_column($gente, 'nombre'))) : 'Todavía no tiene responsable' ?>">
         <?php if ($gente): ?>
-          <?= UI::avatarStack($gente, 3, 26) ?>
-          <small class="truncate"><?= e($resumenGente) ?></small>
+          <?= UI::avatarStack($gente, 3, 26) ?><span class="truncate"><?= e($resumenGente) ?></span>
         <?php else: ?>
           <span class="req-libre"><i class="fa-solid fa-inbox"></i> Sin asignar</span>
         <?php endif; ?>
-      </span>
-
-      <!-- Arranque y entrega con banderas: la de cuadros marca el final. -->
-      <?php if ($ini !== '' || $fin !== ''): ?>
-      <span class="req-f-fechas" title="<?= $ini !== '' ? 'Empieza el ' . e($ini) : 'Sin fecha de inicio' ?><?= $fin !== '' ? ' · Entrega el ' . e($fin) : ' · sin fecha de entrega' ?>">
-        <i class="fa-regular fa-flag"></i> <?= $ini !== '' ? e($ini) : '—' ?>
-        <i class="fa-solid fa-arrow-right-long req-f-flecha"></i>
-        <i class="fa-solid fa-flag-checkered"></i> <?= $fin !== '' ? e($fin) : '—' ?>
-      </span>
-      <?php endif; ?>
-
-      <span class="req-f-prio"><?= isset($prioridades[$prio]) ? UI::badgePrioridad($prio) : '' ?></span>
-
-      <!-- El plazo ya restado: "Faltan 13 días" en vez de una fecha suelta -->
-      <span class="req-f-plazo plazo-<?= e($plazoNivel) ?>" title="<?= e($plazoDetalle) ?>">
-        <?= e($plazoTxt) ?>
-      </span>
-      </span>
-
-      <i class="fa-solid fa-chevron-right req-f-mas"></i>
-    </button>
+      </div></td>
+      <td data-label="Fechas"><div class="mc-table__cell req-c-fechas" title="<?= e($plazoDetalle) ?>">
+        <?= $ini !== '' ? e(fechaCortaReq($ini)) : '—' ?><span class="req-c-flecha" aria-hidden="true">→</span><?= $fin !== '' ? e(fechaCortaReq($fin)) : '—' ?>
+      </div></td>
+      <td data-label="Prioridad"><div class="mc-table__cell"><?= isset($prioridades[$prio]) ? UI::badgePrioridad($prio) : '—' ?></div></td>
+      <td data-label="Plazo"><div class="mc-table__cell"><span class="req-plazo plazo-<?= e($plazoNivel) ?>"><?= e($plazoTxt) ?></span></div></td>
+      <td data-label="Estado"><div class="mc-table__cell"><span class="mc-status mc-status--pill mc-status--<?= $estTono ?>"><span class="mc-status__content"><span class="mc-status__label"><?= e($etEstado) ?></span></span></span></div></td>
+      <td class="req-c-mas" aria-hidden="true"><div class="mc-table__cell"><?= UI::iconoDS('chevron-der', 18) ?></div></td>
+    </tr>
     <?php
+}
+
+/** «14 ago» (y el año si no es el actual). */
+function fechaCortaReq(string $f): string
+{
+    $t = strtotime($f);
+    if (!$t) return $f;
+    $m = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', $t) - 1];
+    return (int)date('j', $t) . ' ' . $m . (date('Y', $t) !== date('Y') ? ' ' . date('Y', $t) : '');
 }
 
 /** Cabecera de un bloque de la lista, con su cuenta. */
@@ -199,9 +190,15 @@ function bloqueRequerimientos(string $titulo, string $icono, array $items, array
         <span class="tabla-count"><?= count($items) ?></span>
         <?php if ($ayuda !== ''): ?><small><?= e($ayuda) ?></small><?php endif; ?>
       </h2>
-      <div class="req-lista">
-        <?php foreach ($items as $r) filaRequerimiento($r, $mapa, $prioridades, $estados); ?>
-      </div>
+      <div class="mc-table req-tabla"><div class="mc-table__scroll">
+        <table class="mc-table__table">
+          <thead><tr><th scope="col">Requerimiento</th><th scope="col">Responsables</th><th scope="col">Inicio → entrega</th>
+            <th scope="col">Prioridad</th><th scope="col">Plazo</th><th scope="col">Estado</th><th scope="col"><span class="mc-sr-only">Abrir</span></th></tr></thead>
+          <tbody>
+            <?php foreach ($items as $r) filaRequerimiento($r, $mapa, $prioridades, $estados); ?>
+          </tbody>
+        </table>
+      </div></div>
     </section>
     <?php
 }

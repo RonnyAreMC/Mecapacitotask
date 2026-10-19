@@ -1,0 +1,38 @@
+# Panel: caché del navegador y compresión, para que cada página pese menos.
+# Todo va dentro de <IfModule>: si el hosting no tiene un módulo, esa parte
+# se salta sola. Si alguna vez el servidor respondiera "Error 500" después de
+# subir este archivo, basta con borrarlo: el panel funciona igual sin él.
+
+<IfModule mod_mime.c>
+  AddType font/woff2 .woff2
+</IfModule>
+
+# CSS, JS y fuentes: el panel los pide con ?v=<fecha del archivo>, así que el
+# navegador puede guardarlos un año; al subir uno nuevo cambia la dirección y
+# lo baja otra vez. Imágenes e íconos: una semana.
+<IfModule mod_headers.c>
+  <FilesMatch "\.(css|js|woff2)$">
+    Header set Cache-Control "public, max-age=31536000, immutable"
+  </FilesMatch>
+  <FilesMatch "\.(svg|png|jpe?g|webp|gif|ico)$">
+    Header set Cache-Control "public, max-age=604800"
+  </FilesMatch>
+</IfModule>
+<IfModule !mod_headers.c>
+  <IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType text/css "access plus 1 year"
+    ExpiresByType application/javascript "access plus 1 year"
+    ExpiresByType text/javascript "access plus 1 year"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType image/svg+xml "access plus 7 days"
+    ExpiresByType image/png "access plus 7 days"
+    ExpiresByType image/jpeg "access plus 7 days"
+    ExpiresByType image/webp "access plus 7 days"
+  </IfModule>
+</IfModule>
+
+# Compresión: el HTML, el CSS y el JS viajan comprimidos (pesan 4–5 veces menos).
+<IfModule mod_deflate.c>
+  AddOutputFilterByType DEFLATE text/html text/css text/plain text/javascript application/javascript application/json image/svg+xml
+</IfModule>

@@ -61,7 +61,7 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
         · <?= $nT ?> tarea<?= $nT === 1 ? '' : 's' ?>
         <?php endif; ?>
         <?php if (trim((string)($dtUltimo['nota'] ?? '')) !== ''): ?>
-        · <?= e($dtUltimo['nota']) ?>
+        · <?= e(mb_strimwidth(strtok(trim((string)$dtUltimo['nota']), "\n") ?: '', 0, 110, '…')) ?>
         <?php endif; ?>
       </span>
       <?php endif; ?>
@@ -139,6 +139,14 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
         </label>
         <?php endforeach; ?>
       </div>
+      <?php /* Plegado: el caso normal sigue siendo un clic. */ ?>
+      <details class="dep-reg-notas">
+        <summary>Notas de la versión (opcional)</summary>
+        <textarea class="input-meca" name="nota" rows="5" maxlength="1500" placeholder="Qué cambió en esta subida…"></textarea>
+        <?php if (UI::ia('deploy_notas')): ?>
+        <div class="ia-acciones"><?= UI::botonIA('Redactar con IA', ['ia-deploy' => 1], 'Notas a partir de las tareas que se lleva la subida') ?></div>
+        <?php endif; ?>
+      </details>
       <?php endif; ?>
     </div>
     <footer>

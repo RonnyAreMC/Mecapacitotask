@@ -129,7 +129,7 @@ require __DIR__ . '/lib/deploy_tira.php';
           <span class="dep-item-n"><?= count($tids) ?> tarea<?= count($tids) === 1 ? '' : 's' ?></span>
         </div>
         <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
-        <p class="dep-item-nota"><?= e($d['nota']) ?></p>
+        <p class="dep-item-nota"><?= nl2br(e($d['nota'])) ?></p>
         <?php endif; ?>
         <?php if ($tids): ?>
         <details class="dep-item-tareas">

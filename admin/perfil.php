@@ -150,6 +150,16 @@ UI::inicio('Mi perfil', 'perfil');
         <button type="button" class="pf-lapiz" title="Editar correo"><i class="fa-solid fa-pen"></i></button>
       </div>
 
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-phone"></i></div>
+        <div class="pf-cuerpo">
+          <span class="pf-label">Teléfono</span>
+          <span class="pf-valor js-valor"><?= !empty($yo['telefono']) ? e($yo['telefono']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
+          <input class="input-meca pf-input" type="tel" name="telefono" maxlength="25" inputmode="tel" autocomplete="tel" value="<?= e($yo['telefono'] ?? '') ?>" placeholder="Ej.: 0991234567" hidden>
+        </div>
+        <button type="button" class="pf-lapiz" title="Editar teléfono"><i class="fa-solid fa-pen"></i></button>
+      </div>
+
       <div class="pf-fila pf-fila-emails">
         <div class="pf-ic"><i class="fa-solid fa-code-branch"></i></div>
         <div class="pf-cuerpo">

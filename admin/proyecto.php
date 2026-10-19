@@ -105,7 +105,7 @@ foreach ($tareas as $t) {
 // Y solo ellos: los demas tienen que participar aqui. Ofrecer a TODOS los
 // analistas en TODOS los proyectos llenaba el selector de gente que no pinta
 // nada en este tablero.
-foreach ([ProyectoRepo::poDe($proyecto), ProyectoRepo::scrumDe($proyecto)] as $mid) {
+foreach ([ProyectoRepo::poDe($proyecto), (int)($proyecto['po_relevo'] ?? 0), ProyectoRepo::scrumDe($proyecto)] as $mid) {
     if ($mid > 0 && isset($miembros[$mid]) && !isset($delProyecto[$mid])) {
         $delProyecto[$mid] = $miembros[$mid];
     }
@@ -615,9 +615,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
 ?>
 
 <!-- Cabecera del proyecto -->
-<header class="proyecto-hero" style="--pc:<?= $color ?>">
-  <div class="ph-barra" title="Avance del proyecto: <?= $avance ?>%"><span style="width:<?= $avance ?>%"></span></div>
-  <?= UI::icono($proyecto['icono'] ?? 'FolderOpen', 'ph-watermark') ?>
+<header class="proyecto-hero ph-limpio" style="--pc:<?= $color ?>">
   <div class="ph-top">
     <a href="index.php" class="ph-back"><i class="fa-solid fa-arrow-left"></i> Proyectos</a>
     <div class="ph-actions">
@@ -642,79 +640,35 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     </div>
   </div>
 
+  <?php
+  // Cabecera limpia: el título, tres cifras y la ilustración del proyecto.
+  // El detalle por estado está en el tablero de abajo.
+  $totalTareas = array_sum($resumen);
+  $portadaHero = UI::portadaDe($proyecto);
+  ?>
   <div class="ph-main">
-    <div class="ph-icon"><?= UI::icono($proyecto['icono'] ?? 'FolderOpen') ?></div>
     <div class="ph-info">
-      <div class="ph-badges">
-        <?= UI::badgeEstadoProyecto($proyecto['estado']) ?>
-        <?php if ($listoEntrega): ?>
-          <span class="badge-entrega listo"><i class="fa-solid fa-circle-check"></i> Listo para entrega</span>
-        <?php elseif ($obsPendientes > 0): ?>
-          <a class="badge-entrega alerta" href="#vista-observaciones"><i class="fa-solid fa-triangle-exclamation"></i>
-            <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>
-        <?php endif; ?>
-        <?php if (!empty($proyecto['fecha_inicio'])): ?>
-        <span class="ph-fecha"><i class="fa-regular fa-flag"></i> Inicia <?= e($proyecto['fecha_inicio']) ?></span>
-        <?php endif; ?>
-        <?php if ($equipoProyecto !== null): ?>
-        <span class="ph-fecha"><i class="fa-solid fa-user-group"></i> <?= count($equipoProyecto) ?> participante<?= count($equipoProyecto) === 1 ? '' : 's' ?></span>
-        <?php endif; ?>
-      </div>
       <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
-      <p><?= e($proyecto['descripcion']) ?></p>
-
-      <!-- Quién lleva el proyecto: PO y SM juntos en un cuadro bajo el título.
-           El PO estaba suelto entre las badges de arriba y el SM no salía. -->
-      <?php
-      $lideres = [];
-      if ($poProyecto && isset($miembros[$poProyecto]))       $lideres['Product Owner'] = $miembros[$poProyecto];
-      if ($scrumProyecto && isset($miembros[$scrumProyecto])) $lideres['Scrum Master']  = $miembros[$scrumProyecto];
-      if ($lideres): ?>
-      <div class="ph-lideres">
-        <?php foreach ($lideres as $rotulo => $m): ?>
-        <span class="ph-lider" title="<?= e($rotulo) ?> del proyecto">
-          <?= UI::avatar($m, 28) ?>
-          <span class="ph-lider-txt">
-            <small><?= e($rotulo) ?></small>
-            <b><?= e($m['nombre']) ?></b>
-          </span>
-        </span>
-        <?php endforeach; ?>
-      </div>
+      <?php if (trim((string)($proyecto['descripcion'] ?? '')) !== ''): ?><p><?= e($proyecto['descripcion']) ?></p><?php endif; ?>
+      <?php if (!$listoEntrega && $obsPendientes > 0): /* explica por qué el avance no llega al 100 % */ ?>
+      <a class="badge-entrega alerta ph-obs" href="#vista-observaciones"><i class="fa-solid fa-triangle-exclamation"></i>
+        <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>
+      <?php endif; ?>
+      <dl class="ph-cifras">
+        <div><dt>Tareas</dt><dd><?= $totalTareas ?></dd></div>
+        <div class="ph-cifra-hechas"><dt>Completadas</dt><dd><?= $completadas ?></dd></div>
+        <div class="ph-cifra-avance"><dt>Avance</dt><dd><?= $avance ?>%</dd>
+          <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span></div>
+      </dl>
+    </div>
+    <div class="ph-arte" aria-hidden="true">
+      <?php if ($portadaHero): ?>
+      <img src="<?= e(asset('iconos/ilustraciones/' . $portadaHero . '.svg')) ?>" alt="" width="520" height="420" decoding="async">
+      <?php else: ?>
+      <span class="ph-arte-icono"><?= UI::icono($proyecto['icono'] ?? 'FolderOpen') ?></span>
       <?php endif; ?>
     </div>
-
-  <!-- Columna derecha: los cuatro estados en una sola fila y, justo debajo,
-       el avance. Antes el avance iba en una fila propia al pie del hero y las
-       tarjetas eran cuadradas en 2x2: entre las dos cosas la cabecera crecia
-       casi el doble de alto de lo necesario. -->
-  <div class="ph-lado">
-  <?php $totalTareas = array_sum($resumen); ?>
-  <div class="ph-kpis">
-    <?php foreach (Catalogo::estadosTarea() as $k => [$label, $icono]):
-        $n  = (int)$resumen[$k];
-        $pc = $totalTareas > 0 ? round($n / $totalTareas * 100) : 0; ?>
-    <a class="phk estado-<?= $k ?> <?= $fEstado === $k ? 'phk-activo' : '' ?>"
-       href="?id=<?= $id ?>&estado=<?= $fEstado === $k ? '' : $k ?><?= $fAsignado ? '&asignado=' . $fAsignado : '' ?>"
-       title="<?= $n ?> de <?= $totalTareas ?> · <?= e($label) ?><?= $fEstado === $k ? ' (quitar filtro)' : ' (filtrar)' ?>">
-      <span class="phk-ico"><?= UI::icono($icono) ?></span>
-      <span class="phk-txt">
-        <span class="phk-linea"><b><?= $n ?></b> <small><?= e($label) ?></small></span>
-        <span class="phk-barra"><span style="width:<?= $pc ?>%"></span></span>
-      </span>
-    </a>
-    <?php endforeach; ?>
   </div>
-
-    <!-- Avance bajo los estados: barra semaforo (rojo/amarillo/verde) -->
-    <?php $nivelAvance = $avance >= 67 ? 'verde' : ($avance >= 34 ? 'amarillo' : 'rojo'); ?>
-    <div class="ph-avance-abajo" title="<?= $completadas ?> de <?= array_sum($resumen) ?> tareas completadas">
-      <small><?= $completadas ?>/<?= array_sum($resumen) ?> tareas</small>
-      <div class="barra-semaforo sem-<?= $nivelAvance ?>"><span style="width:<?= $avance ?>%"></span></div>
-      <b class="pam-num sem-txt-<?= $nivelAvance ?>"><?= $avance ?>%</b>
-    </div>
-  </div><!-- /.ph-lado -->
-  </div><!-- /.ph-main -->
 </header>
 
 <!-- Cambio de vista + selector de persona -->
@@ -1481,6 +1435,12 @@ foreach ($tareas as $t) {
       <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones
         <span class="tabla-count"><?= count($reuniones) ?></span>
       </h2>
+      <?php if (UI::ia('daily_resumen') && puedeGestionar($id)):
+          // Desde el último día hábil: el lunes mira desde el viernes.
+          $wIa = (int)date('w');
+          $desdeIa = date('Y-m-d', strtotime($wIa === 1 ? '-3 day' : ($wIa === 0 ? '-2 day' : '-1 day'))); ?>
+      <?= UI::botonIA('Resumen para el daily', ['ia-daily' => $id, 'desde' => $desdeIa], 'Qué hizo cada persona (commits y tareas) y en qué sigue') ?>
+      <?php endif; ?>
       <?php if ($reunionesOn): ?>
       <?php if ($puedeReuniones): ?>
       <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
@@ -1584,6 +1544,10 @@ foreach ($tareas as $t) {
           </form>
           <?php endif; ?>
           <?php endif; /* !$esMeet */ ?>
+          <?php if ($pasada && UI::ia('acta_reunion') && puedeGestionar($id)): ?>
+          <?= UI::botonIA('Acta', ['ia-acta' => 1, 'reunion' => (int)$r['id'], 'zoom' => $esMeet ? '0' : '1',
+                                   'titulo' => (string)($r['topic'] ?? '')], 'Acta de la reunión con IA: resumen, acuerdos y tareas') ?>
+          <?php endif; ?>
           <?php $reuData = htmlspecialchars(json_encode([
               'id'        => (int)$r['id'],
               'topic'     => (string)($r['topic'] ?? ''),
@@ -1686,6 +1650,10 @@ foreach ($tareas as $t) {
                 </button>
               </form>
               <?php endif; ?>
+              <?php if (UI::ia('acta_reunion') && puedeGestionar($id)): ?>
+              <?= UI::botonIA('Acta', ['ia-acta' => 1, 'reunion' => (int)$r['id'], 'ocurrencia' => $fechaOc, 'zoom' => $esMeet ? '0' : '1',
+                                       'titulo' => (string)($r['topic'] ?? '') . ' · ' . $fechaOc], 'Acta de ese día con IA') ?>
+              <?php endif; ?>
             </span>
           </li>
           <?php endforeach; ?>
@@ -1711,9 +1679,11 @@ foreach ($tareas as $t) {
           <button type="button" class="chip-filtro" data-filtro="pendiente">Pendientes <?php if ($obsPendientes): ?>· <?= $obsPendientes ?><?php endif; ?></button>
           <button type="button" class="chip-filtro" data-filtro="resuelta">Resueltas</button>
         </div>
-        <button type="button" class="btn-outline btn-meca btn-azul btn-sm" id="obs-add-nota" title="Abrir otro cuadro para anotar en paralelo">
-          <i class="fa-solid fa-plus"></i> Otra nota
+        <?php if (!$esSupervisor): ?>
+        <button type="button" class="btn-primary btn-meca btn-agregar btn-sm" onclick="document.getElementById('dlg-obs-nueva').showModal()">
+          <i class="fa-solid fa-plus"></i> Nueva observación
         </button>
+        <?php endif; ?>
       </div>
     </div>
 
@@ -1767,18 +1737,31 @@ foreach ($tareas as $t) {
                  accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx">
           <i class="fa-solid fa-paperclip"></i> Adjuntar
         </label>
+        <?php if (UI::ia('obs_redaccion')): ?><?= UI::botonIA('Mejorar redacción', ['ia-obs' => 'redaccion'], 'Reescribe el borrador de forma clara y profesional') ?><?php endif; ?>
+        <?php if (UI::ia('obs_adjunto')): ?><?= UI::botonIA('Describir adjunto', ['ia-obs' => 'adjunto'], 'Redacta la observación mirando la captura o el PDF adjunto') ?><?php endif; ?>
         <span class="oc-hint"><i class="fa-regular fa-clipboard"></i> Ctrl+V pega imágenes · Ctrl+Enter guarda</span>
         <button type="submit" class="btn-primary btn-meca btn-agregar btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
       </div>
     </form>
     <?php } ?>
 
-    <!-- Compositores (hasta 3 en paralelo para anotar en reuniones) -->
+    <!-- Observación nueva: en un modal (se abre con «Nueva observación») -->
     <?php $opcionesReunion = $reunionesRepo->opciones($id); ?>
-    <div class="obs-composers" id="obs-composers" data-max="3">
-      <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?>
-    </div>
-    <template id="tpl-composer"><?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?></template>
+    <?php if (!$esSupervisor): ?>
+    <dialog class="ds-modal dlg-obs-nueva" id="dlg-obs-nueva" aria-labelledby="dlg-obs-t">
+      <header class="ds-modal__head">
+        <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('mensajes', 18) ?></span>
+        <div><h2 class="ds-modal__title" id="dlg-obs-t">Nueva observación</h2>
+          <p class="ds-modal__sub">Para quién es, de qué tarea y a quién avisar. Puedes pegar capturas con Ctrl+V.</p></div>
+        <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+      </header>
+      <div class="ds-modal__body">
+        <div class="obs-composers oc-solo" id="obs-composers" data-max="1">
+          <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?>
+        </div>
+      </div>
+    </dialog>
+    <?php endif; ?>
 
     <?php require_once __DIR__ . '/lib/obs_item.php'; ?>
     <div class="obs-lista" id="obs-lista">
@@ -2141,6 +2124,9 @@ function depPicker(): void { ?>
     <div class="dp-toggle" role="group" aria-label="¿Depende de otra tarea?">
       <button type="button" class="dp-op active" data-dep="no"><i class="fa-solid fa-ban"></i> Sin dependencias</button>
       <button type="button" class="dp-op" data-dep="si"><i class="fa-solid fa-link"></i> Depende de otra(s) tarea(s)</button>
+      <?php if (UI::ia('tarea_dependencias')): ?>
+      <?= UI::botonIA('Sugerir con IA', ['ia-tarea' => 'dependencias', 'proyecto' => (int)($GLOBALS['id'] ?? 0)], 'Marca de qué tareas del proyecto depende esta') ?>
+      <?php endif; ?>
     </div>
     <div class="dp-body" hidden>
       <div class="dp-fila">
@@ -2178,6 +2164,12 @@ function depPicker(): void { ?>
         <div class="campo">
           <span>Descripción</span>
           <?= UI::editorRico(['name' => 'descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas y texto con formato)']) ?>
+          <?php if (UI::ia('tarea_descripcion') || UI::ia('tarea_desglose')): ?>
+          <div class="ia-acciones">
+            <?php if (UI::ia('tarea_descripcion')): ?><?= UI::botonIA('Redactar descripción', ['ia-tarea' => 'descripcion', 'proyecto' => $id]) ?><?php endif; ?>
+            <?php if (UI::ia('tarea_desglose')): ?><?= UI::botonIA('Partir en subtareas', ['ia-tarea' => 'desglose', 'proyecto' => $id], 'Propone subtareas encadenadas para crearlas de una') ?><?php endif; ?>
+          </div>
+          <?php endif; ?>
         </div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
@@ -2241,7 +2233,14 @@ function depPicker(): void { ?>
 
       <section class="wz-panel">
         <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
-        <div class="campo"><span>Descripción</span><?= UI::editorRico(['name' => 'descripcion', 'id' => 'et-descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas)']) ?></div>
+        <div class="campo"><span>Descripción</span><?= UI::editorRico(['name' => 'descripcion', 'id' => 'et-descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas)']) ?>
+          <?php if (UI::ia('tarea_descripcion') || UI::ia('tarea_desglose')): ?>
+          <div class="ia-acciones">
+            <?php if (UI::ia('tarea_descripcion')): ?><?= UI::botonIA('Redactar descripción', ['ia-tarea' => 'descripcion', 'proyecto' => $id]) ?><?php endif; ?>
+            <?php if (UI::ia('tarea_desglose')): ?><?= UI::botonIA('Partir en subtareas', ['ia-tarea' => 'desglose', 'proyecto' => $id], 'Propone subtareas encadenadas para crearlas de una') ?><?php endif; ?>
+          </div>
+          <?php endif; ?>
+        </div>
         <div class="campo-doble">
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
           <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
@@ -2494,6 +2493,11 @@ function depPicker(): void { ?>
           <small class="campo-ayuda">El PO del proyecto (se elige entre los analistas). Junto con el Scrum Master, crea y edita las tareas y pone el horario de reuniones.</small>
         </label>
         <label class="campo">
+          <span><i class="fa-solid fa-user-shield"></i> Product Owner de relevo</span>
+          <?= UI::select('po_relevo', [0 => '— Sin PO de relevo —'] + array_diff_key($opcionesAnalistas, [0 => true]), (int)($proyecto['po_relevo'] ?? 0)) ?>
+          <small class="campo-ayuda">Cubre al PO principal cuando no está (vacaciones, permisos): tiene sus mismos permisos en el proyecto.</small>
+        </label>
+        <label class="campo">
           <span><i class="fa-solid fa-user-gear"></i> Scrum Master</span>
           <?= UI::select('scrum', $opcionesScrum, $scrumProyecto) ?>
           <small class="campo-ayuda">Quién lleva ESTE proyecto. Junto con el Product Owner, es quien pone su horario de reuniones diarias.</small>
@@ -2518,6 +2522,10 @@ function depPicker(): void { ?>
       </section>
 
       <section class="wz-panel">
+        <div class="campo" data-sin-resumen>
+          <span>Portada</span>
+          <?= UI::selectorPortada($proyecto['portada'] ?? '') ?>
+        </div>
         <div class="campo" data-sin-resumen>
           <span>Ícono</span>
           <?= UI::selectorIcono($proyecto['icono'] ?? null) ?>

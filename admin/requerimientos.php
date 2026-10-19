@@ -471,6 +471,11 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       </header>
 
       <section class="wz-panel">
+        <?php if (UI::ia('req_desde_texto') && Auth::esAdmin()): ?>
+        <div class="ia-acciones" style="margin:0 0 4px">
+          <?= UI::botonIA('Rellenar desde un correo o WhatsApp', ['ia-req' => 1], 'Pega el mensaje y la IA propone los campos') ?>
+        </div>
+        <?php endif; ?>
         <label class="campo">
           <span>¿Qué piden? *</span>
           <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">

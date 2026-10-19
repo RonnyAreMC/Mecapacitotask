@@ -263,6 +263,7 @@ UI::cabecera(
             <th>Colaborador</th>
             <th><i class="fa-brands fa-github"></i> Usuario de Git</th>
             <th><i class="fa-solid fa-envelope"></i> Correo</th>
+            <th><i class="fa-solid fa-phone"></i> Teléfono</th>
             <th>Abiertas</th>
             <?php if ($puedeAcceso): ?><th><i class="fa-solid fa-shield-halved"></i> Admin</th><?php endif; ?>
             <th></th>
@@ -308,6 +309,16 @@ UI::cabecera(
               </span>
               <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
             </td>
+            <td>
+              <?php if (!empty($m['telefono'])): ?>
+              <span class="chip-copiar">
+                <code><i class="fa-solid fa-phone"></i> <?= e($m['telefono']) ?></code>
+                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono">
+                  <i class="fa-regular fa-copy"></i>
+                </button>
+              </span>
+              <?php else: ?><span class="celda-muted" title="Se le pide la próxima vez que entre al panel">—</span><?php endif; ?>
+            </td>
             <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
             <?php if ($puedeAcceso):
                 // Los perfiles son varios: lo normal es "administrador y Scrum
@@ -352,7 +363,7 @@ UI::cabecera(
           </tr>
           <?php endforeach; ?>
           <tr data-buscar-vacio data-no-buscar hidden>
-            <td colspan="<?= $puedeAcceso ? 6 : 5 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
+            <td colspan="<?= $puedeAcceso ? 7 : 6 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
           </tr>
         </tbody>
       </table>

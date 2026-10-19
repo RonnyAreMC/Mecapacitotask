@@ -86,6 +86,36 @@ UI::cabecera(
 );
 ?>
 
+<?php if (UI::ia('plan_documento')):
+    // Solo los proyectos que esta persona gestiona (el Scrum Master, los suyos).
+    $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id']))); ?>
+<section class="card-base plan-card ia-plan-card" style="margin-bottom:16px">
+  <form id="ia-plan-form" class="plan-form" enctype="multipart/form-data">
+    <div class="plan-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-wand-magic-sparkles text-secondary"></i> Generar tareas con IA desde un documento</h2>
+    </div>
+    <p class="campo-ayuda" style="margin:0">Sube el plan (Excel, PDF, Word o CSV): la IA lo desglosa en tareas con su orden y las deja en el editor de abajo. Nada se crea hasta que valides e importes.</p>
+    <div class="campo-doble">
+      <label class="campo"><span>Proyecto</span>
+        <select class="input-meca" name="proyecto_id" required>
+          <?php foreach ($proyIA as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['nombre']) ?></option><?php endforeach; ?>
+        </select>
+      </label>
+      <label class="campo"><span>Documento del plan</span>
+        <input class="input-meca" type="file" name="archivo" required accept=".xlsx,.docx,.pdf,.csv,.txt,.md,application/pdf">
+      </label>
+    </div>
+    <label class="campo"><span>Indicaciones (opcional)</span>
+      <textarea class="input-meca" name="instrucciones" rows="2" maxlength="1500" placeholder="Ej.: solo la hoja «Estudiante»; agrupa por módulo; empieza el 3 de noviembre…"></textarea>
+    </label>
+    <div class="plan-botones">
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar tareas con IA</button>
+    </div>
+    <div id="ia-plan-notas" class="ia-plan-notas"></div>
+  </form>
+</section>
+<?php endif; ?>
+
 <div class="plan-grid">
 
   <!-- Editor -->

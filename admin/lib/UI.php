@@ -105,13 +105,14 @@ class UI
   if (localStorage.getItem('meca-sidebar') === 'min') document.documentElement.classList.add('sb-collapsed');
 })();
 </script>
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preconnect" href="https://cdnjs.cloudflare.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Plus+Jakarta+Sans:wght@600;700;800&display=swap" rel="stylesheet">
+<link rel="preload" href="<?= asset('assets/fonts/Inter-Variable.woff2') ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
 <link rel="stylesheet" href="<?= asset('../assets/mecapacito.css') ?>">
 <link rel="stylesheet" href="<?= asset('assets/admin.css') ?>">
+<?php if (is_file(__DIR__ . '/../assets/ds.css')): /* componentes del design system y menú lateral */ ?>
+<link rel="stylesheet" href="<?= asset('assets/ds.css') ?>">
+<?php endif; ?>
 <?php self::estilosConfig(); ?>
 </head>
 <body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
@@ -125,7 +126,7 @@ class UI
       </div>
     </a>
     <button type="button" id="sidebar-toggle" class="sidebar-toggle" title="Ocultar / mostrar menú">
-      <?= UI::icono('PanelLateral') ?>
+      <?= UI::icono('ds-contraer') ?>
     </button>
     <!-- Solo en móvil: abre el menú flotante -->
     <button type="button" id="sidebar-burger" class="sidebar-burger" aria-label="Menú" aria-expanded="false">
@@ -144,11 +145,11 @@ class UI
         <?= self::avatar($verComo, 26) ?>
         <span class="truncate">Viendo a <b><?= e(explode(' ', $verComo['nombre'])[0]) ?></b></span>
       <?php else: ?>
-        <?= UI::icono('Eye') ?> <span class="truncate">Ver como...</span>
+        <?= UI::icono('ds-ver') ?> <span class="truncate">Ver como...</span>
       <?php endif; ?>
     </button>
     <?php if ($verComo): ?>
-    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><?= UI::icono('Close') ?></a>
+    <a class="vc-quitar" href="<?= e(urlConVerComo(0)) ?>" title="Volver a ver todo"><?= UI::icono('ds-cerrar') ?></a>
     <?php endif; ?>
   </div>
   <?php endif; ?>
@@ -156,7 +157,7 @@ class UI
   <nav class="sidebar-nav">
     <span class="sidebar-label">General</span>
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
-      <?= UI::icono('Dashboard') ?> <span class="truncate">Dashboard</span>
+      <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
 
     <?php
@@ -169,13 +170,13 @@ class UI
       <span class="sidebar-label">Proyectos</span>
       <button type="button" class="sidebar-link nav-grupo-btn <?= $enProyecto ? 'active' : '' ?>"
               aria-expanded="false" title="Proyectos">
-        <?= UI::icono('FolderOpen') ?>
+        <?= UI::icono('ds-carpeta') ?>
         <span class="truncate">Proyectos</span>
         <?php if ($proyectos): ?><span class="nav-grupo-n"><?= count($proyectos) ?></span><?php endif; ?>
       </button>
 
       <div class="nav-grupo-items">
-        <div class="nav-grupo-cab"><?= UI::icono('FolderOpen') ?> Proyectos</div>
+        <div class="nav-grupo-cab"><?= UI::icono('ds-carpeta') ?> Proyectos</div>
         <?php foreach ($proyectos as $p): ?>
         <a href="proyecto.php?id=<?= (int)$p['id'] ?>"
            class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
@@ -190,7 +191,7 @@ class UI
         <?php endif; ?>
 
         <a href="index.php#nuevo" class="sidebar-link sidebar-link-new solo-admin" onclick="sessionStorage.setItem('abrirNuevo','1')" title="Nuevo proyecto">
-          <?= UI::icono('Plus') ?> <span class="truncate">Nuevo proyecto</span>
+          <?= UI::icono('ds-mas') ?> <span class="truncate">Nuevo proyecto</span>
         </a>
       </div>
     </div>
@@ -222,7 +223,7 @@ class UI
     ?>
     <a href="<?= $reqHref ?>" class="sidebar-link <?= $activo === $reqClave ? 'active' : '' ?>"
        title="<?= e($reqTitle) ?>">
-      <?= UI::icono('Requerimientos') ?>
+      <?= UI::icono('ds-requerimiento') ?>
       <span class="truncate"><?= e($reqTexto) ?></span>
       <?php if ($nReq): ?><span class="nav-badge nav-badge-fin" title="<?= e($reqTitleN) ?>"><?= $nReq ?></span><?php endif; ?>
     </a>
@@ -241,6 +242,14 @@ class UI
       <?= UI::icono($eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
+    <?php if (Auth::usuario() && is_file(__DIR__ . '/Pedidos.php')): /* pedidos entre equipos */
+      require_once __DIR__ . '/Pedidos.php';
+      $nPed = (new PedidoRepo())->pendientesPara(Auth::usuario()); ?>
+    <a href="pedidos.php" class="sidebar-link <?= $activo === 'pedidos' ? 'active' : '' ?>" title="Pedidos entre equipos">
+      <?= UI::icono('ds-transferencia') ?> <span class="truncate">Pedidos</span>
+      <?php if ($nPed): ?><span class="nav-badge nav-badge-fin" title="<?= $nPed ?> pedido(s) abiertos para ti o tu equipo"><?= $nPed ?></span><?php endif; ?>
+    </a>
+    <?php endif; ?>
 
     <?php if (puedeVerDeploys()): /* quien el admin haya dejado entrar */ ?>
     <?php
@@ -250,7 +259,7 @@ class UI
       $nDep = array_sum(array_map(fn($f) => count($f['pendientes']), $depFilas));
     ?>
     <a href="deploys.php" class="sidebar-link <?= $activo === 'deploys' ? 'active' : '' ?>" title="Despliegues al servidor de pruebas">
-      <?= UI::icono('Upload') ?> <span class="truncate">Despliegues</span>
+      <?= UI::icono('ds-publicar') ?> <span class="truncate">Despliegues</span>
       <?php if ($nDep): ?><span class="nav-badge" title="<?= $nDep ?> tarea(s) completada(s) sin subir"><?= $nDep ?></span><?php endif; ?>
     </a>
     <?php endif; ?>
@@ -260,7 +269,7 @@ class UI
     <?php endif; ?>
     <?php if (Auth::esGestor()): /* Planificar: admin y Scrum Master */ ?>
     <a href="planificar.php" class="sidebar-link <?= $activo === 'planificar' ? 'active' : '' ?>" title="Planificar tareas">
-      <?= UI::icono('Task') ?> <span class="truncate">Planificar</span>
+      <?= UI::icono('ds-agenda') ?> <span class="truncate">Planificar</span>
     </a>
     <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Reportería: el estado de todos los proyectos */ ?>
@@ -268,15 +277,20 @@ class UI
       <?= UI::icono('Reporteria') ?> <span class="truncate">Reportería</span>
     </a>
     <?php endif; ?>
+    <?php if (Auth::esAdmin() && is_file(__DIR__ . '/../ia.php')): /* Consola de IA: claves y consumo */ ?>
+    <a href="ia.php" class="sidebar-link <?= $activo === 'ia' ? 'active' : '' ?>" title="Claves, modelos y consumo de la IA">
+      <?= UI::icono('ds-ia') ?> <span class="truncate">Consola de IA</span>
+    </a>
+    <?php endif; ?>
     <?php if (Auth::esAdmin()): /* Ajustes: solo administrador */ ?>
     <a href="ajustes.php" class="sidebar-link <?= $activo === 'ajustes' ? 'active' : '' ?>" title="Ajustes">
-      <?= UI::icono('SettingsGear') ?> <span class="truncate">Ajustes</span>
+      <?= UI::icono('ds-configuracion') ?> <span class="truncate">Ajustes</span>
     </a>
     <?php endif; ?>
   </nav>
 
-  <?php $yo = Auth::usuario(); if ($yo): ?>
-  <!-- Cuenta: abajo solo el avatar; perfil y salir viven en el desplegable -->
+  <?php $yo = Auth::usuario(); if ($yo && !self::conBarra()): ?>
+  <!-- Cuenta (solo sin barra de arriba): abajo el avatar; perfil y salir en el desplegable -->
   <div class="nav-grupo cuenta-menu">
     <button type="button" class="sesion-chip nav-grupo-btn <?= $activo === 'perfil' ? 'en-perfil' : '' ?>"
             aria-expanded="false" title="Tu cuenta">
@@ -297,15 +311,15 @@ class UI
         </span>
       </div>
       <a href="perfil.php" class="sidebar-link cuenta-perfil <?= $activo === 'perfil' ? 'active' : '' ?>">
-        <?= UI::icono('SecurityUser') ?> <span class="truncate">Mi perfil</span>
+        <?= UI::icono('ds-perfil') ?> <span class="truncate">Mi perfil</span>
       </a>
       <a href="docs.php" class="sidebar-link cuenta-docs <?= $activo === 'docs' ? 'active' : '' ?>">
-        <?= UI::icono('Book') ?> <span class="truncate">Documentación</span>
+        <?= UI::icono('ds-documento') ?> <span class="truncate">Documentación</span>
       </a>
       <form method="post" action="actions.php" class="cuenta-form">
         <input type="hidden" name="accion" value="auth_logout">
         <button class="sidebar-link cuenta-salir">
-          <?= UI::icono('Door') ?> <span class="truncate">Cerrar sesión</span>
+          <?= UI::icono('ds-salir') ?> <span class="truncate">Cerrar sesión</span>
         </button>
       </form>
     </div>
@@ -313,15 +327,18 @@ class UI
   <?php endif; ?>
 
   <div class="sidebar-foot">
+    <?php if (!self::conBarra()): /* con la barra de arriba, el tema está allá */ ?>
     <button type="button" id="theme-toggle" class="theme-toggle" title="Cambiar tema">
       <i class="fa-solid fa-sun tt-sol"></i>
       <span class="tt-knob"></span>
       <i class="fa-solid fa-moon tt-luna"></i>
     </button>
-    <span><?= UI::icono('Laptop') ?> Equipo dev</span>
+    <?php endif; ?>
+    <span><?= UI::icono('ds-computadora') ?> Equipo dev</span>
   </div>
   </div><!-- /.sidebar-menu -->
 </aside>
+<?php if (self::conBarra()) self::barraSuperior($titulo, $activo); ?>
 
 <main class="admin-main">
 <?php self::flashes(); ?>
@@ -336,9 +353,227 @@ class UI
         }
         ?>
 </main>
+<?php if (self::conBarra()) self::dialogPedido(); ?>
+<?php self::dialogTelefono(); ?>
 <script src="<?= asset('assets/admin.js') ?>"></script>
+<?php if (is_file(__DIR__ . '/../assets/ds.js')): /* lista desplegable y casillas del design system */ ?>
+<script src="<?= asset('assets/ds.js') ?>"></script>
+<?php endif; ?>
+<?php if (self::ia() && is_file(__DIR__ . '/../assets/ia.js')): /* IA: admin y Scrum Master */ ?>
+<script src="<?= asset('assets/ia.js') ?>"></script>
+<?php endif; ?>
 </body>
 </html>
+        <?php
+    }
+
+    /* ---------- Barra de arriba (design system) ---------- */
+
+    /** ¿Hay barra de arriba? Con sesión y con assets/ds.css (sin él quedaría sin estilo). */
+    public static function conBarra(): bool
+    {
+        return Auth::usuario() !== null && is_file(__DIR__ . '/../assets/ds.css');
+    }
+
+    /**
+     * Barra de arriba: dónde estás, pedir algo a otro equipo, la campana de
+     * notificaciones, el tema claro/oscuro y la cuenta (perfil, documentación,
+     * salir). Va FUERA de <main> (su animación con transform movería lo fijo).
+     */
+    private static function barraSuperior(string $titulo, string $activo): void
+    {
+        $yo  = Auth::usuario();
+        $mid = (int)$yo['id'];
+        $conNotif = is_file(__DIR__ . '/Notificaciones.php');
+        $items = [];
+        $sin = 0;
+        if ($conNotif) {
+            require_once __DIR__ . '/Notificaciones.php';
+            $mapa  = (new MiembroRepo())->mapa();
+            $items = array_map(fn($n) => Notif::paraJs($n, $mapa), Notif::de($mid, 12));
+            $sin   = Notif::sinLeer($mid);
+        }
+        $pedir = is_file(__DIR__ . '/Pedidos.php') && !Auth::esSupervisor();
+        $rol = Auth::ROLES[Auth::rol()] ?? 'Solo lectura';
+        $iconosNotif = [];
+        if ($conNotif) foreach (Notif::TIPOS as $t => [, $ico, $tono]) $iconosNotif[$t] = [self::iconoDS($ico, 18), $tono];
+        ?>
+<header class="ds-enc" id="ds-topbar">
+  <div class="ds-enc__fila">
+
+    <div class="ds-enc__tools">
+      <?php if ($pedir): ?>
+      <button type="button" class="ds-sq ds-sq--verde" data-pedido-nuevo title="Pedir algo a otro equipo">
+        <?= self::iconoDS('usuarios', 20) ?>
+      </button>
+      <?php endif; ?>
+      <?php if ($conNotif): ?>
+      <div class="mc-notif" data-notif data-ultimo="<?= $items ? max(array_column($items, 'id')) : 0 ?>">
+        <button type="button" class="ds-sq ds-sq--navy" data-notif-btn aria-haspopup="dialog" aria-expanded="false"
+                aria-label="Notificaciones<?= $sin ? ' (' . $sin . ' sin leer)' : '' ?>" title="Notificaciones">
+          <?= self::iconoDS('notificaciones', 20) ?>
+          <span class="mc-iconbtn__badge" data-notif-n<?= $sin ? '' : ' hidden' ?>><?= $sin > 99 ? '99+' : $sin ?></span>
+        </button>
+        <div class="mc-notif__panel" data-notif-panel role="dialog" aria-label="Notificaciones" hidden>
+          <div class="mc-notif__head">
+            <div><p class="mc-notif__title">Notificaciones</p>
+              <span class="mc-notif__sub" data-notif-sub><?= $sin ? $sin . ' sin leer' : 'Todo leído' ?></span></div>
+            <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-notif-todas<?= $sin ? '' : ' hidden' ?>>
+              <?= self::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todo leído</span></button>
+          </div>
+          <ul class="mc-notif__list" data-notif-lista>
+            <?php foreach ($items as $n) echo self::itemNotif($n, $iconosNotif); ?>
+          </ul>
+          <div class="mc-empty mc-empty--sm" data-notif-vacio<?= $items ? ' hidden' : '' ?>>
+            <span class="mc-empty__tile mc-has-pattern"><span class="mc-dots"></span><?= self::iconoDS('notificaciones', 24) ?></span>
+            <h3 class="mc-empty__title">Estás al día</h3>
+            <p class="mc-empty__desc">Aquí te avisamos cuando te asignen algo, te inviten a una reunión o te pidan algo de otro equipo.</p>
+          </div>
+          <div class="mc-notif__foot"><a class="mc-btn mc-btn--ghost mc-btn--sm mc-btn--block" href="notificaciones.php">Ver todas</a></div>
+        </div>
+        <script type="application/json" id="ds-notif-iconos"><?= json_encode($iconosNotif, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+      </div>
+      <?php endif; ?>
+      <button type="button" id="theme-toggle" class="mc-iconbtn ds-tema" aria-label="Modo oscuro" title="Modo oscuro / claro">
+        <?= self::iconoDS('luna', 20, 'ds-tema__luna') ?><?= self::iconoDS('sol', 20, 'ds-tema__sol') ?>
+      </button>
+      <div class="ds-cuenta" data-cuenta>
+        <button type="button" class="ds-cuenta__btn" data-cuenta-btn aria-haspopup="menu" aria-expanded="false"
+                aria-label="Tu cuenta: <?= e($yo['nombre']) ?>, <?= e($rol) ?>" title="Tu cuenta">
+          <?= self::avatar($yo, 34) ?>
+        </button>
+        <div class="mc-pop mc-pop--end ds-cuenta__menu" data-cuenta-menu role="menu" hidden>
+          <div class="ds-cuenta__cab"><?= self::avatar($yo, 40) ?>
+            <span><b><?= e($yo['nombre']) ?></b><small><?= e($rol) ?><?= !empty($yo['email']) ? ' · ' . e($yo['email']) : '' ?></small></span></div>
+          <a role="menuitem" class="ds-cuenta__op<?= $activo === 'perfil' ? ' is-actual' : '' ?>" href="perfil.php"><?= self::iconoDS('perfil', 18) ?>Mi perfil</a>
+          <?php if ($conNotif): ?><a role="menuitem" class="ds-cuenta__op<?= $activo === 'notificaciones' ? ' is-actual' : '' ?>" href="notificaciones.php"><?= self::iconoDS('notificaciones', 18) ?>Notificaciones</a><?php endif; ?>
+          <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
+          <a role="menuitem" class="ds-cuenta__op<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
+          <form method="post" action="actions.php" class="ds-cuenta__salir">
+            <input type="hidden" name="accion" value="auth_logout">
+            <button role="menuitem" class="ds-cuenta__op"><?= self::iconoDS('salir', 18) ?>Cerrar sesión</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+</header>
+        <?php
+    }
+
+    /** Una fila de la campana (el mismo marcado lo arma ds.js con lo que llega cada minuto). */
+    private static function itemNotif(array $n, array $iconos): string
+    {
+        [$ico, $tono] = $iconos[$n['tipo']] ?? [self::iconoDS('notificaciones', 18), 'azul'];
+        return '<li><a class="mc-notif__item' . ($n['leida'] ? '' : ' is-unread') . '" href="' . e($n['abrir']) . '" data-id="' . (int)$n['id'] . '">'
+            . '<span class="mc-tile mc-tile--sm mc-tile--' . e($tono) . '">' . $ico . '</span>'
+            . '<span class="mc-notif__body"><span class="mc-notif__ititle">' . e($n['titulo']) . '</span>'
+            . ($n['texto'] !== '' ? '<span class="mc-notif__text">' . e($n['texto']) . '</span>' : '')
+            . '<span class="mc-notif__time">' . e($n['rotulo']) . ' · ' . e($n['hace']) . '</span></span>'
+            . ($n['leida'] ? '' : '<span class="mc-notif__dot" aria-label="Sin leer"></span>') . '</a></li>';
+    }
+
+    /**
+     * Modal «Pedir algo a otro equipo» (lo abren los botones data-pedido-nuevo).
+     * El equipo es obligatorio; la persona, opcional (sin ella le llega a todo el
+     * equipo); el proyecto, opcional.
+     */
+    private static function dialogPedido(): void
+    {
+        if (!is_file(__DIR__ . '/Pedidos.php') || Auth::esSupervisor()) return;
+        $yo = Auth::usuario();
+        $equipos = Catalogo::equipos();
+        $miEquipo = MiembroRepo::equipoDe($yo);
+        $otro = '';
+        foreach (array_keys($equipos) as $k) if ($k !== $miEquipo) { $otro = $k; break; }
+        $optEquipos = [];
+        foreach ($equipos as $k => [$l]) $optEquipos[$k] = [$l, $k === $miEquipo ? 'Tu equipo' : ''];
+        $porEquipo = [];
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if ((int)$m['id'] === (int)$yo['id'] || MiembroRepo::tieneAcceso($m, 'supervisor')) continue;
+            $porEquipo[$equipos[MiembroRepo::equipoDe($m)][0] ?? ''][(string)(int)$m['id']] = [$m['nombre'], (string)($m['rol'] ?? '')];
+        }
+        $optProy = [];
+        foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $pr) $optProy[(string)(int)$pr['id']] = $pr['nombre'];
+        $optPrio = array_map(fn($x) => $x[0], Catalogo::prioridades());
+        ?>
+<dialog class="ds-modal" id="dlg-pedido" aria-labelledby="dlg-pedido-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="pedido_crear">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--verde"><?= self::iconoDS('usuarios', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="dlg-pedido-t">Pedir algo a otro equipo</h2>
+        <p class="ds-modal__sub">Le llega el aviso en la campana (y por correo, si está configurado). Lo siguen en «Pedidos».</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar aria-label="Cerrar"><?= self::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body">
+      <div class="ds-grid-2 ds-modal__fila">
+        <div class="mc-field"><label class="mc-field__label">A qué equipo</label>
+          <?= self::selectDS('para_equipo', $optEquipos, $otro, ['tam' => 'md', 'attrs' => 'data-pedido-equipo', 'aria' => 'Equipo']) ?></div>
+        <div class="mc-field"><label class="mc-field__label">A alguien en especial <span class="ds-opcional">(opcional)</span></label>
+          <?= self::selectDS('para_id', $porEquipo, '', ['grupos' => true, 'vacio' => 'A todo el equipo', 'tam' => 'md', 'buscar' => true, 'attrs' => 'data-pedido-persona', 'aria' => 'Persona']) ?></div>
+      </div>
+      <div class="mc-field"><label class="mc-field__label" for="ped-titulo">Qué necesitas</label>
+        <div class="mc-input mc-input--md"><input class="mc-input__control" id="ped-titulo" name="titulo" maxlength="140" required placeholder="Ej.: Revisar el endpoint de matrícula antes del viernes"></div></div>
+      <div class="mc-field"><label class="mc-field__label" for="ped-detalle">Detalle <span class="ds-opcional">(opcional)</span></label>
+        <div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="ped-detalle" name="detalle" rows="4" maxlength="4000" placeholder="Contexto, enlaces, qué esperas recibir…"></textarea></div></div>
+      <div class="ds-grid-2 ds-modal__fila">
+        <div class="mc-field"><label class="mc-field__label">Prioridad</label>
+          <?= self::selectDS('prioridad', $optPrio, Catalogo::prioridadValida(''), ['tam' => 'md', 'aria' => 'Prioridad']) ?></div>
+        <div class="mc-field"><label class="mc-field__label" for="ped-fecha">Para cuándo <span class="ds-opcional">(opcional)</span></label>
+          <input id="ped-fecha" type="date" name="fecha_limite" min="<?= date('Y-m-d') ?>"></div><?php /* el calendario del panel (MecaDate) arma su propio campo */ ?>
+      </div>
+      <div class="mc-field"><label class="mc-field__label">Proyecto <span class="ds-opcional">(opcional)</span></label>
+        <?= self::selectDS('proyecto_id', $optProy, '', ['vacio' => 'Ninguno en particular', 'tam' => 'md', 'buscar' => true, 'aria' => 'Proyecto']) ?></div>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= self::iconoDS('enviar', 18) ?><span class="mc-btn__label">Enviar pedido</span></button>
+    </footer>
+  </form>
+</dialog>
+        <?php
+    }
+
+    /**
+     * Si quien entró no tiene teléfono, se lo pide al abrir cualquier página
+     * (hasta que lo guarde). Se guarda con la acción perfil_telefono.
+     */
+    private static function dialogTelefono(): void
+    {
+        $yo = Auth::usuario();
+        if (!$yo || trim((string)($yo['telefono'] ?? '')) !== '' || !is_file(__DIR__ . '/../assets/ds.css')) return;
+        ?>
+<dialog class="ds-modal ds-modal--chico" id="dlg-telefono" aria-labelledby="dlg-tel-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="perfil_telefono">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= self::iconoDS('telefono', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="dlg-tel-t">Agrega tu número de teléfono</h2>
+        <p class="ds-modal__sub">Hola, <?= e(explode(' ', trim($yo['nombre']))[0]) ?>. Lo usamos para coordinar contigo cuando haga falta; solo lo ve el equipo.</p></div>
+    </header>
+    <div class="ds-modal__body">
+      <div class="mc-field"><label class="mc-field__label" for="tel-num">Teléfono</label>
+        <div class="mc-input mc-input--md"><?= self::iconoDS('telefono', 18, 'mc-input__icon') ?>
+          <input class="mc-input__control" id="tel-num" type="tel" name="telefono" required minlength="7" maxlength="25"
+                 inputmode="tel" autocomplete="tel" placeholder="Ej.: 0991234567"></div>
+        <div class="mc-field__foot"><span class="mc-field__hint">Si no es de Ecuador, con el código del país (ej.: +57 300 123 4567).</span></div>
+      </div>
+    </div>
+    <footer class="ds-modal__foot">
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= self::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar</span></button>
+    </footer>
+  </form>
+</dialog>
+<script>
+(() => {
+  const d = document.getElementById('dlg-telefono');
+  if (!d || !d.showModal) return;
+  d.addEventListener('cancel', (e) => e.preventDefault());   // hay que dejarlo: no se cierra con Esc
+  d.showModal();
+  setTimeout(() => { const i = d.querySelector('[name="telefono"]'); if (i) i.focus(); }, 60);
+})();
+</script>
         <?php
     }
 
@@ -392,6 +627,124 @@ class UI
     }
 
     /** Cabecera de pagina con titulo, subtitulo y acciones (HTML opcional). */
+    /**
+     * ¿Se muestran los botones de IA? Administrador o Scrum Master, con la IA
+     * configurada y —si se nombra— esa función activa en la consola.
+     * IA.php se carga solo aquí y si existe: una subida parcial no tumba nada.
+     */
+    public static function ia(string $tarea = ''): bool
+    {
+        static $base = null;
+        if ($base === null) {
+            $base = false;
+            if (Auth::esGestor() && is_file(__DIR__ . '/IA.php')) {
+                require_once __DIR__ . '/IA.php';
+                $base = IA::puedeUsar();
+            }
+        }
+        if (!$base || $tarea === '') return $base;
+        return !empty(IA::config()['asignaciones'][$tarea]['activa']);
+    }
+
+    /**
+     * Ícono del design system (iconos/DS, trazo 1.6) con su tamaño, para los
+     * componentes .mc-*: 20 px en botones y menú, 16 en etiquetas, 24 en
+     * encabezados. Hereda el color del texto.
+     */
+    public static function iconoDS(string $nombre, int $px = 18, string $clase = ''): string
+    {
+        $svg = self::icono('ds-' . $nombre, trim('mc-icon ' . $clase));
+        return $svg === '' ? '' : preg_replace('/<svg\b/', '<svg width="' . $px . '" height="' . $px . '" style="width:' . $px . 'px;height:' . $px . 'px"', $svg, 1);
+    }
+
+    /**
+     * Lista desplegable del design system (la maneja assets/ds.js). Adentro va
+     * el <select> real, oculto: es el que viaja en el formulario.
+     * $opciones: [valor => texto], [valor => [texto, descripción]] o, para
+     * agruparlas, [rótulo del grupo => [valor => texto|[texto, desc]]] con
+     * $op['grupos'] = true. Más opciones: vacio (texto de la opción sin valor),
+     * tam (sm|md|lg), buscar (buscador siempre), attrs (atributos del <select>).
+     */
+    public static function selectDS(string $name, array $opciones, string $sel, array $op = []): string
+    {
+        $tam = $op['tam'] ?? 'sm';
+        $opt = function ($v, $l) use ($sel): string {
+            [$txt, $desc] = is_array($l) ? [$l[0], $l[1] ?? ''] : [$l, ''];
+            return '<option value="' . e((string)$v) . '"' . ($desc !== '' ? ' data-desc="' . e($desc) . '"' : '')
+                . ((string)$v === $sel ? ' selected' : '') . '>' . e($txt) . '</option>';
+        };
+        $h = '';
+        $texto = '';
+        if (($op['vacio'] ?? '') !== '') {
+            $h .= '<option value="">' . e($op['vacio']) . '</option>';
+            if ($sel === '') $texto = $op['vacio'];
+        }
+        $lista = !empty($op['grupos']) ? $opciones : ['' => $opciones];
+        foreach ($lista as $grupo => $items) {
+            if ($grupo !== '') $h .= '<optgroup label="' . e((string)$grupo) . '">';
+            foreach ($items as $v => $l) {
+                $h .= $opt($v, $l);
+                if ((string)$v === $sel) $texto = is_array($l) ? $l[0] : $l;
+            }
+            if ($grupo !== '') $h .= '</optgroup>';
+        }
+        $conVacio = ($op['vacio'] ?? '') !== '';
+        // Sin una opción elegida, el navegador toma la primera: el botón también
+        if ($texto === '' && !$conVacio) {
+            $primero = reset($lista);
+            $l = is_array($primero) ? reset($primero) : '';
+            $texto = is_array($l) ? (string)$l[0] : (string)$l;
+        }
+        $vacio = $texto === '' || ($conVacio && $sel === '');
+        return '<div class="mc-select" data-ds-select' . (!empty($op['buscar']) ? ' data-ds-buscar' : '') . '>'
+            . '<select class="ds-select-nativo" name="' . e($name) . '" tabindex="-1" aria-hidden="true" ' . ($op['attrs'] ?? '') . '>' . $h . '</select>'
+            . '<button type="button" class="mc-input mc-input--' . e($tam) . ' mc-select__trigger" role="combobox" aria-haspopup="listbox" aria-expanded="false"'
+            . (isset($op['aria']) ? ' aria-label="' . e($op['aria']) . '"' : '') . '>'
+            . '<span class="mc-select__value"><span class="' . ($vacio ? 'mc-select__placeholder' : 'mc-select__text') . '">'
+            . e($texto !== '' ? $texto : ($op['vacio'] ?? 'Elegir…')) . '</span></span>'
+            . self::iconoDS('chevron-abajo', 18, 'mc-select__chev') . '</button></div>';
+    }
+
+    /** Casilla del design system con su <input> real (assets/ds.js la alterna). */
+    public static function checkDS(string $name, bool $on, string $etiqueta, string $desc = '', string $clase = '', string $valor = '1'): string
+    {
+        return '<label class="mc-check' . ($on ? ' is-checked' : '') . ($clase !== '' ? ' ' . e($clase) : '') . '">'
+            . '<input type="checkbox" class="mc-sr-only" name="' . e($name) . '" value="' . e($valor) . '"' . ($on ? ' checked' : '') . '>'
+            . '<span class="mc-check__box" aria-hidden="true">' . ($on ? self::checkDibujado(12) : '') . '</span>'
+            . '<span class="mc-check__text"><span class="mc-check__label">' . e($etiqueta) . '</span>'
+            . ($desc !== '' ? '<span class="mc-check__desc">' . e($desc) . '</span>' : '') . '</span></label>';
+    }
+
+    /** El check del sistema que se dibuja (casillas y opciones elegidas). */
+    public static function checkDibujado(int $px, string $clase = ''): string
+    {
+        return '<svg class="mc-draw-check' . ($clase !== '' ? ' ' . e($clase) : '') . '" width="' . $px . '" height="' . $px
+            . '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+    }
+
+    /**
+     * Mensaje en línea del design system. tono: info | success | warning |
+     * danger | tip. $desc va tal cual (HTML ya escapado por quien llama).
+     */
+    public static function alertaDS(string $tono, string $titulo, string $desc = '', bool $compacta = false, string $clase = ''): string
+    {
+        $ico = ['info' => 'info', 'success' => 'exito', 'warning' => 'alerta', 'danger' => 'error', 'tip' => 'ia'][$tono] ?? 'info';
+        $rol = in_array($tono, ['warning', 'danger'], true) ? 'alert' : 'status';
+        return '<div class="mc-alert mc-alert--' . e($tono) . ($compacta ? ' mc-alert--compact' : '') . ($clase !== '' ? ' ' . e($clase) : '') . '" role="' . $rol . '">'
+            . self::iconoDS($ico, 20, 'mc-alert__icon')
+            . '<div class="mc-alert__content">' . ($titulo !== '' ? '<p class="mc-alert__title">' . e($titulo) . '</p>' : '')
+            . ($desc !== '' ? '<div class="mc-alert__desc">' . $desc . '</div>' : '') . '</div></div>';
+    }
+
+    /** Botón de IA (los maneja assets/ia.js por sus data-*). */
+    public static function botonIA(string $texto, array $data, string $titulo = ''): string
+    {
+        $attrs = '';
+        foreach ($data as $k => $v) $attrs .= ' data-' . $k . '="' . e((string)$v) . '"';
+        return '<button type="button" class="ia-btn"' . $attrs . ($titulo !== '' ? ' title="' . e($titulo) . '"' : '') . '>'
+             . '<i class="fa-solid fa-wand-magic-sparkles"></i> ' . e($texto) . '</button>';
+    }
+
     public static function cabecera(string $titulo, string $subtitulo = '', string $acciones = ''): void
     {
         ?>
@@ -461,24 +814,33 @@ class UI
     /* ---------- Mensajes flash ---------- */
 
     /**
-     * Contenedor de toasts MC. Siempre se imprime (vacio o con los flash
-     * de sesion); MC.toast() de admin.js agrega toasts al mismo lugar.
+     * Región de avisos (Toast del design system). Siempre se imprime (vacía o
+     * con los flash de sesión); MC.toast() de admin.js agrega avisos al mismo
+     * lugar con el mismo marcado. El más nuevo va arriba.
      */
     public static function flashes(): void
     {
-        $iconos = ['success' => 'fa-circle-check', 'error' => 'fa-circle-xmark', 'info' => 'fa-circle-info'];
-        echo '<div class="mc-toasts" id="mc-toasts">';
-        foreach ($_SESSION['flash'] ?? [] as [$tipo, $msg]) {
-            $tipo = isset($iconos[$tipo]) ? $tipo : 'info';
-            echo '<div class="mc-toast mc-' . $tipo . '" data-duracion="' . ($tipo === 'error' ? 8000 : 4500) . '">'
-               . '<i class="fa-solid ' . $iconos[$tipo] . '"></i>'
-               . '<div class="mc-toast-txt">' . e($msg) . '</div>'
-               . '<button type="button" class="mc-toast-x" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>'
-               . '<span class="mc-toast-barra"></span>'
-               . '</div>';
+        echo '<section class="mc-toast-viewport mc-toast-viewport--top-right" id="mc-toasts" aria-live="polite" aria-label="Avisos">';
+        foreach (array_reverse($_SESSION['flash'] ?? []) as [$tipo, $msg]) {
+            echo self::toastDS((string)$tipo, (string)$msg);
         }
         unset($_SESSION['flash']);
-        echo '</div>';
+        echo '</section>';
+    }
+
+    /** Un aviso (tipo: success | error | warning | info). Mismo marcado que MC.toast. */
+    public static function toastDS(string $tipo, string $titulo, string $desc = ''): string
+    {
+        $t = ['success' => ['success', 'verde', 'exito'], 'error' => ['danger', 'rojo', 'error'],
+              'warning' => ['warning', 'amarillo', 'alerta'], 'info' => ['info', 'cian', 'info']][$tipo] ?? ['info', 'cian', 'info'];
+        return '<div class="mc-toast-slot"><div class="mc-toast-slot__inner">'
+            . '<div class="mc-toast mc-toast--' . $t[0] . '" role="' . ($t[0] === 'danger' ? 'alert' : 'status') . '" data-duracion="' . ($t[0] === 'danger' ? 8000 : 5000) . '">'
+            . '<span class="mc-toast__icon"><span class="mc-tile mc-tile--' . $t[1] . ' mc-tile--sm">' . self::iconoDS($t[2], 18) . '</span></span>'
+            . '<div class="mc-toast__body"><p class="mc-toast__title">' . e($titulo) . '</p>'
+            . ($desc !== '' ? '<p class="mc-toast__desc">' . e($desc) . '</p>' : '') . '</div>'
+            . '<button type="button" class="mc-iconbtn mc-iconbtn--ghost mc-iconbtn--sm mc-toast__close" aria-label="Cerrar aviso">' . self::iconoDS('cerrar', 16) . '</button>'
+            . '<span class="mc-toast__bar" aria-hidden="true"><span></span></span>'
+            . '</div></div></div>';
     }
 
     /* ---------- Avatares ---------- */
@@ -494,7 +856,7 @@ class UI
                       <i class="fa-solid fa-user-slash"></i></span>';
         }
         $c1 = Catalogo::colorDe($m['color'] ?? 0);
-        $title = $tooltip ? ' title="' . e($m['nombre']) . ' · @' . e($m['git_user']) . '"' : '';
+        $title = $tooltip ? ' title="' . e($m['nombre']) . (!empty($m['git_user']) ? ' · @' . e($m['git_user']) : '') . '"' : '';
         $inner = !empty($m['foto'])
             ? '<img src="' . e($m['foto']) . '" alt="' . e($m['nombre']) . '">'
             : '<span>' . e(MiembroRepo::iniciales($m)) . '</span>';
@@ -1122,13 +1484,134 @@ class UI
                 </div>';
     }
 
-    /** Estado vacio ilustrado. */
+    /**
+     * Ilustración del design system para cada estado vacío, según el ícono que
+     * ya pasaba cada pantalla (iconos/ilustraciones/<nombre>.svg).
+     */
+    private const ILUSTRACION_VACIO = [
+        'fa-mug-hot'             => 'notificaciones-vacio',   // nada pendiente: estás al día
+        'fa-inbox'               => 'notificaciones-vacio',
+        'fa-folder-plus'         => 'curso-sin-modulos',      // todavía sin proyectos
+        'fa-clipboard-list'      => 'curso-sin-modulos',
+        'fa-diagram-project'     => 'curso-sin-modulos',
+        'fa-filter-circle-xmark' => 'sin-resultados-cursos',  // nada con esos filtros
+        'fa-chart-column'        => 'reportes-vacio',
+        'fa-cloud-arrow-up'      => 'despliegue',             // sin despliegues registrados
+        'fa-building-columns'    => 'banco-vacio',
+        'fa-clipboard-check'     => 'banco-vacio',
+        'fa-right-left'          => 'instructores-equipo',
+        'fa-video'               => 'instructores-equipo',
+    ];
+
+    /**
+     * Estado vacío. Con assets/ds.css es el EmptyState del sistema con su
+     * ilustración; sin él, el de siempre.
+     */
     public static function vacio(string $icono, string $titulo, string $texto): string
     {
+        $ilus = self::ILUSTRACION_VACIO[$icono] ?? (str_starts_with($icono, 'fa-') ? '' : 'instructores-equipo');
+        if (is_file(__DIR__ . '/../assets/ds.css') && $ilus !== '') {
+            return self::vacioDS($ilus, $titulo, e($texto));
+        }
         return '<div class="empty-state">
                   <div class="empty-icon"><i class="fa-solid ' . $icono . '"></i></div>
                   <h3 class="font-display">' . e($titulo) . '</h3>
                   <p>' . e($texto) . '</p>
                 </div>';
+    }
+
+    /**
+     * EmptyState del design system con ilustración (iconos/ilustraciones/).
+     * $desc y $acciones van tal cual (HTML ya escapado por quien llama).
+     * tam: md (página o tarjeta principal, 280 px) o sm (tarjeta, 220 px).
+     */
+    /* ---------- Portadas ilustradas de los proyectos ---------- */
+
+    /** Portadas disponibles (iconos/ilustraciones/<clave>.svg) y su nombre. */
+    public const PORTADAS = [
+        'academico'           => 'Académico · Admisiones · Matrículas',
+        'universidad-agraria' => 'Universidad agraria',
+        'ingles'              => 'Inglés',
+        'unidad-educativa'    => 'Unidad educativa',
+        'talento-humano'      => 'Talento Humano',
+        'financiero'          => 'Financiero',
+        'mesa-ayuda'          => 'Mesa de Ayuda',
+        'sitios-web'          => 'Sitios web públicos',
+        'asistente-virtual'   => 'Asistente virtual',
+    ];
+
+    /**
+     * Palabras del nombre o la descripción que eligen la portada sola, de la
+     * más específica a la más general (sin tildes, en minúsculas).
+     */
+    private const PORTADA_CLAVES = [
+        'universidad-agraria' => ['agrari', 'agro'],
+        'ingles'              => ['ingles', 'english', 'buckingham', 'idioma'],
+        'unidad-educativa'    => ['unidad educativa', 'uniebec', 'escuela', 'colegio', 'gestion educativa'],
+        'academico'           => ['academ', 'admisi', 'matricul', 'inscripci', 'aspirante', 'postulante'],
+        'talento-humano'      => ['talento', 'humano', 'rrhh', 'nomina'],
+        'financiero'          => ['financ', 'contab', 'tesorer', 'factur', 'tpv', 'punto de venta', 'pagos'],
+        'mesa-ayuda'          => ['mesa de ayuda', 'soporte', 'helpdesk', 'ticket'],
+        'asistente-virtual'   => ['asistente', 'chatbot', 'bot '],
+        'sitios-web'          => ['web', 'sitio', 'portal', 'pagina', 'landing'],
+    ];
+
+    /**
+     * Portada de un proyecto: la que se eligió al crearlo o editarlo; si quedó
+     * en «automática», la que corresponde a su nombre; '' si no tiene.
+     */
+    public static function portadaDe(array $p): string
+    {
+        $elegida = (string)($p['portada'] ?? '');
+        if ($elegida === 'ninguna') return '';
+        if (isset(self::PORTADAS[$elegida])) return $elegida;
+        // Sin tildes y en minúsculas (iconv no es fiable en todos los servidores)
+        $texto = ' ' . strtr(mb_strtolower(($p['nombre'] ?? '') . ' ' . ($p['descripcion'] ?? ''), 'UTF-8'),
+            ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']) . ' ';
+        foreach (self::PORTADA_CLAVES as $clave => $palabras) {
+            foreach ($palabras as $w) {
+                if (str_contains($texto, $w)) return $clave;
+            }
+        }
+        return '';
+    }
+
+    /** Lo que llega del formulario: una portada, 'ninguna' o '' (automática). */
+    public static function portadaEntrada(?string $v): string
+    {
+        $v = (string)$v;
+        return isset(self::PORTADAS[$v]) || $v === 'ninguna' ? $v : '';
+    }
+
+    /** Elegir la portada de un proyecto: miniaturas, más «automática» y «sin portada». */
+    public static function selectorPortada(?string $actual = null): string
+    {
+        $actual = self::portadaEntrada($actual);
+        $op = function (string $valor, string $nombre, string $img) use ($actual): string {
+            return '<label class="ds-portada-op' . ($valor === $actual ? ' is-checked' : '') . '">'
+                . '<input type="radio" class="mc-sr-only" name="portada" value="' . e($valor) . '"' . ($valor === $actual ? ' checked' : '') . '>'
+                . '<span class="ds-portada-op__img">' . $img . '</span><span class="ds-portada-op__txt">' . e($nombre) . '</span></label>';
+        };
+        $h = '<div class="ds-portadas" role="radiogroup" aria-label="Portada del proyecto">';
+        $h .= $op('', 'Automática (según el nombre)', self::iconoDS('ia', 22));
+        foreach (self::PORTADAS as $clave => $nombre) {
+            $h .= $op($clave, $nombre, '<img src="' . e(asset('iconos/ilustraciones/' . $clave . '.svg')) . '" alt="" width="520" height="420" loading="lazy" decoding="async">');
+        }
+        $h .= $op('ninguna', 'Sin portada (solo el ícono)', self::iconoDS('cerrar', 20));
+        return $h . '</div>';
+    }
+
+    public static function vacioDS(string $ilustracion, string $titulo, string $desc = '', string $acciones = '', string $tam = 'md', bool $borde = true): string
+    {
+        $src = 'iconos/ilustraciones/' . preg_replace('/[^a-z0-9-]/', '', $ilustracion) . '.svg';
+        $img = is_file(__DIR__ . '/../' . $src)
+            ? '<img class="mc-empty__ill mc-ill mc-ill--' . ($tam === 'sm' ? 'sm' : 'md') . '" src="' . e(asset($src)) . '" width="520" height="420" alt="" loading="lazy" decoding="async">'
+            : '';
+        return '<div class="mc-empty mc-empty--vacio mc-empty--' . ($tam === 'sm' ? 'sm' : 'md') . ($borde ? ' mc-empty--bordered' : '') . ($img ? ' mc-empty--ill' : '') . '">'
+            . $img
+            . '<h3 class="mc-empty__title">' . e($titulo) . '</h3>'
+            . ($desc !== '' ? '<p class="mc-empty__desc">' . $desc . '</p>' : '')
+            . ($acciones !== '' ? '<div class="mc-empty__actions">' . $acciones . '</div>' : '')
+            . '</div>';
     }
 }

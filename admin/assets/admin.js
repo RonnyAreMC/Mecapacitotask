@@ -137,7 +137,16 @@
    Nunca usar alert()/confirm() nativos: MC.toast y MC.confirm.
    ========================================================= */
 const MC = {
-  _iconos: { success: 'fa-circle-check', error: 'fa-circle-xmark', info: 'fa-circle-info' },
+  // Avisos con el Toast del design system: [tono, baldosa, trazos del ícono]
+  _tonos: {
+    success: ['success', 'verde', '<circle cx="12" cy="12" r="8.5"/><path d="M8.3 12.3l2.5 2.5 5-5.2"/>'],
+    error: ['danger', 'rojo', '<circle cx="12" cy="12" r="8.5"/><path d="M9.3 9.3l5.4 5.4M14.7 9.3l-5.4 5.4"/>'],
+    warning: ['warning', 'amarillo', '<path d="M10.3 4.6a2 2 0 0 1 3.4 0l7.3 12.6a2 2 0 0 1-1.7 3H4.7a2 2 0 0 1-1.7-3z"/><path d="M12 9.6v4"/><circle cx="12" cy="16.7" r="1.05" fill="currentColor" stroke="none"/>'],
+    info: ['info', 'cian', '<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.3"/><circle cx="12" cy="7.9" r="1.05" fill="currentColor" stroke="none"/>'],
+  },
+  _svg(trazos, px) {
+    return '<svg class="mc-icon" width="' + px + '" height="' + px + '" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">' + trazos + '</svg>';
+  },
 
   /**
    * Sonidos cortos, sintetizados con Web Audio: no hay archivos que cargar ni
@@ -198,34 +207,65 @@ const MC = {
     this._nota(ctx, 330, 190, 0, 0.16, 0.05, 'triangle');
   },
 
-  /** Toast apilable con barra de tiempo. tipo: success | error | info */
-  toast(mensaje, tipo = 'info', duracion = 4500) {
-    const cont = document.getElementById('mc-toasts');
-    if (!cont) return;
-    if (!this._iconos[tipo]) tipo = 'info';
-    cont.insertAdjacentHTML('beforeend',
-      '<div class="mc-toast mc-' + tipo + '" data-duracion="' + duracion + '">' +
-        '<i class="fa-solid ' + this._iconos[tipo] + '"></i>' +
-        '<div class="mc-toast-txt"></div>' +
-        '<button type="button" class="mc-toast-x" title="Cerrar"><i class="fa-solid fa-xmark"></i></button>' +
-        '<span class="mc-toast-barra"></span>' +
-      '</div>');
-    const el = cont.lastElementChild;
-    el.querySelector('.mc-toast-txt').textContent = mensaje;
-    this._activarToast(el);
+  /**
+   * Aviso apilable (Toast del design system) con barra de tiempo, que se
+   * detiene con el cursor encima. tipo: success | error | warning | info.
+   * opciones.desc: segunda línea opcional. Máximo cuatro a la vez.
+   */
+  toast(mensaje, tipo = 'info', duracion = 4500, opciones = {}) {
+    const vp = document.getElementById('mc-toasts');
+    if (!vp) return;
+    const [tono, tile, trazos] = this._tonos[tipo] || this._tonos.info;
+    const slot = document.createElement('div');
+    slot.className = 'mc-toast-slot';
+    slot.innerHTML =
+      '<div class="mc-toast-slot__inner">' +
+        '<div class="mc-toast mc-toast--' + tono + '" role="' + (tono === 'danger' ? 'alert' : 'status') + '" data-duracion="' + duracion + '">' +
+          '<span class="mc-toast__icon"><span class="mc-tile mc-tile--' + tile + ' mc-tile--sm">' + this._svg(trazos, 18) + '</span></span>' +
+          '<div class="mc-toast__body"><p class="mc-toast__title"></p><p class="mc-toast__desc" hidden></p></div>' +
+          '<button type="button" class="mc-iconbtn mc-iconbtn--ghost mc-iconbtn--sm mc-toast__close" aria-label="Cerrar aviso">' +
+            this._svg('<path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/>', 16) + '</button>' +
+          '<span class="mc-toast__bar" aria-hidden="true"><span></span></span>' +
+        '</div>' +
+      '</div>';
+    slot.querySelector('.mc-toast__title').textContent = mensaje;
+    if (opciones.desc) {
+      const d = slot.querySelector('.mc-toast__desc');
+      d.textContent = opciones.desc;
+      d.hidden = false;
+    }
+    vp.prepend(slot);
+    this._activarToast(slot);
+    // Más de cuatro: se va el más viejo
+    const slots = [...vp.querySelectorAll('.mc-toast-slot:not(.is-leaving)')];
+    slots.slice(4).forEach((s) => s._cerrar && s._cerrar());
   },
 
-  /** Cableado de un toast (tambien para los que renderiza PHP). */
-  _activarToast(el) {
-    const cerrar = () => {
-      if (el.classList.contains('out')) return;
-      el.classList.add('out');
-      el.addEventListener('animationend', () => el.remove(), { once: true });
+  /** Cableado de un aviso (también los que imprime PHP: UI::toastDS). */
+  _activarToast(slot) {
+    const el = slot.querySelector('.mc-toast');
+    if (!el || slot._cerrar) return;
+    const vp = slot.parentElement;
+    const profundidad = () => {
+      if (!vp) return;
+      [...vp.querySelectorAll('.mc-toast-slot:not(.is-leaving) .mc-toast-slot__inner')]
+        .forEach((x, i) => x.style.setProperty('--_depth', String(i)));
     };
-    el.querySelector('.mc-toast-x').addEventListener('click', cerrar);
-    const barra = el.querySelector('.mc-toast-barra');
-    barra.style.animationDuration = (parseInt(el.dataset.duracion, 10) || 4500) + 'ms';
+    const cerrar = () => {
+      if (el.classList.contains('is-leaving')) return;
+      el.classList.add('is-leaving');
+      setTimeout(() => {
+        slot.classList.add('is-leaving');
+        setTimeout(() => { slot.remove(); profundidad(); }, 260);
+      }, 200);
+    };
+    slot._cerrar = cerrar;
+    el.querySelector('.mc-toast__close').addEventListener('click', cerrar);
+    const barra = el.querySelector('.mc-toast__bar > span');
+    barra.style.setProperty('--_dur', (parseInt(el.dataset.duracion, 10) || 4500) + 'ms');
+    barra.classList.add('is-running');
     barra.addEventListener('animationend', cerrar);
+    profundidad();
   },
 
   /** Dialogo de confirmacion. Devuelve Promise<boolean>. */
@@ -263,7 +303,7 @@ const MC = {
 };
 
 // Activar los toasts que ya vienen renderizados por PHP (mensajes flash)
-document.querySelectorAll('#mc-toasts .mc-toast').forEach((t) => MC._activarToast(t));
+document.querySelectorAll('#mc-toasts .mc-toast-slot').forEach((t) => MC._activarToast(t));
 
 /* =========================================================
    MecaSelect — realza los <select> con buscador y multi-selección.
@@ -1273,7 +1313,9 @@ function initComposer(form) {
       if (tabBadge) tabBadge.textContent = data.pendientes;
       MC.sonidoEnviar();
       MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
-      area.focus();
+      // En el modal: se cierra al guardar; suelto, sigue listo para otra
+      const dlgObs = form.closest('dialog');
+      if (dlgObs) dlgObs.close(); else area.focus();
     } catch {
       MC.sonidoError();
       MC.toast('Error de red al guardar la observación.', 'error');
@@ -2702,6 +2744,8 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
         (m.git_emails || '').split(',').map((s) => s.trim()).filter(Boolean));
     }
     form.querySelector('[name="email"]').value = m.email || '';
+    const telEl = form.querySelector('[name="telefono"]');
+    if (telEl) telEl.value = m.telefono || '';
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
     const selAcceso = form.querySelector('[name="acceso"]');
@@ -3193,7 +3237,7 @@ document.addEventListener('change', (e) => {
   const $ = (id) => dlg.querySelector('#' + id);
 
   document.addEventListener('click', (e) => {
-    const fila = e.target.closest('.req-fila');
+    const fila = e.target.closest('.req-fila, .req-tr');
     if (!fila) return;
     const r = JSON.parse(fila.dataset.req);
 

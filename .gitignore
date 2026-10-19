@@ -6,6 +6,8 @@ admin/data/.seeded
 admin/data/*.csv
 # Cualquier respaldo o copia de la config: lleva credenciales en texto plano
 admin/data/config.json.*
+# Llave que cifra las claves de la IA (data/ia.json): nunca al repo
+admin/data/ia.secreto
 admin/data/*.bak
 admin/uploads/*
 
@@ -25,3 +27,4 @@ admin/data/sessions/
 
 # Sistema
 .DS_Store
+admin/data/notif_poda.txt

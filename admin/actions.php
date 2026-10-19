@@ -4,6 +4,11 @@
  * Cada accion valida, ejecuta sobre el repositorio y redirige con flash.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
+// Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
+// propósito: si al subir por FTP falta alguno, solo se pierde eso.
+foreach (['Notificaciones', 'Pedidos'] as $moduloNuevo) {
+    if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirigir('index.php');
@@ -48,6 +53,16 @@ $accionesDeCualquiera = [
     // El horario de reuniones fijas lo escribe quien lleva cada proyecto (su
     // Scrum Master o su PO); dentro se comprueba con puedeHorarioDelProyecto().
     'rfija_crear', 'rfija_editar', 'rfija_eliminar',
+    // IA: administrador y Scrum Master. Cada acción comprueba por dentro el
+    // perfil (IA::puedeUsar) y que el proyecto sea suyo (puedeGestionar).
+    'ia_plan_documento', 'ia_acta', 'ia_req_texto', 'ia_obs_redaccion', 'ia_obs_adjunto', 'ia_obs_resumen',
+    'ia_tarea_descripcion', 'ia_tarea_desglose', 'ia_tarea_dependencias', 'ia_crear_tareas',
+    'ia_deploy_notas', 'ia_daily',
+    // Campana: cada quien marca las suyas. Pedidos entre equipos: los hace y
+    // responde la propia gente (dentro se comprueba quién puede qué).
+    'notif_leer_todas', 'pedido_crear', 'pedido_responder', 'pedido_estado',
+    // Cada quien guarda su teléfono cuando el panel se lo pide al entrar
+    'perfil_telefono',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -61,6 +76,35 @@ if (!in_array($accion, $accionesPublicas, true)) {
 $proyectos = new ProyectoRepo();
 $miembros  = new MiembroRepo();
 $tareas    = new TareaRepo();
+
+/**
+ * Aviso en la campana de la barra de arriba, aparte del correo: sale aunque el
+ * correo no esté configurado. Nadie se avisa a sí mismo. Si lib/Notificaciones.php
+ * no está en el servidor, no hace nada.
+ */
+function avisoPanel(array $para, string $tipo, string $titulo, string $texto = '', string $url = '', int $de = -1): void
+{
+    if (class_exists('Notif')) Notif::crear($para, $tipo, $titulo, $texto, $url, $de);
+}
+
+/**
+ * Teléfono tal como lo escriben (dígitos, +, espacios, guiones, paréntesis).
+ * '' si viene vacío o no parece un número (de 7 a 15 dígitos).
+ */
+function telefonoEntrada(?string $v): string
+{
+    $v = trim(preg_replace('/[^\d+\-\s()]/', '', (string)$v));
+    $digitos = preg_replace('/\D/', '', $v);
+    if ($v === '' || strlen($digitos) < 7 || strlen($digitos) > 15) return '';
+    return mb_substr(preg_replace('/\s+/', ' ', $v), 0, 25);
+}
+
+/** Ids de los administradores (para los avisos que también van a ellos). */
+function idsAdmins(MiembroRepo $miembros): array
+{
+    return array_values(array_map(fn($m) => (int)$m['id'],
+        array_filter($miembros->todos(), fn($m) => MiembroRepo::tieneAcceso($m, 'admin'))));
+}
 
 /**
  * Revisa si el proyecto acaba de completarse (100% y con tareas) y, si es
@@ -97,6 +141,8 @@ function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, M
         return '';
     }
     $req = $repo->buscar($reqId) ?? [];
+    avisoPanel(array_keys($validos), 'requerimiento', 'Te asignaron un requerimiento',
+        '«' . ($req['titulo'] ?? '') . '»' . (!empty($req['fecha_fin']) ? ' · entrega ' . $req['fecha_fin'] : ''), 'bandeja.php');
     $avisados = 0;
     $fallo = '';
     foreach ($validos as $mid => $m) {
@@ -179,6 +225,8 @@ function esUltimaOcurrencia(array $reu, string $fecha): bool
  */
 function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, string $nota): string
 {
+    avisoPanel(array_merge([(int)($req['creado_por'] ?? 0)], idsAdmins($miembros)), 'requerimiento',
+        'Terminaron un requerimiento', '«' . ($req['titulo'] ?? '') . '» · ' . ($quien['nombre'] ?? ''), 'requerimientos.php');
     $para    = '';
     $creador = $miembros->buscar((int)($req['creado_por'] ?? 0));
     if ($creador && !empty($creador['email'])) {
@@ -207,9 +255,10 @@ function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, 
 function notificarDepsExternas(array $tareaMia, array $depsAntes, array $depsDespues, ProyectoRepo $proyectos, MiembroRepo $miembros, TareaRepo $tareas): string
 {
     $nuevas = array_diff(array_map('intval', $depsDespues), array_map('intval', $depsAntes));
-    if (!$nuevas || !Mailer::listo()) {
+    if (!$nuevas) {
         return '';
     }
+    $conCorreo = Mailer::listo();
     $miProy = (int)($tareaMia['proyecto_id'] ?? 0);
     $pMio   = $proyectos->buscar($miProy);
     if (!$pMio) {
@@ -225,6 +274,10 @@ function notificarDepsExternas(array $tareaMia, array $depsAntes, array $depsDes
         $ids = TareaRepo::asignadosDe($dep);
         $sm  = ProyectoRepo::scrumDe($pDep);
         if ($sm > 0) $ids[] = $sm;
+        avisoPanel($ids, 'dependencia', 'Otro equipo depende de tu tarea',
+            '«' . ($tareaMia['titulo'] ?? '') . '» (' . ($pMio['nombre'] ?? '') . ') espera «' . ($dep['titulo'] ?? '') . '»',
+            'proyecto.php?id=' . (int)$dep['proyecto_id'] . '#vista-kanban');
+        if (!$conCorreo) continue;
         foreach (array_values(array_unique($ids)) as $mid) {
             $m = $miembros->buscar((int)$mid);
             if ($m && Mailer::notificarDependencia($tareaMia, $pMio, $dep, $pDep, $m) === true) $avisados++;
@@ -245,7 +298,7 @@ function participantesProyecto(int $pid, ProyectoRepo $proyectos, TareaRepo $tar
     }
     if ($p = $proyectos->buscar($pid)) {
         foreach (ProyectoRepo::miembrosDe($p) ?? [] as $mid) $ids[(int)$mid] = true;
-        foreach ([ProyectoRepo::poDe($p), ProyectoRepo::scrumDe($p)] as $mid) if ($mid > 0) $ids[(int)$mid] = true;
+        foreach ([ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)] as $mid) if ($mid > 0) $ids[(int)$mid] = true;
     }
     return array_keys($ids);
 }
@@ -275,6 +328,10 @@ function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $ta
 function avisarNuevosDelProyecto(array $antes, array $despues, array $proyecto, MiembroRepo $miembros): string
 {
     $nuevos = array_diff($despues, $antes);
+    if ($nuevos) {
+        avisoPanel($nuevos, 'proyecto', 'Te sumaron a un proyecto', (string)($proyecto['nombre'] ?? ''),
+            'proyecto.php?id=' . (int)($proyecto['id'] ?? 0));
+    }
     if (!$nuevos || !Mailer::listo()) {
         return '';
     }
@@ -429,6 +486,13 @@ function completadaEn(string $nuevo, string $antes): array
  * Product Owner válido: el id solo cuenta si es un miembro del equipo de
  * ANALISTAS (el PO se elige entre los analistas). Si no, 0 (sin PO).
  */
+/** PO de relevo: un analista como el principal, y nunca la misma persona. */
+function poRelevoValido(int $id, int $principal, MiembroRepo $miembros): int
+{
+    $id = poAnalistaValido($id, $miembros);
+    return $id === $principal ? 0 : $id;
+}
+
 function poAnalistaValido(int $id, MiembroRepo $miembros): int
 {
     if ($id <= 0) return 0;
@@ -465,6 +529,9 @@ function notificarSiAsignada(array $tarea, array $asignadosNuevos, array $asigna
     if (!$nuevos || !$p) {
         return ['', 'success'];
     }
+    avisoPanel($nuevos, 'tarea', 'Te asignaron una tarea',
+        '«' . ($tarea['titulo'] ?? '') . '» · ' . ($p['nombre'] ?? '') . (!empty($tarea['fecha_limite']) ? ' · para el ' . $tarea['fecha_limite'] : ''),
+        'proyecto.php?id=' . (int)$p['id'] . '#vista-kanban');
     $avisados = [];
     foreach ($nuevos as $mid) {
         $m = $miembros->buscar((int)$mid);
@@ -631,6 +698,120 @@ switch ($accion) {
         unset($_SESSION['identificar']);
         redirigir('login.php', 'Entra con el correo que ya está registrado en tu ficha, o pide acceso desde «Crear una cuenta».', 'error');
 
+    /* ---------- Campana ---------- */
+    case 'notif_leer_todas':
+        $nLeidas = class_exists('Notif') ? Notif::leerTodas((int)(Auth::usuario()['id'] ?? 0)) : 0;
+        if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch') {
+            header('Content-Type: application/json');
+            echo json_encode(['ok' => true, 'leidas' => $nLeidas]);
+            exit;
+        }
+        redirigir('notificaciones.php', $nLeidas ? 'Listo: todo marcado como leído.' : 'No tenías notificaciones sin leer.', 'info');
+
+    /* ---------- Pedidos entre equipos ---------- */
+    case 'pedido_crear':
+        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/Pedidos.php al servidor.', 'error');
+        if (Auth::esSupervisor()) redirigir(paginaOrigen(), 'Un supervisor solo observa: no hace pedidos.', 'error');
+        $yoPed = Auth::usuario();
+        $equiposPed = Catalogo::equipos();
+        $paraEquipo = (string)($_POST['para_equipo'] ?? '');
+        if (!isset($equiposPed[$paraEquipo])) redirigir(paginaOrigen(), 'Elige a qué equipo va el pedido.', 'error');
+        $tituloPed = mb_substr(trim((string)($_POST['titulo'] ?? '')), 0, 140);
+        if ($tituloPed === '') redirigir(paginaOrigen(), 'Escribe qué necesitas (el título del pedido).', 'error');
+        // La persona es opcional, pero si viene debe ser de ese equipo
+        $paraIdPed = (int)($_POST['para_id'] ?? 0);
+        if ($paraIdPed > 0) {
+            $mPed = $miembros->buscar($paraIdPed);
+            if (!$mPed || MiembroRepo::equipoDe($mPed) !== $paraEquipo) $paraIdPed = 0;
+        }
+        $pidPed = (int)($_POST['proyecto_id'] ?? 0);
+        if ($pidPed > 0 && (!$proyectos->buscar($pidPed) || !puedeVerProyecto($pidPed))) $pidPed = 0;
+        $pedRepo = new PedidoRepo();
+        $ped = $pedRepo->crear([
+            'de_id'        => (int)$yoPed['id'],
+            'de_equipo'    => MiembroRepo::equipoDe($yoPed),
+            'para_equipo'  => $paraEquipo,
+            'para_id'      => $paraIdPed,
+            'proyecto_id'  => $pidPed,
+            'titulo'       => $tituloPed,
+            'detalle'      => mb_substr(str_replace("\r", '', trim((string)($_POST['detalle'] ?? ''))), 0, 4000),
+            'prioridad'    => Catalogo::prioridadValida($_POST['prioridad'] ?? ''),
+            'fecha_limite' => ProyectoRepo::fecha($_POST['fecha_limite'] ?? ''),
+        ]);
+        $paraPed = PedidoRepo::destinatarios($ped, $miembros);
+        avisoPanel($paraPed, 'pedido', $paraIdPed ? $yoPed['nombre'] . ' te pidió algo' : $yoPed['nombre'] . ' le pidió algo a ' . $equiposPed[$paraEquipo][0],
+            '«' . $tituloPed . '»' . ($ped['fecha_limite'] ? ' · para el ' . $ped['fecha_limite'] : ''), 'pedidos.php#p-' . (int)$ped['id']);
+        $nCorreoPed = 0;
+        if (method_exists('Mailer', 'notificarPedido') && Mailer::listo()) {
+            foreach ($paraPed as $midPed) {
+                $mPed = $miembros->buscar($midPed);
+                if ($mPed && Mailer::notificarPedido($ped, $yoPed, $mPed, 'nuevo') === true) $nCorreoPed++;
+            }
+        }
+        redirigir('pedidos.php#p-' . (int)$ped['id'], 'Pedido enviado a ' . ($paraIdPed ? ($miembros->buscar($paraIdPed)['nombre'] ?? '') : $equiposPed[$paraEquipo][0]) . '.'
+            . ($nCorreoPed ? ' También le avisamos por correo (' . $nCorreoPed . ').' : ''));
+
+    case 'pedido_responder':
+    case 'pedido_estado':
+        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/Pedidos.php al servidor.', 'error');
+        if (Auth::esSupervisor()) redirigir('pedidos.php', 'Un supervisor solo observa los pedidos.', 'error');
+        $pedRepo = new PedidoRepo();
+        $yoPed = Auth::usuario();
+        $miPed = (int)$yoPed['id'];
+        $ped = $pedRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$ped || !PedidoRepo::puedeVer($ped, $yoPed)) redirigir('pedidos.php', 'Ese pedido no existe o no es tuyo.', 'error');
+        $volverPed = 'pedidos.php#p-' . (int)$ped['id'];
+        $esQuienPide = (int)$ped['de_id'] === $miPed;
+        $atiende = PedidoRepo::esParaMi($ped, $yoPed) || Auth::esAdmin();
+        $notaPed = mb_substr(str_replace("\r", '', trim((string)($_POST['texto'] ?? ''))), 0, 2000);
+        // El otro lado: si escribe quien pidió, el equipo (o quien lo tomó); si no, quien pidió
+        $otroLado = $esQuienPide
+            ? ((int)($ped['tomado_por'] ?? 0) > 0 ? [(int)$ped['tomado_por']] : PedidoRepo::destinatarios($ped, $miembros))
+            : [(int)$ped['de_id']];
+
+        if ($accion === 'pedido_responder') {
+            if ($notaPed === '') redirigir($volverPed, 'Escribe la respuesta.', 'error');
+            $pedRepo->responder((int)$ped['id'], $miPed, $notaPed);
+            avisoPanel($otroLado, 'pedido', $yoPed['nombre'] . ' respondió en un pedido', '«' . $ped['titulo'] . '» · ' . $notaPed, $volverPed);
+            if (method_exists('Mailer', 'notificarPedido') && Mailer::listo()) {
+                foreach ($otroLado as $midPed) {
+                    if ($mPed = $miembros->buscar($midPed)) Mailer::notificarPedido($pedRepo->buscar((int)$ped['id']) ?? $ped, $yoPed, $mPed, 'respuesta', $notaPed);
+                }
+            }
+            redirigir($volverPed, 'Respuesta enviada.');
+        }
+
+        $op = (string)($_POST['op'] ?? '');
+        $abiertoPed = PedidoRepo::abierto($ped);
+        $cambio = match (true) {
+            $op === 'tomar'    && $atiende && ($ped['estado'] ?? '') === 'abierto' => ['estado' => 'en_curso', 'tomado_por' => $miPed],
+            $op === 'hecho'    && $atiende && $abiertoPed => ['estado' => 'hecho', 'tomado_por' => (int)($ped['tomado_por'] ?? 0) ?: $miPed, 'resuelto_en' => date('Y-m-d H:i')],
+            $op === 'rechazar' && $atiende && $abiertoPed => ['estado' => 'rechazado', 'resuelto_en' => date('Y-m-d H:i')],
+            $op === 'cancelar' && $esQuienPide && $abiertoPed => ['estado' => 'cancelado', 'resuelto_en' => date('Y-m-d H:i')],
+            $op === 'reabrir'  && $esQuienPide && !$abiertoPed => ['estado' => 'abierto', 'tomado_por' => 0, 'resuelto_en' => ''],
+            default => null,
+        };
+        if (!$cambio) redirigir($volverPed, 'Eso no se puede hacer con este pedido ahora.', 'error');
+        $pedRepo->actualizar((int)$ped['id'], $cambio);
+        if ($notaPed !== '') $pedRepo->responder((int)$ped['id'], $miPed, $notaPed);
+        $rotulosPed = ['tomar' => 'tomó tu pedido', 'hecho' => 'terminó tu pedido', 'rechazar' => 'rechazó tu pedido',
+                       'cancelar' => 'canceló su pedido', 'reabrir' => 'reabrió su pedido'];
+        avisoPanel($otroLado, 'pedido', $yoPed['nombre'] . ' ' . $rotulosPed[$op],
+            '«' . $ped['titulo'] . '»' . ($notaPed !== '' ? ' · ' . $notaPed : ''), $volverPed);
+        if (method_exists('Mailer', 'notificarPedido') && Mailer::listo() && in_array($op, ['hecho', 'rechazar'], true)) {
+            if ($mPed = $miembros->buscar((int)$ped['de_id'])) Mailer::notificarPedido($pedRepo->buscar((int)$ped['id']) ?? $ped, $yoPed, $mPed, $op, $notaPed);
+        }
+        $flashPed = ['tomar' => 'Lo tomaste: quien lo pidió ya sabe que estás en eso.', 'hecho' => 'Pedido marcado como hecho.',
+                     'rechazar' => 'Pedido rechazado.', 'cancelar' => 'Pedido cancelado.', 'reabrir' => 'Pedido reabierto.'];
+        redirigir($volverPed, $flashPed[$op]);
+
+    case 'perfil_telefono':
+        $yoTel = Auth::usuario();
+        $tel = telefonoEntrada($_POST['telefono'] ?? '');
+        if ($tel === '') redirigir(paginaOrigen(), 'Ese número no parece un teléfono: escribe entre 7 y 15 dígitos.', 'error');
+        $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
+        redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
+
     case 'auth_logout':
         Auth::salir();
         redirigir('login.php', 'Sesión cerrada.');
@@ -644,6 +825,10 @@ switch ($accion) {
         $_POST['po']    = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros);
         $_POST['scrum'] = scrumValido((int)($_POST['scrum'] ?? 0), $miembros);
         $p = $proyectos->crear($_POST);
+        // Portada ilustrada ('' = automática según el nombre) y PO de relevo
+        $extraCrear = ['po_relevo' => poRelevoValido((int)($_POST['po_relevo'] ?? 0), (int)$_POST['po'], $miembros)];
+        if (isset($_POST['portada'])) $extraCrear['portada'] = UI::portadaEntrada($_POST['portada']);
+        $proyectos->actualizar((int)$p['id'], $extraCrear);
         $avisoEquipo = avisarNuevosDelProyecto([], (array)($p['miembros'] ?? []), $p, $miembros);
         redirigir('proyecto.php?id=' . $p['id'], 'Proyecto «' . $p['nombre'] . '» creado.' . $avisoEquipo);
 
@@ -723,10 +908,12 @@ switch ($accion) {
             'repo_frontend' => '',
             'estado'        => $_POST['estado'] ?? 'activo',
             'icono'         => $_POST['icono'] ?? 'FolderOpen',
+            'portada'       => UI::portadaEntrada($_POST['portada'] ?? ''),
             'color'         => Catalogo::colorEntrada($_POST),
             'fecha_inicio'  => ProyectoRepo::fecha($_POST['fecha_inicio'] ?? ''),
             'miembros'      => ProyectoRepo::miembrosEntrada($_POST['miembros'] ?? []),
-            'po'            => poAnalistaValido((int)($_POST['po'] ?? 0), $miembros),
+            'po'            => ($poEd = poAnalistaValido((int)($_POST['po'] ?? 0), $miembros)),
+            'po_relevo'     => poRelevoValido((int)($_POST['po_relevo'] ?? 0), $poEd, $miembros),
             'scrum'         => scrumValido((int)($_POST['scrum'] ?? 0), $miembros),
             'plataforma'    => ProyectoRepo::plataformaEntrada($_POST['plataforma'] ?? ''),
         ]);
@@ -1107,6 +1294,17 @@ switch ($accion) {
             ]);
         }
 
+        // Campana: a quien va dirigida y a los avisados; si es respuesta, también
+        // a quien abrió el hilo (menos al propio autor, eso lo hace avisoPanel).
+        if (!empty($creadas)) {
+            $campana = array_merge($destIds, array_filter($paraIds));
+            if ($padre) $campana[] = (int)($padre['creado_por'] ?? 0);
+            $pCampana = $proyectos->buscar($pid);
+            avisoPanel($campana, 'observacion', $padre ? 'Respondieron una observación' : 'Nueva observación',
+                HtmlRico::texto((string)($creadas[0]['texto'] ?? ''), 120) . ' · ' . ($pCampana['nombre'] ?? ''),
+                'proyecto.php?id=' . $pid . '#vista-observaciones');
+        }
+
         // Aviso por correo a los destinatarios (menos al propio autor).
         if ($destIds && Mailer::listo() && !empty($creadas)) {
             $pObs     = $proyectos->buscar($pid);
@@ -1271,6 +1469,9 @@ switch ($accion) {
 
         $mDe   = $miembros->buscar((int)$nuevo['de_id']);
         $mPara = $miembros->buscar($paraId);
+        avisoPanel([$paraId], 'intercambio', 'Te proponen intercambiar tareas',
+            ($mDe['nombre'] ?? '') . ': «' . ($tMia['titulo'] ?? '') . '» por tu «' . ($tSuya['titulo'] ?? '') . '»',
+            'proyecto.php?id=' . $pid . '#vista-intercambios');
         $aviso = '';
         if ($mDe && $mPara) {
             $r = Mailer::notificarIntercambio($nuevo, $mDe, $mPara, $tMia, $tSuya, $proyectos->buscar($pid));
@@ -1319,6 +1520,9 @@ switch ($accion) {
 
         $quien = $miembros->buscar($miId);
         $dest  = $miembros->buscar((int)$x['de_id']);
+        avisoPanel([(int)$x['de_id']], 'intercambio', $acepta ? 'Aceptaron tu intercambio de tareas' : 'Rechazaron tu intercambio de tareas',
+            ($quien['nombre'] ?? '') . (trim($_POST['nota'] ?? '') !== '' ? ': ' . trim($_POST['nota']) : ''),
+            'proyecto.php?id=' . (int)$x['proyecto_id'] . '#vista-intercambios');
         if ($quien && $dest) {
             Mailer::notificarRespuestaIntercambio(
                 $inter->buscar((int)$x['id']), $quien, $dest, $proyectos->buscar((int)$x['proyecto_id']), $acepta);
@@ -1531,6 +1735,13 @@ switch ($accion) {
             'email'      => $correoNuevo,
             'color'      => Catalogo::colorEntrada($_POST),
         ];
+        if (array_key_exists('telefono', $_POST)) {
+            $telNuevo = telefonoEntrada($_POST['telefono']);
+            if (trim((string)$_POST['telefono']) !== '' && $telNuevo === '') {
+                redirigir($volver, 'Ese teléfono no parece válido: escribe entre 7 y 15 dígitos.', 'error');
+            }
+            $cambios['telefono'] = $telNuevo;
+        }
 
         // Contrasena: solo si la piden, y comprobando siempre la actual
         $claveNueva = (string)($_POST['clave_nueva'] ?? '');
@@ -1619,6 +1830,7 @@ switch ($accion) {
         $reqRepo->asignar((int)$req['id'], array_keys($validosEd), $fechasReqEd);
         $reqActEd = $reqRepo->buscar((int)$req['id']) ?? [];
         $nuevosEd = array_diff(array_keys($validosEd), $antesResp);
+        avisoPanel($nuevosEd, 'requerimiento', 'Te asignaron un requerimiento', '«' . trim($_POST['titulo'] ?? '') . '»', 'bandeja.php');
         $avisadosEd = 0;
         foreach ($nuevosEd as $mid) {
             $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validosEd, [$mid => true]));
@@ -1735,6 +1947,13 @@ switch ($accion) {
             if ($mObs = $miembros->buscar($midObs)) $paraObs[$midObs] = $mObs;
         }
         $autorObs = $miembros->buscar($yoObs) ?? [];
+        // Campana: al administrador lo lleva al módulo; a los demás, a su bandeja
+        $adminsObs = idsAdmins($miembros);
+        foreach (array_keys($paraObs) as $midObs) {
+            avisoPanel([$midObs], 'requerimiento', $laQueRespondeObs ? 'Respondieron tu observación' : 'Observación en un requerimiento',
+                '«' . ($req['titulo'] ?? '') . '» · ' . HtmlRico::texto((string)$textoObs, 100),
+                in_array($midObs, $adminsObs, true) ? 'requerimientos.php' : 'bandeja.php');
+        }
         $avisadosObs = [];
         foreach ($paraObs as $midObs => $mObs) {
             if (Mailer::observacionRequerimiento($req, $autorObs, $mObs, $textoObs, $laQueRespondeObs) === true) {
@@ -1853,7 +2072,7 @@ switch ($accion) {
         $m = $miembros->crear($datos);
         // Acceso al panel (rol + contraseña opcional)
         $accesoNuevo = Auth::accesoValido($_POST['acceso'] ?? '');
-        $cambiosAcceso = ['acceso' => $accesoNuevo];
+        $cambiosAcceso = ['acceso' => $accesoNuevo, 'telefono' => telefonoEntrada($_POST['telefono'] ?? '')];
         if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
             $cambiosAcceso['pass_hash'] = Auth::hash($_POST['clave']);
         }
@@ -1872,6 +2091,7 @@ switch ($accion) {
             'git_user'   => ltrim(trim($_POST['git_user'] ?? ''), '@'),
             'git_emails' => MiembroRepo::gitEmailsEntrada($_POST['git_emails'] ?? ''),
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
+            'telefono' => telefonoEntrada($_POST['telefono'] ?? ''),
             'color'    => Catalogo::colorEntrada($_POST),
             'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
             // OJO: editar los datos NO toca el 'acceso'. Se conserva el que ya
@@ -2460,6 +2680,292 @@ switch ($accion) {
         echo $binRep;
         exit;
 
+    /* ---------- IA: consola (solo administrador) ---------- */
+
+    case 'ia_guardar':
+        require_once __DIR__ . '/lib/IA.php';
+        $cfgIa  = IA::config();
+        $postIa = (array)($_POST['ia'] ?? []);
+        $num    = fn($v) => max(0, round((float)str_replace(',', '.', (string)$v), 4));
+
+        // Claves: las guardadas se pueden renombrar, apagar o quitar; la nueva
+        // se cifra. Nunca vuelven al HTML, así que un campo vacío no borra nada.
+        $clavesIa = [];
+        foreach (IA::PROVEEDORES as $provIa => $_) {
+            $listaIa = [];
+            foreach ($cfgIa['claves'][$provIa] as $k) {
+                $kp = (array)($postIa['claves'][$provIa][$k['id']] ?? []);
+                if (!empty($kp['quitar'])) continue;
+                if ($kp) {
+                    $k['etiqueta'] = mb_substr(trim((string)($kp['etiqueta'] ?? '')), 0, 40) ?: $k['etiqueta'];
+                    $k['activa']   = !empty($kp['activa']);
+                }
+                $listaIa[] = $k;
+            }
+            $nuevaIa = trim((string)($postIa['nueva'][$provIa]['valor'] ?? ''));
+            if ($nuevaIa !== '') {
+                $listaIa[] = [
+                    'id'       => bin2hex(random_bytes(4)),
+                    'etiqueta' => mb_substr(trim((string)($postIa['nueva'][$provIa]['etiqueta'] ?? '')), 0, 40) ?: 'Clave ' . (count($listaIa) + 1),
+                    'valor'    => IA::cifrar($nuevaIa),
+                    'final'    => mb_substr($nuevaIa, -4),
+                    'activa'   => true,
+                ];
+            }
+            $clavesIa[$provIa] = $listaIa;
+        }
+
+        $modelosIa = [];
+        foreach ((array)($postIa['modelos'] ?? []) as $m) {
+            if (!is_array($m) || !empty($m['quitar'])) continue;
+            $provIa = (string)($m['proveedor'] ?? '');
+            $codIa  = (string)preg_replace('/[^a-zA-Z0-9._-]/', '', (string)($m['codigo'] ?? ''));
+            if (!isset(IA::PROVEEDORES[$provIa]) || $codIa === '') continue;
+            $modelosIa[$provIa . ':' . $codIa] = [
+                'proveedor' => $provIa, 'codigo' => $codIa,
+                'nombre'    => mb_substr(trim((string)($m['nombre'] ?? '')), 0, 60) ?: $codIa,
+                'entrada'   => $num($m['entrada'] ?? 0), 'salida' => $num($m['salida'] ?? 0),
+                'activo'    => !empty($m['activo']),
+            ];
+        }
+        if (!$modelosIa) redirigir('ia.php#modelos', 'Deja al menos un modelo en el catálogo.', 'error');
+
+        $asigIa = [];
+        foreach (IA::TAREAS as $tIa => $_) {
+            $a   = (array)($postIa['asig'][$tIa] ?? []);
+            $pri = (string)($a['principal'] ?? '');
+            $res = (string)($a['respaldo'] ?? '');
+            $asigIa[$tIa] = [
+                'principal' => isset($modelosIa[$pri]) ? $pri : $cfgIa['asignaciones'][$tIa]['principal'],
+                'respaldo'  => isset($modelosIa[$res]) && $res !== $pri ? $res : '',
+                'activa'    => !empty($a['activa']),
+            ];
+        }
+
+        IA::guardar([
+            'activa'       => !empty($postIa['activa']),
+            'tope_mensual' => $num($postIa['tope_mensual'] ?? 0),
+            'claves'       => $clavesIa,
+            'modelos'      => array_values($modelosIa),
+            'asignaciones' => $asigIa,
+            'base'         => $cfgIa['base'],
+        ]);
+        // Vuelve a la pestaña en la que se estaba.
+        $tabIa = in_array($_POST['tab'] ?? '', ['resumen', 'claves', 'modelos', 'funciones'], true) ? $_POST['tab'] : 'resumen';
+        redirigir('ia.php#' . $tabIa, 'Consola de IA guardada.');
+
+    case 'ia_probar':
+        require_once __DIR__ . '/lib/IA.php';
+        header('Content-Type: application/json; charset=utf-8');
+        try {
+            echo json_encode(['ok' => true, 'resultados' => IA::probar((string)($_POST['modelo'] ?? ''))], JSON_UNESCAPED_UNICODE);
+        } catch (IAError $e) {
+            echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        }
+        exit;
+
+    /* ---------- IA: funciones (administrador y Scrum Master) ----------
+       Todas responden JSON con un BORRADOR: nada de esto guarda en el panel,
+       salvo ia_crear_tareas, que crea las tareas que la persona marcó. */
+
+    case 'ia_plan_documento':
+    case 'ia_acta':
+    case 'ia_req_texto':
+    case 'ia_obs_redaccion':
+    case 'ia_obs_adjunto':
+    case 'ia_obs_resumen':
+    case 'ia_tarea_descripcion':
+    case 'ia_tarea_desglose':
+    case 'ia_tarea_dependencias':
+    case 'ia_crear_tareas':
+    case 'ia_deploy_notas':
+    case 'ia_daily':
+        require_once __DIR__ . '/lib/IA.php';
+        require_once __DIR__ . '/lib/IAFunciones.php';
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $iaFin = function (array $d, int $st = 200): never {
+            http_response_code($st);
+            echo json_encode($d, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            exit;
+        };
+        if (!IA::puedeUsar()) {
+            $iaFin(['ok' => false, 'error' => Auth::esGestor()
+                ? 'La IA todavía no está configurada. El administrador la activa en la Consola de IA.'
+                : 'La IA es solo para administradores y Scrum Masters.'], 403);
+        }
+        $pidIa  = (int)($_POST['proyecto_id'] ?? 0);
+        $proyIa = $pidIa > 0 ? $proyectos->buscar($pidIa) : null;
+        $exigirProyIa = function () use ($proyIa, $pidIa, $iaFin) {
+            if (!$proyIa || !puedeGestionar($pidIa)) $iaFin(['ok' => false, 'error' => 'No gestionas ese proyecto.'], 403);
+        };
+        // Archivos subidos de un campo (uno o varios) → listos para la IA.
+        $archivosIa = function (string $campo, int $max = 6): array {
+            $f = $_FILES[$campo] ?? null;
+            if (!$f) return [];
+            $nombres = (array)$f['name'];
+            $out = ['archivos' => [], 'textos' => []];
+            foreach ($nombres as $i => $nom) {
+                if (count($out['archivos']) + count($out['textos']) >= $max) break;
+                $err = is_array($f['error']) ? $f['error'][$i] : $f['error'];
+                $tmp = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+                if ($err !== UPLOAD_ERR_OK || !is_uploaded_file($tmp)) continue;
+                $l = IA::leerArchivo((string)$nom, $tmp);
+                if (isset($l['archivo'])) $out['archivos'][] = $l['archivo'];
+                else $out['textos'][] = '[' . $nom . ']' . "\n" . mb_substr($l['texto'], 0, 20000);
+            }
+            return $out;
+        };
+
+        try {
+            switch ($accion) {
+                case 'ia_plan_documento':
+                    $exigirProyIa();
+                    $f = $_FILES['archivo'] ?? null;
+                    if (!$f || ($f['error'] ?? 1) !== UPLOAD_ERR_OK) throw new IAError('Sube el documento del plan (Excel, PDF, Word o CSV).');
+                    $resIa = IAFunciones::planDocumento($proyIa, IA::leerArchivo((string)$f['name'], (string)$f['tmp_name']),
+                        (string)$f['name'], (string)($_POST['instrucciones'] ?? ''));
+                    break;
+
+                case 'ia_acta':
+                    $reuIa = (new ReunionRepo())->buscar((int)($_POST['reunion_id'] ?? 0));
+                    if (!$reuIa) throw new IAError('Reunión no encontrada.');
+                    $proyIa = $proyectos->buscar((int)$reuIa['proyecto_id']);
+                    if (!$proyIa || !puedeGestionar((int)$reuIa['proyecto_id'])) $iaFin(['ok' => false, 'error' => 'No gestionas ese proyecto.'], 403);
+                    $ocIa    = trim((string)($_POST['ocurrencia'] ?? ''));
+                    $textoIa = trim((string)($_POST['texto'] ?? ''));
+                    if ($textoIa === '') {
+                        // La misma búsqueda que «Transcripción»: en vivo en Zoom.
+                        if (($reuIa['plataforma'] ?? 'zoom') === 'meet' || empty($reuIa['zoom_id'])) {
+                            throw new IAError('Esta reunión no trae transcripción automática: pega el texto de la reunión.');
+                        }
+                        $uuidIa = '';
+                        if ($ocIa !== '' && Reuniones::esRecurrente($reuIa)) {
+                            $errIa  = '';
+                            $uuidIa = resolverUuidOcurrencia($reuIa, $ocIa, $errIa);
+                            if ($uuidIa === '' && !esUltimaOcurrencia($reuIa, $ocIa)) throw new IAError($errIa ?: 'No se encontró ese día en Zoom.');
+                        }
+                        $trIa = Zoom::transcripcion((string)$reuIa['zoom_id'], $uuidIa);
+                        if (($trIa['estado'] ?? '') !== 'ok') {
+                            throw new IAError(($trIa['msg'] ?? 'Zoom no tiene la transcripción.') . ' También puedes pegar el texto de la reunión.');
+                        }
+                        $textoIa = (string)$trIa['texto'];
+                    }
+                    $partIa = [];
+                    foreach ((array)($reuIa['invitados'] ?? []) as $midIa) {
+                        $mIa = $miembros->buscar((int)$midIa);
+                        if ($mIa) $partIa[] = (string)$mIa['nombre'];
+                    }
+                    $resIa = IAFunciones::actaReunion($proyIa, $reuIa, $ocIa !== '' ? $ocIa : substr((string)($reuIa['inicio'] ?? ''), 0, 10),
+                        $partIa, $textoIa) + ['proyecto_id' => (int)$proyIa['id']];
+                    break;
+
+                case 'ia_req_texto':
+                    // Los requerimientos sueltos son del administrador.
+                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Los requerimientos sueltos los gestiona el administrador.'], 403);
+                    $textoIa = trim((string)($_POST['texto'] ?? ''));
+                    if (mb_strlen($textoIa) < 10) throw new IAError('Pega el mensaje con el pedido.');
+                    $abiertosIa = [];
+                    foreach ((new RequerimientoRepo())->todos() as $rIa) {
+                        if (!RequerimientoRepo::cerrado($rIa)) $abiertosIa[] = ['id' => (int)$rIa['id'], 'titulo' => (string)($rIa['titulo'] ?? '')];
+                    }
+                    $resIa = IAFunciones::requerimiento($textoIa, array_slice($abiertosIa, 0, 200));
+                    break;
+
+                case 'ia_obs_redaccion':
+                case 'ia_obs_adjunto':
+                    $exigirProyIa();
+                    $ctxIa = [];
+                    foreach (array_slice((array)($_POST['tareas'] ?? []), 0, 5) as $tidIa) {
+                        $tIa = $tareas->buscar((int)$tidIa);
+                        if ($tIa && (int)$tIa['proyecto_id'] === $pidIa) $ctxIa[] = '#' . $tIa['id'] . ' ' . $tIa['titulo'];
+                    }
+                    $ctxIa = 'Proyecto ' . $proyIa['nombre'] . ($ctxIa ? '; tareas: ' . implode('; ', $ctxIa) : '');
+                    if ($accion === 'ia_obs_redaccion') {
+                        $resIa = IAFunciones::obsRedaccion((string)($_POST['texto'] ?? ''), $ctxIa, $pidIa);
+                    } else {
+                        $adjIa = $archivosIa('adjuntos');
+                        $borradorIa = HtmlRico::texto((string)($_POST['texto'] ?? ''));
+                        if (!empty($adjIa['textos'])) $borradorIa .= "\n" . implode("\n", $adjIa['textos']);
+                        $resIa = IAFunciones::obsAdjunto($adjIa['archivos'] ?? [], trim($borradorIa), $ctxIa, $pidIa);
+                    }
+                    break;
+
+                case 'ia_obs_resumen':
+                    $obsRepoIa = new ObservacionRepo();
+                    $oIa = $obsRepoIa->buscar((int)($_POST['obs_id'] ?? 0));
+                    if (!$oIa) throw new IAError('Observación no encontrada.');
+                    $pidIa = (int)$oIa['proyecto_id'];
+                    if (!puedeGestionar($pidIa)) $iaFin(['ok' => false, 'error' => 'No gestionas ese proyecto.'], 403);
+                    $raizIa = (int)($oIa['padre_id'] ?? 0) ?: (int)$oIa['id'];
+                    $hiloIa = null;
+                    foreach ($obsRepoIa->hilosDelProyecto($pidIa) as $hIa) {
+                        if ((int)$hIa['id'] === $raizIa) { $hiloIa = $hIa; break; }
+                    }
+                    if (!$hiloIa) throw new IAError('No se encontró el hilo de esa observación.');
+                    $nombresIa = array_map(fn($m) => (string)$m['nombre'], $miembros->mapa());
+                    $tIa = (int)($hiloIa['tarea_id'] ?? 0) ? $tareas->buscar((int)$hiloIa['tarea_id']) : null;
+                    $resIa = IAFunciones::obsResumen($hiloIa, $nombresIa, $tIa ? '#' . $tIa['id'] . ' ' . $tIa['titulo'] : '', $pidIa);
+                    break;
+
+                case 'ia_tarea_descripcion':
+                case 'ia_tarea_desglose':
+                case 'ia_tarea_dependencias':
+                    $exigirProyIa();
+                    $tituloIa = (string)($_POST['titulo'] ?? '');
+                    $descIa   = (string)($_POST['descripcion'] ?? '');
+                    $resIa = match ($accion) {
+                        'ia_tarea_descripcion'  => IAFunciones::tareaDescripcion($proyIa, $tituloIa, $descIa),
+                        'ia_tarea_desglose'     => IAFunciones::tareaDesglose($proyIa, $tituloIa, $descIa),
+                        default                 => IAFunciones::tareaDependencias($proyIa, $tituloIa, $descIa, (int)($_POST['tarea_id'] ?? 0)),
+                    };
+                    break;
+
+                case 'ia_crear_tareas':
+                    // Las que la persona dejó marcadas del acta o del desglose. Pasan
+                    // por el importador de siempre (valida, limpia y resuelve depende_de).
+                    $exigirProyIa();
+                    $listaIa = json_decode((string)($_POST['tareas'] ?? '[]'), true);
+                    if (!is_array($listaIa) || !$listaIa) throw new IAError('Marca al menos una tarea.');
+                    $permitidosIa = ['titulo', 'descripcion', 'prioridad', 'fecha_inicio', 'fecha_limite', 'ref', 'depende_de'];
+                    $loteIa = [];
+                    foreach (array_slice($listaIa, 0, 60) as $tIa) {
+                        if (!is_array($tIa)) continue;
+                        $loteIa[] = ['proyecto' => $proyIa['nombre']] + array_intersect_key($tIa, array_flip($permitidosIa));
+                    }
+                    $impIa = new ImportadorTareas(new ProyectoRepo(), new MiembroRepo(), new TareaRepo());
+                    $repIa = $impIa->procesar(['tareas' => $loteIa], false, false, Auth::esAdmin() ? null : array_keys(alcanceProyectos() ?? []));
+                    if (empty($repIa['ok'])) throw new IAError('No se crearon: ' . implode(' ', array_slice((array)($repIa['errores'] ?? []), 0, 3)));
+                    $iaFin(['ok' => true, 'creadas' => (int)($repIa['creadas'] ?? 0)]);
+
+                case 'ia_deploy_notas':
+                    $finalesIa = Catalogo::estadosFinales();
+                    $porProyIa = [];
+                    foreach (array_unique(array_map('intval', (array)($_POST['proyectos'] ?? []))) as $pidD) {
+                        $pD = $proyectos->buscar($pidD);
+                        if (!$pD || !puedeGestionar($pidD)) continue;
+                        $nomD = aliasDeploy($pidD) ?: (string)$pD['nombre'];
+                        foreach ($tareas->delProyecto($pidD) as $tIa) {
+                            if (in_array($tIa['estado'] ?? '', $finalesIa, true) && (int)($tIa['deploy_id'] ?? 0) === 0) {
+                                $porProyIa[$nomD][] = (string)$tIa['titulo'];
+                            }
+                        }
+                    }
+                    $resIa = IAFunciones::notasDespliegue($porProyIa);
+                    break;
+
+                case 'ia_daily':
+                    $exigirProyIa();
+                    $desdeIa = (string)($_POST['desde'] ?? '');
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $desdeIa)) $desdeIa = IAFunciones::desdeDaily();
+                    $resIa = IAFunciones::daily($proyIa, $desdeIa);
+                    break;
+            }
+            $iaFin(['ok' => true] + $resIa);
+        } catch (IAError $e) {
+            $iaFin(['ok' => false, 'error' => $e->getMessage()], 503);
+        }
+
 
 
     /* ---------- Respaldo de la configuracion ---------- */
@@ -2627,6 +3133,9 @@ switch ($accion) {
         // La deja en el calendario de cada invitado (imprescindible en Zoom)
         $agendados = agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), (array)$p, $miembros, $reuniones);
 
+        avisoPanel($invitados, 'reunion', 'Te invitaron a una reunión',
+            ($reu['topic'] ?? 'Reunión') . ' · ' . ($reu['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
+
         // Notifica por correo a los invitados con correo registrado
         $avisados = 0;
         if (Mailer::listo()) {
@@ -2703,6 +3212,8 @@ switch ($accion) {
         $avisados = 0;
         $p = $proyectos->buscar($pid);
         $reuActual = $reuniones->buscar((int)$reu['id']);
+        avisoPanel($nuevos, 'reunion', 'Te invitaron a una reunión',
+            ($reuActual['topic'] ?? 'Reunión') . ' · ' . ($reuActual['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
         if ($nuevos && $p && Mailer::listo()) {
             foreach ($nuevos as $mid) {
                 $m = $miembros->buscar((int)$mid);
@@ -2903,7 +3414,8 @@ switch ($accion) {
             'proyectos' => $pidsDep,
             'autor_id'  => (int)(Auth::usuario()['id'] ?? 0),
             'entorno'   => $cfgDep['entorno'],
-            'nota'      => mb_substr(trim($_POST['nota'] ?? ''), 0, 200),
+            // Hasta 1500: las notas de la versión (a mano o con IA) van por líneas.
+            'nota'      => mb_substr(trim(str_replace("\r", '', (string)($_POST['nota'] ?? ''))), 0, 1500),
             'tareas'    => $pendientesDep,
         ]);
         foreach ($pendientesDep as $tid) {

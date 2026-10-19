@@ -23,6 +23,8 @@ UI::inicio('Ajustes', 'ajustes');
 UI::cabecera(
     'Ajustes del <span class="text-secondary">panel</span>',
     'Todo es parametrizable. Los cambios se guardan con el botón "Guardar ajustes".',
+    (is_file(__DIR__ . '/actualizar.php') ? '<a class="btn-outline btn-meca btn-azul" href="actualizar.php" title="Después de subir una versión nueva: revisa que esté todo y deja la IA lista">'
+        . '<i class="fa-solid fa-rotate"></i> Actualizar el panel</a> ' : '') .
     '<form method="post" action="actions.php" class="inline-form"
            data-confirmar="Se perderán todos los ajustes personalizados y el panel volverá a sus valores por defecto."
            data-confirmar-titulo="¿Restaurar los defaults?" data-confirmar-ok="Sí, restaurar">

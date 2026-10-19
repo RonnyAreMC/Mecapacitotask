@@ -413,12 +413,21 @@ function puedeGestionar(int $proyectoId): bool
  * Scrum Master de ese proyecto.
  */
 /** ¿Es el Product Owner de este proyecto? ("ver como" contesta por esa persona) */
+/**
+ * ¿Es Product Owner de ese proyecto? Cuenta el principal y el de relevo:
+ * el de relevo cubre al principal, así que tiene los mismos permisos.
+ */
+function esPOde(array $p, int $id): bool
+{
+    return $id > 0 && (ProyectoRepo::poDe($p) === $id || (int)($p['po_relevo'] ?? 0) === $id);
+}
+
 function esPODelProyecto(int $proyectoId): bool
 {
     $yo = verComo() ?: Auth::usuario();
     if (!$yo) return false;
     $p = (new ProyectoRepo())->buscar($proyectoId);
-    return $p !== null && ProyectoRepo::poDe($p) === (int)$yo['id'];
+    return $p !== null && esPOde($p, (int)$yo['id']);
 }
 
 /**
@@ -449,7 +458,7 @@ function puedeHorarioDelProyecto(int $proyectoId): bool
     // los dos que convocan al equipo, así que los dos ponen el horario. Basta
     // con estar puesto como tal: el rol ya se valida al guardar el proyecto.
     $id = (int)$yo['id'];
-    return ProyectoRepo::scrumDe($p) === $id || ProyectoRepo::poDe($p) === $id;
+    return ProyectoRepo::scrumDe($p) === $id || esPOde($p, $id);
 }
 
 /**
@@ -487,6 +496,12 @@ function avisarTareaTerminada(array $tarea, string $antes, string $ahora, int $q
 
     $miembros = new MiembroRepo();
     $quien    = $quienId > 0 ? $miembros->buscar($quienId) : null;
+    // Campana del panel (si lib/Notificaciones.php está cargado: desde actions.php)
+    if (class_exists('Notif')) {
+        Notif::crear(array_keys($roles), 'tarea_hecha', 'Terminaron una tarea',
+            '«' . ($tarea['titulo'] ?? '') . '» · ' . ($proyecto['nombre'] ?? '') . ($quien ? ' · ' . $quien['nombre'] : ''),
+            'proyecto.php?id=' . (int)$proyecto['id'] . '#vista-kanban', $quienId);
+    }
     $avisados = [];
     $sinCorreo = [];
     $fallo = '';
@@ -524,7 +539,7 @@ function puedeGestionarTareas(int $proyectoId): bool
     $yo = (int)(Auth::usuario()['id'] ?? 0);
     if ($yo <= 0) return false;
     $p = (new ProyectoRepo())->buscar($proyectoId);
-    return $p && ProyectoRepo::poDe($p) === $yo;
+    return $p && esPOde($p, $yo);
 }
 
 /* ---------- Deploys: quien sube los cambios y quien lo ve ---------- */
@@ -603,7 +618,7 @@ function misProyectosIds(): array
         $pid = (int)$p['id'];
         $suEquipo = ProyectoRepo::miembrosDe($p);
         if ($suEquipo !== null && in_array($yo, $suEquipo, true)) $ids[$pid] = true;
-        if (ProyectoRepo::poDe($p) === $yo)    $ids[$pid] = true;
+        if (esPOde($p, $yo))                   $ids[$pid] = true;
         if (ProyectoRepo::scrumDe($p) === $yo) $ids[$pid] = true;
     }
     foreach ((new TareaRepo())->todas() as $t) {
@@ -694,7 +709,7 @@ function puedeVerDeploys(): bool
 
     if (Auth::esScrum()) return true;
     foreach ((new ProyectoRepo())->todos() as $p) {
-        if (ProyectoRepo::poDe($p) === $yo || ProyectoRepo::scrumDe($p) === $yo) return true;
+        if (esPOde($p, $yo) || ProyectoRepo::scrumDe($p) === $yo) return true;
     }
     return false;
 }
@@ -780,7 +795,7 @@ function alcanceProyectos(): ?array
             if ($suEquipo !== null && in_array($yo, $suEquipo, true)) {
                 $ids[(int)$p['id']] = true;
             }
-            if (ProyectoRepo::poDe($p) === $yo) {   // el Product Owner también ve su proyecto
+            if (esPOde($p, $yo)) {   // el Product Owner (o el de relevo) también ve su proyecto
                 $ids[(int)$p['id']] = true;
             }
             if (ProyectoRepo::scrumDe($p) === $yo) {   // y el Scrum Master que lo lleva

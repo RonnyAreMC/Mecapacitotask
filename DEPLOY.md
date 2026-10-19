@@ -226,9 +226,39 @@ En **Ajustes → Correo → ¿Qué avisar?**:
 ```bash
 cd ~/public_html/panel.tudominio.com
 git pull
+php admin/actualizar.php
 ```
 Tus datos (`admin/data/panel.sqlite`, `admin/uploads/`) están en `.gitignore`, así
 que `git pull` **nunca los pisa**.
+
+`php admin/actualizar.php` es **un solo comando que deja todo listo** después de
+actualizar, y se puede repetir sin riesgo:
+
+1. Revisa el servidor: PHP 8, SQLite, OpenSSL, cURL, zlib y mbstring.
+2. Revisa que estén todos los archivos nuevos y que ninguno haya quedado de la
+   versión anterior. Los nombra uno por uno, lo que ayuda cuando se sube por FTP.
+3. Revisa los permisos de `data/` y `uploads/`, y que `data/` siga cerrada a la web.
+4. Crea las tablas nuevas: notificaciones, pedidos entre equipos y consumo de IA.
+5. Siembra la **IA**: modelos con precios de referencia y qué modelo usa cada
+   función (con su respaldo). También crea la llave que cifra las claves. Lo que
+   ya cambiaste en la Consola de IA no se toca.
+6. Resume lo que conviene revisar: qué proyectos tienen portada y cuáles no,
+   quién no tiene teléfono (el panel se lo pide al entrar) y qué proyectos tienen
+   PO de relevo.
+7. Vacía la caché de PHP (OPcache).
+
+Opciones:
+
+```bash
+php admin/actualizar.php --seco                          # solo mira, no escribe nada
+php admin/actualizar.php --openai=sk-... --gemini=AIza...  # además guarda las claves de IA (cifradas)
+```
+
+Las claves también se toman de `OPENAI_API_KEY` y `GEMINI_API_KEY` si están en el
+entorno, y nunca se guardan en el repositorio.
+
+**Sin terminal (solo FTP):** entra como administrador a **Ajustes → Actualizar el
+panel** (o a `admin/actualizar.php`) y pulsa *Actualizar ahora*. Hace lo mismo.
 
 ## Migrar de JSON a SQLite (una sola vez, si ya tenías datos)
 
