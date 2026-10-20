@@ -167,6 +167,11 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
+    <?php if (is_file(__DIR__ . '/Tutoriales.php')): /* videos cortos del panel */ ?>
+    <a href="tutoriales.php" class="sidebar-link <?= $activo === 'tutoriales' ? 'active' : '' ?>" title="Tutoriales en video">
+      <?= UI::icono('ds-video') ?> <span class="truncate">Tutoriales</span>
+    </a>
+    <?php endif; ?>
 
     <?php
     // Plegada, la barra no lista los proyectos uno a uno (crecia sin fin y
@@ -502,6 +507,7 @@ class UI
           <?php if ($conNotif): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--naranja<?= $activo === 'notificaciones' ? ' is-actual' : '' ?>" href="notificaciones.php"><?= self::iconoDS('notificaciones', 18) ?>Notificaciones</a><?php endif; ?>
           <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--verde<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
           <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--cian<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
+          <?php if (is_file(__DIR__ . '/Tutoriales.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--petroleo<?= $activo === 'tutoriales' ? ' is-actual' : '' ?>" href="tutoriales.php"><?= self::iconoDS('video', 18) ?>Tutoriales en video</a><?php endif; ?>
           <form method="post" action="actions.php" class="ds-cuenta__salir">
             <input type="hidden" name="accion" value="auth_logout">
             <button role="menuitem" class="ds-cuenta__op"><?= self::iconoDS('salir', 18) ?>Cerrar sesión</button>

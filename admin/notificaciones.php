@@ -14,6 +14,7 @@ require_once __DIR__ . '/lib/Notificaciones.php';
 if (is_file(__DIR__ . '/lib/Correo.php')) require_once __DIR__ . '/lib/Correo.php';
 if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
 if (is_file(__DIR__ . '/lib/Push.php')) require_once __DIR__ . '/lib/Push.php';
+if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
 Auth::requiereLogin();
 
 $yo  = Auth::usuario();
@@ -58,6 +59,11 @@ if ($tab === 'avisos' && $nSin) {
 } elseif ($tab === 'correo' && Correo::conectado($mid) && !isset($_GET['redactar'])) {
     $accionesCab = '<a class="mc-btn mc-btn--success mc-btn--md" href="' . e(correoUrl(['redactar' => 1, 'c' => (string)($_GET['c'] ?? '')])) . '">'
         . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Redactar</span></a>';
+}
+
+// «Ver tutorial»: si el administrador asignó un video a esta pestaña, se abre ahí mismo
+if (class_exists('Tutoriales')) {
+    $accionesCab = Tutoriales::boton($tab === 'avisos' ? 'notificaciones' : $tab) . $accionesCab;
 }
 
 UI::inicio($tab === 'correo' ? 'Correo InnoTech' : 'Notificaciones', 'notificaciones');

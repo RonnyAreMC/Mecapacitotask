@@ -90,6 +90,7 @@ function actualizarPanel(array $opc): void
         'lib/Push.php', 'sw.js', 'manifest.webmanifest', 'cron_correo.php',
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
+        'tutoriales.php', 'lib/Tutoriales.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -106,15 +107,16 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal'],
+        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
         'lib/Notificaciones.php' => ['Push::avisar'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar'],
-        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear'],
+        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios'],
         'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos'],
-        'lib/Correo.php'    => ['revisarNuevos'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton'],
+        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
+        'lib/correo_vista.php' => ['correoDirectorio'],
         'login.php'         => ['entradaArte'],
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot'],
@@ -164,7 +166,8 @@ function actualizarPanel(array $opc): void
     } else {
         foreach (['notificaciones' => 'Notificaciones (campana)', 'pedidos' => 'Pedidos entre equipos', 'ia_uso' => 'Consumo de IA',
                   'correo_cuentas' => 'Correo InnoTech (cuentas sincronizadas)',
-                  'push_suscripciones' => 'Notificaciones nativas (dispositivos)'] as $t => $etq) {
+                  'push_suscripciones' => 'Notificaciones nativas (dispositivos)',
+                  'tutoriales' => 'Tutoriales en video'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');

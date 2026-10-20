@@ -340,6 +340,286 @@
     zona.addEventListener('drop', (e) => { if (e.dataTransfer && e.dataTransfer.files.length) sumar(e.dataTransfer.files); });
   });
 
+  /* ---------- Destinatarios del correo (data-destinatarios) ----------
+     Cada dirección queda como una etiqueta. Mientras se escribe, sugiere del
+     directorio del equipo y de las direcciones a las que la persona ya
+     escribió (#correo-directorio). Enter, Tab, coma o punto y coma agregan;
+     Retroceso con el campo vacío quita la última. El campo original
+     (name="para", "cc", "cco") sigue mandando las direcciones separadas por comas. */
+  const datosDir = (() => {
+    const s = document.getElementById('correo-directorio');
+    if (!s) return null;
+    try { return JSON.parse(s.textContent); } catch (err) { return null; }
+  })();
+  if (datosDir) {
+    const sinTildes = (v) => String(v || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+    const esCorreo = (v) => /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(v);
+    const porCorreo = new Map();
+    (datosDir.equipo || []).forEach((p) => porCorreo.set(p.e, Object.assign({}, p)));
+    const recientes = [];
+    (datosDir.recientes || []).forEach((r) => {
+      let p = porCorreo.get(r.e);
+      if (!p) { p = { e: r.e, n: r.n || '', d: 'Le escribiste antes' }; porCorreo.set(r.e, p); }
+      p.reciente = true;
+      recientes.push(p);
+    });
+    const iniciales = (p) => p.i || ((p.n || p.e).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2)
+      .map((w) => w[0]).join('').toUpperCase() || '@');
+    const avatar = (p, clase, error) => {
+      const s = document.createElement('span');
+      s.className = clase;
+      s.setAttribute('aria-hidden', 'true');
+      if (error) s.textContent = '!';
+      else if (p && p.f) { const im = new Image(); im.src = p.f; im.alt = ''; s.append(im); }
+      else s.textContent = iniciales(p);
+      if (p && p.c && !error) s.style.setProperty('--av', p.c);
+      return s;
+    };
+    const resaltar = (texto, q) => {
+      const frag = document.createDocumentFragment();
+      const t = sinTildes(q.trim());
+      const i = t ? sinTildes(texto).indexOf(t) : -1;
+      if (i < 0) { frag.append(texto); return frag; }
+      const b = document.createElement('b');
+      b.textContent = texto.slice(i, i + t.length);
+      frag.append(texto.slice(0, i), b, texto.slice(i + t.length));
+      return frag;
+    };
+    const buscar = (q, fuera) => {
+      const t = sinTildes(q.trim());
+      if (!t) return recientes.filter((p) => !fuera.has(p.e)).slice(0, 6);
+      const puntos = (p) => {
+        const n = sinTildes(p.n);
+        let s = 0;
+        if (n.startsWith(t)) s = 5;
+        else if (n.split(/\s+/).some((w) => w.startsWith(t)) || p.e.startsWith(t)) s = 4;
+        else if (n.includes(t)) s = 2;
+        else if (p.e.includes(t)) s = 1;
+        return s ? s + (p.reciente ? 0.5 : 0) : 0;
+      };
+      return [...porCorreo.values()].filter((p) => !fuera.has(p.e)).map((p) => [puntos(p), p]).filter((x) => x[0] > 0)
+        .sort((a, b) => b[0] - a[0] || (a[1].n || a[1].e).localeCompare(b[1].n || b[1].e, 'es')).slice(0, 8).map((x) => x[1]);
+    };
+    // «Ana <a@x.com>, b@y.com; c@z.com d@w.com» → ['a@x.com', 'b@y.com', 'c@z.com', 'd@w.com']
+    const partir = (v) => String(v || '').split(/[,;\n]+/).flatMap((s) => {
+      const m = s.match(/<([^<>]+)>/);
+      if (m) return [m[1]];
+      const pal = s.trim().split(/\s+/).filter(Boolean);
+      return pal.length > 1 && pal.every((w) => w.includes('@')) ? pal : [s.trim()];
+    }).map((x) => x.trim().replace(/^mailto:/i, '')).filter(Boolean);
+    const svgX = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M7 7l10 10M17 7L7 17"/></svg>';
+
+    let nCampo = 0;
+    document.querySelectorAll('[data-destinatarios]').forEach((orig) => {
+      const caja = orig.closest('.mc-input');
+      const campo = orig.closest('.mc-field');
+      if (!caja || !campo) return;
+      const k = ++nCampo;
+      const ph = orig.placeholder || '';
+      const elegidos = [];
+      const escribir = document.createElement('input');
+      escribir.type = 'text';
+      escribir.className = 'mc-input__control ds-dest__input';
+      escribir.id = orig.id;
+      orig.removeAttribute('id');
+      escribir.placeholder = ph;
+      escribir.autocomplete = 'off';
+      escribir.spellcheck = false;
+      escribir.setAttribute('role', 'combobox');
+      escribir.setAttribute('aria-autocomplete', 'list');
+      escribir.setAttribute('aria-expanded', 'false');
+      escribir.setAttribute('aria-controls', 'ds-dest-pop-' + k);
+      const conFoco = document.activeElement === orig || orig.hasAttribute('autofocus');
+      orig.type = 'hidden';
+      orig.required = false;
+      orig.removeAttribute('autofocus');
+      caja.classList.add('ds-dest');
+      caja.insertBefore(escribir, orig);
+      campo.classList.add('ds-dest-campo');
+      const pop = document.createElement('div');
+      pop.className = 'mc-pop ds-dest__pop';
+      pop.id = 'ds-dest-pop-' + k;
+      pop.setAttribute('role', 'listbox');
+      pop.hidden = true;
+      campo.append(pop);
+      const aviso = document.createElement('p');
+      aviso.className = 'ds-dest__error';
+      aviso.setAttribute('role', 'alert');
+      aviso.hidden = true;
+      caja.after(aviso);
+
+      const limpiarError = () => { aviso.hidden = true; caja.classList.remove('is-error'); campo.classList.remove('is-error'); };
+      const sincronizar = () => {
+        orig.value = elegidos.map((x) => x.e).join(', ');
+        escribir.placeholder = elegidos.length ? '' : ph;
+        limpiarError();
+      };
+      const quitar = (e) => {
+        const i = elegidos.findIndex((x) => x.e === e);
+        if (i < 0) return;
+        elegidos[i].chip.remove();
+        elegidos.splice(i, 1);
+        sincronizar();
+      };
+      const agregar = (texto, persona) => {
+        const e = String(persona ? persona.e : texto).trim().replace(/^<|>$/g, '').toLowerCase();
+        if (!e || elegidos.some((x) => x.e === e)) return;
+        const p = persona || porCorreo.get(e) || null;
+        const ok = esCorreo(e);
+        const chip = document.createElement('span');
+        chip.className = 'ds-dest__chip' + (ok ? '' : ' is-error');
+        chip.dataset.dsTip = ok ? (p && p.n ? p.n + ' · ' + e : e) : 'Esta dirección no es válida: ' + e;
+        chip.append(avatar(p || { e }, 'ds-dest__av', !ok));
+        const t = document.createElement('span');
+        t.className = 'ds-dest__txt';
+        t.textContent = p && p.n ? p.n : e;
+        const x = document.createElement('button');
+        x.type = 'button';
+        x.className = 'ds-dest__x';
+        x.tabIndex = -1;
+        x.setAttribute('aria-label', 'Quitar ' + (p && p.n ? p.n : e));
+        x.innerHTML = svgX;
+        x.addEventListener('click', (ev) => { ev.stopPropagation(); quitar(e); escribir.focus(); });
+        chip.append(t, x);
+        caja.insertBefore(chip, escribir);
+        elegidos.push({ e, chip });
+        sincronizar();
+      };
+      const confirmarTexto = () => {
+        const v = escribir.value;
+        escribir.value = '';
+        partir(v).forEach((x) => agregar(x));
+        cerrar();
+      };
+
+      let opciones = [];
+      let activa = -1;
+      const marcar = (i) => {
+        activa = i;
+        [...pop.querySelectorAll('.ds-dest__opt')].forEach((o, j) => {
+          o.classList.toggle('is-active', j === i);
+          o.setAttribute('aria-selected', j === i ? 'true' : 'false');
+          if (j === i) o.scrollIntoView({ block: 'nearest' });
+        });
+        if (i >= 0) escribir.setAttribute('aria-activedescendant', pop.id + '-' + i);
+        else escribir.removeAttribute('aria-activedescendant');
+      };
+      const cerrar = () => { pop.hidden = true; escribir.setAttribute('aria-expanded', 'false'); marcar(-1); };
+      const elegir = (i) => {
+        const p = opciones[i];
+        if (!p) return;
+        escribir.value = '';
+        agregar(p.e, p.nuevo ? null : p);
+        cerrar();
+        escribir.focus();
+      };
+      const abrir = () => {
+        const q = escribir.value;
+        const qt = q.trim().toLowerCase();
+        const fuera = new Set(elegidos.map((x) => x.e));
+        opciones = buscar(q, fuera);
+        // Una dirección completa que no está en el directorio también se ofrece
+        if (esCorreo(qt) && !fuera.has(qt) && !opciones.some((p) => p.e === qt)) opciones.push({ e: qt, n: '', d: 'Agregar esta dirección', nuevo: true });
+        if (!opciones.length) { cerrar(); return; }
+        pop.innerHTML = '';
+        if (!qt) {
+          const g = document.createElement('div');
+          g.className = 'mc-select__group';
+          g.textContent = 'Les escribiste hace poco';
+          pop.append(g);
+        }
+        opciones.forEach((p, i) => {
+          const o = document.createElement('div');
+          o.className = 'mc-option ds-dest__opt';
+          o.id = pop.id + '-' + i;
+          o.setAttribute('role', 'option');
+          o.append(avatar(p, 'ds-dest__av ds-dest__av--lg'));
+          const tx = document.createElement('span');
+          tx.className = 'mc-option__text';
+          const l = document.createElement('span');
+          l.className = 'mc-option__label';
+          l.append(resaltar(p.n || p.e, q));
+          const d = document.createElement('span');
+          d.className = 'mc-option__desc';
+          if (p.n) d.append(resaltar(p.e, q));
+          if (p.d) d.append((p.n ? ' · ' : '') + p.d);
+          tx.append(l, d);
+          o.append(tx);
+          o.addEventListener('mousedown', (ev) => ev.preventDefault());
+          o.addEventListener('click', () => elegir(i));
+          o.addEventListener('mousemove', () => { if (activa !== i) marcar(i); });
+          pop.append(o);
+        });
+        pop.style.top = (caja.offsetTop + caja.offsetHeight + 6) + 'px';
+        pop.hidden = false;
+        escribir.setAttribute('aria-expanded', 'true');
+        marcar(qt ? 0 : -1);
+      };
+
+      escribir.addEventListener('keydown', (ev) => {
+        const abierto = !pop.hidden;
+        if (ev.key === 'ArrowDown') { ev.preventDefault(); if (!abierto) abrir(); else marcar(Math.min(opciones.length - 1, activa + 1)); return; }
+        if (ev.key === 'ArrowUp') { if (abierto) { ev.preventDefault(); marcar(Math.max(0, activa - 1)); } return; }
+        if (ev.key === 'Escape') { if (abierto) { ev.preventDefault(); ev.stopPropagation(); cerrar(); } return; }
+        if (ev.key === 'Enter' || ev.key === 'Tab' || ev.key === ',' || ev.key === ';') {
+          if (abierto && activa >= 0) { ev.preventDefault(); elegir(activa); return; }
+          if (escribir.value.trim()) { ev.preventDefault(); confirmarTexto(); return; }
+          if (ev.key !== 'Tab') ev.preventDefault(); // Enter en «Para» no manda el correo a medias
+          return;
+        }
+        if (ev.key === 'Backspace' && !escribir.value && elegidos.length) {
+          ev.preventDefault();
+          quitar(elegidos[elegidos.length - 1].e);
+        }
+      });
+      escribir.addEventListener('input', () => {
+        // Pegar una lista («a@x.com, b@y.com») la convierte en etiquetas
+        if (/[,;\n]/.test(escribir.value)) {
+          const partes = escribir.value.split(/[,;\n]+/);
+          escribir.value = partes.pop();
+          partes.forEach((s) => partir(s).forEach((x) => agregar(x)));
+        }
+        limpiarError();
+        abrir();
+      });
+      let sinSugerir = false; // al marcar un error se enfoca sin tapar el aviso con la lista
+      escribir.addEventListener('focus', () => { if (sinSugerir) { sinSugerir = false; return; } if (!escribir.value) abrir(); });
+      escribir.addEventListener('blur', () => {
+        setTimeout(() => {
+          if (document.activeElement === escribir) return;
+          if (escribir.value.trim()) confirmarTexto();
+          cerrar();
+        }, 150);
+      });
+      caja.addEventListener('mousedown', (ev) => {
+        if (ev.target === caja || ev.target.classList.contains('ds-dest__chip') || ev.target.classList.contains('ds-dest__txt')) {
+          ev.preventDefault();
+          escribir.focus();
+        }
+      });
+
+      partir(orig.value).forEach((x) => agregar(x));
+      if (conFoco) escribir.focus();
+
+      const form = orig.form;
+      if (form) {
+        form.addEventListener('submit', (ev) => {
+          if (escribir.value.trim()) confirmarTexto();
+          const malos = elegidos.filter((x) => !esCorreo(x.e));
+          const falta = orig.dataset.destinatarios === 'para' && !elegidos.length;
+          if (!malos.length && !falta) return;
+          ev.preventDefault();
+          aviso.textContent = falta ? 'Agrega al menos un destinatario.' : 'Corrige o quita las direcciones marcadas en rojo.';
+          aviso.hidden = false;
+          caja.classList.add('is-error');
+          campo.classList.add('is-error');
+          cerrar();
+          if (document.activeElement !== escribir) { sinSugerir = true; escribir.focus(); }
+        });
+      }
+    });
+  }
+
   /* ---------- Notificaciones nativas (Web Push) ----------
      Pregunta arriba, en cada página, mientras la persona no acepte ni diga
      «No, gracias». Aceptar: el navegador pide permiso y el dispositivo queda
@@ -440,6 +720,73 @@
     await MCPush.activar();
     setTimeout(() => location.reload(), 1200);
   }));
+
+  /* ---------- Tutoriales: el reproductor en un modal (data-tutorial-ver) ----------
+     El marco va con referrerpolicy «strict-origin-when-cross-origin»: sin eso
+     YouTube muestra el error 153. Al cerrar se vacía (el video se detiene). */
+  const analizarVideo = (url) => {
+    let u;
+    try { u = new URL(/^https?:\/\//i.test(url) ? url : 'https://' + url); } catch (err) { return { error: 'Ese enlace no es válido.' }; }
+    const host = u.hostname.replace(/^(www|m)\./i, '').toLowerCase();
+    const ruta = u.pathname;
+    const q = u.searchParams;
+    const yt = /^[A-Za-z0-9_-]{11}$/;
+    if (['youtube.com', 'youtube-nocookie.com', 'music.youtube.com'].includes(host)) {
+      const id = q.get('v') || (ruta.match(/^\/(?:shorts|embed|live|v)\/([A-Za-z0-9_-]{11})/) || [])[1] || '';
+      if (!id && q.get('list')) return { error: 'Es una lista de reproducción: abre el video que quieres y copia su enlace.' };
+      return yt.test(id) ? { proveedor: 'youtube', id } : { error: 'Ese enlace de YouTube no lleva a un video.' };
+    }
+    if (host === 'youtu.be') {
+      const id = ruta.split('/')[1] || '';
+      return yt.test(id) ? { proveedor: 'youtube', id } : { error: 'Ese enlace corto de YouTube no es válido.' };
+    }
+    if (host === 'drive.google.com' || host === 'docs.google.com') {
+      if (ruta.includes('/folders/')) return { error: 'Es una carpeta de Drive: abre el video y copia el enlace del archivo.' };
+      const id = (ruta.match(/\/file\/d\/([A-Za-z0-9_-]{20,})/) || [])[1] || (/^[A-Za-z0-9_-]{20,}$/.test(q.get('id') || '') ? q.get('id') : '');
+      return id ? { proveedor: 'drive', id } : { error: 'Ese enlace de Drive no lleva a un archivo.' };
+    }
+    return { error: 'Solo se aceptan enlaces de YouTube o de Google Drive.' };
+  };
+  window.DSTutorial = { analizar: analizarVideo };
+
+  let dlgTut = null;
+  const abrirTutorial = (b) => {
+    if (!dlgTut) {
+      dlgTut = document.createElement('dialog');
+      dlgTut.className = 'ds-modal ds-tutorial';
+      dlgTut.setAttribute('aria-labelledby', 'ds-tut-titulo');
+      dlgTut.innerHTML = '<header class="ds-tutorial__cab"><span class="ds-tutorial__ico" aria-hidden="true">'
+        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M8 5.5v13l10-6.5z"/></svg></span>'
+        + '<h2 class="ds-modal__title" id="ds-tut-titulo" data-tut-titulo></h2>'
+        + '<button type="button" class="mc-iconbtn mc-iconbtn--sm" data-tut-cerrar aria-label="Cerrar el video">'
+        + '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg></button></header>'
+        + '<div class="ds-tutorial__marco"><iframe data-tut-marco title="Tutorial en video" loading="eager"'
+        + ' allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share; fullscreen"'
+        + ' allowfullscreen referrerpolicy="strict-origin-when-cross-origin"></iframe></div>'
+        + '<p class="ds-tutorial__pie"><span data-tut-ayuda></span> <a data-tut-abrir target="_blank" rel="noopener"></a></p>';
+      document.body.appendChild(dlgTut);
+      const vaciar = () => { dlgTut.querySelector('[data-tut-marco]').src = 'about:blank'; };
+      dlgTut.querySelector('[data-tut-cerrar]').addEventListener('click', () => dlgTut.close());
+      dlgTut.addEventListener('click', (e) => { if (e.target === dlgTut) dlgTut.close(); });
+      dlgTut.addEventListener('close', vaciar);
+    }
+    const yt = b.dataset.proveedor === 'youtube';
+    dlgTut.querySelector('[data-tut-titulo]').textContent = b.dataset.titulo || 'Tutorial';
+    dlgTut.querySelector('[data-tut-ayuda]').textContent = yt
+      ? '¿No carga? El dueño del video debe permitir insertarlo.'
+      : '¿No carga? El archivo debe estar compartido con «Cualquier persona con el enlace».';
+    const abrir = dlgTut.querySelector('[data-tut-abrir]');
+    abrir.href = b.dataset.abrir || '#';
+    abrir.textContent = yt ? 'Ábrelo en YouTube' : 'Ábrelo en Drive';
+    dlgTut.querySelector('[data-tut-marco]').src = b.dataset.src;
+    dlgTut.showModal();
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest && e.target.closest('[data-tutorial-ver]');
+    if (!b) return;
+    e.preventDefault();
+    abrirTutorial(b);
+  });
 
   /* ---------- Teléfono: solo números (soloNumerosTel) ---------- */
   document.addEventListener('input', (e) => {

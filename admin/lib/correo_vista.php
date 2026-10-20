@@ -370,6 +370,33 @@ function correoZonaAdjuntos(string $name, string $id, string $etiqueta): string
         . '</div>';
 }
 
+/**
+ * Directorio para sugerir destinatarios al redactar: la gente del panel (con
+ * su correo InnoTech si lo sincronizó; si no, el de su cuenta) y las
+ * direcciones a las que la persona ya escribió. Sin la propia.
+ */
+function correoDirectorio(int $mid, string $yoMail): array
+{
+    $sinc = Correo::correosSincronizados();
+    $equipos = Catalogo::equipos();
+    $equipo = [];
+    foreach ((new MiembroRepo())->todos() as $m) {
+        $email = $sinc[(int)$m['id']] ?? strtolower(trim((string)($m['email'] ?? '')));
+        if ($email === '' || $email === $yoMail || !filter_var($email, FILTER_VALIDATE_EMAIL) || isset($equipo[$email])) continue;
+        $desc = array_filter([trim((string)($m['rol'] ?? '')), $equipos[$m['equipo'] ?? ''][0] ?? '']);
+        $equipo[$email] = [
+            'n' => trim((string)($m['nombre'] ?? '')),
+            'e' => $email,
+            'd' => implode(' · ', $desc),
+            'i' => MiembroRepo::iniciales($m),
+            'c' => Catalogo::colorDe($m['color'] ?? 0),
+            'f' => (string)($m['foto'] ?? ''),
+        ];
+    }
+    $recientes = array_values(array_filter(Correo::recientes($mid), fn($r) => $r['e'] !== $yoMail));
+    return ['equipo' => array_values($equipo), 'recientes' => array_map(fn($r) => ['e' => $r['e'], 'n' => (string)($r['n'] ?? '')], $recientes)];
+}
+
 function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base): void
 {
     $yoMail = strtolower((string)$cuenta['email']);
@@ -423,14 +450,15 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base):
     <input type="hidden" name="en_respuesta_a" value="<?= e($enResp) ?>">
     <input type="hidden" name="referencias" value="<?= e($refs) ?>">
     <?php if ($reUid > 0): ?><input type="hidden" name="reenviar_uid" value="<?= $reUid ?>"><?php endif; ?>
+    <script type="application/json" id="correo-directorio"><?= json_encode(correoDirectorio((int)$yo['id'], $yoMail), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
     <p class="correo-redactar__de">De: <b><?= e(trim((string)$yo['nombre'])) ?></b> &lt;<?= e($yoMail) ?>&gt;</p>
     <div class="mc-field"><label class="mc-field__label" for="cr-para">Para</label>
-      <div class="mc-input"><input class="mc-input__control" id="cr-para" name="para" required maxlength="2000" value="<?= e($para) ?>" placeholder="nombre@empresa.com, otra@empresa.com" autocomplete="off"<?= $para === '' ? ' autofocus' : '' ?>></div></div>
+      <div class="mc-input"><input class="mc-input__control" id="cr-para" name="para" required maxlength="2000" value="<?= e($para) ?>" placeholder="Escribe un nombre o un correo" autocomplete="off" data-destinatarios="para"<?= $para === '' ? ' autofocus' : '' ?>></div></div>
     <div class="correo-doble">
       <div class="mc-field"><label class="mc-field__label" for="cr-cc">CC <small>(con copia)</small></label>
-        <div class="mc-input"><input class="mc-input__control" id="cr-cc" name="cc" maxlength="2000" value="<?= e($cc) ?>" autocomplete="off"></div></div>
+        <div class="mc-input"><input class="mc-input__control" id="cr-cc" name="cc" maxlength="2000" value="<?= e($cc) ?>" autocomplete="off" placeholder="Nombre o correo" data-destinatarios="cc"></div></div>
       <div class="mc-field"><label class="mc-field__label" for="cr-cco">CCO <small>(copia oculta)</small></label>
-        <div class="mc-input"><input class="mc-input__control" id="cr-cco" name="cco" maxlength="2000" value="<?= e($cco) ?>" autocomplete="off"></div>
+        <div class="mc-input"><input class="mc-input__control" id="cr-cco" name="cco" maxlength="2000" value="<?= e($cco) ?>" autocomplete="off" placeholder="Nombre o correo" data-destinatarios="cco"></div>
         <div class="mc-field__foot"><span class="mc-field__hint">Les llega, pero nadie más ve que se les envió.</span></div></div>
     </div>
     <div class="mc-field"><label class="mc-field__label" for="cr-asunto">Asunto</label>

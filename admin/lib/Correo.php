@@ -1418,6 +1418,7 @@ final class Correo
             }
             throw $e;
         }
+        self::anotarRecientes($mid, $d, array_merge($para, $cc, $cco));
         // La copia en Enviados (si falla, el correo igual salió)
         try {
             $imap = self::abrir($mid);
@@ -1428,6 +1429,42 @@ final class Correo
             $imap->cerrar();
         } catch (CorreoError $e) {
         }
+    }
+
+    /** Las últimas direcciones a las que la persona escribió (la más reciente primero). */
+    public static function recientes(int $mid): array
+    {
+        return array_values(array_filter((array)(self::cuenta($mid)['recientes'] ?? []), fn($r) => is_array($r) && !empty($r['e'])));
+    }
+
+    /** Guarda a quién se escribió (máximo 40), con el nombre si venía «Nombre <correo>». */
+    private static function anotarRecientes(int $mid, array $d, array $enviados): void
+    {
+        $nombres = [];
+        foreach (['para', 'cc', 'cco'] as $k) {
+            foreach (CorreoMime::direcciones((string)($d[$k] ?? '')) as $x) {
+                if ($x['nombre'] !== '') $nombres[$x['email']] = mb_substr($x['nombre'], 0, 80);
+            }
+        }
+        $lista = [];
+        foreach (self::recientes($mid) as $r) $lista[strtolower((string)$r['e'])] = $r;
+        foreach (array_reverse($enviados) as $e) {
+            $e = strtolower($e);
+            $antes = $lista[$e] ?? [];
+            unset($lista[$e]);
+            $lista = [$e => ['e' => $e, 'n' => $nombres[$e] ?? (string)($antes['n'] ?? ''), 't' => time()]] + $lista;
+        }
+        self::guardarCuenta($mid, ['recientes' => array_values(array_slice($lista, 0, 40))]);
+    }
+
+    /** Correo InnoTech sincronizado de cada persona: [id del miembro => correo]. */
+    public static function correosSincronizados(): array
+    {
+        $out = [];
+        foreach (self::repo()->all() as $c) {
+            if (!empty($c['email']) && in_array($c['estado'] ?? '', ['ok', 'reconectar'], true)) $out[(int)$c['miembro_id']] = strtolower((string)$c['email']);
+        }
+        return $out;
     }
 
     /** "a@x.com, B <b@y.com>" → ['a@x.com', 'b@y.com'] (solo los válidos, sin repetir). */

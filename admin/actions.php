@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -822,6 +822,18 @@ switch ($accion) {
         if ($tel === '') redirigir(paginaOrigen(), 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
         $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
+
+    /* ---------- Tutoriales en video (lib/Tutoriales.php): solo administrador ---------- */
+    case 'tutorial_crear':
+    case 'tutorial_quitar':
+        if (!class_exists('Tutoriales')) redirigir('index.php', 'Los tutoriales no están disponibles en este servidor.', 'error');
+        if ($accion === 'tutorial_quitar') {
+            $tq = Tutoriales::quitar((int)($_POST['id'] ?? 0));
+            redirigir('tutoriales.php', $tq ? 'Quitamos «' . $tq['titulo'] . '» del panel.' : 'Ese tutorial ya no estaba.');
+        }
+        $tc = Tutoriales::crear($_POST, (int)(Auth::usuario()['id'] ?? 0));
+        if (is_string($tc)) redirigir('tutoriales.php', $tc, 'error');
+        redirigir('tutoriales.php', 'Publicamos «' . $tc['titulo'] . '».' . ($tc['lugar'] !== '' ? ' También sale en ' . Tutoriales::LUGARES[$tc['lugar']] . '.' : ''));
 
     /* ---------- Notificaciones nativas (lib/Push.php) ---------- */
     case 'push_suscribir':

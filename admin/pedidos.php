@@ -8,6 +8,7 @@ require_once __DIR__ . '/lib/bootstrap.php';
 // Fuera de bootstrap a propósito: si al subir por FTP falta, falla solo esto.
 require_once __DIR__ . '/lib/Pedidos.php';
 if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/Notificaciones.php';
+if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
 Auth::requiereLogin();
 
 /** «hace 5 min» (con lib/Notificaciones.php); si no está, la fecha tal cual. */
@@ -103,7 +104,8 @@ UI::inicio('Pedidos entre equipos', 'pedidos');
 UI::cabecera(
     'Pedidos entre <span class="text-secondary">equipos</span>',
     'Pídele algo a otro equipo (o a alguien de ese equipo) y síguelo aquí: quién lo tomó, qué respondió y cuándo quedó hecho. A cada paso le llega el aviso a la otra parte, en la campana y por correo.',
-    $puedePedir ? '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-pedido-nuevo>' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nuevo pedido</span></button>' : ''
+    (class_exists('Tutoriales') ? Tutoriales::boton('pedidos') : '')
+    . ($puedePedir ? '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-pedido-nuevo>' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nuevo pedido</span></button>' : '')
 );
 ?>
 <div class="ds" id="pedidos">

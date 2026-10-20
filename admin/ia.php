@@ -13,6 +13,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Fuera de bootstrap a propósito: si al subir por FTP falta, falla solo esto.
 require_once __DIR__ . '/lib/IA.php';
+if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
 Auth::requiereAdmin();
 
 $cfg   = IA::config();
@@ -91,7 +92,8 @@ UI::inicio('Consola de IA', 'ia');
 UI::cabecera(
     'Consola de <span class="text-secondary">IA</span>',
     'Claves, modelos, precios y consumo de las funciones de IA del panel (GPT y Gemini). Las usan el administrador y los Scrum Masters.',
-    '<button class="mc-btn mc-btn--primary mc-btn--md" form="frm-ia" data-ds-guardar>' . UI::iconoDS('check', 18) . '<span class="mc-btn__label">Guardar cambios</span></button>'
+    (class_exists('Tutoriales') ? Tutoriales::boton('ia') : '')
+    . '<button class="mc-btn mc-btn--primary mc-btn--md" form="frm-ia" data-ds-guardar>' . UI::iconoDS('check', 18) . '<span class="mc-btn__label">Guardar cambios</span></button>'
 );
 ?>
 <div class="ds" id="ia-consola">

@@ -1382,6 +1382,7 @@ html.dark .ds-tema .ds-tema__luna { display: none; }
 .ds-cuenta__op--naranja { --_op-bg: var(--tone-naranja-bg); --_op-fg: var(--tone-naranja-fg); }
 .ds-cuenta__op--verde   { --_op-bg: var(--tone-verde-bg);   --_op-fg: var(--tone-verde-fg); }
 .ds-cuenta__op--cian    { --_op-bg: var(--tone-cian-bg);    --_op-fg: var(--tone-cian-fg); }
+.ds-cuenta__op--petroleo { --_op-bg: var(--tone-petroleo-bg); --_op-fg: var(--tone-petroleo-fg); }
 .ds-cuenta__op:hover, .ds-cuenta__op:focus-visible { background: var(--surface-hover); outline: none; }
 .ds-cuenta__op.is-actual { color: var(--primary-ink); font-weight: 600; }
 .ds-cuenta__salir { margin: 4px 0 0; padding-top: 4px; border-top: 1px solid var(--line); }
@@ -2283,3 +2284,81 @@ a.mc-btn, a.mc-btn:hover, a.mc-btn:focus { text-decoration: none; }
 .ia-buscando { display: inline-flex; align-items: center; gap: 8px; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink-muted); }
 .dlg-ia .ia-error { margin: 0 0 12px; }
 .dlg-ia .mc-btn { text-decoration: none; }
+
+/* =========================================================
+   Tutoriales en video (tutoriales.php + reproductor de assets/ds.js)
+   ========================================================= */
+.tut-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: var(--space-5); }
+.tut-card { display: flex; flex-direction: column; padding: 0; overflow: hidden; }
+.tut-mini {
+  position: relative; display: block; width: 100%; aspect-ratio: 16 / 9; padding: 0; border: 0; cursor: pointer;
+  background: linear-gradient(135deg, #0B1B33 0%, #13325E 60%, #1E4F9C 100%); overflow: hidden;
+}
+.tut-mini img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transition: transform 240ms ease; }
+.tut-mini:hover img { transform: scale(1.03); }
+.tut-mini:focus-visible { outline: 3px solid var(--focus, #2970EB); outline-offset: -3px; }
+.tut-play {
+  position: absolute; left: 50%; top: 50%; translate: -50% -50%; display: grid; place-items: center;
+  width: 60px; height: 60px; border-radius: 999px; color: #fff; background: rgba(11, 27, 51, .72);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25); transition: background 160ms ease, scale 160ms ease;
+}
+.tut-play svg { margin-left: 3px; }
+.tut-mini:hover .tut-play { background: #2970EB; scale: 1.06; }
+.tut-proveedor {
+  position: absolute; left: 10px; bottom: 10px; padding: 3px 8px; border-radius: 999px;
+  font: 600 .6875rem/1.2 var(--font-sans); color: #fff; background: rgba(11, 27, 51, .72);
+}
+.tut-cuerpo { display: grid; gap: 6px; padding: var(--space-4) var(--space-4) var(--space-2); }
+.tut-cuerpo h3 { margin: 0; font: 700 1rem/1.4 var(--font-display); color: var(--ink); }
+.tut-cuerpo p { margin: 0; font-size: var(--mc-fs-sm, .8125rem); line-height: 1.5; color: var(--ink-muted); }
+.tut-lugar { display: inline-flex; align-items: center; gap: 6px; font-size: .75rem; color: var(--tone-azul-fg); }
+.tut-acciones { display: flex; justify-content: flex-end; margin-top: auto; padding: 0 var(--space-3) var(--space-3); }
+.tut-previa { border-radius: var(--radius-lg); overflow: hidden; aspect-ratio: 16 / 9; max-width: 320px; background: var(--surface-alt); }
+.tut-previa img { display: block; width: 100%; height: 100%; object-fit: cover; }
+.mc-field__hint.is-ok { color: var(--success-ink); }
+.mc-field__hint.is-error { color: var(--danger-ink); font-weight: 600; }
+.ph-info .tut-boton { margin-top: var(--space-2); }
+
+/* El reproductor: un modal ancho con el video 16:9 */
+dialog.ds-modal.ds-tutorial { width: min(1040px, calc(100vw - 32px)); overflow: hidden; }
+.ds-tutorial__cab { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-3) var(--space-3) var(--space-5); }
+.ds-tutorial__cab .ds-modal__title { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-tutorial__ico { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; color: var(--tone-azul-fg); background: var(--tone-azul-bg); flex: none; }
+.ds-tutorial__marco { position: relative; aspect-ratio: 16 / 9; max-height: calc(100vh - 170px); background: #000; }
+.ds-tutorial__marco iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; }
+.ds-tutorial__pie { margin: 0; padding: var(--space-3) var(--space-5); font-size: .75rem; color: var(--ink-muted); background: var(--surface-alt); border-top: 1px solid var(--line); }
+.ds-tutorial__pie a { color: var(--tone-azul-fg); font-weight: 600; }
+@media (max-width: 640px) {
+  dialog.ds-modal.ds-tutorial { width: 100vw; max-width: 100vw; border-radius: 0; }
+}
+
+/* =========================================================
+   Destinatarios del correo: etiquetas + sugerencias del directorio (assets/ds.js)
+   ========================================================= */
+.ds-dest-campo { position: relative; }
+.mc-input.ds-dest { flex-wrap: wrap; align-items: center; gap: 6px; height: auto; min-height: var(--control-h); padding: 5px var(--space-2); cursor: text; }
+.ds-dest__input { flex: 1 1 140px; min-width: 100px; height: 30px; padding: 0 4px; }
+.ds-dest__chip {
+  display: inline-flex; align-items: center; gap: 6px; max-width: 100%; height: 30px; padding: 0 3px 0 3px;
+  border-radius: 999px; background: var(--tone-azul-bg); color: var(--tone-azul-fg);
+  font-size: var(--mc-fs-sm, .8125rem); font-weight: 600; line-height: 1; cursor: default;
+}
+.ds-dest__chip.is-error { background: var(--danger-soft); color: var(--danger-ink); box-shadow: inset 0 0 0 1px var(--danger-field); }
+.ds-dest__txt { min-width: 0; max-width: 260px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-dest__av {
+  display: grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; overflow: hidden;
+  background: var(--av, #5B6B82); color: #fff; font: 700 .625rem/1 var(--font-sans); letter-spacing: .02em;
+}
+.ds-dest__av img { width: 100%; height: 100%; object-fit: cover; }
+.ds-dest__av--lg { width: 32px; height: 32px; font-size: .75rem; }
+.ds-dest__chip.is-error .ds-dest__av { background: var(--danger-ink); }
+.ds-dest__x {
+  display: grid; place-items: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: inherit; cursor: pointer; opacity: .7;
+}
+.ds-dest__x:hover { opacity: 1; background: rgba(15, 30, 51, .08); }
+.ds-dest__pop { left: 0; right: 0; min-width: 0; max-height: 19rem; overflow: auto; padding: 6px; }
+.ds-dest__opt.is-active { background: var(--surface-hover); }
+.ds-dest__opt b { font-weight: 700; color: var(--primary-ink); }
+.ds-dest__opt .mc-option__desc { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ds-dest__error { margin: 6px 0 0; font-size: var(--mc-fs-xs, .75rem); font-weight: 600; color: var(--danger-ink); }
