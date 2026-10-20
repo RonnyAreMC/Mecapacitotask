@@ -742,6 +742,26 @@ class MiembroRepo
     }
 
 
+    /** Patrón del campo de teléfono en el navegador (la revisión exacta es telefonoValido). */
+    public const TELEFONO_PATRON = '0(9[0-9]{8}|[2-7][0-9]{7})|[1-9][0-9]{10,14}';
+    public const TELEFONO_AYUDA  = 'Celular de Ecuador: 10 dígitos que empiezan con 09 (ej.: 0991234567). Fijo: 9 dígitos con el código de provincia (ej.: 022345678). De otro país: con su código, sin el + (ej.: 573001234567).';
+
+    /**
+     * ¿El teléfono tiene forma de número real? Solo dígitos y:
+     *  - Ecuador: celular 09 + 8 dígitos, o fijo 0[2-7] + 7 dígitos;
+     *    también con el 593 delante (593 9…, 593 2…).
+     *  - Otro país: con su código, de 11 a 15 dígitos.
+     * Los que tienen todos los dígitos iguales (0000000000) no valen.
+     */
+    public static function telefonoValido(string $t): bool
+    {
+        $t = trim($t);
+        if (!preg_match('/^\d+$/', $t) || preg_match('/^(\d)\1+$/', $t)) return false;
+        if ($t[0] === '0') return (bool)preg_match('/^0(9\d{8}|[2-7]\d{7})$/', $t);
+        if (str_starts_with($t, '593')) return (bool)preg_match('/^593(9\d{8}|[2-7]\d{7})$/', $t);
+        return (bool)preg_match('/^[1-9]\d{10,14}$/', $t);
+    }
+
     /**
      * Perfiles de un miembro. Una persona puede llevar varios —lo normal es
      * "administrador y Scrum Master"—, y por eso lo que manda es 'accesos'.

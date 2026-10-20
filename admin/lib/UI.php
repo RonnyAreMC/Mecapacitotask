@@ -601,22 +601,32 @@ class UI
     private static function dialogTelefono(): void
     {
         $yo = Auth::usuario();
-        if (!$yo || trim((string)($yo['telefono'] ?? '')) !== '' || !is_file(__DIR__ . '/../assets/ds.css')) return;
+        if (!$yo || !is_file(__DIR__ . '/../assets/ds.css')) return;
+        $actual = trim((string)($yo['telefono'] ?? ''));
+        // Se pide si no tiene, y también si el que tiene está mal escrito (le falta
+        // un dígito, no empieza con 09…): hasta que lo corrija no se cierra.
+        if ($actual !== '' && MiembroRepo::telefonoValido($actual)) return;
+        $nombre = e(explode(' ', trim($yo['nombre']))[0]);
         ?>
 <dialog class="ds-modal ds-modal--chico" id="dlg-telefono" aria-labelledby="dlg-tel-t">
   <form method="post" action="actions.php" class="ds">
     <input type="hidden" name="accion" value="perfil_telefono">
     <header class="ds-modal__head">
-      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= self::iconoDS('telefono', 18) ?></span>
+      <span class="mc-tile mc-tile--sm <?= $actual === '' ? 'mc-tile--azul' : 'mc-tile--rojo' ?>"><?= self::iconoDS('telefono', 18) ?></span>
+      <?php if ($actual === ''): ?>
       <div><h2 class="ds-modal__title" id="dlg-tel-t">Agrega tu número de teléfono</h2>
-        <p class="ds-modal__sub">Hola, <?= e(explode(' ', trim($yo['nombre']))[0]) ?>. Lo usamos para coordinar contigo cuando haga falta; solo lo ve el equipo.</p></div>
+        <p class="ds-modal__sub">Hola, <?= $nombre ?>. Lo usamos para coordinar contigo cuando haga falta; solo lo ve el equipo.</p></div>
+      <?php else: ?>
+      <div><h2 class="ds-modal__title" id="dlg-tel-t">Corrige tu número de teléfono</h2>
+        <p class="ds-modal__sub">Hola, <?= $nombre ?>. El número que tenemos, <b><?= e($actual) ?></b>, no es un teléfono válido. Corrígelo para seguir usando el panel.</p></div>
+      <?php endif; ?>
     </header>
     <div class="ds-modal__body">
       <div class="mc-field"><label class="mc-field__label" for="tel-num">Teléfono</label>
         <div class="mc-input mc-input--md"><?= self::iconoDS('telefono', 18, 'mc-input__icon') ?>
-          <input class="mc-input__control" id="tel-num" type="tel" name="telefono" minlength="7" maxlength="15" inputmode="numeric" pattern="[0-9]{7,15}" title="Solo números: de 7 a 15 dígitos" autocomplete="tel" required
-                 placeholder="Ej.: 0991234567"></div>
-        <div class="mc-field__foot"><span class="mc-field__hint">Solo números, sin espacios ni guiones. Si no es de Ecuador, empieza con el código del país (ej.: 573001234567).</span></div>
+          <input class="mc-input__control" id="tel-num" type="tel" name="telefono" minlength="9" maxlength="15" inputmode="numeric" pattern="<?= e(MiembroRepo::TELEFONO_PATRON) ?>" title="<?= e(MiembroRepo::TELEFONO_AYUDA) ?>" autocomplete="tel" required
+                 value="<?= e(preg_replace('/\D/', '', $actual)) ?>" placeholder="Ej.: 0991234567"></div>
+        <div class="mc-field__foot"><span class="mc-field__hint"><?= e(MiembroRepo::TELEFONO_AYUDA) ?></span></div>
       </div>
     </div>
     <footer class="ds-modal__foot">

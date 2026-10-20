@@ -155,7 +155,7 @@ UI::inicio('Mi perfil', 'perfil');
         <div class="pf-cuerpo">
           <span class="pf-label">Teléfono</span>
           <span class="pf-valor js-valor"><?= !empty($yo['telefono']) ? e($yo['telefono']) : '<i class="pf-vacio">Sin definir</i>' ?></span>
-          <input class="input-meca pf-input" type="tel" name="telefono" minlength="7" maxlength="15" inputmode="numeric" pattern="[0-9]{7,15}" title="Solo números: de 7 a 15 dígitos" autocomplete="tel" value="<?= e(preg_replace('/\D/', '', (string)($yo['telefono'] ?? ''))) ?>" placeholder="Ej.: 0991234567" hidden>
+          <input class="input-meca pf-input" type="tel" name="telefono" minlength="9" maxlength="15" inputmode="numeric" pattern="<?= e(MiembroRepo::TELEFONO_PATRON) ?>" title="<?= e(MiembroRepo::TELEFONO_AYUDA) ?>" autocomplete="tel" value="<?= e(preg_replace('/\D/', '', (string)($yo['telefono'] ?? ''))) ?>" placeholder="Ej.: 0991234567" hidden>
         </div>
         <button type="button" class="pf-lapiz" title="Editar teléfono"><i class="fa-solid fa-pen"></i></button>
       </div>

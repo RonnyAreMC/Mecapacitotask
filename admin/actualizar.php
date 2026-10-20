@@ -109,9 +109,9 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
+        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
         'lib/Notificaciones.php' => ['Push::avisar'],
-        'lib/Models.php'    => ['function respaldos', 'ds-programadores'],
+        'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios'],
@@ -140,7 +140,8 @@ function actualizarPanel(array $opc): void
     $viejos = array_values(array_diff($viejos, ['equipo.php']));
     $txtEquipo = (string)@file_get_contents($dir . '/equipo.php');
     if (!str_contains($txtEquipo, 'Copiar teléfono') || !str_contains($txtEquipo, 'celda-contacto')) $viejos[] = 'equipo.php';
-    if (!str_contains((string)@file_get_contents($dir . '/lib/campos_persona.php'), 'name="telefono"')) $viejos[] = 'lib/campos_persona.php';
+    $txtCampos = (string)@file_get_contents($dir . '/lib/campos_persona.php');
+    if (!str_contains($txtCampos, 'name="telefono"') || !str_contains($txtCampos, 'TELEFONO_PATRON')) $viejos[] = 'lib/campos_persona.php';
     $viejos ? nota('error', 'Estos archivos son de la versión anterior (vuelve a subirlos): ' . implode(', ', array_unique($viejos)) . '.')
             : nota('ok', 'Todos los archivos modificados son de esta versión');
 
@@ -262,6 +263,13 @@ function actualizarPanel(array $opc): void
     }
     if ($telLimpios) nota('ok', $telLimpios . ' teléfono(s) ' . ($seco ? 'se dejarían' : 'dejados') . ' solo con números (sin +, espacios ni guiones)');
     if ($telMalos) nota('aviso', 'Teléfono no válido ' . ($seco ? '(se borraría' : '(lo borré') . ' y el panel lo pedirá de nuevo): ' . implode(', ', $telMalos) . '.');
+    // Mal escritos (les falta un dígito, no empiezan con 09…): no se borran, el panel les pide corregirlos al entrar
+    $telDe = fn($m) => trim((string)($m['telefono'] ?? ''));
+    $telInvalidos = array_values(array_filter($repoTel->todos(), fn($m) => $telDe($m) !== '' && !MiembroRepo::telefonoValido($telDe($m))));
+    if ($telInvalidos) {
+        nota('aviso', count($telInvalidos) . ' persona(s) con el teléfono mal escrito: el panel les pedirá corregirlo cuando entren ('
+            . implode(', ', array_map(fn($m) => $m['nombre'] . ' · ' . $telDe($m), array_slice($telInvalidos, 0, 8))) . (count($telInvalidos) > 8 ? '…' : '') . ').');
+    }
     $sinTel = array_values(array_filter($repoTel->todos(), fn($m) => trim((string)($m['telefono'] ?? '')) === ''));
     nota($sinTel ? 'aviso' : 'ok', $sinTel ? count($sinTel) . ' persona(s) sin teléfono: el panel se lo pedirá cuando entren.' : 'Todas las personas tienen teléfono');
     // Notificaciones nativas: las claves del panel y el cron que avisa los correos

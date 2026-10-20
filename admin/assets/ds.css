@@ -2420,3 +2420,7 @@ html.dark .tabla-equipo .chip-copiar { background: var(--surface-raised, var(--s
 /* Resultado de la IA, arriba del editor JSON */
 .ia-plan-notas { margin: 0 0 14px; font-size: inherit; }
 .ia-plan-notas .ia-firma { margin: 6px 0 0; }
+
+/* Teléfono mal escrito en la tabla del equipo: en rojo hasta que la persona lo corrija */
+.tabla-equipo .chip-copiar--mal { border-color: var(--danger-line); background: var(--danger-soft); }
+.tabla-equipo .chip-copiar--mal code, .tabla-equipo .chip-copiar--mal code i { color: var(--danger-ink); }

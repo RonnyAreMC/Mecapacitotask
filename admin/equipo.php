@@ -311,9 +311,11 @@ UI::cabecera(
                 </button>
               </span>
               <?php endif; ?>
-              <?php if (!empty($m['telefono'])): ?>
-              <span class="chip-copiar">
-                <code><i class="fa-solid fa-phone"></i> <span><?= e($m['telefono']) ?></span></code>
+              <?php if (!empty($m['telefono'])):
+                  // Mal escrito: se marca en rojo y el panel le pide corregirlo cuando entre
+                  $telMal = !MiembroRepo::telefonoValido((string)$m['telefono']); ?>
+              <span class="chip-copiar<?= $telMal ? ' chip-copiar--mal' : '' ?>">
+                <code<?= $telMal ? ' title="Número no válido: se le pedirá corregirlo cuando entre al panel"' : '' ?>><i class="fa-solid <?= $telMal ? 'fa-triangle-exclamation' : 'fa-phone' ?>"></i> <span><?= e($m['telefono']) ?></span></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono">
                   <i class="fa-regular fa-copy"></i>
                 </button>

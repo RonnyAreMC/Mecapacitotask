@@ -93,20 +93,21 @@ function avisoPanel(array $para, string $tipo, string $titulo, string $texto = '
 }
 
 /**
- * Teléfono: solo números, de 7 a 15 dígitos (sin +, espacios, guiones ni
- * paréntesis). '' si viene vacío o trae cualquier otra cosa.
+ * Teléfono: solo números y con forma de número real (MiembroRepo::telefonoValido:
+ * celular o fijo de Ecuador, o de otro país con su código). '' si viene vacío
+ * o no es válido.
  */
 function telefonoEntrada(?string $v): string
 {
     $v = trim((string)$v);
-    return preg_match('/^\d{7,15}$/', $v) ? $v : '';
+    return MiembroRepo::telefonoValido($v) ? $v : '';
 }
 
 /** Si escribieron un teléfono que no es válido, vuelve con el aviso (vacío sí se permite). */
 function exigirTelefonoValido(?string $v, string $volver): void
 {
     if (trim((string)$v) !== '' && telefonoEntrada($v) === '') {
-        redirigir($volver, 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
+        redirigir($volver, 'Ese teléfono no es válido. ' . MiembroRepo::TELEFONO_AYUDA, 'error');
     }
 }
 
@@ -819,7 +820,7 @@ switch ($accion) {
     case 'perfil_telefono':
         $yoTel = Auth::usuario();
         $tel = telefonoEntrada($_POST['telefono'] ?? '');
-        if ($tel === '') redirigir(paginaOrigen(), 'El teléfono va solo con números: de 7 a 15 dígitos, sin espacios, + ni guiones.', 'error');
+        if ($tel === '') redirigir(paginaOrigen(), 'Ese teléfono no es válido. ' . MiembroRepo::TELEFONO_AYUDA, 'error');
         $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
 
