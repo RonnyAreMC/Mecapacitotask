@@ -18,6 +18,20 @@ if (PHP_SAPI !== 'cli') {
     }
 }
 
+// Después de actualizar desde la terminal (php admin/actualizar.php deja la
+// marca data/opcache_limpiar.json), la primera visita vacía la caché de PHP de
+// la web (OPcache): la de la terminal es otra, y sin esto la web seguía con
+// los archivos viejos. Se pide otra vez la misma página para que salga entera
+// con los nuevos. Solo si la marca se pudo borrar: nunca en cada visita.
+if (PHP_SAPI !== 'cli' && is_file(__DIR__ . '/../data/opcache_limpiar.json')
+    && @unlink(__DIR__ . '/../data/opcache_limpiar.json') && function_exists('opcache_reset')) {
+    @opcache_reset();
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !headers_sent()) {
+        header('Location: ' . ($_SERVER['REQUEST_URI'] ?? 'index.php'), true, 302);
+        exit;
+    }
+}
+
 // Sesión pensada para que dure HASTA QUE EL USUARIO CIERRE SESIÓN y no se
 // pierda en cada deploy.
 if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {

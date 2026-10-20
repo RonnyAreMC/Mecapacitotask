@@ -249,9 +249,16 @@ UI::cabecera(
 <?php endif; ?>
 
 <?php if (empty($equipo)): ?>
-  <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', esAdmin() && is_file(__DIR__ . '/equipos.php')
+  <?php
+    // Vacío: la escena del propio equipo (con su gente) si la tiene; si no, la genérica
+    $vacioT = 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío';
+    $vacioD = esAdmin() && is_file(__DIR__ . '/equipos.php')
         ? 'Agrega a alguien nuevo con el botón de arriba, o trae a alguien de otro equipo con «Organizar equipos».'
-        : 'Agrega al primer colaborador con el botón de arriba.') ?>
+        : 'Agrega al primer colaborador con el botón de arriba.';
+    echo $eqArte !== 'entrada-equipo' && is_file(__DIR__ . '/iconos/ilustraciones/' . $eqArte . '.svg') && is_file(__DIR__ . '/assets/ds.css')
+        ? UI::vacioDS($eqArte, $vacioT, e($vacioD))
+        : UI::vacio($eqIcono, $vacioT, $vacioD);
+  ?>
 <?php else: ?>
 
   <!-- Tabla de colaboradores: vision general con git/correo copiables -->

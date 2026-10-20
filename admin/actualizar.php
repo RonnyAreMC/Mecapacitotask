@@ -120,7 +120,7 @@ function actualizarPanel(array $opc): void
         'sw.js'             => ['meca-push', 'clavePanel'],
         'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores'],
-        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
+        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar'],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-req-correo'],
@@ -440,9 +440,15 @@ function actualizarPanel(array $opc): void
 
     /* 7. Caché de PHP */
     paso('Caché');
-    if (function_exists('opcache_reset') && !$seco) {
+    if (PHP_SAPI === 'cli' && !$seco) {
+        // La caché de la web es otra: la vacía la primera visita al panel (lib/bootstrap.php)
+        @file_put_contents($dir . '/data/opcache_limpiar.json', json_encode(['t' => date('c')])) !== false
+            ? nota('ok', 'La web vacía su caché de PHP (OPcache) sola en la primera visita al panel: entra y ya ves la versión nueva.')
+            : nota('aviso', 'No se pudo dejar la marca para vaciar la caché de la web: entra como administrador a Ajustes → Actualizar el panel → «Actualizar ahora».');
+        if (function_exists('opcache_reset')) @opcache_reset();
+    } elseif (function_exists('opcache_reset') && !$seco) {
         @opcache_reset();
-        nota('ok', 'Caché de PHP (OPcache) vaciada' . (PHP_SAPI === 'cli' ? ' en la terminal; la web se refresca sola en unos minutos, o abre esta página como administrador' : ''));
+        nota('ok', 'Caché de PHP (OPcache) vaciada');
     } else {
         nota('info', 'Sin OPcache que vaciar');
     }

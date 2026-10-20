@@ -1,66 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420">
-  <title>Editor de código con un terminal y la etiqueta de código</title>
-  <path d="M62 236C44 158 112 80 212 72c92-8 130-42 206-2 70 38 90 122 60 192-28 64-8 108-98 118-96 10-152-24-222-12-80 14-80-54-96-132z" fill="rgba(41,112,235,0.08)"/>
-  <ellipse cx="262" cy="386" rx="206" ry="10" fill="rgba(41,112,235,0.12)"/>
-  <path d="M30 150c8-52 46-88 98-96" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
-  <path d="M432 344c36-4 60-28 68-64" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
-
-  <!-- Editor -->
-  <rect x="72" y="84" width="306" height="222" rx="16" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
-  <path d="M73 100a15 15 0 0 1 15-15h274a15 15 0 0 1 15 15v18H73z" fill="#F3F7FE"/>
-  <circle cx="94" cy="101" r="5" fill="#FF7A7A"/>
-  <circle cx="111" cy="101" r="5" fill="#FFD24D"/>
-  <circle cx="128" cy="101" r="5" fill="#2BB673"/>
-  <rect x="152" y="96" width="118" height="10" rx="5" fill="#DCE8FD"/>
-  <g fill="#C9D8F5">
-    <rect x="88" y="137" width="10" height="8" rx="4"/>
-    <rect x="88" y="157" width="10" height="8" rx="4"/>
-    <rect x="88" y="177" width="10" height="8" rx="4"/>
-    <rect x="88" y="197" width="10" height="8" rx="4"/>
-    <rect x="88" y="217" width="10" height="8" rx="4"/>
-    <rect x="88" y="237" width="10" height="8" rx="4"/>
-    <rect x="88" y="257" width="10" height="8" rx="4"/>
-    <rect x="88" y="277" width="10" height="8" rx="4"/>
-  </g>
-  <rect x="112" y="136" width="52" height="10" rx="5" fill="#2970EB"/>
-  <rect x="170" y="136" width="72" height="10" rx="5" fill="#9FC0F8"/>
-  <rect x="130" y="156" width="40" height="10" rx="5" fill="#2BB673"/>
-  <rect x="176" y="156" width="96" height="10" rx="5" fill="#DCE8FD"/>
-  <rect x="130" y="176" width="64" height="10" rx="5" fill="#5B95F5"/>
-  <rect x="200" y="176" width="44" height="10" rx="5" fill="#FFD24D"/>
-  <rect x="148" y="196" width="88" height="10" rx="5" fill="#9FC0F8"/>
-  <rect x="148" y="216" width="56" height="10" rx="5" fill="#2BB673"/>
-  <rect x="210" y="216" width="60" height="10" rx="5" fill="#DCE8FD"/>
-  <rect x="130" y="236" width="30" height="10" rx="5" fill="#5B95F5"/>
-  <rect x="112" y="256" width="24" height="10" rx="5" fill="#2970EB"/>
-  <rect x="112" y="276" width="70" height="10" rx="5" fill="#DCE8FD"/>
-  <rect x="190" y="274" width="3.5" height="14" rx="1.5" fill="#1B2C4E"/>
-
-  <!-- Terminal -->
-  <rect x="290" y="226" width="186" height="122" rx="16" fill="#1B2C4E"/>
-  <circle cx="310" cy="245" r="4" fill="#3E5C8E"/>
-  <circle cx="324" cy="245" r="4" fill="#3E5C8E"/>
-  <circle cx="338" cy="245" r="4" fill="#3E5C8E"/>
-  <path d="M310 270l13 11-13 11" fill="none" stroke="#2BB673" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
-  <rect x="332" y="287" width="32" height="6" rx="3" fill="#2BB673"/>
-  <rect x="310" y="308" width="112" height="8" rx="4" fill="#3E5C8E"/>
-  <rect x="310" y="324" width="70" height="8" rx="4" fill="#3E5C8E"/>
-
-  <!-- Etiqueta de código -->
-  <circle cx="420" cy="116" r="46" fill="#2970EB"/>
-  <path d="M405 100l-17 16 17 16M435 100l17 16-17 16M426 94l-12 44" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
-
-  <!-- Rama de git -->
-  <g transform="translate(34 238)">
-    <rect width="48" height="48" rx="13" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
-    <circle cx="17" cy="14" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
-    <circle cx="17" cy="34" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
-    <circle cx="32" cy="18" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
-    <path d="M17 18v12M32 22c0 7-7 8-14 10" fill="none" stroke="#5B95F5" stroke-width="2.4" stroke-linecap="round"/>
-  </g>
-  <!-- Prueba superada -->
-  <g transform="translate(96 32)">
-    <rect width="44" height="44" rx="12" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
-    <path d="M13 22.5l6 6 12-13" fill="none" stroke="#2BB673" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
-  </g>
+  <title>Una programadora señala el código en la pantalla y un programador con audífonos trabaja en su laptop</title>
+  <defs><filter id="b" x="-10%" y="-10%" width="120%" height="120%"><feMorphology in="SourceAlpha" operator="dilate" radius="2" result="d"/><feFlood flood-color="#DCE8FD"/><feComposite in2="d" operator="in"/><feMerge><feMergeNode/><feMergeNode in="SourceGraphic"/></feMerge></filter></defs>
+  <path d="M60 240C40 160 110 76 210 70c90-6 128-40 204 0 70 38 92 120 62 190-28 66-6 110-96 120-96 10-150-26-220-14-80 14-82-50-100-126z" fill="rgba(41,112,235,0.08)"/>
+  <ellipse cx="270" cy="388" rx="210" ry="10" fill="rgba(41,112,235,0.12)"/>
+  <path d="M30 120c10-50 50-80 100-84" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+  <path d="M430 336c36-2 62-26 70-62" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+  <g transform="translate(40 70)"><rect width="44" height="44" rx="12" fill="#fff" stroke="#DCE8FD" stroke-width="2"/><g fill="none" stroke="#2970EB" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M17 15l-7 7 7 7"/><path d="M27 15l7 7-7 7"/></g><path d="M24.5 12l-5 20" stroke="#FFD24D" stroke-width="2.6" stroke-linecap="round"/></g>
+  <g transform="translate(456 252)"><rect width="44" height="44" rx="12" fill="#fff" stroke="#DCE8FD" stroke-width="2"/><rect x="8" y="10" width="28" height="24" rx="5" fill="#1B2C4E"/><path d="M13 18l4 3.5-4 3.5" fill="none" stroke="#2BB673" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/><rect x="20" y="24" width="9" height="2.6" rx="1.3" fill="#2BB673"/></g>
+  <g transform="translate(176 46)"><rect width="270" height="156" rx="12" fill="#1B2C4E"/><rect x="10" y="10" width="250" height="136" rx="6" fill="#EEF4FF"/><rect x="10" y="10" width="250" height="136" rx="6" fill="#13203B"/><circle cx="24" cy="22" r="3.5" fill="#FF7A7A"/><circle cx="35" cy="22" r="3.5" fill="#FFD24D"/><circle cx="46" cy="22" r="3.5" fill="#2BB673"/><g fill="#3E5C8E"><rect x="22" y="40" width="8" height="6" rx="3"/><rect x="22" y="56" width="8" height="6" rx="3"/><rect x="22" y="72" width="8" height="6" rx="3"/><rect x="22" y="88" width="8" height="6" rx="3"/><rect x="22" y="104" width="8" height="6" rx="3"/><rect x="22" y="120" width="8" height="6" rx="3"/></g><rect x="40" y="40" width="40" height="6" rx="3" fill="#5B95F5"/><rect x="86" y="40" width="56" height="6" rx="3" fill="#9FC0F8"/><rect x="54" y="56" width="30" height="6" rx="3" fill="#2BB673"/><rect x="90" y="56" width="70" height="6" rx="3" fill="#3E5C8E"/><rect x="54" y="72" width="52" height="6" rx="3" fill="#FFD24D"/><rect x="112" y="72" width="34" height="6" rx="3" fill="#FF7A7A"/><rect x="68" y="88" width="64" height="6" rx="3" fill="#9FC0F8"/><rect x="68" y="104" width="44" height="6" rx="3" fill="#2BB673"/><rect x="54" y="120" width="24" height="6" rx="3" fill="#5B95F5"/><rect x="84" y="119" width="3" height="9" rx="1.5" fill="#fff"/><g fill="none" stroke="#40CFFF" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"><path d="M196 54l-14 14 14 14"/><path d="M226 54l14 14-14 14"/></g><path d="M216 48l-10 40" stroke="#FFD24D" stroke-width="5" stroke-linecap="round"/><rect x="125" y="156" width="20" height="12" fill="#1B2C4E"/></g>
+<g filter="url(#b)"><g transform="translate(224 386)"><path d="M12 -262c18 0 26 16 20 36-4-10-11-17-20-19z" fill="#1B2C4E"/><rect x="-6" y="-233" width="12" height="24" fill="#A9714D"/><rect x="-22" y="-103" width="16" height="100" rx="8" fill="#1B2C4E"/><rect x="6" y="-103" width="16" height="100" rx="8" fill="#1B2C4E"/><path d="M-25 -7h24a4 4 0 0 1 4 4v3h-31a6 6 0 0 1 3-7z" fill="#13203B"/><path d="M1 -7h24a6 6 0 0 1 3 7h-31v-3a4 4 0 0 1 4-4z" fill="#13203B"/><rect x="-26.0" y="-215" width="52" height="118" rx="18" fill="#2970EB"/><path d="M-22 -191c-14 -10 -24 -32 -22 -58" fill="none" stroke="#1F5FD1" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 -191c10 16 6 36-12 42" fill="none" stroke="#1F5FD1" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><rect x="-1" y="-160" width="16" height="20" rx="4" fill="#fff"/><path d="M15 -154h3a4 4 0 0 1 0 8h-3" fill="none" stroke="#fff" stroke-width="3"/><rect x="2" y="-156" width="10" height="4" rx="2" fill="#FF7A7A"/><circle cx="-46" cy="-253" r="8" fill="#C98B62"/><circle cx="6" cy="-146" r="8" fill="#C98B62"/><circle cx="0" cy="-246" r="21" fill="#C98B62"/><circle cx="-21" cy="-243" r="4.5" fill="#A9714D"/><path d="M-22 -250c2-17 16-24 29-20 9 3 15 10 15 19-10-8-22-9-32-4-5 2-9 4-12 5z" fill="#1B2C4E"/><circle cx="-6" cy="-246" r="1.9" fill="#1B2C4E"/><circle cx="8" cy="-246" r="1.9" fill="#1B2C4E"/><path d="M-3 -237q5 4 9 0" fill="none" stroke="#8A5236" stroke-width="1.8" stroke-linecap="round"/></g></g>
+<g filter="url(#b)"><g transform="translate(356 386)"><rect x="-6" y="-233" width="12" height="24" fill="#E2AE86"/><rect x="-22" y="-103" width="16" height="100" rx="8" fill="#1B2C4E"/><rect x="6" y="-103" width="16" height="100" rx="8" fill="#1B2C4E"/><path d="M-25 -7h24a4 4 0 0 1 4 4v3h-31a6 6 0 0 1 3-7z" fill="#13203B"/><path d="M1 -7h24a6 6 0 0 1 3 7h-31v-3a4 4 0 0 1 4-4z" fill="#13203B"/><rect x="-29.0" y="-215" width="58" height="118" rx="18" fill="#2BB673"/><path d="M-9 -215l9 14 9-14" fill="#DCF5E8"/><g transform="rotate(-12 -36 -140)"><rect x="-66" y="-166" width="60" height="42" rx="6" fill="#1B2C4E"/><rect x="-66" y="-130" width="60" height="6" rx="3" fill="#C2C8D2"/><path d="M-42 -152l-6 5 6 5M-30 -152l6 5-6 5" fill="none" stroke="#40CFFF" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></g><path d="M-25 -191c-12 18 -14 40 -10 60" fill="none" stroke="#1F9A5E" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><path d="M25 -191c12 22 12 48 4 74" fill="none" stroke="#1F9A5E" stroke-width="15" stroke-linecap="round" stroke-linejoin="round"/><circle cx="-35" cy="-131" r="8" fill="#F3C7A0"/><circle cx="33" cy="-117" r="8" fill="#F3C7A0"/><circle cx="0" cy="-246" r="21" fill="#F3C7A0"/><circle cx="-21" cy="-243" r="4.5" fill="#E2AE86"/><path d="M-21 -252c0-16 14-24 28-21 9 2 15 9 15 18-8-6-20-8-31-4-5 2-9 5-12 7z" fill="#5A3B2E"/><path d="M-18 -244c0 16 8 25 18 25s18-9 18-25c-3 7-9 10-18 10s-15-3-18-10z" fill="#5A3B2E"/><circle cx="-6" cy="-246" r="1.9" fill="#1B2C4E"/><circle cx="8" cy="-246" r="1.9" fill="#1B2C4E"/><path d="M-3 -237q5 4 9 0" fill="none" stroke="#F3C7A0" stroke-width="1.8" stroke-linecap="round"/><path d="M-23 -250c0-28 46-28 46 0" fill="none" stroke="#1B2C4E" stroke-width="4.5" stroke-linecap="round"/><rect x="-28" y="-256" width="10" height="17" rx="5" fill="#2970EB"/><rect x="18" y="-256" width="10" height="17" rx="5" fill="#2970EB"/></g></g>
 </svg>
