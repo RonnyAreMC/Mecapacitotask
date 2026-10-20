@@ -25,12 +25,11 @@ unset($lista);
 $desde = (string)($_GET['desde'] ?? '');
 if (!isset($equipos[$desde])) $desde = '';
 
-// Ícono de cada equipo: el suyo a color (UI::iconoEquipo); los creados en
-// Ajustes, su ícono en un cuadrito de color, uno por columna
+// Ícono de cada equipo (UI::iconoEquipo: la persona con su rol) en un cuadrito de color,
+// uno por columna
 $tonos = ['azul', 'petroleo', 'naranja', 'verde', 'cian', 'amarillo', 'rojo'];
-$icoEq = fn(string $clave, string $icono, int $i): string => UI::hayIcono('eq-' . $clave)
-    ? UI::iconoEquipo($clave, $icono)
-    : '<span class="mc-tile mc-tile--' . $tonos[$i % count($tonos)] . ' mc-tile--sm">' . UI::icono($icono, 'mc-icon') . '</span>';
+$icoEq = fn(string $clave, string $icono, int $i): string =>
+    '<span class="mc-tile mc-tile--' . $tonos[$i % count($tonos)] . ' mc-tile--sm">' . UI::iconoEquipo($clave, $icono, 'mc-icon') . '</span>';
 
 UI::inicio('Organizar equipos', $desde !== '' ? 'equipo-' . $desde : 'equipos');
 UI::cabecera(
