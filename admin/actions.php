@@ -959,6 +959,15 @@ switch ($accion) {
                                 : 'No llegó a ningún dispositivo: primero actívalo en el equipo donde quieras recibirlo.', $nP ? 'success' : 'error');
 
     /* ---------- Correo InnoTech (lib/Correo.php) ---------- */
+    case 'correo_respuesta_ia':
+        // La respuesta que armó la IA (assets/ia.js) va al formulario de responder, con la cita debajo
+        if (!Auth::esAdmin()) redirigir('notificaciones.php', 'Responder con IA es solo para administradores.', 'error');
+        $cRi = (string)($_POST['c'] ?? '');
+        $uidRi = (int)($_POST['uid'] ?? 0);
+        $_SESSION['correo_respuesta_ia'] = ['c' => $cRi, 'uid' => $uidRi, 'texto' => mb_substr(str_replace("\r\n", "\n", (string)($_POST['texto'] ?? '')), 0, 20000)];
+        $qRi = http_build_query(['redactar' => 1, 'c' => $cRi, 'responder' => $uidRi]);
+        redirigir(str_ends_with((string)parse_url(paginaOrigen(), PHP_URL_PATH), '/correo.php') ? 'correo.php?' . $qRi : 'notificaciones.php?tab=correo&' . $qRi);
+
     case 'correo_conectar':
     case 'correo_desconectar':
     case 'correo_enviar':
@@ -3264,6 +3273,7 @@ switch ($accion) {
     case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'ia_req_correo':
+    case 'ia_responder_correo':
     case 'ia_tareas_correo':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
@@ -3409,6 +3419,20 @@ switch ($accion) {
                     $resIa = ['url' => ($filaRc['estado'] ?? '') === 'registrado'
                         ? 'requerimientos.php?ver=' . (int)$filaRc['req_id']
                         : 'requerimientos.php?propuesta=' . (int)$filaRc['id']];
+                    break;
+
+                case 'ia_responder_correo':
+                    // Leer, resumir y proponer la respuesta de un correo: solo el administrador, y solo cuando lo pide
+                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Responder con IA es solo para administradores.'], 403);
+                    if (!class_exists('TareasCorreo') || !class_exists('ReqCorreo') || !class_exists('Correo')) throw new IAError('Falta el módulo del correo en el servidor.');
+                    try {
+                        $msgRc = TareasCorreo::leer((int)(Auth::usuario()['id'] ?? 0), (string)($_POST['c'] ?? ''), (int)($_POST['uid'] ?? 0));
+                    } catch (CorreoError $e) {
+                        throw new IAError($e->getMessage());
+                    }
+                    $yoRc = Auth::usuario();
+                    $resIa = IAFunciones::respuestaCorreo($msgRc, ['nombre' => trim((string)($yoRc['nombre'] ?? '')), 'cargo' => trim((string)($yoRc['rol'] ?? ''))],
+                        mb_substr(trim((string)($_POST['instrucciones'] ?? '')), 0, 1500), (string)($_POST['tono'] ?? 'formal'));
                     break;
 
                 case 'ia_tareas_correo':

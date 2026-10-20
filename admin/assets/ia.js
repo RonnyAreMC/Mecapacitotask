@@ -612,6 +612,94 @@
   });
 
   /* =========================================================
+     3d. Responder un correo con la IA (solo el administrador): primero dice
+     cómo quiere responder (o nada) y el tono; la IA solo corre cuando pulsa
+     el botón. Lee, resume y propone la respuesta, que se puede editar y va al
+     formulario de responder con la cita del original debajo.
+     ========================================================= */
+  const IDEAS_RESPUESTA = [
+    ['Confirmar que lo hacemos', 'Confirma que recibimos el pedido y que lo hacemos; da una fecha de entrega.'],
+    ['Pedir más información', 'Agradece y pide los datos que faltan para poder hacerlo.'],
+    ['Ya está listo', 'Avisa que ya está hecho y pide que lo revisen.'],
+    ['Lo revisamos', 'Agradece y di que lo revisamos y respondemos pronto.'],
+    ['No se puede así', 'Explica con amabilidad que así no se puede y propone otra opción.'],
+  ];
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-ia-responder]');
+    if (!b) return;
+    e.preventDefault();
+    const dlg = modal('Responder con IA', 'fa-wand-magic-sparkles',
+      '<p class="tc-ayuda">Dile a la IA cómo quieres responder a <b>' + esc(b.dataset.de || 'este correo') + '</b>, o déjalo vacío y responde lo que corresponda. '
+      + 'La IA lee el correo solo cuando pulses el botón.</p>'
+      + '<div class="rc-ideas" role="group" aria-label="Ideas">' + IDEAS_RESPUESTA.map(([t, p]) => '<button type="button" class="rc-idea" data-rc-idea="' + esc(p) + '">' + esc(t) + '</button>').join('') + '</div>'
+      + '<div class="rc-fila">'
+      + '<div class="mc-field rc-ind"><label class="mc-field__label" for="rc-ind">¿Cómo quieres responder? <span class="ds-opcional">(opcional)</span></label>'
+      + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="rc-ind" rows="3" maxlength="1500" data-rc-ind placeholder="Ej.: confirma que lo publicamos el viernes y pide el logo en alta"></textarea></div></div>'
+      + '<div class="mc-field"><label class="mc-field__label">Tono</label><select data-ds-select data-rc-tono aria-label="Tono">'
+      + '<option value="formal">Formal</option><option value="cercano">Cercano</option><option value="breve">Breve</option></select></div>'
+      + '</div>'
+      + '<div class="rc-resultado" data-rc-resultado hidden>'
+      + '<div class="rc-resumen"><h4>Lo que dice el correo</h4><ul data-rc-resumen></ul><p class="rc-pide" data-rc-pide hidden></p></div>'
+      + '<div class="mc-field"><label class="mc-field__label" for="rc-respuesta">Respuesta propuesta <span class="ds-opcional">(puedes editarla)</span></label>'
+      + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control rc-respuesta" id="rc-respuesta" rows="11" data-rc-respuesta></textarea></div></div>'
+      + '<div data-rc-firma></div>'
+      + '</div>',
+      '<button type="button" class="btn-primary btn-meca" data-rc-generar><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Leer y proponer respuesta</span></button>'
+      + '<button type="button" class="btn-primary btn-meca wz-oculto" data-rc-usar><i class="fa-solid fa-reply"></i> <span>Usar esta respuesta</span></button>');
+    dlg.classList.add('dlg-ia-ancho', 'dlg-rc');
+    const ind = dlg.querySelector('[data-rc-ind]');
+    const tono = dlg.querySelector('[data-rc-tono]');
+    const res = dlg.querySelector('[data-rc-resultado]');
+    const bGen = dlg.querySelector('[data-rc-generar]');
+    const bUsar = dlg.querySelector('[data-rc-usar]');
+    const txt = dlg.querySelector('[data-rc-respuesta]');
+
+    // Una idea rellena las indicaciones (se pueden juntar varias)
+    dlg.querySelector('.rc-ideas').addEventListener('click', (ev) => {
+      const i = ev.target.closest('[data-rc-idea]');
+      if (!i) return;
+      const v = ind.value.trim();
+      ind.value = v ? v + ' ' + i.dataset.rcIdea : i.dataset.rcIdea;
+      i.classList.add('is-usada');
+      ind.focus();
+    });
+
+    bGen.addEventListener('click', () => conBoton(bGen, async () => {
+      const r = await pedir('ia_responder_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: ind.value.trim(), tono: tono.value });
+      dlg.querySelector('[data-rc-resumen]').innerHTML = (r.resumen || []).map((x) => '<li>' + esc(x) + '</li>').join('') || '<li>Sin resumen.</li>';
+      const pide = dlg.querySelector('[data-rc-pide]');
+      pide.textContent = r.pide ? 'Lo que esperan de nosotros: ' + r.pide : '';
+      pide.hidden = !r.pide;
+      txt.value = r.respuesta || '';
+      dlg.querySelector('[data-rc-firma]').innerHTML = firma(r);
+      res.hidden = false;
+      bGen.className = 'btn-outline btn-meca';
+      bGen.querySelector('span').textContent = 'Volver a proponer';
+      bUsar.classList.remove('wz-oculto');
+      res.scrollIntoView({ block: 'nearest' });
+      txt.focus();
+    }));
+
+    // Al formulario de responder, con la respuesta arriba y la cita del original debajo
+    bUsar.addEventListener('click', () => {
+      if (!txt.value.trim()) { avisarError(bUsar, 'La respuesta está vacía.'); return; }
+      const f = document.createElement('form');
+      f.method = 'post';
+      f.action = 'actions.php';
+      f.hidden = true;
+      [['accion', 'correo_respuesta_ia'], ['c', b.dataset.c], ['uid', b.dataset.uid], ['texto', txt.value]].forEach(([k, v]) => {
+        const i = document.createElement('textarea');
+        i.name = k;
+        i.value = v;
+        f.appendChild(i);
+      });
+      document.body.appendChild(f);
+      bUsar.disabled = true;
+      f.submit();
+    });
+  });
+
+  /* =========================================================
      4. Observaciones (en el compositor y en cada hilo)
      ========================================================= */
   document.addEventListener('click', (e) => {

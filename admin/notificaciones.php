@@ -77,7 +77,8 @@ UI::cabecera(
         'dispositivos' => 'Recibe los avisos al instante en tu celular o tu computadora, aunque el panel esté cerrado.',
         'avisos'       => 'Lo que pasó en tus proyectos y equipos: tareas que te asignaron, reuniones, pedidos de otros equipos, observaciones…',
     ][$tab],
-    $accionesCab
+    $accionesCab,
+    $tab === 'correo' ? 'correo-bandeja' : ''   // la ilustración junto al título (iconos/ilustraciones)
 );
 ?>
 <div class="ds" id="notif-pagina">

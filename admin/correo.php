@@ -185,6 +185,9 @@ if ($telDlg !== ''):
 <?php endif; ?>
 <script src="<?= asset('assets/admin.js') ?>"></script>
 <script src="<?= asset('assets/ds.js') ?>"></script>
+<?php if (UI::ia() && is_file(__DIR__ . '/assets/ia.js')): /* «Analizar con IA» y «Responder con IA» también en la app */ ?>
+<script src="<?= asset('assets/ia.js') ?>"></script>
+<?php endif; ?>
 <script>
 // Botón de la campana: aparece mientras este teléfono no reciba los avisos, y los activa con un toque
 (() => {

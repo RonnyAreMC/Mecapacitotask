@@ -1351,7 +1351,7 @@ final class Correo
         $items = [];
         $delServidor = array_values(array_filter($tramo, fn($u) => !isset($faltan[$u])));
         // BODYSTRUCTURE: qué adjuntos trae cada uno (PDF, Excel, imagen…) sin bajar el correo
-        $datos = $delServidor ? $imap->traer($delServidor, 'UID FLAGS INTERNALDATE RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE)]') : [];
+        $datos = $delServidor ? $imap->traer($delServidor, 'UID FLAGS INTERNALDATE RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE X-PRIORITY IMPORTANCE PRIORITY X-MSMAIL-PRIORITY)]') : [];
         foreach ($tramo as $uid) {
             if (isset($faltan[$uid])) { $items[] = CorreoCopias::item($faltan[$uid]); continue; }
             if (!isset($datos[$uid])) continue;
@@ -1366,6 +1366,7 @@ final class Correo
             $adjs = isset($d['BODYSTRUCTURE']) ? self::adjuntosDe($d['BODYSTRUCTURE']) : [];
             $items[] = [
                 'adjuntos' => $adjs,
+                'prioridad' => self::prioridadDe($h),
                 'uid'     => $uid,
                 'de'      => $de,
                 'para'    => $para,
@@ -1398,10 +1399,30 @@ final class Correo
         $m['fecha'] = self::fecha('', $h['date'][0] ?? '');
         $m['message_id'] = trim((string)($h['message-id'][0] ?? ''));
         $m['referencias'] = trim((string)($h['references'][0] ?? ''));
+        $m['prioridad'] = self::prioridadDe($h);
         // Texto para citar: el plano si vino; si no, el HTML pasado a texto
         $m['texto_cita'] = trim((string)($m['texto'] ?? '')) !== '' ? (string)$m['texto'] : CorreoHtml::aTexto((string)($m['html'] ?? ''));
         $m['crudo'] = $crudo;   // para guardar la copia en el panel (lib/CorreoCopias.php)
         return $m;
+    }
+
+    /* ---------- Prioridad del correo (la que puso quien lo mandó) ---------- */
+
+    /** 1 más alta … 5 más baja (3 normal, no se muestra): [etiqueta, tono] */
+    public const PRIORIDADES = [1 => ['Más alta', 'rojo'], 2 => ['Alta', 'naranja'], 4 => ['Baja', 'azul'], 5 => ['Más baja', 'gris']];
+
+    /** La prioridad de las cabeceras: X-Priority (Outlook, Roundcube), Importance, Priority o X-MSMail-Priority. */
+    public static function prioridadDe(array $h): int
+    {
+        if (preg_match('/^\s*([1-5])/', (string)($h['x-priority'][0] ?? ''), $mm)) return (int)$mm[1];
+        $imp = strtolower(trim((string)($h['importance'][0] ?? '')));
+        if ($imp === 'high') return 2;
+        if ($imp === 'low') return 4;
+        $pri = strtolower(trim((string)($h['priority'][0] ?? '')));
+        if ($pri === 'urgent') return 1;
+        if ($pri === 'non-urgent') return 4;
+        $ms = strtolower(trim((string)($h['x-msmail-priority'][0] ?? '')));
+        return $ms === 'high' ? 2 : ($ms === 'low' ? 4 : 3);
     }
 
     /* ---------- Los adjuntos, para mostrarlos en la lista ---------- */
@@ -1605,6 +1626,20 @@ final class Correo
         $meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
         if (date('Y', $t) === date('Y')) return (int)date('j', $t) . ' ' . $meses[(int)date('n', $t) - 1];
         return date('d/m/Y', $t);
+    }
+
+    /**
+     * Para la lista: «martes 20 a las 4:34 pm»; de otro mes, «lunes 12 oct a las 9:42 am»;
+     * de otro año, «viernes 3 oct 2025 a las 11:05 am».
+     */
+    public static function fechaLista(int $t): string
+    {
+        $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        $dia = $dias[(int)date('w', $t)] . ' ' . (int)date('j', $t);
+        if (date('Y-m', $t) !== date('Y-m')) $dia .= ' ' . $meses[(int)date('n', $t) - 1];
+        if (date('Y', $t) !== date('Y')) $dia .= ' ' . date('Y', $t);
+        return $dia . ' a las ' . date('g:i', $t) . ' ' . date('a', $t);
     }
 
     /** "lun 19 oct 2026, 18:30" */

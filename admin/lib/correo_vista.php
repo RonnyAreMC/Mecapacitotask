@@ -49,6 +49,14 @@ function correoTam(int $b): string
     return max(1, (int)round($b / 1024)) . ' KB';
 }
 
+/** Cápsula de color con la prioridad que puso quien lo mandó ('' si es normal). */
+function correoPrioridad(int $p): string
+{
+    $d = Correo::PRIORIDADES[$p] ?? null;
+    if (!$d) return '';
+    return ' <span class="correo-prio correo-prio--' . $d[1] . '" title="Prioridad ' . e(mb_strtolower($d[0])) . '"><span class="correo-prio__punto" aria-hidden="true"></span>' . e($d[0]) . '</span>';
+}
+
 function correoDirs(array $lista): string
 {
     return implode(', ', array_map(fn($d) => $d['nombre'] !== '' ? $d['nombre'] . ' <' . $d['email'] . '>' : $d['email'], $lista));
@@ -311,10 +319,11 @@ function correoLista(array $lista, array $carpeta): void
     <?php foreach ($lista['items'] as $it):
         $quien = $enviados ? ($it['para'][0] ?? ['nombre' => '', 'email' => '']) : $it['de']; ?>
     <li>
-      <a class="correo-fila<?= $it['leido'] ? '' : ' is-nuevo' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'uid' => $it['uid']])) ?>">
+      <?php $prioL = (int)($it['prioridad'] ?? 3); ?>
+      <a class="correo-fila<?= $it['leido'] ? '' : ' is-nuevo' ?><?= $prioL !== 3 ? ' correo-fila--p' . $prioL : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'uid' => $it['uid']])) ?>">
         <span class="correo-ini" style="background:<?= e(correoColor($quien['email'])) ?>" aria-hidden="true"><?= e(correoIniciales($quien)) ?></span>
         <span class="correo-txt">
-          <span class="correo-de"><?= $enviados ? 'Para: ' : '' ?><?= e(correoQuien($quien) ?: '(sin remitente)') ?></span>
+          <span class="correo-de"><?= $enviados ? 'Para: ' : '' ?><?= e(correoQuien($quien) ?: '(sin remitente)') ?><?= correoPrioridad($prioL) ?></span>
           <span class="correo-asunto"><?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?></span>
           <?php
             // Por fuera, sin abrirlo: qué adjuntos trae, con el ícono de su tipo (PDF, Excel, imagen…)
@@ -331,7 +340,7 @@ function correoLista(array $lista, array $carpeta): void
         <span class="correo-fecha">
           <?php if (!empty($it['guardado'])): ?><span class="correo-clip" aria-label="Guardado en el panel" data-ds-tip="Ya no está en el servidor: es la copia guardada en el panel"><?= UI::icono('ds-archivar') ?></span><?php endif; ?>
           <?php if ($it['adjunto'] && empty($it['adjuntos'])): ?><span class="correo-clip" aria-label="Con adjuntos"><?= UI::icono('ds-enlace') ?></span><?php endif; ?>
-          <?= e(Correo::fechaCorta($it['fecha'])) ?>
+          <?= e((method_exists('Correo', 'fechaLista') ? Correo::fechaLista($it['fecha']) : Correo::fechaCorta($it['fecha']))) ?>
           <?php if (!$it['leido']): ?><span class="correo-punto" aria-label="Sin leer"></span><?php endif; ?>
         </span>
       </a>
@@ -380,6 +389,10 @@ function correoLeer(?array $m, array $carpeta, array $carpetas, array $hilo = []
     <a class="mc-btn mc-btn--ghost mc-btn--sm" href="<?= e($volver) ?>"><?= UI::iconoDS('chevron-izq', 16) ?><span class="mc-btn__label"><?= e($carpeta['etiqueta']) ?></span></a>
     <div class="correo-acciones">
       <a class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" href="<?= e(correoUrl(['redactar' => 1, 'c' => $c, 'responder' => $m['uid']])) ?>"><?= UI::iconoDS('mensajes', 16) ?><span class="mc-btn__label">Responder</span></a>
+      <?php if (Auth::esAdmin() && !verComo() && UI::ia('responder_correo')): /* lee, resume y propone la respuesta (assets/ia.js) */ ?>
+      <button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" data-ia-responder data-c="<?= e($c) ?>" data-uid="<?= (int)$m['uid'] ?>"
+              data-de="<?= e(correoQuien($de)) ?>" data-asunto="<?= e((string)$m['asunto']) ?>"><?= UI::iconoDS('ia', 16) ?><span class="mc-btn__label">Responder con IA</span></button>
+      <?php endif; ?>
       <?php if (count($m['para']) + count($m['cc']) > 1): ?>
       <a class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" href="<?= e(correoUrl(['redactar' => 1, 'c' => $c, 'responder' => $m['uid'], 'todos' => 1])) ?>"><?= UI::iconoDS('usuarios', 16) ?><span class="mc-btn__label">A todos</span></a>
       <?php endif; ?>
@@ -397,7 +410,7 @@ function correoLeer(?array $m, array $carpeta, array $carpetas, array $hilo = []
     </div>
   </div>
   <header class="correo-msg__cab">
-    <h2 class="correo-msg__asunto"><?= e($m['asunto'] !== '' ? $m['asunto'] : '(sin asunto)') ?></h2>
+    <h2 class="correo-msg__asunto"><?= e($m['asunto'] !== '' ? $m['asunto'] : '(sin asunto)') ?><?= correoPrioridad((int)($m['prioridad'] ?? 3)) ?></h2>
     <div class="correo-msg__quien">
       <span class="correo-ini correo-ini--lg" style="background:<?= e(correoColor($de['email'])) ?>" aria-hidden="true"><?= e(correoIniciales($de)) ?></span>
       <div class="correo-msg__meta">
@@ -629,6 +642,14 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
             $refs = trim($base['referencias'] . ' ' . $base['message_id']);
         }
     }
+    // La respuesta que armó la IA («Responder con IA»): arriba, con la cita del original debajo
+    $deIa = false;
+    $ri = $_SESSION['correo_respuesta_ia'] ?? null;
+    if (is_array($ri) && $base && !$reenviar && (int)($ri['uid'] ?? 0) === (int)$base['uid'] && (string)($ri['c'] ?? '') === (string)$carpeta['nombre']) {
+        unset($_SESSION['correo_respuesta_ia']);
+        $texto = rtrim((string)$ri['texto']) . $texto;
+        $deIa = true;
+    }
     // Si el envío anterior falló, vuelve lo que la persona había escrito
     if (!empty($_SESSION['correo_borrador']) && is_array($_SESSION['correo_borrador'])) {
         $bor = $_SESSION['correo_borrador'];
@@ -693,6 +714,7 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
     </div>
     <div class="mc-field"><label class="mc-field__label" for="cr-asunto">Asunto</label>
       <div class="mc-input"><input class="mc-input__control" id="cr-asunto" name="asunto" maxlength="250" value="<?= e($asunto) ?>"></div></div>
+    <?php if ($deIa): ?><?= UI::alertaDS('info', '', 'La respuesta la armó la IA: revísala (y completa lo que esté entre [corchetes]) antes de enviar.', true) ?><?php endif; ?>
     <div class="mc-field"><label class="mc-field__label" for="cr-texto">Mensaje</label>
       <div class="mc-input mc-input--multiline"><textarea class="mc-input__control correo-redactar__texto" id="cr-texto" name="texto" rows="12"<?= $para !== '' ? ' autofocus' : '' ?>><?= e($texto) ?></textarea></div></div>
     <div class="mc-field">
