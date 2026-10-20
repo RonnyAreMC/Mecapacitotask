@@ -5788,13 +5788,13 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
 html.sb-collapsed .nav-badge { display: none; }
 
 /* ---------- Modal de detalle de tarea (solo lectura) ---------- */
-.dlg-detalle { max-width: 520px; width: 92vw; }
+.dlg-detalle { max-width: 780px; width: 94vw; }   /* antes 520px: se veía apretado */
 /* Con documentos, la ficha se ensancha y el primero se ve ya a la derecha.
    El alto no se fija a ojo: el modal toma el que haya y la previsualización se
    queda con todo lo que sobre. */
 .dlg-detalle.dt-con-docs {
-  max-width: 1000px; width: 95vw;
-  height: min(calc(100dvh - 88px), 760px);
+  max-width: 1200px; width: 96vw;
+  height: min(calc(100dvh - 64px), 880px);
 }
 .dt-con-docs .dt-body { height: 100%; display: flex; flex-direction: column; }
 .dt-con-docs .dt-cols { flex: 1; min-height: 0; }
@@ -5826,6 +5826,11 @@ html.sb-collapsed .nav-badge { display: none; }
 .dt-cols { display: grid; grid-template-columns: 1fr; gap: 22px; }
 .dt-con-docs .dt-cols { grid-template-columns: minmax(0, 1fr) minmax(0, 1.15fr); }
 .dt-info { min-width: 0; display: flex; flex-direction: column; }
+/* Nada se encoge dentro de la ficha: si no cabe, se recorre la columna entera
+   (si la descripción se encogía, le salía su propia barra de desplazamiento) */
+.dt-info > * { flex-shrink: 0; }
+/* El navegador le da foco a la columna que se recorre: sin el marco negro */
+.dt-info:focus, .dt-info:focus-visible { outline: none; }
 .dt-info .dt-datos { flex: 1; }
 .dt-previa { min-width: 0; display: flex; flex-direction: column; gap: 10px; }
 .dt-previa[hidden] { display: none; }
@@ -5863,7 +5868,7 @@ html.sb-collapsed .nav-badge { display: none; }
   .dt-con-docs .dt-info { overflow: visible; }
   .dt-previa-cuerpo { height: 60vh; min-height: 260px; }
 }
-.dt-body { padding: 24px 26px 22px; }   /* antes 4px: todo quedaba pegado al borde y se cortaba */
+.dt-body { padding: 30px 34px 26px; }   /* antes 4px: todo quedaba pegado al borde y se cortaba */
 .dt-head { display: flex; align-items: flex-start; gap: 12px; }
 .dt-head-txt { flex: 1; min-width: 0; }
 .dt-proyecto {
@@ -5871,7 +5876,8 @@ html.sb-collapsed .nav-badge { display: none; }
   font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase;
   color: var(--c-secondary);
 }
-.dt-titulo { margin: 0; font-size: 1.25rem; line-height: 1.25; color: var(--c-text); }
+.dt-titulo { margin: 0; font-size: 1.5rem; line-height: 1.25; color: var(--c-text); }
+.dlg-detalle .dlg-form header .dt-titulo { font-size: 1.5rem; }   /* le gana a «.dlg-form header h3» (1.15rem) */
 /* Los chips son los mismos badges de color del tablero (estado + prioridad) */
 .dt-chips { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 16px 0 0; }
 .dt-chips .badge-estado,
@@ -5879,7 +5885,7 @@ html.sb-collapsed .nav-badge { display: none; }
 .dt-desc {
   margin: 16px 0 0; padding: 13px 15px;
   border-radius: 13px; background: var(--c-bg-hundido);
-  font-size: .9rem; line-height: 1.6; color: var(--c-text-muted);
+  font-size: 1rem; line-height: 1.65; color: var(--c-text-muted);
 }
 
 /* =========================================================
@@ -5945,11 +5951,11 @@ html.sb-collapsed .nav-badge { display: none; }
 /* Nota "Sin detalle" cuando el requerimiento no trae detalle */
 #fq-detalle.vacio { color: var(--c-text-soft); font-style: italic; }
 .dt-datos { margin: 18px 0 0; display: flex; flex-direction: column; gap: 12px; }
-.dt-datos > div { display: grid; grid-template-columns: 150px 1fr; gap: 10px; align-items: baseline; }
+.dt-datos > div { display: grid; grid-template-columns: 170px 1fr; gap: 12px; align-items: baseline; }
 .dt-datos > div[hidden] { display: none; }
-.dt-datos dt { font-size: .82rem; font-weight: 700; color: var(--c-text-soft); }
+.dt-datos dt { font-size: .9rem; font-weight: 700; color: var(--c-text-soft); }
 .dt-datos dt i { margin-right: 6px; color: var(--c-secondary); }
-.dt-datos dd { margin: 0; font-size: .9rem; color: var(--c-text); }
+.dt-datos dd { margin: 0; font-size: 1rem; color: var(--c-text); }
 .dt-dep-tag { display: inline-flex; align-items: center; gap: 6px; font-size: .84rem; font-weight: 600; }
 .dt-dep-tag.ok   { color: var(--c-success); }
 .dt-dep-tag.bloq { color: var(--c-warning); }

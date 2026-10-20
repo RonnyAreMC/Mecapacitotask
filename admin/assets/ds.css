@@ -2452,8 +2452,6 @@ html.dark .tabla-equipo .chip-copiar { background: var(--surface-raised, var(--s
    El número rojo de la campana suma avisos y correos InnoTech sin leer
    (UI::barraSuperior y assets/ds.js). Con algo pendiente, el botón lleva
    además un anillo rojo suave para que se note en claro y en oscuro. */
-.mc-notif.has-pendientes .ds-sq--navy { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--danger); }
-.mc-notif.has-pendientes .ds-sq--navy:focus-visible { box-shadow: var(--focus-ring); }
 .ds-sq .mc-iconbtn__badge { z-index: 1; min-width: 18px; height: 18px; padding: 0 5px; font: 700 10.5px/18px var(--font-sans);
   background: var(--danger); color: var(--on-danger); box-shadow: 0 0 0 2px var(--surface); }
 .mc-notif.is-ringing .ds-sq > .mc-icon { transform-origin: 50% 3px; animation: mc-bell 900ms var(--mc-ease); }
@@ -2539,8 +2537,7 @@ html.correo-app .correo-app__menu, html.correo-app .correo-app__nav { display: n
   color: var(--surface); font: 700 10px/16px var(--font-sans); text-align: center; box-shadow: 0 0 0 2px var(--surface); animation: mc-pop-in 320ms var(--mc-ease-out) both; }
 .mc-bottomnav__badge.is-alert { background: var(--danger); color: var(--on-danger); }
 
-/* =========================================================
-   Proyecto en el celular (proyecto.php, hasta 900 px)
+/* ==================================================   Proyecto en el celular (proyecto.php, hasta 900 px)
    Solo tres pestañas: Tareas, Observaciones y Reuniones. El calendario por
    día, Intercambios, Métricas y las vistas Tabla, Kanban y Flujo se ocultan;
    las tareas salen como tarjetas pequeñas (.pm-tareas) y tocar una abre su
@@ -2892,3 +2889,55 @@ dialog.ds-modal.ins-pasos { width: min(540px, calc(100vw - 32px)); }
 .correo-instalar p { margin: 0 0 12px; color: var(--ink-muted); line-height: 1.5; }
 .correo-instalar__pasos { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-alt); color: var(--ink) !important; }
 @media (max-width: 900px) { .correo-app__instalar .mc-btn__label { display: none; } }
+=======
+/* =========================================================
+   Requerimientos desde el correo (lib/ReqCorreo.php)
+   ========================================================= */
+/* En el correo abierto */
+.correo-req:empty { display: none; }
+.correo-req__fila {
+  display: flex; align-items: center; gap: var(--space-3); padding: 10px var(--space-3);
+  border: 1px dashed var(--tone-azul-fg); border-radius: var(--radius-lg); background: var(--tone-azul-bg);
+}
+.correo-req__fila p { flex: 1; min-width: 0; margin: 0; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink); }
+@media (max-width: 640px) { .correo-req__fila { flex-wrap: wrap; } .correo-req__fila .mc-btn { width: 100%; justify-content: center; } }
+
+/* Propuestas por revisar (requerimientos.php) */
+.req-propuestas { margin: 0 0 var(--space-5); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-xl); background: var(--surface-raised); }
+.req-propuestas__cab { display: flex; align-items: flex-start; gap: var(--space-3); margin-bottom: var(--space-3); }
+.req-propuestas__cab h3 { margin: 0; font: 700 1rem/1.4 var(--font-display); color: var(--ink); }
+.req-propuestas__cab p { margin: 2px 0 0; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink-muted); }
+.req-propuestas__lista { display: grid; gap: var(--space-2); margin: 0; padding: 0; list-style: none; }
+.req-propuesta { display: flex; align-items: center; gap: var(--space-3); padding: 10px var(--space-3); border-radius: var(--radius-lg); background: var(--surface-alt); }
+.req-propuesta__txt { display: grid; flex: 1; min-width: 0; gap: 2px; }
+.req-propuesta__txt b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink); }
+.req-propuesta__txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--ink-muted); }
+@media (max-width: 640px) { .req-propuesta { flex-wrap: wrap; } }
+
+/* Aviso arriba del formulario cuando viene de un correo */
+.req-desde-correo { display: grid; gap: 8px; margin: 0 0 12px; padding: 12px 14px; border-radius: 12px; background: var(--tone-azul-bg, #EAF2FE); color: var(--ink, #0F1E33); }
+.req-desde-correo__cab { margin: 0; font-weight: 600; font-size: .875rem; }
+.req-desde-correo__cab i { color: var(--tone-azul-fg, #1D5BC7); margin-right: 4px; }
+.req-desde-correo__notas { display: grid; gap: 4px; margin: 0; padding-left: 18px; font-size: .8125rem; }
+.req-desde-correo__ojo { color: var(--danger-ink, #991B1B); font-weight: 600; }
+.req-desde-correo__adj { display: grid; gap: 6px; }
+.req-desde-correo__adj > span { font-size: .75rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--ink-muted, #56657A); }
+.req-adj-correo { display: flex; align-items: center; gap: 8px; font-size: .8125rem; cursor: pointer; }
+.req-adj-correo small { color: var(--ink-muted, #56657A); }
+.req-adj-correo.is-off { opacity: .6; cursor: not-allowed; }
+
+/* Ajustes: reglas y plazos */
+dialog.ds-modal.req-correo-dlg { width: min(720px, calc(100vw - 32px)); }
+.req-plazos { display: grid; gap: 8px; margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.req-plazos legend { padding: 0 6px; font-weight: 700; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink); }
+.req-plazos legend small { font-weight: 400; color: var(--ink-muted); }
+.req-plazo { display: flex; align-items: center; gap: var(--space-3); }
+.req-plazo > span:first-child { display: grid; flex: 1; min-width: 0; }
+.req-plazo > span:first-child small { font-size: var(--mc-fs-xs, .75rem); color: var(--ink-muted); }
+.req-plazo__n { width: 84px; flex: none; }
+.req-plazo > small { width: 32px; color: var(--ink-muted); }
+.req-hist ul { display: grid; gap: 6px; margin: 6px 0 0; padding: 0; list-style: none; }
+.req-hist li { display: flex; align-items: center; gap: var(--space-3); padding: 8px 10px; border-radius: var(--radius-md); background: var(--surface-alt); }
+.req-hist__txt { display: grid; flex: 1; min-width: 0; }
+.req-hist__txt b, .req-hist__txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.req-hist__txt small { color: var(--ink-muted); font-size: var(--mc-fs-xs, .75rem); }

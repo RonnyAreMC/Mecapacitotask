@@ -167,6 +167,19 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
+    <?php
+    // Correo InnoTech con su propio lugar en el menú (antes solo se llegaba desde Notificaciones)
+    $nCorreoMenu = null;
+    if (Auth::usuario() && is_file(__DIR__ . '/Correo.php') && is_file(__DIR__ . '/correo_vista.php')) {
+        require_once __DIR__ . '/Correo.php';
+        if (Correo::activo()) $nCorreoMenu = (int)(Correo::noLeidos((int)Auth::usuario()['id']) ?? 0);
+    }
+    if ($nCorreoMenu !== null): ?>
+    <a href="notificaciones.php?tab=correo" class="sidebar-link <?= $activo === 'correo' ? 'active' : '' ?>" title="Correo InnoTech">
+      <?= UI::icono('ds-correo') ?> <span class="truncate">Correo</span>
+      <span class="nav-badge nav-badge-fin" data-correo-n-menu title="Correos sin leer"<?= $nCorreoMenu ? '' : ' hidden' ?>><?= $nCorreoMenu > 999 ? '999+' : $nCorreoMenu ?></span>
+    </a>
+    <?php endif; ?>
     <?php if (is_file(__DIR__ . '/Tutoriales.php')): /* videos cortos del panel */ ?>
     <a href="tutoriales.php" class="sidebar-link <?= $activo === 'tutoriales' ? 'active' : '' ?>" title="Tutoriales en video">
       <?= UI::icono('ds-video') ?> <span class="truncate">Tutoriales</span>
@@ -228,7 +241,7 @@ class UI
     } else {
         $reqHref  = 'bandeja.php';
         $reqClave = 'bandeja';
-        $reqTexto = 'Bandeja de entrada';
+        $reqTexto = 'Requerimientos';
         $reqTitle = 'Requerimientos que te asignaron';
         $nReq     = $reqRepoNav->abiertosDe((int)($reqVerComo['id'] ?? Auth::usuario()['id'] ?? 0));
         $reqTitleN = $nReq . ' sin cerrar';
@@ -432,11 +445,10 @@ class UI
                 $pushAttrs = method_exists('Push', 'atributosPagina') ? Push::atributosPagina($mid) : ' data-push="' . e($pushClave) . '"';
             }
         }
-        // El número rojo de la campana: avisos sin leer + correos InnoTech sin leer
+        // El número rojo de la campana: solo los avisos del panel (el correo lleva el suyo en el menú)
         $nCorreoSin = (int)($nCorreo ?? 0);
-        $total = $sin + $nCorreoSin;
-        $resumen = $sin && $nCorreoSin ? $sin . ' sin leer · ' . ($nCorreoSin === 1 ? '1 correo' : $nCorreoSin . ' correos')
-            : ($sin ? $sin . ' sin leer' : ($nCorreoSin ? ($nCorreoSin === 1 ? '1 correo' : $nCorreoSin . ' correos') . ' sin leer' : 'Todo leído'));
+        $total = $sin;
+        $resumen = $sin ? $sin . ' sin leer' : 'Todo leído';
         ?>
 <header class="ds-enc" id="ds-topbar"<?= $pushClave !== '' ? $pushAttrs : '' ?>>
   <?php if ($pushClave !== ''): ?>
@@ -466,7 +478,7 @@ class UI
       </button>
       <?php endif; ?>
       <?php if ($conNotif): ?>
-      <div class="mc-notif<?= $total ? ' has-pendientes' : '' ?>" data-notif data-sin="<?= $sin ?>" data-ultimo="<?= $items ? max(array_column($items, 'id')) : 0 ?>">
+      <div class="mc-notif" data-notif data-sin="<?= $sin ?>" data-correo="<?= $nCorreo === null ? '' : $nCorreoSin ?>" data-ultimo="<?= $items ? max(array_column($items, 'id')) : 0 ?>">
         <button type="button" class="ds-sq ds-sq--navy" data-notif-btn aria-haspopup="dialog" aria-expanded="false"
                 aria-label="Notificaciones<?= $total ? ' (' . $total . ' sin leer)' : '' ?>" title="Notificaciones">
           <?= self::iconoDS('notificaciones', 20) ?>
@@ -479,15 +491,6 @@ class UI
             <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-notif-todas<?= $sin ? '' : ' hidden' ?>>
               <?= self::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todo leído</span></button>
           </div>
-          <?php if ($correoOn): ?>
-          <a class="ds-correo-fila" href="notificaciones.php?tab=correo" data-correo-fila<?= $nCorreo === null ? ' data-correo-sin' : '' ?>>
-            <span class="mc-tile mc-tile--sm mc-tile--azul"><?= self::iconoDS('correo', 18) ?></span>
-            <span class="ds-correo-fila__txt"><b>Correo InnoTech</b>
-              <small data-correo-sub><?= $nCorreo === null ? 'Sincroniza tu buzón y léelo aquí' : ($nCorreo ? $nCorreo . ' sin leer' : 'Estás al día') ?></small></span>
-            <?php if ($nCorreo === null): ?><span class="ds-correo-fila__cta">Sincronizar</span>
-            <?php else: ?><span class="ds-correo-fila__n" data-correo-n<?= $nCorreo ? '' : ' hidden' ?>><?= $nCorreo > 999 ? '999+' : $nCorreo ?></span><?php endif; ?>
-          </a>
-          <?php endif; ?>
           <ul class="mc-notif__list" data-notif-lista>
             <?php foreach ($items as $n) echo self::itemNotif($n, $iconosNotif); ?>
           </ul>
@@ -514,6 +517,7 @@ class UI
             <span><b><?= e($yo['nombre']) ?></b><small><?= e($rol) ?><?= !empty($yo['email']) ? ' · ' . e($yo['email']) : '' ?></small></span></div>
           <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--azul<?= $activo === 'perfil' ? ' is-actual' : '' ?>" href="perfil.php"><?= self::iconoDS('perfil', 18) ?>Mi perfil</a>
           <?php if ($conNotif): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--naranja<?= $activo === 'notificaciones' ? ' is-actual' : '' ?>" href="notificaciones.php"><?= self::iconoDS('notificaciones', 18) ?>Notificaciones</a><?php endif; ?>
+          <?php if (class_exists('Push') && is_file(__DIR__ . '/../sw.js') && Push::activo()): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--cian<?= $activo === 'dispositivos' ? ' is-actual' : '' ?>" href="notificaciones.php?tab=dispositivos"><?= self::iconoDS('computadora', 18) ?>Mis dispositivos</a><?php endif; ?>
           <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--verde<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
           <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--cian<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
           <?php if (is_file(__DIR__ . '/Tutoriales.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--petroleo<?= $activo === 'tutoriales' ? ' is-actual' : '' ?>" href="tutoriales.php"><?= self::iconoDS('video', 18) ?>Tutoriales en video</a><?php endif; ?>

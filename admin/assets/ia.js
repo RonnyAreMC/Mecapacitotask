@@ -328,6 +328,20 @@
   });
 
   /* =========================================================
+     3b. Requerimiento desde un correo del buzón (lib/ReqCorreo.php):
+     la IA lo analiza y se abre el formulario ya relleno para revisarlo
+     ========================================================= */
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-req-correo]');
+    if (!b) return;
+    e.preventDefault();
+    conBoton(b, async () => {
+      const r = await pedir('ia_req_correo', { c: b.dataset.c, uid: b.dataset.uid });
+      if (r.url) location.href = r.url;
+    });
+  });
+
+  /* =========================================================
      4. Observaciones (en el compositor y en cada hilo)
      ========================================================= */
   document.addEventListener('click', (e) => {

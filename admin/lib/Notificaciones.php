@@ -29,6 +29,7 @@ final class Notif
         'dependencia'   => ['Dependencia', 'relacionar', 'petroleo'],
         'intercambio'   => ['Intercambio de tareas', 'transferencia', 'petroleo'],
         'proyecto'      => ['Proyecto', 'carpeta', 'azul'],
+        'correo'        => ['Correo', 'correo', 'azul'],
     ];
 
     private static ?JsonStore $store = null;

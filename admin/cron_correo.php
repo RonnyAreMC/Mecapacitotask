@@ -8,6 +8,8 @@
  * con los avisos de correo encendidos. Por cada correo nuevo sin leer manda
  * «Correo de Fulano · Asunto» a sus dispositivos; si llegaron muchos juntos,
  * un solo aviso con el total. También deja al día el conteo de la campana.
+ * También analiza con IA los correos que cumplen las reglas de «Requerimientos
+ * desde tu correo» (lib/ReqCorreo.php).
  * Solo se ejecuta desde la terminal (el cron), nunca desde la web.
  */
 if (PHP_SAPI !== 'cli') {
@@ -27,12 +29,15 @@ if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/N
 $candado = fopen(__DIR__ . '/data/cron_correo.lock', 'c');
 if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) exit("Ya hay una revisión en curso.\n");
 
-if (!Correo::activo() || !Push::activo()) exit("Correo o avisos nativos apagados.\n");
+if (!Correo::activo()) exit("El correo InnoTech está apagado.\n");
 
 $inicio = time();
 $avisos = 0;
-foreach (Push::interesados('correo') as $mid) {
-    if (time() - $inicio > 45) break;                       // que no se pise con el próximo minuto
+$reqAnalizados = 0;
+
+// 1) Primero los avisos nativos de los correos nuevos: es lo que no puede esperar
+foreach ((Push::activo() ? Push::interesados('correo') : []) as $mid) {
+    if (time() - $inicio > 30) break;                       // lo que falte, en la próxima vuelta (un minuto)
     if (!Correo::conectado($mid)) continue;
     try {
         $nuevos = Correo::revisarNuevos($mid);
@@ -66,6 +71,41 @@ foreach (Push::interesados('correo') as $mid) {
         ], 'correo');
     }
 }
+
+// 2) Requerimientos desde el correo (lib/ReqCorreo.php): los correos nuevos que
+// cumplen las reglas de cada administrador se analizan con IA y quedan
+// registrados (o listos para revisar). Pocos por vuelta: la IA tarda.
+if (is_file(__DIR__ . '/lib/ReqCorreo.php') && is_file(__DIR__ . '/lib/IA.php') && is_file(__DIR__ . '/lib/IAFunciones.php')) {
+    foreach (['ReqCorreo', 'IA', 'IAFunciones', 'Notificaciones'] as $m) {
+        if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
+    }
+    foreach (ReqCorreo::cuentasActivas() as $mid) {
+        if (time() - $inicio > 42) break;
+        $_SESSION['uid'] = $mid;                              // el consumo de IA queda a su nombre
+        try {
+            $reqAnalizados += ReqCorreo::procesar($mid, 2);
+        } catch (Throwable $e) {
+            fwrite(STDERR, 'Requerimientos del correo de #' . $mid . ': ' . $e->getMessage() . "\n");
+        }
+    }
+}
+
+// 3) Copia en el panel (lib/CorreoCopias.php) de lo que llega a Recibidos, de todos los
+// buzones sincronizados: así queda guardado aunque otro programa (Gmail por POP, un
+// celular con POP) lo saque del servidor después.
+$copiados = 0;
+if (is_file(__DIR__ . '/lib/CorreoCopias.php')) {
+    require_once __DIR__ . '/lib/CorreoCopias.php';
+    foreach (array_keys(Correo::correosSincronizados()) as $mid) {
+        if (time() - $inicio > 48) break;
+        try {
+            $copiados += CorreoCopias::copiarNuevos($mid, 10, $inicio + 50);
+        } catch (Throwable $e) {
+            // servidor caído o clave vencida: se reintenta en la próxima vuelta
+        }
+    }
+}
+
 // Para que Notificaciones → Tus dispositivos muestre que el cron está corriendo
-@file_put_contents(__DIR__ . '/data/cron_correo.json', json_encode(['t' => time(), 'avisos' => $avisos]));
-echo date('Y-m-d H:i:s') . " · avisos enviados: $avisos\n";
+@file_put_contents(__DIR__ . '/data/cron_correo.json', json_encode(['t' => time(), 'avisos' => $avisos, 'requerimientos' => $reqAnalizados, 'copiados' => $copiados]));
+echo date('Y-m-d H:i:s') . " · avisos enviados: $avisos · correos analizados para requerimientos: $reqAnalizados · copias guardadas: $copiados\n";

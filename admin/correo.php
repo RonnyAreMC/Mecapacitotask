@@ -16,7 +16,7 @@
  */
 define('CORREO_APP', true);
 require_once __DIR__ . '/lib/bootstrap.php';      // sin sesión va a login.php y, al entrar, vuelve aquí
-foreach (['Correo', 'Push'] as $m) {
+foreach (['Correo', 'Push', 'CorreoCopias'] as $m) {
     if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
 }
 if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';

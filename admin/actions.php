@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -986,7 +986,8 @@ switch ($accion) {
         }
         if ($accion === 'correo_desconectar') {
             Correo::desconectar($midC);
-            redirigir($urlC(), 'Desconectamos tu correo y borramos la contraseña guardada. Tu buzón sigue igual.');
+            $nCp = class_exists('CorreoCopias') ? CorreoCopias::borrarTodo($midC) : 0;
+            redirigir($urlC(), 'Desconectamos tu correo y borramos la contraseña guardada' . ($nCp ? ' y los ' . $nCp . ' correos que el panel guardó' : '') . '. Tu buzón sigue igual.');
         }
         if (!Correo::conectado($midC)) redirigir($urlC(), 'Primero sincroniza tu correo.', 'error');
         try {
@@ -996,13 +997,22 @@ switch ($accion) {
                 $carpsC = Correo::carpetas($imapC, $midC);
                 $carpC  = Correo::carpetaValida($carpsC, $cC);
                 $imapC->abrir($carpC['nombre'], true);
+                $copiasC = class_exists('CorreoCopias');
                 if ($accion === 'correo_marcar') {
                     $leidoC = !empty($_POST['leido']);
                     $imapC->marcar($uidC, '\\Seen', $leidoC);
+                    if ($copiasC) CorreoCopias::marcar($midC, $carpC['nombre'], $uidC, $leidoC);
                     $imapC->cerrar();
                     redirigir($urlC(['c' => $carpC['nombre']]), $leidoC ? 'Marcado como leído.' : 'Lo marcamos como no leído.');
                 }
+                // Lo que se borra en el panel se va también de lo guardado (si no, volvería a salir en Recibidos)
+                $quitadoC = $copiasC && CorreoCopias::quitar($midC, $carpC['nombre'], $uidC);
                 $papeleraC = Correo::carpetaDeTipo($carpsC, 'trash');
+                if (!$imapC->traer([$uidC], 'UID')) {
+                    // Ya no estaba en el servidor (solo en lo guardado del panel)
+                    $imapC->cerrar();
+                    redirigir($urlC(['c' => $carpC['nombre']]), $quitadoC ? 'Lo quitamos de Recibidos.' : 'Ese correo ya no estaba.');
+                }
                 if ($carpC['tipo'] === 'trash' || $papeleraC === null) {
                     $imapC->borrar($uidC);
                     $msgC = 'Correo borrado.';
@@ -1047,8 +1057,11 @@ switch ($accion) {
                 $imapC->abrir($carpC['nombre']);
                 $origC = $imapC->crudo($reUid);
                 $imapC->cerrar();
-                if ($origC !== '') {
-                    foreach (CorreoMime::analizar($origC)['adjuntos'] as $a) {
+                // Si ya no está en el servidor, los adjuntos salen de lo que guardó el panel
+                $adjsOrigC = $origC !== '' ? CorreoMime::analizar($origC)['adjuntos']
+                    : (class_exists('CorreoCopias') ? CorreoCopias::adjuntos($midC, $carpC['nombre'], $reUid) : []);
+                if ($adjsOrigC) {
+                    foreach ($adjsOrigC as $a) {
                         if ($a['inline'] && $a['cid'] !== '') continue;
                         $totalC += (int)$a['tam'];
                         if ($totalC > Correo::TOPE_ADJUNTOS) throw new CorreoError('Con los adjuntos del original se pasa de 20 MB.', 'uso');
@@ -2048,15 +2061,53 @@ switch ($accion) {
         // tabla): se sanea a lista blanca antes de guardar.
         $_POST['detalle'] = HtmlRico::limpiar($_POST['detalle'] ?? '');
         $reqRepo = new RequerimientoRepo();
+        // ¿Viene de un correo analizado con IA? Solo la propuesta de quien la registra
+        $propReq = null;
+        if (!empty($_POST['propuesta']) && class_exists('ReqCorreo')) {
+            $propReq = ReqCorreo::fila((int)$_POST['propuesta']);
+            if (!$propReq || (int)$propReq['miembro_id'] !== (int)(Auth::usuario()['id'] ?? 0) || ($propReq['estado'] ?? '') !== 'propuesta') $propReq = null;
+        }
+        $adjCorreo = $rechCorreo = [];
+        if ($propReq) {
+            try {
+                [$adjCorreo, $rechCorreo] = ReqCorreo::traerAdjuntos($propReq, (array)($_POST['correo_adjuntos'] ?? []));
+            } catch (CorreoError $e) {
+                $rechCorreo[] = 'los adjuntos del correo (' . $e->getMessage() . ')';
+            }
+        }
         $req = $reqRepo->crear($_POST + [
             'creado_por' => (int)(Auth::usuario()['id'] ?? 0),
-            'adjuntos'   => guardarAdjuntos('adjuntos'),
+            'adjuntos'   => array_merge(guardarAdjuntos('adjuntos'), $adjCorreo),
         ]);
+        if ($propReq) {
+            $reqRepo->actualizar((int)$req['id'], ['origen_correo' => ReqCorreo::origen($propReq)]);
+            ReqCorreo::marcarRegistrado($propReq, $req);
+        }
+        $notaCorreo = ($adjCorreo ? ' Se guardaron ' . count($adjCorreo) . ' adjunto' . (count($adjCorreo) === 1 ? '' : 's') . ' del correo.' : '')
+            . ($rechCorreo ? ' No se pudo guardar: ' . implode(', ', $rechCorreo) . '.' : '');
         // Se puede asignar de una vez, sin pasar dos veces por el formulario
         $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
-        redirigir('requerimientos.php', $avisoReq === ''
+        redirigir('requerimientos.php', ($avisoReq === ''
             ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
-            : 'Requerimiento registrado y asignado a ' . $avisoReq);
+            : 'Requerimiento registrado y asignado a ' . $avisoReq) . $notaCorreo);
+
+    /* ---------- Requerimientos desde el correo (lib/ReqCorreo.php) ---------- */
+    case 'req_correo_conf':
+        if (!class_exists('ReqCorreo') || !class_exists('Correo')) redirigir('requerimientos.php', 'Falta el módulo del correo en el servidor.', 'error');
+        $yoRc = (int)(Auth::usuario()['id'] ?? 0);
+        ReqCorreo::guardarPlazos((array)($_POST['plazo'] ?? []));
+        if (!Correo::conectado($yoRc)) redirigir('requerimientos.php', 'Guardamos los plazos. Para analizar tus correos, primero sincroniza tu correo InnoTech.', 'info');
+        $rRc = ReqCorreo::guardarReglas($yoRc, $_POST, !empty($_POST['repasar']) ? 7 : 0);
+        if ($rRc['activo'] && !$rRc['remitentes'] && !$rRc['destinos']) {
+            redirigir('requerimientos.php', 'Guardado, pero falta decir de quién o hacia qué dirección vienen los correos a analizar.', 'info');
+        }
+        redirigir('requerimientos.php', $rRc['activo']
+            ? 'Listo: cada minuto se revisan tus correos nuevos que cumplan las reglas.' . (!empty($_POST['repasar']) ? ' También los de la última semana.' : '')
+            : 'Guardado. El análisis automático está apagado.');
+
+    case 'req_correo_descartar':
+        if (class_exists('ReqCorreo')) ReqCorreo::descartar((int)($_POST['id'] ?? 0), (int)(Auth::usuario()['id'] ?? 0));
+        redirigir('requerimientos.php', 'Propuesta descartada.');
 
     case 'req_editar':
         $reqRepo = new RequerimientoRepo();
@@ -3070,6 +3121,7 @@ switch ($accion) {
     case 'ia_acta':
     case 'ia_acta_hay':
     case 'ia_req_texto':
+    case 'ia_req_correo':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
     case 'ia_obs_resumen':
@@ -3192,6 +3244,27 @@ switch ($accion) {
                         if (!RequerimientoRepo::cerrado($rIa)) $abiertosIa[] = ['id' => (int)$rIa['id'], 'titulo' => (string)($rIa['titulo'] ?? '')];
                     }
                     $resIa = IAFunciones::requerimiento($textoIa, array_slice($abiertosIa, 0, 200));
+                    break;
+
+                case 'ia_req_correo':
+                    // Solo el administrador, y solo desde su propio buzón
+                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Los requerimientos sueltos los gestiona el administrador.'], 403);
+                    if (!class_exists('ReqCorreo') || !class_exists('Correo')) throw new IAError('Falta el módulo del correo en el servidor.');
+                    $yoRc = (int)(Auth::usuario()['id'] ?? 0);
+                    try {
+                        $imapRc = Correo::abrir($yoRc);
+                        try {
+                            $carpRc = Correo::carpetaValida(Correo::carpetas($imapRc, $yoRc), (string)($_POST['c'] ?? ''));
+                            $filaRc = ReqCorreo::analizar($yoRc, (string)$carpRc['nombre'], (int)($_POST['uid'] ?? 0), 'manual', '', $imapRc);
+                        } finally {
+                            $imapRc->cerrar();
+                        }
+                    } catch (CorreoError $e) {
+                        throw new IAError($e->getMessage());
+                    }
+                    $resIa = ['url' => ($filaRc['estado'] ?? '') === 'registrado'
+                        ? 'requerimientos.php?ver=' . (int)$filaRc['req_id']
+                        : 'requerimientos.php?propuesta=' . (int)$filaRc['id']];
                     break;
 
                 case 'ia_obs_redaccion':

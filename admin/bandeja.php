@@ -1,6 +1,6 @@
 <?php
 /**
- * Bandeja de entrada: los requerimientos sueltos que a UNO le tocan.
+ * Requerimientos (antes «Bandeja de entrada»): los requerimientos sueltos que a UNO le tocan.
  *
  * El modulo de requerimientos es del administrador, que es quien los reparte.
  * Esta pantalla es la otra mitad: cada quien ve lo que le han asignado, con su
@@ -47,9 +47,9 @@ $alDia    = array_values(array_filter($abiertos, fn($r) => !RequerimientoRepo::v
 // El que vence antes, para el aviso de la cabecera
 $proximo = $alDia ? plazoDe($alDia[0]) : null;
 
-UI::inicio('Bandeja de entrada', 'bandeja');
+UI::inicio('Requerimientos', 'bandeja');
 UI::cabecera(
-    'Tu <span class="text-secondary">bandeja</span>',
+    'Tus <span class="text-secondary">requerimientos</span>',
     $verComo
         ? 'Lo que ve <b>' . e(explode(' ', trim($verComo['nombre']))[0]) . '</b>: los requerimientos sueltos que le asignaron.'
         : 'Peticiones que no pertenecen a ningún proyecto y que te asignó el administrador.'

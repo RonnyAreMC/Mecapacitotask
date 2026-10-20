@@ -160,16 +160,27 @@ function correoVista(array $yo): void
         $mensaje = null;
         $lista = null;
         $base = null;
+        // Lo de Recibidos se queda guardado en el panel (lib/CorreoCopias.php): si otro programa
+        // (Gmail por POP) lo saca del servidor, se sigue viendo y se abre lo guardado
+        $conCopias = class_exists('CorreoCopias');
         if ($modo === 'leer') {
             $mensaje = Correo::mensaje($imap, $carpeta['nombre'], $uid);
+            if ($mensaje && $conCopias) {
+                try { CorreoCopias::guardar($mid, (string)$mensaje['crudo'], $carpeta['nombre'], $uid, true); } catch (Throwable $e) { /* no impide leerlo */ }
+            } elseif (!$mensaje && $conCopias) {
+                $mensaje = CorreoCopias::mensaje($mid, $carpeta['nombre'], $uid);
+            }
         } elseif ($modo === 'redactar') {
             $rUid = (int)($_GET['responder'] ?? $_GET['reenviar'] ?? 0);
-            if ($rUid > 0) $base = Correo::mensaje($imap, $carpeta['nombre'], $rUid);
+            if ($rUid > 0) $base = Correo::mensaje($imap, $carpeta['nombre'], $rUid) ?? ($conCopias ? CorreoCopias::mensaje($mid, $carpeta['nombre'], $rUid) : null);
         } else {
-            $lista = Correo::lista($imap, $carpeta['nombre'], (int)($_GET['p'] ?? 1), (string)($_GET['q'] ?? ''));
+            $lista = Correo::lista($imap, $carpeta['nombre'], (int)($_GET['p'] ?? 1), (string)($_GET['q'] ?? ''), 30, $carpeta['tipo'] === 'inbox' ? $mid : 0);
         }
+        if ($conCopias) $noLeidos = CorreoCopias::noLeidos($imap, $mid, $bandeja);
         if ($modo === 'leer' && $carpeta['tipo'] === 'inbox') {
-            $noLeidos = (int)$imap->estado($bandeja)['no_leidos'];
+            $noLeidos = $conCopias ? CorreoCopias::noLeidos($imap, $mid, $bandeja) : (int)$imap->estado($bandeja)['no_leidos'];
+            Correo::anotarNoLeidos($mid, $noLeidos);
+        } elseif ($conCopias) {
             Correo::anotarNoLeidos($mid, $noLeidos);
         }
         $imap->cerrar();
@@ -218,7 +229,7 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     </nav>
     <div class="correo-cuenta">
       <span class="correo-cuenta__ok"><?= UI::iconoDS('exito', 16) ?> Sincronizado</span>
-      <form method="post" action="actions.php" data-confirmar="Dejarás de ver tu correo en el panel y se borrará la contraseña guardada. Tu buzón no cambia." data-confirmar-titulo="¿Desconectar tu correo?" data-confirmar-ok="Sí, desconectar">
+      <form method="post" action="actions.php" data-confirmar="Dejarás de ver tu correo en el panel y se borrarán la contraseña guardada y los correos que el panel guardó. Tu buzón no cambia." data-confirmar-titulo="¿Desconectar tu correo?" data-confirmar-ok="Sí, desconectar">
         <input type="hidden" name="accion" value="correo_desconectar">
         <button class="mc-btn mc-btn--ghost mc-btn--sm"><?= UI::iconoDS('salir', 16) ?><span class="mc-btn__label">Desconectar</span></button>
       </form>
@@ -302,6 +313,7 @@ function correoLista(array $lista, array $carpeta): void
           <span class="correo-asunto"><?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?></span>
         </span>
         <span class="correo-fecha">
+          <?php if (!empty($it['guardado'])): ?><span class="correo-clip" aria-label="Guardado en el panel" data-ds-tip="Ya no está en el servidor: es la copia guardada en el panel"><?= UI::icono('ds-archivar') ?></span><?php endif; ?>
           <?php if ($it['adjunto']): ?><span class="correo-clip" aria-label="Con adjuntos"><?= UI::icono('ds-enlace') ?></span><?php endif; ?>
           <?= e(Correo::fechaCorta($it['fecha'])) ?>
           <?php if (!$it['leido']): ?><span class="correo-punto" aria-label="Sin leer"></span><?php endif; ?>
@@ -345,6 +357,7 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
     }
     $de = $m['de'][0] ?? ['nombre' => '', 'email' => ''];
     $enPapelera = $carpeta['tipo'] === 'trash';
+    $esCopia = !empty($m['copia']);   // ya no está en el servidor: es lo que guardó el panel
     $c = $carpeta['nombre'];
     ?>
   <div class="correo-barra correo-barra--msg">
@@ -379,6 +392,14 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
       <time class="correo-msg__fecha"><?= e(Correo::fechaLarga($m['fecha'])) ?></time>
     </div>
   </header>
+  <?php if ($esCopia): ?>
+  <div class="correo-pad correo-pad--fino">
+    <?= UI::alertaDS('info', '', 'Este correo ya no está en el servidor (otro programa, como Gmail, lo descargó y lo quitó). '
+        . 'Es la copia que el panel guardó el ' . e(Correo::fechaLarga((int)($m['guardado'] ?? time()))) . '.', true) ?>
+  </div>
+  <?php else: ?>
+  <?php correoBloqueRequerimiento($m, $c); ?>
+  <?php endif; ?>
   <?php if ($hayRemotas && !$remotas): ?>
   <div class="correo-pad correo-pad--fino">
     <?= UI::alertaDS('info', '', 'Las imágenes externas están ocultas para cuidar tu privacidad (pueden avisar al remitente que abriste el correo). '
@@ -412,6 +433,37 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
  * se eligen; debajo, la lista con el tamaño de cada uno y una × para quitarlo
  * (assets/ds.js). Sin JS sigue funcionando: la etiqueta abre el selector.
  */
+/**
+ * En un correo abierto, para el administrador: si ya es un requerimiento (o
+ * está listo para revisar), lo dice con el enlace; si no, ofrece armarlo con
+ * la IA (lib/ReqCorreo.php: institución, responsable, plazo y adjuntos).
+ */
+function correoBloqueRequerimiento(array $m, string $carpeta): void
+{
+    if (!class_exists('ReqCorreo') || !Auth::esAdmin() || verComo()) return;
+    $fila = ReqCorreo::deMensaje((int)(Auth::usuario()['id'] ?? 0), (string)$m['message_id']);
+    $estado = (string)($fila['estado'] ?? '');
+    $titulo = (string)($fila['datos']['titulo'] ?? '');
+    echo '<div class="correo-pad correo-pad--fino correo-req">';
+    if ($estado === 'registrado') {
+        echo UI::alertaDS('success', 'Ya es un requerimiento', '«' . e($titulo) . '» · <a href="requerimientos.php?ver=' . (int)$fila['req_id'] . '">Ver el requerimiento</a>', true);
+    } elseif ($estado === 'propuesta') {
+        echo UI::alertaDS('info', 'La IA lo preparó como requerimiento', '«' . e($titulo) . '» · <a href="requerimientos.php?propuesta=' . (int)$fila['id'] . '">Revisar y registrar</a>', true);
+    } elseif (UI::ia('req_desde_correo')) {
+        $texto = match ($estado) {
+            'no_es'      => 'La IA creyó que este correo no pedía un trabajo. Si sí lo pide, conviértelo igual.',
+            'error'      => 'No se pudo analizar: ' . e((string)($fila['error'] ?? '')) . ' Prueba de nuevo.',
+            'descartado' => 'Descartaste la propuesta de este correo. Puedes armarla otra vez.',
+            default      => '¿Pide un trabajo? La IA arma el requerimiento con la tarea, la institución, el responsable, el plazo y los adjuntos.',
+        };
+        echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--azul">' . UI::iconoDS('requerimiento', 18) . '</span>'
+            . '<p>' . $texto . '</p>'
+            . '<button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-req-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '">'
+            . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">Convertir en requerimiento</span></button></div>';
+    }
+    echo '</div>';
+}
+
 function correoZonaAdjuntos(string $name, string $id, string $etiqueta): string
 {
     $mb = (int)(Correo::TOPE_ADJUNTOS / 1048576);
@@ -549,12 +601,19 @@ function correoDescargarAdjunto(int $mid): void
         http_response_code(502);
         exit('No se pudo descargar el adjunto: ' . $e->getMessage());
     }
-    $m = $crudo !== '' ? CorreoMime::analizar($crudo) : ['adjuntos' => []];
+    $m = $crudo !== '' ? CorreoMime::analizar($crudo)
+        : ['adjuntos' => class_exists('CorreoCopias') ? CorreoCopias::adjuntos($mid, $carpeta['nombre'], (int)($_GET['uid'] ?? 0)) : []];
     $a = $m['adjuntos'][(int)($_GET['i'] ?? -1)] ?? null;
     if (!$a) {
         http_response_code(404);
         exit('Ese adjunto ya no está.');
     }
+    correoEntregarAdjunto($a);
+}
+
+/** Manda un adjunto al navegador como descarga. */
+function correoEntregarAdjunto(array $a): never
+{
     $nombre = CorreoMime::nombreArchivo($a['nombre']);
     $ascii = preg_replace('/[^\x20-\x7e]|"/', '_', $nombre);
     header('Content-Type: application/octet-stream');

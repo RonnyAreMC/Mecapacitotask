@@ -90,7 +90,7 @@ function actualizarPanel(array $opc): void
         'lib/Push.php', 'sw.js', 'manifest.webmanifest', 'cron_correo.php',
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
-        'tutoriales.php', 'lib/Tutoriales.php',
+        'tutoriales.php', 'lib/Tutoriales.php', 'lib/ReqCorreo.php', 'lib/CorreoCopias.php',
         'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg',
         'lib/Whatsapp.php', 'cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
@@ -112,22 +112,25 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes'],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
-        'cron_correo.php'   => ['Notif::pendientes'],
+        'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
-        'assets/ia.js'      => ['conGiro'],
+        'assets/ia.js'      => ['conGiro', 'data-req-correo'],
         'planificar.php'    => ['dlg-ia-plan'],
-        'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app'],
-        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
-        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina'],
+        'lib/req_ui.php'    => ['req-tr', 'data-req-id'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
+        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar'],
+        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje'],
+        'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
+        'lib/IAFunciones.php' => ['requerimientoCorreo'],
+        'lib/IA.php'        => ['req_desde_correo'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar'],
         'ajustes.php'       => ['whatsapp[activo]'],
         'lib/Mailer.php'    => ['codigoRecuperacion'],
@@ -183,7 +186,9 @@ function actualizarPanel(array $opc): void
         foreach (['notificaciones' => 'Notificaciones (campana)', 'pedidos' => 'Pedidos entre equipos', 'ia_uso' => 'Consumo de IA',
                   'correo_cuentas' => 'Correo InnoTech (cuentas sincronizadas)',
                   'push_suscripciones' => 'Notificaciones nativas (dispositivos)',
-                  'tutoriales' => 'Tutoriales en video'] as $t => $etq) {
+                  'tutoriales' => 'Tutoriales en video',
+                  'req_correo' => 'Requerimientos desde el correo',
+                  'correo_copias' => 'Copias de los correos en el panel'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');

@@ -12,6 +12,11 @@
  */
 require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/req_ui.php';
+// Requerimientos desde el correo (lib/ReqCorreo.php): si falta algo, solo no aparece
+foreach (['Correo', 'ReqCorreo'] as $modRc) {
+    if (is_file(__DIR__ . '/lib/' . $modRc . '.php')) require_once __DIR__ . '/lib/' . $modRc . '.php';
+}
+if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
 Auth::requiereAdmin();
 
 // Con "ver como" activo el panel se mira con los ojos de otra persona, y esa
@@ -38,6 +43,21 @@ $mapa        = $miembros->mapa();
 $prioridades = Catalogo::prioridades();
 $estados     = RequerimientoRepo::ESTADOS;
 $hoy         = date('Y-m-d');
+
+// ¿Viene a revisar una propuesta armada con IA desde su correo? (solo las propias)
+$yoReq     = (int)(Auth::usuario()['id'] ?? 0);
+$conCorreo = class_exists('ReqCorreo') && class_exists('Correo');
+$prop      = null;
+if ($conCorreo && isset($_GET['propuesta'])) {
+    $prop = ReqCorreo::fila((int)$_GET['propuesta']);
+    if ($prop && (int)$prop['miembro_id'] === $yoReq && ($prop['estado'] ?? '') === 'registrado' && !empty($prop['req_id'])) {
+        header('Location: requerimientos.php?ver=' . (int)$prop['req_id']);
+        exit;
+    }
+    if (!$prop || (int)$prop['miembro_id'] !== $yoReq || ($prop['estado'] ?? '') !== 'propuesta') $prop = null;
+}
+$pd         = $prop ? (array)$prop['datos'] : [];
+$propuestas = $conCorreo ? ReqCorreo::propuestas($yoReq) : [];
 
 $requerimientos = $reqRepo->todos();
 
@@ -218,7 +238,7 @@ function urlFiltro(array $cambios): string
  * $prefijo distingue los dos usos ('nr' y 'dv') para que el filtro de rol de
  * cada asistente no toque la lista del otro.
  */
-function panelResponsables(array $carga, array $opcionesRol, string $prefijo): void
+function panelResponsables(array $carga, array $opcionesRol, string $prefijo, array $marcados = []): void
 {
     $tope = $carga ? max(array_column($carga, 'total')) : 0;
     ?>
@@ -251,7 +271,7 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo): v
           ?>
           <label class="dv-persona carga-<?= $nivel ?>" data-id="<?= (int)$m['id'] ?>"
                  data-rol="<?= e($c['rol']) ?>" data-nombre="<?= e($m['nombre']) ?>">
-            <input type="checkbox" name="asignados[]" value="<?= (int)$m['id'] ?>">
+            <input type="checkbox" name="asignados[]" value="<?= (int)$m['id'] ?>"<?= in_array((int)$m['id'], $marcados, true) ? ' checked' : '' ?>>
             <span class="dv-check"><i class="fa-solid fa-check"></i></span>
             <?= UI::avatar($m, 34) ?>
             <span class="dv-datos">
@@ -299,7 +319,7 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo): v
  * Paso "Plazo": las dos fechas del encargo, con los mismos atajos y el mismo
  * aviso de duración que el asistente de tareas.
  */
-function panelPlazo(string $prefijo, string $inicioPorDefecto = ''): void
+function panelPlazo(string $prefijo, string $inicioPorDefecto = '', string $finPorDefecto = ''): void
 {
     ?>
     <section class="wz-panel">
@@ -310,7 +330,7 @@ function panelPlazo(string $prefijo, string $inicioPorDefecto = ''): void
         </label>
         <label class="campo"><span>Fecha de entrega</span>
           <input class="input-meca" type="date" name="fecha_fin"
-                 data-req-fecha="<?= e($prefijo) ?>-fin">
+                 data-req-fecha="<?= e($prefijo) ?>-fin" value="<?= e($finPorDefecto) ?>">
         </label>
       </div>
       <?= UI::atajosFecha() ?>
@@ -328,6 +348,10 @@ UI::cabecera(
      <a class="btn-outline btn-meca btn-azul btn-icono" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> <span class="tab-txt">Instituciones</span>
      </a>
+     ' . ($conCorreo ? '<button type="button" class="btn-outline btn-meca btn-azul btn-icono" onclick="document.getElementById(\'dlg-req-correo\').showModal()" title="La IA convierte tus correos en requerimientos">
+       <i class="fa-solid fa-envelope-open-text"></i> <span class="tab-txt">Desde el correo</span>'
+       . ($propuestas ? ' <span class="tab-badge">' . count($propuestas) . '</span>' : '') . '
+     </button>' : '') . '
      <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo requerimiento
      </button>'
@@ -337,6 +361,36 @@ UI::cabecera(
 <!-- Situación de un vistazo. No son adornos: cada pastilla FILTRA la lista de
      abajo, así que la pantalla contesta "¿qué tengo que hacer?" y no solo
      "¿cuántos hay?". "Pasados de fecha" cruza las otras tres a propósito. -->
+<?php if ($propuestas): ?>
+<section class="ds req-propuestas" aria-labelledby="req-prop-t">
+  <header class="req-propuestas__cab">
+    <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('ia', 18) ?></span>
+    <div><h3 id="req-prop-t">Desde tu correo: por revisar</h3>
+      <p>La IA las armó con tus correos. Revisa cada una y regístrala, o descártala.</p></div>
+  </header>
+  <ul class="req-propuestas__lista">
+    <?php foreach ($propuestas as $pp):
+        $dp = (array)$pp['datos'];
+        $respPp = array_values(array_filter(array_map(fn($id) => $mapa[(int)$id]['nombre'] ?? null, (array)($dp['responsables'] ?? []))));
+    ?>
+    <li class="req-propuesta">
+      <div class="req-propuesta__txt">
+        <b><?= e((string)($dp['titulo'] ?? $pp['asunto'])) ?></b>
+        <small>De <?= e(trim((string)(($pp['de']['nombre'] ?? '') ?: ($pp['de']['email'] ?? '')))) ?> · «<?= e((string)$pp['asunto']) ?>»
+          · <?= e(ReqCorreo::MAGNITUDES[$dp['magnitud'] ?? 'mediana'][0] ?? '') ?>
+          · <?= $respPp ? 'para ' . e(implode(', ', $respPp)) : 'sin responsable' ?></small>
+      </div>
+      <a class="mc-btn mc-btn--primary mc-btn--sm" href="requerimientos.php?propuesta=<?= (int)$pp['id'] ?>"><?= UI::iconoDS('ojo', 16) ?><span class="mc-btn__label">Revisar</span></a>
+      <form method="post" action="actions.php" data-confirmar="El correo sigue en tu buzón; solo se quita esta propuesta." data-confirmar-titulo="¿Descartar la propuesta?" data-confirmar-ok="Sí, descartar">
+        <input type="hidden" name="accion" value="req_correo_descartar"><input type="hidden" name="id" value="<?= (int)$pp['id'] ?>">
+        <button class="mc-btn mc-btn--ghost mc-btn--sm"><span class="mc-btn__label">Descartar</span></button>
+      </form>
+    </li>
+    <?php endforeach; ?>
+  </ul>
+</section>
+<?php endif; ?>
+
 <section class="req-situacion">
   <?php foreach ($situaciones as $k => [$label, $icono, $clase]):
       $activo = $fSit === $k;
@@ -460,6 +514,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
 <dialog id="dlg-req-nuevo" class="dlg-meca dlg-wizard dlg-req-wz">
   <form method="post" action="actions.php" class="dlg-form wz" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="req_crear">
+    <?php if ($prop): ?><input type="hidden" name="propuesta" value="<?= (int)$prop['id'] ?>"><?php endif; ?>
     <?= UI::wizardRiel('fa-inbox', 'Nuevo requerimiento', 'Petición que no pertenece a ningún proyecto', UI::PASOS_REQUERIMIENTO) ?>
     <div class="wz-cuerpo">
       <header>
@@ -471,6 +526,41 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       </header>
 
       <section class="wz-panel">
+        <?php if ($prop):
+            $dePp = trim((string)(($prop['de']['nombre'] ?? '') ?: ($prop['de']['email'] ?? '')));
+            $mg   = ReqCorreo::MAGNITUDES[$pd['magnitud'] ?? 'mediana'] ?? ReqCorreo::MAGNITUDES['mediana'];
+        ?>
+        <div class="req-desde-correo">
+          <p class="req-desde-correo__cab"><i class="fa-solid fa-envelope-open-text"></i>
+            Armado con IA desde el correo «<?= e((string)$prop['asunto']) ?>» de <?= e($dePp) ?> (<?= e((string)$prop['fecha']) ?>). Revísalo antes de registrar.</p>
+          <ul class="req-desde-correo__notas">
+            <li><b>Magnitud: <?= e($mg[0]) ?></b><?= !empty($pd['magnitud_motivo']) ? ' — ' . e((string)$pd['magnitud_motivo']) : '' ?>.
+              <?= !empty($pd['fecha_del_correo'])
+                  ? 'El correo pide entregarlo el <b>' . e((string)$pd['fecha_fin_calc']) . '</b>.'
+                  : 'Entrega en ' . (int)($pd['dias'] ?? 0) . ' día' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 's') . ' hábil' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 'es') . ': <b>' . e((string)($pd['fecha_fin_calc'] ?? '')) . '</b>.' ?></li>
+            <?php if (!empty($pd['institucion_texto']) && empty($pd['instituciones'])): ?>
+            <li>Institución: «<?= e((string)$pd['institucion_texto']) ?>», que no está en el catálogo. <a href="instituciones.php">Agrégala</a> o elige otra abajo.</li>
+            <?php endif; ?>
+            <?php if (!empty($pd['responsables_texto']) && empty($pd['responsables'])): ?>
+            <li>El correo se lo asigna a «<?= e((string)$pd['responsables_texto']) ?>», pero no aparece en el equipo del panel: elige el responsable en el paso siguiente.</li>
+            <?php endif; ?>
+            <?php foreach ((array)($pd['parecidos'] ?? []) as $par): ?>
+            <li class="req-desde-correo__ojo">Puede que ya exista: #<?= (int)$par['id'] ?> <?= e((string)$par['titulo']) ?></li>
+            <?php endforeach; ?>
+          </ul>
+          <?php if (!empty($prop['adjuntos'])): ?>
+          <div class="req-desde-correo__adj">
+            <span>Adjuntos del correo</span>
+            <?php foreach ((array)$prop['adjuntos'] as $adj): ?>
+            <label class="req-adj-correo<?= empty($adj['ok']) ? ' is-off' : '' ?>">
+              <input type="checkbox" name="correo_adjuntos[]" value="<?= (int)$adj['i'] ?>"<?= !empty($adj['ok']) ? ' checked' : ' disabled' ?>>
+              <i class="fa-solid fa-paperclip"></i> <?= e((string)$adj['nombre']) ?> <small><?= e(function_exists('correoTam') ? correoTam((int)$adj['tam']) : round($adj['tam'] / 1024) . ' KB') ?><?= empty($adj['ok']) ? ' · no se puede guardar (tipo no permitido o más de 10 MB)' : '' ?></small>
+            </label>
+            <?php endforeach; ?>
+          </div>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
         <?php if (UI::ia('req_desde_texto') && Auth::esAdmin()): ?>
         <div class="ia-acciones" style="margin:0 0 4px">
           <?= UI::botonIA('Rellenar desde un correo o WhatsApp', ['ia-req' => 1], 'Pega el mensaje y la IA propone los campos') ?>
@@ -478,24 +568,24 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         <?php endif; ?>
         <label class="campo">
           <span>¿Qué piden? *</span>
-          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
+          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado" value="<?= e((string)($pd['titulo'] ?? '')) ?>">
         </label>
         <div class="campo">
           <span>Detalle</span>
-          <?= UI::editorRico(['name' => 'detalle', 'placeholder' => 'Contexto, con quién hablar, qué se espera de entrega… (puedes pegar un correo con su tabla)']) ?>
+          <?= UI::editorRico(['name' => 'detalle', 'valor' => HtmlRico::limpiar((string)($pd['detalle'] ?? '')), 'placeholder' => 'Contexto, con quién hablar, qué se espera de entrega… (puedes pegar un correo con su tabla)']) ?>
         </div>
         <div class="campo-doble">
           <label class="campo"><span>¿Quién lo pide?</span>
-            <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica">
+            <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica" value="<?= e(mb_substr((string)($pd['solicitante'] ?? ''), 0, 80)) ?>">
           </label>
           <label class="campo"><span>Prioridad</span>
-            <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida('')) ?>
+            <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida($pd['prioridad'] ?? '')) ?>
           </label>
         </div>
         <label class="campo">
           <span><i class="fa-solid fa-building-columns"></i> Institución(es)</span>
           <?php if ($opcionesInst): ?>
-          <?= UI::select('instituciones', $opcionesInst, [], false, '', true) ?>
+          <?= UI::select('instituciones', $opcionesInst, array_map('intval', (array)($pd['instituciones'] ?? [])), false, '', true) ?>
           <small class="campo-ayuda">¿Para qué institución es? Puedes elegir <b>varias</b> si el mismo requerimiento atiende a más de una.</small>
           <?php else: ?>
           <small class="campo-ayuda">Aún no hay instituciones en el catálogo. <a href="instituciones.php">Créalas aquí</a> para poder asignarlas.</small>
@@ -512,8 +602,8 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         </div>
       </section>
 
-      <?php panelResponsables($carga, $opcionesRol, 'nr'); ?>
-      <?php panelPlazo('nr', $hoy); ?>
+      <?php panelResponsables($carga, $opcionesRol, 'nr', array_map('intval', (array)($pd['responsables'] ?? []))); ?>
+      <?php panelPlazo('nr', (string)($pd['fecha_inicio'] ?? $hoy), (string)($pd['fecha_fin_calc'] ?? '')); ?>
 
       <section class="wz-panel">
         <dl class="wz-resumen"></dl>
@@ -634,4 +724,96 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
   </form>
 </dialog>
 
+<?php if ($conCorreo):
+    $rc        = ReqCorreo::reglas($yoReq);
+    $plz       = ReqCorreo::plazos();
+    $conectado = Correo::conectado($yoReq);
+    $hist      = ReqCorreo::historial($yoReq, 8);
+?>
+<!-- Requerimientos desde el correo: reglas, qué hacer y plazos por magnitud -->
+<dialog class="ds-modal req-correo-dlg" id="dlg-req-correo" aria-labelledby="dlg-rc-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="req_correo_conf">
+    <?php if ($conectado && function_exists('correoDirectorio')): ?>
+    <script type="application/json" id="correo-directorio"><?= json_encode(correoDirectorio($yoReq, strtolower((string)(Correo::cuenta($yoReq)['email'] ?? ''))), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+    <?php endif; ?>
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('ia', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="dlg-rc-t">Requerimientos desde tu correo</h2>
+        <p class="ds-modal__sub">La IA lee los correos que cumplen tus reglas y arma el requerimiento: qué se pide, la institución, el responsable, el plazo y los adjuntos.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body">
+      <?php if (!$conectado): ?>
+        <?= UI::alertaDS('warning', 'Primero sincroniza tu correo InnoTech', 'Ve a <a href="notificaciones.php?tab=correo">Notificaciones → Correo InnoTech</a> e inicia sesión con tu correo. Mientras tanto puedes ajustar los plazos.', true) ?>
+      <?php else: ?>
+        <?= UI::checkDS('activo', $rc['activo'], 'Analizar mis correos nuevos automáticamente', 'Se revisan cada minuto. Solo los que cumplan alguna de estas reglas; el correo no se marca como leído.') ?>
+        <div class="mc-field"><label class="mc-field__label" for="rc-remitentes">Cuando me escriba</label>
+          <div class="mc-input"><input class="mc-input__control" id="rc-remitentes" name="remitentes" value="<?= e(implode(', ', $rc['remitentes'])) ?>" placeholder="Nombre o correo (ej. quien reparte los pedidos)" autocomplete="off" data-destinatarios="remitentes"></div></div>
+        <div class="mc-field"><label class="mc-field__label" for="rc-destinos">O cuando vaya dirigido a</label>
+          <div class="mc-input"><input class="mc-input__control" id="rc-destinos" name="destinos" value="<?= e(implode(', ', $rc['destinos'])) ?>" placeholder="Ej. requerimiento@innotech-solutions.com.ec" autocomplete="off" data-destinatarios="destinos"></div>
+          <div class="mc-field__foot"><span class="mc-field__hint">Cuenta si esa dirección va en «Para» o en copia.</span></div></div>
+        <?= UI::checkDS('solo_cc', $rc['solo_cc'], 'Solo si voy en copia (CC)', 'Para cuando otra persona reparte el pedido y te copia a ti.') ?>
+        <div class="mc-field"><span class="mc-field__label">Qué hacer con cada pedido</span>
+          <?= UI::selectDS('modo', ['auto' => 'Registrarlo y asignarlo solo (me aviso en la campana)', 'revisar' => 'Dejarlo listo para que yo lo revise'], $rc['modo'], ['aria' => 'Qué hacer con cada pedido']) ?></div>
+        <?= UI::checkDS('repasar', false, 'Revisar también los correos de la última semana', 'Se hace una vez, al guardar.') ?>
+      <?php endif; ?>
+
+      <fieldset class="req-plazos">
+        <legend>Plazo según la magnitud <small>(días hábiles; máximo 5, una semana)</small></legend>
+        <?php foreach (ReqCorreo::MAGNITUDES as $k => [$etq, $desc]): ?>
+        <label class="req-plazo">
+          <span><b><?= e($etq) ?></b><small><?= e($desc) ?></small></span>
+          <span class="mc-input mc-input--sm req-plazo__n"><input class="mc-input__control" type="number" name="plazo[<?= e($k) ?>]" min="1" max="<?= ReqCorreo::TOPE_DIAS ?>" value="<?= (int)$plz[$k] ?>" required></span>
+          <small>días</small>
+        </label>
+        <?php endforeach; ?>
+        <p class="mc-field__hint">Si el correo da una fecha, se usa esa. Si llega un fin de semana, se cuenta desde el lunes.</p>
+      </fieldset>
+
+      <?php if ($hist): ?>
+      <div class="req-hist">
+        <span class="mc-field__label">Últimos correos analizados</span>
+        <ul>
+          <?php foreach ($hist as $hf):
+              [$etqH, $tonoH] = ReqCorreo::ESTADOS[$hf['estado'] ?? 'error'] ?? ['—', 'neutral'];
+              $urlH = ($hf['estado'] ?? '') === 'registrado' ? 'requerimientos.php?ver=' . (int)$hf['req_id']
+                    : (($hf['estado'] ?? '') === 'propuesta' ? 'requerimientos.php?propuesta=' . (int)$hf['id'] : '');
+          ?>
+          <li>
+            <span class="req-hist__txt"><b><?= e((string)($hf['datos']['titulo'] ?? '') ?: (string)$hf['asunto']) ?></b>
+              <small><?= e((string)$hf['fecha']) ?> · <?= ($hf['origen'] ?? '') === 'auto' ? 'automático' : 'a mano' ?><?= ($hf['estado'] ?? '') === 'error' ? ' · ' . e((string)$hf['error']) : '' ?></small></span>
+            <?php if ($urlH !== ''): ?><a href="<?= e($urlH) ?>" class="mc-status mc-status--pill mc-status--<?= e($tonoH) ?>"><span class="mc-status__content"><span class="mc-status__label"><?= e($etqH) ?></span></span></a>
+            <?php else: ?><span class="mc-status mc-status--pill mc-status--<?= e($tonoH) ?>"><span class="mc-status__content"><span class="mc-status__label"><?= e($etqH) ?></span></span></span><?php endif; ?>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+      <?php endif; ?>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar</span></button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
+
+<script>
+document.addEventListener('DOMContentLoaded', () => {
+  <?php if ($prop): ?>
+  // Propuesta del correo: el asistente se abre ya relleno para revisarlo
+  const dlgNuevo = document.getElementById('dlg-req-nuevo');
+  if (dlgNuevo) {
+    dlgNuevo.showModal();
+    dlgNuevo.querySelectorAll('input[name="asignados[]"]:checked, input[name="fecha_fin"], input[name="fecha_inicio"]').forEach((c) => c.dispatchEvent(new Event('change', { bubbles: true })));
+  }
+  <?php endif; ?>
+  <?php if (isset($_GET['ver'])): ?>
+  // Enlace directo a un requerimiento (desde el correo o la campana): abre su ficha
+  const fila = document.querySelector('[data-req-id="<?= (int)$_GET['ver'] ?>"]');
+  if (fila) { fila.scrollIntoView({ block: 'center' }); fila.click(); }
+  <?php endif; ?>
+});
+</script>
 <?php UI::fin(); ?>

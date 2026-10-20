@@ -15,6 +15,8 @@ if (is_file(__DIR__ . '/lib/Correo.php')) require_once __DIR__ . '/lib/Correo.ph
 if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
 if (is_file(__DIR__ . '/lib/Push.php')) require_once __DIR__ . '/lib/Push.php';
 if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
+if (is_file(__DIR__ . '/lib/ReqCorreo.php')) require_once __DIR__ . '/lib/ReqCorreo.php';
+if (is_file(__DIR__ . '/lib/CorreoCopias.php')) require_once __DIR__ . '/lib/CorreoCopias.php';
 Auth::requiereLogin();
 
 $yo  = Auth::usuario();
@@ -69,9 +71,10 @@ if (class_exists('Tutoriales')) {
     $accionesCab = Tutoriales::boton($tab === 'avisos' ? 'notificaciones' : $tab) . $accionesCab;
 }
 
-UI::inicio($tab === 'correo' ? 'Correo InnoTech' : 'Notificaciones', 'notificaciones');
+$tituloPag = ['correo' => 'Correo', 'dispositivos' => 'Mis dispositivos', 'avisos' => 'Notificaciones'][$tab];
+UI::inicio($tituloPag, ['correo' => 'correo', 'dispositivos' => 'dispositivos', 'avisos' => 'notificaciones'][$tab]);
 UI::cabecera(
-    'Notificaciones',
+    $tituloPag,
     [
         'correo'       => 'Tu correo InnoTech, sin salir del panel: lee, responde y escribe desde aquí.',
         'dispositivos' => 'Recibe los avisos al instante en tu celular o tu computadora, aunque el panel esté cerrado.',
@@ -81,19 +84,7 @@ UI::cabecera(
 );
 ?>
 <div class="ds" id="notif-pagina">
-  <?php if ($correoOn || $pushOn): ?>
-  <nav class="mc-tabs mc-tabs--line notif-tabs" aria-label="Secciones de notificaciones">
-    <a class="mc-tab<?= $tab === 'avisos' ? ' is-active' : '' ?>" href="notificaciones.php"<?= $tab === 'avisos' ? ' aria-current="page"' : '' ?>>
-      <?= UI::iconoDS('notificaciones', 18) ?> Avisos del panel<?php if ($nSin): ?> <span class="mc-tab__count"><?= $nSin ?></span><?php endif; ?></a>
-    <a class="mc-tab<?= $tab === 'correo' ? ' is-active' : '' ?>" href="notificaciones.php?tab=correo"<?= $tab === 'correo' ? ' aria-current="page"' : '' ?>>
-      <?= UI::iconoDS('correo', 18) ?> Correo InnoTech<?php if ($nCorreo): ?> <span class="mc-tab__count"><?= $nCorreo > 999 ? '999+' : $nCorreo ?></span><?php elseif ($nCorreo === null): ?> <span class="notif-tabs__nuevo">Sincronizar</span><?php endif; ?></a>
-    <?php if ($pushOn): $nDisp = count(Push::dispositivos($mid)); ?>
-    <a class="mc-tab<?= $tab === 'dispositivos' ? ' is-active' : '' ?>" href="notificaciones.php?tab=dispositivos"<?= $tab === 'dispositivos' ? ' aria-current="page"' : '' ?>>
-      <?= UI::iconoDS('computadora', 18) ?> Tus dispositivos<?php if ($nDisp): ?> <span class="mc-tab__count"><?= $nDisp ?></span><?php endif; ?></a>
-    <?php endif; ?>
-  </nav>
-  <?php endif; ?>
-
+  <?php /* Sin pestañas: Correo está en el menú de la izquierda y «Mis dispositivos» en el menú de la cuenta */ ?>
   <?php if ($tab === 'correo'): ?>
     <?php correoVista($yo); ?>
   <?php elseif ($tab === 'dispositivos'): ?>

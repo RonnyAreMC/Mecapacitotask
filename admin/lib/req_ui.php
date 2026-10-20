@@ -133,7 +133,7 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
     $insts   = RequerimientoRepo::institucionesDe($r);
     $imapa   = reqUiInst();
     ?>
-    <tr class="req-tr req-e-<?= e($estado) ?><?= $vencido ? ' req-tr-vencida' : '' ?>" tabindex="0" role="button"
+    <tr class="req-tr req-e-<?= e($estado) ?><?= $vencido ? ' req-tr-vencida' : '' ?>" data-req-id="<?= (int)$r['id'] ?>" tabindex="0" role="button"
         aria-label="Abrir «<?= e((string)$r['titulo']) ?>»" data-req="<?= e(json_encode($datos, JSON_UNESCAPED_UNICODE)) ?>">
       <td class="is-primary" data-label="Requerimiento"><div class="mc-table__cell req-c-titulo">
         <span class="req-c-ico req-ico-<?= e($estado) ?>"><i class="fa-solid <?= e($icEstado) ?>"></i></span>

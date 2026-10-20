@@ -1085,41 +1085,32 @@
         notif.classList.add('is-ringing');
       };
 
-      // El número rojo de la campana: avisos sin leer + correos InnoTech sin leer.
-      // En la app instalada (PWA) también va en el ícono (setAppBadge).
+      // El número rojo de la campana: solo los avisos del panel. Los correos sin
+      // leer llevan su número en «Correo» del menú. En la app instalada (PWA) el
+      // ícono suma los dos (setAppBadge).
       let nAvisos = parseInt(notif.dataset.sin, 10) || 0;
-      let nCorreos = 0;
+      let nCorreos = parseInt(notif.dataset.correo, 10) || 0;
+      const correoOn = notif.dataset.correo !== '' && notif.dataset.correo !== undefined;
       const pintarTotal = () => {
-        const total = nAvisos + nCorreos;
-        badge.hidden = !total;
-        badge.textContent = total > 99 ? '99+' : String(total);
-        const correos = nCorreos === 1 ? '1 correo' : nCorreos + ' correos';
-        sub.textContent = nAvisos && nCorreos ? nAvisos + ' sin leer · ' + correos
-          : nAvisos ? nAvisos + ' sin leer' : nCorreos ? correos + ' sin leer' : 'Todo leído';
-        todas.hidden = !nAvisos;            // «Marcar todo leído» es solo para los avisos
-        btn.setAttribute('aria-label', 'Notificaciones' + (total ? ' (' + total + ' sin leer)' : ''));
-        notif.classList.toggle('has-pendientes', total > 0);
+        badge.hidden = !nAvisos;
+        badge.textContent = nAvisos > 99 ? '99+' : String(nAvisos);
+        sub.textContent = nAvisos ? nAvisos + ' sin leer' : 'Todo leído';
+        todas.hidden = !nAvisos;
+        btn.setAttribute('aria-label', 'Notificaciones' + (nAvisos ? ' (' + nAvisos + ' sin leer)' : ''));
+        const icono = nAvisos + nCorreos;
         if ('setAppBadge' in navigator) {
-          try { Promise.resolve(total ? navigator.setAppBadge(total) : navigator.clearAppBadge()).catch(() => {}); } catch (e) { /* sin número en el ícono */ }
+          try { Promise.resolve(icono ? navigator.setAppBadge(icono) : navigator.clearAppBadge()).catch(() => {}); } catch (e) { /* sin número en el ícono */ }
         }
       };
 
-      // Correo InnoTech: la fila de la campana con lo que no se ha leído
-      const correoFila = notif.querySelector('[data-correo-fila]');
-      const correoN = correoFila && correoFila.querySelector('[data-correo-n]');
-      let correoAntes = correoN && !correoN.hidden ? (parseInt(correoN.textContent, 10) || 0) : 0;
-      nCorreos = correoAntes;
+      // Correo InnoTech: el número de «Correo» en el menú de la izquierda
+      let correoAntes = nCorreos;
       const correoContador = (n) => {
-        if (!correoFila || correoFila.hasAttribute('data-correo-sin') || typeof n !== 'number') return;
-        const sEl = correoFila.querySelector('[data-correo-sub]');
-        if (correoN) { correoN.hidden = !n; correoN.textContent = n > 999 ? '999+' : String(n); }
-        if (sEl) sEl.textContent = n ? n + ' sin leer' : 'Estás al día';
-        if (n > correoAntes) {
-          sonar();
-          if (!conSistema('correo') && window.MC && MC.toast) {
-            const d = n - correoAntes;
-            MC.toast(d === 1 ? 'Te llegó un correo nuevo' : d + ' correos nuevos', 'info', 6000, { desc: 'Míralos en Notificaciones → Correo InnoTech.' });
-          }
+        if (!correoOn || typeof n !== 'number') return;
+        document.querySelectorAll('[data-correo-n-menu]').forEach((b) => { b.hidden = !n; b.textContent = n > 999 ? '999+' : String(n); });
+        if (n > correoAntes && !conSistema('correo') && window.MC && MC.toast) {
+          const d = n - correoAntes;
+          MC.toast(d === 1 ? 'Te llegó un correo nuevo' : d + ' correos nuevos', 'info', 6000, { desc: 'Míralos en Correo, en el menú de la izquierda.' });
         }
         correoAntes = n;
         nCorreos = n;

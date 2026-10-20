@@ -1155,7 +1155,7 @@ final class Correo
             self::guardarCuenta($mid, ['revisado' => time()]);   // antes de preguntar: si falla, espera igual
             try {
                 $imap = self::abrir($mid);
-                $n = (int)$imap->estado('INBOX')['no_leidos'];
+                $n = class_exists('CorreoCopias') ? CorreoCopias::noLeidos($imap, $mid, 'INBOX') : (int)$imap->estado('INBOX')['no_leidos'];
                 $imap->cerrar();
                 self::guardarCuenta($mid, ['no_leidos' => $n]);
                 return $n;
@@ -1190,7 +1190,8 @@ final class Correo
                 $cambios['uidvalidity'] = (int)$st['uidvalidity'];
             } elseif ($tope > $ultimo) {
                 $imap->abrir('INBOX');
-                $uids = array_slice(array_values(array_filter($imap->buscarDesde($ultimo + 1), fn($u) => $u > $ultimo)), -10);
+                // Todo lo nuevo, aunque ya esté «leído»: Gmail (POP) lo marca leído al bajarlo y si no se avisaría
+                $uids = array_slice(array_values(array_filter($imap->buscarDesde($ultimo + 1, false), fn($u) => $u > $ultimo)), -10);
                 foreach ($imap->traer($uids, 'UID BODY.PEEK[HEADER.FIELDS (FROM SUBJECT)]') as $uid => $d) {
                     $cruda = '';
                     foreach ($d as $k => $v) if (str_starts_with($k, 'BODY[')) $cruda = (string)$v;
@@ -1204,6 +1205,7 @@ final class Correo
                 usort($nuevos, fn($a, $b) => $a['uid'] <=> $b['uid']);
                 $cambios['ultimo_uid'] = $tope;
             }
+            if (class_exists('CorreoCopias')) $cambios['no_leidos'] = CorreoCopias::noLeidos($imap, $mid, 'INBOX');
             self::guardarCuenta($mid, $cambios);
         } finally {
             $imap->cerrar();
@@ -1293,18 +1295,35 @@ final class Correo
     /* ---------- Lista y mensajes ---------- */
 
     /** Una página de la carpeta (los más nuevos primero). */
-    public static function lista(CorreoImap $imap, string $carpeta, int $pagina, string $q, int $porPagina = 30): array
+    /**
+     * Una página de la carpeta. Con $mid (Recibidos y lib/CorreoCopias.php), se
+     * suman los correos guardados en el panel que ya no están en el servidor, y
+     * el punto azul de los guardados lo pone el panel (como en Gmail).
+     */
+    public static function lista(CorreoImap $imap, string $carpeta, int $pagina, string $q, int $porPagina = 30, int $mid = 0): array
     {
         $imap->abrir($carpeta);
-        $uids = $imap->buscar(mb_substr(trim($q), 0, 100));
+        $q = mb_substr(trim($q), 0, 100);
+        $uids = $imap->buscar($q);
+        $guardadas = $faltan = [];
+        if ($mid > 0 && class_exists('CorreoCopias')) {
+            $enServidor = array_flip($q === '' ? $uids : $imap->buscar(''));
+            foreach (CorreoCopias::enCarpeta($mid, $carpeta) as $u => $f) {
+                if (isset($enServidor[$u])) $guardadas[$u] = $f;
+                elseif (CorreoCopias::coincide($f, $q)) $faltan[$u] = $f;
+            }
+            $uids = array_values(array_unique(array_merge($uids, array_keys($faltan))));
+        }
         rsort($uids);
         $total = count($uids);
         $paginas = max(1, (int)ceil($total / $porPagina));
         $pagina = min(max(1, $pagina), $paginas);
         $tramo = array_slice($uids, ($pagina - 1) * $porPagina, $porPagina);
         $items = [];
-        $datos = $imap->traer($tramo, 'UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE)]');
+        $delServidor = array_values(array_filter($tramo, fn($u) => !isset($faltan[$u])));
+        $datos = $delServidor ? $imap->traer($delServidor, 'UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE)]') : [];
         foreach ($tramo as $uid) {
+            if (isset($faltan[$uid])) { $items[] = CorreoCopias::item($faltan[$uid]); continue; }
             if (!isset($datos[$uid])) continue;
             $d = $datos[$uid];
             $cabCruda = '';
@@ -1320,7 +1339,7 @@ final class Correo
                 'para'    => $para,
                 'asunto'  => CorreoMime::cab($h, 'subject'),
                 'fecha'   => self::fecha((string)($d['INTERNALDATE'] ?? ''), $h['date'][0] ?? ''),
-                'leido'   => in_array('\\seen', $flags, true),
+                'leido'   => isset($guardadas[$uid]) ? !empty($guardadas[$uid]['leido']) : in_array('\\seen', $flags, true),
                 'marcado' => in_array('\\flagged', $flags, true),
                 'adjunto' => str_contains($ct, 'multipart/mixed') || str_contains($ct, 'multipart/report'),
                 'tam'     => (int)($d['RFC822.SIZE'] ?? 0),
@@ -1349,6 +1368,7 @@ final class Correo
         $m['referencias'] = trim((string)($h['references'][0] ?? ''));
         // Texto para citar: el plano si vino; si no, el HTML pasado a texto
         $m['texto_cita'] = trim((string)($m['texto'] ?? '')) !== '' ? (string)$m['texto'] : CorreoHtml::aTexto((string)($m['html'] ?? ''));
+        $m['crudo'] = $crudo;   // para guardar la copia en el panel (lib/CorreoCopias.php)
         return $m;
     }
 
@@ -1431,6 +1451,12 @@ final class Correo
         }
     }
 
+    /** Guarda datos propios de la cuenta (reglas, punteros…). No crea cuentas. */
+    public static function guardarDatos(int $mid, array $cambios): void
+    {
+        if (self::cuenta($mid)) self::guardarCuenta($mid, $cambios);
+    }
+
     /** Las últimas direcciones a las que la persona escribió (la más reciente primero). */
     public static function recientes(int $mid): array
     {
@@ -1506,6 +1532,23 @@ final class Correo
         $tag = '';
         $ct = openssl_encrypt($plano, 'aes-256-gcm', self::secreto(), OPENSSL_RAW_DATA, $iv, $tag);
         return 'v1:' . base64_encode($iv . $tag . $ct);
+    }
+
+    /** Cifra datos binarios (las copias de los correos): iv(12) + tag(16) + cifrado. */
+    public static function sellar(string $plano): string
+    {
+        $iv = random_bytes(12);
+        $tag = '';
+        $ct = openssl_encrypt($plano, 'aes-256-gcm', self::secreto(), OPENSSL_RAW_DATA, $iv, $tag);
+        return $ct === false ? '' : $iv . $tag . $ct;
+    }
+
+    /** Lo contrario de sellar(); '' si no se puede abrir. */
+    public static function desellar(string $b): string
+    {
+        if (strlen($b) < 29) return '';
+        $r = openssl_decrypt(substr($b, 28), 'aes-256-gcm', self::secreto(), OPENSSL_RAW_DATA, substr($b, 0, 12), substr($b, 12, 16));
+        return $r === false ? '' : $r;
     }
 
     private static function descifrar(string $guardado): string
