@@ -264,7 +264,9 @@ class UI
       <?php if ($nSol): ?><span class="nav-badge" title="<?= $nSol ?> solicitud(es) de acceso por revisar"><?= $nSol ?></span><?php endif; ?>
     </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
-    <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
+    <?php $eArte = UI::arteEquipo($ek); /* su escena con personas al lado del nombre; con el menú cerrado, el busto */ ?>
+    <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link<?= $eArte !== '' ? ' sidebar-link-equipo' : '' ?> <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
+      <?php if ($eArte !== ''): ?><span class="sb-eq-escena" aria-hidden="true"><img src="<?= e(asset('iconos/ilustraciones/' . $eArte . '.svg')) ?>" alt="" width="78" height="63" decoding="async"></span><?php endif; ?>
       <?= UI::iconoEquipo($ek, $eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
@@ -1481,6 +1483,13 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         $propio = 'eq-' . preg_replace('/[^a-z0-9_-]/', '', strtolower($clave));
         if (self::hayIcono($propio)) return self::icono($propio, trim('ico-equipo ' . $clase));
         return self::icono($icono !== '' ? $icono : 'ds-usuarios', $clase);
+    }
+
+    /** Escena con personas del equipo (iconos/ilustraciones/equipo-*.svg), o '' si no tiene. */
+    public static function arteEquipo(string $clave): string
+    {
+        $arte = ['programacion' => 'equipo-programadores', 'analistas' => 'equipo-analistas', 'disenadores' => 'equipo-disenadores'][$clave] ?? '';
+        return $arte !== '' && is_file(__DIR__ . '/../iconos/ilustraciones/' . $arte . '.svg') ? $arte : '';
     }
 
     /**

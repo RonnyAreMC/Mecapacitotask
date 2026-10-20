@@ -3036,3 +3036,14 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 26px; height: 
 .ico.ico-equipo.ico-equipo--chip { width: 18px; height: 18px; margin-right: 2px; vertical-align: -4px; }
 .eqo-col__cab .ico.ico-equipo { width: 34px; height: 34px; }
 .eqo-menu__op .ico.ico-equipo { width: 28px; height: 28px; }
+
+/* Menú: la escena con personas de cada equipo al lado de su nombre (UI::arteEquipo).
+   Con el menú cerrado no cabe: ahí queda el busto (eq-*.svg). */
+html:not(.sb-collapsed) .sidebar .sidebar-link-equipo { padding-top: 5px; padding-bottom: 5px; }
+.sb-eq-escena { display: block; flex: none; width: 48px; height: 44px; overflow: hidden; border-radius: 12px; background: #EEF4FF; }
+.sb-eq-escena img { display: block; width: 78px; height: 63px; max-width: none; margin: -10px 0 0 -22px; }
+html .sidebar .sidebar-link-equipo .ico.ico-equipo, html.dark .sidebar .sidebar-link-equipo .ico.ico-equipo { display: none; }
+@media (min-width: 901px) {
+  html.sb-collapsed .sidebar .sidebar-link-equipo .sb-eq-escena { display: none; }
+  html.sb-collapsed .sidebar .sidebar-link-equipo .ico.ico-equipo { display: block; }
+}
