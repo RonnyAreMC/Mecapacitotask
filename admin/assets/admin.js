@@ -120,7 +120,7 @@
     dlg.querySelector('header h3 > i').className = 'fa-solid ' + (a.img ? 'fa-file-image' : 'fa-file-pdf');
     dlg.querySelector('.vo-cont').textContent = lista.length > 1 ? (idx + 1) + ' / ' + lista.length : '';
     const bajar = dlg.querySelector('.vo-bajar');
-    bajar.href = a.ruta;
+    bajar.href = a.bajar || a.ruta;
     bajar.setAttribute('download', a.nombre);
     dlg.querySelectorAll('.vo-flecha').forEach((b) => { b.hidden = lista.length < 2; });
     dlg.querySelector('.vo-previa').innerHTML = a.img
@@ -129,11 +129,13 @@
   }
 
   document.addEventListener('click', (e) => {
-    const el = e.target.closest && e.target.closest('.obs-adjuntos a[href]');
+    // Adjuntos de una observación, o de un grupo marcado (los del correo: [data-visor-grupo] a[data-visor])
+    const el = e.target.closest && e.target.closest('.obs-adjuntos a[href], [data-visor-grupo] a[data-visor][href]');
     if (!el || !sePuedeVer(el) || e.metaKey || e.ctrlKey || e.shiftKey || e.button !== 0) return;
     e.preventDefault();
-    const items = [...el.closest('.obs-adjuntos').querySelectorAll('a[href]')].filter(sePuedeVer);
-    lista = items.map((x) => ({ ruta: x.getAttribute('href'), nombre: nombreDe(x), img: esImg(x) }));
+    const grupo = el.closest('.obs-adjuntos, [data-visor-grupo]');
+    const items = [...grupo.querySelectorAll(grupo.matches('[data-visor-grupo]') ? 'a[data-visor][href]' : 'a[href]')].filter(sePuedeVer);
+    lista = items.map((x) => ({ ruta: x.getAttribute('href'), bajar: x.dataset.bajar || x.getAttribute('href'), nombre: nombreDe(x), img: esImg(x) }));
     if (!dlg) crear();
     ver(items.indexOf(el));
     if (!dlg.open) dlg.showModal();

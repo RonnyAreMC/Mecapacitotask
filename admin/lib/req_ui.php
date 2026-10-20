@@ -222,26 +222,13 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
 
         <div class="fq-chips" id="fq-chips"></div>
 
+        <!-- Apaisado: lo que se lee (detalle, cierre, observaciones) a la izquierda;
+             documentos, fechas y responsables a la derecha. En el teléfono, una columna. -->
+        <div class="fq-cols">
+        <div class="fq-principal">
         <div class="fq-bloque">
           <h4>Detalle</h4>
           <div id="fq-detalle" class="rt-render"></div>
-        </div>
-
-        <div class="fq-bloque" id="fq-docs-bloque" hidden>
-          <h4>Documentos</h4>
-          <div id="fq-docs" class="dt-adjuntos"></div>
-        </div>
-
-        <div class="fq-datos">
-          <div><span>Lo pide</span><b id="fq-solicitante"></b></div>
-          <div><span>Inicio</span><b id="fq-inicio"></b></div>
-          <div><span>Entrega</span><b id="fq-fin"></b></div>
-          <div><span>Registrado</span><b id="fq-creado"></b></div>
-        </div>
-
-        <div class="fq-bloque">
-          <h4>Responsables</h4>
-          <ul class="fq-personas" id="fq-personas"></ul>
         </div>
 
         <!-- Observación de cierre: lo que dejó anotado quien lo terminó (rama,
@@ -282,6 +269,27 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
             </button>
           </form>
           <small class="campo-ayuda" id="fq-obs-para"></small>
+        </div>
+        </div>
+
+        <aside class="fq-lado">
+        <div class="fq-datos">
+          <div><span>Lo pide</span><b id="fq-solicitante"></b></div>
+          <div><span>Registrado</span><b id="fq-creado"></b></div>
+          <div><span>Inicio</span><b id="fq-inicio"></b></div>
+          <div><span>Entrega</span><b id="fq-fin"></b></div>
+        </div>
+
+        <div class="fq-bloque">
+          <h4>Responsables</h4>
+          <ul class="fq-personas" id="fq-personas"></ul>
+        </div>
+
+        <div class="fq-bloque" id="fq-docs-bloque" hidden>
+          <h4>Documentos</h4>
+          <div id="fq-docs" class="dt-adjuntos"></div>
+        </div>
+        </aside>
         </div>
 
         <footer>

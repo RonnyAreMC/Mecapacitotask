@@ -19,6 +19,63 @@ final class TareasCorreo
 {
     private static function repo(): JsonStore { return new JsonStore('tareas_correo'); }
 
+    /* ---------------- ¿Ya existe esa tarea en el proyecto? ---------------- */
+
+    /** Palabras que no cuentan al comparar títulos */
+    private const VACIAS = ['los', 'las', 'del', 'para', 'con', 'por', 'una', 'uno', 'unos', 'unas', 'que', 'sus', 'esta', 'este', 'estos', 'como',
+                            'desde', 'sobre', 'entre', 'segun', 'cada', 'todo', 'toda', 'todos', 'todas', 'nuevo', 'nueva', 'the', 'and', 'for'];
+
+    /**
+     * Las tareas que ya tiene el proyecto (abiertas primero, luego las últimas
+     * terminadas), para que la IA no proponga repetidas y para compararlas:
+     * [id, titulo, estado, estado_txt, final, norm].
+     */
+    public static function existentes(int $pid, int $max = 300): array
+    {
+        $finales = Catalogo::estadosFinales();
+        $est = Catalogo::estadosTarea();
+        $l = [];
+        foreach ((new TareaRepo())->delProyecto($pid) as $t) {
+            $e = (string)($t['estado'] ?? '');
+            $l[] = ['id' => (int)$t['id'], 'titulo' => (string)$t['titulo'], 'estado' => $e, 'estado_txt' => (string)($est[$e][0] ?? $e),
+                    'final' => in_array($e, $finales, true), 'norm' => self::normalizar((string)$t['titulo']), 'n' => (int)$t['id']];
+        }
+        usort($l, fn($a, $b) => [$a['final'], -$a['n']] <=> [$b['final'], -$b['n']]);
+        return array_slice($l, 0, $max);
+    }
+
+    /** Título en minúsculas, sin tildes ni signos ni palabras de relleno */
+    public static function normalizar(string $s): string
+    {
+        $s = mb_strtolower(trim($s));
+        $s = strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+        $s = (string)preg_replace('/[^a-z0-9]+/', ' ', $s);
+        return implode(' ', array_filter(explode(' ', $s), fn($w) => strlen($w) > 2 && !in_array($w, self::VACIAS, true)));
+    }
+
+    /**
+     * La tarea existente que hace lo mismo, por su título (sin gastar IA):
+     * cuántas palabras comparten, contando como iguales las que empiezan
+     * igual («balance»/«balances», «auditado»/«auditados»). null si ninguna.
+     */
+    public static function parecida(string $titulo, array $existentes): ?array
+    {
+        $wa = array_values(array_unique(array_filter(explode(' ', self::normalizar($titulo)))));
+        if (!$wa) return null;
+        $igual = fn(string $x, string $y) => $x === $y || (strlen($x) >= 5 && strlen($y) >= 5 && substr($x, 0, 5) === substr($y, 0, 5));
+        $mejor = null;
+        $max = 0.0;
+        foreach ($existentes as $e) {
+            $wb = array_values(array_unique(array_filter(explode(' ', (string)$e['norm']))));
+            if (!$wb) continue;
+            $comun = 0;
+            foreach ($wa as $x) foreach ($wb as $y) if ($igual($x, $y)) { $comun++; break; }
+            $s = $comun / max(1, count($wa) + count($wb) - $comun);
+            if ($s > $max) { $max = $s; $mejor = $e; }
+        }
+        return $max >= 0.6 ? $mejor : null;
+    }
+
     /** El correo en la forma de ReqCorreo::leer (asunto, de, para, cc, fecha, texto, adjuntos…) */
     public static function leer(int $mid, string $carpeta, int $uid): array
     {

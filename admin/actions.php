@@ -2491,9 +2491,9 @@ switch ($accion) {
             $idsTc[] = (int)$tNueva['id'];
             if ($lTc['ref'] !== '') $porRefTc[$lTc['ref']] = (int)$tNueva['id'];
         }
-        // «Después de» dentro del mismo lote
+        // «Después de» dentro del mismo lote, o de una tarea que ya existía («#id»: la que no se creó por repetida)
         foreach ($listasTc as $kTc => $lTc) {
-            $depTc = $porRefTc[$lTc['dep']] ?? 0;
+            $depTc = $porRefTc[$lTc['dep']] ?? (preg_match('/^#(\d+)$/', $lTc['dep'], $mDepTc) ? (int)$mDepTc[1] : 0);
             if ($depTc > 0 && $depTc !== $idsTc[$kTc]) {
                 $depsTc = $tareas->dependenciasValidas($idsTc[$kTc], [$depTc], $pidTc);
                 if ($depsTc) $tareas->actualizar($idsTc[$kTc], ['dependencias' => $depsTc, 'depende_de' => $depsTc[0]]);
@@ -3256,7 +3256,6 @@ switch ($accion) {
     case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'ia_req_correo':
-    case 'ia_destino_correo':
     case 'ia_tareas_correo':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
@@ -3391,7 +3390,8 @@ switch ($accion) {
                         $imapRc = Correo::abrir($yoRc);
                         try {
                             $carpRc = Correo::carpetaValida(Correo::carpetas($imapRc, $yoRc), (string)($_POST['c'] ?? ''));
-                            $filaRc = ReqCorreo::analizar($yoRc, (string)$carpRc['nombre'], (int)($_POST['uid'] ?? 0), 'manual', '', $imapRc);
+                            $filaRc = ReqCorreo::analizar($yoRc, (string)$carpRc['nombre'], (int)($_POST['uid'] ?? 0), 'manual', '', $imapRc,
+                                mb_substr(trim((string)($_POST['instrucciones'] ?? '')), 0, 1500));
                         } finally {
                             $imapRc->cerrar();
                         }
@@ -3401,26 +3401,6 @@ switch ($accion) {
                     $resIa = ['url' => ($filaRc['estado'] ?? '') === 'registrado'
                         ? 'requerimientos.php?ver=' . (int)$filaRc['req_id']
                         : 'requerimientos.php?propuesta=' . (int)$filaRc['id']];
-                    break;
-
-                case 'ia_destino_correo':
-                    // ¿El correo es trabajo de un proyecto o un requerimiento suelto? Solo el administrador
-                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Analizar los correos es solo para administradores.'], 403);
-                    if (!class_exists('TareasCorreo') || !class_exists('ReqCorreo') || !class_exists('Correo')) throw new IAError('Falta el módulo del correo en el servidor.');
-                    try {
-                        $msgDc = TareasCorreo::leer((int)(Auth::usuario()['id'] ?? 0), (string)($_POST['c'] ?? ''), (int)($_POST['uid'] ?? 0));
-                    } catch (CorreoError $e) {
-                        throw new IAError($e->getMessage());
-                    }
-                    $proyDc = [];
-                    foreach (soloProyectosVisibles($proyectos->todos()) as $pDc) {
-                        if (($pDc['estado'] ?? 'activo') === 'completado') continue;
-                        $proyDc[] = ['id' => (int)$pDc['id'], 'nombre' => (string)$pDc['nombre'], 'descripcion' => (string)($pDc['descripcion'] ?? '')];
-                    }
-                    $instDc = array_map(fn($i) => ['id' => (int)$i['id'], 'nombre' => (string)$i['nombre']], (new InstitucionRepo())->todas());
-                    $resIa = IAFunciones::destinoCorreo($msgDc, $proyDc, $instDc);
-                    $resIa['proyecto'] = '';
-                    foreach ($proyDc as $pDc) if ($pDc['id'] === $resIa['proyecto_id']) $resIa['proyecto'] = $pDc['nombre'];
                     break;
 
                 case 'ia_tareas_correo':
@@ -3434,8 +3414,16 @@ switch ($accion) {
                         throw new IAError($e->getMessage());
                     }
                     $genteTc = TareasCorreo::gente($proyIa);
-                    $resIa = IAFunciones::tareasCorreo($proyIa, $msgTc, $genteTc, trim((string)($_POST['instrucciones'] ?? '')))
-                        + ['gente' => array_map(fn($g) => ['id' => $g['id'], 'nombre' => $g['nombre'], 'rol' => $g['rol']], $genteTc),
+                    $existTc = TareasCorreo::existentes((int)$proyIa['id']);
+                    $resIa = IAFunciones::tareasCorreo($proyIa, $msgTc, $genteTc, trim((string)($_POST['instrucciones'] ?? '')), $existTc);
+                    // ¿Ya existe en el proyecto? Lo que diga la IA o, si no, un título casi igual (sin gastar IA)
+                    $porIdTc = array_column($existTc, null, 'id');
+                    foreach ($resIa['tareas'] as &$tPropTc) {
+                        $eTc = $porIdTc[$tPropTc['ya_existe']] ?? TareasCorreo::parecida($tPropTc['titulo'], $existTc);
+                        $tPropTc['ya_existe'] = $eTc ? ['id' => $eTc['id'], 'titulo' => $eTc['titulo'], 'estado' => $eTc['estado_txt'], 'final' => $eTc['final']] : null;
+                    }
+                    unset($tPropTc);
+                    $resIa += ['gente' => array_map(fn($g) => ['id' => $g['id'], 'nombre' => $g['nombre'], 'rol' => $g['rol']], $genteTc),
                            'proyecto' => $proyIa['nombre'], 'origen' => TareasCorreo::origen($msgTc), 'mensaje_id' => $msgTc['message_id'],
                            'prioridades' => array_map(fn($v) => $v[0], Catalogo::prioridades())];
                     break;

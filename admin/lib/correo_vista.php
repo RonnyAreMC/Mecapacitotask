@@ -386,8 +386,27 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
       <span class="correo-ini correo-ini--lg" style="background:<?= e(correoColor($de['email'])) ?>" aria-hidden="true"><?= e(correoIniciales($de)) ?></span>
       <div class="correo-msg__meta">
         <p><b><?= e(correoQuien($de)) ?></b><?php if ($de['nombre'] !== ''): ?> <span>&lt;<?= e($de['email']) ?>&gt;</span><?php endif; ?></p>
-        <p>Para: <?= e(correoDirs($m['para']) ?: '—') ?></p>
-        <?php if ($m['cc']): ?><p>CC: <?= e(correoDirs($m['cc'])) ?></p><?php endif; ?>
+        <?php
+          // A quién más le llegó: cada destinatario como ficha (Para y CC), con «Tú» marcado.
+          // Si no estás en ninguno de los dos, te llegó con copia oculta o por una lista.
+          $yoMailL = strtolower((string)((Correo::cuenta((int)(Auth::usuario()['id'] ?? 0)) ?? [])['email'] ?? ''));
+          $esYo = fn(array $d) => $yoMailL !== '' && strtolower((string)$d['email']) === $yoMailL;
+          // Cada uno con su bolita de color e iniciales (el mismo color que tendría como remitente)
+          $fichas = fn(array $l) => implode('', array_map(fn($d) => '<span class="correo-dest' . ($esYo($d) ? ' correo-dest--yo' : '') . '" data-ds-tip="' . e((string)$d['email']) . '">'
+              . '<span class="correo-dest__ini" style="background:' . e(correoColor((string)$d['email'])) . '" aria-hidden="true">' . e(correoIniciales($d)) . '</span>'
+              . '<span class="correo-dest__nom">' . e($esYo($d) ? 'Tú' : correoQuien($d)) . '</span></span>', array_slice($l, 0, 60)))
+              . (count($l) > 60 ? '<span class="correo-dest-mas">y ' . (count($l) - 60) . ' más</span>' : '');
+          $yoEnPara = (bool)array_filter($m['para'], $esYo);
+          $yoEnCc = (bool)array_filter($m['cc'], $esYo);
+          $esMio = $esYo($de);
+        ?>
+        <p class="correo-dest-fila"><span class="correo-dest-tit">Para</span><?= $m['para'] ? $fichas($m['para']) : '<span class="correo-dest-mas">—</span>' ?></p>
+        <?php if ($m['cc']): ?><p class="correo-dest-fila"><span class="correo-dest-tit">CC</span><?= $fichas($m['cc']) ?></p><?php endif; ?>
+        <?php if ($yoMailL !== '' && !$esMio && !$yoEnPara && $yoEnCc): ?>
+        <p class="correo-dest-nota">Te llegó con copia (CC).</p>
+        <?php elseif ($yoMailL !== '' && !$esMio && !$yoEnPara && !$yoEnCc): ?>
+        <p class="correo-dest-nota">No estás en «Para» ni en «CC»: te llegó con copia oculta (CCO), por una lista o por un reenvío automático.</p>
+        <?php endif; ?>
       </div>
       <time class="correo-msg__fecha"><?= e(Correo::fechaLarga($m['fecha'])) ?></time>
     </div>
@@ -415,12 +434,18 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
     <?php endif; ?>
   </div>
   <?php if ($visibles): ?>
-  <div class="correo-adjuntos">
-    <?php foreach ($visibles as $i => $a): ?>
-    <a class="correo-adjunto" href="<?= e(correoPagina() . '?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i])) ?>">
+  <div class="correo-adjuntos" data-visor-grupo>
+    <?php foreach ($visibles as $i => $a):
+        // PDF e imágenes se abren en el visor del panel (admin.js), con flechas y «Descargar»; lo demás se descarga
+        $tipoVer = correoTipoVisible($a);
+        $urlAdj = correoPagina() . '?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i] + ($tipoVer !== '' ? ['ver' => 1] : []));
+    ?>
+    <a class="correo-adjunto<?= $tipoVer !== '' ? ' correo-adjunto--ver' : '' ?>" href="<?= e($urlAdj) ?>"<?= $tipoVer !== ''
+        ? ' data-visor data-ext="' . ($tipoVer === 'application/pdf' ? 'pdf' : 'png') . '" data-nombre="' . e($a['nombre']) . '"'
+          . ' data-bajar="' . e(correoPagina() . '?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i])) . '"' : '' ?>>
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS(str_starts_with($a['tipo'], 'image/') ? 'ver' : 'documento', 16) ?></span>
-      <span class="correo-adjunto__txt"><b><?= e($a['nombre']) ?></b><small><?= e(correoTam($a['tam'])) ?></small></span>
-      <?= UI::iconoDS('descargar', 16) ?>
+      <span class="correo-adjunto__txt"><b><?= e($a['nombre']) ?></b><small><?= e(correoTam($a['tam'])) . ($tipoVer !== '' ? ' · Ver' : '') ?></small></span>
+      <?= UI::iconoDS($tipoVer !== '' ? 'ver' : 'descargar', 16) ?>
     </a>
     <?php endforeach; ?>
   </div>
@@ -467,8 +492,8 @@ function correoBloqueRequerimiento(array $m, string $carpeta): void
                 . ' en <a href="proyecto.php?id=' . (int)$h['proyecto_id'] . '">«' . e($nombreTc[$h['proyecto_id']] ?? 'un proyecto') . '»</a>', $hechasTc)), true);
         }
     }
-    // Un solo botón con la estrella de la IA: decide si es trabajo de un proyecto (y arma
-    // sus tareas) o un requerimiento suelto (y lo deja listo para registrar). Solo el administrador.
+    // Un solo botón con la estrella de la IA: abre el asistente (assets/ia.js) donde el administrador
+    // elige si son tareas de un proyecto o un requerimiento suelto. La IA solo corre cuando él lo pide.
     if ($conReq || $conTareas) {
         $texto = match ($estado) {
             'no_es'      => 'La IA creyó que este correo no pedía un trabajo. Si sí lo pide, analízalo igual.',
@@ -476,12 +501,12 @@ function correoBloqueRequerimiento(array $m, string $carpeta): void
             'descartado' => 'Descartaste el requerimiento de este correo. Puedes analizarlo otra vez.',
             default      => ($estado === 'registrado' || $estado === 'propuesta' || $hechasTc)
                 ? '¿Trae más trabajo? Puedes analizarlo otra vez.'
-                : '¿Qué pide este correo? La IA revisa si es trabajo de un proyecto (y arma sus tareas con responsable, fechas y descripción) o un requerimiento suelto.',
+                : '¿Trae trabajo? Conviértelo en tareas de un proyecto o en un requerimiento suelto: tú eliges y la IA lo arma.',
         };
         echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--azul">' . UI::iconoDS('ia', 18) . '</span>'
             . '<p>' . $texto . '</p>'
             . '<button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-ia-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '"'
-            . ' data-req="' . ($conReq ? '1' : '') . '" data-tareas="' . ($conTareas ? '1' : '') . '" data-clasificar="' . (UI::ia('destino_correo') ? '1' : '') . '"'
+            . ' data-req="' . ($conReq ? '1' : '') . '" data-tareas="' . ($conTareas ? '1' : '') . '" data-asunto="' . e((string)$m['asunto']) . '"'
             . ' data-proyectos="' . e(json_encode(array_map(fn($p) => ['id' => $p['id'], 'nombre' => $p['nombre'] . ($p['activo'] ? '' : ' (no activo)')], $proyTc), JSON_UNESCAPED_UNICODE)) . '">'
             . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">Analizar con IA</span></button></div>';
     }
@@ -632,16 +657,35 @@ function correoDescargarAdjunto(int $mid): void
         http_response_code(404);
         exit('Ese adjunto ya no está.');
     }
-    correoEntregarAdjunto($a);
+    correoEntregarAdjunto($a, !empty($_GET['ver']));
 }
 
-/** Manda un adjunto al navegador como descarga. */
-function correoEntregarAdjunto(array $a): never
+/**
+ * Tipo con el que un adjunto se puede mostrar dentro del panel (visor de PDF e
+ * imágenes), mirando sus primeros bytes y no lo que dice el correo. Solo PDF e
+ * imágenes de mapa de bits: un SVG o un HTML podrían llevar código. '' = no.
+ */
+function correoTipoVisible(array $a): string
+{
+    $d = (string)$a['datos'];
+    return match (true) {
+        str_starts_with($d, '%PDF-')                                    => 'application/pdf',
+        str_starts_with($d, "\x89PNG\r\n\x1a\n")                        => 'image/png',
+        str_starts_with($d, "\xFF\xD8\xFF")                             => 'image/jpeg',
+        str_starts_with($d, 'GIF87a') || str_starts_with($d, 'GIF89a') => 'image/gif',
+        str_starts_with($d, 'RIFF') && substr($d, 8, 4) === 'WEBP'     => 'image/webp',
+        default                                                         => '',
+    };
+}
+
+/** Manda un adjunto al navegador: como descarga o, si se pidió verlo y se puede, para mostrarlo. */
+function correoEntregarAdjunto(array $a, bool $verEnLinea = false): never
 {
     $nombre = CorreoMime::nombreArchivo($a['nombre']);
     $ascii = preg_replace('/[^\x20-\x7e]|"/', '_', $nombre);
-    header('Content-Type: application/octet-stream');
-    header('Content-Disposition: attachment; filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode($nombre));
+    $tipo = $verEnLinea ? correoTipoVisible($a) : '';
+    header('Content-Type: ' . ($tipo !== '' ? $tipo : 'application/octet-stream'));
+    header('Content-Disposition: ' . ($tipo !== '' ? 'inline' : 'attachment') . '; filename="' . $ascii . '"; filename*=UTF-8\'\'' . rawurlencode($nombre));
     header('Content-Length: ' . strlen($a['datos']));
     header('X-Content-Type-Options: nosniff');
     header('Cache-Control: private, no-store');

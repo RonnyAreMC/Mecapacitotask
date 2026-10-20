@@ -328,13 +328,26 @@
   });
 
   /* =========================================================
-     3c. Analizar un correo con la IA (solo el administrador): decide si el
-     trabajo es de un proyecto (y arma sus tareas con responsable, fechas y
-     descripción, lib/TareasCorreo.php) o un requerimiento suelto (y lo deja
-     listo en Requerimientos, lib/ReqCorreo.php). Las dos opciones quedan a la
-     vista; la sugerida va marcada. Sin responsable no se crea ninguna tarea.
+     3c. Asistente «Analizar este correo» (solo el administrador), en tres pasos:
+     1) qué es: lo elige él (tareas de un proyecto o requerimiento suelto);
+     2) el proyecto y sus indicaciones, o las indicaciones del requerimiento;
+     3) revisar las tareas y crearlas (lib/TareasCorreo.php), o abrir el
+        formulario de Requerimientos ya lleno (lib/ReqCorreo.php).
+     La IA solo corre cuando él pulsa el botón. Sin responsable no se crea nada.
      ========================================================= */
   const marcaCheck = '<svg class="mc-draw-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  const fechaCorta = (f) => (/^\d{4}-\d{2}-\d{2}$/.test(f || '') ? f.slice(8, 10) + '/' + f.slice(5, 7) + '/' + f.slice(0, 4) : '');
+  // [corto, título del paso, ayuda]: los nombres cambian según lo que se elija en el paso 1
+  const PASOS_TCW = {
+    '': [['Qué es', '¿Qué pide este correo?', 'Elige tú a dónde va el trabajo. La IA todavía no lee nada.'],
+         ['Detalles', '', 'Lo que la IA necesita saber'], ['Revisar', '', 'Antes de guardar']],
+    proyecto: [['Qué es', '¿Qué pide este correo?', 'Elige tú a dónde va el trabajo. La IA todavía no lee nada.'],
+               ['Proyecto', '¿De qué proyecto es?', 'Elige el proyecto y, si quieres, dile a la IA cómo armar las tareas.'],
+               ['Tareas', 'Revisa las tareas', 'Cada una necesita su responsable. Desmarca las que no quieras crear.']],
+    requerimiento: [['Qué es', '¿Qué pide este correo?', 'Elige tú a dónde va el trabajo. La IA todavía no lee nada.'],
+                    ['Requerimiento', 'Armar el requerimiento', 'Si quieres, dile a la IA qué tener en cuenta.'],
+                    ['Registrar', 'Revisar y registrar', 'Se abre el formulario de Requerimientos ya lleno.']],
+  };
   document.addEventListener('click', (e) => {
     const b = e.target.closest('[data-ia-correo]');
     if (!b) return;
@@ -343,77 +356,155 @@
     try { proyectos = JSON.parse(b.dataset.proyectos || '[]'); } catch (x) { proyectos = []; }
     const conReq = b.dataset.req === '1';
     const conTareas = b.dataset.tareas === '1' && proyectos.length > 0;
-    const opcion = (valor, titulo, desc, on) => '<label class="tc-opcion' + (on ? '' : ' is-apagada') + '">'
+    const nombreProy = (id) => ((proyectos.find((p) => String(p.id) === String(id)) || {}).nombre || '').replace(/ \(no activo\)$/, '');
+
+    const opcion = (valor, icono, titulo, desc, on, porque) => '<label class="tc-opcion' + (on ? '' : ' is-apagada') + '">'
       + '<input type="radio" class="mc-sr-only" name="tc-destino" value="' + valor + '"' + (on ? '' : ' disabled') + '>'
+      + '<span class="tc-opcion__ico" aria-hidden="true"><i class="fa-solid ' + icono + '"></i></span>'
       + '<span class="tc-opcion__punto" aria-hidden="true"></span>'
-      + '<span class="tc-opcion__txt"><b>' + titulo + '</b><small>' + desc + '</small></span>'
-      + '<span class="tc-opcion__sug" hidden>Sugerido por la IA</span></label>';
+      + '<span class="tc-opcion__txt"><b>' + titulo + '</b><small>' + desc + '</small>'
+      + (on ? '' : '<small class="tc-opcion__no">' + porque + '</small>') + '</span></label>';
+    const ind = (attr, ej) => '<div class="mc-field"><label class="mc-field__label" for="tcw-' + attr + '">Indicaciones para la IA <span class="ds-opcional">(opcional)</span></label>'
+      + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="tcw-' + attr + '" rows="5" data-' + attr + ' maxlength="1500" placeholder="' + ej + '"></textarea></div></div>';
 
-    const dlg = modal('Analizar este correo', 'fa-wand-magic-sparkles',
-      '<div class="tc-analizando" data-tc-analizando><span class="tc-giro" aria-hidden="true"></span>La IA está leyendo el correo para ver a dónde va el trabajo…</div>'
-      + '<p class="tc-sugerencia" data-tc-sugerencia hidden></p>'
-      + '<div class="tc-opciones" role="radiogroup" aria-label="¿A dónde va este trabajo?">'
-      + opcion('proyecto', 'Tareas de un proyecto', 'Se crean en su tablero, cada una con su responsable, sus fechas y la descripción del correo.', conTareas)
-      + opcion('requerimiento', 'Requerimiento suelto', 'Para una institución, sin proyecto: queda listo en Requerimientos para revisarlo y registrarlo.', conReq)
-      + '</div>'
-      + '<div class="tc-paso1" data-tc-paso-proyecto hidden>'
-      + '<div class="mc-field"><label class="mc-field__label">Proyecto</label><select data-ds-select data-tc-proyecto aria-label="Proyecto">'
+    const dlg = document.createElement('dialog');
+    dlg.className = 'dlg-meca dlg-wizard dlg-tcw';
+    dlg.innerHTML = '<div class="dlg-form wz">'
+      + '<aside class="wz-riel"><div class="wz-marca"><span class="wz-icono"><i class="fa-solid fa-wand-magic-sparkles"></i></span>'
+      + '<h3 class="font-display">Analizar este correo</h3><p>' + (b.dataset.asunto ? '«' + esc(b.dataset.asunto) + '»' : 'Tareas de un proyecto o un requerimiento suelto') + '</p></div>'
+      + '<div class="wz-pasos">' + [0, 1, 2].map((i) => '<button type="button" class="wz-paso" data-i="' + i + '"><span class="wz-num">' + (i + 1) + '</span>'
+        + '<span class="wz-txt"><b></b><small></small></span></button>').join('') + '</div></aside>'
+      + '<div class="wz-cuerpo"><header><div><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>'
+      + '<button type="button" class="dlg-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>'
+      + '<div class="ia-cuerpo tcw-paneles">'
+      // 1. Qué es
+      + '<section class="wz-panel" data-p="que"><div class="tc-opciones tcw-opciones" role="radiogroup" aria-label="¿Qué pide este correo?">'
+      + opcion('proyecto', 'fa-list-check', 'Tareas de un proyecto', 'Trabajo de uno de los proyectos del panel. Se crean en su tablero, cada una con su responsable, sus fechas y la descripción del correo.',
+        conTareas, 'No hay proyectos abiertos, o la función está apagada en Ajustes de IA.')
+      + opcion('requerimiento', 'fa-inbox', 'Requerimiento suelto', 'Un pedido de una institución que no es de ningún proyecto. Queda listo en Requerimientos para revisarlo y registrarlo.',
+        conReq, 'La función está apagada en Ajustes de IA.')
+      + '</div><p class="tcw-nota"><i class="fa-solid fa-circle-info"></i> La IA no se usa hasta que tú lo pidas en el paso siguiente.</p></section>'
+      // 2a. Proyecto
+      + '<section class="wz-panel" data-p="proyecto">'
+      + '<div class="mc-field"><label class="mc-field__label">Proyecto</label><select data-ds-select data-ds-buscar data-tc-proyecto aria-label="Proyecto">'
       + '<option value="">Elige el proyecto</option>' + proyectos.map((p) => '<option value="' + p.id + '">' + esc(p.nombre) + '</option>').join('') + '</select></div>'
-      + '<div class="mc-field"><label class="mc-field__label" for="tc-ind">Indicaciones <span class="ds-opcional">(opcional)</span></label>'
-      + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="tc-ind" rows="2" data-tc-ind maxlength="1500" placeholder="Ej.: que sean dos tareas, diseño y publicación; asígnalas a Kevin"></textarea></div></div>'
-      + '</div><div class="tc-lista" data-tc-lista></div>',
-      '<button type="button" class="btn-primary btn-meca" data-tc-proponer hidden><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Proponer tareas</span></button>'
-      + '<button type="button" class="btn-primary btn-meca" data-tc-crear hidden><i class="fa-solid fa-check"></i> <span>Crear tareas</span></button>'
-      + '<button type="button" class="btn-primary btn-meca" data-tc-req hidden><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Armar el requerimiento</span></button>');
-    dlg.classList.add('dlg-tc', 'dlg-ia-ancho');
-    const analizando = dlg.querySelector('[data-tc-analizando]');
-    const sugerencia = dlg.querySelector('[data-tc-sugerencia]');
-    const pasoProy = dlg.querySelector('[data-tc-paso-proyecto]');
-    const selProy = dlg.querySelector('[data-tc-proyecto]');
-    const ind = dlg.querySelector('[data-tc-ind]');
-    const lista = dlg.querySelector('[data-tc-lista]');
-    const bProponer = dlg.querySelector('[data-tc-proponer]');
-    const bCrear = dlg.querySelector('[data-tc-crear]');
-    const bReq = dlg.querySelector('[data-tc-req]');
-    let datos = null;
+      + ind('tc-ind', 'Ej.: que sean dos tareas, una de diseño y otra de publicación; asígnalas a Kevin; para el viernes')
+      + '<p class="tcw-nota"><i class="fa-solid fa-wand-magic-sparkles"></i> Al pulsar «Proponer tareas» la IA lee el correo y arma las tareas. Las revisas antes de crearlas.</p></section>'
+      // 2b. Requerimiento
+      + '<section class="wz-panel" data-p="requerimiento"><div class="tcw-incluye"><p>La IA lee el correo y deja lleno el formulario con:</p><ul>'
+      + ['El título y el detalle de lo que piden', 'Quién lo pide y su institución', 'El responsable y el plazo según el tamaño del trabajo', 'Los adjuntos del correo, como documentos']
+        .map((t) => '<li><i class="fa-solid fa-check"></i> ' + t + '</li>').join('') + '</ul></div>'
+      + ind('tc-ind-req', 'Ej.: es para la web de la UBE; asígnalo a Kevin; prioridad alta')
+      + '<p class="tcw-nota"><i class="fa-solid fa-circle-info"></i> Nada se registra hasta que lo revises y pulses «Registrar».</p></section>'
+      // 3a. Tareas · Listo
+      + '<section class="wz-panel" data-p="tareas"><div class="tc-lista" data-tc-lista></div></section>'
+      + '<section class="wz-panel" data-p="listo"></section>'
+      + '</div>'
+      + '<div class="wz-pie"><span class="wz-contador"></span><div class="wz-acciones">'
+      + '<button type="button" class="btn-outline btn-meca btn-neutro" data-tcw-atras><i class="fa-solid fa-arrow-left"></i> Atrás</button>'
+      + '<button type="button" class="btn-outline btn-meca" data-tc-proponer><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Proponer tareas</span></button>'
+      + '<button type="button" class="btn-primary btn-meca" data-tcw-sig>Siguiente <i class="fa-solid fa-arrow-right"></i></button>'
+      + '<button type="button" class="btn-primary btn-meca" data-tc-crear><i class="fa-solid fa-check"></i> <span>Crear tareas</span></button>'
+      + '<button type="button" class="btn-primary btn-meca" data-tc-req><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Armar con IA</span></button>'
+      + '</div></div></div></div>';
+    document.body.appendChild(dlg);
+
+    const $ = (s) => dlg.querySelector(s);
+    const pasos = [...dlg.querySelectorAll('.wz-paso')];
+    const selProy = $('[data-tc-proyecto]');
+    const indProy = $('[data-tc-ind]');
+    const indReq = $('[data-tc-ind-req]');
+    const lista = $('[data-tc-lista]');
+    const bAtras = $('[data-tcw-atras]');
+    const bSig = $('[data-tcw-sig]');
+    const bProponer = $('[data-tc-proponer]');
+    const bCrear = $('[data-tc-crear]');
+    const bReq = $('[data-tc-req]');
+    let tipo = '';        // proyecto | requerimiento
+    let paso = 'que';     // que | proyecto | requerimiento | tareas | listo
+    let datos = null;     // la última propuesta de tareas
     let pidPropuesta = '';
+    let indPropuesta = '';
+    let creadas = false;
+    const NUM = { que: 0, proyecto: 1, requerimiento: 1, tareas: 2, listo: 3 };
+    // ¿La propuesta que hay sirve? (mismo proyecto y mismas indicaciones: no se gasta IA otra vez)
+    const propuestaVale = () => !!datos && pidPropuesta === selProy.value && indPropuesta === indProy.value.trim();
+    const ver = (btn, si) => btn.classList.toggle('wz-oculto', !si);
 
-    /* ---------- Las dos opciones ---------- */
-    const destino = () => (dlg.querySelector('input[name="tc-destino"]:checked') || {}).value || '';
-    const mostrar = () => {
-      const d = destino();
+    const ir = (p) => {
+      paso = p;
+      const n = NUM[p];
+      const def = PASOS_TCW[tipo] || PASOS_TCW[''];
+      const viejo = dlg.querySelector('.ia-error');
+      if (viejo) viejo.remove();
+      dlg.querySelectorAll('.wz-panel').forEach((el) => el.classList.toggle('activo', el.dataset.p === p));
+      pasos.forEach((el, i) => {
+        el.querySelector('b').textContent = def[i][0];
+        el.querySelector('small').textContent = i === 0 ? 'Proyecto o requerimiento' : def[i][2];
+        el.classList.toggle('activo', i === n);
+        el.classList.toggle('hecho', i < n);
+        el.querySelector('.wz-num').innerHTML = i < n ? '<i class="fa-solid fa-check"></i>' : String(i + 1);
+        el.disabled = p === 'listo' || !(i < n || (i === 2 && n === 1 && tipo === 'proyecto' && propuestaVale()));
+      });
+      $('.wz-titulo-paso').textContent = p === 'listo' ? '¡Listo!' : def[Math.min(n, 2)][1];
+      $('.wz-ayuda-paso').textContent = p === 'listo' ? 'Las tareas ya están en el tablero del proyecto.' : def[Math.min(n, 2)][2];
+      $('.wz-contador').textContent = 'Paso ' + (n + 1) + ' de 3';
+      $('.wz-pie').classList.toggle('wz-oculto', p === 'listo');
+      ver(bAtras, n === 1 || n === 2);
+      ver(bSig, p === 'que' || (p === 'proyecto' && propuestaVale()));
+      bSig.disabled = p === 'que' && !tipo;
+      ver(bProponer, p === 'proyecto');
+      // Con una propuesta que sirve, «Siguiente» va a ella; proponer otra vez queda al lado
+      bProponer.className = (propuestaVale() ? 'btn-outline' : 'btn-primary') + ' btn-meca' + (p === 'proyecto' ? '' : ' wz-oculto');
+      bProponer.querySelector('span').textContent = datos ? 'Volver a proponer' : 'Proponer tareas';
+      ver(bCrear, p === 'tareas');
+      ver(bReq, p === 'requerimiento');
+      if (p === 'tareas') contar();
+      const foco = { proyecto: null, requerimiento: indReq }[p];
+      if (foco) setTimeout(() => foco.focus({ preventScroll: true }), 60);
+    };
+
+    /* ---------- 1. Qué es ---------- */
+    dlg.addEventListener('change', (ev) => {
+      if (ev.target.name !== 'tc-destino') return;
+      tipo = ev.target.value;
       dlg.querySelectorAll('.tc-opcion').forEach((o) => o.classList.toggle('is-elegida', o.querySelector('input').checked));
-      pasoProy.hidden = d !== 'proyecto';
-      lista.hidden = d !== 'proyecto';
-      bProponer.hidden = d !== 'proyecto';
-      bCrear.hidden = d !== 'proyecto' || !datos;
-      bReq.hidden = d !== 'requerimiento';
-    };
-    const elegir = (valor) => {
-      const r = dlg.querySelector('input[name="tc-destino"][value="' + valor + '"]:not([disabled])')
-        || dlg.querySelector('input[name="tc-destino"]:not([disabled])');
-      if (r) r.checked = true;
-      mostrar();
-    };
-    dlg.addEventListener('change', (ev) => { if (ev.target.name === 'tc-destino') mostrar(); });
+      ir('que');
+    });
+    // Doble clic en una opción: elegir y seguir
+    dlg.querySelector('.tcw-opciones').addEventListener('dblclick', (ev) => {
+      const o = ev.target.closest('.tc-opcion:not(.is-apagada)');
+      if (o) { o.querySelector('input').checked = true; tipo = o.querySelector('input').value; bSig.click(); }
+    });
+    bSig.addEventListener('click', () => {
+      if (paso === 'que' && tipo) ir(tipo);
+      else if (paso === 'proyecto' && propuestaVale()) ir('tareas');
+    });
+    bAtras.addEventListener('click', () => ir(paso === 'tareas' ? 'proyecto' : 'que'));
+    pasos.forEach((el, i) => el.addEventListener('click', () => {
+      if (el.disabled) return;
+      ir(i === 0 ? 'que' : i === 1 ? tipo : 'tareas');
+    }));
+    selProy.addEventListener('change', () => ir(paso));
+    indProy.addEventListener('input', () => { if (datos) ir(paso); });
 
-    /* ---------- Requerimiento suelto: el flujo de siempre ---------- */
+    /* ---------- 2b. Requerimiento suelto: el flujo de siempre, con indicaciones ---------- */
     bReq.addEventListener('click', () => conBoton(bReq, async () => {
-      const r = await pedir('ia_req_correo', { c: b.dataset.c, uid: b.dataset.uid });
+      const r = await pedir('ia_req_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: indReq.value.trim() });
       if (r.url) location.href = r.url;
     }));
 
-    /* ---------- Tareas de un proyecto ---------- */
+    /* ---------- 3a. Tareas de un proyecto ---------- */
     const leer = () => [...lista.querySelectorAll('.tc-tarea')].map((el) => {
       const t = datos.tareas[+el.dataset.i];
       const v = (k) => ((el.querySelector('[data-k="' + k + '"]') || {}).value || '');
       return {
-        usar: el.querySelector('[data-tc-usar]').checked, el, ref: t.ref, depende_de: t.depende_de,
+        usar: el.querySelector('[data-tc-usar]').checked, el, ya: t.ya_existe || null, ref: t.ref, depende_de: t.depende_de,
         titulo: v('titulo').trim(), descripcion: v('descripcion'), responsables: v('responsable') ? [+v('responsable')] : [],
         fecha_inicio: v('fecha_inicio'), fecha_limite: v('fecha_limite'), prioridad: v('prioridad'),
       };
     });
-    const contar = () => {
+    function contar() {
       if (!datos) return;
       const todas = leer();
       todas.forEach((x) => {
@@ -422,22 +513,13 @@
       });
       const l = todas.filter((x) => x.usar);
       const sin = l.filter((x) => !x.responsables.length).length;
-      bCrear.hidden = destino() !== 'proyecto';
       bCrear.querySelector('span').textContent = !l.length ? 'Marca al menos una tarea'
         : sin ? 'Falta elegir ' + sin + ' responsable' + (sin > 1 ? 's' : '')
         : 'Crear ' + l.length + ' tarea' + (l.length > 1 ? 's' : '');
       bCrear.disabled = !l.length || sin > 0;
-    };
+    }
     lista.addEventListener('change', contar);
     lista.addEventListener('input', contar);
-    // Otro proyecto: la propuesta era para el anterior (su equipo es otro)
-    selProy.addEventListener('change', () => {
-      if (datos && selProy.value !== pidPropuesta) {
-        datos = null; lista.innerHTML = ''; bCrear.hidden = true;
-        bProponer.className = 'btn-primary btn-meca';
-        bProponer.querySelector('span').textContent = 'Proponer tareas';
-      }
-    });
 
     const pintar = (r) => {
       datos = r;
@@ -446,9 +528,16 @@
       const opGente = (sel) => '<option value="">Elige el responsable</option>' + gente.map((g) => '<option value="' + g.id + '"' + (g.id === sel ? ' selected' : '') + '>'
         + esc(g.nombre) + (g.rol ? ' · ' + esc(g.rol) : '') + '</option>').join('');
       const opPrio = (sel) => Object.entries(prios).map(([k, v]) => '<option value="' + esc(k) + '"' + (k === sel ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
-      lista.innerHTML = (r.notas ? '<div class="mc-alert mc-alert--info mc-alert--compact" role="status"><div class="mc-alert__content"><p class="mc-alert__desc">' + esc(r.notas) + '</p></div></div>' : '')
-        + r.tareas.map((t, i) => '<article class="tc-tarea" data-i="' + i + '">'
-          + '<label class="mc-check is-checked tc-tarea__usar"><input type="checkbox" class="mc-sr-only" data-tc-usar checked>'
+      const n = r.tareas.length;
+      const rep = r.tareas.filter((t) => t.ya_existe).length;
+      lista.innerHTML = '<p class="tcw-resumen">' + n + ' tarea' + (n === 1 ? '' : 's') + ' para <b>«' + esc(nombreProy(pidPropuesta) || r.proyecto || '') + '»</b>'
+        + (rep ? ' · <span class="tcw-resumen__rep">' + (rep === n ? (n === 1 ? 'ya existe' : 'todas ya existen') : rep + ' ya existe' + (rep > 1 ? 'n' : '')) + ' en el proyecto: ' + (rep > 1 ? 'quedan' : 'queda') + ' sin marcar</span>' : '') + '.</p>'
+        + (r.notas ? '<div class="mc-alert mc-alert--info mc-alert--compact" role="status"><div class="mc-alert__content"><p class="mc-alert__desc">' + esc(r.notas) + '</p></div></div>' : '')
+        + r.tareas.map((t, i) => '<article class="tc-tarea' + (t.ya_existe ? ' is-repetida' : '') + '" data-i="' + i + '">'
+          // Ya existe en el proyecto (lo vio la IA o un título casi igual): sin marcar, y se dice cuál es
+          + (t.ya_existe ? '<p class="tc-ya"><i class="fa-solid fa-clone" aria-hidden="true"></i><span>Ya existe en el proyecto: <b>«' + esc(t.ya_existe.titulo) + '»</b> (#' + t.ya_existe.id + ' · '
+            + esc(t.ya_existe.estado) + '). Márcala solo si de verdad es otra.</span></p>' : '')
+          + '<label class="mc-check' + (t.ya_existe ? '' : ' is-checked') + ' tc-tarea__usar"><input type="checkbox" class="mc-sr-only" data-tc-usar' + (t.ya_existe ? '' : ' checked') + '>'
           + '<span class="mc-check__box" aria-hidden="true">' + marcaCheck + '</span><span class="mc-check__text"><span class="mc-check__label">Crear esta tarea</span></span></label>'
           + '<div class="mc-field"><label class="mc-field__label">Título</label><div class="mc-input mc-input--md"><input class="mc-input__control" data-k="titulo" maxlength="150" value="' + esc(t.titulo) + '"></div></div>'
           + '<div class="mc-field"><label class="mc-field__label">Descripción</label><div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" rows="4" data-k="descripcion">' + esc(t.descripcion) + '</textarea></div></div>'
@@ -460,69 +549,66 @@
           + '<div class="mc-field"><label class="mc-field__label">Prioridad</label><select data-ds-select data-k="prioridad" aria-label="Prioridad">' + opPrio(t.prioridad) + '</select></div>'
           + '</div></article>').join('') + firma(r);
       if (typeof MecaDate !== 'undefined') MecaDate.init(lista);   // el calendario del panel
-      bProponer.className = 'btn-outline btn-meca';
-      bProponer.querySelector('span').textContent = 'Volver a proponer';
-      contar();
     };
 
     bProponer.addEventListener('click', () => {
       if (!selProy.value) { avisarError(bProponer, 'Elige el proyecto donde van las tareas.'); return; }
       conBoton(bProponer, async () => {
-        const r = await pedir('ia_tareas_correo', { c: b.dataset.c, uid: b.dataset.uid, proyecto_id: selProy.value, instrucciones: ind.value });
+        const r = await pedir('ia_tareas_correo', { c: b.dataset.c, uid: b.dataset.uid, proyecto_id: selProy.value, instrucciones: indProy.value.trim() });
         pidPropuesta = selProy.value;
+        indPropuesta = indProy.value.trim();
         pintar(r);
+        ir('tareas');
+        $('[data-p="tareas"]').scrollTop = 0;
       });
     });
 
     bCrear.addEventListener('click', () => {
-      const l = leer().filter((x) => x.usar);
+      // «Después de» una que no se crea por repetida: va después de la que ya existía (#id)
+      const todas = leer();
+      const porRef = new Map(todas.map((x) => [x.ref, x]));
+      const l = todas.filter((x) => x.usar).map((x) => {
+        const d = porRef.get(x.depende_de);
+        return d && !d.usar && d.ya ? { ...x, depende_de: '#' + d.ya.id } : x;
+      });
       if (!l.length) return;
       if (l.some((x) => !x.titulo)) { avisarError(bCrear, 'Cada tarea necesita un título.'); return; }
       if (l.some((x) => !x.responsables.length)) { avisarError(bCrear, 'Elige el responsable de cada tarea.'); return; }
       conBoton(bCrear, async () => {
         const r = await pedir('tareas_correo_crear', {
           proyecto_id: pidPropuesta, mensaje_id: datos.mensaje_id || '', origen: datos.origen || '',
-          tareas: JSON.stringify(l.map(({ el, usar, ...x }) => x)),
+          tareas: JSON.stringify(l.map(({ el, usar, ya, ...x }) => x)),
         });
-        // Listo: queda a la vista con su enlace; al cerrar, el correo muestra lo que salió de él
-        dlg.querySelector('.ia-cuerpo').innerHTML = '<div class="mc-alert mc-alert--success" role="status"><div class="mc-alert__content">'
-          + '<p class="mc-alert__title">' + esc(r.mensaje) + '</p><p class="mc-alert__desc">Cada responsable recibió su aviso.</p></div></div>'
-          + '<p class="tc-ayuda"><a class="btn-primary btn-meca" href="' + esc(r.url) + '">Ver el proyecto</a></p>';
-        bProponer.hidden = true; bCrear.hidden = true; bReq.hidden = true;
-        dlg.addEventListener('close', () => location.reload(), { once: true });
+        creadas = true;
+        listo(r, l);
       });
     });
 
-    /* ---------- Primero, la IA dice a dónde va (si esa función está encendida) ---------- */
-    (async () => {
-      if (b.dataset.clasificar !== '1') {
-        analizando.hidden = true;
-        elegir(conTareas ? 'proyecto' : 'requerimiento');
-        return;
-      }
-      try {
-        const r = await pedir('ia_destino_correo', { c: b.dataset.c, uid: b.dataset.uid });
-        analizando.hidden = true;
-        const sug = r.destino === 'proyecto' && conTareas ? 'proyecto' : (conReq ? 'requerimiento' : 'proyecto');
-        sugerencia.textContent = (r.es_trabajo === false ? 'Ojo: parece que este correo no pide un trabajo. ' : '')
-          + (r.destino === 'proyecto' ? 'La IA cree que es trabajo de ' + (r.proyecto ? '«' + r.proyecto + '»' : 'un proyecto') : 'La IA cree que es un requerimiento suelto')
-          + '.' + (r.motivo ? ' ' + r.motivo : '');
-        sugerencia.hidden = false;
-        const marca = dlg.querySelector('input[name="tc-destino"][value="' + sug + '"]');
-        if (marca) marca.closest('.tc-opcion').querySelector('.tc-opcion__sug').hidden = false;
-        if (r.proyecto_id) {
-          selProy.value = String(r.proyecto_id);
-          if (window.DS && DS.refrescar) DS.refrescar(selProy);
-        }
-        elegir(sug);
-        // Es de un proyecto conocido: de una vez propone sus tareas (igual se revisan antes de crear)
-        if (sug === 'proyecto' && r.proyecto_id && r.es_trabajo !== false) bProponer.click();
-      } catch (err) {
-        analizando.hidden = true;
-        elegir(conTareas ? 'proyecto' : 'requerimiento');
-        avisarError(bProponer, err.message + ' Elige tú a dónde va el trabajo.');
-      }
-    })();
+    /* ---------- Listo: grande, con lo que se creó y la flecha para ir al proyecto ---------- */
+    const listo = (r, l) => {
+      const gente = new Map((datos.gente || []).map((g) => [g.id, g.nombre]));
+      const nombre = nombreProy(pidPropuesta);
+      $('[data-p="listo"]').innerHTML = '<div class="tcw-listo">'
+        + '<div class="tcw-listo__cab"><span class="tcw-listo__ok" aria-hidden="true"><svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>'
+        + '<h3 class="font-display">' + esc(r.mensaje) + '</h3><p>Cada responsable recibió su aviso. El correo queda marcado con lo que salió de él.</p></div>'
+        + '<ol class="tcw-listo__tareas">' + l.map((x, i) => '<li><span class="tcw-listo__num">' + (i + 1) + '</span><div><b>' + esc(x.titulo) + '</b><small>'
+          + esc(x.responsables.map((id) => gente.get(id) || '').filter(Boolean).join(', ')) + (x.fecha_limite ? ' · vence el ' + fechaCorta(x.fecha_limite) : '') + '</small></div></li>').join('') + '</ol>'
+        + '<div class="tcw-listo__acc"><a class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block tcw-listo__ir" href="' + esc(r.url) + '">'
+        + '<span class="mc-btn__label">Ver las tareas' + (nombre ? ' en «' + esc(nombre) + '»' : '') + '</span><i class="fa-solid fa-arrow-right" aria-hidden="true"></i></a>'
+        + '<button type="button" class="mc-btn mc-btn--ghost mc-btn--block" data-tcw-cerrar><span class="mc-btn__label">Volver al correo</span></button></div></div>';
+      $('[data-tcw-cerrar]').addEventListener('click', () => dlg.close());
+      ir('listo');
+    };
+
+    $('.dlg-close').addEventListener('click', () => dlg.close());
+    dlg.addEventListener('close', () => { dlg.remove(); if (creadas) location.reload(); });
+    // Con una sola opción posible, ya viene elegida (igual se pulsa «Siguiente»)
+    if (conTareas !== conReq) {
+      const unica = dlg.querySelector('input[name="tc-destino"]:not([disabled])');
+      if (unica) { unica.checked = true; tipo = unica.value; unica.closest('.tc-opcion').classList.add('is-elegida'); }
+    }
+    ir('que');
+    dlg.showModal();
   });
 
   /* =========================================================

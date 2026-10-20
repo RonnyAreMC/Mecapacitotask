@@ -234,7 +234,7 @@ final class ReqCorreo
      * Si ya se había analizado, devuelve esa fila (no gasta IA de nuevo).
      * Lanza CorreoError o IAError si no se puede.
      */
-    public static function analizar(int $mid, string $carpeta, int $uid, string $origen = 'manual', string $motivo = '', ?CorreoImap $imap = null): array
+    public static function analizar(int $mid, string $carpeta, int $uid, string $origen = 'manual', string $motivo = '', ?CorreoImap $imap = null, string $indicaciones = ''): array
     {
         $propio = $imap === null;
         $imap ??= Correo::abrir($mid);
@@ -245,7 +245,8 @@ final class ReqCorreo
         }
         if (!$msg) throw new CorreoError('Ese correo ya no está en el buzón.', 'uso');
         $ya = self::deMensaje($mid, $msg['message_id']);
-        if ($ya && in_array($ya['estado'] ?? '', ['propuesta', 'registrado'], true)) return $ya;
+        // Ya registrado, o ya propuesto y sin indicaciones nuevas: no se gasta IA otra vez
+        if ($ya && (($ya['estado'] ?? '') === 'registrado' || (($ya['estado'] ?? '') === 'propuesta' && $indicaciones === ''))) return $ya;
 
         $base = [
             'miembro_id' => $mid, 'message_id' => $msg['message_id'], 'carpeta' => $carpeta, 'uid' => $uid,
@@ -254,7 +255,7 @@ final class ReqCorreo
             'motivo' => $motivo, 'creado' => date('Y-m-d H:i'),
         ];
         try {
-            $datos = self::conIA($msg);
+            $datos = self::conIA($msg, $indicaciones);
         } catch (IAError $e) {
             $err = $base + ['estado' => 'error', 'error' => $e->getMessage(), 'datos' => [], 'req_id' => 0];
             if ($ya) self::repo()->update((int)$ya['id'], $err);
@@ -272,7 +273,7 @@ final class ReqCorreo
     }
 
     /** Arma el contexto, pide la propuesta a la IA y calcula el plazo. */
-    private static function conIA(array $msg): array
+    private static function conIA(array $msg, string $indicaciones = ''): array
     {
         $abiertos = [];
         foreach ((new RequerimientoRepo())->todos() as $r) {
@@ -289,7 +290,7 @@ final class ReqCorreo
         $inst = [];
         foreach ((new InstitucionRepo())->todas() as $i) $inst[] = ['id' => (int)$i['id'], 'nombre' => (string)$i['nombre']];
 
-        $d = IAFunciones::requerimientoCorreo($msg, array_slice($abiertos, 0, 200), $gente, $inst);
+        $d = IAFunciones::requerimientoCorreo($msg, array_slice($abiertos, 0, 200), $gente, $inst, $indicaciones);
         $plazos = self::plazos();
         $inicio = self::inicioHabil();
         $fin = $d['fecha_fin'] !== '' && $d['fecha_fin'] >= $inicio ? $d['fecha_fin'] : self::sumarHabiles($inicio, $plazos[$d['magnitud']]);
