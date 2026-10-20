@@ -2067,7 +2067,7 @@ $comData = json_encode([
         if ($tot === 0) continue;
     ?>
     <div class="obs-metrica">
-      <span class="om-equipo"><i class="fa-solid <?= e($eIcono) ?>"></i> <?= e($eLabel) ?></span>
+      <span class="om-equipo"><?= UI::iconoEquipo($ek, $eIcono, 'ico-equipo--chip') ?> <?= e($eLabel) ?></span>
       <div class="om-barra">
         <span class="om-pend" style="flex:<?= $d['pendientes'] ?>"></span>
         <span class="om-res"  style="flex:<?= $d['resueltas'] ?>"></span>

@@ -43,7 +43,7 @@ UI::inicio('Mi perfil', 'perfil');
   <div class="pf-hero-id">
     <h1 class="font-display js-hero-nombre"><?= e($yo['nombre']) ?></h1>
     <p class="pf-hero-rol" style="--av-c1:<?= $c1 ?>">
-      <i class="fa-solid <?= e($eqIcono) ?>"></i> <span class="js-hero-rol"><?= e($yo['rol']) ?: 'Sin rol' ?></span> · <?= e($eqLabel) ?>
+      <?= UI::iconoEquipo($eq, $eqIcono, 'ico-equipo--chip') ?> <span class="js-hero-rol"><?= e($yo['rol']) ?: 'Sin rol' ?></span> · <?= e($eqLabel) ?>
     </p>
     <div class="pf-hero-chips">
       <span class="pf-chip"><i class="fa-solid fa-shield-halved"></i> <?= e(Auth::ROLES[Auth::rol()] ?? 'Solo lectura') ?></span>

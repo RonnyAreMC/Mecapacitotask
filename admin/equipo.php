@@ -257,7 +257,7 @@ UI::cabecera(
   <!-- Tabla de colaboradores: vision general con git/correo copiables -->
   <div class="card-base tabla-card">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><?= UI::icono($eqIcono, 'text-secondary') ?> Colaboradores
+      <h2 class="font-display"><?= UI::iconoEquipo($eq, $eqIcono, 'text-secondary') ?> Colaboradores
         <span class="tabla-count" data-buscar-count><?= count($equipo) ?></span>
       </h2>
       <label class="tabla-buscar">

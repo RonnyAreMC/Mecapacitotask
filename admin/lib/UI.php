@@ -265,7 +265,7 @@ class UI
     </span>
     <?php foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]): ?>
     <a href="equipo.php?e=<?= e($ek) ?>" class="sidebar-link <?= $activo === 'equipo-' . $ek ? 'active' : '' ?>" title="<?= e($eLabel) ?>">
-      <?= UI::icono($eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
+      <?= UI::iconoEquipo($ek, $eIcono) ?> <span class="truncate"><?= e($eLabel) ?></span>
     </a>
     <?php endforeach; ?>
     <?php if (Auth::usuario() && is_file(__DIR__ . '/Pedidos.php')): /* pedidos entre equipos */
@@ -1469,6 +1469,18 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
     public static function hayIcono(string $nombre): bool
     {
         return isset(self::mapaIconos()[$nombre]);
+    }
+
+    /**
+     * Ícono de un equipo. Los de fábrica (Programadores, Analistas, Diseñadores)
+     * tienen el suyo a color, en el estilo de las portadas: iconos/Equipos/eq-<clave>.svg.
+     * Los que se crean en Ajustes usan el ícono que se les puso ahí.
+     */
+    public static function iconoEquipo(string $clave, string $icono = '', string $clase = ''): string
+    {
+        $propio = 'eq-' . preg_replace('/[^a-z0-9_-]/', '', strtolower($clave));
+        if (self::hayIcono($propio)) return self::icono($propio, trim('ico-equipo ' . $clase));
+        return self::icono($icono !== '' ? $icono : 'ds-usuarios', $clase);
     }
 
     /**

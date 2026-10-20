@@ -3028,3 +3028,11 @@ dialog.ds-modal.tut-aviso .ds-tutorial__cab .ds-modal__title { white-space: norm
 @media (prefers-reduced-motion: reduce) {
   .eqo-col, .eqo-persona { transition: none; }
 }
+
+/* Íconos a color de los equipos (iconos/Equipos/eq-*.svg, UI::iconoEquipo) */
+.ico.ico-equipo { width: 24px; height: 24px; flex: none; }
+html .sidebar .sidebar-link .ico.ico-equipo, html.dark .sidebar .sidebar-link .ico.ico-equipo { width: 26px; height: 26px; margin: -3px; }
+html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 26px; height: 26px; }
+.ico.ico-equipo.ico-equipo--chip { width: 18px; height: 18px; margin-right: 2px; vertical-align: -4px; }
+.eqo-col__cab .ico.ico-equipo { width: 34px; height: 34px; }
+.eqo-menu__op .ico.ico-equipo { width: 28px; height: 28px; }

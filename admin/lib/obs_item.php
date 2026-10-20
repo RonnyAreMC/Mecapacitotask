@@ -49,7 +49,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
           <b><?= e($paraNombres ? implode(', ', $paraNombres) : ($autor['nombre'] ?? 'Alguien')) ?></b>
           <span class="obs-meta">
             <?php if ($esRecord): ?><span class="obs-tipo-record"><i class="fa-solid fa-bell"></i> Recordatorio</span> · <?php endif; ?>
-            <span class="obs-equipo"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($eqLabel) ?></span>
+            <span class="obs-equipo"><?= UI::iconoEquipo((string)($o['equipo'] ?? ''), $eqIcono, 'ico-equipo--chip') ?> <?= e($eqLabel) ?></span>
             · <?= e($o['creado'] ?? '') ?>
             <?php if ($creador): ?>
             · <span class="obs-creador" title="Quién anotó esta observación">

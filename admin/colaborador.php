@@ -154,7 +154,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
     </div>
     <div class="colab-id">
       <h1 class="font-display"><?= e($m['nombre']) ?></h1>
-      <p class="mc-rol" style="--av-c1:<?= $c1 ?>"><i class="fa-solid <?= e($eqIcono) ?>"></i> <?= e($m['rol']) ?> · <?= e($eqLabel) ?></p>
+      <p class="mc-rol" style="--av-c1:<?= $c1 ?>"><?= UI::iconoEquipo($eq, $eqIcono, 'ico-equipo--chip') ?> <?= e($m['rol']) ?> · <?= e($eqLabel) ?></p>
       <div class="colab-cuentas">
         <?php if (!empty($m['git_user'])): ?>
         <span class="cuenta-chip">

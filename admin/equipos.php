@@ -25,8 +25,12 @@ unset($lista);
 $desde = (string)($_GET['desde'] ?? '');
 if (!isset($equipos[$desde])) $desde = '';
 
-// Un color por columna, en el orden de los equipos
+// Ícono de cada equipo: el suyo a color (UI::iconoEquipo); los creados en
+// Ajustes, su ícono en un cuadrito de color, uno por columna
 $tonos = ['azul', 'petroleo', 'naranja', 'verde', 'cian', 'amarillo', 'rojo'];
+$icoEq = fn(string $clave, string $icono, int $i): string => UI::hayIcono('eq-' . $clave)
+    ? UI::iconoEquipo($clave, $icono)
+    : '<span class="mc-tile mc-tile--' . $tonos[$i % count($tonos)] . ' mc-tile--sm">' . UI::icono($icono, 'mc-icon') . '</span>';
 
 UI::inicio('Organizar equipos', $desde !== '' ? 'equipo-' . $desde : 'equipos');
 UI::cabecera(
@@ -50,7 +54,7 @@ UI::cabecera(
     <?php $i = 0; foreach ($equipos as $clave => [$etiqueta, $icono]): $gente = $porEquipo[$clave]; ?>
     <section class="eqo-col" data-eqo-col="<?= e($clave) ?>" data-eqo-etiqueta="<?= e($etiqueta) ?>" aria-labelledby="eqo-t-<?= e($clave) ?>">
       <header class="eqo-col__cab">
-        <span class="mc-tile mc-tile--<?= $tonos[$i % count($tonos)] ?> mc-tile--sm"><?= UI::icono($icono, 'mc-icon') ?></span>
+        <?= $icoEq($clave, $icono, $i) ?>
         <h2 class="eqo-col__t" id="eqo-t-<?= e($clave) ?>"><?= e($etiqueta) ?></h2>
         <span class="eqo-col__n" data-eqo-n aria-label="Personas en <?= e($etiqueta) ?>"><?= count($gente) ?></span>
         <a class="mc-iconbtn mc-iconbtn--sm" href="equipo.php?e=<?= e($clave) ?>" aria-label="Abrir el equipo <?= e($etiqueta) ?>" data-ds-tip="Abrir el equipo"><?= UI::iconoDS('ver', 18) ?></a>
@@ -79,7 +83,7 @@ UI::cabecera(
   <p class="eqo-menu__t">Mover a</p>
   <?php $i = 0; foreach ($equipos as $clave => [$etiqueta, $icono]): ?>
   <button type="button" role="menuitem" class="eqo-menu__op" data-eqo-a="<?= e($clave) ?>">
-    <span class="mc-tile mc-tile--<?= $tonos[$i % count($tonos)] ?> mc-tile--sm"><?= UI::icono($icono, 'mc-icon') ?></span><?= e($etiqueta) ?>
+    <?= $icoEq($clave, $icono, $i) ?><?= e($etiqueta) ?>
   </button>
   <?php $i++; endforeach; ?>
 </div>
