@@ -112,7 +112,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes'],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -125,8 +125,10 @@ function actualizarPanel(array $opc): void
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id'],
         'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar'],
+        'lib/Tutoriales.php' => ['function pendiente'],
+        'tutoriales.php'    => ['tutorial_avisar'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
         'lib/IAFunciones.php' => ['requerimientoCorreo'],
@@ -188,7 +190,8 @@ function actualizarPanel(array $opc): void
                   'push_suscripciones' => 'Notificaciones nativas (dispositivos)',
                   'tutoriales' => 'Tutoriales en video',
                   'req_correo' => 'Requerimientos desde el correo',
-                  'correo_copias' => 'Copias de los correos en el panel'] as $t => $etq) {
+                  'correo_copias' => 'Copias de los correos en el panel',
+                  'tutoriales_vistos' => 'Quién ya vio cada tutorial'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');

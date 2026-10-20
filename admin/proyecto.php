@@ -655,7 +655,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
     <div class="ph-info">
       <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
       <?php if (trim((string)($proyecto['descripcion'] ?? '')) !== ''): ?><p><?= e($proyecto['descripcion']) ?></p><?php endif; ?>
-      <?php if (is_file(__DIR__ . '/lib/Tutoriales.php')) { require_once __DIR__ . '/lib/Tutoriales.php'; echo Tutoriales::boton('proyecto', 'sm'); } ?>
       <?php if (!$listoEntrega && $obsPendientes > 0): /* explica por qué el avance no llega al 100 % */ ?>
       <a class="badge-entrega alerta ph-obs" href="#vista-observaciones"><i class="fa-solid fa-triangle-exclamation"></i>
         <?= $obsPendientes ?> observación<?= $obsPendientes === 1 ? '' : 'es' ?> pendiente<?= $obsPendientes === 1 ? '' : 's' ?></a>

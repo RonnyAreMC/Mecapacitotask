@@ -64,6 +64,8 @@ $accionesDeCualquiera = [
     'notif_leer_todas', 'pedido_crear', 'pedido_responder', 'pedido_estado',
     // Cada quien guarda su teléfono cuando el panel se lo pide al entrar
     'perfil_telefono',
+    // La ventana del tutorial («Avisar a todos»): cada quien marca que ya lo vio o la cerró
+    'tutorial_visto',
     // Correo InnoTech: cada persona maneja SOLO su buzón (dentro se usa la
     // sesión de quien entró). correo_conf queda para el administrador.
     'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_eliminar',
@@ -895,16 +897,29 @@ switch ($accion) {
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
 
     /* ---------- Tutoriales en video (lib/Tutoriales.php): solo administrador ---------- */
+    case 'tutorial_visto':
+        header('Content-Type: application/json; charset=utf-8');
+        if (class_exists('Tutoriales')) {
+            Tutoriales::marcarVisto((int)($_POST['id'] ?? 0), (int)(Auth::usuario()['id'] ?? 0), (string)($_POST['como'] ?? 'cerrado'));
+        }
+        exit('{"ok":true}');
+
     case 'tutorial_crear':
     case 'tutorial_quitar':
+    case 'tutorial_avisar':
         if (!class_exists('Tutoriales')) redirigir('index.php', 'Los tutoriales no están disponibles en este servidor.', 'error');
+        if ($accion === 'tutorial_avisar') {
+            $ta = Tutoriales::avisar((int)($_POST['id'] ?? 0), !empty($_POST['avisar']));
+            redirigir('tutoriales.php', !$ta ? 'Ese tutorial ya no estaba.'
+                : (!empty($ta['avisar']) ? 'Listo: a cada persona le sale «' . $ta['titulo'] . '» al entrar al panel.' : 'Ya no se avisa de «' . $ta['titulo'] . '».'));
+        }
         if ($accion === 'tutorial_quitar') {
             $tq = Tutoriales::quitar((int)($_POST['id'] ?? 0));
             redirigir('tutoriales.php', $tq ? 'Quitamos «' . $tq['titulo'] . '» del panel.' : 'Ese tutorial ya no estaba.');
         }
         $tc = Tutoriales::crear($_POST, (int)(Auth::usuario()['id'] ?? 0));
         if (is_string($tc)) redirigir('tutoriales.php', $tc, 'error');
-        redirigir('tutoriales.php', 'Publicamos «' . $tc['titulo'] . '».' . ($tc['lugar'] !== '' ? ' También sale en ' . Tutoriales::LUGARES[$tc['lugar']] . '.' : ''));
+        redirigir('tutoriales.php', 'Publicamos «' . $tc['titulo'] . '».' . (!empty($tc['avisar']) ? ' A cada persona le sale en una ventana al entrar al panel.' : ''));
 
     /* ---------- Notificaciones nativas (lib/Push.php) ---------- */
     case 'push_suscribir':

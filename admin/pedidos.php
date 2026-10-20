@@ -104,8 +104,7 @@ UI::inicio('Pedidos entre equipos', 'pedidos');
 UI::cabecera(
     'Pedidos entre <span class="text-secondary">equipos</span>',
     'Pídele algo a otro equipo (o a alguien de ese equipo) y síguelo aquí: quién lo tomó, qué respondió y cuándo quedó hecho. A cada paso le llega el aviso a la otra parte, en la campana y por correo.',
-    (class_exists('Tutoriales') ? Tutoriales::boton('pedidos') : '')
-    . ($puedePedir ? '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-pedido-nuevo>' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nuevo pedido</span></button>' : '')
+    ($puedePedir ? '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-pedido-nuevo>' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nuevo pedido</span></button>' : '')
 );
 ?>
 <div class="ds" id="pedidos">

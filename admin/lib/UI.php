@@ -381,6 +381,15 @@ class UI
 </main>
 <?php if (self::conBarra()) self::dialogPedido(); ?>
 <?php self::dialogTelefono(); ?>
+<?php
+// Tutorial con «Avisar a todos» que esta persona aún no vio: sale en una ventana (lib/Tutoriales.php)
+if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
+    try {
+        require_once __DIR__ . '/Tutoriales.php';
+        echo Tutoriales::modalAviso(Auth::usuario());
+    } catch (Throwable $e) { /* sin la ventana, el panel sigue igual */ }
+}
+?>
 <script src="<?= asset('assets/admin.js') ?>"></script>
 <?php if (is_file(__DIR__ . '/../assets/ds.js')): /* lista desplegable y casillas del design system */ ?>
 <script src="<?= asset('assets/ds.js') ?>"></script>

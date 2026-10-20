@@ -38,15 +38,22 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
       <div class="tut-cuerpo">
         <h3><?= e($t['titulo']) ?></h3>
         <?php if (trim((string)($t['descripcion'] ?? '')) !== ''): ?><p><?= e($t['descripcion']) ?></p><?php endif; ?>
-        <?php if (($t['lugar'] ?? '') !== ''): ?>
-        <span class="tut-lugar"><?= UI::iconoDS('enlace', 14) ?> También en: <?= e(Tutoriales::LUGARES[$t['lugar']] ?? $t['lugar']) ?></span>
+        <?php if (!empty($t['avisar'])): $al = Tutoriales::alcance((int)$t['id']); ?>
+        <span class="tut-lugar"><?= UI::iconoDS('notificaciones', 14) ?> Avisando a todos<?= $esAdmin ? ' · lo vieron ' . (int)$al['vieron'] . ($al['cerraron'] ? ', lo cerraron ' . (int)$al['cerraron'] : '') : '' ?></span>
         <?php endif; ?>
       </div>
       <?php if ($esAdmin): ?>
-      <form method="post" action="actions.php" class="tut-acciones" data-confirmar="Se quita del panel (el video sigue en YouTube o Drive)." data-confirmar-titulo="¿Quitar «<?= e($t['titulo']) ?>»?" data-confirmar-ok="Sí, quitar">
+      <div class="tut-acciones">
+      <form method="post" action="actions.php">
+        <input type="hidden" name="accion" value="tutorial_avisar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
+        <?php if (empty($t['avisar'])): ?><input type="hidden" name="avisar" value="1"><?php endif; ?>
+        <button class="mc-btn mc-btn--ghost mc-btn--sm"><?= UI::iconoDS('notificaciones', 16) ?><span class="mc-btn__label"><?= empty($t['avisar']) ? 'Avisar a todos' : 'Dejar de avisar' ?></span></button>
+      </form>
+      <form method="post" action="actions.php" data-confirmar="Se quita del panel (el video sigue en YouTube o Drive)." data-confirmar-titulo="¿Quitar «<?= e($t['titulo']) ?>»?" data-confirmar-ok="Sí, quitar">
         <input type="hidden" name="accion" value="tutorial_quitar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
         <button class="mc-btn mc-btn--ghost mc-btn--sm ia-quitar"><?= UI::iconoDS('eliminar', 16) ?><span class="mc-btn__label">Quitar</span></button>
       </form>
+      </div>
       <?php endif; ?>
     </article>
     <?php endforeach; ?>
@@ -76,9 +83,7 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
         <div class="mc-input"><input class="mc-input__control" id="tut-titulo" name="titulo" required maxlength="120" placeholder="Ej.: Sincroniza tu correo InnoTech"></div></div>
       <div class="mc-field"><label class="mc-field__label" for="tut-desc">Descripción <small>(opcional)</small></label>
         <div class="mc-input mc-input--multiline"><textarea class="mc-input__control" id="tut-desc" name="descripcion" rows="3" maxlength="400" placeholder="Qué se aprende en este video"></textarea></div></div>
-      <div class="mc-field"><label class="mc-field__label">Mostrar también en</label>
-        <?= UI::selectDS('lugar', Tutoriales::LUGARES, '', ['aria' => 'Pantalla donde aparece el botón «Ver tutorial»']) ?>
-        <div class="mc-field__foot"><span class="mc-field__hint">Esa pantalla muestra un botón «Ver tutorial» que abre este video ahí mismo.</span></div></div>
+      <?= UI::checkDS('avisar', true, 'Avisar a todos', 'Al entrar al panel, a cada persona le sale este video en una ventana con su nombre, para verlo o cerrarlo. Sale una sola vez.') ?>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>

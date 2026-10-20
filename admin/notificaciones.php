@@ -66,10 +66,6 @@ if ($tab === 'avisos' && $nSin) {
         . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Redactar</span></a>';
 }
 
-// «Ver tutorial»: si el administrador asignó un video a esta pestaña, se abre ahí mismo
-if (class_exists('Tutoriales')) {
-    $accionesCab = Tutoriales::boton($tab === 'avisos' ? 'notificaciones' : $tab) . $accionesCab;
-}
 
 $tituloPag = ['correo' => 'Correo', 'dispositivos' => 'Mis dispositivos', 'avisos' => 'Notificaciones'][$tab];
 UI::inicio($tituloPag, ['correo' => 'correo', 'dispositivos' => 'dispositivos', 'avisos' => 'notificaciones'][$tab]);

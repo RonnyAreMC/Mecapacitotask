@@ -2941,3 +2941,26 @@ dialog.ds-modal.req-correo-dlg { width: min(720px, calc(100vw - 32px)); }
 .req-hist__txt { display: grid; flex: 1; min-width: 0; }
 .req-hist__txt b, .req-hist__txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .req-hist__txt small { color: var(--ink-muted); font-size: var(--mc-fs-xs, .75rem); }
+
+/* Barra plegada: ningún rótulo con texto (ni «Proyectos» dentro de su grupo); solo una rayita */
+@media (min-width: 901px) {
+  html.sb-collapsed .sidebar .sidebar-label, html.sb-collapsed.dark .sidebar .sidebar-label {
+    display: block !important; width: 24px !important; height: 2px !important; margin: 10px auto 6px !important; padding: 0 !important;
+    font-size: 0 !important; line-height: 0 !important; color: transparent !important; overflow: hidden !important; white-space: nowrap !important;
+    background: var(--line-strong, rgba(0,0,0,.14)) !important; border-radius: 2px;
+  }
+  html.sb-collapsed .sidebar .sidebar-label * { display: none !important; }
+}
+
+/* La ventana del tutorial al entrar al panel («Avisar a todos», lib/Tutoriales.php) */
+.tut-aviso__txt { flex: 1; min-width: 0; }
+.tut-aviso__hola { margin: 0 0 2px; font: 600 .8125rem/1.3 var(--font-sans); color: var(--tone-azul-fg); }
+dialog.ds-modal.tut-aviso .ds-tutorial__cab .ds-modal__title { white-space: normal; overflow: visible; }
+.tut-aviso__play { position: absolute; inset: 0; width: 100%; height: 100%; padding: 0; border: 0; cursor: pointer; overflow: hidden;
+  background: linear-gradient(135deg, #0B1B33 0%, #13325E 60%, #1E4F9C 100%); }
+.tut-aviso__play img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.tut-aviso__play .tut-play { width: 76px; height: 76px; }
+.tut-aviso__play:hover .tut-play, .tut-aviso__play:focus-visible .tut-play { background: #2970EB; }
+.tut-aviso__cta { position: absolute; left: 50%; bottom: 22px; translate: -50% 0; padding: 6px 14px; border-radius: 999px;
+  background: rgba(11, 27, 51, .78); color: #fff; font: 600 .875rem/1.2 var(--font-sans); }
+.tut-acciones { gap: 6px; }
