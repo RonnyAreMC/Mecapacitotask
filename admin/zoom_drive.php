@@ -158,18 +158,21 @@ UI::cabecera(
 
     <form method="post" class="zd-form">
       <input type="hidden" name="accion" value="guardar">
-      <div class="mc-field zd-form__carpeta">
-        <label class="mc-field__label" for="zd-carpeta">Carpeta de Drive</label>
-        <div class="mc-input mc-input--md"><?= UI::iconoDS('carpeta', 18, 'mc-input__icon') ?>
-          <input class="mc-input__control" id="zd-carpeta" name="carpeta" value="https://drive.google.com/drive/folders/<?= e($conf['carpeta']) ?>" placeholder="https://drive.google.com/drive/folders/…"></div>
-        <div class="mc-field__foot"><span class="mc-field__hint">Adentro se crea una carpeta por proyecto con Videos, Audios y Textos. <a href="https://drive.google.com/drive/folders/<?= e($conf['carpeta']) ?>" target="_blank" rel="noopener">Abrir en Drive</a></span></div>
-      </div>
-      <div class="mc-field zd-form__borrar">
-        <label class="mc-field__label">Después de copiar a Drive</label>
-        <?= UI::selectDS('borrar', [
-              'papelera' => ['Mandarla a la papelera de Zoom', 'Solo cuando la reunión entera está en Drive, con el mismo tamaño. Zoom la guarda 30 días por si acaso.'],
-              'no'       => ['Dejarla en Zoom', 'Solo copia; borras tú desde Zoom.'],
-            ], $conf['borrar'], ['tam' => 'md']) ?>
+      <div class="zd-form__campos">
+        <div class="mc-field">
+          <label class="mc-field__label" for="zd-carpeta">Carpeta de Drive</label>
+          <div class="mc-input mc-input--md"><?= UI::iconoDS('carpeta', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="zd-carpeta" name="carpeta" value="https://drive.google.com/drive/folders/<?= e($conf['carpeta']) ?>" placeholder="https://drive.google.com/drive/folders/…"></div>
+          <div class="mc-field__foot"><span class="mc-field__hint">Adentro va una carpeta por proyecto, con Videos, Audios y Textos. <a href="https://drive.google.com/drive/folders/<?= e($conf['carpeta']) ?>" target="_blank" rel="noopener">Abrir en Drive</a></span></div>
+        </div>
+        <div class="mc-field">
+          <label class="mc-field__label">Después de copiar a Drive</label>
+          <?= UI::selectDS('borrar', [
+                'papelera' => ['Mandarla a la papelera de Zoom', 'Solo cuando la reunión entera está en Drive, con el mismo tamaño.'],
+                'no'       => ['Dejarla en Zoom', 'Solo copia; borras tú desde Zoom.'],
+              ], $conf['borrar'], ['tam' => 'md']) ?>
+          <div class="mc-field__foot"><span class="mc-field__hint">Zoom la guarda 30 días en su papelera, por si acaso.</span></div>
+        </div>
       </div>
       <div class="zd-form__botones">
         <button class="mc-btn mc-btn--primary mc-btn--md"><span class="mc-btn__label">Guardar</span></button>
@@ -210,7 +213,7 @@ UI::cabecera(
     <h2 class="zd-t"><?= UI::iconoDS('buscar', 20) ?> Buscar grabaciones en Zoom</h2>
     <div class="zd-buscar">
       <div class="mc-field"><label class="mc-field__label" for="zd-desde">Desde</label>
-        <div class="mc-input mc-input--md"><input class="mc-input__control" type="date" id="zd-desde" value="<?= e($conf['desde']) ?>" max="<?= date('Y-m-d') ?>"></div></div>
+        <input type="date" id="zd-desde" value="<?= e($conf['desde']) ?>" max="<?= date('Y-m-d') ?>"></div><?php /* el calendario del panel (MecaDate) arma su propio campo */ ?>
       <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-zd-buscar<?= $zoomOk && $curlOk ? '' : ' disabled' ?>>
         <?= UI::iconoDS('buscar', 18) ?><span class="mc-btn__label">Buscar grabaciones</span></button>
       <p class="zd-ayuda" data-zd-buscando>

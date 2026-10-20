@@ -3050,9 +3050,10 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .zd-punto { flex: none; width: 10px; height: 10px; border-radius: 50%; }
 .zd-punto--ok { background: var(--tone-verde-fg); }
 .zd-punto--no { background: var(--line-strong); }
-.zd-form { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1.2fr) auto; gap: var(--space-4); align-items: end; padding-top: var(--space-4); border-top: 1px solid var(--line); }
+.zd-form { display: flex; flex-direction: column; gap: var(--space-4); padding-top: var(--space-4); border-top: 1px solid var(--line); }
+.zd-form__campos { display: grid; grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); gap: var(--space-4) var(--space-5); align-items: start; }
 .zd-form .mc-field { margin: 0; }
-.zd-form__botones { display: flex; gap: 8px; padding-bottom: 22px; }
+.zd-form__botones { display: flex; flex-wrap: wrap; gap: 8px; }
 .zd-tiles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: var(--space-4); }
 .zd-tile { display: flex; flex-direction: column; gap: 2px; padding: var(--space-4) var(--space-5); }
 .zd-tile__n { font: 800 1.5rem/1.2 var(--font-display); color: var(--ink); }
@@ -3094,9 +3095,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .zd-carpeta { min-width: 210px; }
 .zd-error { display: block; max-width: 280px; margin-top: 4px; color: var(--danger, #B4232F); font-size: .78rem; }
 @media (max-width: 900px) {
-  .zd-form { grid-template-columns: 1fr; }
-  .zd-form__botones { padding-bottom: 0; }
+  .zd-form__campos { grid-template-columns: 1fr; }
   .zd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .zd-acciones { position: static; }
 }
-.zd-buscar input[type="date"].mc-input__control { border: 0; box-shadow: none; background: transparent; padding: 0; }
