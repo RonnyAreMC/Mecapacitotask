@@ -16,6 +16,7 @@ admin/data/correo.secreto
 # Notificaciones nativas: claves del panel (push.json va por *.json) y archivos de trabajo del cron
 admin/data/openssl-min.cnf
 admin/data/cron_correo.lock
+admin/data/cron_whatsapp.lock
 admin/data/*.bak
 admin/uploads/*
 

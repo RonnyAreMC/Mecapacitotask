@@ -92,6 +92,9 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/Tutoriales.php',
         'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg',
+        'lib/Whatsapp.php', 'cron_whatsapp.php',
+        'correo.php', 'manifest-correo.webmanifest',
+        'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg',
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
@@ -109,20 +112,26 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
-        'lib/Notificaciones.php' => ['Push::avisar'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
+        'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes'],
+        'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
+        'sw.js'             => ['meca-push', 'clavePanel'],
+        'cron_correo.php'   => ['Notif::pendientes'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono'],
-        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC'],
+        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
-        'lib/correo_vista.php' => ['correoDirectorio'],
-        'login.php'         => ['entradaArte'],
+        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina'],
+        'login.php'         => ['entradaArte', 'auth_recuperar_cambiar'],
+        'ajustes.php'       => ['whatsapp[activo]'],
+        'lib/Mailer.php'    => ['codigoRecuperacion'],
+        'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c'],
         'index.php'         => ['ds-indicadores', 'portadaDe'],
@@ -278,8 +287,10 @@ function actualizarPanel(array $opc): void
         if ($seco && !is_file($dir . '/data/push.json')) {
             nota('info', 'Notificaciones nativas: se crearían las claves del panel (data/push.json)');
         } elseif (Push::activo()) {
-            $nDisp = $seco ? 0 : count((new JsonStore('push_suscripciones'))->all());
-            nota('ok', 'Notificaciones nativas listas (claves en data/push.json) · ' . $nDisp . ' dispositivo(s) anotado(s)');
+            $subsP = $seco ? [] : (new JsonStore('push_suscripciones'))->all();
+            $malP  = count(array_filter($subsP, fn($sP) => (Push::estado($sP)['tono'] ?? '') === 'error'));
+            nota('ok', 'Notificaciones nativas listas (claves fijas en data/push.json, respaldadas en la base) · ' . count($subsP) . ' dispositivo(s) anotado(s)');
+            if ($malP) nota('aviso', $malP . ' dispositivo(s) con el último aviso rechazado: el motivo está en Notificaciones → Tus dispositivos.');
         } else {
             nota('aviso', 'Este PHP no pudo crear las claves de las notificaciones nativas (falta openssl con curvas EC): el panel funciona igual, sin avisos al celular.');
         }
@@ -340,6 +351,30 @@ function actualizarPanel(array $opc): void
     $nArreglos
         ? nota('ok', $nArreglos . ' ícono(s) ' . ($seco ? 'volverían' : 'volvieron') . ' al del design system: ' . implode(', ', array_keys($arreglos)))
         : nota('ok', 'Cada estado, prioridad y equipo tiene su ícono');
+
+    /* WhatsApp: reuniones y código para recuperar la contraseña */
+    if (is_file($dir . '/lib/Whatsapp.php')) {
+        require_once $dir . '/lib/Whatsapp.php';
+        paso('WhatsApp');
+        $waC = Whatsapp::conf();
+        if (!Whatsapp::activo()) {
+            nota('info', 'WhatsApp apagado: las reuniones y el código para recuperar la contraseña van por correo (se enciende en Ajustes → Reuniones → WhatsApp).');
+        } else {
+            $waOk = $seco ? null : Whatsapp::salud();
+            $waOk === false
+                ? nota('aviso', 'La pasarela de WhatsApp no contesta en ' . $waC['url'] . ': revisa la app en cPanel → Setup Node.js App (servicios/whatsapp/README.md).')
+                : nota('ok', 'Pasarela de WhatsApp: ' . $waC['url'] . ($waOk ? ' (contesta)' : ''));
+            $waCron = json_decode((string)@file_get_contents($dir . '/data/cron_whatsapp.json'), true);
+            $waHace = is_array($waCron) ? time() - (int)($waCron['t'] ?? 0) : null;
+            ($waHace !== null && $waHace < 300)
+                ? nota('ok', 'Cron de WhatsApp corriendo (última vuelta hace ' . max(1, (int)round($waHace / 60)) . ' min)')
+                : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_whatsapp.php (manda los avisos y los recordatorios).');
+            if (!$seco) {
+                $waCola = Whatsapp::resumenCola();
+                if ($waCola['pendientes'] || $waCola['fallidos']) nota('info', 'Mensajes de WhatsApp en cola: ' . $waCola['pendientes'] . ' · fallidos en 24 h: ' . $waCola['fallidos']);
+            }
+        }
+    }
 
     paso('Credenciales de Ajustes');
     $cfgA  = Config::all();

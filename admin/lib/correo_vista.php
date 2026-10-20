@@ -11,7 +11,15 @@
 function correoUrl(array $p = []): string
 {
     $p = array_filter($p, fn($v) => $v !== '' && $v !== null && $v !== 0 && $v !== false);
+    // En la app del correo (correo.php, la que se instala en el celular) todo se queda dentro de ella
+    if (defined('CORREO_APP')) return 'correo.php' . ($p ? '?' . http_build_query($p) : '');
     return 'notificaciones.php?' . http_build_query(['tab' => 'correo'] + $p);
+}
+
+/** Página que sirve el correo: la app aparte (correo.php) o la pestaña de Notificaciones. */
+function correoPagina(): string
+{
+    return defined('CORREO_APP') ? 'correo.php' : 'notificaciones.php';
 }
 
 function correoColor(string $email): string
@@ -173,12 +181,31 @@ function correoVista(array $yo): void
         echo UI::alertaDS('danger', 'No pudimos abrir tu correo', e($e->getMessage()) . ' <a href="' . e(correoUrl()) . '">Reintentar</a>');
         return;
     }
+    correoPintar($yo, $cuenta, compact('carpetas', 'carpeta', 'bandeja', 'noLeidos', 'modo', 'mensaje', 'lista', 'base'));
+}
+
+/**
+ * Dibuja el correo ya leído del servidor (carpetas, la carpeta actual, la lista, un
+ * mensaje o el formulario de redactar). Aparte de correoVista para poder probar la
+ * pantalla con datos de ejemplo, sin un buzón de verdad.
+ */
+function correoPintar(array $yo, array $cuenta, array $d): void
+{
+    ['carpetas' => $carpetas, 'carpeta' => $carpeta, 'bandeja' => $bandeja, 'noLeidos' => $noLeidos,
+     'modo' => $modo, 'mensaje' => $mensaje, 'lista' => $lista, 'base' => $base] = $d;
+    $esAdmin = Auth::esAdmin();
+    // Para la barra de abajo de la app del correo (correo.php): dónde está la persona
+    $GLOBALS['correoNav'] = ['modo' => $modo, 'tipo' => (string)$carpeta['tipo'], 'bandeja' => $bandeja,
+        'enviados' => Correo::carpetaDeTipo($carpetas, 'sent'), 'noLeidos' => $noLeidos];
     ?>
-<div class="correo">
-  <aside class="correo-lado" aria-label="Carpetas del correo">
+<div class="correo" data-correo>
+  <!-- En el celular las carpetas van en un cajón que sale de la izquierda (como el menú del design system) -->
+  <div class="correo-velo" data-correo-velo></div>
+  <aside class="correo-lado" id="correo-cajon" aria-label="Carpetas del correo">
     <div class="correo-lado__cab">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('correo', 18) ?></span>
       <span class="correo-lado__txt"><b>Correo InnoTech</b><small title="<?= e((string)$cuenta['email']) ?>"><?= e((string)$cuenta['email']) ?></small></span>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm correo-lado__cerrar" data-correo-cajon-cerrar aria-label="Cerrar las carpetas"><?= UI::iconoDS('cerrar', 18) ?></button>
     </div>
     <span class="correo-lado__rot">Carpetas</span>
     <nav class="correo-carpetas">
@@ -198,6 +225,12 @@ function correoVista(array $yo): void
     </div>
   </aside>
 
+  <button type="button" class="correo-cajon-btn" data-correo-cajon aria-controls="correo-cajon" aria-expanded="false">
+    <?= UI::iconoDS(Correo::ICONOS[$carpeta['tipo']] ?? 'carpeta', 18) ?>
+    <span><?= e($modo === 'redactar' ? 'Correo nuevo' : $carpeta['etiqueta']) ?></span>
+    <?= UI::iconoDS('chevron-abajo', 16) ?>
+  </button>
+
   <section class="mc-card correo-main">
     <?php
     if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas);
@@ -206,6 +239,29 @@ function correoVista(array $yo): void
     ?>
   </section>
 </div>
+<script>
+// Cajón de carpetas en el celular: lo abren los botones [data-correo-cajon] (aquí, y en la app del
+// correo también la barra de arriba y la de abajo); lo cierran la ✕, el velo y Esc
+(() => {
+  const raiz = document.querySelector('[data-correo]');
+  if (!raiz || raiz.dataset.cajon) return;
+  raiz.dataset.cajon = '1';
+  const cajon = raiz.querySelector('.correo-lado');
+  const velo = raiz.querySelector('[data-correo-velo]');
+  const poner = (abrir) => {
+    cajon.classList.toggle('is-open', abrir);
+    velo.classList.toggle('is-open', abrir);
+    document.documentElement.classList.toggle('correo-cajon-abierto', abrir);
+    document.querySelectorAll('[data-correo-cajon]').forEach((b) => b.setAttribute('aria-expanded', abrir ? 'true' : 'false'));
+    if (abrir) setTimeout(() => cajon.querySelector('.correo-carpeta.is-actual, .correo-carpeta')?.focus({ preventScroll: true }), 60);
+  };
+  document.addEventListener('click', (e) => {
+    if (e.target.closest('[data-correo-cajon]')) { e.preventDefault(); poner(!cajon.classList.contains('is-open')); }
+    else if (e.target.closest('[data-correo-cajon-cerrar], [data-correo-velo]')) poner(false);
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && cajon.classList.contains('is-open')) poner(false); });
+})();
+</script>
     <?php
     if ($esAdmin) correoAjustes();
 }
@@ -218,7 +274,7 @@ function correoLista(array $lista, array $carpeta): void
     $enviados = in_array($carpeta['tipo'], ['sent', 'drafts'], true);
     ?>
   <div class="correo-barra">
-    <form method="get" action="notificaciones.php" class="correo-buscar" role="search">
+    <form method="get" action="<?= correoPagina() ?>" class="correo-buscar" role="search">
       <input type="hidden" name="tab" value="correo"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
       <div class="mc-input mc-input--md"><?= UI::iconoDS('buscar', 18, 'mc-input__icon') ?>
         <input class="mc-input__control" name="q" value="<?= e($q) ?>" maxlength="100" placeholder="Buscar en <?= e($carpeta['etiqueta']) ?>" aria-label="Buscar correos"></div>
@@ -340,7 +396,7 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
   <?php if ($visibles): ?>
   <div class="correo-adjuntos">
     <?php foreach ($visibles as $i => $a): ?>
-    <a class="correo-adjunto" href="<?= e('notificaciones.php?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i])) ?>">
+    <a class="correo-adjunto" href="<?= e(correoPagina() . '?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i])) ?>">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS(str_starts_with($a['tipo'], 'image/') ? 'ver' : 'documento', 16) ?></span>
       <span class="correo-adjunto__txt"><b><?= e($a['nombre']) ?></b><small><?= e(correoTam($a['tam'])) ?></small></span>
       <?= UI::iconoDS('descargar', 16) ?>

@@ -418,18 +418,27 @@ class UI
             $correoOn = Correo::activo();
             $nCorreo = $correoOn ? Correo::noLeidos($mid) : null;
         }
-        // Notificaciones nativas: la clave pública del panel y cómo se llama este dispositivo
+        // Notificaciones nativas: la clave pública del panel, cómo se llama este dispositivo y
+        // las huellas de los dispositivos de la persona (assets/ds.js comprueba con ellas, sin
+        // preguntar, que este navegador siga anotado y lo renueva solo si hace falta)
         $pushClave = '';
         $pushEquipo = '';
+        $pushAttrs = '';
         if (is_file(__DIR__ . '/Push.php') && is_file(__DIR__ . '/../sw.js')) {
             require_once __DIR__ . '/Push.php';
             if (Push::activo()) {
                 $pushClave = Push::clavePublica();
                 $pushEquipo = Push::equipo((string)($_SERVER['HTTP_USER_AGENT'] ?? ''));
+                $pushAttrs = method_exists('Push', 'atributosPagina') ? Push::atributosPagina($mid) : ' data-push="' . e($pushClave) . '"';
             }
         }
+        // El número rojo de la campana: avisos sin leer + correos InnoTech sin leer
+        $nCorreoSin = (int)($nCorreo ?? 0);
+        $total = $sin + $nCorreoSin;
+        $resumen = $sin && $nCorreoSin ? $sin . ' sin leer · ' . ($nCorreoSin === 1 ? '1 correo' : $nCorreoSin . ' correos')
+            : ($sin ? $sin . ' sin leer' : ($nCorreoSin ? ($nCorreoSin === 1 ? '1 correo' : $nCorreoSin . ' correos') . ' sin leer' : 'Todo leído'));
         ?>
-<header class="ds-enc" id="ds-topbar"<?= $pushClave !== '' ? ' data-push="' . e($pushClave) . '"' : '' ?>>
+<header class="ds-enc" id="ds-topbar"<?= $pushClave !== '' ? $pushAttrs : '' ?>>
   <?php if ($pushClave !== ''): ?>
   <!-- Pregunta arriba si activamos los avisos en este dispositivo (assets/ds.js la muestra
        mientras la persona no acepte ni diga «No, gracias»). Solo avisos: no se instala nada. -->
@@ -457,16 +466,16 @@ class UI
       </button>
       <?php endif; ?>
       <?php if ($conNotif): ?>
-      <div class="mc-notif" data-notif data-ultimo="<?= $items ? max(array_column($items, 'id')) : 0 ?>">
+      <div class="mc-notif<?= $total ? ' has-pendientes' : '' ?>" data-notif data-sin="<?= $sin ?>" data-ultimo="<?= $items ? max(array_column($items, 'id')) : 0 ?>">
         <button type="button" class="ds-sq ds-sq--navy" data-notif-btn aria-haspopup="dialog" aria-expanded="false"
-                aria-label="Notificaciones<?= $sin ? ' (' . $sin . ' sin leer)' : '' ?>" title="Notificaciones">
+                aria-label="Notificaciones<?= $total ? ' (' . $total . ' sin leer)' : '' ?>" title="Notificaciones">
           <?= self::iconoDS('notificaciones', 20) ?>
-          <span class="mc-iconbtn__badge" data-notif-n<?= $sin ? '' : ' hidden' ?>><?= $sin > 99 ? '99+' : $sin ?></span>
+          <span class="mc-iconbtn__badge" data-notif-n<?= $total ? '' : ' hidden' ?>><?= $total > 99 ? '99+' : $total ?></span>
         </button>
         <div class="mc-notif__panel" data-notif-panel role="dialog" aria-label="Notificaciones" hidden>
           <div class="mc-notif__head">
             <div><p class="mc-notif__title">Notificaciones</p>
-              <span class="mc-notif__sub" data-notif-sub><?= $sin ? $sin . ' sin leer' : 'Todo leído' ?></span></div>
+              <span class="mc-notif__sub" data-notif-sub><?= e($resumen) ?></span></div>
             <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-notif-todas<?= $sin ? '' : ' hidden' ?>>
               <?= self::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todo leído</span></button>
           </div>
@@ -508,6 +517,7 @@ class UI
           <?php if (is_file(__DIR__ . '/Pedidos.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--verde<?= $activo === 'pedidos' ? ' is-actual' : '' ?>" href="pedidos.php"><?= self::iconoDS('transferencia', 18) ?>Pedidos entre equipos</a><?php endif; ?>
           <a role="menuitem" class="ds-cuenta__op ds-cuenta__op--cian<?= $activo === 'docs' ? ' is-actual' : '' ?>" href="docs.php"><?= self::iconoDS('documento', 18) ?>Documentación</a>
           <?php if (is_file(__DIR__ . '/Tutoriales.php')): ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--petroleo<?= $activo === 'tutoriales' ? ' is-actual' : '' ?>" href="tutoriales.php"><?= self::iconoDS('video', 18) ?>Tutoriales en video</a><?php endif; ?>
+          <?php if (is_file(__DIR__ . '/Push.php') && is_file(__DIR__ . '/../sw.js')): /* el panel y el correo como apps: Notificaciones → Tus dispositivos */ ?><a role="menuitem" class="ds-cuenta__op ds-cuenta__op--amarillo" href="notificaciones.php?tab=dispositivos#instalar"><?= self::iconoDS('descargar', 18) ?>Instalar la app</a><?php endif; ?>
           <form method="post" action="actions.php" class="ds-cuenta__salir">
             <input type="hidden" name="accion" value="auth_logout">
             <button role="menuitem" class="ds-cuenta__op"><?= self::iconoDS('salir', 18) ?>Cerrar sesión</button>
@@ -990,19 +1000,19 @@ class UI
     public static function badgeEstadoTarea(string $estado): string
     {
         [$label, $icono] = Catalogo::estadosTarea()[$estado] ?? ['?', 'fa-question'];
-        return '<span class="badge-estado estado-' . e($estado) . '"><i class="fa-solid ' . $icono . '"></i> ' . e($label) . '</span>';
+        return '<span class="badge-estado estado-' . e($estado) . '">' . self::icono($icono) . ' ' . e($label) . '</span>';
     }
 
     public static function badgePrioridad(string $prio): string
     {
         [$label, $icono] = Catalogo::prioridades()[$prio] ?? ['?', 'fa-question'];
-        return '<span class="badge-prio prio-' . e($prio) . '"><i class="fa-solid ' . $icono . '"></i> ' . e($label) . '</span>';
+        return '<span class="badge-prio prio-' . e($prio) . '">' . self::icono($icono) . ' ' . e($label) . '</span>';
     }
 
     public static function badgeEstadoProyecto(string $estado): string
     {
         [$label, $icono] = Catalogo::estadosProyecto()[$estado] ?? ['?', 'fa-question'];
-        return '<span class="badge-estado pestado-' . e($estado) . '"><i class="fa-solid ' . $icono . '"></i> ' . e($label) . '</span>';
+        return '<span class="badge-estado pestado-' . e($estado) . '">' . self::icono($icono) . ' ' . e($label) . '</span>';
     }
 
     /* ---------- Formularios ---------- */

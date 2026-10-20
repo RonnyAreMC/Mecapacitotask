@@ -1,0 +1,17 @@
+{
+  "id": "correo.php",
+  "name": "Correo InnoTech",
+  "short_name": "Correo",
+  "description": "Tu correo InnoTech: lee, responde y escribe. Te avisa al instante cuando llega uno nuevo.",
+  "lang": "es",
+  "start_url": "correo.php",
+  "scope": "correo.php",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#10285A",
+  "icons": [
+    { "src": "iconos/pwa/correo-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/pwa/correo-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "iconos/pwa/correo-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

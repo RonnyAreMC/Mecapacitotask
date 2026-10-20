@@ -69,7 +69,8 @@ final class Notif
             // Un aviso que no se pudo guardar nunca debe tumbar la acción que lo provocó
             error_log('Notif: ' . $e->getMessage());
         }
-        // También como notificación nativa (teléfono o computadora), si la persona la aceptó.
+        // También como notificación nativa del sistema (Mac, Windows, Android, iPhone) en todos
+        // los dispositivos que la persona activó, para cualquier tipo de aviso de la campana.
         // Sale al terminar la petición: quien hizo la acción no espera.
         if ($creadas && is_file(__DIR__ . '/Push.php')) {
             try {
@@ -80,6 +81,7 @@ final class Notif
                         'texto'  => trim(preg_replace('/\s+/u', ' ', $texto)),
                         'url'    => 'notificaciones.php?abrir=' . $id,
                         'tag'    => 'notif-' . $id,
+                        'n'      => self::pendientes($mid),     // el número del ícono de la app instalada
                     ], 'avisos');
                 }
             } catch (\Throwable $e) {
@@ -100,6 +102,16 @@ final class Notif
     public static function sinLeer(int $mid): int
     {
         return count(array_filter(self::store()->where('para', $mid), fn($n) => empty($n['leida'])));
+    }
+
+    /** Lo que marca la campana en rojo: avisos sin leer + correos InnoTech sin leer (el último conteo, sin ir al buzón). */
+    public static function pendientes(int $mid): int
+    {
+        $correo = 0;
+        try {
+            if (class_exists('Correo') && Correo::activo()) $correo = (int)(Correo::noLeidos($mid) ?? 0);
+        } catch (\Throwable $e) { /* sin correo: solo los avisos */ }
+        return self::sinLeer($mid) + $correo;
     }
 
     public static function buscar(int $id): ?array

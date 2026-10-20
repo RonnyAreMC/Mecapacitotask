@@ -1,0 +1,10 @@
+# Código de servicios aparte del panel (p. ej. la pasarela de WhatsApp, que corre con Node en cPanel).
+# Nada de esta carpeta se sirve por la web: ni el código, ni el .env, ni la sesión de WhatsApp.
+Options -Indexes
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

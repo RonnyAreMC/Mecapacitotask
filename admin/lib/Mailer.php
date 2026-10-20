@@ -1075,6 +1075,26 @@ class Mailer
     }
 
     /** Invitación a una reunión de Zoom (a cada invitado). */
+    /**
+     * Código de 6 dígitos para cambiar la contraseña. Va por correo cuando el
+     * WhatsApp está apagado o la persona no tiene un teléfono válido.
+     */
+    public static function codigoRecuperacion(array $miembro, string $codigo, int $minutos): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $nombre = explode(' ', trim((string)($miembro['nombre'] ?? '')))[0];
+        $cuerpo = self::encabezado($acento, '&#128273;', 'Tu código para cambiar la contraseña',
+                    'Hola ' . e($nombre) . ', escribe este código en la pantalla de entrada del panel.')
+            . '<div style="font:700 34px/1.2 ui-monospace,Menlo,Consolas,monospace;letter-spacing:8px;text-align:center;'
+            . 'margin:18px 0;color:#1d1d1f;">' . e($codigo) . '</div>'
+            . '<div style="color:#86868b;font-size:13px;line-height:1.5;">Vence en ' . (int)$minutos . ' minutos. '
+            . 'Si no lo pediste, ignora este correo: tu contraseña sigue igual.</div>';
+        return self::enviar($miembro['email'], $codigo . ' es tu código para cambiar la contraseña', self::plantilla($cuerpo));
+    }
+
     public static function notificarReunion(array $reunion, array $miembro, array $proyecto): true|string|null
     {
         if (!self::listo() || empty($miembro['email'])) {

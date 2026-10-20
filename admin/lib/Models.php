@@ -237,6 +237,15 @@ final class Config
                 'zona'            => '',       // vacío = la misma que Zoom
                 'agendar'         => true,     // agendar en el calendario de los invitados
             ],
+            // WhatsApp (pasarela Baileys de servicios/whatsapp). Encendido, las
+            // reuniones y el código para recuperar la contraseña van por WhatsApp
+            // en vez de por correo; a quien no tenga teléfono válido, por correo.
+            'whatsapp' => [
+                'activo'       => false,
+                'url'          => '',    // p. ej. https://wa.innotech-solutions.com.ec
+                'token'        => '',
+                'recordar_min' => 15,    // recordatorio antes de cada reunión (0 = ninguno)
+            ],
             'correo' => [
                 'activo'    => false,
                 'modo'      => 'smtp',

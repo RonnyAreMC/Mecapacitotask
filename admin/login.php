@@ -20,6 +20,11 @@ $primerUso = !Auth::hayAdmin();
 // cualquier correo a una ficha ajena. El acceso es por el correo exacto. Si
 // quedó algo en sesión de antes, se descarta.
 unset($_SESSION['identificar']);
+
+// Recuperar la contraseña: ?recuperar=1 pide el correo; ?recuperar=codigo pide
+// el código de 6 dígitos y la clave nueva (actions.php: auth_recuperar_*).
+$recuperar = (string)($_GET['recuperar'] ?? '');
+if ($recuperar === 'codigo' && empty($_SESSION['recup'])) $recuperar = '1';
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -42,6 +47,51 @@ unset($_SESSION['identificar']);
     <div class="ent-caja">
       <img class="ent-logo" src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
 
+      <?php if ($recuperar === '1'): ?>
+      <h1>Recupera tu contraseña</h1>
+      <p class="ent-sub">Escribe tu correo o tu usuario de Git. Te mandamos un código de 6 dígitos por WhatsApp, o a tu correo si no tienes WhatsApp registrado.</p>
+      <form method="post" action="actions.php" class="ent-form">
+        <input type="hidden" name="accion" value="auth_recuperar_pedir">
+        <div class="mc-field">
+          <label class="mc-field__label" for="rec-usuario">Correo o usuario de Git</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('usuario', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="rec-usuario" name="usuario" required autofocus autocomplete="username" placeholder="tucorreo@empresa.com"></div>
+        </div>
+        <button class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"><span class="mc-btn__label">Enviarme el código</span></button>
+      </form>
+      <div class="ent-pie"><p><a class="ent-link" href="<?= e(urlPanel('login.php')) ?>">Volver a entrar<?= UI::iconoDS('chevron-der', 16) ?></a></p></div>
+
+      <?php elseif ($recuperar === 'codigo'): ?>
+      <h1>Escribe el código</h1>
+      <p class="ent-sub">Llega por WhatsApp o a tu correo y vence en 10 minutos. Con él eliges tu contraseña nueva.</p>
+      <form method="post" action="actions.php" class="ent-form">
+        <input type="hidden" name="accion" value="auth_recuperar_cambiar">
+        <div class="mc-field">
+          <label class="mc-field__label" for="rec-codigo">Código de 6 dígitos</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('candado', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control ent-codigo" id="rec-codigo" name="codigo" required autofocus inputmode="numeric" pattern="[0-9]{6}" maxlength="6" autocomplete="one-time-code" placeholder="000000" title="Los 6 números del código"></div>
+        </div>
+        <div class="mc-field">
+          <label class="mc-field__label" for="rec-clave">Contraseña nueva</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('candado', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="rec-clave" type="password" name="clave" required minlength="6" autocomplete="new-password">
+            <?= UI::botonVerClave() ?></div>
+          <div class="mc-field__foot"><span class="mc-field__hint">Al menos 6 caracteres.</span></div>
+        </div>
+        <div class="mc-field">
+          <label class="mc-field__label" for="rec-clave2">Repite la contraseña</label>
+          <div class="mc-input mc-input--lg"><?= UI::iconoDS('candado', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="rec-clave2" type="password" name="clave2" required minlength="6" autocomplete="new-password">
+            <?= UI::botonVerClave() ?></div>
+        </div>
+        <button class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"><span class="mc-btn__label">Cambiar contraseña y entrar</span></button>
+      </form>
+      <div class="ent-pie">
+        <p>¿No te llegó? <a class="ent-link" href="<?= e(urlPanel('login.php?recuperar=1')) ?>">Pedir otro código<?= UI::iconoDS('chevron-der', 16) ?></a></p>
+        <p class="ent-nota">Si no tienes WhatsApp ni correo en tu ficha, pídele al administrador que te cambie la contraseña.</p>
+      </div>
+
+      <?php else: ?>
       <?php if ($primerUso): ?>
       <?= UI::alertaDS('warning', 'Este panel todavía no tiene administrador', 'Créalo por terminal: <code>php admin/crear_admin.php</code>', false, 'ent-alerta') ?>
       <?php endif; ?>
@@ -65,6 +115,7 @@ unset($_SESSION['identificar']);
           <div class="mc-input mc-input--lg"><?= UI::iconoDS('candado', 18, 'mc-input__icon') ?>
             <input class="mc-input__control" id="ent-clave" type="password" name="clave" required autocomplete="current-password">
             <?= UI::botonVerClave() ?></div>
+          <?php if (!$primerUso): ?><div class="mc-field__foot"><a class="ent-olvide" href="<?= e(urlPanel('login.php?recuperar=1')) ?>">¿Olvidaste tu contraseña?</a></div><?php endif; ?>
         </div>
         <button class="mc-btn mc-btn--primary mc-btn--lg mc-btn--block"><span class="mc-btn__label">Entrar</span></button>
       </form>
@@ -77,6 +128,7 @@ unset($_SESSION['identificar']);
         <p class="ent-nota">¿Sin acceso? Pídele al administrador que te cree una contraseña.</p>
         <?php endif; ?>
       </div>
+      <?php endif; ?>
     </div>
   </main>
 </div>

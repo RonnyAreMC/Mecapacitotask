@@ -301,6 +301,28 @@ Web Push de los navegadores: gratis, sin servicios de pago; el texto va cifrado.
   Notificaciones → Tus dispositivos (como administrador) y `php admin/actualizar.php`
   dicen si el cron está corriendo.
 
+## WhatsApp: reuniones y código para recuperar la contraseña
+
+Con el interruptor de **Ajustes → Reuniones → WhatsApp**:
+
+| | Reuniones | Recuperar la contraseña |
+|---|---|---|
+| **Encendido** | Invitación, cambios, cancelación y recordatorio por WhatsApp (la campana avisa igual). A quien no tenga teléfono válido, por correo. | Código de 6 dígitos por WhatsApp (o por correo si no tiene teléfono válido). |
+| **Apagado** | Por correo, como siempre. | Código de 6 dígitos por correo. |
+
+Necesita la pasarela de Node (Baileys, la misma del SIGC) corriendo en cPanel → **Setup Node.js App** con Node 22,
+y un cron más, cada minuto:
+
+    * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_whatsapp.php
+
+Los pasos completos (subdominio, token, QR, cuánto consume) están en `servicios/whatsapp/README.md`. La carpeta
+`servicios/` está cerrada a la web: ni el código, ni el `.env`, ni la sesión de WhatsApp se pueden abrir desde el
+navegador. `php admin/actualizar.php` dice si la pasarela contesta y si el cron está corriendo.
+
+**Recuperar la contraseña:** en la pantalla de entrada, «¿Olvidaste tu contraseña?». La persona escribe su correo o
+usuario de Git, le llega un código de 6 dígitos (vence en 10 minutos, 5 intentos, hasta 5 códigos por hora) y elige
+su contraseña nueva. La respuesta es la misma exista o no la cuenta, para que nadie averigüe quién está registrado.
+
 ## Migrar de JSON a SQLite (una sola vez, si ya tenías datos)
 
 Las versiones viejas guardaban en archivos `.json`. Al actualizar a la versión con

@@ -1,0 +1,18 @@
+{
+  "name": "innotech-whatsapp",
+  "private": true,
+  "description": "Pasarela de WhatsApp (Baileys) del panel InnoTech Hub: avisos de reuniones y códigos para recuperar la contraseña. Viene del SIGC. Contrato en README.md.",
+  "type": "module",
+  "scripts": {
+    "start": "node app.cjs"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "7.0.0-rc14",
+    "qrcode": "1.5.4",
+    "pino": "9.14.0"
+  },
+  "main": "app.cjs"
+}

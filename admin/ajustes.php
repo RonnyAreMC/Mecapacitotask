@@ -599,6 +599,63 @@ UI::cabecera(
           </button>
         </div>
       </section>
+
+      <?php
+        // WhatsApp (lib/Whatsapp.php + la pasarela de servicios/whatsapp)
+        $waC = class_exists('Whatsapp') ? Whatsapp::conf() : array_replace(Config::defaults()['whatsapp'], (array)($cfg['whatsapp'] ?? []));
+        $waCron = json_decode((string)@file_get_contents(__DIR__ . '/data/cron_whatsapp.json'), true);
+        $waHace = is_array($waCron) ? time() - (int)($waCron['t'] ?? 0) : null;
+      ?>
+      <section class="card-base ajuste-card ajuste-card-ancha" id="whatsapp">
+        <h2 class="font-display"><i class="fa-brands fa-whatsapp text-secondary"></i> WhatsApp</h2>
+        <p class="ajuste-ayuda">
+          <b>Encendido:</b> las reuniones avisan por WhatsApp en lugar del correo (invitación, cambios, cancelación y un
+          recordatorio antes de empezar) y el código para recuperar la contraseña llega por WhatsApp. A quien no tenga un
+          teléfono válido le sigue llegando por correo, y la campana del panel avisa igual.
+          <b>Apagado:</b> todo va por correo, como siempre.
+          <br>Necesita la pasarela de <code>servicios/whatsapp</code> encendida en cPanel (Setup Node.js App) y el cron
+          <code>cron_whatsapp.php</code> cada minuto. Los pasos están en <code>servicios/whatsapp/README.md</code>.
+        </p>
+
+        <label class="chk-linea">
+          <input type="checkbox" name="whatsapp[activo]" <?= !empty($waC['activo']) ? 'checked' : '' ?>>
+          <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+          Avisar por WhatsApp en lugar del correo
+        </label>
+
+        <div class="campo-doble">
+          <label class="campo"><span>Dirección de la pasarela</span>
+            <input class="input-meca" type="url" name="whatsapp[url]" value="<?= e($waC['url']) ?>" placeholder="https://wa.innotech-solutions.com.ec">
+          </label>
+          <label class="campo"><span>Token</span>
+            <input class="input-meca" type="password" name="whatsapp[token]" value="" autocomplete="off"
+                   placeholder="<?= $waC['token'] !== '' ? '•••••••• guardado' : 'el mismo BAILEYS_TOKEN de cPanel' ?>">
+          </label>
+        </div>
+        <label class="campo"><span>Recordatorio antes de cada reunión</span>
+          <select class="input-meca" name="whatsapp[recordar_min]">
+            <?php foreach ([0 => 'Sin recordatorio', 10 => '10 minutos antes', 15 => '15 minutos antes', 30 => '30 minutos antes', 60 => '1 hora antes'] as $mW => $tW): ?>
+            <option value="<?= $mW ?>" <?= (int)$waC['recordar_min'] === $mW ? 'selected' : '' ?>><?= $tW ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+
+        <div class="correo-prueba">
+          <span class="ajuste-ayuda" style="flex:1">
+            <?php if ($waHace !== null && $waHace < 300): ?>
+              Cron de WhatsApp corriendo (hace <?= max(1, (int)round($waHace / 60)) ?> min)<?= !empty($waCron['error']) ? ' · ' . e($waCron['error']) : '' ?>.
+            <?php else: ?>
+              Guarda primero. Falta el cron (cPanel → Cron Jobs, cada minuto): <code>/usr/local/bin/php <?= e(str_replace('\\', '/', __DIR__)) ?>/cron_whatsapp.php</code>
+            <?php endif; ?>
+          </span>
+          <button type="button" class="btn-outline btn-meca btn-azul btn-sm" data-wa-estado>
+            <i class="fa-solid fa-qrcode"></i> Ver estado y vincular
+          </button>
+          <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-wa-prueba">
+            <i class="fa-brands fa-whatsapp"></i> Enviarme una prueba
+          </button>
+        </div>
+      </section>
     </div>
   </div>
 
@@ -912,6 +969,62 @@ UI::cabecera(
 <form id="frm-zoom-prueba" method="post" action="actions.php">
   <input type="hidden" name="accion" value="zoom_prueba">
 </form>
+<form id="frm-wa-prueba" method="post" action="actions.php">
+  <input type="hidden" name="accion" value="whatsapp_prueba">
+</form>
+
+<!-- WhatsApp: estado de la pasarela y QR para vincular el número -->
+<dialog id="dlg-wa-estado" class="dlg-meca">
+  <div class="dlg-form">
+    <header>
+      <h3 class="font-display"><i class="fa-brands fa-whatsapp text-secondary"></i> WhatsApp del panel</h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="wa-estado" data-wa-cuerpo>
+      <p class="ajuste-ayuda">Consultando la pasarela…</p>
+    </div>
+  </div>
+</dialog>
+<script>
+(() => {
+  const btn = document.querySelector('[data-wa-estado]');
+  const dlg = document.getElementById('dlg-wa-estado');
+  if (!btn || !dlg || !dlg.showModal) return;
+  const cuerpo = dlg.querySelector('[data-wa-cuerpo]');
+  const esc = (t) => String(t ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  let reloj = null;
+  async function consultar() {
+    const datos = new FormData();
+    datos.append('accion', 'whatsapp_estado');
+    let j = null;
+    try {
+      const r = await fetch('actions.php', { method: 'POST', body: datos, credentials: 'same-origin' });
+      j = await r.json();
+    } catch (e) { j = { ok: false, error: 'No se pudo consultar el panel.' }; }
+    if (!dlg.open) return;
+    const cola = j.cola ? '<p class="ajuste-ayuda">En cola: ' + j.cola.pendientes + ' · fallidos en 24 h: ' + j.cola.fallidos + '</p>' : '';
+    if (!j.ok) {
+      cuerpo.innerHTML = '<p class="wa-estado__malo"><i class="fa-solid fa-triangle-exclamation"></i> ' + esc(j.error) + '</p>';
+    } else if (j.conectado) {
+      cuerpo.innerHTML = '<p class="wa-estado__bien"><i class="fa-solid fa-circle-check"></i> Vinculado' + (j.numero ? ' al número <b>+' + esc(j.numero) + '</b>' : '') + '.</p>'
+        + '<p class="ajuste-ayuda">Ya puede avisar las reuniones y mandar los códigos. Para cambiar de número, desvincúlalo desde el teléfono (WhatsApp → Dispositivos vinculados) y vuelve a abrir esta ventana.</p>' + cola;
+      return;                                   // vinculado: ya no hace falta seguir preguntando
+    } else if (j.qr) {
+      cuerpo.innerHTML = '<p class="ajuste-ayuda">En el teléfono del número del panel: WhatsApp → <b>Dispositivos vinculados</b> → <b>Vincular un dispositivo</b>, y escanea este código.</p>'
+        + '<img class="wa-estado__qr" src="' + esc(j.qr) + '" alt="Código QR para vincular WhatsApp" width="280" height="280">' + cola;
+    } else {
+      cuerpo.innerHTML = '<p class="ajuste-ayuda">La pasarela está preparando el código QR…</p>' + cola;
+    }
+    reloj = setTimeout(consultar, 4000);        // el QR cambia cada pocos segundos
+  }
+  btn.addEventListener('click', () => {
+    cuerpo.innerHTML = '<p class="ajuste-ayuda">Consultando la pasarela…</p>';
+    dlg.showModal();
+    consultar();
+  });
+  dlg.addEventListener('close', () => { clearTimeout(reloj); reloj = null; });
+})();
+</script>
 
 <!-- Respaldo: exportar (descarga) e importar (subida de un config.json) -->
 <form id="frm-config-exportar" method="post" action="actions.php" data-descarga>

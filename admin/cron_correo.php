@@ -19,6 +19,8 @@ foreach (['Correo', 'Push'] as $m) {
     if (!is_file(__DIR__ . '/lib/' . $m . '.php')) exit("Falta lib/$m.php\n");
     require_once __DIR__ . '/lib/' . $m . '.php';
 }
+// Para el número del ícono (avisos + correos sin leer); si falta, solo los correos
+if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/Notificaciones.php';
 @set_time_limit(55);
 
 // Una sola revisión a la vez (si una tarda más de un minuto, la siguiente espera su turno)
@@ -38,12 +40,18 @@ foreach (Push::interesados('correo') as $mid) {
         continue;                                            // servidor caído o clave vencida: se reintenta luego
     }
     if (!$nuevos) continue;
+    // El número del ícono: revisarNuevos ya dejó al día los correos sin leer
+    $pend = class_exists('Notif') ? Notif::pendientes($mid) : (int)(Correo::noLeidos($mid) ?? 0);
+    // Al tocarlo se abre la app del correo (correo.php); si aún no se subió, el correo dentro del panel
+    $appCorreo = is_file(__DIR__ . '/correo.php');
+    $urlUno = fn(int $uid) => $appCorreo ? 'correo.php?uid=' . $uid : 'notificaciones.php?tab=correo&uid=' . $uid;
     if (count($nuevos) > 3) {
         $avisos += Push::enviar([$mid], [
             'titulo' => count($nuevos) . ' correos nuevos',
             'texto'  => implode(' · ', array_map(fn($n) => $n['asunto'] !== '' ? $n['asunto'] : '(sin asunto)', array_slice($nuevos, -3))),
-            'url'    => 'notificaciones.php?tab=correo',
+            'url'    => $appCorreo ? 'correo.php' : 'notificaciones.php?tab=correo',
             'tag'    => 'correo',
+            'n'      => $pend,
         ], 'correo');
         continue;
     }
@@ -52,8 +60,9 @@ foreach (Push::interesados('correo') as $mid) {
         $avisos += Push::enviar([$mid], [
             'titulo' => 'Correo de ' . ($quien !== '' ? $quien : 'alguien'),
             'texto'  => $n['asunto'] !== '' ? $n['asunto'] : '(sin asunto)',
-            'url'    => 'notificaciones.php?tab=correo&uid=' . (int)$n['uid'],
+            'url'    => $urlUno((int)$n['uid']),
             'tag'    => 'correo-' . (int)$n['uid'],
+            'n'      => $pend,
         ], 'correo');
     }
 }

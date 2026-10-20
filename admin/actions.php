@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -30,7 +30,8 @@ $accion = $_POST['accion'] ?? '';
    públicas      : sin sesión (login y primer acceso)
    cualquiera    : con sesión iniciada (salir, anotar observaciones)
    resto         : solo administrador                                     */
-$accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar'];
+// Recuperar la contraseña: sin sesión, con un código de 6 dígitos (WhatsApp o correo)
+$accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar', 'auth_recuperar_pedir', 'auth_recuperar_cambiar'];
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
@@ -570,7 +571,7 @@ switch ($accion) {
                 $miembros->actualizar((int)$yoLogin['id'], ['perfil_pendiente' => false]);
                 redirigir('perfil.php', '¡Bienvenido, ' . $nombre1 . '! Completa tus datos (usuario de Git, correos y foto) para que se cuenten tus commits.');
             }
-            redirigir('index.php', '¡Bienvenido, ' . $nombre1 . '!');
+            redirigir(Auth::trasLogin(), '¡Bienvenido, ' . $nombre1 . '!');
         }
         // Si se registró y todavía no lo aprueban, decírselo: si no, parece
         // que su contraseña está mal y la vuelve a pedir una y otra vez.
@@ -578,6 +579,75 @@ switch ($accion) {
             redirigir('login.php', 'Tu solicitud de acceso sigue pendiente. Te avisaremos por correo en cuanto un administrador la apruebe.', 'info');
         }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
+
+    /* ---------- Recuperar la contraseña con un código de 6 dígitos ----------
+       El código llega por WhatsApp si está encendido y la persona tiene un
+       teléfono válido; si no, por correo. Vence en 10 minutos, admite 5 intentos
+       y se pueden pedir 5 por hora (uno por minuto). La respuesta es la misma
+       exista o no la cuenta: así nadie averigua quién está registrado. */
+    case 'auth_recuperar_pedir':
+        $usuarioR = trim((string)($_POST['usuario'] ?? ''));
+        if ($usuarioR === '') redirigir('login.php?recuperar=1', 'Escribe tu correo o tu usuario de Git.', 'error');
+        $_SESSION['recup_pedidos'] = array_values(array_filter((array)($_SESSION['recup_pedidos'] ?? []), fn($t) => (int)$t > time() - 3600));
+        if (count($_SESSION['recup_pedidos']) >= 8) {
+            redirigir('login.php?recuperar=1', 'Pediste demasiados códigos. Espera un rato y vuelve a intentarlo.', 'error');
+        }
+        $_SESSION['recup_pedidos'][] = time();
+        $mR = Auth::buscarPorUsuario($usuarioR);
+        if ($mR) {
+            $enviosR = array_values(array_filter((array)($mR['recup_envios'] ?? []), fn($t) => (int)$t > time() - 3600));
+            // Menos de un minuto desde el último: sigue valiendo ese código
+            if (count($enviosR) < 5 && time() - ($enviosR ? max($enviosR) : 0) >= 60) {
+                $codigoR = str_pad((string)random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+                $enviosR[] = time();
+                $miembros->actualizar((int)$mR['id'], [
+                    'recup_hash'     => password_hash($codigoR, PASSWORD_DEFAULT),
+                    'recup_vence'    => time() + 600,
+                    'recup_intentos' => 0,
+                    'recup_envios'   => $enviosR,
+                ]);
+                $porWaR = class_exists('Whatsapp') && Whatsapp::enviarCodigo($mR, $codigoR, 10);
+                if (!$porWaR) Mailer::codigoRecuperacion($mR, $codigoR, 10);
+            }
+        } else {
+            usleep(random_int(400000, 1200000));   // que no se note por el tiempo si la cuenta existe
+        }
+        $_SESSION['recup'] = ['mid' => $mR ? (int)$mR['id'] : 0, 't' => time()];
+        $_SESSION['recup_fallos'] = 0;
+        redirigir('login.php?recuperar=codigo', 'Si la cuenta existe, te llegó un código de 6 dígitos por WhatsApp o a tu correo. Vence en 10 minutos.', 'info');
+
+    case 'auth_recuperar_cambiar':
+        $recR = (array)($_SESSION['recup'] ?? []);
+        if (!$recR || time() - (int)($recR['t'] ?? 0) > 1800) {
+            unset($_SESSION['recup']);
+            redirigir('login.php?recuperar=1', 'Pide un código para cambiar tu contraseña.', 'error');
+        }
+        $volverR = 'login.php?recuperar=codigo';
+        $codigoIn = preg_replace('/\D/', '', (string)($_POST['codigo'] ?? ''));
+        $claveN  = (string)($_POST['clave'] ?? '');
+        $claveN2 = (string)($_POST['clave2'] ?? '');
+        if (strlen($claveN) < 6) redirigir($volverR, 'La contraseña nueva debe tener al menos 6 caracteres.', 'error');
+        if ($claveN !== $claveN2) redirigir($volverR, 'Las dos contraseñas no coinciden.', 'error');
+        $mR = (int)($recR['mid'] ?? 0) > 0 ? $miembros->buscar((int)$recR['mid']) : null;
+        $vigente = $mR && !empty($mR['recup_hash']) && (int)($mR['recup_vence'] ?? 0) >= time() && (int)($mR['recup_intentos'] ?? 0) < 5;
+        if ($vigente && strlen($codigoIn) === 6 && password_verify($codigoIn, (string)$mR['recup_hash'])) {
+            $miembros->actualizar((int)$mR['id'], ['pass_hash' => Auth::hash($claveN), 'recup_hash' => '', 'recup_vence' => 0, 'recup_intentos' => 0]);
+            unset($_SESSION['recup'], $_SESSION['recup_pedidos'], $_SESSION['recup_fallos']);
+            Auth::iniciarSesion((int)$mR['id']);
+            redirigir(Auth::trasLogin(), 'Listo, cambiaste tu contraseña.');
+        }
+        if ($mR && !empty($mR['recup_hash'])) {
+            $intR = (int)($mR['recup_intentos'] ?? 0) + 1;
+            // Al quinto intento el código ya no sirve
+            $miembros->actualizar((int)$mR['id'], $intR >= 5 ? ['recup_intentos' => $intR, 'recup_hash' => ''] : ['recup_intentos' => $intR]);
+        }
+        $_SESSION['recup_fallos'] = (int)($_SESSION['recup_fallos'] ?? 0) + 1;
+        if ($_SESSION['recup_fallos'] >= 5) {
+            unset($_SESSION['recup']);
+            $_SESSION['recup_fallos'] = 0;
+            redirigir('login.php?recuperar=1', 'Demasiados intentos con un código equivocado. Pide uno nuevo.', 'error');
+        }
+        redirigir($volverR, 'El código no es correcto o ya venció.', 'error');
 
     case 'solicitud_registrar':
         // Registro por CORREO: la persona deja su correo + datos + clave. No
@@ -885,7 +955,11 @@ switch ($accion) {
         $yoC   = Auth::usuario();          // siempre quien entró, nunca el «ver como»
         $midC  = (int)$yoC['id'];
         $cC    = (string)($_POST['c'] ?? '');
-        $urlC  = fn(array $q = []) => 'notificaciones.php?' . http_build_query(['tab' => 'correo'] + array_filter($q, fn($v) => $v !== '' && $v !== 0));
+        // Desde la app del correo (correo.php, instalada en el celular) se vuelve a ella, no al panel
+        $enAppC = str_ends_with((string)parse_url(paginaOrigen(), PHP_URL_PATH), '/correo.php');
+        $urlC  = fn(array $q = []) => $enAppC
+            ? 'correo.php' . (($qC = array_filter($q, fn($v) => $v !== '' && $v !== 0)) ? '?' . http_build_query($qC) : '')
+            : 'notificaciones.php?' . http_build_query(['tab' => 'correo'] + array_filter($q, fn($v) => $v !== '' && $v !== 0));
         if ($accion === 'correo_conf') {
             $hostOk = fn($h) => preg_match('/^[a-z0-9.-]{3,120}$/i', trim((string)$h)) ? strtolower(trim((string)$h)) : '';
             $imapH = $hostOk($_POST['imap_host'] ?? '');
@@ -2525,6 +2599,19 @@ switch ($accion) {
             $logo = $subido !== '' ? $subido : $logoPrev;
         }
 
+        // WhatsApp: el token, como los demás secretos, se conserva si el campo llega vacío
+        $waPost = (array)($_POST['whatsapp'] ?? []);
+        $waUrl  = rtrim(trim((string)($waPost['url'] ?? '')), '/');
+        if ($waUrl !== '' && !preg_match('#^https?://[a-z0-9.-]+(:\d+)?(/[\w./-]*)?$#i', $waUrl)) {
+            $waUrl = (string)($prev['whatsapp']['url'] ?? '');
+        }
+        $waCfg = [
+            'activo'       => !empty($waPost['activo']),
+            'url'          => $waUrl,
+            'token'        => $secreto($waPost['token'] ?? '', $prev['whatsapp']['token'] ?? ''),
+            'recordar_min' => in_array((int)($waPost['recordar_min'] ?? 15), [0, 10, 15, 30, 60], true) ? (int)($waPost['recordar_min'] ?? 15) : 15,
+        ];
+
         Config::guardar([
             'titulo'           => trim($_POST['titulo'] ?? '') ?: $def['titulo'],
             'subtitulo'        => trim($_POST['subtitulo'] ?? '') ?: $def['subtitulo'],
@@ -2560,6 +2647,7 @@ switch ($accion) {
             'zoom'             => $zoom,
             'reuniones'        => $reunionesCfg,
             'deploys'          => $deploysCfg,
+            'whatsapp'         => $waCfg,
         ]);
 
         // Remapear datos existentes: si se elimino un estado/prioridad en uso,
@@ -3236,6 +3324,31 @@ switch ($accion) {
         }
         redirigir('ajustes.php', 'Configuración importada: ' . count($aplicadas) . ' bloque(s) actualizado(s) (' . implode(', ', $aplicadas) . ').');
 
+    /* ---------- WhatsApp (lib/Whatsapp.php): solo administrador ---------- */
+    case 'whatsapp_estado':
+        // Lo pide el modal «Ver estado y vincular» de Ajustes cada pocos segundos
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        if (!class_exists('Whatsapp')) { echo json_encode(['ok' => false, 'error' => 'Falta subir lib/Whatsapp.php.']); exit; }
+        $c = Whatsapp::conf();
+        if ($c['url'] === '' || $c['token'] === '') {
+            echo json_encode(['ok' => false, 'error' => 'Primero guarda la dirección de la pasarela y su token.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $est = Whatsapp::estado();
+        echo json_encode(is_string($est) ? ['ok' => false, 'error' => $est] : ['ok' => true] + $est + ['cola' => Whatsapp::resumenCola()], JSON_UNESCAPED_UNICODE);
+        exit;
+
+    case 'whatsapp_prueba':
+        $volverW = 'ajustes.php#tab-reuniones';
+        if (!class_exists('Whatsapp')) redirigir($volverW, 'Falta subir lib/Whatsapp.php al servidor.', 'error');
+        $c = Whatsapp::conf();
+        if ($c['url'] === '' || $c['token'] === '') redirigir($volverW, 'Primero guarda la dirección de la pasarela y su token.', 'error');
+        $numW = Whatsapp::numeroDe(Auth::usuario() ?? []);
+        if ($numW === '') redirigir($volverW, 'Tu ficha no tiene un teléfono válido: ponlo en Mi perfil para recibir la prueba.', 'error');
+        $rW = Whatsapp::enviarAhora($numW, "✅ *Prueba de WhatsApp*\nSi te llegó este mensaje, el panel ya puede avisar las reuniones y mandar los códigos para recuperar la contraseña.");
+        redirigir($volverW, $rW === true ? 'Listo: te mandamos un WhatsApp de prueba a tu número.' : $rW[1], $rW === true ? 'success' : 'error');
+
     case 'zoom_prueba':
         if (!Zoom::listo()) {
             redirigir('ajustes.php', 'Primero activa Zoom y guarda Account ID, Client ID y Client Secret.', 'error');
@@ -3370,16 +3483,24 @@ switch ($accion) {
         avisoPanel($invitados, 'reunion', 'Te invitaron a una reunión',
             ($reu['topic'] ?? 'Reunión') . ' · ' . ($reu['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
 
-        // Notifica por correo a los invitados con correo registrado
+        // Avisa a los invitados: con WhatsApp encendido, por WhatsApp (a la cola;
+        // por correo a quien no tenga teléfono válido). Si no, por correo.
         $avisados = 0;
+        $porWa = 0;
+        $paraCorreo = $invitados;
+        if (class_exists('Whatsapp') && Whatsapp::activo()) {
+            [$porWa, $sinTelWa] = Whatsapp::avisarReunion($reu, $invitados, (array)$p, 'nueva', (int)(Auth::usuario()['id'] ?? 0));
+            $paraCorreo = array_map(fn($m) => (int)$m['id'], $sinTelWa);
+        }
         if (Mailer::listo()) {
-            foreach ($invitados as $mid) {
+            foreach ($paraCorreo as $mid) {
                 $m = $miembros->buscar($mid);
                 if ($m && Mailer::notificarReunion($reu, $m, $p) === true) $avisados++;
             }
         }
         redirigir($volver, $donde
-            . ($avisados  ? ' ' . $avisados . ' invitado(s) notificado(s).' : '')
+            . ($porWa     ? ' ' . $porWa . ' aviso(s) por WhatsApp en camino.' : '')
+            . ($avisados  ? ' ' . $avisados . ' invitado(s) notificado(s) por correo.' : '')
             . ($agendados ? ' Agendada en ' . $agendados . ' calendario(s).' : ''));
 
     case 'reunion_editar':
@@ -3429,6 +3550,11 @@ switch ($accion) {
                 redirigir($volver, $ok, 'error');
             }
         }
+        // ¿Cambió algo que los invitados tengan que saber? (para avisarles por WhatsApp)
+        $cambioReu = $topic !== (string)($reu['topic'] ?? '') || $inicio !== (string)($reu['inicio'] ?? '')
+            || $duracion !== (int)($reu['duracion'] ?? 0) || (bool)$recurrente !== !empty($reu['recurrente'])
+            || (string)$hasta !== (string)($reu['hasta'] ?? '')
+            || Reuniones::diasValidos($dias) !== Reuniones::diasValidos($reu['dias'] ?? []);
         $reuniones->actualizar((int)$reu['id'], [
             'topic'      => $topic,
             'inicio'     => $inicio,
@@ -3448,13 +3574,28 @@ switch ($accion) {
         $reuActual = $reuniones->buscar((int)$reu['id']);
         avisoPanel($nuevos, 'reunion', 'Te invitaron a una reunión',
             ($reuActual['topic'] ?? 'Reunión') . ' · ' . ($reuActual['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
-        if ($nuevos && $p && Mailer::listo()) {
-            foreach ($nuevos as $mid) {
+        // Con WhatsApp: los nuevos reciben la invitación y los que ya estaban, el cambio.
+        // Por correo (WhatsApp apagado o sin teléfono válido), solo los nuevos, como siempre.
+        $porWa = 0;
+        $paraCorreo = $nuevos;
+        if (class_exists('Whatsapp') && Whatsapp::activo() && $reuActual) {
+            $yoReu = (int)(Auth::usuario()['id'] ?? 0);
+            [$porWa, $sinTelWa] = Whatsapp::avisarReunion($reuActual, $nuevos, (array)$p, 'nueva', $yoReu);
+            $paraCorreo = array_map(fn($m) => (int)$m['id'], $sinTelWa);
+            if ($cambioReu) {
+                [$nCambio] = Whatsapp::avisarReunion($reuActual, array_intersect($invitados, $invitadosAntes), (array)$p, 'cambio', $yoReu);
+                $porWa += $nCambio;
+            }
+        }
+        if ($paraCorreo && $p && Mailer::listo()) {
+            foreach ($paraCorreo as $mid) {
                 $m = $miembros->buscar((int)$mid);
                 if ($m && Mailer::notificarReunion($reuActual, $m, $p) === true) $avisados++;
             }
         }
-        redirigir($volver, 'Reunión actualizada.' . ($avisados ? ' ' . $avisados . ' invitado(s) nuevo(s) notificado(s).' : ''));
+        redirigir($volver, 'Reunión actualizada.'
+            . ($porWa ? ' ' . $porWa . ' aviso(s) por WhatsApp en camino.' : '')
+            . ($avisados ? ' ' . $avisados . ' invitado(s) nuevo(s) notificado(s) por correo.' : ''));
 
     case 'reunion_grabaciones':
         $reuniones = new ReunionRepo();
@@ -3575,6 +3716,15 @@ switch ($accion) {
             redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'], 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
         }
         if ($reu) {
+            // Con WhatsApp: si le quedaba alguna fecha por delante, los invitados se enteran
+            // de que se canceló, y se quita de la cola lo que faltaba (el recordatorio)
+            if (class_exists('Whatsapp') && Whatsapp::activo()) {
+                Whatsapp::quitarDeReunion((int)$reu['id']);
+                if (Whatsapp::quedaPorDelante($reu)) {
+                    Whatsapp::avisarReunion($reu, (array)($reu['invitados'] ?? []), (array)$proyectos->buscar((int)$reu['proyecto_id']),
+                        'cancelada', (int)(Auth::usuario()['id'] ?? 0));
+                }
+            }
             // Las copias en los calendarios de los invitados se van con ella
             borrarCopiasReunion($reu, $miembros);
             if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {

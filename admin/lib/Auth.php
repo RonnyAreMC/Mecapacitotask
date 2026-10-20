@@ -141,6 +141,32 @@ class Auth
         return false;
     }
 
+    /**
+     * El colaborador que escribió ese correo o usuario de Git (como en el
+     * login), tenga o no contraseña: quien entraba solo con Google también
+     * puede ponerse una con el código de recuperación.
+     */
+    public static function buscarPorUsuario(string $usuario): ?array
+    {
+        $usuario = trim($usuario);
+        if ($usuario === '') return null;
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if (strcasecmp((string)($m['email'] ?? ''), $usuario) === 0
+                || ((string)($m['git_user'] ?? '') !== '' && strcasecmp((string)$m['git_user'], ltrim($usuario, '@')) === 0)) {
+                return $m;
+            }
+        }
+        return null;
+    }
+
+    /** A dónde ir después de entrar: la página que se pidió sin sesión, o el inicio. Se usa una vez. */
+    public static function trasLogin(): string
+    {
+        $d = (string)($_SESSION['tras_login'] ?? '');
+        unset($_SESSION['tras_login']);
+        return preg_match('#^[a-z_]+\.php(\?[^\s<>"\'\\\\]*)?$#', $d) ? $d : 'index.php';
+    }
+
     /** Inicia sesión directamente para un colaborador (usado por Google login). */
     public static function iniciarSesion(int $miembroId): void
     {
@@ -245,6 +271,14 @@ class Auth
     {
         if (PHP_SAPI === 'cli') return;
         if (!self::usuario()) {
+            // Para volver a esa misma página después de entrar (p. ej. la app del correo en el celular)
+            if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+                $pag = basename((string)($_SERVER['SCRIPT_NAME'] ?? ''));
+                $q   = (string)($_SERVER['QUERY_STRING'] ?? '');
+                if (preg_match('/^[a-z_]+\.php$/', $pag) && $pag !== 'index.php') {
+                    $_SESSION['tras_login'] = $pag . ($q !== '' ? '?' . $q : '');
+                }
+            }
             header('Location: ' . urlPanel('login.php'));
             exit;
         }

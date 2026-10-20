@@ -169,7 +169,7 @@ if (!empty($miembro['perfil_pendiente'])) {
         '¡Bienvenido, ' . explode(' ', $miembro['nombre'])[0] . '! Completa tus datos (usuario de Git, correos y foto) para que se cuenten tus commits.' . $avisoCal);
 }
 redirigir(
-    'index.php',
+    Auth::trasLogin(),
     '¡Bienvenido, ' . explode(' ', $miembro['nombre'])[0] . '!'
         . ($vinculado ? ' Vinculé tu cuenta de Google (' . $correo . ') a tu ficha del equipo.' : '')
         . $avisoCal

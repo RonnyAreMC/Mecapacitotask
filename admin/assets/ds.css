@@ -1383,6 +1383,7 @@ html.dark .ds-tema .ds-tema__luna { display: none; }
 .ds-cuenta__op--verde   { --_op-bg: var(--tone-verde-bg);   --_op-fg: var(--tone-verde-fg); }
 .ds-cuenta__op--cian    { --_op-bg: var(--tone-cian-bg);    --_op-fg: var(--tone-cian-fg); }
 .ds-cuenta__op--petroleo { --_op-bg: var(--tone-petroleo-bg); --_op-fg: var(--tone-petroleo-fg); }
+.ds-cuenta__op--amarillo { --_op-bg: var(--tone-amarillo-bg); --_op-fg: var(--tone-amarillo-fg); }
 .ds-cuenta__op:hover, .ds-cuenta__op:focus-visible { background: var(--surface-hover); outline: none; }
 .ds-cuenta__op.is-actual { color: var(--primary-ink); font-weight: 600; }
 .ds-cuenta__salir { margin: 4px 0 0; padding-top: 4px; border-top: 1px solid var(--line); }
@@ -2186,17 +2187,28 @@ html td.celda-acceso > .inline-form { display: inline-block; }
 .mc-field__label small { font-weight: 500; color: var(--ink-muted); }
 
 @media (max-width: 1000px) {
-  .correo-conectar { grid-template-columns: 1fr; }
+  .correo-conectar { grid-template-columns: minmax(0, 1fr); }   /* minmax: lo más ancho (el dominio) no estira la tarjeta */
   .correo-ajustes__grid { grid-template-columns: minmax(0, 1fr) minmax(80px, 120px); }
 }
 @media (max-width: 900px) {
-  /* En el celular el menú lateral es la barra de arriba: las carpetas van en fila sobre el correo */
-  .correo-lado { position: static; width: auto; padding: 0 0 12px; margin-bottom: 12px; overflow: visible; background: none; border: 0; border-bottom: 1px solid var(--line); }
-  .admin-main:has(.correo-lado) { margin-left: 0; }
-  .correo-lado__rot { display: none; }
-  .correo-carpetas { flex-direction: row; overflow-x: auto; padding-bottom: 4px; }
-  .correo-carpeta { flex: none; }
-  .correo-cuenta { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin-top: 8px; padding-top: 8px; }
+  /* En el celular las carpetas van en un cajón que sale de la izquierda, con velo detrás
+     (el «cajón» del design system: AppShellMovil / Sidebar --drawer). Lo abre el botón
+     con el nombre de la carpeta; en la app del correo, también la barra de arriba y la de abajo. */
+  .correo-lado {
+    top: 0; bottom: 0; left: 0; z-index: 81; width: min(300px, 86vw);
+    padding: max(16px, env(safe-area-inset-top)) 12px max(16px, env(safe-area-inset-bottom));
+    border: 0; box-shadow: var(--shadow-lg);
+    transform: translateX(-104%); visibility: hidden;
+    transition: transform var(--mc-dur-3) var(--mc-ease-out), visibility 0s linear var(--mc-dur-3);
+  }
+  .correo-lado.is-open { transform: none; visibility: visible; transition: transform var(--mc-dur-3) var(--mc-ease-out); }
+  .correo-velo { display: block; position: fixed; inset: 0; z-index: 80; background: var(--overlay); opacity: 0; pointer-events: none; transition: opacity var(--mc-dur-3) var(--mc-ease); }
+  .correo-velo.is-open { opacity: 1; pointer-events: auto; }
+  html.correo-cajon-abierto { overflow: hidden; }
+  .correo-lado__cerrar { display: inline-grid; margin-left: auto; }
+  /* Sin capa propia en el contenido: así el cajón (z 81) queda encima de la barra de arriba y la de abajo */
+  .admin-main:has(.correo-lado) { margin-left: 0; isolation: auto; }
+  .correo-cajon-btn { display: inline-flex; }
   .correo-barra { flex-wrap: wrap; }
   .correo-buscar { max-width: none; flex-basis: 100%; }
   .correo-msg__quien { flex-wrap: wrap; }
@@ -2424,3 +2436,275 @@ html.dark .tabla-equipo .chip-copiar { background: var(--surface-raised, var(--s
 /* Teléfono mal escrito en la tabla del equipo: en rojo hasta que la persona lo corrija */
 .tabla-equipo .chip-copiar--mal { border-color: var(--danger-line); background: var(--danger-soft); }
 .tabla-equipo .chip-copiar--mal code, .tabla-equipo .chip-copiar--mal code i { color: var(--danger-ink); }
+
+/* ---------- Entrada: recuperar la contraseña ---------- */
+.ent-olvide { margin-left: auto; font: 600 var(--mc-fs-sm, .8125rem)/1.3 var(--font-sans); color: var(--primary-ink); text-decoration: none; }
+.ent-olvide:hover { text-decoration: underline; }
+.ent-codigo { font: 700 1.35rem/1 ui-monospace, Menlo, Consolas, monospace; letter-spacing: .35em; }
+
+/* ---------- Ajustes: estado de WhatsApp y QR para vincular ---------- */
+.wa-estado { display: grid; gap: 10px; justify-items: center; text-align: center; min-width: min(340px, 80vw); padding: 4px 0 8px; }
+.wa-estado__qr { width: 280px; height: 280px; max-width: 100%; border-radius: var(--radius-md); border: 1px solid var(--line); background: #fff; padding: 8px; }
+.wa-estado__bien { color: var(--success-ink, #0D7340); font-weight: 600; }
+.wa-estado__malo { color: var(--danger-ink); font-weight: 600; }
+
+/* ---------- Campana en rojo y estado de las notificaciones nativas ----------
+   El número rojo de la campana suma avisos y correos InnoTech sin leer
+   (UI::barraSuperior y assets/ds.js). Con algo pendiente, el botón lleva
+   además un anillo rojo suave para que se note en claro y en oscuro. */
+.mc-notif.has-pendientes .ds-sq--navy { box-shadow: 0 0 0 2px var(--surface), 0 0 0 4px var(--danger); }
+.mc-notif.has-pendientes .ds-sq--navy:focus-visible { box-shadow: var(--focus-ring); }
+.ds-sq .mc-iconbtn__badge { z-index: 1; min-width: 18px; height: 18px; padding: 0 5px; font: 700 10.5px/18px var(--font-sans);
+  background: var(--danger); color: var(--on-danger); box-shadow: 0 0 0 2px var(--surface); }
+.mc-notif.is-ringing .ds-sq > .mc-icon { transform-origin: 50% 3px; animation: mc-bell 900ms var(--mc-ease); }
+@media (prefers-reduced-motion: reduce) {
+  .mc-notif.is-ringing .ds-sq > .mc-icon { animation: none; }
+}
+
+/* Notificaciones → Tus dispositivos: este dispositivo, cómo le fue al último aviso y ayuda */
+.push-aqui { margin: 0; padding: 10px 14px; border-radius: var(--radius-md); border: 1px solid var(--line);
+  font-size: var(--mc-fs-sm, .8125rem); line-height: 1.5; color: var(--ink); background: var(--surface-sunken); }
+.push-aqui[hidden] { display: none; }
+.push-aqui[data-tono="ok"] { border-color: var(--success-line); background: var(--success-soft); color: var(--success-ink); }
+.push-aqui[data-tono="aviso"] { border-color: var(--warning-line); background: var(--warning-soft); color: var(--warning-ink); }
+.push-aqui[data-tono="error"] { border-color: var(--danger-line); background: var(--danger-soft); color: var(--danger-ink); }
+.push-equipo__txt .push-estado { line-height: 1.45; }
+.push-equipo__txt .push-estado--ok { color: var(--success-ink); }
+.push-equipo__txt .push-estado--espera { color: var(--warning-ink); }
+.push-equipo__txt .push-estado--error { color: var(--danger-ink); }
+.push-ayuda { margin-top: 10px; font-size: var(--mc-fs-sm, .8125rem); color: var(--ink-muted); line-height: 1.55; }
+.push-ayuda summary { cursor: pointer; font-weight: 600; color: var(--primary-ink); }
+.push-ayuda p { margin: 8px 0 4px; }
+.push-ayuda ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; }
+.push-ayuda b { color: var(--ink); }
+
+/* ---------- App del correo (correo.php, la que se instala en el celular) ----------
+   Sin el menú lateral del panel: la barra de arriba va de borde a borde y las
+   carpetas quedan pegadas a la izquierda (en el celular, en fila sobre el correo). */
+html.correo-app, html.correo-app.sb-collapsed { --sidebar-w: 0px; }
+.correo-app__enc .ds-enc__fila { padding-left: max(16px, env(safe-area-inset-left)); padding-right: max(16px, env(safe-area-inset-right)); }
+.correo-app__marca { display: flex; align-items: center; gap: 10px; min-width: 0; text-decoration: none; color: var(--ink); }
+.correo-app__marca img { border-radius: 9px; flex: none; }
+.correo-app__marca span { display: flex; flex-direction: column; min-width: 0; line-height: 1.15; }
+.correo-app__marca b { font: 700 1.05rem/1.15 var(--font-display, var(--font-sans)); }
+.correo-app__marca small { font-size: var(--mc-fs-xs, .75rem); color: var(--ink-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.correo-app__main { padding-top: 24px; padding-bottom: max(32px, env(safe-area-inset-bottom)); }
+@media (max-width: 900px) {
+  .correo-app__main { padding: 14px 12px 32px; }
+}
+
+.correo-conectar__info, .correo-conectar__form { min-width: 0; }
+.correo-conectar__info b, .correo-conectar__form input { overflow-wrap: anywhere; }
+
+/* Cajón de carpetas: el botón (solo en el celular), el velo y la ✕ (ocultos en computadora) */
+@media (min-width: 901px) { .correo-velo, .correo-lado__cerrar, .correo-cajon-btn { display: none; } }
+.correo-cajon-btn {
+  align-items: center; gap: 8px; max-width: 100%; margin: 0 0 12px; padding: 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-full); background: var(--surface); color: var(--ink);
+  font: 600 var(--mc-fs-sm, .8125rem)/1.2 var(--font-sans); cursor: pointer; -webkit-tap-highlight-color: transparent;
+}
+.correo-cajon-btn span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.correo-cajon-btn .mc-icon { flex: none; color: var(--primary-ink); }
+.correo-cajon-btn:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+
+/* ---------- App del correo en el celular: el shell móvil del design system ----------
+   (AppShellMovil: barra de arriba reducida de 56 px con el menú, cajón de carpetas y
+   barra de abajo BottomNav con la píldora que se desliza al destino actual). */
+html.correo-app { --bottomnav-h: 64px; }
+html.correo-app .correo-app__menu, html.correo-app .correo-app__nav { display: none; }   /* solo en el celular */
+@media (max-width: 900px) {
+  .correo-app__enc .ds-enc__fila { height: 56px; gap: var(--space-2); padding-left: max(8px, env(safe-area-inset-left)); }
+  html.correo-app .correo-app__menu { display: inline-grid; }
+  .correo-app__marca img { width: 32px; height: 32px; }
+  .correo-app__redactar { display: none; }                 /* en el celular va en la barra de abajo */
+  html.correo-app .correo-cajon-btn { display: none; }      /* el cajón lo abren el menú y «Carpetas» */
+  html.correo-app .correo-app__nav { display: grid; }
+  .correo-app__main { padding-bottom: calc(var(--bottomnav-h) + 20px + env(safe-area-inset-bottom)); }
+}
+.mc-bottomnav { position: relative; display: grid; grid-template-columns: repeat(var(--n, 5), 1fr); height: calc(var(--bottomnav-h, 64px) + env(safe-area-inset-bottom, 0px)); padding-bottom: env(safe-area-inset-bottom, 0);
+  background: var(--surface); border-top: 1px solid var(--line); }
+.mc-bottomnav.is-fixed { position: fixed; left: 0; right: 0; bottom: 0; z-index: var(--z-topbar, 50); }
+.mc-bottomnav__ind { position: absolute; top: 8px; left: 0; width: calc(100% / var(--n, 5)); height: 30px; display: flex; justify-content: center; pointer-events: none;
+  transform: translateX(calc(var(--i, 0) * 100%)); transition: transform 320ms var(--mc-ease-out); }
+.mc-bottomnav__ind span { width: 56px; height: 30px; border-radius: var(--radius-full); background: var(--primary-soft); }
+.mc-bottomnav__item { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 3px; padding: 11px 2px 6px; border: 0; background: none;
+  color: var(--ink-muted); font: 500 var(--mc-fs-2xs)/1rem var(--font-sans); text-decoration: none; cursor: pointer; transition: color var(--mc-dur-2) var(--mc-ease); -webkit-tap-highlight-color: transparent; }
+.mc-bottomnav__item:hover { text-decoration: none; }
+.mc-bottomnav__item:focus-visible { outline: none; }
+.mc-bottomnav__item:focus-visible .mc-bottomnav__icon { box-shadow: var(--focus-ring); }
+.mc-bottomnav__icon { position: relative; display: grid; place-items: center; width: 56px; height: 24px; border-radius: var(--radius-full); }
+.mc-bottomnav__item.is-active { color: var(--primary-ink); font-weight: 700; }
+.mc-bottomnav__label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+.mc-bottomnav__badge { position: absolute; top: -5px; left: calc(50% + 6px); min-width: 16px; height: 16px; padding: 0 4px; border-radius: var(--radius-full); background: var(--tone-petroleo-fg);
+  color: var(--surface); font: 700 10px/16px var(--font-sans); text-align: center; box-shadow: 0 0 0 2px var(--surface); animation: mc-pop-in 320ms var(--mc-ease-out) both; }
+.mc-bottomnav__badge.is-alert { background: var(--danger); color: var(--on-danger); }
+
+/* =========================================================
+   Instalar las apps (Notificaciones → Tus dispositivos)
+   «InnoTech Hub» y «Correo», con un botón grande por sistema (Apple,
+   Android, Windows) al estilo de la pantalla de descarga de SIGC: el del
+   dispositivo que se usa va primero y marcado; al instalar con un clic, la
+   flecha cae a la bandeja y se llena la barra. Los pasos para instalar a
+   mano salen en un modal (dialog.ins-pasos). Solo tokens: claro y oscuro.
+   ========================================================= */
+.ins-apps__intro { margin: -4px 0 16px; max-width: 46rem; color: var(--ink-muted); font-size: var(--mc-fs-sm, .8125rem); line-height: 1.6; }
+.ins-apps__lista { display: grid; gap: 14px; }
+.ins-app {
+  display: grid; gap: 14px; min-width: 0; padding: 16px;
+  border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface-alt);
+}
+.ins-app__cab { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.ins-app__cab img { flex: none; width: 44px; height: 44px; border-radius: 11px; box-shadow: var(--shadow-xs); }
+.ins-app__cab > span { display: grid; gap: 2px; min-width: 0; }
+.ins-app__cab b { font: 700 1rem/1.3 var(--font-display); color: var(--ink); }
+.ins-app__cab small { font-size: var(--mc-fs-sm, .8125rem); line-height: 1.45; color: var(--ink-muted); }
+
+/* Ya instalada y abierta como app */
+.ins-app__ya {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 10px; padding: 12px 14px;
+  border: 1px solid var(--success-line); border-radius: var(--radius-md); background: var(--success-soft);
+  color: var(--success-ink); font-size: var(--mc-fs-sm, .8125rem); line-height: 1.5;
+}
+.ins-app__ya[hidden] { display: none; }
+.ins-app__ya .mc-icon { flex: none; color: var(--tone-verde-fg); }
+.ins-app__ya > span { flex: 1 1 220px; min-width: 0; }
+.ins-app__otro {
+  padding: 4px 0; border: 0; background: none; color: var(--primary-ink); cursor: pointer;
+  font: 600 var(--mc-fs-sm, .8125rem)/1.3 var(--font-sans); text-decoration: underline; text-underline-offset: 3px;
+}
+.ins-app__otro[hidden] { display: none; }
+.ins-app__otro:focus-visible { outline: none; border-radius: var(--radius-xs); box-shadow: var(--focus-ring); }
+
+/* Botones grandes, uno por sistema */
+.ins-botones { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 10px; }
+.ins-botones[hidden] { display: none; }
+.ins-boton {
+  position: relative; display: flex; align-items: center; gap: 14px; width: 100%; min-width: 0; min-height: 76px; padding: 12px 16px;
+  border: 2px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); color: var(--ink);
+  font: inherit; text-align: left; cursor: pointer; overflow: hidden; -webkit-tap-highlight-color: transparent;
+  transition: border-color var(--mc-dur-1) var(--mc-ease), background-color var(--mc-dur-1) var(--mc-ease), transform var(--mc-dur-2) var(--mc-ease-out);
+}
+.ins-boton.is-recomendado { order: -1; border-color: var(--primary-line); }
+/* En el celular el «hover» se queda pegado tras tocar: solo con mouse */
+@media (hover: hover) {
+  .ins-boton:hover { border-color: var(--primary); background: var(--primary-soft); transform: translateY(-2px); }
+}
+.ins-boton:active { border-color: var(--primary); background: var(--primary-soft); }
+.ins-boton:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.ins-boton__marca { position: relative; display: grid; place-items: center; flex: none; width: 44px; height: 44px; }
+.ins-boton__marca > * { grid-area: 1 / 1; }
+.ins-logo { width: 36px; height: 36px; transition: transform var(--mc-dur-2) var(--mc-ease), opacity var(--mc-dur-2) var(--mc-ease); }
+[data-instalar-so="apple"] .ins-logo, .ins-pasos__logo[data-so="apple"] { color: var(--ink); }
+[data-instalar-so="android"] .ins-logo, .ins-pasos__logo[data-so="android"] { color: var(--tone-verde-fg); }
+[data-instalar-so="windows"] .ins-logo, .ins-pasos__logo[data-so="windows"] { color: var(--primary-ink); }
+.ins-boton__texto { display: grid; gap: 2px; min-width: 0; }
+.ins-boton__texto strong { font: 700 1.0625rem/1.25 var(--font-display); color: var(--ink); }
+.ins-boton__texto small { font-size: var(--mc-fs-xs, .75rem); line-height: 1.4; color: var(--ink-muted); }
+.ins-boton__reco {
+  justify-self: start; margin-top: 4px; padding: 2px 8px; border-radius: var(--radius-sm);
+  background: var(--primary); color: var(--on-primary); font: 600 var(--mc-fs-2xs, .6875rem)/1.45 var(--font-sans);
+}
+.ins-boton__reco[hidden] { display: none; }
+.ins-bajando, .ins-boton__listo {
+  width: 34px; height: 34px; opacity: 0; transform: scale(.6);
+  transition: transform var(--mc-dur-2) var(--mc-ease-out), opacity var(--mc-dur-2) var(--mc-ease);
+}
+.ins-bajando { color: var(--primary-ink); }
+.ins-boton__listo { color: var(--tone-verde-fg); }
+.ins-boton__barra { position: absolute; left: 0; right: 0; bottom: 0; height: 4px; }
+.ins-boton__barra > span { display: block; width: 0; height: 100%; border-radius: 0 4px 4px 0; background: var(--primary); }
+
+/* Instalando: el logo se va, la flecha cae a la bandeja y la barra avanza mientras el navegador pregunta */
+.ins-boton.is-descargando { border-color: var(--primary); background: var(--primary-soft); cursor: progress; transform: none; }
+.ins-boton.is-descargando .ins-logo, .ins-boton.is-listo .ins-logo { opacity: 0; transform: scale(.6); }
+.ins-boton.is-descargando .ins-bajando { opacity: 1; transform: none; }
+.ins-boton.is-descargando .ins-bajando__flecha { animation: ins-caer .8s var(--mc-ease) infinite; }
+.ins-boton.is-descargando .ins-boton__barra > span { animation: ins-llenar 2.4s var(--mc-ease-out) forwards; }
+/* Listo: visto verde y la barra completa */
+.ins-boton.is-listo { border-color: var(--tone-verde-fg); background: var(--success-soft); }
+.ins-boton.is-listo .ins-boton__listo { opacity: 1; transform: none; animation: ins-pop .4s var(--mc-ease-out); }
+.ins-boton.is-listo .ins-boton__barra > span { width: 100%; background: var(--tone-verde-fg); }
+.ins-boton.is-listo .ins-boton__texto small { color: var(--tone-verde-fg); font-weight: 600; }
+
+/* Qué pasó al instalar (debajo de las dos apps) */
+.ins-nota {
+  margin: 14px 0 0; padding: 10px 14px; border: 1px solid var(--info-line); border-radius: var(--radius-md);
+  background: var(--info-soft); color: var(--info-ink); font-size: var(--mc-fs-sm, .8125rem); line-height: 1.55;
+}
+.ins-nota[hidden] { display: none; }
+.ins-nota[data-tono="ok"] { border-color: var(--success-line); background: var(--success-soft); color: var(--success-ink); }
+.ins-nota[data-tono="aviso"] { border-color: var(--warning-line); background: var(--warning-soft); color: var(--warning-ink); }
+
+/* Modal con los pasos */
+dialog.ds-modal.ins-pasos { width: min(540px, calc(100vw - 32px)); }
+.ins-pasos .ds-modal__head { align-items: center; }
+.ins-pasos__logo {
+  display: grid; place-items: center; flex: none; width: 44px; height: 44px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--surface-alt);
+}
+.ins-pasos__logo .ins-logo { width: 26px; height: 26px; }
+.ins-pasos__fuera {
+  margin: 0; padding: 10px 12px; border: 1px solid var(--warning-line); border-radius: var(--radius-md);
+  background: var(--warning-soft); color: var(--warning-ink); font-size: var(--mc-fs-sm, .8125rem); line-height: 1.5;
+}
+.ins-pasos__fuera[hidden] { display: none; }
+.ins-pasos__dir {
+  display: flex; align-items: center; gap: 10px; padding: 8px 8px 8px 12px;
+  border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-alt);
+}
+.ins-pasos__dir-txt { display: grid; gap: 2px; flex: 1; min-width: 0; }
+.ins-pasos__dir-txt small { font-size: var(--mc-fs-2xs, .6875rem); font-weight: 600; letter-spacing: .02em; color: var(--ink-muted); }
+.ins-pasos__dir code { font: 500 var(--mc-fs-sm, .8125rem)/1.4 var(--font-mono); color: var(--ink); overflow-wrap: anywhere; user-select: all; }
+.ins-pasos__dir .mc-btn { flex: none; }
+.ins-pasos__grupo + .ins-pasos__grupo { margin-top: 18px; padding-top: 16px; border-top: 1px solid var(--line); }
+.ins-pasos__grupo h3 { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 8px; margin: 0 0 12px; font: 700 .9375rem/1.3 var(--font-display); color: var(--ink); }
+.ins-pasos__grupo h3 small { font: 500 var(--mc-fs-xs, .75rem)/1.3 var(--font-sans); color: var(--ink-muted); }
+.ins-pasos__este {
+  align-self: center; padding: 1px 8px; border-radius: var(--radius-full); background: var(--primary-soft);
+  color: var(--primary-ink); font: 600 var(--mc-fs-2xs, .6875rem)/1.6 var(--font-sans);
+}
+.ins-pasos__lista { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; counter-reset: ins-paso; }
+.ins-pasos__lista li {
+  position: relative; min-height: 24px; padding-left: 34px; counter-increment: ins-paso;
+  font-size: var(--mc-fs-body, .875rem); line-height: 1.55; color: var(--ink);
+}
+.ins-pasos__lista li::before {
+  content: counter(ins-paso); position: absolute; left: 0; top: 0; display: grid; place-items: center; width: 24px; height: 24px;
+  border-radius: 50%; background: var(--primary-soft); color: var(--primary-ink); font: 700 .75rem/1 var(--font-sans);
+}
+.ins-pasos__nota { margin: 12px 0 0; font-size: var(--mc-fs-xs, .75rem); line-height: 1.55; color: var(--ink-muted); }
+.ins-ico { display: inline-block; width: 18px; height: 18px; vertical-align: -4px; color: var(--primary-ink); }
+.ins-tecla {
+  display: inline-block; min-width: 22px; padding: 1px 6px; border: 1px solid var(--line); border-bottom-width: 2px;
+  border-radius: 6px; background: var(--surface); color: var(--ink); font: 700 .8125rem/1.3 var(--font-sans); text-align: center;
+}
+
+@keyframes ins-caer {
+  0% { transform: translateY(-10px); opacity: 0; }
+  25% { opacity: 1; }
+  70% { transform: translateY(6px); opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+@keyframes ins-llenar { from { width: 0; } to { width: 88%; } }
+@keyframes ins-pop { 0% { transform: scale(.4); } 70% { transform: scale(1.15); } 100% { transform: scale(1); } }
+
+@media (max-width: 520px) {
+  .ins-app { padding: 14px 12px; }
+  .ins-boton { min-height: 68px; padding: 10px 14px; }
+  .ins-pasos__dir { flex-wrap: wrap; }
+  .ins-pasos__dir .mc-btn { width: 100%; justify-content: center; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ins-boton.is-descargando .ins-bajando__flecha, .ins-boton.is-descargando .ins-boton__barra > span, .ins-boton.is-listo .ins-boton__listo { animation: none; }
+  .ins-boton.is-descargando .ins-boton__barra > span { width: 88%; }
+  .ins-boton, .ins-logo, .ins-bajando, .ins-boton__listo { transition: none; }
+  .ins-boton:hover { transform: none; }
+}
+
+/* App del correo: tarjeta «Instala Correo en este dispositivo» (correo.php?instalar=1) */
+.correo-instalar { display: flex; align-items: flex-start; gap: var(--space-4); padding: var(--space-5); margin-bottom: var(--space-4); }
+.correo-instalar img { flex: none; border-radius: 16px; box-shadow: var(--shadow-sm); }
+.correo-instalar h2 { margin: 0 0 4px; font: 700 1.125rem/1.3 var(--font-display); color: var(--ink); }
+.correo-instalar p { margin: 0 0 12px; color: var(--ink-muted); line-height: 1.5; }
+.correo-instalar__pasos { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-alt); color: var(--ink) !important; }
+@media (max-width: 900px) { .correo-app__instalar .mc-btn__label { display: none; } }
