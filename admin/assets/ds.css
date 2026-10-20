@@ -3222,3 +3222,17 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .correo-dest-nota { margin: 4px 0 0; color: var(--ink-muted); font-size: .76rem; }
 /* Los adjuntos que se pueden ver (PDF e imágenes) abren el visor del panel */
 .correo-adjunto--ver { cursor: zoom-in; }
+
+/* Opciones de envío al redactar (lib/correo_vista.php): plegadas, como en Roundcube */
+.correo-opciones { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.correo-opciones > summary { display: flex; align-items: center; gap: 8px; padding: var(--space-3) var(--space-4); color: var(--ink); font-size: var(--mc-fs-sm);
+  font-weight: 600; list-style: none; cursor: pointer; }
+.correo-opciones > summary::-webkit-details-marker { display: none; }
+.correo-opciones > summary small { margin-left: auto; color: var(--ink-muted); font-size: .76rem; font-weight: 400; }
+.correo-opciones > summary::after { content: ''; flex: none; width: 7px; height: 7px; margin: -3px 2px 0 6px; border-right: 2px solid var(--ink-muted);
+  border-bottom: 2px solid var(--ink-muted); transform: rotate(45deg); transition: transform var(--mc-dur-1) var(--mc-ease); }
+.correo-opciones[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+.correo-opciones__cuerpo { display: flex; flex-direction: column; gap: var(--space-3); padding: 0 var(--space-4) var(--space-4); }
+.correo-opciones__cuerpo .mc-field { margin: 0; }
+@media (max-width: 640px) { .correo-opciones > summary small { display: none; } }
+@media (prefers-reduced-motion: reduce) { .correo-opciones > summary::after { transition: none; } }

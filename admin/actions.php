@@ -1045,6 +1045,8 @@ switch ($accion) {
                 'asunto' => (string)($_POST['asunto'] ?? ''), 'texto' => (string)($_POST['texto'] ?? ''),
                 'en_respuesta_a' => (string)($_POST['en_respuesta_a'] ?? ''), 'referencias' => (string)($_POST['referencias'] ?? ''),
                 'reenviar_uid' => (int)($_POST['reenviar_uid'] ?? 0),
+                'prioridad' => (int)($_POST['prioridad'] ?? 3), 'acuse' => !empty($_POST['acuse']), 'dsn' => !empty($_POST['dsn']),
+                'guardar_en' => (string)($_POST['guardar_en'] ?? ''),
             ];
             $adjC = [];
             $totalC = 0;
@@ -1084,14 +1086,20 @@ switch ($accion) {
                     }
                 }
             }
-            Correo::enviar($midC, trim((string)$yoC['nombre']), [
+            $envC = Correo::enviar($midC, trim((string)$yoC['nombre']), [
                 'para' => $_POST['para'] ?? '', 'cc' => $_POST['cc'] ?? '', 'cco' => $_POST['cco'] ?? '',
                 'asunto' => $_POST['asunto'] ?? '', 'texto' => $_POST['texto'] ?? '',
                 'en_respuesta_a' => $_POST['en_respuesta_a'] ?? '', 'referencias' => $_POST['referencias'] ?? '',
                 'adjuntos' => $adjC,
+                // Opciones de envío (como en Roundcube): prioridad, confirmación de lectura, aviso de entrega y dónde guardar la copia
+                'prioridad' => (int)($_POST['prioridad'] ?? 3), 'acuse' => !empty($_POST['acuse']), 'dsn' => !empty($_POST['dsn']),
+                'guardar_en' => (string)($_POST['guardar_en'] ?? ''),
             ]);
             unset($_SESSION['correo_borrador']);
-            redirigir($urlC(['c' => $cC]), 'Correo enviado.');
+            $okC = 'Correo enviado.';
+            if (is_array($envC) && ($envC['dsn'] ?? null) === true) $okC .= ' Te llegará un aviso cuando se entregue.';
+            if (is_array($envC) && ($envC['dsn'] ?? null) === false) $okC .= ' Tu servidor de correo no admite avisos de entrega: salió sin ese aviso.';
+            redirigir($urlC(['c' => $cC]), $okC);
         } catch (CorreoError $e) {
             if ($e->tipo === 'auth') {
                 unset($_SESSION['correo_borrador']);

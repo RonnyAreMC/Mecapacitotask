@@ -730,6 +730,14 @@ final class CorreoMime
         $h[] = 'Message-ID: ' . $mid;
         if (!empty($m['en_respuesta_a'])) $h[] = 'In-Reply-To: ' . $m['en_respuesta_a'];
         if (!empty($m['referencias']))    $h[] = 'References: ' . $m['referencias'];
+        // Prioridad (1 más alta … 5 más baja; 3 normal no se escribe), como Outlook y Roundcube
+        $prio = (int)($m['prioridad'] ?? 3);
+        if ($prio >= 1 && $prio <= 5 && $prio !== 3) {
+            $h[] = 'X-Priority: ' . $prio . ' (' . [1 => 'Highest', 2 => 'High', 4 => 'Low', 5 => 'Lowest'][$prio] . ')';
+            $h[] = 'Importance: ' . ($prio < 3 ? 'High' : 'Low');
+        }
+        // Confirmación de lectura: el programa de quien lo abre le pregunta si avisar (RFC 8098)
+        if (!empty($m['acuse'])) $h[] = 'Disposition-Notification-To: ' . self::direccion((string)($m['de_nombre'] ?? ''), (string)$m['de_email']);
         $h[] = 'MIME-Version: 1.0';
 
         $b1 = '=_alt_' . bin2hex(random_bytes(8));
@@ -892,7 +900,11 @@ final class CorreoSmtp
     /** @var resource|null */
     private $s = null;
 
-    public function enviar(string $host, int $puerto, bool $verificar, string $usuario, string $clave, string $de, array $destinos, string $crudo): void
+    /**
+     * Envía el mensaje. Con $dsn pide al servidor el aviso de entrega (DSN,
+     * RFC 3461) si lo admite: devuelve true si lo pudo pedir, false si no.
+     */
+    public function enviar(string $host, int $puerto, bool $verificar, string $usuario, string $clave, string $de, array $destinos, string $crudo, bool $dsn = false): bool
     {
         $ctx = stream_context_create(['ssl' => [
             'verify_peer' => $verificar, 'verify_peer_name' => $verificar, 'allow_self_signed' => !$verificar,
@@ -907,24 +919,27 @@ final class CorreoSmtp
         try {
             $this->esperar([220]);
             $yo = 'panel.' . (substr(strrchr($de, '@') ?: '@localhost', 1));
-            $this->cmd('EHLO ' . $yo, [250]);
+            [, $ehlo] = $this->cmd('EHLO ' . $yo, [250]);
             if (!$ssl) {
                 $this->cmd('STARTTLS', [220]);
                 if (!@stream_socket_enable_crypto($s, true, STREAM_CRYPTO_METHOD_TLSv1_2_CLIENT | STREAM_CRYPTO_METHOD_TLSv1_3_CLIENT)) {
                     throw new CorreoError('No se pudo cifrar la conexión con el servidor de envío.', 'red');
                 }
-                $this->cmd('EHLO ' . $yo, [250]);
+                [, $ehlo] = $this->cmd('EHLO ' . $yo, [250]);
             }
             [$cod] = $this->cmd('AUTH PLAIN ' . base64_encode("\0" . $usuario . "\0" . $clave), [235, 535, 534, 454], false);
             if ($cod !== 235) throw new CorreoError('El servidor de envío no aceptó tu contraseña.', $cod === 454 ? 'red' : 'auth');
-            $this->cmd('MAIL FROM:<' . $de . '>', [250]);
-            foreach ($destinos as $d) $this->cmd('RCPT TO:<' . $d . '>', [250, 251]);
+            // Aviso de entrega: solo si el servidor anuncia DSN; si no, el correo sale igual, sin aviso
+            $conDsn = $dsn && preg_match('/^250[ -]DSN\b/mi', (string)$ehlo) === 1;
+            $this->cmd('MAIL FROM:<' . $de . '>' . ($conDsn ? ' RET=HDRS' : ''), [250]);
+            foreach ($destinos as $d) $this->cmd('RCPT TO:<' . $d . '>' . ($conDsn ? ' NOTIFY=SUCCESS,FAILURE,DELAY ORCPT=rfc822;' . $d : ''), [250, 251]);
             $this->cmd('DATA', [354]);
             $datos = (string)preg_replace('/^\./m', '..', $crudo);
             if (!str_ends_with($datos, "\r\n")) $datos .= "\r\n";
             $this->escribir($datos . ".\r\n");
             $this->esperar([250]);
             $this->escribir("QUIT\r\n");
+            return $conDsn;
         } finally {
             @fclose($s);
             $this->s = null;
@@ -1404,9 +1419,12 @@ final class Correo
     /**
      * Envía un correo desde el buzón de la persona y guarda la copia en
      * Enviados. $d: para, cc, asunto, texto, en_respuesta_a, referencias,
-     * adjuntos [['nombre','tipo','datos']].
+     * adjuntos [['nombre','tipo','datos']] y las opciones de envío:
+     * prioridad (1–5), acuse (confirmación de lectura), dsn (aviso de entrega)
+     * y guardar_en (carpeta para la copia; '-' = no guardar).
+     * Devuelve ['dsn' => true|false|null] (null = no se pidió).
      */
-    public static function enviar(int $mid, string $nombre, array $d): void
+    public static function enviar(int $mid, string $nombre, array $d): array
     {
         $c = self::cuenta($mid);
         if (!$c || ($c['estado'] ?? '') !== 'ok') throw new CorreoError('Tu correo no está sincronizado.', 'uso');
@@ -1426,12 +1444,15 @@ final class Correo
             'adjuntos' => (array)($d['adjuntos'] ?? []),
             'en_respuesta_a' => self::idMensaje((string)($d['en_respuesta_a'] ?? '')),
             'referencias' => self::referencias((string)($d['referencias'] ?? '')),
+            'prioridad' => max(1, min(5, (int)($d['prioridad'] ?? 3) ?: 3)),
+            'acuse' => !empty($d['acuse']),
         ]);
         $clave = self::descifrar((string)($c['clave'] ?? ''));
         $conf = self::conf();
+        $pideDsn = !empty($d['dsn']);
         try {
-            (new CorreoSmtp())->enviar($conf['smtp_host'], $conf['smtp_puerto'], $conf['verificar_ssl'],
-                (string)$c['email'], $clave, (string)$c['email'], array_merge($para, $cc, $cco), $crudo);
+            $dsnOk = (new CorreoSmtp())->enviar($conf['smtp_host'], $conf['smtp_puerto'], $conf['verificar_ssl'],
+                (string)$c['email'], $clave, (string)$c['email'], array_merge($para, $cc, $cco), $crudo, $pideDsn);
         } catch (CorreoError $e) {
             if ($e->tipo === 'auth') {
                 self::guardarCuenta($mid, ['estado' => 'reconectar', 'error' => 'La contraseña del correo cambió o ya no es válida.', 'clave' => '']);
@@ -1439,16 +1460,23 @@ final class Correo
             throw $e;
         }
         self::anotarRecientes($mid, $d, array_merge($para, $cc, $cco));
-        // La copia en Enviados (si falla, el correo igual salió)
-        try {
-            $imap = self::abrir($mid);
-            $enviados = self::carpetaDeTipo(self::carpetas($imap, $mid), 'sent');
-            // La copia propia sí dice a quién fue en copia oculta (el que salió, no)
-            $copia = $cco ? (string)preg_replace('/\r\nSubject: /', "\r\nBcc: " . implode(', ', $cco) . "\r\nSubject: ", $crudo, 1) : $crudo;
-            if ($enviados !== null) $imap->guardar($enviados, $copia);
-            $imap->cerrar();
-        } catch (CorreoError $e) {
+        // La copia en Enviados o en la carpeta que eligió; «-» = sin copia (si falla, el correo igual salió)
+        $guardarEn = (string)($d['guardar_en'] ?? '');
+        if ($guardarEn !== '-') {
+            try {
+                $imap = self::abrir($mid);
+                $lista = self::carpetas($imap, $mid);
+                $destino = null;
+                foreach ($lista as $f) if ($guardarEn !== '' && $f['nombre'] === $guardarEn) $destino = $f['nombre'];
+                $destino ??= self::carpetaDeTipo($lista, 'sent');
+                // La copia propia sí dice a quién fue en copia oculta (el que salió, no)
+                $copia = $cco ? (string)preg_replace('/\r\nSubject: /', "\r\nBcc: " . implode(', ', $cco) . "\r\nSubject: ", $crudo, 1) : $crudo;
+                if ($destino !== null) $imap->guardar($destino, $copia);
+                $imap->cerrar();
+            } catch (CorreoError $e) {
+            }
         }
+        return ['dsn' => $pideDsn ? $dsnOk : null];
     }
 
     /** Guarda datos propios de la cuenta (reglas, punteros…). No crea cuentas. */

@@ -245,7 +245,7 @@ function correoPintar(array $yo, array $cuenta, array $d): void
   <section class="mc-card correo-main">
     <?php
     if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas);
-    elseif ($modo === 'redactar') correoRedactar($yo, $cuenta, $carpeta, $base);
+    elseif ($modo === 'redactar') correoRedactar($yo, $cuenta, $carpeta, $base, $carpetas);
     else correoLista($lista, $carpeta);
     ?>
   </section>
@@ -554,10 +554,14 @@ function correoDirectorio(int $mid, string $yoMail): array
     return ['equipo' => array_values($equipo), 'recientes' => array_map(fn($r) => ['e' => $r['e'], 'n' => (string)($r['n'] ?? '')], $recientes)];
 }
 
-function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base): void
+function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, array $carpetas = []): void
 {
     $yoMail = strtolower((string)$cuenta['email']);
     $para = $cc = $cco = $asunto = $texto = $enResp = $refs = '';
+    // Opciones de envío: prioridad normal, sin confirmación ni aviso, copia en Enviados
+    $prioridad = 3;
+    $acuse = $dsn = false;
+    $guardarEn = (string)(Correo::carpetaDeTipo($carpetas, 'sent') ?? '');
     $reenviar = isset($_GET['reenviar']) && $base;
     if ($base) {
         $de = $base['de'][0] ?? ['nombre' => '', 'email' => ''];
@@ -593,6 +597,10 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base):
         $enResp = (string)($bor['en_respuesta_a'] ?? $enResp);
         $refs = (string)($bor['referencias'] ?? $refs);
         if ((int)($bor['reenviar_uid'] ?? 0) > 0) $reUid = (int)$bor['reenviar_uid'];
+        $prioridad = (int)($bor['prioridad'] ?? $prioridad);
+        $acuse = !empty($bor['acuse']);
+        $dsn = !empty($bor['dsn']);
+        $guardarEn = (string)($bor['guardar_en'] ?? $guardarEn);
     }
     $reUid = $reUid ?? ($reenviar ? (int)$base['uid'] : 0);
     $titulo = $reenviar ? 'Reenviar' : ($base ? 'Responder' : 'Nuevo correo');
@@ -629,6 +637,27 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base):
       <div class="mc-field__foot"><span class="mc-field__hint">Van también los adjuntos del correo original.</span></div>
       <?php endif; ?>
     </div>
+    <?php
+      // Opciones de envío, como en Roundcube: plegadas; se abren solas si alguna no está en lo normal
+      $opcCarpetas = [];
+      foreach ($carpetas as $f) if (!in_array($f['tipo'], ['trash', 'junk', 'spam'], true)) $opcCarpetas[$f['nombre']] = $f['etiqueta'];
+      $opcCarpetas['-'] = 'No guardar una copia';
+      $enviadosNom = (string)(Correo::carpetaDeTipo($carpetas, 'sent') ?? '');
+      $abiertas = $prioridad !== 3 || $acuse || $dsn || ($guardarEn !== '' && $guardarEn !== $enviadosNom);
+    ?>
+    <details class="correo-opciones"<?= $abiertas ? ' open' : '' ?>>
+      <summary><?= UI::iconoDS('configuracion', 16) ?><span>Opciones de envío</span><small>Prioridad, confirmación de lectura, aviso de entrega y dónde guardarlo</small></summary>
+      <div class="correo-opciones__cuerpo">
+        <div class="correo-doble">
+          <div class="mc-field"><span class="mc-field__label">Prioridad</span>
+            <?= UI::selectDS('prioridad', ['1' => 'Más alta', '2' => 'Alta', '3' => 'Normal', '4' => 'Baja', '5' => 'Más baja'], (string)$prioridad, ['tam' => 'md', 'aria' => 'Prioridad']) ?></div>
+          <div class="mc-field"><span class="mc-field__label">Guardar el mensaje enviado en</span>
+            <?= UI::selectDS('guardar_en', $opcCarpetas, $guardarEn !== '' ? $guardarEn : $enviadosNom, ['tam' => 'md', 'aria' => 'Guardar el mensaje enviado en']) ?></div>
+        </div>
+        <?= UI::checkDS('acuse', $acuse, 'Pedir confirmación de lectura', 'A quien lo abra, su programa le pregunta si quiere avisarte que lo leyó (puede decir que no).') ?>
+        <?= UI::checkDS('dsn', $dsn, 'Avisarme cuando se entregue', 'El servidor te manda un correo cuando llega a cada destinatario, o si no se pudo entregar.') ?>
+      </div>
+    </details>
     <div class="correo-redactar__pie">
       <button class="mc-btn mc-btn--success mc-btn--md" data-enviar><?= UI::iconoDS('enviar', 18) ?><span class="mc-btn__label">Enviar</span></button>
     </div>
