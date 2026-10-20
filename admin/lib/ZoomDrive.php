@@ -6,6 +6,8 @@
  *
  * En Drive, dentro de la carpeta elegida (zoom_drive.php):
  *   <Proyecto o equipo>/Videos|Audios|Textos/<AAAA-MM>/<AAAA-MM-DD HH.mm Tema>.<ext>
+ * Se toman TODAS las grabaciones de la cuenta. Las de reuniones creadas desde el
+ * panel van a su proyecto y con el nombre que tienen en el panel; las demás, a «Otras».
  *
  * - Zoom: la app Server-to-Server de Ajustes. Lista los usuarios de la cuenta y
  *   sus grabaciones mes a mes; descarga por partes (Range) y borra a la papelera.
@@ -28,7 +30,8 @@ final class ZoomDrive
     private const DE_UNA = 5 * 1024 * 1024;
     /** La carpeta que pasó el usuario (InnoTech) */
     public const CARPETA_DEFECTO = '1wJOhdBO_xwf_fNFt64qGGjwnx5_r9fGU';
-    public const SIN_CLASIFICAR = 'Sin clasificar';
+    /** Las grabaciones que no se crearon desde el panel */
+    public const OTRAS = 'Otras';
     public const ESTADOS = [
         'nuevo'    => 'En Zoom',
         'en_cola'  => 'En cola',
@@ -386,9 +389,12 @@ final class ZoomDrive
             fn($f) => ($f['status'] ?? 'completed') === 'completed' && !empty($f['id']) && !empty($f['download_url'])));
         if (!$archivos) return 0;
         $inicio = self::horaLocal((string)($m['start_time'] ?? ''));
-        $tema = trim((string)($m['topic'] ?? '')) ?: 'Reunión';
         $idReunion = (string)($m['id'] ?? '');
-        $grupo = self::grupoSugerido($idReunion, $tema, $proyectos, $reuniones);
+        $delPanel = $reuniones[$idReunion] ?? null;
+        // Si la reunión salió del panel, se llama como en el panel
+        $tema = trim((string)($delPanel['tema'] ?? '')) ?: (trim((string)($m['topic'] ?? '')) ?: 'Reunión');
+        $grupo = self::grupoSugerido($idReunion, $proyectos, $reuniones);
+        $manual = !empty(((array)self::conf()['grupos'])[$idReunion]);
         $videos = count(array_filter($archivos, fn($f) => self::tipo($f) === 'video'));
         $nuevas = 0;
         foreach ($archivos as $f) {
@@ -407,12 +413,19 @@ final class ZoomDrive
                 'tipo'       => self::tipo($f),
                 'nombre'     => self::nombre($inicio, $tema, $f, $videos),
                 'url'        => (string)$f['download_url'],
+                'del_panel'  => $delPanel !== null,
             ];
             if (isset($existentes[$id])) {
                 $ya = $existentes[$id];
-                // Lo que puede cambiar en Zoom (el enlace); el estado y la carpeta se respetan
-                if (in_array($ya['estado'] ?? '', ['nuevo', 'en_cola', 'error'], true)) {
-                    self::tabla()->update((int)$ya['id'], ['url' => $fila['url'], 'tamano' => $fila['tamano']]);
+                // Lo que puede cambiar: el enlace de Zoom y, si todavía no se sube, el nombre
+                // y la carpeta (por ejemplo, la reunión ahora sí está en el panel). Lo que
+                // eligió el administrador a mano se respeta.
+                if (in_array($ya['estado'] ?? '', ['nuevo', 'error'], true)) {
+                    $cambio = ['url' => $fila['url'], 'tamano' => $fila['tamano'], 'tema' => $fila['tema'], 'nombre' => $fila['nombre'], 'del_panel' => $fila['del_panel']];
+                    if (!$manual) $cambio['grupo'] = $grupo;
+                    self::tabla()->update((int)$ya['id'], $cambio);
+                } elseif (($ya['estado'] ?? '') === 'en_cola') {
+                    self::tabla()->update((int)$ya['id'], ['url' => $fila['url']]);
                 }
                 continue;
             }
@@ -490,40 +503,28 @@ final class ZoomDrive
         return $n;
     }
 
-    /** id de reunión de Zoom => id de proyecto, de las reuniones creadas desde el panel */
+    /** id de reunión de Zoom => ['proyecto' => id, 'tema' => nombre], de las reuniones creadas desde el panel */
     private static function reunionesPanel(): array
     {
         $r = [];
         foreach ((new JsonStore('reuniones'))->all() as $x) {
-            if (!empty($x['zoom_id']) && (int)($x['proyecto_id'] ?? 0) > 0) $r[(string)$x['zoom_id']] = (int)$x['proyecto_id'];
+            if (!empty($x['zoom_id'])) $r[(string)$x['zoom_id']] = ['proyecto' => (int)($x['proyecto_id'] ?? 0), 'tema' => (string)($x['topic'] ?? '')];
         }
         return $r;
     }
 
-    private static function normalizar(string $t): string
-    {
-        $t = mb_strtolower($t);
-        $t = strtr($t, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
-        return trim(preg_replace('/[^a-z0-9]+/', ' ', $t));
-    }
-
     /**
      * Carpeta para una reunión: la que eligió el administrador para esa reunión;
-     * si no, el proyecto de la reunión del panel; si no, el proyecto cuyo nombre
-     * aparece en el tema (el más largo gana); si no, «Sin clasificar».
+     * si no, el proyecto de la reunión del panel (se sabe de dónde salió);
+     * si no se creó desde el panel, «Otras».
      */
-    public static function grupoSugerido(string $idReunion, string $tema, array $proyectos, array $reuniones): string
+    public static function grupoSugerido(string $idReunion, array $proyectos, array $reuniones): string
     {
         $elegidos = (array)self::conf()['grupos'];
         if ($idReunion !== '' && !empty($elegidos[$idReunion])) return (string)$elegidos[$idReunion];
-        if ($idReunion !== '' && isset($reuniones[$idReunion], $proyectos[$reuniones[$idReunion]])) return $proyectos[$reuniones[$idReunion]];
-        $t = ' ' . self::normalizar($tema) . ' ';
-        $mejor = '';
-        foreach ($proyectos as $nombre) {
-            $n = self::normalizar($nombre);
-            if ($n !== '' && str_contains($t, ' ' . $n . ' ') && mb_strlen($n) > mb_strlen(self::normalizar($mejor))) $mejor = $nombre;
-        }
-        return $mejor !== '' ? $mejor : self::SIN_CLASIFICAR;
+        $pid = (int)($reuniones[$idReunion]['proyecto'] ?? 0);
+        if ($idReunion !== '' && $pid > 0 && isset($proyectos[$pid])) return $proyectos[$pid];
+        return self::OTRAS;
     }
 
     /** El administrador cambia la carpeta de una reunión: vale para todas sus grabaciones que aún no se subieron */
@@ -854,6 +855,7 @@ final class ZoomDrive
             $r['tema'] = (string)$f['tema'];
             $r['inicio'] = (string)$f['inicio'];
             $r['host'] = (string)$f['host'];
+            $r['del_panel'] = !empty($f['del_panel']);
             $r['archivos'][] = $f;
             unset($r);
         }
@@ -861,7 +863,7 @@ final class ZoomDrive
             uasort($reuniones, fn($a, $b) => strcmp($b['inicio'], $a['inicio']));
         }
         unset($reuniones);
-        uksort($g, fn($a, $b) => [$a !== self::SIN_CLASIFICAR, $a] <=> [$b !== self::SIN_CLASIFICAR, $b]);
+        uksort($g, fn($a, $b) => [$a === self::OTRAS, $a] <=> [$b === self::OTRAS, $b]);   // «Otras» al final
         return $g;
     }
 

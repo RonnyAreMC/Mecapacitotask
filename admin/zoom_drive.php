@@ -2,8 +2,8 @@
 /**
  * Grabaciones de Zoom → Google Drive (solo el administrador).
  *
- * Busca las grabaciones de la cuenta de Zoom, propone la carpeta de cada una
- * (el proyecto del panel; si no se reconoce, «Sin clasificar») y las pasa a Drive:
+ * Busca TODAS las grabaciones de la cuenta de Zoom: las de reuniones creadas desde
+ * el panel van a su proyecto y con el nombre del panel; las demás, a «Otras». Las pasa a Drive:
  *   <Proyecto>/Videos|Audios|Textos/<AAAA-MM>/<fecha hora tema>.<ext>
  * Cuando una reunión está entera en Drive (mismo tamaño), se manda a la papelera
  * de Zoom para liberar espacio. El trabajo lo hace lib/ZoomDrive.php: esta página
@@ -112,10 +112,12 @@ $cron      = json_decode((string)@file_get_contents(__DIR__ . '/data/cron_zoom_d
 $cronHace  = is_array($cron) ? time() - (int)($cron['t'] ?? 0) : null;
 $b = fn(int $n) => ZoomDrive::bytes($n);
 
-// Opciones de carpeta: los proyectos del panel, «Sin clasificar» y las que ya se usan
-$opciones = [ZoomDrive::SIN_CLASIFICAR => ZoomDrive::SIN_CLASIFICAR];
+// Opciones de carpeta: los proyectos del panel, las que ya se usan y, al final, «Otras»
+$opciones = [];
 foreach ($proyectos as $nombre) $opciones[$nombre] = $nombre;
 foreach (array_keys($grupos) as $g) $opciones[$g] = $g;
+unset($opciones[ZoomDrive::OTRAS]);
+$opciones[ZoomDrive::OTRAS] = ZoomDrive::OTRAS;
 $etiquetaEstado = ZoomDrive::ESTADOS;
 $tonoEstado = ['nuevo' => 'neutral', 'en_cola' => 'info', 'subiendo' => 'info', 'en_drive' => 'success', 'borrado' => 'success', 'error' => 'danger'];
 
@@ -219,7 +221,7 @@ UI::cabecera(
       <p class="zd-ayuda" data-zd-buscando>
         <?php if (!empty($escaneo['termino'])): ?>Última búsqueda: <?= e($escaneo['termino']) ?> · <?= (int)($escaneo['nuevas'] ?? 0) ?> archivo(s) nuevos.
         <?php elseif (!empty($escaneo['usuarios'])): ?>Búsqueda a medias: vuelve a pulsar para seguir.
-        <?php else: ?>Revisa a todos los usuarios de la cuenta de Zoom, mes por mes.<?php endif; ?>
+        <?php else: ?>Trae todas las grabaciones de la cuenta, mes por mes: las de reuniones creadas en el panel van a su proyecto y con su nombre; las demás, a «Otras».<?php endif; ?>
       </p>
     </div>
   </section>
@@ -248,15 +250,15 @@ UI::cabecera(
         } ?>
     <details class="mc-card zd-grupo" open>
       <summary class="zd-grupo__cab">
-        <span class="mc-tile mc-tile--<?= $grupo === ZoomDrive::SIN_CLASIFICAR ? 'amarillo' : 'azul' ?> mc-tile--sm"><?= UI::iconoDS('carpeta', 18) ?></span>
+        <span class="mc-tile mc-tile--<?= $grupo === ZoomDrive::OTRAS ? 'amarillo' : 'azul' ?> mc-tile--sm"><?= UI::iconoDS('carpeta', 18) ?></span>
         <span class="zd-grupo__t"><b><?= e($grupo) ?></b><small><?= count($reuniones) ?> reunión(es) · <?= $b($peso) ?></small></span>
         <?php if ($pendientes): ?>
-        <button class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" name="grupo" value="<?= e($grupo) ?>"<?= $grupo === ZoomDrive::SIN_CLASIFICAR ? ' data-zd-sin-clasificar' : '' ?>>
+        <button class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" name="grupo" value="<?= e($grupo) ?>">
           <span class="mc-btn__label">Pasar todo a Drive (<?= $pendientes ?>)</span></button>
         <?php endif; ?>
       </summary>
-      <?php if ($grupo === ZoomDrive::SIN_CLASIFICAR): ?>
-        <?= UI::alertaDS('warning', 'No reconocimos el proyecto de estas reuniones', 'Elige su carpeta en la columna «Carpeta»: se recuerda para las siguientes grabaciones de esa misma reunión.', true) ?>
+      <?php if ($grupo === ZoomDrive::OTRAS): ?>
+        <?= UI::alertaDS('info', 'Estas reuniones no se crearon desde el panel', 'Por eso van a «Otras». Si alguna es de un proyecto, elígelo en la columna «Carpeta»: se recuerda para las siguientes grabaciones de esa reunión.', true) ?>
       <?php endif; ?>
       <div class="zd-tabla">
         <table class="tabla-meca">
@@ -281,7 +283,7 @@ UI::cabecera(
             <tr data-zd-fila>
               <td class="zd-col-sel"><?php if ($elegible): ?><input type="checkbox" name="uuids[]" value="<?= e($r['uuid']) ?>" data-zd-sel aria-label="Elegir <?= e($r['tema']) ?>"><?php endif; ?></td>
               <td class="zd-fecha"><?= e(substr($r['inicio'], 0, 10)) ?><small><?= e(substr($r['inicio'], 11, 5)) ?></small></td>
-              <td class="zd-tema"><b><?= e($r['tema']) ?></b><small><?= e($r['host']) ?></small></td>
+              <td class="zd-tema"><b><?= e($r['tema']) ?></b><?php if ($r['del_panel']): ?> <span class="zd-chip zd-chip--panel">Del panel</span><?php endif; ?><small><?= e($r['host']) ?></small></td>
               <td class="zd-archivos">
                 <?php if ($cuantos['video']): ?><span class="zd-chip"><?= UI::iconoDS('video', 14) ?> <?= $cuantos['video'] > 1 ? $cuantos['video'] . ' videos' : 'Video' ?> · <?= $b($porTipo['video']) ?></span><?php endif; ?>
                 <?php if ($cuantos['audio']): ?><span class="zd-chip"><?= UI::iconoDS('microfono', 14) ?> Audio · <?= $b($porTipo['audio']) ?></span><?php endif; ?>
@@ -362,13 +364,6 @@ UI::cabecera(
       }
       if (e.target.matches('[data-zd-sel], [data-zd-todas]')) pintar();
     });
-    // «Pasar todo a Drive» de «Sin clasificar»: confirma antes (irían todas a esa carpeta)
-    lista.querySelectorAll('[data-zd-sin-clasificar]').forEach((b) => b.addEventListener('click', async (e) => {
-      if (b.dataset.zdOk === '1') return;
-      e.preventDefault();
-      const si = window.MC && MC.confirm ? await MC.confirm({ titulo: '¿Todas a «Sin clasificar»?', mensaje: 'Estas reuniones irán a la carpeta «Sin clasificar». Si quieres ordenarlas, elige antes su carpeta en la columna «Carpeta».', ok: 'Sí, pasarlas', peligro: false }) : true;
-      if (si) { b.dataset.zdOk = '1'; b.click(); }
-    }));
   }
 
   /* ---------- Avanzar la cola mientras la página está abierta ---------- */

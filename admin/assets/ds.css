@@ -3099,3 +3099,4 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
   .zd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .zd-acciones { position: static; }
 }
+.zd-chip--panel { margin: 0 0 0 4px; padding: 0 7px; border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); font-size: .72rem; font-weight: 600; vertical-align: 1px; }
