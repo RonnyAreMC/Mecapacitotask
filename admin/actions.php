@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias', 'TareasCorreo'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -2440,6 +2440,77 @@ switch ($accion) {
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
 
+    case 'tareas_correo_crear':
+        // Las tareas que el administrador revisó en el modal del correo (assets/ia.js).
+        // Solo el administrador (no está en $accionesDeCualquiera). Se crean como
+        // cualquier tarea: avisan al responsable y van a su calendario.
+        header('Content-Type: application/json; charset=utf-8');
+        $finTc = function (bool $ok, string $msg, array $extra = []): never {
+            exit(json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg, 'mensaje' => $msg] + $extra, JSON_UNESCAPED_UNICODE));
+        };
+        if (!class_exists('TareasCorreo')) $finTc(false, 'Falta lib/TareasCorreo.php en el servidor.');
+        $pidTc = (int)($_POST['proyecto_id'] ?? 0);
+        $pTc = $pidTc > 0 ? $proyectos->buscar($pidTc) : null;
+        if (!$pTc) $finTc(false, 'Ese proyecto ya no existe.');
+        $listaTc = json_decode((string)($_POST['tareas'] ?? '[]'), true);
+        if (!is_array($listaTc) || !$listaTc) $finTc(false, 'Marca al menos una tarea.');
+        $validosTc = array_column(TareasCorreo::gente($pTc), 'id');
+        $origenTc = mb_substr(trim(strip_tags((string)($_POST['origen'] ?? ''))), 0, 300);
+        if (is_file(__DIR__ . '/lib/IA.php')) require_once __DIR__ . '/lib/IA.php';
+        $erroresTc = [];
+        $listasTc = [];
+        foreach (array_slice($listaTc, 0, 30) as $iTc => $tTc) {
+            if (!is_array($tTc)) continue;
+            $tituloTc = mb_substr(trim(strip_tags((string)($tTc['titulo'] ?? ''))), 0, 150);
+            $nTc = $tituloTc !== '' ? '«' . $tituloTc . '»' : 'La tarea ' . ($iTc + 1);
+            if ($tituloTc === '') { $erroresTc[] = $nTc . ' no tiene título.'; continue; }
+            $respTc = array_values(array_intersect(TareaRepo::asignadosEntrada($tTc['responsables'] ?? []), $validosTc));
+            if (!$respTc) { $erroresTc[] = $nTc . ': elige el responsable.'; continue; }
+            $fiTc = ProyectoRepo::fecha((string)($tTc['fecha_inicio'] ?? ''));
+            $flTc = ProyectoRepo::fecha((string)($tTc['fecha_limite'] ?? ''));
+            if ($fiTc !== '' && $flTc !== '' && $flTc < $fiTc) { $erroresTc[] = $nTc . ': la fecha límite va antes del inicio.'; continue; }
+            // La descripción llega como texto (con viñetas «- »): se pasa a HTML y se sanea
+            $descTc = mb_substr(strip_tags(trim((string)($tTc['descripcion'] ?? ''))), 0, 6000);
+            $descTc = class_exists('IA') ? IA::aHtml($descTc) : nl2br(e($descTc));
+            if ($origenTc !== '') $descTc .= '<p><em>' . e($origenTc) . '</em></p>';
+            $listasTc[] = [
+                'ref' => trim((string)($tTc['ref'] ?? '')), 'dep' => trim((string)($tTc['depende_de'] ?? '')),
+                'datos' => [
+                    'proyecto_id' => $pidTc, 'titulo' => $tituloTc, 'descripcion' => HtmlRico::limpiar($descTc),
+                    'prioridad' => Catalogo::prioridadValida((string)($tTc['prioridad'] ?? '')),
+                    'fecha_inicio' => $fiTc, 'fecha_limite' => $flTc, 'asignados' => $respTc,
+                ],
+            ];
+        }
+        if ($erroresTc) $finTc(false, implode(' ', array_slice($erroresTc, 0, 4)));
+        if (!$listasTc) $finTc(false, 'Marca al menos una tarea.');
+        $idsTc = [];
+        $porRefTc = [];
+        foreach ($listasTc as $lTc) {
+            $tNueva = $tareas->crear($lTc['datos']);
+            $idsTc[] = (int)$tNueva['id'];
+            if ($lTc['ref'] !== '') $porRefTc[$lTc['ref']] = (int)$tNueva['id'];
+        }
+        // «Después de» dentro del mismo lote
+        foreach ($listasTc as $kTc => $lTc) {
+            $depTc = $porRefTc[$lTc['dep']] ?? 0;
+            if ($depTc > 0 && $depTc !== $idsTc[$kTc]) {
+                $depsTc = $tareas->dependenciasValidas($idsTc[$kTc], [$depTc], $pidTc);
+                if ($depsTc) $tareas->actualizar($idsTc[$kTc], ['dependencias' => $depsTc, 'depende_de' => $depsTc[0]]);
+            }
+        }
+        foreach ($idsTc as $idTc) {
+            $tCreadaTc = $tareas->buscar($idTc);
+            if (!$tCreadaTc) continue;
+            notificarSiAsignada($tCreadaTc, TareaRepo::asignadosDe($tCreadaTc), [], $proyectos, $miembros);
+            sincronizarCalendario($tCreadaTc, $proyectos, $miembros, $tareas);
+        }
+        chequearEntrega($pidTc, $proyectos, $tareas);
+        TareasCorreo::anotar((int)(Auth::usuario()['id'] ?? 0), (string)($_POST['mensaje_id'] ?? ''), $pidTc, $idsTc);
+        $nTcF = count($idsTc);
+        $finTc(true, $nTcF . ' tarea' . ($nTcF === 1 ? '' : 's') . ' creada' . ($nTcF === 1 ? '' : 's') . ' en «' . $pTc['nombre'] . '».',
+            ['creadas' => $nTcF, 'url' => 'proyecto.php?id=' . $pidTc]);
+
     case 'equipo_mover':
         // Organizar equipos (equipos.php): pasa a una o varias personas a otro
         // equipo. Llega por fetch al soltar una tarjeta (ajax=1, responde JSON)
@@ -3185,6 +3256,7 @@ switch ($accion) {
     case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'ia_req_correo':
+    case 'ia_tareas_correo':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
     case 'ia_obs_resumen':
@@ -3328,6 +3400,23 @@ switch ($accion) {
                     $resIa = ['url' => ($filaRc['estado'] ?? '') === 'registrado'
                         ? 'requerimientos.php?ver=' . (int)$filaRc['req_id']
                         : 'requerimientos.php?propuesta=' . (int)$filaRc['id']];
+                    break;
+
+                case 'ia_tareas_correo':
+                    // Tareas de un proyecto desde un correo: solo el administrador, desde su buzón
+                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Crear tareas desde el correo es solo para administradores.'], 403);
+                    if (!class_exists('TareasCorreo') || !class_exists('ReqCorreo') || !class_exists('Correo')) throw new IAError('Falta el módulo del correo en el servidor.');
+                    if (!$proyIa) throw new IAError('Elige el proyecto.');
+                    try {
+                        $msgTc = TareasCorreo::leer((int)(Auth::usuario()['id'] ?? 0), (string)($_POST['c'] ?? ''), (int)($_POST['uid'] ?? 0));
+                    } catch (CorreoError $e) {
+                        throw new IAError($e->getMessage());
+                    }
+                    $genteTc = TareasCorreo::gente($proyIa);
+                    $resIa = IAFunciones::tareasCorreo($proyIa, $msgTc, $genteTc, trim((string)($_POST['instrucciones'] ?? '')))
+                        + ['gente' => array_map(fn($g) => ['id' => $g['id'], 'nombre' => $g['nombre'], 'rol' => $g['rol']], $genteTc),
+                           'proyecto' => $proyIa['nombre'], 'origen' => TareasCorreo::origen($msgTc), 'mensaje_id' => $msgTc['message_id'],
+                           'prioridades' => array_map(fn($v) => $v[0], Catalogo::prioridades())];
                     break;
 
                 case 'ia_obs_redaccion':

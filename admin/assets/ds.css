@@ -3100,3 +3100,18 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
   .zd-acciones { position: static; }
 }
 .zd-chip--panel { margin: 0 0 0 4px; padding: 0 7px; border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); font-size: .72rem; font-weight: 600; vertical-align: 1px; }
+
+/* Tareas desde un correo (assets/ia.js · data-tareas-correo): proyecto, propuesta y revisión */
+.dlg-tc .ia-cuerpo { display: flex; flex-direction: column; gap: var(--space-4); max-height: min(68vh, 720px); overflow-y: auto; }
+.tc-ayuda { margin: 0; color: var(--ink-muted); font-size: var(--mc-fs-sm); }
+.tc-paso1 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-4); align-items: start; }
+.tc-paso1 .mc-field, .tc-tarea .mc-field { margin: 0; }
+.tc-lista { display: flex; flex-direction: column; gap: var(--space-3); }
+.tc-lista:empty { display: none; }
+.tc-tarea { display: flex; flex-direction: column; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg);
+  background: var(--surface); transition: opacity var(--mc-dur-1) var(--mc-ease), border-color var(--mc-dur-1) var(--mc-ease); }
+.tc-tarea.is-apagada { opacity: .5; }
+.tc-tarea.is-sin-resp { border-color: var(--warning-line); background: var(--warning-soft); }
+.tc-tarea__fila { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(0, .9fr); gap: var(--space-3); align-items: start; }
+.tc-falta { display: block; margin-top: 4px; color: var(--warning-ink); font-size: .78rem; }
+@media (max-width: 760px) { .tc-paso1, .tc-tarea__fila { grid-template-columns: 1fr; } }

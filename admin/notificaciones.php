@@ -17,6 +17,7 @@ if (is_file(__DIR__ . '/lib/Push.php')) require_once __DIR__ . '/lib/Push.php';
 if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
 if (is_file(__DIR__ . '/lib/ReqCorreo.php')) require_once __DIR__ . '/lib/ReqCorreo.php';
 if (is_file(__DIR__ . '/lib/CorreoCopias.php')) require_once __DIR__ . '/lib/CorreoCopias.php';
+if (is_file(__DIR__ . '/lib/TareasCorreo.php')) require_once __DIR__ . '/lib/TareasCorreo.php';   // tareas desde un correo (admin)
 Auth::requiereLogin();
 
 $yo  = Auth::usuario();

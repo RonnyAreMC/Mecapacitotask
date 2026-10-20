@@ -98,7 +98,7 @@ function actualizarPanel(array $opc): void
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
-        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php',
+        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -122,20 +122,20 @@ function actualizarPanel(array $opc): void
         'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
-        'assets/ia.js'      => ['conGiro', 'data-req-correo'],
+        'assets/ia.js'      => ['conGiro', 'data-req-correo', 'data-tareas-correo'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar'],
         'lib/Tutoriales.php' => ['function pendiente'],
         'tutoriales.php'    => ['tutorial_avisar'],
-        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje'],
+        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-tareas-correo'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
-        'lib/IAFunciones.php' => ['requerimientoCorreo'],
-        'lib/IA.php'        => ['req_desde_correo'],
+        'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo'],
+        'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar'],
         'ajustes.php'       => ['whatsapp[activo]'],
         'lib/Mailer.php'    => ['codigoRecuperacion'],
@@ -198,7 +198,8 @@ function actualizarPanel(array $opc): void
                   'req_correo' => 'Requerimientos desde el correo',
                   'correo_copias' => 'Copias de los correos en el panel',
                   'tutoriales_vistos' => 'Quién ya vio cada tutorial',
-                  'zoom_drive' => 'Grabaciones de Zoom → Drive', 'zoom_drive_carpetas' => 'Carpetas creadas en Drive'] as $t => $etq) {
+                  'zoom_drive' => 'Grabaciones de Zoom → Drive', 'zoom_drive_carpetas' => 'Carpetas creadas en Drive',
+                  'tareas_correo' => 'Tareas creadas desde un correo'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');

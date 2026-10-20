@@ -461,6 +461,26 @@ function correoBloqueRequerimiento(array $m, string $carpeta): void
             . '<button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-req-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '">'
             . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">Convertir en requerimiento</span></button></div>';
     }
+    // Tareas en un proyecto desde este correo (la estrella de la IA, lib/TareasCorreo.php): solo el administrador
+    if (class_exists('TareasCorreo') && UI::ia('tareas_desde_correo')) {
+        $proyTc = [];
+        foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) {
+            $proyTc[] = ['id' => (int)$p['id'], 'nombre' => (string)$p['nombre'], 'activo' => ($p['estado'] ?? 'activo') === 'activo'];
+        }
+        usort($proyTc, fn($a, $b) => [!$a['activo'], $a['nombre']] <=> [!$b['activo'], $b['nombre']]);
+        $nombreTc = array_column($proyTc, 'nombre', 'id');
+        $hechasTc = TareasCorreo::deMensaje((int)(Auth::usuario()['id'] ?? 0), (string)$m['message_id']);
+        $texto = '¿Trae trabajo para un proyecto? La IA arma una o varias tareas con su responsable, sus fechas y la descripción sacada del correo.';
+        if ($hechasTc) {
+            $texto = 'Ya creaste desde este correo ' . implode(' y ', array_map(fn($h) => $h['n'] . ' tarea' . ($h['n'] === 1 ? '' : 's')
+                . ' en <a href="proyecto.php?id=' . (int)$h['proyecto_id'] . '">«' . e($nombreTc[$h['proyecto_id']] ?? 'un proyecto') . '»</a>', $hechasTc)) . '.';
+        }
+        echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--verde">' . UI::iconoDS('check-doble', 18) . '</span>'
+            . '<p>' . $texto . '</p>'
+            . '<button type="button" class="mc-btn mc-btn--' . ($hechasTc ? 'outline mc-btn--t-azul' : 'primary') . ' mc-btn--sm" data-tareas-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '"'
+            . ' data-proyectos="' . e(json_encode(array_map(fn($p) => ['id' => $p['id'], 'nombre' => $p['nombre'] . ($p['activo'] ? '' : ' (no activo)')], $proyTc), JSON_UNESCAPED_UNICODE)) . '">'
+            . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">' . ($hechasTc ? 'Crear más tareas' : 'Crear tareas en un proyecto') . '</span></button></div>';
+    }
     echo '</div>';
 }
 

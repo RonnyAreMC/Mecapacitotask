@@ -342,6 +342,131 @@
   });
 
   /* =========================================================
+     3c. Tareas de un proyecto desde un correo (solo el administrador,
+     lib/TareasCorreo.php): se elige el proyecto, la IA propone una o varias
+     tareas con su responsable, sus fechas y la descripción del correo, y se
+     revisan antes de crearlas. Sin responsable no se crea ninguna.
+     ========================================================= */
+  const marcaCheck = '<svg class="mc-draw-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-tareas-correo]');
+    if (!b) return;
+    e.preventDefault();
+    let proyectos = [];
+    try { proyectos = JSON.parse(b.dataset.proyectos || '[]'); } catch (x) { proyectos = []; }
+    if (!proyectos.length) { toast('Todavía no hay proyectos donde crear tareas.', 'error'); return; }
+
+    const dlg = modal('Tareas desde este correo', 'fa-wand-magic-sparkles',
+      '<p class="tc-ayuda">La IA lee el correo y propone una o varias tareas, cada una con su responsable, sus fechas y la descripción sacada del correo. Las revisas antes de crearlas.</p>'
+      + '<div class="tc-paso1">'
+      + '<div class="mc-field"><label class="mc-field__label">Proyecto</label><select data-ds-select data-tc-proyecto aria-label="Proyecto">'
+      + '<option value="">Elige el proyecto</option>' + proyectos.map((p) => '<option value="' + p.id + '">' + esc(p.nombre) + '</option>').join('') + '</select></div>'
+      + '<div class="mc-field"><label class="mc-field__label" for="tc-ind">Indicaciones <span class="ds-opcional">(opcional)</span></label>'
+      + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="tc-ind" rows="2" data-tc-ind maxlength="1500" placeholder="Ej.: que sean dos tareas, diseño y publicación; asígnalas a Kevin"></textarea></div></div>'
+      + '</div><div class="tc-lista" data-tc-lista></div>',
+      '<button type="button" class="btn-primary btn-meca" data-tc-proponer><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Proponer tareas</span></button>'
+      + '<button type="button" class="btn-primary btn-meca" data-tc-crear hidden><i class="fa-solid fa-check"></i> <span>Crear tareas</span></button>');
+    dlg.classList.add('dlg-tc', 'dlg-ia-ancho');
+    const selProy = dlg.querySelector('[data-tc-proyecto]');
+    const ind = dlg.querySelector('[data-tc-ind]');
+    const lista = dlg.querySelector('[data-tc-lista]');
+    const bProponer = dlg.querySelector('[data-tc-proponer]');
+    const bCrear = dlg.querySelector('[data-tc-crear]');
+    let datos = null;
+    let pidPropuesta = '';
+
+    // Leer lo que quedó en cada tarjeta
+    const leer = () => [...lista.querySelectorAll('.tc-tarea')].map((el) => {
+      const t = datos.tareas[+el.dataset.i];
+      const v = (k) => ((el.querySelector('[data-k="' + k + '"]') || {}).value || '');
+      return {
+        usar: el.querySelector('[data-tc-usar]').checked, el, ref: t.ref, depende_de: t.depende_de,
+        titulo: v('titulo').trim(), descripcion: v('descripcion'), responsables: v('responsable') ? [+v('responsable')] : [],
+        fecha_inicio: v('fecha_inicio'), fecha_limite: v('fecha_limite'), prioridad: v('prioridad'),
+      };
+    });
+    const contar = () => {
+      if (!datos) return;
+      const todas = leer();
+      todas.forEach((x) => {
+        x.el.classList.toggle('is-apagada', !x.usar);
+        x.el.classList.toggle('is-sin-resp', x.usar && !x.responsables.length);
+      });
+      const l = todas.filter((x) => x.usar);
+      const sin = l.filter((x) => !x.responsables.length).length;
+      bCrear.hidden = false;
+      bCrear.querySelector('span').textContent = !l.length ? 'Marca al menos una tarea'
+        : sin ? 'Falta elegir ' + sin + ' responsable' + (sin > 1 ? 's' : '')
+        : 'Crear ' + l.length + ' tarea' + (l.length > 1 ? 's' : '');
+      bCrear.disabled = !l.length || sin > 0;
+    };
+    lista.addEventListener('change', contar);
+    lista.addEventListener('input', contar);
+    // Otro proyecto: la propuesta era para el anterior (su equipo es otro)
+    selProy.addEventListener('change', () => {
+      if (datos && selProy.value !== pidPropuesta) {
+        datos = null; lista.innerHTML = ''; bCrear.hidden = true;
+        bProponer.className = 'btn-primary btn-meca';
+        bProponer.querySelector('span').textContent = 'Proponer tareas';
+      }
+    });
+
+    const pintar = (r) => {
+      datos = r;
+      const gente = r.gente || [];
+      const prios = r.prioridades || { baja: 'Baja', media: 'Media', alta: 'Alta' };
+      const opGente = (sel) => '<option value="">Elige el responsable</option>' + gente.map((g) => '<option value="' + g.id + '"' + (g.id === sel ? ' selected' : '') + '>'
+        + esc(g.nombre) + (g.rol ? ' · ' + esc(g.rol) : '') + '</option>').join('');
+      const opPrio = (sel) => Object.entries(prios).map(([k, v]) => '<option value="' + esc(k) + '"' + (k === sel ? ' selected' : '') + '>' + esc(v) + '</option>').join('');
+      lista.innerHTML = (r.notas ? '<div class="mc-alert mc-alert--info mc-alert--compact" role="status"><div class="mc-alert__content"><p class="mc-alert__desc">' + esc(r.notas) + '</p></div></div>' : '')
+        + r.tareas.map((t, i) => '<article class="tc-tarea" data-i="' + i + '">'
+          + '<label class="mc-check is-checked tc-tarea__usar"><input type="checkbox" class="mc-sr-only" data-tc-usar checked>'
+          + '<span class="mc-check__box" aria-hidden="true">' + marcaCheck + '</span><span class="mc-check__text"><span class="mc-check__label">Crear esta tarea</span></span></label>'
+          + '<div class="mc-field"><label class="mc-field__label">Título</label><div class="mc-input mc-input--md"><input class="mc-input__control" data-k="titulo" maxlength="150" value="' + esc(t.titulo) + '"></div></div>'
+          + '<div class="mc-field"><label class="mc-field__label">Descripción</label><div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" rows="4" data-k="descripcion">' + esc(t.descripcion) + '</textarea></div></div>'
+          + '<div class="tc-tarea__fila">'
+          + '<div class="mc-field tc-resp"><label class="mc-field__label">Responsable</label><select data-ds-select data-ds-buscar data-k="responsable" aria-label="Responsable">' + opGente((t.responsables || [])[0] || 0) + '</select>'
+          + (!(t.responsables || []).length ? '<small class="tc-falta">' + (t.responsables_texto ? 'El correo nombra a «' + esc(t.responsables_texto) + '», que no está en el equipo del proyecto: elige a quién.' : 'La IA no supo a quién: elige el responsable.') + '</small>' : '') + '</div>'
+          + '<div class="mc-field"><label class="mc-field__label">Inicio</label><input type="date" data-k="fecha_inicio" value="' + esc(t.fecha_inicio) + '"></div>'
+          + '<div class="mc-field"><label class="mc-field__label">Fecha límite</label><input type="date" data-k="fecha_limite" value="' + esc(t.fecha_limite) + '"></div>'
+          + '<div class="mc-field"><label class="mc-field__label">Prioridad</label><select data-ds-select data-k="prioridad" aria-label="Prioridad">' + opPrio(t.prioridad) + '</select></div>'
+          + '</div></article>').join('') + firma(r);
+      if (typeof MecaDate !== 'undefined') MecaDate.init(lista);   // el calendario del panel
+      bProponer.className = 'btn-outline btn-meca';
+      bProponer.querySelector('span').textContent = 'Volver a proponer';
+      contar();
+    };
+
+    bProponer.addEventListener('click', () => {
+      if (!selProy.value) { avisarError(bProponer, 'Elige el proyecto donde van las tareas.'); return; }
+      conBoton(bProponer, async () => {
+        const r = await pedir('ia_tareas_correo', { c: b.dataset.c, uid: b.dataset.uid, proyecto_id: selProy.value, instrucciones: ind.value });
+        pidPropuesta = selProy.value;
+        pintar(r);
+      });
+    });
+
+    bCrear.addEventListener('click', () => {
+      const l = leer().filter((x) => x.usar);
+      if (!l.length) return;
+      if (l.some((x) => !x.titulo)) { avisarError(bCrear, 'Cada tarea necesita un título.'); return; }
+      if (l.some((x) => !x.responsables.length)) { avisarError(bCrear, 'Elige el responsable de cada tarea.'); return; }
+      conBoton(bCrear, async () => {
+        const r = await pedir('tareas_correo_crear', {
+          proyecto_id: pidPropuesta, mensaje_id: datos.mensaje_id || '', origen: datos.origen || '',
+          tareas: JSON.stringify(l.map(({ el, usar, ...x }) => x)),
+        });
+        // Listo: queda a la vista con su enlace; al cerrar, el correo muestra lo que salió de él
+        dlg.querySelector('.ia-cuerpo').innerHTML = '<div class="mc-alert mc-alert--success" role="status"><div class="mc-alert__content">'
+          + '<p class="mc-alert__title">' + esc(r.mensaje) + '</p><p class="mc-alert__desc">Cada responsable recibió su aviso.</p></div></div>'
+          + '<p class="tc-ayuda"><a class="btn-primary btn-meca" href="' + esc(r.url) + '">Ver el proyecto</a></p>';
+        bProponer.hidden = true; bCrear.hidden = true;
+        dlg.addEventListener('close', () => location.reload(), { once: true });
+      });
+    });
+  });
+
+  /* =========================================================
      4. Observaciones (en el compositor y en cada hilo)
      ========================================================= */
   document.addEventListener('click', (e) => {
