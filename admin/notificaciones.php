@@ -42,6 +42,9 @@ if (isset($_GET['json'])) {
     $res = ['ok' => true, 'sinLeer' => Notif::sinLeer($mid), 'items' => $items];
     // Correos sin leer: el servidor solo se consulta cada pocos minutos
     if ($correoOn) $res['correo'] = Correo::noLeidos($mid, true);
+    // Teléfono que falta o está mal escrito: la pestaña abierta muestra la ventana para corregirlo
+    $telDlg = method_exists('UI', 'dialogTelefonoHtml') ? UI::dialogTelefonoHtml() : '';
+    if ($telDlg !== '') $res['telefono'] = $telDlg;
     echo json_encode($res, JSON_UNESCAPED_UNICODE);
     exit;
 }

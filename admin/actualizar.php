@@ -109,17 +109,17 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
         'lib/Notificaciones.php' => ['Push::avisar'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono'],
-        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios'],
+        'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono'],
         'assets/ia.js'      => ['conGiro'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr'],
         'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
         'lib/correo_vista.php' => ['correoDirectorio'],
         'login.php'         => ['entradaArte'],

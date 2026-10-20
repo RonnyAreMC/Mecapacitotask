@@ -934,6 +934,17 @@
           if (j && j.ok) {
             contador(j.sinLeer);
             if ('correo' in j) correoContador(j.correo);
+            // Teléfono que falta o está mal escrito (aunque la sesión ya estuviera
+            // abierta): se abre la ventana para corregirlo y no se cierra con Esc
+            if (j.telefono && !document.getElementById('dlg-telefono')) {
+              document.body.insertAdjacentHTML('beforeend', j.telefono);
+              const dTel = document.getElementById('dlg-telefono');
+              if (dTel && dTel.showModal) {
+                dTel.addEventListener('cancel', (ev) => ev.preventDefault());
+                dTel.showModal();
+                setTimeout(() => dTel.querySelector('[name="telefono"]')?.focus(), 60);
+              }
+            }
             const nuevas = (j.items || []).filter((n) => n.id > ultimo);
             if (nuevas.length) {
               nuevas.slice().reverse().forEach((n) => lista.prepend(fila(n)));

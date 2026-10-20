@@ -595,18 +595,40 @@ class UI
     }
 
     /**
-     * Si quien entró no tiene teléfono, se lo pide al abrir cualquier página
-     * (hasta que lo guarde). Se guarda con la acción perfil_telefono.
+     * Si quien entró no tiene teléfono, o el que tiene está mal escrito, se lo
+     * pide en cualquier página hasta que guarde uno válido (acción
+     * perfil_telefono). Sale al cargar la página y también en una pestaña que
+     * ya estaba abierta: la campana lo revisa cada 45 s (notificaciones.php?json=1).
      */
     private static function dialogTelefono(): void
     {
+        $html = self::dialogTelefonoHtml();
+        if ($html === '') return;
+        echo $html;
+        ?>
+<script>
+(() => {
+  const d = document.getElementById('dlg-telefono');
+  if (!d || !d.showModal) return;
+  d.addEventListener('cancel', (e) => e.preventDefault());   // hay que dejarlo: no se cierra con Esc
+  d.showModal();
+  setTimeout(() => { const i = d.querySelector('[name="telefono"]'); if (i) i.focus(); }, 60);
+})();
+</script>
+        <?php
+    }
+
+    /** HTML de la ventana del teléfono, o '' si quien entró ya tiene uno válido. */
+    public static function dialogTelefonoHtml(): string
+    {
         $yo = Auth::usuario();
-        if (!$yo || !is_file(__DIR__ . '/../assets/ds.css')) return;
+        if (!$yo || !is_file(__DIR__ . '/../assets/ds.css')) return '';
         $actual = trim((string)($yo['telefono'] ?? ''));
         // Se pide si no tiene, y también si el que tiene está mal escrito (le falta
         // un dígito, no empieza con 09…): hasta que lo corrija no se cierra.
-        if ($actual !== '' && MiembroRepo::telefonoValido($actual)) return;
+        if ($actual !== '' && MiembroRepo::telefonoValido($actual)) return '';
         $nombre = e(explode(' ', trim($yo['nombre']))[0]);
+        ob_start();
         ?>
 <dialog class="ds-modal ds-modal--chico" id="dlg-telefono" aria-labelledby="dlg-tel-t">
   <form method="post" action="actions.php" class="ds">
@@ -634,16 +656,8 @@ class UI
     </footer>
   </form>
 </dialog>
-<script>
-(() => {
-  const d = document.getElementById('dlg-telefono');
-  if (!d || !d.showModal) return;
-  d.addEventListener('cancel', (e) => e.preventDefault());   // hay que dejarlo: no se cierra con Esc
-  d.showModal();
-  setTimeout(() => { const i = d.querySelector('[name="telefono"]'); if (i) i.focus(); }, 60);
-})();
-</script>
         <?php
+        return (string)ob_get_clean();
     }
 
     /** Modal global para elegir "ver como" (disponible en todas las paginas). */
