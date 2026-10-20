@@ -220,6 +220,7 @@ final class Config
             'equipos' => [
                 'programacion' => ['label' => 'Programadores', 'icono' => 'ds-programadores'],
                 'analistas'    => ['label' => 'Analistas',     'icono' => 'ds-analistas'],
+                'disenadores'  => ['label' => 'Diseñadores',   'icono' => 'ds-disenadores'],
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],

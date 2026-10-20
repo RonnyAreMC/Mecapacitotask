@@ -2440,6 +2440,54 @@ switch ($accion) {
         $miembros->actualizar($id, $cambios);
         redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
 
+    case 'equipo_mover':
+        // Organizar equipos (equipos.php): pasa a una o varias personas a otro
+        // equipo. Llega por fetch al soltar una tarjeta (ajax=1, responde JSON)
+        // o desde un formulario normal. Solo el administrador (no está en
+        // $accionesDeCualquiera).
+        $ajaxEq    = !empty($_POST['ajax']);
+        $volverEq  = volverAqui('equipos.php');
+        $equiposEq = Catalogo::equipos();
+        $destEq    = (string)($_POST['equipo'] ?? '');
+        $finEq = function (bool $ok, string $msg, array $extra = []) use ($ajaxEq, $volverEq): never {
+            if ($ajaxEq) {
+                header('Content-Type: application/json; charset=utf-8');
+                exit(json_encode(['ok' => $ok, 'mensaje' => $msg] + $extra, JSON_UNESCAPED_UNICODE));
+            }
+            redirigir($volverEq, $msg, $ok ? 'success' : 'error');
+        };
+        if (!isset($equiposEq[$destEq])) $finEq(false, 'Ese equipo ya no existe: recarga la página.');
+        $idsEq = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
+        if (!$idsEq) $finEq(false, 'Elige a quién mover.');
+        $movidosEq = [];
+        $sigueDePO = [];
+        $proyectosEq = null;
+        foreach ($idsEq as $idEq) {
+            $mEq = $miembros->buscar($idEq);
+            if (!$mEq) continue;
+            $antesEq = MiembroRepo::equipoDe($mEq);
+            if ($antesEq === $destEq) continue;
+            $miembros->actualizar($idEq, ['equipo' => $destEq]);
+            $movidosEq[] = ['id' => $idEq, 'nombre' => (string)$mEq['nombre'], 'antes' => $antesEq];
+            // El PO se elige entre los analistas: quien sale de ahí sigue de PO
+            // en sus proyectos hasta que alguien lo cambie (se avisa, no se toca)
+            if ($antesEq === 'analistas') {
+                $proyectosEq ??= $proyectos->todos();
+                foreach ($proyectosEq as $pEq) {
+                    if (esPOde($pEq, $idEq)) $sigueDePO[(string)$pEq['nombre']] = true;
+                }
+            }
+        }
+        $nombreDest = $equiposEq[$destEq][0];
+        if (!$movidosEq) $finEq(true, 'Ya estaba en ' . $nombreDest . '.', ['movidos' => []]);
+        $msgEq = count($movidosEq) === 1
+            ? $movidosEq[0]['nombre'] . ' pasó a ' . $nombreDest . '.'
+            : count($movidosEq) . ' personas pasaron a ' . $nombreDest . '.';
+        $notaEq = $sigueDePO
+            ? 'Sigue como PO de «' . implode('», «', array_keys($sigueDePO)) . '»: cámbialo en el proyecto si ya no corresponde.'
+            : '';
+        $finEq(true, $msgEq . ($notaEq !== '' && !$ajaxEq ? ' ' . $notaEq : ''), ['movidos' => $movidosEq, 'nota' => $notaEq, 'equipo' => $destEq, 'etiqueta' => $nombreDest]);
+
     case 'supervisor_proyectos':
         // El admin define qué proyectos ve un supervisor (solo esos, nada más).
         $id = (int)($_POST['id'] ?? 0);

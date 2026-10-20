@@ -96,6 +96,7 @@ function actualizarPanel(array $opc): void
         'correo.php', 'manifest-correo.webmanifest',
         'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg',
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
+        'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -117,14 +118,14 @@ function actualizarPanel(array $opc): void
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
         'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias'],
-        'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido'],
+        'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-req-correo'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar'],
         'lib/Tutoriales.php' => ['function pendiente'],
@@ -138,10 +139,11 @@ function actualizarPanel(array $opc): void
         'lib/Mailer.php'    => ['codigoRecuperacion'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular'],
+        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion'],
         'index.php'         => ['ds-indicadores', 'portadaDe'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir'],
-        'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto'],
+        'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto', 'equipos.php?desde='],
+        'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {
@@ -359,6 +361,34 @@ function actualizarPanel(array $opc): void
     $nArreglos
         ? nota('ok', $nArreglos . ' ícono(s) ' . ($seco ? 'volverían' : 'volvieron') . ' al del design system: ' . implode(', ', array_keys($arreglos)))
         : nota('ok', 'Cada estado, prioridad y equipo tiene su ícono');
+
+    /* Equipo de Diseñadores: se agrega UNA vez a los equipos guardados (si
+       luego alguien lo quita en Ajustes, no vuelve). Si nunca se guardaron
+       equipos, ya sale de los de fábrica (Config::defaults). */
+    paso('Equipos');
+    $crudoE   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+    $listaE   = $crudoE['equipos'] ?? null;
+    $semillaE = (array)($crudoE['semillas'] ?? []);
+    if (is_array($listaE) && $listaE !== [] && empty($semillaE['equipo_disenadores'])) {
+        $yaHayE = false;
+        foreach ($listaE as $kE => $vE) {
+            $etqE = mb_strtolower(strtr((string)($vE['label'] ?? $kE), ['ñ' => 'n', 'Ñ' => 'n']));
+            if ($kE === 'disenadores' || str_starts_with($etqE, 'disen')) $yaHayE = true;
+        }
+        if (!method_exists('Config', 'respaldos')) {
+            nota('error', 'No se agregó el equipo Diseñadores: lib/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
+        } else {
+            if (!$yaHayE) $listaE['disenadores'] = ['label' => 'Diseñadores', 'icono' => 'ds-disenadores'];
+            if (!$seco) Config::guardar(($yaHayE ? [] : ['equipos' => $listaE]) + ['semillas' => ['equipo_disenadores' => date('Y-m-d')] + $semillaE]);
+            nota('ok', $yaHayE ? 'Ya había un equipo de diseño: no se agrega otro'
+                : 'Equipo «Diseñadores» ' . ($seco ? 'se agregaría' : 'agregado') . ': sale en el menú de la izquierda, debajo de Analistas');
+        }
+    }
+    $cuentaE = array_fill_keys(array_keys(Catalogo::equipos()), 0);
+    foreach ((new MiembroRepo())->todos() as $mE) $cuentaE[MiembroRepo::equipoDe($mE)]++;
+    $partesE = [];
+    foreach (Catalogo::equipos() as $kE => [$etqE]) $partesE[] = $etqE . ': ' . $cuentaE[$kE];
+    nota('info', implode(' · ', $partesE) . '. Para pasar gente de un equipo a otro: cualquier equipo → «Organizar equipos».');
 
     /* WhatsApp: reuniones y código para recuperar la contraseña */
     if (is_file($dir . '/lib/Whatsapp.php')) {

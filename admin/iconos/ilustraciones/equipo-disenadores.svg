@@ -1,0 +1,68 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420">
+  <title>Mesa de diseño con figuras, una curva con sus puntos y una paleta de colores</title>
+  <path d="M62 236C44 158 112 80 212 72c92-8 130-42 206-2 70 38 90 122 60 192-28 64-8 108-98 118-96 10-152-24-222-12-80 14-80-54-96-132z" fill="rgba(41,112,235,0.08)"/>
+  <ellipse cx="262" cy="386" rx="206" ry="10" fill="rgba(41,112,235,0.12)"/>
+  <path d="M30 150c8-52 46-88 98-96" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+  <path d="M432 344c36-4 60-28 68-64" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+
+  <!-- Mesa de trabajo -->
+  <rect x="72" y="84" width="306" height="222" rx="16" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+  <path d="M73 100a15 15 0 0 1 15-15h274a15 15 0 0 1 15 15v18H73z" fill="#F3F7FE"/>
+  <circle cx="94" cy="101" r="5" fill="#FF7A7A"/>
+  <circle cx="111" cy="101" r="5" fill="#FFD24D"/>
+  <circle cx="128" cy="101" r="5" fill="#2BB673"/>
+  <rect x="152" y="96" width="118" height="10" rx="5" fill="#DCE8FD"/>
+
+  <!-- Herramientas -->
+  <rect x="86" y="132" width="24" height="158" rx="10" fill="#F3F7FE"/>
+  <rect x="91" y="140" width="14" height="14" rx="4" fill="#2970EB"/>
+  <rect x="92" y="166" width="12" height="12" rx="3" fill="none" stroke="#9FC0F8" stroke-width="2.5"/>
+  <circle cx="98" cy="196" r="6.5" fill="none" stroke="#9FC0F8" stroke-width="2.5"/>
+  <path d="M92 222l6-10 6 10z" fill="none" stroke="#9FC0F8" stroke-width="2.5" stroke-linejoin="round"/>
+  <path d="M92 246l12-8" stroke="#9FC0F8" stroke-width="2.5" stroke-linecap="round"/>
+
+  <!-- Figuras en el lienzo -->
+  <circle cx="170" cy="190" r="38" fill="#2BB673"/>
+  <rect x="210" y="146" width="96" height="64" rx="12" fill="#2970EB"/>
+  <rect x="204" y="140" width="108" height="76" fill="none" stroke="#2970EB" stroke-width="2" stroke-dasharray="4 4"/>
+  <g fill="#fff" stroke="#2970EB" stroke-width="2">
+    <rect x="199" y="135" width="10" height="10" rx="2"/>
+    <rect x="307" y="135" width="10" height="10" rx="2"/>
+    <rect x="199" y="211" width="10" height="10" rx="2"/>
+    <rect x="307" y="211" width="10" height="10" rx="2"/>
+  </g>
+  <path d="M236 290l34-58 34 58z" fill="#FFD24D"/>
+
+  <!-- Curva con sus puntos y su manija -->
+  <path d="M130 278c22-50 64 10 98-34" fill="none" stroke="#1B2C4E" stroke-width="3.5" stroke-linecap="round"/>
+  <path d="M228 244l26-26" stroke="#9FC0F8" stroke-width="2" stroke-linecap="round"/>
+  <circle cx="256" cy="216" r="5" fill="#fff" stroke="#2970EB" stroke-width="2"/>
+  <rect x="124" y="272" width="12" height="12" rx="2" fill="#fff" stroke="#1B2C4E" stroke-width="2.5"/>
+  <rect x="222" y="238" width="12" height="12" rx="2" fill="#2970EB" stroke="#1B2C4E" stroke-width="2.5"/>
+
+  <!-- Paleta de colores -->
+  <rect x="290" y="226" width="186" height="122" rx="16" fill="#1B2C4E"/>
+  <circle cx="310" cy="245" r="4" fill="#3E5C8E"/>
+  <circle cx="324" cy="245" r="4" fill="#3E5C8E"/>
+  <circle cx="338" cy="245" r="4" fill="#3E5C8E"/>
+  <circle cx="318" cy="282" r="12" fill="#2970EB"/>
+  <circle cx="350" cy="282" r="12" fill="#2BB673"/>
+  <circle cx="382" cy="282" r="12" fill="#FFD24D"/>
+  <circle cx="414" cy="282" r="12" fill="#FF7A7A"/>
+  <circle cx="446" cy="282" r="12" fill="#40CFFF"/>
+  <circle cx="350" cy="282" r="16.5" fill="none" stroke="#fff" stroke-width="2.5"/>
+  <rect x="308" y="316" width="150" height="8" rx="4" fill="#3E5C8E"/>
+  <rect x="308" y="316" width="78" height="8" rx="4" fill="#2BB673"/>
+  <circle cx="386" cy="320" r="8" fill="#fff"/>
+
+  <!-- Pluma de diseño -->
+  <rect x="394" y="92" width="100" height="92" rx="16" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+  <rect x="430" y="110" width="28" height="9" rx="4.5" fill="#9FC0F8"/>
+  <path d="M424 126h40l-3.5 21-16.5 27-16.5-27z" fill="#2970EB"/>
+  <path d="M444 172v-18" stroke="#fff" stroke-width="3" stroke-linecap="round"/>
+  <circle cx="444" cy="150" r="4.5" fill="#fff"/>
+
+  <!-- Gota de color -->
+  <rect x="26" y="238" width="58" height="58" rx="14" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+  <path d="M55 251c8 10 13 17 13 23a13 13 0 0 1-26 0c0-6 5-13 13-23z" fill="#FF7A7A"/>
+</svg>

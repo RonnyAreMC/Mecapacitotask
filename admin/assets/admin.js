@@ -242,6 +242,16 @@ const MC = {
       d.textContent = opciones.desc;
       d.hidden = false;
     }
+    // opciones.accion = { texto, fn }: un botón dentro del aviso (p. ej. «Deshacer»); al usarlo se cierra
+    if (opciones.accion && typeof opciones.accion.fn === 'function') {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'mc-btn mc-btn--ghost mc-btn--sm mc-toast__accion';
+      b.innerHTML = '<span class="mc-btn__label"></span>';
+      b.firstChild.textContent = opciones.accion.texto || 'Deshacer';
+      b.addEventListener('click', () => { if (slot._cerrar) slot._cerrar(); opciones.accion.fn(); }, { once: true });
+      slot.querySelector('.mc-toast__body').appendChild(b);
+    }
     vp.prepend(slot);
     this._activarToast(slot);
     // Más de cuatro: se va el más viejo

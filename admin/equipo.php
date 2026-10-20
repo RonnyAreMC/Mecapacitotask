@@ -63,10 +63,14 @@ $importePrevia = $importe ? ImportadorEquipo::aplicar($importe['filas'], true) :
 
 UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
 // Ilustración del encabezado: la del equipo, o una genérica para los que se crean en Ajustes
-$eqArte = ['programacion' => 'equipo-programadores', 'analistas' => 'equipo-analistas'][$eq] ?? 'entrada-equipo';
+$eqArte = ['programacion' => 'equipo-programadores', 'analistas' => 'equipo-analistas', 'disenadores' => 'equipo-disenadores'][$eq] ?? 'entrada-equipo';
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
+    // Organizar equipos (equipos.php): pasar gente de un equipo a otro arrastrándola
+    (esAdmin() && is_file(__DIR__ . '/equipos.php')
+        ? '<a class="btn-outline btn-meca btn-azul solo-admin" href="equipos.php?desde=' . e($eq) . '">' . UI::iconoDS('transferencia', 18) . ' Organizar equipos</a>'
+        : '') .
     '<button class="btn-outline btn-meca btn-azul solo-admin" onclick="document.getElementById(\'dlg-importar\').showModal()">
        <i class="fa-solid fa-file-arrow-up"></i> Cargar desde Excel
      </button>
@@ -245,7 +249,9 @@ UI::cabecera(
 <?php endif; ?>
 
 <?php if (empty($equipo)): ?>
-  <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', 'Agrega al primer colaborador con el botón de arriba.') ?>
+  <?= UI::vacio($eqIcono, 'El equipo de ' . mb_strtolower($eqLabel) . ' está vacío', esAdmin() && is_file(__DIR__ . '/equipos.php')
+        ? 'Agrega a alguien nuevo con el botón de arriba, o trae a alguien de otro equipo con «Organizar equipos».'
+        : 'Agrega al primer colaborador con el botón de arriba.') ?>
 <?php else: ?>
 
   <!-- Tabla de colaboradores: vision general con git/correo copiables -->
