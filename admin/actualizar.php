@@ -98,6 +98,7 @@ function actualizarPanel(array $opc): void
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
+        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -126,7 +127,7 @@ function actualizarPanel(array $opc): void
         'assets/ia.js'      => ['conGiro', 'data-req-correo'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar'],
         'lib/Tutoriales.php' => ['function pendiente'],
@@ -145,6 +146,8 @@ function actualizarPanel(array $opc): void
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
+        'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir'],
+        'oauth_google.php'  => ['oauth_drive'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {
@@ -194,7 +197,8 @@ function actualizarPanel(array $opc): void
                   'tutoriales' => 'Tutoriales en video',
                   'req_correo' => 'Requerimientos desde el correo',
                   'correo_copias' => 'Copias de los correos en el panel',
-                  'tutoriales_vistos' => 'Quién ya vio cada tutorial'] as $t => $etq) {
+                  'tutoriales_vistos' => 'Quién ya vio cada tutorial',
+                  'zoom_drive' => 'Grabaciones de Zoom → Drive', 'zoom_drive_carpetas' => 'Carpetas creadas en Drive'] as $t => $etq) {
             if ($seco) { nota('info', $etq . ': se crearía la tabla «' . $t . '» si no existe'); continue; }
             $n = count((new JsonStore($t))->all());
             nota('ok', $etq . ' — tabla «' . $t . '» lista (' . $n . ' registro' . ($n === 1 ? '' : 's') . ')');
@@ -390,6 +394,26 @@ function actualizarPanel(array $opc): void
     $partesE = [];
     foreach (Catalogo::equipos() as $kE => [$etqE]) $partesE[] = $etqE . ': ' . $cuentaE[$kE];
     nota('info', implode(' · ', $partesE) . '. Para pasar gente de un equipo a otro: cualquier equipo → «Organizar equipos».');
+
+    /* Grabaciones de Zoom → Google Drive (zoom_drive.php) */
+    if (is_file($dir . '/lib/ZoomDrive.php')) {
+        foreach (['Correo', 'ZoomDrive'] as $mZ) if (is_file($dir . '/lib/' . $mZ . '.php')) require_once $dir . '/lib/' . $mZ . '.php';
+        paso('Grabaciones de Zoom → Drive');
+        if (!function_exists('curl_init')) nota('error', 'Falta la extensión cURL de PHP: sin ella no se pueden pasar las grabaciones a Drive.');
+        $cZ = ZoomDrive::conf();
+        if (!ZoomDrive::driveListo()) {
+            nota('info', 'Sin conectar: entra a Ajustes → Reuniones → «Grabaciones a Drive» y pulsa «Conectar Google Drive».');
+        } else {
+            $rZ = ZoomDrive::resumen();
+            nota('ok', 'Google Drive conectado (' . $cZ['email'] . ') · en cola: ' . $rZ['cola'] . ' · en Drive: ' . $rZ['drive']
+                . ' · liberado de Zoom: ' . ZoomDrive::bytes((int)$rZ['liberado_bytes']) . ($rZ['errores'] ? ' · con error: ' . $rZ['errores'] : ''));
+            $cronZ = json_decode((string)@file_get_contents($dir . '/data/cron_zoom_drive.json'), true);
+            $haceZ = is_array($cronZ) ? time() - (int)($cronZ['t'] ?? 0) : null;
+            ($haceZ !== null && $haceZ < 900)
+                ? nota('ok', 'Cron de grabaciones corriendo (última vuelta hace ' . max(1, (int)round($haceZ / 60)) . ' min)')
+                : nota('aviso', 'Para que las grabaciones pasen solas a Drive, en cPanel → Cron Jobs, cada 5 minutos: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_zoom_drive.php');
+        }
+    }
 
     /* WhatsApp: reuniones y código para recuperar la contraseña */
     if (is_file($dir . '/lib/Whatsapp.php')) {

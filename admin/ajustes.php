@@ -597,6 +597,9 @@ UI::cabecera(
           <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-zoom-prueba">
             <i class="fa-solid fa-plug-circle-check"></i> Probar conexión
           </button>
+          <?php if (is_file(__DIR__ . '/zoom_drive.php')): /* las grabaciones de Zoom a Google Drive, para liberar espacio */ ?>
+          <a class="btn-primary btn-meca btn-sm" href="zoom_drive.php"><?= UI::iconoDS('publicar', 16) ?> Grabaciones a Drive</a>
+          <?php endif; ?>
         </div>
       </section>
 

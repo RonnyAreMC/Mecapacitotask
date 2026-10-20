@@ -18,8 +18,10 @@ if (!GoogleLogin::listo()) {
 $esCalendario = !empty($_SESSION['oauth_calendario']);
 $esCorreo     = !empty($_SESSION['oauth_correo']);
 $esRegistro   = !empty($_SESSION['oauth_registro']);
-unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro']);
+$esDrive      = !empty($_SESSION['oauth_drive']);      // grabaciones de Zoom → Drive (zoom_drive.php)
+unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive']);
 $volver = match (true) {
+    $esDrive      => 'zoom_drive.php',
     $esCalendario => 'perfil.php',
     $esCorreo     => 'ajustes.php#tab-correo',
     $esRegistro   => 'registro.php',
@@ -41,12 +43,24 @@ if ($esCorreo) {
 }
 
 if (!empty($_GET['error'])) {
-    redirigir($volver, $esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.', 'info');
+    redirigir($volver, $esDrive ? 'No concediste el permiso de Google Drive.' : ($esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.'), 'info');
 }
 
 $r = GoogleLogin::procesar($_GET['code'] ?? '', $_GET['state'] ?? '');
 if (!$r['ok']) {
     redirigir($volver, $r['error'], 'error');
+}
+
+// --- Conectar Google Drive para pasar ahí las grabaciones de Zoom (solo el administrador) ---
+if ($esDrive && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
+    Auth::requiereAdmin();
+    require_once __DIR__ . '/lib/ZoomDrive.php';
+    if (empty($r['refresh_token'])) {
+        redirigir('zoom_drive.php', 'Google no devolvió el permiso esta vez. Entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a pulsar «Conectar Google Drive».', 'error');
+    }
+    ZoomDrive::guardarConexion($r['refresh_token'], $r['email']);
+    $prueba = ZoomDrive::probarCarpeta();
+    redirigir('zoom_drive.php', 'Google Drive conectado (' . $r['email'] . '). ' . $prueba['msg'], $prueba['ok'] ? 'success' : 'warning');
 }
 
 // --- Conectar calendario: el usuario ya está dentro, solo guardamos su token ---
