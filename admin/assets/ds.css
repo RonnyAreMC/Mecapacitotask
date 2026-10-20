@@ -3101,7 +3101,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 }
 .zd-chip--panel { margin: 0 0 0 4px; padding: 0 7px; border-color: var(--primary-line); background: var(--primary-soft); color: var(--primary-ink); font-size: .72rem; font-weight: 600; vertical-align: 1px; }
 
-/* Tareas desde un correo (assets/ia.js · data-tareas-correo): proyecto, propuesta y revisión */
+/* Tareas desde un correo (assets/ia.js · data-ia-correo): proyecto, propuesta y revisión */
 .dlg-tc .ia-cuerpo { display: flex; flex-direction: column; gap: var(--space-4); max-height: min(68vh, 720px); overflow-y: auto; }
 .tc-ayuda { margin: 0; color: var(--ink-muted); font-size: var(--mc-fs-sm); }
 .tc-paso1 { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: var(--space-4); align-items: start; }
@@ -3115,3 +3115,39 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .tc-tarea__fila { display: grid; grid-template-columns: minmax(0, 1.6fr) repeat(2, minmax(0, 1fr)) minmax(0, .9fr); gap: var(--space-3); align-items: start; }
 .tc-falta { display: block; margin-top: 4px; color: var(--warning-ink); font-size: .78rem; }
 @media (max-width: 760px) { .tc-paso1, .tc-tarea__fila { grid-template-columns: 1fr; } }
+
+
+/* Analizar un correo (assets/ia.js · data-ia-correo): ¿tareas de un proyecto o requerimiento suelto? */
+.tc-analizando { display: flex; align-items: center; gap: var(--space-3); margin: 0; padding: var(--space-3) var(--space-4); border: 1px solid var(--info-line);
+  border-radius: var(--radius-lg); background: var(--info-soft); color: var(--info-ink); font-size: var(--mc-fs-sm); }
+.tc-analizando[hidden], .tc-sugerencia[hidden], .tc-opcion__sug[hidden] { display: none; }
+.tc-giro { flex: 0 0 auto; width: 16px; height: 16px; border: 2px solid currentColor; border-right-color: transparent; border-radius: 50%; animation: mc-spin .8s linear infinite; }
+.tc-sugerencia { margin: 0; color: var(--ink); font-size: var(--mc-fs-sm); line-height: 1.5; }
+.tc-opciones { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: var(--space-3); }
+.tc-opcion { position: relative; display: flex; align-items: flex-start; gap: var(--space-3); padding: var(--space-4); border: 1px solid var(--line);
+  border-radius: var(--radius-lg); background: var(--surface); cursor: pointer; transition: border-color var(--mc-dur-1) var(--mc-ease), background var(--mc-dur-1) var(--mc-ease); }
+.tc-opcion:hover { border-color: var(--primary-line); }
+.tc-opcion:focus-within { outline: 2px solid var(--primary); outline-offset: 2px; }
+.tc-opcion.is-elegida { border-color: var(--primary); background: var(--primary-soft); }
+.tc-opcion.is-apagada { opacity: .5; cursor: not-allowed; }
+.tc-opcion__punto { flex: 0 0 auto; width: 18px; height: 18px; margin-top: 2px; border: 2px solid var(--line-strong); border-radius: 50%; background: var(--surface);
+  transition: border-color var(--mc-dur-1) var(--mc-ease), box-shadow var(--mc-dur-1) var(--mc-ease); }
+.tc-opcion.is-elegida .tc-opcion__punto { border-color: var(--primary); box-shadow: inset 0 0 0 4px var(--surface); background: var(--primary); }
+.tc-opcion__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.tc-opcion__txt b { color: var(--ink); font-size: .95rem; font-weight: 600; }
+.tc-opcion__txt small { color: var(--ink-muted); font-size: .8rem; line-height: 1.45; }
+.tc-opcion__sug { position: absolute; top: -9px; right: var(--space-3); padding: 1px 8px; border: 1px solid var(--primary-line); border-radius: 999px;
+  background: var(--surface); color: var(--primary-ink); font-size: .7rem; font-weight: 600; }
+.tc-paso1[hidden], .tc-lista[hidden] { display: none; }
+@media (max-width: 760px) { .tc-opciones { grid-template-columns: 1fr; } }
+@media (prefers-reduced-motion: reduce) { .tc-giro { animation-duration: 2.4s; } .tc-opcion, .tc-opcion__punto { transition: none; } }
+
+/* Los botones del pie de la opción que no está elegida no se ven (.btn-meca ponía display) y en el teléfono el principal va arriba, a lo ancho */
+.dlg-tc .btn-meca[hidden] { display: none; }
+.dlg-tc .dlg-form footer { flex-wrap: wrap; }
+@media (max-width: 560px) {
+  .dlg-tc .ia-cuerpo { max-height: calc(100dvh - 250px); }
+  .dlg-tc .dlg-form footer { gap: 8px; }
+  .dlg-tc .dlg-form footer > .btn-meca { flex: 1 1 0; min-width: 0; justify-content: center; }
+  .dlg-tc .dlg-form footer > .btn-primary { flex-basis: 100%; order: -1; }
+}

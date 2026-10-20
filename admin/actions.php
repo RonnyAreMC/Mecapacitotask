@@ -3256,6 +3256,7 @@ switch ($accion) {
     case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'ia_req_correo':
+    case 'ia_destino_correo':
     case 'ia_tareas_correo':
     case 'ia_obs_redaccion':
     case 'ia_obs_adjunto':
@@ -3400,6 +3401,26 @@ switch ($accion) {
                     $resIa = ['url' => ($filaRc['estado'] ?? '') === 'registrado'
                         ? 'requerimientos.php?ver=' . (int)$filaRc['req_id']
                         : 'requerimientos.php?propuesta=' . (int)$filaRc['id']];
+                    break;
+
+                case 'ia_destino_correo':
+                    // ¿El correo es trabajo de un proyecto o un requerimiento suelto? Solo el administrador
+                    if (!Auth::esAdmin()) $iaFin(['ok' => false, 'error' => 'Analizar los correos es solo para administradores.'], 403);
+                    if (!class_exists('TareasCorreo') || !class_exists('ReqCorreo') || !class_exists('Correo')) throw new IAError('Falta el módulo del correo en el servidor.');
+                    try {
+                        $msgDc = TareasCorreo::leer((int)(Auth::usuario()['id'] ?? 0), (string)($_POST['c'] ?? ''), (int)($_POST['uid'] ?? 0));
+                    } catch (CorreoError $e) {
+                        throw new IAError($e->getMessage());
+                    }
+                    $proyDc = [];
+                    foreach (soloProyectosVisibles($proyectos->todos()) as $pDc) {
+                        if (($pDc['estado'] ?? 'activo') === 'completado') continue;
+                        $proyDc[] = ['id' => (int)$pDc['id'], 'nombre' => (string)$pDc['nombre'], 'descripcion' => (string)($pDc['descripcion'] ?? '')];
+                    }
+                    $instDc = array_map(fn($i) => ['id' => (int)$i['id'], 'nombre' => (string)$i['nombre']], (new InstitucionRepo())->todas());
+                    $resIa = IAFunciones::destinoCorreo($msgDc, $proyDc, $instDc);
+                    $resIa['proyecto'] = '';
+                    foreach ($proyDc as $pDc) if ($pDc['id'] === $resIa['proyecto_id']) $resIa['proyecto'] = $pDc['nombre'];
                     break;
 
                 case 'ia_tareas_correo':

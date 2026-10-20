@@ -449,37 +449,41 @@ function correoBloqueRequerimiento(array $m, string $carpeta): void
         echo UI::alertaDS('success', 'Ya es un requerimiento', '«' . e($titulo) . '» · <a href="requerimientos.php?ver=' . (int)$fila['req_id'] . '">Ver el requerimiento</a>', true);
     } elseif ($estado === 'propuesta') {
         echo UI::alertaDS('info', 'La IA lo preparó como requerimiento', '«' . e($titulo) . '» · <a href="requerimientos.php?propuesta=' . (int)$fila['id'] . '">Revisar y registrar</a>', true);
-    } elseif (UI::ia('req_desde_correo')) {
-        $texto = match ($estado) {
-            'no_es'      => 'La IA creyó que este correo no pedía un trabajo. Si sí lo pide, conviértelo igual.',
-            'error'      => 'No se pudo analizar: ' . e((string)($fila['error'] ?? '')) . ' Prueba de nuevo.',
-            'descartado' => 'Descartaste la propuesta de este correo. Puedes armarla otra vez.',
-            default      => '¿Pide un trabajo? La IA arma el requerimiento con la tarea, la institución, el responsable, el plazo y los adjuntos.',
-        };
-        echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--azul">' . UI::iconoDS('requerimiento', 18) . '</span>'
-            . '<p>' . $texto . '</p>'
-            . '<button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-req-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '">'
-            . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">Convertir en requerimiento</span></button></div>';
     }
-    // Tareas en un proyecto desde este correo (la estrella de la IA, lib/TareasCorreo.php): solo el administrador
-    if (class_exists('TareasCorreo') && UI::ia('tareas_desde_correo')) {
-        $proyTc = [];
+    $conReq = UI::ia('req_desde_correo');
+    $conTareas = class_exists('TareasCorreo') && UI::ia('tareas_desde_correo');
+    // Lo que ya salió de este correo como tareas de un proyecto (lib/TareasCorreo.php)
+    $proyTc = [];
+    $hechasTc = [];
+    if ($conTareas) {
         foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) {
             $proyTc[] = ['id' => (int)$p['id'], 'nombre' => (string)$p['nombre'], 'activo' => ($p['estado'] ?? 'activo') === 'activo'];
         }
         usort($proyTc, fn($a, $b) => [!$a['activo'], $a['nombre']] <=> [!$b['activo'], $b['nombre']]);
         $nombreTc = array_column($proyTc, 'nombre', 'id');
         $hechasTc = TareasCorreo::deMensaje((int)(Auth::usuario()['id'] ?? 0), (string)$m['message_id']);
-        $texto = '¿Trae trabajo para un proyecto? La IA arma una o varias tareas con su responsable, sus fechas y la descripción sacada del correo.';
         if ($hechasTc) {
-            $texto = 'Ya creaste desde este correo ' . implode(' y ', array_map(fn($h) => $h['n'] . ' tarea' . ($h['n'] === 1 ? '' : 's')
-                . ' en <a href="proyecto.php?id=' . (int)$h['proyecto_id'] . '">«' . e($nombreTc[$h['proyecto_id']] ?? 'un proyecto') . '»</a>', $hechasTc)) . '.';
+            echo UI::alertaDS('success', 'Ya salieron tareas de este correo', implode(' · ', array_map(fn($h) => $h['n'] . ' tarea' . ($h['n'] === 1 ? '' : 's')
+                . ' en <a href="proyecto.php?id=' . (int)$h['proyecto_id'] . '">«' . e($nombreTc[$h['proyecto_id']] ?? 'un proyecto') . '»</a>', $hechasTc)), true);
         }
-        echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--verde">' . UI::iconoDS('check-doble', 18) . '</span>'
+    }
+    // Un solo botón con la estrella de la IA: decide si es trabajo de un proyecto (y arma
+    // sus tareas) o un requerimiento suelto (y lo deja listo para registrar). Solo el administrador.
+    if ($conReq || $conTareas) {
+        $texto = match ($estado) {
+            'no_es'      => 'La IA creyó que este correo no pedía un trabajo. Si sí lo pide, analízalo igual.',
+            'error'      => 'No se pudo analizar: ' . e((string)($fila['error'] ?? '')) . ' Prueba de nuevo.',
+            'descartado' => 'Descartaste el requerimiento de este correo. Puedes analizarlo otra vez.',
+            default      => ($estado === 'registrado' || $estado === 'propuesta' || $hechasTc)
+                ? '¿Trae más trabajo? Puedes analizarlo otra vez.'
+                : '¿Qué pide este correo? La IA revisa si es trabajo de un proyecto (y arma sus tareas con responsable, fechas y descripción) o un requerimiento suelto.',
+        };
+        echo '<div class="correo-req__fila"><span class="mc-tile mc-tile--sm mc-tile--azul">' . UI::iconoDS('ia', 18) . '</span>'
             . '<p>' . $texto . '</p>'
-            . '<button type="button" class="mc-btn mc-btn--' . ($hechasTc ? 'outline mc-btn--t-azul' : 'primary') . ' mc-btn--sm" data-tareas-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '"'
+            . '<button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-ia-correo data-c="' . e($carpeta) . '" data-uid="' . (int)$m['uid'] . '"'
+            . ' data-req="' . ($conReq ? '1' : '') . '" data-tareas="' . ($conTareas ? '1' : '') . '" data-clasificar="' . (UI::ia('destino_correo') ? '1' : '') . '"'
             . ' data-proyectos="' . e(json_encode(array_map(fn($p) => ['id' => $p['id'], 'nombre' => $p['nombre'] . ($p['activo'] ? '' : ' (no activo)')], $proyTc), JSON_UNESCAPED_UNICODE)) . '">'
-            . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">' . ($hechasTc ? 'Crear más tareas' : 'Crear tareas en un proyecto') . '</span></button></div>';
+            . UI::iconoDS('ia', 16) . '<span class="mc-btn__label">Analizar con IA</span></button></div>';
     }
     echo '</div>';
 }
