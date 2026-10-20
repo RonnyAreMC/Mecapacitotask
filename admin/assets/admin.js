@@ -1167,9 +1167,68 @@ document.querySelectorAll('[data-repos-editor]').forEach((editor) => {
   });
 });
 
+/* =========================================================
+   Proyecto en el celular (proyecto.php, hasta 900 px de ancho)
+
+   En el celular la página de un proyecto tiene solo tres pestañas: Tareas,
+   Observaciones y Reuniones. El calendario por día, Intercambios, Métricas y
+   las vistas de tabla, Kanban y Flujo no caben en una pantalla angosta: los
+   oculta ds.css (bloque «Proyecto en el celular») y las tareas se ven como
+   tarjetas pequeñas (.pm-tareas). Tocar una abre su detalle con el clic
+   general de [data-ver-tarea], más abajo.
+
+   Aquí va qué vista se abre en el celular (las pestañas de abajo lo usan) y
+   el buscador de las tarjetas. Son funciones con nombre propio para que las
+   pestañas puedan llamarlas aunque estén escritas antes o después.
+   ========================================================= */
+function proyectoEnCelular() {
+  return !!window.matchMedia && window.matchMedia('(max-width: 900px)').matches;
+}
+/* En el celular, una vista que ahí no existe (un enlace a #vista-calendario,
+   lo último que se eligió, el Calendario de entrada…) cae en Tareas. */
+function proyectoVistaCelular(v) {
+  return proyectoEnCelular() && !['tareas', 'observaciones', 'reuniones'].includes(v) ? 'tareas' : v;
+}
+/* Al girar el teléfono o cambiar el ancho de la ventana se cruza el corte de
+   900 px: avisa para volver a pintar la vista (tarjetas ↔ tabla o Kanban). */
+function proyectoAlCambiarAncho(fn) {
+  if (!window.matchMedia) return;
+  const mq = window.matchMedia('(max-width: 900px)');
+  if (mq.addEventListener) mq.addEventListener('change', fn);
+  else if (mq.addListener) mq.addListener(fn);
+}
+// Buscador de las tarjetas: oculta las que no coinciden y los estados que se quedan vacíos
+document.querySelectorAll('[data-pm-buscar]').forEach((input) => {
+  const panel = input.closest('.pm-tareas');
+  if (!panel) return;
+  const cuenta = panel.querySelector('[data-pm-cuenta]');
+  const vacio = panel.querySelector('[data-pm-vacio]');
+  // Sin tildes y en minúsculas, como el buscador de la tabla
+  const normalizar = (s) => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+  input.addEventListener('input', () => {
+    const q = normalizar(input.value.trim());
+    let total = 0;
+    panel.querySelectorAll('[data-pm-grupo]').forEach((grupo) => {
+      let n = 0;
+      grupo.querySelectorAll('[data-pm-tarea]').forEach((card) => {
+        const ok = !q || normalizar(card.dataset.buscar || card.textContent || '').includes(q);
+        card.hidden = !ok;
+        if (ok) n++;
+      });
+      grupo.hidden = n === 0;
+      const nGrupo = grupo.querySelector('[data-pm-n]');
+      if (nGrupo) nGrupo.textContent = n;
+      total += n;
+    });
+    if (cuenta) cuenta.textContent = total;
+    if (vacio) vacio.hidden = total > 0;
+  });
+});
+
 // Vistas de la pagina de proyecto.
 // "Tareas" es un combo: agrupa Tabla / Kanban / Flujo bajo un subselector.
 // Al entrar se muestra el Calendario; las subvistas recuerdan su eleccion.
+// En el celular, Tareas son las tarjetas (bloque «Proyecto en el celular», arriba).
 const vistaToggle = document.querySelector('.vista-toggle');
 if (vistaToggle) {
   const subToggle = document.querySelector('.subvista-toggle');
@@ -1180,7 +1239,7 @@ if (vistaToggle) {
   let subActual = sessionStorage.getItem(claveSub) || 'tabla';
   if (!SUBVISTAS.includes(subActual)) subActual = 'tabla';
 
-  const panelActivo = (v) => (v === 'tareas' ? subActual : v);
+  const panelActivo = (v) => (v === 'tareas' ? (proyectoEnCelular() ? 'tarjetas' : subActual) : v);
 
   const pintar = (v) => {
     const panel = panelActivo(v);
@@ -1197,6 +1256,7 @@ if (vistaToggle) {
   const activarVista = (v) => {
     // Una subvista suelta (por hash o guardada) equivale a Tareas + esa subvista
     if (SUBVISTAS.includes(v)) { subActual = v; sessionStorage.setItem(claveSub, v); v = 'tareas'; }
+    v = proyectoVistaCelular(v);   // en el celular solo hay Tareas, Observaciones y Reuniones
     if (!vistaToggle.querySelector('[data-vista="' + v + '"]')) return;
     sessionStorage.setItem(claveVista, v);
     pintar(v);
@@ -1217,6 +1277,10 @@ if (vistaToggle) {
   // Al entrar: hash (#vista-X), luego lo ultimo elegido, si no el Calendario
   const porHash = location.hash.startsWith('#vista-') ? location.hash.slice(7) : null;
   activarVista(porHash || sessionStorage.getItem(claveVista) || 'calendario');
+
+  // Cruzar los 900 px (girar el teléfono): repintar la pestaña que está abierta
+  proyectoAlCambiarAncho(() =>
+    activarVista(vistaToggle.querySelector('[data-vista].active')?.dataset.vista || 'tareas'));
 }
 
 // Compositor de observaciones: pegar (Ctrl+V), arrastrar, adjuntar y enviar por AJAX.

@@ -1170,6 +1170,156 @@ foreach ($tareas as $t) {
   </section>
 </div>
 
+<?php
+// ---------------------------------------------------------------------------
+// Tareas en el celular: tarjetas pequeñas agrupadas por estado.
+//
+// En el celular (hasta 900 px) la tabla, el Kanban y el Flujo no caben: se
+// ocultan y en su lugar salen estas tarjetas, con las mismas tareas que la
+// tabla (mismos filtros, sin las archivadas). Tocar una abre el mismo detalle
+// de solo lectura que la tabla: el botón lleva data-ver-tarea y admin.js lo
+// abre con el clic general. En la computadora no se ven (ds.css, bloque
+// «Proyecto en el celular»). Al supervisor también le salen, en lugar de su
+// Kanban, por eso van fuera del bloque que se le oculta.
+$pmGrupos = [];
+foreach ($estadosCat as $k => [$label, $icono]) {
+    $pmGrupos[$k] = ['label' => $label, 'icono' => $icono, 'tareas' => []];
+}
+foreach ($visibles as $t) {
+    $k = (string)($t['estado'] ?? '');
+    // Un estado que ya no está en el catálogo: se agrupa aparte en vez de perderla
+    if (!isset($pmGrupos[$k])) {
+        $pmGrupos[$k] = ['label' => $k !== '' ? ucfirst($k) : 'Sin estado', 'icono' => 'fa-circle-question', 'tareas' => []];
+    }
+    $pmGrupos[$k]['tareas'][] = $t;
+}
+// Dentro de cada estado, lo que vence antes va arriba; lo que no tiene fecha, al final.
+foreach ($pmGrupos as &$pmG) {
+    usort($pmG['tareas'], fn($a, $b) =>
+        [($a['fecha_limite'] ?? '') ?: '9999-99-99', (int)$a['id']] <=> [($b['fecha_limite'] ?? '') ?: '9999-99-99', (int)$b['id']]);
+}
+unset($pmG);
+// Datos del asistente de editar (los mismos que manda el lápiz de la tabla)
+$pmEditarAttr = fn(array $t) => e(json_encode([
+    'id' => (int)$t['id'],
+    'titulo' => $t['titulo'],
+    'descripcion' => $t['descripcion'] ?? '',
+    'prioridad' => $t['prioridad'],
+    'estado' => $t['estado'],
+    'asignados' => TareaRepo::asignadosDe($t),
+    'fecha_inicio' => $t['fecha_inicio'] ?? '',
+    'fecha_limite' => $t['fecha_limite'] ?? '',
+    'depende_de' => (int)($t['depende_de'] ?? 0), 'dependencias' => TareaRepo::dependenciasDe($t),
+    'adjuntos' => TareaRepo::adjuntosDe($t),
+], JSON_UNESCAPED_UNICODE));
+?>
+<!-- Tareas en el celular: tarjetas pequeñas; al tocar una se abre su detalle -->
+<div class="pm-tareas" data-vista-panel="tarjetas"<?= $esSupervisor ? '' : ' hidden' ?>>
+  <div class="pm-tareas__cab">
+    <h2 class="pm-tareas__tit font-display">Tareas <span class="pm-tareas__n" data-pm-cuenta><?= count($visibles) ?></span></h2>
+    <?php if ($puedeTareas): ?>
+    <button type="button" class="btn-primary btn-meca btn-agregar btn-sm" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
+      <i class="fa-solid fa-plus"></i> Nueva tarea
+    </button>
+    <?php endif; ?>
+  </div>
+
+  <?php if ($verComo): ?>
+  <a class="filtro-vercomo pm-tareas__aviso" href="?id=<?= $id ?>&amp;ver_como=0" title="Volver a tu vista y ver todas las tareas">
+    <i class="fa-solid fa-eye"></i>
+    <span>Viendo como <b><?= e(explode(' ', trim($verComo['nombre']))[0]) ?></b>: solo sus tareas</span>
+    <i class="fa-solid fa-xmark"></i>
+  </a>
+  <?php elseif ($fEstado || $fAsignado): ?>
+  <a href="?id=<?= $id ?>" class="filtro-clear pm-tareas__aviso"><i class="fa-solid fa-filter-circle-xmark"></i> Quitar el filtro y ver todas</a>
+  <?php endif; ?>
+
+  <?php if (count($visibles) > 5): ?>
+  <label class="pm-buscar">
+    <i class="fa-solid fa-magnifying-glass" aria-hidden="true"></i>
+    <input class="input-meca" type="search" data-pm-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off" aria-label="Buscar tareas">
+  </label>
+  <?php endif; ?>
+
+  <?php if (empty($visibles)): ?>
+    <?= UI::vacio('fa-clipboard-list', 'Sin tareas aquí', match (true) {
+          (bool)$verComo => 'Estás viendo el panel como ' . explode(' ', trim($verComo['nombre']))[0]
+                            . ', y aquí solo salen las tareas suyas. Quita «Viendo como» para verlas todas.',
+          $fEstado || $fAsignado => 'No hay tareas con esos filtros.',
+          default => 'Agrega la primera tarea de este proyecto.',
+        }) ?>
+  <?php else: ?>
+  <?php foreach ($pmGrupos as $k => $g): if (!$g['tareas']) continue; ?>
+  <section class="pm-grupo" data-pm-grupo>
+    <h3 class="pm-grupo__tit">
+      <span class="pm-grupo__ico estado-<?= e($k) ?>"><?= UI::icono($g['icono']) ?></span>
+      <?= e($g['label']) ?> <span class="pm-grupo__n" data-pm-n><?= count($g['tareas']) ?></span>
+    </h3>
+    <?php foreach ($g['tareas'] as $t):
+        $pmFinal = in_array($t['estado'] ?? '', $finales, true);
+        $pmUrg   = $urgenciaDe($t);   // 'vencida', 'proxima' o ''
+        $pmGente = array_values(array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, TareaRepo::asignadosDe($t))));
+        $pmObs   = $obsPorTarea[(int)$t['id']] ?? 0;
+        $pmPrio  = (string)($t['prioridad'] ?? '');
+        $pmLim   = (string)($t['fecha_limite'] ?? '');
+        // Quién la lleva, en corto: el primer nombre, y «+N» si son varios
+        $pmNombre = $pmGente
+            ? explode(' ', trim($pmGente[0]['nombre'] ?? ''))[0] . (count($pmGente) > 1 ? ' +' . (count($pmGente) - 1) : '')
+            : 'Sin asignar';
+        // Lo que mira el buscador (igual que la tabla: el estado de verdad, no las opciones de un select)
+        $pmBuscar = mb_strtolower(trim(
+            '#' . (int)$t['id'] . ' ' . ($t['titulo'] ?? '')
+            . ' ' . HtmlRico::texto($t['descripcion'] ?? '', 200)
+            . ' ' . implode(' ', array_map(fn($m) => ($m['nombre'] ?? '') . ' ' . ($m['git_user'] ?? ''), $pmGente))
+            . ' ' . $g['label']
+            . ' ' . ($prioCat[$pmPrio][0] ?? '')
+        ));
+    ?>
+    <article class="pm-tarea<?= $pmFinal ? ' is-hecha' : '' ?>" data-pm-tarea data-buscar="<?= e($pmBuscar) ?>">
+      <div class="pm-tarea__top">
+        <button type="button" class="pm-tarea__abrir" data-ver-tarea='<?= $verTareaAttr($t) ?>'>
+          <span class="pm-tarea__titulo"><span class="pm-tarea__id">#<?= (int)$t['id'] ?></span> <?= e($t['titulo']) ?></span>
+        </button>
+        <?php if ($puedeTareas): ?>
+        <button type="button" class="pm-tarea__editar" title="Editar" aria-label="Editar «<?= e($t['titulo']) ?>»"
+                data-editar-tarea='<?= $pmEditarAttr($t) ?>'><i class="fa-solid fa-pen"></i></button>
+        <?php endif; ?>
+      </div>
+      <div class="pm-tarea__meta">
+        <?php /* Píldora con el color del estado. El ícono del catálogo (un SVG de
+                 unos 3 KB) va solo en el encabezado del grupo, no en cada tarjeta. */ ?>
+        <span class="pm-pill estado-<?= e($k) ?>"><span class="pm-pill__punto" aria-hidden="true"></span> <?= e($g['label']) ?></span>
+        <?php if (isset($prioCat[$pmPrio])): ?>
+        <span class="pm-pill pm-prio"><span class="prio-dot prio-<?= e($pmPrio) ?>"></span> <?= e($prioCat[$pmPrio][0]) ?></span>
+        <?php endif; ?>
+        <?php if ($pmLim !== ''): ?>
+        <span class="pm-fecha<?= $pmUrg ? ' is-' . $pmUrg : '' ?>"
+              title="Fecha límite: <?= e($pmLim) ?><?= $pmUrg === 'vencida' ? ' · vencida' : ($pmUrg === 'proxima' ? ' · vence pronto' : '') ?>">
+          <i class="fa-regular fa-calendar"></i> <?= e($diaCorto($pmLim)) ?><?= substr($pmLim, 0, 4) !== date('Y') ? ' ' . e(substr($pmLim, 0, 4)) : '' ?>
+        </span>
+        <?php endif; ?>
+        <?php if ($pmObs > 0): ?>
+        <span class="pm-obs" title="<?= $pmObs ?> observación<?= $pmObs === 1 ? '' : 'es' ?> pendiente<?= $pmObs === 1 ? '' : 's' ?>">
+          <i class="fa-solid fa-comment-dots"></i> <?= $pmObs ?>
+        </span>
+        <?php endif; ?>
+        <span class="pm-gente">
+          <?= UI::avatarsAsignados($t, $miembros, 22) ?>
+          <span class="pm-gente__nom"><?= e($pmNombre) ?></span>
+        </span>
+      </div>
+    </article>
+    <?php endforeach; ?>
+  </section>
+  <?php endforeach; ?>
+  <p class="pm-vacio" data-pm-vacio hidden>Ninguna tarea coincide con la búsqueda.</p>
+  <?php endif; ?>
+
+  <?php if ($nArchivadas > 0 && !$verArchivadas): ?>
+  <a class="pm-archivadas" href="?id=<?= $id ?>&arch=1"><i class="fa-solid fa-box-archive"></i> Ver <?= $nArchivadas ?> archivada<?= $nArchivadas === 1 ? '' : 's' ?> (completadas hace más de una semana)</a>
+  <?php endif; ?>
+</div>
+
 <?php if (!$esSupervisor): /* calendario, intercambios, reuniones, observaciones y métricas: ocultos al supervisor */ ?>
 <!-- Vista Calendario: fechas límite de tareas + reuniones -->
 <div data-vista-panel="calendario" hidden>

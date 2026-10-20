@@ -124,7 +124,7 @@ function actualizarPanel(array $opc): void
         'assets/ia.js'      => ['conGiro'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina'],
@@ -133,9 +133,9 @@ function actualizarPanel(array $opc): void
         'lib/Mailer.php'    => ['codigoRecuperacion'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c'],
+        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular'],
         'index.php'         => ['ds-indicadores', 'portadaDe'],
-        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo'],
+        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto'],
     ];
     $viejos = [];
