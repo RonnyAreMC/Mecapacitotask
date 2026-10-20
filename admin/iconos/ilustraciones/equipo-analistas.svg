@@ -1,0 +1,58 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420">
+  <title>Tablero con indicadores, gráfico de barras y una lupa</title>
+  <path d="M62 236C44 158 112 80 212 72c92-8 130-42 206-2 70 38 90 122 60 192-28 64-8 108-98 118-96 10-152-24-222-12-80 14-80-54-96-132z" fill="rgba(41,112,235,0.08)"/>
+  <ellipse cx="262" cy="386" rx="206" ry="10" fill="rgba(41,112,235,0.12)"/>
+  <path d="M30 150c8-52 46-88 98-96" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+  <path d="M440 92c34 6 56 30 60 64" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+
+  <!-- Tablero -->
+  <rect x="64" y="84" width="324" height="226" rx="16" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+  <path d="M65 100a15 15 0 0 1 15-15h292a15 15 0 0 1 15 15v18H65z" fill="#F3F7FE"/>
+  <circle cx="86" cy="101" r="5" fill="#FF7A7A"/>
+  <circle cx="103" cy="101" r="5" fill="#FFD24D"/>
+  <circle cx="120" cy="101" r="5" fill="#2BB673"/>
+  <rect x="144" y="96" width="118" height="10" rx="5" fill="#DCE8FD"/>
+
+  <!-- Indicadores -->
+  <rect x="82" y="132" width="90" height="46" rx="10" fill="#F3F7FE"/>
+  <rect x="94" y="143" width="38" height="6" rx="3" fill="#9FC0F8"/>
+  <rect x="94" y="157" width="58" height="10" rx="5" fill="#2970EB"/>
+  <rect x="181" y="132" width="90" height="46" rx="10" fill="#F3F7FE"/>
+  <rect x="193" y="143" width="38" height="6" rx="3" fill="#9FC0F8"/>
+  <rect x="193" y="157" width="46" height="10" rx="5" fill="#2BB673"/>
+  <rect x="280" y="132" width="90" height="46" rx="10" fill="#F3F7FE"/>
+  <rect x="292" y="143" width="38" height="6" rx="3" fill="#9FC0F8"/>
+  <rect x="292" y="157" width="52" height="10" rx="5" fill="#FFD24D"/>
+
+  <!-- Barras y tendencia -->
+  <path d="M84 292h170" stroke="#DCE8FD" stroke-width="2" stroke-linecap="round"/>
+  <rect x="94" y="250" width="20" height="42" rx="5" fill="#9FC0F8"/>
+  <rect x="122" y="228" width="20" height="64" rx="5" fill="#5B95F5"/>
+  <rect x="150" y="240" width="20" height="52" rx="5" fill="#9FC0F8"/>
+  <rect x="178" y="206" width="20" height="86" rx="5" fill="#2970EB"/>
+  <rect x="206" y="220" width="20" height="72" rx="5" fill="#5B95F5"/>
+  <path d="M104 234l28-22 28 12 28-34 28 10 22-18" fill="none" stroke="#2BB673" stroke-width="4" stroke-linecap="round" stroke-linejoin="round"/>
+  <circle cx="188" cy="190" r="5" fill="#fff" stroke="#2BB673" stroke-width="3"/>
+
+  <!-- Dona -->
+  <circle cx="318" cy="246" r="34" fill="none" stroke="#DCE8FD" stroke-width="16"/>
+  <circle cx="318" cy="246" r="34" fill="none" stroke="#2970EB" stroke-width="16" stroke-dasharray="107 214" transform="rotate(-90 318 246)"/>
+  <circle cx="318" cy="246" r="34" fill="none" stroke="#2BB673" stroke-width="16" stroke-dasharray="54 214" stroke-dashoffset="-107" transform="rotate(-90 318 246)"/>
+
+  <!-- Lupa -->
+  <circle cx="404" cy="300" r="44" fill="rgba(255,255,255,0.72)" stroke="#1B2C4E" stroke-width="10"/>
+  <path d="M384 312l14-14 12 8 16-20" fill="none" stroke="#2970EB" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <path d="M437 334l30 30" stroke="#1B2C4E" stroke-width="15" stroke-linecap="round"/>
+
+  <!-- Datos -->
+  <g transform="translate(30 238)">
+    <rect width="48" height="48" rx="13" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+    <ellipse cx="24" cy="14" rx="11" ry="4.5" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
+    <path d="M13 14v20c0 2.5 5 4.5 11 4.5s11-2 11-4.5V14M13 24c0 2.5 5 4.5 11 4.5s11-2 11-4.5" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
+  </g>
+  <!-- Revisado -->
+  <g transform="translate(96 32)">
+    <rect width="44" height="44" rx="12" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+    <path d="M13 22.5l6 6 12-13" fill="none" stroke="#2BB673" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>

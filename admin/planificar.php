@@ -79,42 +79,18 @@ $ejemplo = <<<JSON
 JSON;
 
 UI::inicio('Planificar', 'planificar');
+// «Extraer con IA» solo para quien puede usar la IA en esta tarea (admin o
+// Scrum Master, con la función activa en la Consola de IA).
+$conIAPlan = UI::ia('plan_documento');
 UI::cabecera(
     'Planificar <span class="text-secondary">tareas</span>',
     'Sube un JSON con la planificación y se crean todas las tareas de una. Ideal para cargar el sprint completo.',
-    ''
+    $conIAPlan
+        ? '<button type="button" class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-ia-plan\').showModal()">'
+          . '<i class="fa-solid fa-wand-magic-sparkles"></i> Extraer con IA</button>'
+        : ''
 );
 ?>
-
-<?php if (UI::ia('plan_documento')):
-    // Solo los proyectos que esta persona gestiona (el Scrum Master, los suyos).
-    $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id']))); ?>
-<section class="card-base plan-card ia-plan-card" style="margin-bottom:16px">
-  <form id="ia-plan-form" class="plan-form" enctype="multipart/form-data">
-    <div class="plan-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-wand-magic-sparkles text-secondary"></i> Generar tareas con IA desde un documento</h2>
-    </div>
-    <p class="campo-ayuda" style="margin:0">Sube el plan (Excel, PDF, Word o CSV): la IA lo desglosa en tareas con su orden y las deja en el editor de abajo. Nada se crea hasta que valides e importes.</p>
-    <div class="campo-doble">
-      <label class="campo"><span>Proyecto</span>
-        <select class="input-meca" name="proyecto_id" required>
-          <?php foreach ($proyIA as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['nombre']) ?></option><?php endforeach; ?>
-        </select>
-      </label>
-      <label class="campo"><span>Documento del plan</span>
-        <input class="input-meca" type="file" name="archivo" required accept=".xlsx,.docx,.pdf,.csv,.txt,.md,application/pdf">
-      </label>
-    </div>
-    <label class="campo"><span>Indicaciones (opcional)</span>
-      <textarea class="input-meca" name="instrucciones" rows="2" maxlength="1500" placeholder="Ej.: solo la hoja «Estudiante»; agrupa por módulo; empieza el 3 de noviembre…"></textarea>
-    </label>
-    <div class="plan-botones">
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar tareas con IA</button>
-    </div>
-    <div id="ia-plan-notas" class="ia-plan-notas"></div>
-  </form>
-</section>
-<?php endif; ?>
 
 <div class="plan-grid">
 
@@ -133,6 +109,10 @@ UI::cabecera(
           </button>
         </div>
       </div>
+      <?php if ($conIAPlan): ?>
+      <!-- Lo rellena assets/ia.js al extraer con IA: cuántas tareas propuso y sus notas -->
+      <div id="ia-plan-notas" class="ia-plan-notas" aria-live="polite"></div>
+      <?php endif; ?>
       <textarea name="json" id="plan-json" class="input-meca plan-text" spellcheck="false"
         placeholder='Pega aquí el JSON…'><?= e($jsonPegado) ?></textarea>
       <input type="hidden" name="modo" id="plan-modo" value="validar">
@@ -223,6 +203,42 @@ UI::cabecera(
     <?php endif; ?>
   </section>
 </div>
+
+<?php if ($conIAPlan):
+    // Solo los proyectos que esta persona gestiona (el Scrum Master, los suyos).
+    $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id']))); ?>
+<!-- Modal: extraer las tareas de un documento con IA. Lo envía assets/ia.js
+     (accion ia_plan_documento) y deja el JSON en el editor; no crea nada. -->
+<dialog id="dlg-ia-plan" class="dlg-meca dlg-ia">
+  <form id="ia-plan-form" class="dlg-form" enctype="multipart/form-data">
+    <header>
+      <h3 class="font-display"><i class="fa-solid fa-wand-magic-sparkles text-secondary"></i> Extraer tareas con IA</h3>
+      <button type="button" class="dlg-close" title="Cerrar" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+
+    <div class="ia-cuerpo">
+      <p class="ajuste-ayuda">Sube el plan (Excel, PDF, Word o CSV): la IA lo desglosa en tareas con su orden y las deja en el editor. Nada se crea hasta que valides e importes.</p>
+      <label class="campo"><span>Proyecto</span>
+        <select class="input-meca" name="proyecto_id" required>
+          <?php foreach ($proyIA as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['nombre']) ?></option><?php endforeach; ?>
+        </select>
+      </label>
+      <div class="campo"><span>Documento del plan</span>
+        <?= UI::archivo(['name' => 'archivo', 'variante' => 'zona', 'accept' => '.xlsx,.docx,.pdf,.csv,.txt,.md,application/pdf',
+                         'ayuda' => 'Excel, PDF, Word o CSV · máx 15 MB', 'maxMB' => 15]) ?>
+      </div>
+      <label class="campo"><span>Indicaciones (opcional)</span>
+        <textarea class="input-meca" name="instrucciones" rows="3" maxlength="1500" placeholder="Ej.: solo la hoja «Estudiante»; agrupa por módulo; empieza el 3 de noviembre…"></textarea>
+      </label>
+    </div>
+
+    <footer>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar tareas con IA</button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 
 <script>
   document.getElementById('plan-ejemplo')?.addEventListener('click', () => {

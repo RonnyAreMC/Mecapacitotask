@@ -34,7 +34,15 @@
     // quedaría colgada arriba.
     setTimeout(() => {
       if (e.defaultPrevented) return;
-      if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) b.classList.add('btn-cargando');
+      if (b && b.tagName === 'BUTTON' && !b.dataset.noSpin) {
+        // Mientras guarda, el botón muestra solo el giro: sin texto ni ícono.
+        // El giro toma el color que tenía el texto (blanco en los botones
+        // llenos, el del borde en los de contorno) y queda centrado en el botón.
+        const cs = getComputedStyle(b);
+        b.style.setProperty('--spin-c', cs.color);
+        if (cs.position === 'static') b.style.position = 'relative';
+        b.classList.add('btn-cargando');
+      }
       mostrar();
     }, 0);
   }, true);

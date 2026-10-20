@@ -49,20 +49,29 @@
     return j;
   }
 
-  /** Botón en "pensando…" mientras dura la llamada. */
+  /** Mientras dura la llamada el botón muestra solo el giro, sin «Pensando…»
+      (la misma clase btn-cargando que usan los botones de guardar). */
   async function conBoton(btn, fn) {
     if (!btn || btn.dataset.iaOcupado) return;
     btn.dataset.iaOcupado = '1';
-    const antes = btn.innerHTML;
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Pensando…';
+    const cs = getComputedStyle(btn);
+    const posAntes = btn.style.position;
+    btn.style.setProperty('--spin-c', cs.color);
+    if (cs.position === 'static') btn.style.position = 'relative';
+    btn.classList.add('btn-cargando');
+    btn.setAttribute('aria-busy', 'true');
     try {
       const viejo = btn.closest('dialog')?.querySelector('.ia-error');
       if (viejo) viejo.remove();
       await fn();
     }
     catch (e) { avisarError(btn, e.message); }
-    finally { btn.disabled = false; btn.innerHTML = antes; delete btn.dataset.iaOcupado; }
+    finally {
+      btn.classList.remove('btn-cargando');
+      btn.removeAttribute('aria-busy');
+      btn.style.position = posAntes;
+      delete btn.dataset.iaOcupado;
+    }
   }
 
   /** Pie de cada resultado: qué modelo respondió y cuánto costó. */
@@ -122,25 +131,75 @@
     d.onclick = () => { ed.poner(prev, false); d.remove(); };
   }
 
+  /** Mientras dura la llamada el botón muestra solo el giro, sin texto: la
+      misma clase btn-cargando (admin.css) que pone admin.js al guardar. */
+  async function conGiro(btn, fn) {
+    if (!btn || btn.dataset.iaOcupado) return;
+    btn.dataset.iaOcupado = '1';
+    const cs = getComputedStyle(btn);
+    const posAntes = btn.style.position;
+    btn.style.setProperty('--spin-c', cs.color);   // el giro, del color del texto del botón
+    if (cs.position === 'static') btn.style.position = 'relative';
+    btn.classList.add('btn-cargando');             // sin disabled: lo pondría gris
+    btn.setAttribute('aria-busy', 'true');
+    try { await fn(); }
+    finally {
+      btn.classList.remove('btn-cargando');
+      btn.removeAttribute('aria-busy');
+      btn.style.position = posAntes;
+      delete btn.dataset.iaOcupado;
+    }
+  }
+
   /* =========================================================
-     1. Planificar desde un documento
+     1. Planificar desde un documento (modal «Extraer con IA» de planificar.php)
      ========================================================= */
   const fPlan = document.getElementById('ia-plan-form');
-  if (fPlan) fPlan.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const btn = fPlan.querySelector('button[type="submit"], button:not([type])');
-    conBoton(btn, async () => {
-      const r = await pedir('ia_plan_documento', new FormData(fPlan));
-      const ta = document.getElementById('plan-json');
-      ta.value = r.json;
-      ta.dispatchEvent(new Event('input', { bubbles: true }));
-      const notas = document.getElementById('ia-plan-notas');
-      if (notas) notas.innerHTML = '<b>' + r.n + ' tareas propuestas.</b> ' + esc(r.notas || '')
-        + ' Revísalas en el editor, pulsa «Validar sin crear» y después «Importar tareas».' + firma(r);
-      ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      toast(r.n + ' tareas propuestas: revísalas y valídalas antes de importar.', 'success', 6000);
+  if (fPlan) {
+    const dlgPlan = fPlan.closest('dialog');
+    const quitarError = () => { const v = dlgPlan && dlgPlan.querySelector('.ia-error'); if (v) v.remove(); };
+    // Al cerrar se va el error; el documento y las indicaciones se quedan por si quiere volver a generar.
+    if (dlgPlan) dlgPlan.addEventListener('close', quitarError);
+
+    fPlan.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const btn = e.submitter || fPlan.querySelector('button[type="submit"]');
+      // Sin documento: el aviso va en el propio campo de subida (UI::archivo)
+      const doc = fPlan.querySelector('input[type="file"][name="archivo"]');
+      if (!doc || !doc.files.length) {
+        const fx = doc && doc.closest('[data-archivo]');
+        const errFx = fx && fx.querySelector('.fx-error');
+        if (!errFx) { avisarError(btn, 'Sube el documento del plan (Excel, PDF, Word o CSV).'); return; }
+        fx.classList.add('fx-err');
+        errFx.textContent = 'Elige el documento del plan.';
+        errFx.hidden = false;
+        const zona = fx.querySelector('.fx-disparo');
+        if (zona) zona.focus();
+        return;
+      }
+      conGiro(btn, async () => {
+        quitarError();
+        try {
+          const r = await pedir('ia_plan_documento', new FormData(fPlan));
+          const ta = document.getElementById('plan-json');
+          ta.value = r.json;
+          ta.dispatchEvent(new Event('input', { bubbles: true }));
+          const notas = document.getElementById('ia-plan-notas');
+          if (notas) notas.innerHTML = '<div class="mc-alert mc-alert--tip" role="status"><div class="mc-alert__content">'
+            + '<p class="mc-alert__title">' + esc(r.n) + ' tareas propuestas</p><div class="mc-alert__desc">'
+            + (r.notas ? esc(r.notas) + ' ' : '')
+            + 'Revísalas en el editor, pulsa «Validar sin crear» y después «Importar tareas».' + firma(r) + '</div></div></div>';
+          if (dlgPlan) dlgPlan.close();
+          ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          toast(r.n + ' tareas propuestas: revísalas y valídalas antes de importar.', 'success', 6000);
+        } catch (err) {
+          // Dentro del modal; si ya lo cerraron mientras esperaba, como aviso
+          if (dlgPlan && !dlgPlan.open) toast(err.message, 'error', 6000);
+          else avisarError(btn, err.message);
+        }
+      });
     });
-  });
+  }
 
   /* =========================================================
      Lista de tareas propuestas con casillas (acta y desglose)

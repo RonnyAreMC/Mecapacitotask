@@ -2384,8 +2384,11 @@ switch ($accion) {
         };
         $hex = fn(string $v, string $fallback) =>
             preg_match('/^#[0-9a-fA-F]{6}$/', $v) ? strtoupper($v) : $fallback;
+        // Ícono válido: una clase fa-* o uno del design system (iconos/*/<nombre>.svg).
+        // Antes solo valía fa-*, y al guardar los del sistema se volvían el genérico.
         $fa = fn(string $v, string $fallback) =>
-            preg_match('/^fa-[a-z0-9-]+$/', trim($v)) ? trim($v) : $fallback;
+            preg_match('/^fa-[a-z0-9-]+$/', trim($v)) || (preg_match('/^[A-Za-z0-9_-]{1,60}$/', trim($v)) && UI::hayIcono(trim($v)))
+                ? trim($v) : $fallback;
 
         // Clave interna a partir de la etiqueta (para entradas nuevas)
         $slug = function (string $label): string {

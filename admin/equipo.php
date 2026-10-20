@@ -62,6 +62,8 @@ $importe = esAdmin() ? ($_SESSION['import_equipo'] ?? null) : null;
 $importePrevia = $importe ? ImportadorEquipo::aplicar($importe['filas'], true) : null;
 
 UI::inicio('Equipo ' . $eqLabel, 'equipo-' . $eq);
+// Ilustración del encabezado: la del equipo, o una genérica para los que se crean en Ajustes
+$eqArte = ['programacion' => 'equipo-programadores', 'analistas' => 'equipo-analistas'][$eq] ?? 'entrada-equipo';
 UI::cabecera(
     'Equipo de <span class="text-secondary">' . e(mb_strtolower($eqLabel)) . '</span>',
     'Colaboradores del equipo, sus usuarios de Git y sus fotos.',
@@ -70,7 +72,8 @@ UI::cabecera(
      </button>
      <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo-miembro\').showModal()">
        <i class="fa-solid fa-user-plus"></i> Agregar colaborador
-     </button>'
+     </button>',
+    $eqArte
 );
 ?>
 
@@ -248,7 +251,7 @@ UI::cabecera(
   <!-- Tabla de colaboradores: vision general con git/correo copiables -->
   <div class="card-base tabla-card">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid <?= e($eqIcono) ?> text-secondary"></i> Colaboradores
+      <h2 class="font-display"><?= UI::icono($eqIcono, 'text-secondary') ?> Colaboradores
         <span class="tabla-count" data-buscar-count><?= count($equipo) ?></span>
       </h2>
       <label class="tabla-buscar">
@@ -262,9 +265,8 @@ UI::cabecera(
           <tr>
             <th>Colaborador</th>
             <th><i class="fa-brands fa-github"></i> Usuario de Git</th>
-            <th><i class="fa-solid fa-envelope"></i> Correo</th>
-            <th><i class="fa-solid fa-phone"></i> Teléfono</th>
-            <th>Abiertas</th>
+            <th><i class="fa-solid fa-address-book"></i> Contacto</th>
+            <th class="th-centro">Abiertas</th>
             <?php if ($puedeAcceso): ?><th><i class="fa-solid fa-shield-halved"></i> Admin</th><?php endif; ?>
             <th></th>
           </tr>
@@ -284,7 +286,7 @@ UI::cabecera(
               <div class="celda-persona">
                 <?= UI::avatar($m, 38) ?>
                 <div class="cp-info">
-                  <span><?= e($m['nombre']) ?></span>
+                  <span title="<?= e($m['nombre']) ?>"><?= e($m['nombre']) ?></span>
                   <small><?= e($m['rol']) ?></small>
                 </div>
               </div>
@@ -292,34 +294,35 @@ UI::cabecera(
             <td>
               <?php if (!empty($m['git_user'])): ?>
               <span class="chip-copiar">
-                <code><i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?></code>
+                <code title="@<?= e($m['git_user']) ?>"><i class="fa-brands fa-github"></i> <span>@<?= e($m['git_user']) ?></span></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git">
                   <i class="fa-regular fa-copy"></i>
                 </button>
               </span>
               <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
             </td>
-            <td>
+            <td class="celda-contacto">
+              <?php // Correo y teléfono, uno debajo del otro: en columnas separadas la tabla no cabía ?>
               <?php if (!empty($m['email'])): ?>
               <span class="chip-copiar">
-                <code><i class="fa-solid fa-envelope"></i> <?= e($m['email']) ?></code>
+                <code title="<?= e($m['email']) ?>"><i class="fa-solid fa-envelope"></i> <span><?= e($m['email']) ?></span></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['email']) ?>" title="Copiar correo">
                   <i class="fa-regular fa-copy"></i>
                 </button>
               </span>
-              <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
-            </td>
-            <td>
+              <?php endif; ?>
               <?php if (!empty($m['telefono'])): ?>
               <span class="chip-copiar">
-                <code><i class="fa-solid fa-phone"></i> <?= e($m['telefono']) ?></code>
+                <code><i class="fa-solid fa-phone"></i> <span><?= e($m['telefono']) ?></span></code>
                 <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono">
                   <i class="fa-regular fa-copy"></i>
                 </button>
               </span>
-              <?php else: ?><span class="celda-muted" title="Se le pide la próxima vez que entre al panel">—</span><?php endif; ?>
+              <?php else: ?>
+              <span class="celda-muted sin-tel" title="Se le pide la próxima vez que entre al panel"><i class="fa-solid fa-phone"></i> Sin teléfono</span>
+              <?php endif; ?>
             </td>
-            <td><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
+            <td class="td-centro"><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
             <?php if ($puedeAcceso):
                 // Los perfiles son varios: lo normal es "administrador y Scrum
                 // Master". El color de la píldora lo pone el de más mando.
@@ -363,7 +366,7 @@ UI::cabecera(
           </tr>
           <?php endforeach; ?>
           <tr data-buscar-vacio data-no-buscar hidden>
-            <td colspan="<?= $puedeAcceso ? 7 : 6 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
+            <td colspan="<?= $puedeAcceso ? 6 : 5 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
           </tr>
         </tbody>
       </table>

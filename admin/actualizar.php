@@ -91,12 +91,14 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/Tutoriales.php',
+        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg',
+        'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
 
     $nIconos = count(glob($dir . '/iconos/DS/ds-*.svg') ?: []);
-    $nIconos >= 116 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (116).');
+    $nIconos >= 118 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (118).');
     $ilus = ['notificaciones-vacio', 'reportes-vacio', 'instructores-equipo', 'asistente-ia', 'sin-resultados-cursos', 'curso-sin-modulos',
              'banco-vacio', 'sin-ordenes', 'error-amable', 'construccion', 'despliegue', 'universidad-agraria', 'ingles',
              'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual',
@@ -109,21 +111,23 @@ function actualizarPanel(array $opc): void
     $marcas = [
         'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
         'lib/Notificaciones.php' => ['Push::avisar'],
-        'lib/Models.php'    => ['function respaldos'],
+        'lib/Models.php'    => ['function respaldos', 'ds-programadores'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios'],
+        'assets/ia.js'      => ['conGiro'],
+        'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr'],
-        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip'],
+        'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'Tutoriales::boton'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes'],
         'lib/correo_vista.php' => ['correoDirectorio'],
         'login.php'         => ['entradaArte'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot'],
+        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c'],
         'index.php'         => ['ds-indicadores', 'portadaDe'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo'],
-        'equipo.php'        => ['name="telefono"', 'Copiar teléfono'],
+        'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {
@@ -134,7 +138,8 @@ function actualizarPanel(array $opc): void
     }
     // equipo.php no lleva name="telefono" (eso está en campos_persona.php): lo revisa aparte
     $viejos = array_values(array_diff($viejos, ['equipo.php']));
-    if (!str_contains((string)@file_get_contents($dir . '/equipo.php'), 'Copiar teléfono')) $viejos[] = 'equipo.php';
+    $txtEquipo = (string)@file_get_contents($dir . '/equipo.php');
+    if (!str_contains($txtEquipo, 'Copiar teléfono') || !str_contains($txtEquipo, 'celda-contacto')) $viejos[] = 'equipo.php';
     if (!str_contains((string)@file_get_contents($dir . '/lib/campos_persona.php'), 'name="telefono"')) $viejos[] = 'lib/campos_persona.php';
     $viejos ? nota('error', 'Estos archivos son de la versión anterior (vuelve a subirlos): ' . implode(', ', array_unique($viejos)) . '.')
             : nota('ok', 'Todos los archivos modificados son de esta versión');
@@ -302,6 +307,32 @@ function actualizarPanel(array $opc): void
     }
 
     /* Credenciales de Ajustes: si faltan todas, la config probablemente se reinició */
+    /* Íconos de los catálogos: guardar Ajustes solo aceptaba fa-*, y los del
+       design system quedaban con el genérico (todos los equipos con el mismo,
+       todos los estados con el mismo). Los que vienen de fábrica vuelven al suyo. */
+    paso('Íconos de estados, prioridades y equipos');
+    $genericos = ['estados_tarea' => 'fa-circle-dot', 'prioridades' => 'fa-equals', 'estados_proyecto' => 'fa-flag', 'equipos' => 'fa-users'];
+    $defC   = Config::defaults();
+    $crudoC = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+    $arreglos = [];
+    $nArreglos = 0;
+    foreach ($genericos as $cat => $gen) {
+        $lista = $crudoC[$cat] ?? null;
+        if (!is_array($lista)) continue;
+        foreach ($lista as $k => $item) {
+            $defIco = $defC[$cat][$k]['icono'] ?? '';
+            if (is_array($item) && ($item['icono'] ?? '') === $gen && $defIco !== '' && $defIco !== $gen) {
+                $lista[$k]['icono'] = $defIco;
+                $arreglos[$cat] = $lista;
+                $nArreglos++;
+            }
+        }
+    }
+    if ($arreglos && !$seco) Config::guardar($arreglos);
+    $nArreglos
+        ? nota('ok', $nArreglos . ' ícono(s) ' . ($seco ? 'volverían' : 'volvieron') . ' al del design system: ' . implode(', ', array_keys($arreglos)))
+        : nota('ok', 'Cada estado, prioridad y equipo tiene su ícono');
+
     paso('Credenciales de Ajustes');
     $cfgA  = Config::all();
     $zoomA = (array)($cfgA['zoom'] ?? []);

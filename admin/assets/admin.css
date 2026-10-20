@@ -3430,21 +3430,24 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 @keyframes nav-prog {
   0% { width: 0; } 25% { width: 45%; } 60% { width: 75%; } 100% { width: 92%; }
 }
-.btn-primary.btn-cargando, .btn-meca.btn-cargando, .accion-btn.btn-cargando {
-  position: relative; color: transparent !important; pointer-events: none;
+/* Mientras guarda: solo el giro. Vale para todos los botones (los del design
+   system también); el texto se vuelve transparente y lo de adentro se oculta. */
+.btn-primary.btn-cargando, .btn-meca.btn-cargando, .accion-btn.btn-cargando { position: relative; }
+html body .btn-cargando.btn-cargando {
+  color: transparent !important; -webkit-text-fill-color: transparent; text-shadow: none !important; pointer-events: none;
 }
 .btn-cargando > i, .btn-cargando > * { visibility: hidden; }
 .btn-cargando::after {
   content: ''; position: absolute; inset: 0; margin: auto;
   width: 20px; height: 20px; visibility: visible;
-  background: #fff;                          /* color del spinner (blanco en botones llenos) */
+  background: var(--spin-c, #fff);           /* color del texto del botón (lo pone admin.js) */
   --spk: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'><g fill='%23000'><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.13'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.19' transform='rotate(30 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.25' transform='rotate(60 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.32' transform='rotate(90 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.4' transform='rotate(120 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.48' transform='rotate(150 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.56' transform='rotate(180 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.64' transform='rotate(210 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.73' transform='rotate(240 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.82' transform='rotate(270 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='.91' transform='rotate(300 12 12)'/><rect x='10.9' y='2' width='2.2' height='6' rx='1.1' opacity='1' transform='rotate(330 12 12)'/></g></svg>");
   -webkit-mask: var(--spk) center / contain no-repeat;
           mask: var(--spk) center / contain no-repeat;
   animation: spin 1s steps(12) infinite;
 }
 .btn-outline.btn-cargando::after,
-.accion-btn.btn-cargando::after { background: var(--c-verde-esmeralda); }
+.accion-btn.btn-cargando::after { background: var(--spin-c, var(--c-verde-esmeralda)); }
 @keyframes spin { to { transform: rotate(360deg); } }
 
 .ap-total { font-size: .8rem; font-weight: 600; color: var(--c-text-soft); margin-left: 8px; }

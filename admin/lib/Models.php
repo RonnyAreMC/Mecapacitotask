@@ -174,7 +174,7 @@ final class Catalogo
         foreach ((array)Config::get('equipos') as $k => $v) {
             $out[$k] = [$v['label'] ?? ucfirst($k), $v['icono'] ?? 'fa-users'];
         }
-        return $out ?: ['programacion' => ['Programadores', 'fa-code']];
+        return $out ?: ['programacion' => ['Programadores', 'ds-programadores']];
     }
 }
 
@@ -218,8 +218,8 @@ final class Config
                 'completado' => ['label' => 'Completado', 'icono' => 'fa-flag-checkered'],
             ],
             'equipos' => [
-                'programacion' => ['label' => 'Programadores', 'icono' => 'Desarrolladores'],
-                'analistas'    => ['label' => 'Analistas',     'icono' => 'Analistas'],
+                'programacion' => ['label' => 'Programadores', 'icono' => 'ds-programadores'],
+                'analistas'    => ['label' => 'Analistas',     'icono' => 'ds-analistas'],
             ],
             'iconos' => Catalogo::ICONOS_PROYECTO,
             'roles'  => ['Tech Lead', 'Frontend Dev', 'Backend Dev', 'Full Stack Developer', 'QA', 'DevOps', 'UI/UX Designer', 'Analista Funcional', 'Analista de Datos'],

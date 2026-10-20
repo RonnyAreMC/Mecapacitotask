@@ -804,13 +804,21 @@ class UI
              . '<i class="fa-solid fa-wand-magic-sparkles"></i> ' . e($texto) . '</button>';
     }
 
-    public static function cabecera(string $titulo, string $subtitulo = '', string $acciones = ''): void
+    /** $ilustracion: nombre de iconos/ilustraciones/<nombre>.svg que va a la izquierda del título (opcional). */
+    public static function cabecera(string $titulo, string $subtitulo = '', string $acciones = '', string $ilustracion = ''): void
     {
+        $ilus = preg_replace('/[^a-z0-9-]/', '', $ilustracion);
+        if ($ilus !== '' && !is_file(__DIR__ . '/../iconos/ilustraciones/' . $ilus . '.svg')) $ilus = '';
         ?>
 <header class="page-head">
-  <div>
+  <div<?= $ilus !== '' ? ' class="page-head__main"' : '' ?>>
+    <?php if ($ilus !== ''): ?>
+    <img class="page-head__arte" src="<?= e(asset('iconos/ilustraciones/' . $ilus . '.svg')) ?>" alt="" width="520" height="420" decoding="async">
+    <div>
+    <?php endif; ?>
     <h1 class="page-title font-display"><?= $titulo ?></h1>
     <?php if ($subtitulo): ?><p class="page-sub"><?= $subtitulo ?></p><?php endif; ?>
+    <?php if ($ilus !== ''): ?></div><?php endif; ?>
   </div>
   <?php if ($acciones): ?><div class="page-actions"><?= $acciones ?></div><?php endif; ?>
 </header>
@@ -1362,7 +1370,9 @@ class UI
     ];
 
     private const ICONOS_MIGRADOS = [
-        // Equipos
+        // Equipos: los íconos de antes pasan a los del design system
+        'Desarrolladores'            => 'ds-programadores',
+        'Analistas'                  => 'ds-analistas',
         'fa-code'                    => 'Desarrolladores',
         'fa-chart-line'              => 'Analistas',
         // Estados de tarea

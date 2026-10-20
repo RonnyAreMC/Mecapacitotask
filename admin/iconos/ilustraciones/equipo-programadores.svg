@@ -1,0 +1,66 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 420">
+  <title>Editor de código con un terminal y la etiqueta de código</title>
+  <path d="M62 236C44 158 112 80 212 72c92-8 130-42 206-2 70 38 90 122 60 192-28 64-8 108-98 118-96 10-152-24-222-12-80 14-80-54-96-132z" fill="rgba(41,112,235,0.08)"/>
+  <ellipse cx="262" cy="386" rx="206" ry="10" fill="rgba(41,112,235,0.12)"/>
+  <path d="M30 150c8-52 46-88 98-96" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+  <path d="M432 344c36-4 60-28 68-64" fill="none" stroke="#BFD3F7" stroke-width="2" stroke-linecap="round" stroke-dasharray="5 8"/>
+
+  <!-- Editor -->
+  <rect x="72" y="84" width="306" height="222" rx="16" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+  <path d="M73 100a15 15 0 0 1 15-15h274a15 15 0 0 1 15 15v18H73z" fill="#F3F7FE"/>
+  <circle cx="94" cy="101" r="5" fill="#FF7A7A"/>
+  <circle cx="111" cy="101" r="5" fill="#FFD24D"/>
+  <circle cx="128" cy="101" r="5" fill="#2BB673"/>
+  <rect x="152" y="96" width="118" height="10" rx="5" fill="#DCE8FD"/>
+  <g fill="#C9D8F5">
+    <rect x="88" y="137" width="10" height="8" rx="4"/>
+    <rect x="88" y="157" width="10" height="8" rx="4"/>
+    <rect x="88" y="177" width="10" height="8" rx="4"/>
+    <rect x="88" y="197" width="10" height="8" rx="4"/>
+    <rect x="88" y="217" width="10" height="8" rx="4"/>
+    <rect x="88" y="237" width="10" height="8" rx="4"/>
+    <rect x="88" y="257" width="10" height="8" rx="4"/>
+    <rect x="88" y="277" width="10" height="8" rx="4"/>
+  </g>
+  <rect x="112" y="136" width="52" height="10" rx="5" fill="#2970EB"/>
+  <rect x="170" y="136" width="72" height="10" rx="5" fill="#9FC0F8"/>
+  <rect x="130" y="156" width="40" height="10" rx="5" fill="#2BB673"/>
+  <rect x="176" y="156" width="96" height="10" rx="5" fill="#DCE8FD"/>
+  <rect x="130" y="176" width="64" height="10" rx="5" fill="#5B95F5"/>
+  <rect x="200" y="176" width="44" height="10" rx="5" fill="#FFD24D"/>
+  <rect x="148" y="196" width="88" height="10" rx="5" fill="#9FC0F8"/>
+  <rect x="148" y="216" width="56" height="10" rx="5" fill="#2BB673"/>
+  <rect x="210" y="216" width="60" height="10" rx="5" fill="#DCE8FD"/>
+  <rect x="130" y="236" width="30" height="10" rx="5" fill="#5B95F5"/>
+  <rect x="112" y="256" width="24" height="10" rx="5" fill="#2970EB"/>
+  <rect x="112" y="276" width="70" height="10" rx="5" fill="#DCE8FD"/>
+  <rect x="190" y="274" width="3.5" height="14" rx="1.5" fill="#1B2C4E"/>
+
+  <!-- Terminal -->
+  <rect x="290" y="226" width="186" height="122" rx="16" fill="#1B2C4E"/>
+  <circle cx="310" cy="245" r="4" fill="#3E5C8E"/>
+  <circle cx="324" cy="245" r="4" fill="#3E5C8E"/>
+  <circle cx="338" cy="245" r="4" fill="#3E5C8E"/>
+  <path d="M310 270l13 11-13 11" fill="none" stroke="#2BB673" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect x="332" y="287" width="32" height="6" rx="3" fill="#2BB673"/>
+  <rect x="310" y="308" width="112" height="8" rx="4" fill="#3E5C8E"/>
+  <rect x="310" y="324" width="70" height="8" rx="4" fill="#3E5C8E"/>
+
+  <!-- Etiqueta de código -->
+  <circle cx="420" cy="116" r="46" fill="#2970EB"/>
+  <path d="M405 100l-17 16 17 16M435 100l17 16-17 16M426 94l-12 44" fill="none" stroke="#fff" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>
+
+  <!-- Rama de git -->
+  <g transform="translate(34 238)">
+    <rect width="48" height="48" rx="13" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+    <circle cx="17" cy="14" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
+    <circle cx="17" cy="34" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
+    <circle cx="32" cy="18" r="4" fill="none" stroke="#5B95F5" stroke-width="2.4"/>
+    <path d="M17 18v12M32 22c0 7-7 8-14 10" fill="none" stroke="#5B95F5" stroke-width="2.4" stroke-linecap="round"/>
+  </g>
+  <!-- Prueba superada -->
+  <g transform="translate(96 32)">
+    <rect width="44" height="44" rx="12" fill="#fff" stroke="#DCE8FD" stroke-width="2"/>
+    <path d="M13 22.5l6 6 12-13" fill="none" stroke="#2BB673" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+</svg>
