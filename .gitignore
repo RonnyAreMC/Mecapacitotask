@@ -6,6 +6,9 @@ admin/data/.seeded
 admin/data/*.csv
 # Cualquier respaldo o copia de la config: lleva credenciales en texto plano
 admin/data/config.json.*
+# Lo que descarga Ajustes → Exportar configuración (mismas claves en texto plano)
+*-config-*.json
+*-credenciales-*.json
 # Llave que cifra las claves de la IA (data/ia.json): nunca al repo
 admin/data/ia.secreto
 # Llave que cifra las contraseñas del correo InnoTech: nunca al repo

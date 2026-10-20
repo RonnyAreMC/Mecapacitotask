@@ -326,13 +326,58 @@ final class Config
         return self::all()[$clave] ?? null;
     }
 
+    /**
+     * Guarda los bloques que se pasan y deja intactos los demás: guardar
+     * ['correo_buzon' => …] ya no borra Zoom, GitHub ni Google.
+     * Antes de escribir deja una copia (ver respaldar()).
+     */
     public static function guardar(array $datos): void
     {
-        file_put_contents(
-            self::archivo(),
-            json_encode($datos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)
-        );
+        $archivo = self::archivo();
+        $actual  = [];
+        if (is_file($archivo)) {
+            $txt    = (string)file_get_contents($archivo);
+            $actual = trim($txt) === '' ? [] : json_decode($txt, true);
+            if (!is_array($actual)) {
+                // Archivo dañado: se aparta con su fecha en vez de pisarlo
+                @copy($archivo, $archivo . '.danado-' . date('Ymd-His'));
+                $actual = [];
+            } else {
+                self::respaldar();
+            }
+        }
+        $json = json_encode(array_replace($actual, $datos), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+        // Escribe en un temporal y lo cambia de nombre: nunca queda un config.json a medias
+        $tmp = $archivo . '.tmp-' . getmypid();
+        if ($json !== false && file_put_contents($tmp, $json) !== false) {
+            @rename($tmp, $archivo) || @unlink($tmp);
+        }
         self::$cache = null;
+    }
+
+    /**
+     * Copia config.json antes de cambiarlo:
+     *  - config.json.anterior   la versión justo antes del último guardado
+     *  - config.json.AAAA-MM-DD cómo estaba al empezar ese día (se guardan 14)
+     * Todas caen en data/ (cerrada a la web) y fuera de git (admin/data/config.json.*).
+     */
+    private static function respaldar(): void
+    {
+        $archivo = self::archivo();
+        if (!is_file($archivo)) return;
+        @copy($archivo, $archivo . '.anterior');
+        $hoy = $archivo . '.' . date('Y-m-d');
+        if (!is_file($hoy)) @copy($archivo, $hoy);
+        $dias = self::respaldos();
+        foreach (array_slice($dias, 14) as $viejo) @unlink($viejo);
+    }
+
+    /** Respaldos diarios de config.json, del más nuevo al más viejo. */
+    public static function respaldos(): array
+    {
+        $dias = glob(self::archivo() . '.[0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]') ?: [];
+        rsort($dias);
+        return $dias;
     }
 
     /** Catalogos y listas: al importar se reemplazan enteros, no se mezclan. */
@@ -373,6 +418,7 @@ final class Config
     public static function restaurar(): void
     {
         if (file_exists(self::archivo())) {
+            self::respaldar();
             @unlink(self::archivo());
         }
         self::$cache = null;

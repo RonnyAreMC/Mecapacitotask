@@ -109,6 +109,7 @@ function actualizarPanel(array $opc): void
     $marcas = [
         'lib/UI.php'        => ['dialogTelefono', 'selectorPortada', 'barraSuperior', 'pattern="[0-9]{7,15}"', "'app-movil'", 'entradaArte', 'ds-correo-fila', 'data-push-modal', 'tutoriales.php'],
         'lib/Notificaciones.php' => ['Push::avisar'],
+        'lib/Models.php'    => ['function respaldos'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada'],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios'],
@@ -280,9 +281,15 @@ function actualizarPanel(array $opc): void
         require_once $dir . '/lib/Correo.php';
         // Semilla: el buzón del mismo cPanel (mail.innotech-solutions.com.ec, IMAP 993 y SMTP 465,
         // certificado verificado). Solo si nunca se configuró: lo que el admin cambió se respeta.
+        // Con un Models.php anterior, Config::guardar() reescribe el archivo entero y
+        // borraría Zoom, GitHub y Google: en ese caso no se siembra.
         if (empty((array)(Config::get('correo_buzon') ?? []))) {
-            if (!$seco) Config::guardar(['correo_buzon' => Correo::DEFECTO]);
-            nota('ok', 'Servidor de correo ' . ($seco ? 'se sembraría' : 'sembrado') . ': ' . Correo::DEFECTO['imap_host'] . ' (IMAP ' . Correo::DEFECTO['imap_puerto'] . ', SMTP ' . Correo::DEFECTO['smtp_puerto'] . ') para @' . Correo::DEFECTO['dominio']);
+            if (!method_exists('Config', 'respaldos')) {
+                nota('error', 'No se sembró el servidor de correo: lib/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
+            } else {
+                if (!$seco) Config::guardar(['correo_buzon' => Correo::DEFECTO]);
+                nota('ok', 'Servidor de correo ' . ($seco ? 'se sembraría' : 'sembrado') . ': ' . Correo::DEFECTO['imap_host'] . ' (IMAP ' . Correo::DEFECTO['imap_puerto'] . ', SMTP ' . Correo::DEFECTO['smtp_puerto'] . ') para @' . Correo::DEFECTO['dominio']);
+            }
         }
         $cc = Correo::conf();
         if (!Correo::activo()) {
@@ -292,6 +299,30 @@ function actualizarPanel(array $opc): void
             nota('info', 'Correo InnoTech: lee de ' . $cc['imap_host'] . ':' . $cc['imap_puerto'] . ' y envía por ' . $cc['smtp_host'] . ':' . $cc['smtp_puerto']
                 . ' · ' . $tc['ok'] . ' persona(s) sincronizada(s)' . ($tc['reconectar'] ? ', ' . $tc['reconectar'] . ' por reconectar' : ''));
         }
+    }
+
+    /* Credenciales de Ajustes: si faltan todas, la config probablemente se reinició */
+    paso('Credenciales de Ajustes');
+    $cfgA  = Config::all();
+    $zoomA = (array)($cfgA['zoom'] ?? []);
+    $corA  = (array)($cfgA['correo'] ?? []);
+    $glA   = (array)($cfgA['google_login'] ?? []);
+    $cred = [
+        'Token de GitHub'          => ($cfgA['github_token'] ?? '') !== '',
+        'Zoom (Account y Client)'  => ($zoomA['account_id'] ?? '') !== '' && ($zoomA['client_id'] ?? '') !== '' && ($zoomA['client_secret'] ?? '') !== '',
+        'Correo de avisos (Gmail)' => !empty($corA['activo']) && (($corA['refresh_token'] ?? '') !== '' || ($corA['clave'] ?? '') !== ''),
+        'Google (Client ID)'       => ($glA['client_id'] ?? '') !== '' || ($corA['client_id'] ?? '') !== '',
+    ];
+    foreach ($cred as $nombre => $hay) {
+        $hay ? nota('ok', $nombre . ': guardado') : nota('aviso', $nombre . ': vacío (Ajustes → Integraciones)');
+    }
+    $respA = method_exists('Config', 'respaldos') ? Config::respaldos() : [];
+    if ($respA) {
+        nota('info', 'Respaldos de la configuración en data/: ' . implode(', ', array_map('basename', array_slice($respA, 0, 5)))
+            . '. Para volver a uno: cp ' . $respA[0] . ' ' . $dir . '/data/config.json');
+    }
+    if (!in_array(true, $cred, true) && $respA) {
+        nota('aviso', 'No hay ninguna credencial guardada pero sí respaldos: es probable que la configuración se haya reiniciado.');
     }
 
     /* 7. Caché de PHP */
