@@ -160,6 +160,7 @@ function correoVista(array $yo): void
         $mensaje = null;
         $lista = null;
         $base = null;
+        $hilo = [];
         // Lo de Recibidos se queda guardado en el panel (lib/CorreoCopias.php): si otro programa
         // (Gmail por POP) lo saca del servidor, se sigue viendo y se abre lo guardado
         $conCopias = class_exists('CorreoCopias');
@@ -169,6 +170,10 @@ function correoVista(array $yo): void
                 try { CorreoCopias::guardar($mid, (string)$mensaje['crudo'], $carpeta['nombre'], $uid, true); } catch (Throwable $e) { /* no impide leerlo */ }
             } elseif (!$mensaje && $conCopias) {
                 $mensaje = CorreoCopias::mensaje($mid, $carpeta['nombre'], $uid);
+            }
+            // La conversación: lo que enviaste y lo que te respondieron, en orden (Recibidos + Enviados)
+            if ($mensaje) {
+                try { $hilo = Correo::hilo($imap, $mid, $carpetas, $carpeta['nombre'], $mensaje); } catch (Throwable $e) { $hilo = []; }
             }
         } elseif ($modo === 'redactar') {
             $rUid = (int)($_GET['responder'] ?? $_GET['reenviar'] ?? 0);
@@ -192,7 +197,7 @@ function correoVista(array $yo): void
         echo UI::alertaDS('danger', 'No pudimos abrir tu correo', e($e->getMessage()) . ' <a href="' . e(correoUrl()) . '">Reintentar</a>');
         return;
     }
-    correoPintar($yo, $cuenta, compact('carpetas', 'carpeta', 'bandeja', 'noLeidos', 'modo', 'mensaje', 'lista', 'base'));
+    correoPintar($yo, $cuenta, compact('carpetas', 'carpeta', 'bandeja', 'noLeidos', 'modo', 'mensaje', 'lista', 'base', 'hilo'));
 }
 
 /**
@@ -244,7 +249,7 @@ function correoPintar(array $yo, array $cuenta, array $d): void
 
   <section class="mc-card correo-main">
     <?php
-    if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas);
+    if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas, (array)($d['hilo'] ?? []));
     elseif ($modo === 'redactar') correoRedactar($yo, $cuenta, $carpeta, $base, $carpetas);
     else correoLista($lista, $carpeta);
     ?>
@@ -311,10 +316,21 @@ function correoLista(array $lista, array $carpeta): void
         <span class="correo-txt">
           <span class="correo-de"><?= $enviados ? 'Para: ' : '' ?><?= e(correoQuien($quien) ?: '(sin remitente)') ?></span>
           <span class="correo-asunto"><?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?></span>
+          <?php
+            // Por fuera, sin abrirlo: qué adjuntos trae, con el ícono de su tipo (PDF, Excel, imagen…)
+            $adjsL = (array)($it['adjuntos'] ?? []);
+            if ($adjsL): ?>
+          <span class="correo-adjs">
+            <?php foreach (array_slice($adjsL, 0, 3) as $aL): ?>
+            <span class="correo-adj correo-adj--<?= e($aL['clase']) ?>" title="<?= e($aL['nombre']) ?>"><?= UI::icono('adj-' . $aL['clase'], 'correo-adj__ico') ?><span><?= e($aL['nombre']) ?></span></span>
+            <?php endforeach; ?>
+            <?php if (count($adjsL) > 3): ?><span class="correo-adj correo-adj--mas">+<?= count($adjsL) - 3 ?></span><?php endif; ?>
+          </span>
+          <?php endif; ?>
         </span>
         <span class="correo-fecha">
           <?php if (!empty($it['guardado'])): ?><span class="correo-clip" aria-label="Guardado en el panel" data-ds-tip="Ya no está en el servidor: es la copia guardada en el panel"><?= UI::icono('ds-archivar') ?></span><?php endif; ?>
-          <?php if ($it['adjunto']): ?><span class="correo-clip" aria-label="Con adjuntos"><?= UI::icono('ds-enlace') ?></span><?php endif; ?>
+          <?php if ($it['adjunto'] && empty($it['adjuntos'])): ?><span class="correo-clip" aria-label="Con adjuntos"><?= UI::icono('ds-enlace') ?></span><?php endif; ?>
           <?= e(Correo::fechaCorta($it['fecha'])) ?>
           <?php if (!$it['leido']): ?><span class="correo-punto" aria-label="Sin leer"></span><?php endif; ?>
         </span>
@@ -326,7 +342,7 @@ function correoLista(array $lista, array $carpeta): void
     <?php
 }
 
-function correoLeer(?array $m, array $carpeta, array $carpetas): void
+function correoLeer(?array $m, array $carpeta, array $carpetas, array $hilo = []): void
 {
     $volver = correoUrl(['c' => $carpeta['nombre']]);
     if (!$m) {
@@ -411,6 +427,7 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
       <time class="correo-msg__fecha"><?= e(Correo::fechaLarga($m['fecha'])) ?></time>
     </div>
   </header>
+  <?php if (count($hilo) > 1) correoHilo($hilo); ?>
   <?php if ($esCopia): ?>
   <div class="correo-pad correo-pad--fino">
     <?= UI::alertaDS('info', '', 'Este correo ya no está en el servidor (otro programa, como Gmail, lo descargó y lo quitó). '
@@ -443,7 +460,7 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
     <a class="correo-adjunto<?= $tipoVer !== '' ? ' correo-adjunto--ver' : '' ?>" href="<?= e($urlAdj) ?>"<?= $tipoVer !== ''
         ? ' data-visor data-ext="' . ($tipoVer === 'application/pdf' ? 'pdf' : 'png') . '" data-nombre="' . e($a['nombre']) . '"'
           . ' data-bajar="' . e(correoPagina() . '?' . http_build_query(['correo' => 'adjunto', 'c' => $c, 'uid' => $m['uid'], 'i' => $i])) . '"' : '' ?>>
-      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS(str_starts_with($a['tipo'], 'image/') ? 'ver' : 'documento', 16) ?></span>
+      <span class="correo-adjunto__tipo"><?= UI::icono('adj-' . Correo::claseArchivo((string)$a['nombre'], (string)$a['tipo']), 'correo-adj__ico') ?></span>
       <span class="correo-adjunto__txt"><b><?= e($a['nombre']) ?></b><small><?= e(correoTam($a['tam'])) . ($tipoVer !== '' ? ' · Ver' : '') ?></small></span>
       <?= UI::iconoDS($tipoVer !== '' ? 'ver' : 'descargar', 16) ?>
     </a>
@@ -463,6 +480,33 @@ function correoLeer(?array $m, array $carpeta, array $carpetas): void
  * está listo para revisar), lo dice con el enlace; si no, ofrece armarlo con
  * la IA (lib/ReqCorreo.php: institución, responsable, plazo y adjuntos).
  */
+/**
+ * La conversación (Correo::hilo): cada correo en su orden, «Tú enviaste a …»,
+ * «Felipe respondió», con su fecha; el que estás leyendo, marcado. Un clic abre
+ * cualquiera. Plegada si es larga.
+ */
+function correoHilo(array $hilo): void
+{
+    $n = count($hilo);
+    echo '<div class="correo-pad correo-pad--fino"><details class="correo-hilo"' . ($n <= 6 ? ' open' : '') . '><summary>' . UI::iconoDS('mensajes', 16)
+        . '<span>Conversación · ' . $n . ' correos</span><small>Lo que enviaste y lo que te respondieron, en orden</small></summary><ol class="correo-hilo__lista">';
+    foreach (array_values($hilo) as $i => $x) {
+        $reenvio = preg_match('/^\s*(fw|fwd|rv|reenv)\s*:/i', (string)$x['asunto']) === 1;
+        $verbo = $i === 0 ? ($x['mio'] ? 'enviaste' : 'escribió')
+            : ($reenvio ? ($x['mio'] ? 'reenviaste' : 'reenvió') : ($x['mio'] ? 'respondiste' : 'respondió'));
+        $para = array_values(array_filter((array)$x['para'], fn($d) => !empty($d['email'])));
+        $a = implode(', ', array_map(fn($d) => correoQuien($d), array_slice($para, 0, 3))) . (count($para) > 3 ? ' y ' . (count($para) - 3) . ' más' : '');
+        $dentro = '<b>' . e($x['mio'] ? 'Tú' : correoQuien((array)$x['de'])) . '</b> <span>' . e($verbo) . ($x['mio'] && $a !== '' ? ' a ' . e($a) : '') . '</span>'
+            . '<small>' . e(Correo::fechaLarga((int)$x['fecha'])) . ($x['tipo'] === 'sent' ? ' · en Enviados' : '') . '</small>';
+        echo '<li class="correo-hilo__item' . ($x['este'] ? ' is-este' : '') . ($x['mio'] ? ' is-mio' : '') . '">'
+            . '<span class="correo-hilo__ini" style="background:' . e(correoColor((string)($x['de']['email'] ?? ''))) . '" aria-hidden="true">' . e(correoIniciales((array)$x['de'])) . '</span>'
+            . ($x['este'] ? '<div class="correo-hilo__txt">' . $dentro . '</div><span class="correo-hilo__aqui">Estás aquí</span>'
+                          : '<a class="correo-hilo__txt" href="' . e(correoUrl(['c' => $x['carpeta'], 'uid' => $x['uid']])) . '">' . $dentro . '</a>')
+            . '</li>';
+    }
+    echo '</ol></details></div>';
+}
+
 function correoBloqueRequerimiento(array $m, string $carpeta): void
 {
     if (!class_exists('ReqCorreo') || !Auth::esAdmin() || verComo()) return;
@@ -617,6 +661,27 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
     <?php if ($reUid > 0): ?><input type="hidden" name="reenviar_uid" value="<?= $reUid ?>"><?php endif; ?>
     <script type="application/json" id="correo-directorio"><?= json_encode(correoDirectorio((int)$yo['id'], $yoMail), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
     <p class="correo-redactar__de">De: <b><?= e(trim((string)$yo['nombre'])) ?></b> &lt;<?= e($yoMail) ?>&gt;</p>
+    <?php
+      // Opciones de envío, como en Roundcube: arriba, plegadas; se abren solas si alguna no está en lo normal
+      $opcCarpetas = [];
+      foreach ($carpetas as $f) if (!in_array($f['tipo'], ['trash', 'junk', 'spam'], true)) $opcCarpetas[$f['nombre']] = $f['etiqueta'];
+      $opcCarpetas['-'] = 'No guardar una copia';
+      $enviadosNom = (string)(Correo::carpetaDeTipo($carpetas, 'sent') ?? '');
+      $abiertas = $prioridad !== 3 || $acuse || $dsn || ($guardarEn !== '' && $guardarEn !== $enviadosNom);
+    ?>
+    <details class="correo-opciones"<?= $abiertas ? ' open' : '' ?>>
+      <summary><?= UI::iconoDS('configuracion', 16) ?><span>Opciones de envío</span><small>Prioridad, confirmación de lectura, aviso de entrega y dónde guardarlo</small></summary>
+      <div class="correo-opciones__cuerpo">
+        <div class="correo-doble">
+          <div class="mc-field"><span class="mc-field__label">Prioridad</span>
+            <?= UI::selectDS('prioridad', ['1' => 'Más alta', '2' => 'Alta', '3' => 'Normal', '4' => 'Baja', '5' => 'Más baja'], (string)$prioridad, ['tam' => 'md', 'aria' => 'Prioridad']) ?></div>
+          <div class="mc-field"><span class="mc-field__label">Guardar el mensaje enviado en</span>
+            <?= UI::selectDS('guardar_en', $opcCarpetas, $guardarEn !== '' ? $guardarEn : $enviadosNom, ['tam' => 'md', 'aria' => 'Guardar el mensaje enviado en']) ?></div>
+        </div>
+        <?= UI::checkDS('acuse', $acuse, 'Pedir confirmación de lectura', 'A quien lo abra, su programa le pregunta si quiere avisarte que lo leyó (puede decir que no).') ?>
+        <?= UI::checkDS('dsn', $dsn, 'Avisarme cuando se entregue', 'El servidor te manda un correo cuando llega a cada destinatario, o si no se pudo entregar.') ?>
+      </div>
+    </details>
     <div class="mc-field"><label class="mc-field__label" for="cr-para">Para</label>
       <div class="mc-input"><input class="mc-input__control" id="cr-para" name="para" required maxlength="2000" value="<?= e($para) ?>" placeholder="Escribe un nombre o un correo" autocomplete="off" data-destinatarios="para"<?= $para === '' ? ' autofocus' : '' ?>></div></div>
     <div class="correo-doble">
@@ -637,27 +702,6 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
       <div class="mc-field__foot"><span class="mc-field__hint">Van también los adjuntos del correo original.</span></div>
       <?php endif; ?>
     </div>
-    <?php
-      // Opciones de envío, como en Roundcube: plegadas; se abren solas si alguna no está en lo normal
-      $opcCarpetas = [];
-      foreach ($carpetas as $f) if (!in_array($f['tipo'], ['trash', 'junk', 'spam'], true)) $opcCarpetas[$f['nombre']] = $f['etiqueta'];
-      $opcCarpetas['-'] = 'No guardar una copia';
-      $enviadosNom = (string)(Correo::carpetaDeTipo($carpetas, 'sent') ?? '');
-      $abiertas = $prioridad !== 3 || $acuse || $dsn || ($guardarEn !== '' && $guardarEn !== $enviadosNom);
-    ?>
-    <details class="correo-opciones"<?= $abiertas ? ' open' : '' ?>>
-      <summary><?= UI::iconoDS('configuracion', 16) ?><span>Opciones de envío</span><small>Prioridad, confirmación de lectura, aviso de entrega y dónde guardarlo</small></summary>
-      <div class="correo-opciones__cuerpo">
-        <div class="correo-doble">
-          <div class="mc-field"><span class="mc-field__label">Prioridad</span>
-            <?= UI::selectDS('prioridad', ['1' => 'Más alta', '2' => 'Alta', '3' => 'Normal', '4' => 'Baja', '5' => 'Más baja'], (string)$prioridad, ['tam' => 'md', 'aria' => 'Prioridad']) ?></div>
-          <div class="mc-field"><span class="mc-field__label">Guardar el mensaje enviado en</span>
-            <?= UI::selectDS('guardar_en', $opcCarpetas, $guardarEn !== '' ? $guardarEn : $enviadosNom, ['tam' => 'md', 'aria' => 'Guardar el mensaje enviado en']) ?></div>
-        </div>
-        <?= UI::checkDS('acuse', $acuse, 'Pedir confirmación de lectura', 'A quien lo abra, su programa le pregunta si quiere avisarte que lo leyó (puede decir que no).') ?>
-        <?= UI::checkDS('dsn', $dsn, 'Avisarme cuando se entregue', 'El servidor te manda un correo cuando llega a cada destinatario, o si no se pudo entregar.') ?>
-      </div>
-    </details>
     <div class="correo-redactar__pie">
       <button class="mc-btn mc-btn--success mc-btn--md" data-enviar><?= UI::iconoDS('enviar', 18) ?><span class="mc-btn__label">Enviar</span></button>
     </div>

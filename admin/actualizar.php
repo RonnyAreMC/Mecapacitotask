@@ -98,6 +98,7 @@ function actualizarPanel(array $opc): void
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
+        'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
@@ -129,10 +130,10 @@ function actualizarPanel(array $opc): void
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols'],
         'assets/ds.css'     => ['.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php'],
-        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To'],
+        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe'],
         'lib/Tutoriales.php' => ['function pendiente'],
         'tutoriales.php'    => ['tutorial_avisar'],
-        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones'],
+        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo'],
         'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo'],

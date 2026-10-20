@@ -198,6 +198,20 @@ final class CorreoImap
         return $uids;
     }
 
+    /** UIDs (los más nuevos primero, máx. $max) cuyo asunto contiene $asunto: para armar la conversación. */
+    public function buscarAsunto(string $asunto, int $max = 60): array
+    {
+        $r = $this->cmdLit(['UID SEARCH ', 'CHARSET UTF-8 SUBJECT ', self::arg($asunto)]);
+        if (!$r['ok']) return [];
+        $uids = [];
+        foreach ($r['datos'] as $d) {
+            if (stripos($d, '* SEARCH') !== 0) continue;
+            foreach (preg_split('/\s+/', trim(substr($d, 8))) as $u) if (ctype_digit($u)) $uids[] = (int)$u;
+        }
+        rsort($uids);
+        return array_slice($uids, 0, $max);
+    }
+
     /** UID FETCH: uid => [ÍTEM => valor]. Las secciones BODY[...] llegan con su nombre tal cual. */
     public function traer(array $uids, string $items): array
     {
@@ -1336,7 +1350,8 @@ final class Correo
         $tramo = array_slice($uids, ($pagina - 1) * $porPagina, $porPagina);
         $items = [];
         $delServidor = array_values(array_filter($tramo, fn($u) => !isset($faltan[$u])));
-        $datos = $delServidor ? $imap->traer($delServidor, 'UID FLAGS INTERNALDATE RFC822.SIZE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE)]') : [];
+        // BODYSTRUCTURE: qué adjuntos trae cada uno (PDF, Excel, imagen…) sin bajar el correo
+        $datos = $delServidor ? $imap->traer($delServidor, 'UID FLAGS INTERNALDATE RFC822.SIZE BODYSTRUCTURE BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT DATE CONTENT-TYPE)]') : [];
         foreach ($tramo as $uid) {
             if (isset($faltan[$uid])) { $items[] = CorreoCopias::item($faltan[$uid]); continue; }
             if (!isset($datos[$uid])) continue;
@@ -1348,7 +1363,9 @@ final class Correo
             $de = CorreoMime::direcciones($h['from'][0] ?? '')[0] ?? ['nombre' => '', 'email' => ''];
             $para = CorreoMime::direcciones($h['to'][0] ?? '');
             $ct = strtolower($h['content-type'][0] ?? '');
+            $adjs = isset($d['BODYSTRUCTURE']) ? self::adjuntosDe($d['BODYSTRUCTURE']) : [];
             $items[] = [
+                'adjuntos' => $adjs,
                 'uid'     => $uid,
                 'de'      => $de,
                 'para'    => $para,
@@ -1356,7 +1373,7 @@ final class Correo
                 'fecha'   => self::fecha((string)($d['INTERNALDATE'] ?? ''), $h['date'][0] ?? ''),
                 'leido'   => isset($guardadas[$uid]) ? !empty($guardadas[$uid]['leido']) : in_array('\\seen', $flags, true),
                 'marcado' => in_array('\\flagged', $flags, true),
-                'adjunto' => str_contains($ct, 'multipart/mixed') || str_contains($ct, 'multipart/report'),
+                'adjunto' => $adjs || (!isset($d['BODYSTRUCTURE']) && (str_contains($ct, 'multipart/mixed') || str_contains($ct, 'multipart/report'))),
                 'tam'     => (int)($d['RFC822.SIZE'] ?? 0),
             ];
         }
@@ -1385,6 +1402,190 @@ final class Correo
         $m['texto_cita'] = trim((string)($m['texto'] ?? '')) !== '' ? (string)$m['texto'] : CorreoHtml::aTexto((string)($m['html'] ?? ''));
         $m['crudo'] = $crudo;   // para guardar la copia en el panel (lib/CorreoCopias.php)
         return $m;
+    }
+
+    /* ---------- Los adjuntos, para mostrarlos en la lista ---------- */
+
+    /** Clase de un archivo por su nombre y su tipo: pdf, excel, word, ppt, imagen u otro (el ícono de la lista). */
+    public static function claseArchivo(string $nombre, string $mime = ''): string
+    {
+        $ext = strtolower((string)pathinfo($nombre, PATHINFO_EXTENSION));
+        $mime = strtolower($mime);
+        return match (true) {
+            $ext === 'pdf' || $mime === 'application/pdf' => 'pdf',
+            in_array($ext, ['xls', 'xlsx', 'xlsm', 'csv', 'ods'], true) || str_contains($mime, 'spreadsheet') || str_contains($mime, 'excel') || $mime === 'text/csv' => 'excel',
+            in_array($ext, ['doc', 'docx', 'odt', 'rtf'], true) || str_contains($mime, 'wordprocessing') || $mime === 'application/msword' => 'word',
+            in_array($ext, ['ppt', 'pptx', 'odp'], true) || str_contains($mime, 'presentation') || str_contains($mime, 'powerpoint') => 'ppt',
+            in_array($ext, ['png', 'jpg', 'jpeg', 'gif', 'webp', 'heic', 'bmp', 'svg', 'tif', 'tiff'], true) || str_starts_with($mime, 'image/') => 'imagen',
+            default => 'otro',
+        };
+    }
+
+    /**
+     * Los adjuntos de un BODYSTRUCTURE ya desarmado: [['nombre', 'clase']].
+     * Cuenta lo que lleva nombre de archivo o va como «attachment»; no las
+     * imágenes incrustadas en el cuerpo (con Content-ID y sin «attachment»).
+     */
+    public static function adjuntosDe(mixed $bs): array
+    {
+        $out = [];
+        $nombreEn = function ($l): string {
+            if (!is_array($l)) return '';
+            for ($i = 0; $i + 1 < count($l); $i += 2) {
+                if (!is_string($l[$i]) || !is_string($l[$i + 1])) continue;
+                $k = strtoupper($l[$i]);
+                if (in_array($k, ['FILENAME', 'NAME'], true)) return CorreoMime::decodificar($l[$i + 1]);
+                if (in_array($k, ['FILENAME*', 'NAME*'], true)) return rawurldecode((string)preg_replace("/^[^']*'[^']*'/", '', $l[$i + 1]));
+            }
+            return '';
+        };
+        $recorrer = function ($p, int $hondo = 0, string $padre = '') use (&$recorrer, &$out, $nombreEn): void {
+            if (!is_array($p) || !$p || $hondo > 12 || count($out) >= 20) return;
+            if (is_array($p[0])) {
+                // multipart: (parte)(parte)… "SUBTIPO" y lo extra (BOUNDARY…), que no son partes
+                $partes = [];
+                $subM = '';
+                foreach ($p as $x) {
+                    if (!is_array($x)) { $subM = strtolower((string)$x); break; }
+                    $partes[] = $x;
+                }
+                foreach ($partes as $x) $recorrer($x, $hondo + 1, $subM);
+                return;
+            }
+            $tipo = strtolower((string)$p[0]);
+            $sub = strtolower((string)($p[1] ?? ''));
+            $disp = '';
+            $nombre = $nombreEn($p[2] ?? null);
+            for ($i = 7; $i < count($p); $i++) {
+                if (is_array($p[$i]) && is_string($p[$i][0] ?? null) && in_array(strtolower($p[$i][0]), ['attachment', 'inline'], true)) {
+                    $disp = strtolower($p[$i][0]);
+                    $nombre = $nombreEn($p[$i][1] ?? null) ?: $nombre;
+                    break;
+                }
+            }
+            if ($nombre === '' && $disp !== 'attachment') return;                               // el cuerpo (texto, HTML)
+            // Imagen incrustada en el cuerpo (el logo de la firma): con Content-ID, y «inline» o dentro de multipart/related
+            if ($tipo === 'image' && is_string($p[3] ?? null) && $p[3] !== '' && ($disp !== 'attachment' || $padre === 'related')) return;
+            $out[] = ['nombre' => mb_substr($nombre !== '' ? $nombre : 'adjunto', 0, 160), 'clase' => self::claseArchivo($nombre, $tipo . '/' . $sub)];
+        };
+        $recorrer($bs);
+        return $out;
+    }
+
+    /* ---------- La conversación: lo que enviaste y lo que te respondieron ---------- */
+
+    /** Asunto sin «Re:», «RV:», «Fwd:»… (repetidos), para juntar una conversación */
+    public static function asuntoBase(string $s): string
+    {
+        $s = trim($s);
+        while (preg_match('/^(re|rv|res|fw|fwd|reenv|tr|aw|wg)\s*(\[\d+\])?\s*:\s*/iu', $s, $mm)) $s = trim(mb_substr($s, mb_strlen($mm[0])));
+        return $s;
+    }
+
+    /** Los <id> de una cabecera (Message-ID, In-Reply-To, References), en minúsculas */
+    private static function idsDe(string $v): array
+    {
+        preg_match_all('/<[^<>\s]{3,250}>/', $v, $mm);
+        return array_map('strtolower', $mm[0]);
+    }
+
+    /**
+     * La conversación del mensaje $m (el de Correo::mensaje): los correos de
+     * Recibidos, Enviados y la carpeta abierta (y las copias que guardó el
+     * panel) que siguen su cadena de respuestas (Message-ID, In-Reply-To,
+     * References) o, si algún programa perdió esas cabeceras, tienen el mismo
+     * asunto y alguien en común. Del más viejo al más nuevo, con el propio
+     * marcado 'este' => true. [] si está solo.
+     * Cada uno: carpeta, tipo, uid, de, para, fecha, asunto, mio, este.
+     */
+    public static function hilo(CorreoImap $imap, int $mid, array $carpetas, string $carpeta, array $m, int $max = 30): array
+    {
+        $base = self::asuntoBase((string)$m['asunto']);
+        $propio = strtolower(trim((string)$m['message_id']));
+        $cadena = array_flip(array_filter(array_merge([$propio], self::idsDe((string)($m['cab']['in-reply-to'][0] ?? '')), self::idsDe((string)$m['referencias']))));
+        if ($base === '' && count($cadena) < 2) return [];
+        $yo = strtolower((string)(self::cuenta($mid)['email'] ?? ''));
+        $correos = fn(array $l) => array_values(array_filter(array_map(fn($d) => strtolower((string)($d['email'] ?? '')), $l), fn($e) => $e !== '' && $e !== $yo));
+        $gente = array_flip(array_merge($correos($m['de']), $correos($m['para']), $correos($m['cc'])));
+        $tipos = array_column($carpetas, 'tipo', 'nombre');
+
+        // Candidatos: el mismo asunto (sin «Re:») en cada carpeta; el servidor no busca por References
+        $cand = [];
+        $dondeBuscar = array_values(array_unique(array_filter([self::carpetaDeTipo($carpetas, 'inbox'), self::carpetaDeTipo($carpetas, 'sent'), $carpeta])));
+        foreach ($dondeBuscar as $c) {
+            if ($base === '') break;
+            try {
+                $imap->abrir($c);
+                $uids = $imap->buscarAsunto(mb_substr($base, 0, 120));
+                $datos = $uids ? $imap->traer($uids, 'UID INTERNALDATE BODY.PEEK[HEADER.FIELDS (FROM TO CC SUBJECT DATE MESSAGE-ID IN-REPLY-TO REFERENCES)]') : [];
+            } catch (CorreoError $e) {
+                continue;
+            }
+            foreach ($datos as $uid => $d) {
+                $cabCruda = '';
+                foreach ($d as $k => $v) if (str_starts_with($k, 'BODY[')) $cabCruda = (string)$v;
+                [$h] = CorreoMime::partir($cabCruda);
+                $cand[] = [
+                    'carpeta' => $c, 'tipo' => (string)($tipos[$c] ?? 'otra'), 'uid' => (int)$uid,
+                    'de' => CorreoMime::direcciones($h['from'][0] ?? '')[0] ?? ['nombre' => '', 'email' => ''],
+                    'para' => array_merge(CorreoMime::direcciones($h['to'][0] ?? ''), CorreoMime::direcciones($h['cc'][0] ?? '')),
+                    'fecha' => self::fecha((string)($d['INTERNALDATE'] ?? ''), $h['date'][0] ?? ''),
+                    'asunto' => CorreoMime::cab($h, 'subject'),
+                    'id' => strtolower(trim((string)($h['message-id'][0] ?? ''))),
+                    'refs' => array_merge(self::idsDe((string)($h['in-reply-to'][0] ?? '')), self::idsDe((string)($h['references'][0] ?? ''))),
+                ];
+            }
+        }
+        // Las que ya no están en el servidor (las guardó el panel): por su id o por asunto y gente
+        if ($mid > 0 && class_exists('CorreoCopias')) {
+            foreach ([self::carpetaDeTipo($carpetas, 'inbox'), $carpeta] as $c) {
+                if (!$c) continue;
+                foreach (CorreoCopias::enCarpeta($mid, $c) as $u => $f) {
+                    if (self::asuntoBase((string)$f['asunto']) !== $base && !isset($cadena[strtolower((string)$f['message_id'])])) continue;
+                    $cand[] = ['carpeta' => $c, 'tipo' => (string)($tipos[$c] ?? 'otra'), 'uid' => (int)$u, 'de' => (array)$f['de'],
+                               'para' => array_merge((array)$f['para'], (array)$f['cc']), 'fecha' => (int)$f['fecha'], 'asunto' => (string)$f['asunto'],
+                               'id' => strtolower((string)$f['message_id']), 'refs' => []];
+                }
+            }
+        }
+
+        // Se juntan las que comparten la cadena (y la cadena crece con cada una), o asunto igual + alguien en común
+        $dentro = [];
+        for ($vuelta = 0, $cambio = true; $cambio && $vuelta < 4; $vuelta++) {
+            $cambio = false;
+            foreach ($cand as $i => $x) {
+                if (isset($dentro[$i])) continue;
+                $porCadena = ($x['id'] !== '' && isset($cadena[$x['id']])) || array_intersect_key(array_flip($x['refs']), $cadena);
+                $porAsunto = !$porCadena && self::asuntoBase($x['asunto']) === $base && $base !== ''
+                    && array_intersect_key(array_flip(array_merge($correos([$x['de']]), $correos($x['para']))), $gente);
+                if (!$porCadena && !$porAsunto) continue;
+                $dentro[$i] = true;
+                $cambio = true;
+                foreach (array_merge([$x['id']], $x['refs']) as $id) if ($id !== '' && !isset($cadena[$id])) $cadena[$id] = true;
+            }
+        }
+        // Sin repetir (un correo a ti mismo está en Recibidos y en Enviados), y el propio marcado
+        $out = [];
+        $vistos = [];
+        foreach (array_keys($dentro) as $i) {
+            $x = $cand[$i];
+            $llave = $x['id'] !== '' ? $x['id'] : $x['carpeta'] . '#' . $x['uid'];
+            $esEste = ($x['carpeta'] === $carpeta && $x['uid'] === (int)$m['uid']) || ($propio !== '' && $x['id'] === $propio);
+            if (isset($vistos[$llave])) {
+                if ($esEste) $out[$vistos[$llave]] = ['este' => true] + $out[$vistos[$llave]];
+                continue;
+            }
+            $vistos[$llave] = count($out);
+            $out[] = ['este' => $esEste, 'mio' => strtolower((string)($x['de']['email'] ?? '')) === $yo] + $x;
+        }
+        if (!array_filter($out, fn($x) => $x['este'])) {
+            $out[] = ['este' => true, 'mio' => strtolower((string)($m['de'][0]['email'] ?? '')) === $yo, 'carpeta' => $carpeta,
+                      'tipo' => (string)($tipos[$carpeta] ?? 'otra'), 'uid' => (int)$m['uid'], 'de' => $m['de'][0] ?? ['nombre' => '', 'email' => ''],
+                      'para' => array_merge($m['para'], $m['cc']), 'fecha' => (int)$m['fecha'], 'asunto' => (string)$m['asunto'], 'id' => $propio, 'refs' => []];
+        }
+        if (count($out) < 2) return [];
+        usort($out, fn($a, $b) => $a['fecha'] <=> $b['fecha']);
+        return array_slice($out, -$max);
     }
 
     /** Fecha del mensaje como timestamp (la del servidor si la de la cabecera no sirve). */

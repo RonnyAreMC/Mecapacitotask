@@ -3236,3 +3236,46 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .correo-opciones__cuerpo .mc-field { margin: 0; }
 @media (max-width: 640px) { .correo-opciones > summary small { display: none; } }
 @media (prefers-reduced-motion: reduce) { .correo-opciones > summary::after { transition: none; } }
+
+/* La conversación de un correo (lib/correo_vista.php · correoHilo): en orden, el que lees marcado */
+.correo-hilo { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.correo-hilo > summary { display: flex; align-items: center; gap: 8px; padding: var(--space-3) var(--space-4); color: var(--ink); font-size: var(--mc-fs-sm);
+  font-weight: 600; list-style: none; cursor: pointer; }
+.correo-hilo > summary::-webkit-details-marker { display: none; }
+.correo-hilo > summary small { margin-left: auto; color: var(--ink-muted); font-size: .76rem; font-weight: 400; }
+.correo-hilo > summary::after { content: ''; flex: none; width: 7px; height: 7px; margin: -3px 2px 0 6px; border-right: 2px solid var(--ink-muted);
+  border-bottom: 2px solid var(--ink-muted); transform: rotate(45deg); transition: transform var(--mc-dur-1) var(--mc-ease); }
+.correo-hilo[open] > summary::after { margin-top: 3px; transform: rotate(-135deg); }
+.correo-hilo__lista { position: relative; display: flex; flex-direction: column; margin: 0; padding: 0 var(--space-4) var(--space-3); list-style: none; }
+/* La línea que une los correos, como un hilo */
+.correo-hilo__lista::before { content: ''; position: absolute; top: 14px; bottom: 26px; left: calc(var(--space-4) + 13px); width: 2px; border-radius: 2px; background: var(--line); }
+.correo-hilo__item { position: relative; display: flex; align-items: center; gap: var(--space-3); padding: 6px 0; }
+.correo-hilo__ini { position: relative; z-index: 1; flex: none; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%;
+  box-shadow: 0 0 0 3px var(--surface); color: #fff; font: 700 10px/1 var(--font-sans); letter-spacing: .02em; }
+.correo-hilo__txt { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; padding: 6px 10px; border-radius: var(--radius-md);
+  color: var(--ink); font-size: var(--mc-fs-sm); text-decoration: none; }
+a.correo-hilo__txt:hover { background: var(--surface-hover, var(--primary-soft)); }
+.correo-hilo__txt b { font-weight: 600; }
+.correo-hilo__txt span { color: var(--ink-muted); }
+.correo-hilo__txt small { margin-left: auto; color: var(--ink-subtle); font-size: .74rem; white-space: nowrap; }
+.correo-hilo__item.is-mio .correo-hilo__txt b { color: var(--primary-ink); }
+.correo-hilo__item.is-este .correo-hilo__txt { background: var(--primary-soft); }
+.correo-hilo__aqui { flex: none; padding: 1px 8px; border: 1px solid var(--primary-line); border-radius: 999px; color: var(--primary-ink); font-size: .7rem; font-weight: 600; }
+@media (max-width: 640px) {
+  .correo-hilo > summary small { display: none; }
+  .correo-hilo__txt small { width: 100%; margin-left: 0; }
+}
+@media (prefers-reduced-motion: reduce) { .correo-hilo > summary::after { transition: none; } }
+
+/* Adjuntos por fuera, en la lista del correo: una ficha por archivo con el ícono de su tipo (iconos/Archivos) */
+.correo-adjs { display: flex; flex-wrap: wrap; gap: 4px 6px; min-width: 0; margin-top: 4px; }
+.correo-adj { display: inline-flex; align-items: center; gap: 5px; max-width: 230px; padding: 2px 9px 2px 4px; border: 1px solid var(--line); border-radius: 999px;
+  background: var(--surface); color: var(--ink); font-size: .74rem; font-weight: 500; line-height: 1.5; }
+.correo-adj > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.correo-adj .correo-adj__ico, .correo-adjunto__tipo .correo-adj__ico { flex: none; width: 18px; height: 18px; }
+.correo-adj--mas { padding: 2px 9px; color: var(--ink-muted); }
+.correo-fila.is-nuevo .correo-adj { font-weight: 500; }
+/* Y en el correo abierto, la misma hoja de color en cada adjunto */
+.correo-adjunto__tipo { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: var(--radius-md); background: var(--surface-sunken); }
+.correo-adjunto__tipo .correo-adj__ico { width: 26px; height: 26px; }
+@media (max-width: 640px) { .correo-adj { max-width: 150px; } }

@@ -203,7 +203,10 @@ final class CorreoCopias
     {
         return ['uid' => (int)$f['uid'], 'de' => (array)$f['de'], 'para' => (array)$f['para'], 'asunto' => (string)$f['asunto'],
                 'fecha' => (int)$f['fecha'], 'leido' => !empty($f['leido']), 'marcado' => false,
-                'adjunto' => !empty($f['adjuntos']), 'tam' => (int)$f['tam'], 'guardado' => true];
+                'adjunto' => !empty($f['adjuntos']), 'tam' => (int)$f['tam'], 'guardado' => true,
+                // Para los íconos de la lista (PDF, Excel, imagen…)
+                'adjuntos' => array_map(fn($a) => ['nombre' => (string)($a['nombre'] ?? ''),
+                    'clase' => method_exists('Correo', 'claseArchivo') ? Correo::claseArchivo((string)($a['nombre'] ?? '')) : 'otro'], array_slice((array)($f['adjuntos'] ?? []), 0, 20))];
     }
 
     /**
