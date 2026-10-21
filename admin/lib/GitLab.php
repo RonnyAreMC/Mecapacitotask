@@ -219,6 +219,61 @@ class GitLab
         file_put_contents(self::archivoCache(), json_encode($cache));
     }
 
+    /* ---------- Builds (pipelines) para el cronograma de subidas (lib/Cronograma.php) ---------- */
+
+    /** La rama principal del repo (default_branch), o '' si no se pudo leer. Sin cache: la guarda quien llama. */
+    public static function ramaPrincipal(?string $repoUrl): string
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo) return '';
+        [$codigo, $cuerpo] = self::api($repo[0], self::ruta($repo[1]));
+        return $codigo === 200 ? (string)((json_decode($cuerpo, true) ?: [])['default_branch'] ?? '') : '';
+    }
+
+    /**
+     * Builds que terminaron bien (status=success) en la rama, actualizados
+     * después de $desde (ISO 8601), del más viejo al más nuevo. Cada uno con
+     * su commit (título y autor) y quién lo lanzó. null si GitLab no respondió.
+     * [['id','iid','sha','ref','web_url','terminado' (timestamp),'titulo','autor','lanzo','actualizado' (ISO)]]
+     */
+    public static function pipelinesExitosos(?string $repoUrl, string $rama, string $desde, int $max = 20): ?array
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo) return null;
+        [$host, $ruta] = $repo;
+        [$codigo, $cuerpo] = self::api($host, self::ruta($ruta) . '/pipelines?' . http_build_query(array_filter([
+            'status' => 'success', 'ref' => $rama, 'updated_after' => $desde,
+            'order_by' => 'updated_at', 'sort' => 'asc', 'per_page' => max(1, min(50, $max)),
+        ], fn($v) => $v !== '')));
+        if ($codigo !== 200) return null;
+        $out = [];
+        foreach (array_slice(json_decode($cuerpo, true) ?: [], 0, $max) as $p) {
+            if (!is_array($p) || empty($p['id']) || ($p['status'] ?? '') !== 'success') continue;
+            // El detalle trae cuándo terminó y quién lo lanzó; el commit, su título y su autor
+            [$c1, $b1] = self::api($host, self::ruta($ruta) . '/pipelines/' . (int)$p['id']);
+            $det = $c1 === 200 ? (json_decode($b1, true) ?: []) : [];
+            $commit = [];
+            if (!empty($p['sha'])) {
+                [$c2, $b2] = self::api($host, self::ruta($ruta) . '/repository/commits/' . rawurlencode((string)$p['sha']));
+                $commit = $c2 === 200 ? (json_decode($b2, true) ?: []) : [];
+            }
+            $fin = (string)($det['finished_at'] ?? $p['updated_at'] ?? '');
+            $out[] = [
+                'id'          => (int)$p['id'],
+                'iid'         => (int)($p['iid'] ?? 0),
+                'sha'         => (string)($p['sha'] ?? ''),
+                'ref'         => (string)($p['ref'] ?? $rama),
+                'web_url'     => (string)($p['web_url'] ?? ''),
+                'terminado'   => ($t = strtotime($fin)) !== false ? $t : time(),
+                'titulo'      => mb_substr(trim((string)($commit['title'] ?? '')), 0, 200),
+                'autor'       => mb_substr(trim((string)($commit['author_name'] ?? '')), 0, 80),
+                'lanzo'       => mb_substr(trim((string)($det['user']['name'] ?? '')), 0, 80),
+                'actualizado' => (string)($p['updated_at'] ?? $fin),
+            ];
+        }
+        return $out;
+    }
+
     /** GET a la API v4 del host indicado. Devuelve [codigoHttp, cuerpo]. */
     private static function api(string $host, string $ruta): array
     {
@@ -234,7 +289,9 @@ class GitLab
             'timeout'       => 8,
             'ignore_errors' => true,
         ]]);
-        $cuerpo = @file_get_contents('https://' . $host . '/api/v4' . $ruta, false, $ctx);
+        // GITLAB_PRUEBA (solo pruebas): un GitLab falso local en lugar del de verdad
+        $base = rtrim((string)(getenv('GITLAB_PRUEBA') ?: ''), '/') ?: 'https://' . $host;
+        $cuerpo = @file_get_contents($base . '/api/v4' . $ruta, false, $ctx);
         $codigo = 0;
         foreach ($http_response_header ?? [] as $h) {
             if (preg_match('#^HTTP/\S+\s+(\d{3})#', $h, $m)) $codigo = (int)$m[1];

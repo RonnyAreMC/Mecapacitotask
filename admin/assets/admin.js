@@ -4220,3 +4220,41 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
   sel.addEventListener('change', sincronizar);
   sincronizar();
 });
+
+/* =========================================================
+   Cuenta regresiva a la próxima subida (Despliegues y la tira del
+   dashboard, lib/Cronograma.php). [data-cuenta-regresiva] lleva data-hasta y
+   data-ahora en segundos del SERVIDOR: así no importa si el reloj de
+   la computadora está corrido. Con [data-corto]: «en 2 h 14 min»;
+   sin él, el reloj «02:14:33». Al llegar a cero: «Subiendo…», y a
+   los 90 s se recarga para ver la subida ya registrada.
+   ========================================================= */
+(function () {
+  if (!document.querySelector('[data-cuenta-regresiva]')) return;
+  const dos = (n) => String(n).padStart(2, '0');
+  const pintar = () => {
+    document.querySelectorAll('[data-cuenta-regresiva]').forEach((el) => {
+      if (el._desfase === undefined) el._desfase = Number(el.dataset.ahora) * 1000 - Date.now();
+      const falta = Math.max(0, Math.round((Number(el.dataset.hasta) * 1000 - (Date.now() + el._desfase)) / 1000));
+      const d = Math.floor(falta / 86400);
+      const h = Math.floor((falta % 86400) / 3600);
+      const m = Math.floor((falta % 3600) / 60);
+      const s = falta % 60;
+      const reloj = el.querySelector('[data-cuenta-reloj]') || el;
+      let txt;
+      if (el.hasAttribute('data-corto')) {
+        txt = falta <= 0 ? 'subiendo…'
+          : falta < 60 ? 'en ' + s + ' s'
+          : 'en ' + (d ? d + ' d ' : '') + (h ? h + ' h ' : '') + (d ? '' : m + ' min');
+      } else {
+        txt = falta <= 0 ? 'Subiendo…' : (d ? d + ' d ' : '') + dos(h) + ':' + dos(m) + ':' + dos(s);
+      }
+      if (reloj.textContent !== txt) reloj.textContent = txt.trim();
+      el.classList.toggle('is-ya', falta <= 0);
+      el.classList.toggle('is-cerca', falta > 0 && falta <= 1800);
+      if (falta <= 0 && !window.__cuentaRecarga) window.__cuentaRecarga = setTimeout(() => location.reload(), 90000);
+    });
+  };
+  pintar();
+  setInterval(pintar, 1000);
+})();

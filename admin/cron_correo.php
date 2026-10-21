@@ -29,7 +29,21 @@ if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/N
 $candado = fopen(__DIR__ . '/data/cron_correo.lock', 'c');
 if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) exit("Ya hay una revisión en curso.\n");
 
-if (!Correo::activo()) exit("El correo InnoTech está apagado.\n");
+// El horario de subidas (lib/Cronograma.php): toma los builds de GitLab y, a la hora de cada proyecto,
+// registra la subida y avisa a todos. Va al final de cada vuelta, y también si el correo está apagado.
+$cronograma = function (): string {
+    if (!is_file(__DIR__ . '/lib/Cronograma.php')) return '';
+    require_once __DIR__ . '/lib/Cronograma.php';
+    try {
+        $r = Cronograma::paso();
+        return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '');
+    } catch (Throwable $e) {
+        fwrite(STDERR, 'Horario de subidas: ' . $e->getMessage() . "\n");
+        return '';
+    }
+};
+
+if (!Correo::activo()) exit("El correo InnoTech está apagado." . $cronograma() . "\n");
 
 $inicio = time();
 $avisos = 0;
@@ -108,4 +122,4 @@ if (is_file(__DIR__ . '/lib/CorreoCopias.php')) {
 
 // Para que Notificaciones → Tus dispositivos muestre que el cron está corriendo
 @file_put_contents(__DIR__ . '/data/cron_correo.json', json_encode(['t' => time(), 'avisos' => $avisos, 'requerimientos' => $reqAnalizados, 'copiados' => $copiados]));
-echo date('Y-m-d H:i:s') . " · avisos enviados: $avisos · correos analizados para requerimientos: $reqAnalizados · copias guardadas: $copiados\n";
+echo date('Y-m-d H:i:s') . " · avisos enviados: $avisos · correos analizados para requerimientos: $reqAnalizados · copias guardadas: $copiados" . $cronograma() . "\n";

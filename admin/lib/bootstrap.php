@@ -577,6 +577,30 @@ function configDeploys(): array
         // lo que sube quien lo sube: el nombre del proyecto en el panel
         // ("Equipo Delta") no es el de la carpeta ni el del microservicio.
         'alias'      => aliasDeploys($d['alias'] ?? []),
+        // A qué hora y qué días se sube (lib/Cronograma.php), y si se toman solos los builds de GitLab
+        'cronograma' => cronogramaDeploys($d['cronograma'] ?? []),
+    ];
+}
+
+/** El cronograma de subidas ya normalizado: activo, hora 'HH:MM', días ISO (1 = lunes … 7 = domingo), gitlab, aviso (min antes). */
+function cronogramaDeploys($c): array
+{
+    $c = (array)$c;
+    $hora = (string)($c['hora'] ?? '');
+    $dias = array_values(array_unique(array_filter(array_map('intval', (array)($c['dias'] ?? [1, 2, 3, 4, 5])), fn($n) => $n >= 1 && $n <= 7)));
+    sort($dias);
+    // Hora propia de algún proyecto (p. ej. la Agraria sube a las 15:00); los demás, la general
+    $horas = [];
+    foreach ((array)($c['horas'] ?? []) as $pid => $h) {
+        if ((int)$pid > 0 && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$h)) $horas[(int)$pid] = (string)$h;
+    }
+    return [
+        'activo' => !isset($c['activo']) || !empty($c['activo']),
+        'hora'   => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) ? $hora : '10:00',
+        'dias'   => $dias ?: [1, 2, 3, 4, 5],
+        'horas'  => $horas,
+        'gitlab' => !isset($c['gitlab']) || !empty($c['gitlab']),
+        'aviso'  => in_array((int)($c['aviso'] ?? 30), [0, 15, 30, 60], true) ? (int)($c['aviso'] ?? 30) : 30,
     ];
 }
 

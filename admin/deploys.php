@@ -63,7 +63,87 @@ $dtFilas    = $filas;
 $dtMiembros = $miembros;
 $dtVolver   = 'deploys';
 require __DIR__ . '/lib/deploy_tira.php';
+
+// El horario de subidas (lib/Cronograma.php): a qué hora sube cada proyecto, la cuenta
+// regresiva a la próxima y los builds de GitLab que la esperan
+$crono = false;
+if (is_file(__DIR__ . '/lib/Cronograma.php')) {
+    require_once __DIR__ . '/lib/Cronograma.php';
+    $crono = Cronograma::activo();
+}
+if ($crono):
+    $agenda = [];
+    foreach (Cronograma::agenda() as $fA) {
+        $fA['proyectos'] = array_values(array_filter($fA['proyectos'], fn($x) => isset($mapaProy[$x['id']])));
+        if ($fA['proyectos']) $agenda[] = $fA;
+    }
+    $colaV = array_values(array_filter(Cronograma::enCola(), fn($b) => isset($mapaProy[(int)$b['proyecto_id']])));
+    $primera = $agenda[0] ?? null;
+    $nombreP = fn(array $x) => $x['alias'] !== '' ? $x['alias'] : $x['nombre'];
 ?>
+<section class="card-base dep-crono">
+  <div class="dep-crono-cab">
+    <span class="dep-crono-ico" aria-hidden="true"><?= UI::icono('Clock') ?></span>
+    <div class="dep-crono-tit">
+      <h2 class="font-display">Horario de subidas</h2>
+      <p>Los cambios suben <?= e(Cronograma::dias()) ?> a la hora de cada proyecto. Los builds que terminan bien en GitLab esperan esa hora y suben solos.</p>
+    </div>
+    <?php if (esAdmin()): ?>
+    <a class="btn-outline btn-meca btn-sm btn-neutro" href="ajustes.php#tab-deploys"><?= UI::icono('Settings') ?> Configurar</a>
+    <?php endif; ?>
+  </div>
+
+  <?php if ($primera): ?>
+  <div class="dep-cuenta" data-cuenta-regresiva data-hasta="<?= (int)$primera['proxima'] ?>" data-ahora="<?= time() ?>">
+    <small>Próxima subida</small>
+    <b class="dep-cuenta__reloj font-display" data-cuenta-reloj>&nbsp;</b>
+    <span class="dep-cuenta__cuando"><?= e(ucfirst(Cronograma::texto((int)$primera['proxima']))) ?> ·
+      <?= e(implode(', ', array_map($nombreP, $primera['proyectos']))) ?>
+      <?php if ($primera['cola']): ?> · <b><?= (int)$primera['cola'] ?> build<?= $primera['cola'] === 1 ? '' : 's' ?></b> en cola<?php endif; ?>
+    </span>
+  </div>
+  <?php endif; ?>
+
+  <ul class="dep-crono-lista">
+    <?php foreach ($agenda as $fA): ?>
+    <li class="dep-crono-fila">
+      <span class="dep-crono-hora font-display"><?= e(Cronograma::horaTexto($fA['hora'])) ?></span>
+      <span class="dep-crono-proys">
+        <?php foreach ($fA['proyectos'] as $x): ?>
+        <span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($x['p'])) ?>" title="<?= e($x['nombre']) ?>">
+          <?= e($nombreP($x)) ?><?php if ($x['cola']): ?> <b><?= (int)$x['cola'] ?></b><?php endif; ?>
+        </span>
+        <?php endforeach; ?>
+      </span>
+      <span class="dep-crono-cuando"><?= e(Cronograma::texto((int)$fA['proxima'])) ?> ·
+        <b data-cuenta-regresiva data-corto data-hasta="<?= (int)$fA['proxima'] ?>" data-ahora="<?= time() ?>">&nbsp;</b></span>
+    </li>
+    <?php endforeach; ?>
+  </ul>
+
+  <?php if ($colaV): ?>
+  <details class="dep-crono-builds" open>
+    <summary>En cola para subir <span class="tabla-count"><?= count($colaV) ?></span></summary>
+    <ul>
+      <?php foreach ($colaV as $b): $pB = $mapaProy[(int)$b['proyecto_id']]; ?>
+      <li>
+        <span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($pB)) ?>"><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $pB['nombre']) ?></span>
+        <span class="dep-build-txt"><b><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?></b>
+          <small><?= e($b['rama']) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?> · build terminado <?= e(Cronograma::cuandoFue((string)$b['terminado'])) ?></small></span>
+        <span class="dep-build-sube">sube <?= e(Cronograma::texto(Cronograma::proxima((int)$b['proyecto_id']))) ?></span>
+        <?php if ($b['web_url'] !== ''): ?><a class="dep-build-ver" href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">#<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+  </details>
+  <?php elseif (!Cronograma::conGitLab()): ?>
+  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Los builds de GitLab todavía no se toman solos:
+    <?= esAdmin() ? 'pon el token de GitLab en <a href="ajustes.php#tab-acceso">Ajustes → Acceso y respaldo</a> y el repositorio en cada proyecto.' : 'falta configurarlo en Ajustes.' ?></p>
+  <?php else: ?>
+  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> No hay builds esperando: cuando uno termine bien en GitLab, aparece aquí con la hora a la que sube.</p>
+  <?php endif; ?>
+</section>
+<?php endif; ?>
 
 <section class="card-base tabla-card dep-hist">
   <div class="tabla-toolbar">
@@ -127,9 +207,27 @@ require __DIR__ . '/lib/deploy_tira.php';
           <span class="dep-item-autor"><?= UI::avatar($autor, 22, true) ?> <?= e($autor['nombre']) ?></span>
           <?php endif; ?>
           <span class="dep-item-n"><?= count($tids) ?> tarea<?= count($tids) === 1 ? '' : 's' ?></span>
+          <?php if (($d['origen'] ?? '') === 'cronograma'): ?>
+          <span class="dep-item-auto" title="La registró el horario de subidas con los builds de GitLab"><?= UI::icono('Clock') ?> Automática · horario</span>
+          <?php endif; ?>
         </div>
         <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
         <p class="dep-item-nota"><?= nl2br(e($d['nota'])) ?></p>
+        <?php endif; ?>
+        <?php $bsD = $crono || class_exists('Cronograma') ? Cronograma::deDeploy($d) : []; if ($bsD): ?>
+        <details class="dep-item-tareas">
+          <summary>Builds de GitLab (<?= count($bsD) ?>)</summary>
+          <ul>
+            <?php foreach ($bsD as $b): ?>
+            <li>
+              <b><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $b['repo']) ?></b> · <?= e($b['rama']) ?> ·
+              <?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?>
+              <small><?= $b['autor'] !== '' ? e($b['autor']) . ' · ' : '' ?>terminó <?= e(Cronograma::cuandoFue((string)$b['terminado'])) ?>
+                <?php if ($b['web_url'] !== ''): ?> · <a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">build #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
+            </li>
+            <?php endforeach; ?>
+          </ul>
+        </details>
         <?php endif; ?>
         <?php if ($tids): ?>
         <details class="dep-item-tareas">

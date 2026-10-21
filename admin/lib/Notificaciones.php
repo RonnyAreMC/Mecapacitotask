@@ -30,6 +30,7 @@ final class Notif
         'intercambio'   => ['Intercambio de tareas', 'transferencia', 'petroleo'],
         'proyecto'      => ['Proyecto', 'carpeta', 'azul'],
         'correo'        => ['Correo', 'correo', 'azul'],
+        'deploy'        => ['Subida al servidor', 'publicar', 'verde'],
     ];
 
     private static ?JsonStore $store = null;

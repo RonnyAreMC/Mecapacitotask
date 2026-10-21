@@ -2751,6 +2751,21 @@ switch ($accion) {
             'alias'      => array_intersect_key(
                 aliasDeploys($depPost['alias'] ?? []), array_flip($idsProy)
             ),
+            // Cronograma de subidas (lib/Cronograma.php): hora general, días, hora propia por
+            // proyecto (vacía = la general), builds de GitLab y aviso previo
+            'cronograma' => (function () use ($depPost, $idsProy) {
+                $cr = (array)($depPost['cronograma'] ?? []);
+                $hora = trim((string)($cr['hora'] ?? ''));
+                $horas = [];
+                foreach ((array)($cr['horas'] ?? []) as $pidH => $h) {
+                    $h = trim((string)$h);
+                    if ($h !== '' && $h !== $hora && in_array((int)$pidH, $idsProy, true)) $horas[(int)$pidH] = $h;
+                }
+                return cronogramaDeploys([
+                    'activo' => !empty($cr['activo']), 'hora' => $hora, 'dias' => (array)($cr['dias'] ?? []),
+                    'horas' => $horas, 'gitlab' => !empty($cr['gitlab']), 'aviso' => (int)($cr['aviso'] ?? 30),
+                ]);
+            })(),
         ];
 
         $correoPost = (array)($_POST['correo'] ?? []);
@@ -4073,6 +4088,11 @@ switch ($accion) {
                 'deploy_id'     => (int)$nuevoDep['id'],
                 'desplegada_en' => $nuevoDep['fecha'],
             ]);
+        }
+        // Se lleva los builds de GitLab en cola de esos proyectos y avisa a todos (lib/Cronograma.php)
+        if (is_file(__DIR__ . '/lib/Cronograma.php')) {
+            require_once __DIR__ . '/lib/Cronograma.php';
+            try { Cronograma::alRegistrarAMano($nuevoDep); } catch (Throwable $e) { /* el registro ya quedó */ }
         }
         // El mensaje dice A QUÉ se registró, por su alias: "en 3 proyectos" no
         // le sirve de nada a quien acaba de subir ms-academico y quiere estar

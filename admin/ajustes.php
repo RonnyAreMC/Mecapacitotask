@@ -745,12 +745,62 @@ UI::cabecera(
              arriba: el JS los filtra al vuelo con lo que haya en el selector,
              sin esperar a guardar. Los ocultos siguen enviando su alias, así
              que desmarcar un proyecto un rato no borra lo que ya se escribió. -->
+        <?php
+          // Cronograma de subidas (lib/Cronograma.php): a qué hora se sube y que los builds de GitLab esperen esa hora
+          $cr = $dp['cronograma'];
+          $diasCr = [1 => ['L', 'Lunes'], 2 => ['M', 'Martes'], 3 => ['X', 'Miércoles'], 4 => ['J', 'Jueves'], 5 => ['V', 'Viernes'], 6 => ['S', 'Sábado'], 7 => ['D', 'Domingo']];
+        ?>
+        <div class="dep-crono-cfg">
+          <span class="dep-alias-tit"><?= UI::icono('Clock') ?> Cronograma de subidas</span>
+          <p class="ajuste-ayuda">
+            Los cambios se suben a una <b>hora fija</b>, para que todos sepan cuándo. Los builds que terminan bien en
+            GitLab esperan esa hora y, a esa hora, quedan registrados solos (con las tareas completadas de su proyecto)
+            y se avisa a todos. En Despliegues se ve el horario de cada proyecto con su cuenta regresiva.
+          </p>
+          <label class="chk-linea">
+            <input type="checkbox" name="deploys[cronograma][activo]" <?= $cr['activo'] ? 'checked' : '' ?>>
+            <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+            Subir a una hora fija
+          </label>
+          <div class="dep-cfg-fila">
+            <label class="campo"><span>Hora de subida</span>
+              <input class="input-meca" type="time" name="deploys[cronograma][hora]" value="<?= e($cr['hora']) ?>" required>
+              <small class="campo-ayuda">La de todos. Un proyecto puede tener la suya abajo (p. ej. la Agraria a las 15:00).</small>
+            </label>
+            <div class="campo"><span>Días que se sube</span>
+              <div class="dep-dias" role="group" aria-label="Días que se sube">
+                <?php foreach ($diasCr as $nD => [$letra, $nombreD]): ?>
+                <label class="dep-dia-chk" title="<?= e($nombreD) ?>">
+                  <input type="checkbox" name="deploys[cronograma][dias][]" value="<?= $nD ?>" <?= in_array($nD, $cr['dias'], true) ? 'checked' : '' ?>>
+                  <span><?= $letra ?></span>
+                </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+          <div class="dep-cfg-fila">
+            <label class="chk-linea">
+              <input type="checkbox" name="deploys[cronograma][gitlab]" <?= $cr['gitlab'] ? 'checked' : '' ?>>
+              <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+              Tomar solos los builds que terminan bien en GitLab
+            </label>
+            <label class="campo"><span>Avisar antes de subir</span>
+              <?= UI::select('deploys[cronograma][aviso]', ['0' => 'No avisar antes', '15' => '15 minutos antes', '30' => '30 minutos antes', '60' => '1 hora antes'], (string)$cr['aviso'], false, '') ?>
+            </label>
+          </div>
+          <p class="ajuste-ayuda">
+            Para los builds hace falta el token de GitLab (<a href="#tab-acceso">Acceso y respaldo</a>) y el
+            repositorio en cada proyecto (con su rama; si no tiene, se toma la principal).
+          </p>
+        </div>
+
         <div class="dep-alias">
-          <span class="dep-alias-tit">Cómo se llama cada proyecto para quien lo sube</span>
+          <span class="dep-alias-tit">Cómo se llama cada proyecto para quien lo sube, y a qué hora sube</span>
           <p class="ajuste-ayuda">
             El alias técnico (p. ej. <b>ms-academico</b>). Es lo que sale al registrar la subida y en
             el aviso de confirmación, para no tener que traducir «Equipo Delta» de memoria. Déjalo en
-            blanco y se usa el nombre del proyecto.
+            blanco y se usa el nombre del proyecto. La hora, solo si ese proyecto sube a otra hora que
+            la general.
           </p>
           <div class="dep-alias-grid" data-alias-de="deploys[proyectos][]">
             <?php foreach ((new ProyectoRepo())->todos() as $pp): $pidA = (int)$pp['id']; ?>
@@ -763,6 +813,9 @@ UI::cabecera(
               <input class="input-meca" name="deploys[alias][<?= $pidA ?>]"
                      value="<?= e($dp['alias'][$pidA] ?? '') ?>"
                      placeholder="sin alias" maxlength="60" spellcheck="false">
+              <input class="input-meca dep-alias-hora" type="time" name="deploys[cronograma][horas][<?= $pidA ?>]"
+                     value="<?= e($dp['cronograma']['horas'][$pidA] ?? '') ?>" title="Hora de subida propia (vacía = la general)"
+                     aria-label="Hora de subida de <?= e($pp['nombre']) ?>">
             </label>
             <?php endforeach; ?>
           </div>

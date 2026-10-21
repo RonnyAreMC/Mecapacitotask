@@ -71,6 +71,26 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
       <?php endif; ?>
     </div>
     <div class="dep-tira-fin">
+      <?php
+        // La próxima subida de los proyectos de quien mira, con su cuenta regresiva (lib/Cronograma.php).
+        // En Despliegues no: allí está el horario completo.
+        $dtProx = 0;
+        if ($dtVolver !== 'deploys' && is_file(__DIR__ . '/Cronograma.php')) {
+            require_once __DIR__ . '/Cronograma.php';
+            if (Cronograma::activo()) {
+                foreach (array_keys($dtFilas) as $dtPid) {
+                    $dtV = Cronograma::proxima((int)$dtPid);
+                    if ($dtV > 0 && ($dtProx === 0 || $dtV < $dtProx)) $dtProx = $dtV;
+                }
+            }
+        }
+      ?>
+      <?php if ($dtProx): ?>
+      <a class="dep-prox" href="deploys.php" title="Próxima subida: <?= e(Cronograma::texto($dtProx)) ?>">
+        <?= UI::icono('Clock') ?> Sube <?= e(Cronograma::texto($dtProx)) ?> ·
+        <b data-cuenta-regresiva data-corto data-hasta="<?= $dtProx ?>" data-ahora="<?= time() ?>">&nbsp;</b>
+      </a>
+      <?php endif; ?>
       <?php if ($dtPendTotal): ?>
       <span class="dep-pend" title="Tareas completadas que ningún despliegue ha subido todavía">
         <?= UI::icono('Clock') ?> <b><?= $dtPendTotal ?></b> sin subir

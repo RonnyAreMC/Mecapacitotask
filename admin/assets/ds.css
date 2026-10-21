@@ -3410,3 +3410,66 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
   .ia-masc *, .ia-carga, .ia-carga__msg, .ia-puntos i, .ia-skel, .dlg-tcw .tc-tarea, .rc-resultado { animation: none !important; }
   .dlg-meca.dlg-wizard.dlg-tcw { transition: none; }
 }
+
+/* Horario de subidas (deploys.php · lib/Cronograma.php): la cuenta regresiva y la hora de cada proyecto */
+.dep-crono { display: flex; flex-direction: column; gap: var(--space-4); margin: 0 0 var(--space-5); padding: var(--space-5); }
+.dep-crono-cab { display: flex; align-items: flex-start; gap: var(--space-3); }
+.dep-crono-ico { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--radius-lg); background: var(--primary-soft); color: var(--primary); }
+.dep-crono-ico .ico { width: 22px; height: 22px; }
+.dep-crono-tit { flex: 1; min-width: 0; }
+.dep-crono-tit h2 { margin: 0; color: var(--ink); font-size: 1.1rem; }
+.dep-crono-tit p { margin: 2px 0 0; color: var(--ink-muted); font-size: var(--mc-fs-sm); }
+.dep-cuenta { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: var(--space-4) var(--space-4) var(--space-5); border: 1px solid var(--primary-line);
+  border-radius: var(--radius-lg); background: var(--primary-soft); text-align: center; }
+.dep-cuenta small { color: var(--primary-ink); font-size: .74rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+.dep-cuenta__reloj { color: var(--ink); font-size: clamp(2rem, 6vw, 3rem); font-variant-numeric: tabular-nums; line-height: 1.1; letter-spacing: .02em; }
+.dep-cuenta__cuando { color: var(--ink-muted); font-size: var(--mc-fs-sm); }
+.dep-cuenta.is-cerca { border-color: var(--warning-line); background: var(--warning-soft); }
+.dep-cuenta.is-cerca small { color: var(--warning-ink); }
+.dep-cuenta.is-ya { border-color: var(--success-line, var(--primary-line)); background: var(--success-soft, var(--primary-soft)); }
+.dep-crono-lista { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.dep-crono-fila { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--line); }
+.dep-crono-fila:first-child { border-top: 0; }
+.dep-crono-hora { color: var(--ink); font-size: 1.05rem; font-weight: 700; white-space: nowrap; }
+.dep-crono-proys { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.dep-crono-proy { display: inline-flex; align-items: center; gap: 5px; max-width: 220px; padding: 2px 10px; border: 1px solid color-mix(in srgb, var(--pc, var(--primary)) 30%, transparent);
+  border-radius: 999px; background: color-mix(in srgb, var(--pc, var(--primary)) 9%, transparent); color: var(--ink); font-size: .78rem; font-weight: 600;
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-crono-proy b { padding: 0 6px; border-radius: 999px; background: var(--primary); color: var(--on-primary); font-size: .68rem; }
+.dep-crono-cuando { color: var(--ink-muted); font-size: var(--mc-fs-sm); white-space: nowrap; }
+.dep-crono-cuando b { color: var(--primary-ink); font-variant-numeric: tabular-nums; }
+.dep-crono-cuando b.is-cerca { color: var(--warning-ink); }
+.dep-crono-builds > summary { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: var(--mc-fs-sm); font-weight: 600; cursor: pointer; }
+.dep-crono-builds ul { display: flex; flex-direction: column; gap: 6px; margin: var(--space-3) 0 0; padding: 0; list-style: none; }
+.dep-crono-builds li { display: flex; align-items: center; gap: var(--space-3); padding: var(--space-2) var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface); }
+.dep-build-txt { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dep-build-txt b { overflow: hidden; color: var(--ink); font-size: .86rem; text-overflow: ellipsis; white-space: nowrap; }
+.dep-build-txt small { color: var(--ink-muted); font-size: .74rem; }
+.dep-build-sube { flex: none; color: var(--primary-ink); font-size: .76rem; font-weight: 600; white-space: nowrap; }
+.dep-build-ver { flex: none; color: var(--primary-ink); font-size: .76rem; font-weight: 700; }
+.dep-crono-nota { display: flex; align-items: center; gap: 8px; margin: 0; color: var(--ink-muted); font-size: var(--mc-fs-sm); }
+/* En el historial: la subida que registró el horario */
+.dep-item-auto { display: inline-flex; align-items: center; gap: 5px; padding: 2px 9px; border-radius: 999px; background: var(--tone-verde-bg); color: var(--tone-verde-fg);
+  font-size: .72rem; font-weight: 700; }
+.dep-item-auto .ico { width: 13px; height: 13px; }
+/* En la tira del dashboard: cuándo sube lo de mis proyectos */
+.dep-prox { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink);
+  font-size: .8rem; font-weight: 600; text-decoration: none; }
+.dep-prox .ico { width: 15px; height: 15px; }
+.dep-prox b { font-variant-numeric: tabular-nums; }
+/* Ajustes → Despliegues: el cronograma */
+.dep-crono-cfg { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 4px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--radius-lg); }
+.dep-crono-cfg .dep-alias-tit { display: inline-flex; align-items: center; gap: 7px; }
+.dep-dias { display: flex; flex-wrap: wrap; gap: 6px; }
+.dep-dia-chk { position: relative; }
+.dep-dia-chk input { position: absolute; opacity: 0; pointer-events: none; }
+.dep-dia-chk span { display: grid; place-items: center; width: 36px; height: 36px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--ink-muted);
+  font-weight: 700; cursor: pointer; transition: background var(--mc-dur-1) var(--mc-ease), color var(--mc-dur-1) var(--mc-ease); }
+.dep-dia-chk input:checked + span { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
+.dep-dia-chk input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
+.dep-alias-item input.dep-alias-hora { flex: 0 0 120px; font-family: inherit; }
+@media (max-width: 640px) {
+  .dep-crono-fila { grid-template-columns: 1fr; gap: 6px; }
+  .dep-crono-builds li { flex-wrap: wrap; }
+}
+@media (prefers-reduced-motion: reduce) { .dep-dia-chk span { transition: none; } }

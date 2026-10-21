@@ -289,6 +289,10 @@ final class Config
                 // Alias tecnico por proyecto ("ms-academico"): es el nombre con
                 // el que quien sube los cambios reconoce lo que esta subiendo.
                 'alias'      => [],      // [proyecto_id => "ms-academico"]
+                // Cronograma (lib/Cronograma.php): los builds que terminan bien en GitLab
+                // esperan a la hora fija y a esa hora quedan registrados como subidos
+                // (horas: la hora propia de algún proyecto, [proyecto_id => 'HH:MM'])
+                'cronograma' => ['activo' => true, 'hora' => '10:00', 'dias' => [1, 2, 3, 4, 5], 'horas' => [], 'gitlab' => true, 'aviso' => 30],
             ],
             // Registro publico: quien se registra NO entra al panel, deja una
             // solicitud que un administrador aprueba o rechaza desde Equipo.
@@ -2037,11 +2041,22 @@ class DeployRepo
             // despliegue del servidor, no uno por tablero.
             'proyectos'   => array_values(array_unique(array_filter(array_map('intval', (array)($datos['proyectos'] ?? []))))),
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
-            'fecha'       => date('Y-m-d H:i'),
+            // La de ahora; la subida del cronograma (lib/Cronograma.php) lleva la hora de su ventana
+            'fecha'       => preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', (string)($datos['fecha'] ?? '')) ? (string)$datos['fecha'] : date('Y-m-d H:i'),
             'entorno'     => trim($datos['entorno'] ?? ''),
             'nota'        => trim($datos['nota'] ?? ''),
             'tareas'      => array_values(array_map('intval', (array)($datos['tareas'] ?? []))),
+            // 'manual' (alguien pulsó «Registrar deploy») o 'cronograma' (la subida de la hora fija)
+            'origen'      => ($datos['origen'] ?? '') === 'cronograma' ? 'cronograma' : 'manual',
+            // Los builds de GitLab que se llevó (ids de la colección deploy_builds)
+            'builds'      => array_values(array_map('intval', (array)($datos['builds'] ?? []))),
         ]);
+    }
+
+    /** Cambia campos de un registro (p. ej. los builds que se llevó una subida a mano). */
+    public function actualizar(int $id, array $datos): bool
+    {
+        return $this->store->update($id, $datos);
     }
 
     public function eliminar(int $id): bool

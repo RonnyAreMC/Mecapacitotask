@@ -159,6 +159,35 @@ if (puedeVerDeploys()) {
         $dtVolver   = 'index';
         require __DIR__ . '/lib/deploy_tira.php';
     }
+} elseif (configDeploys()['activo'] && is_file(__DIR__ . '/lib/Cronograma.php')) {
+    // Quien no entra a Despliegues (los dev) igual ve cuándo suben los cambios de sus proyectos,
+    // con la cuenta regresiva (lib/Cronograma.php): para eso es el horario
+    require_once __DIR__ . '/lib/Cronograma.php';
+    if (Cronograma::activo()) {
+        $proxSub = 0;
+        $quienesSub = [];
+        foreach (misProyectosDeploys($proyectos) as $pSub) {
+            $vSub = Cronograma::proxima((int)$pSub['id']);
+            if ($vSub <= 0) continue;
+            if ($proxSub === 0 || $vSub < $proxSub) { $proxSub = $vSub; $quienesSub = []; }
+            if ($vSub === $proxSub) $quienesSub[] = aliasDeploy((int)$pSub['id']) ?: $pSub['nombre'];
+        }
+        if ($proxSub): ?>
+<section class="dep-tira card-base dep-tira-crono">
+  <div class="dep-tira-main">
+    <span class="dep-pulso" aria-hidden="true"><?= UI::icono('Clock') ?></span>
+    <div class="dep-tira-txt">
+      <small>Próxima subida de tus proyectos</small>
+      <b class="font-display"><?= e(ucfirst(Cronograma::texto($proxSub))) ?></b>
+      <span class="dep-sub"><?= e(implode(', ', $quienesSub)) ?> · los cambios suben <?= e(Cronograma::dias()) ?> a su hora</span>
+    </div>
+    <div class="dep-tira-fin">
+      <span class="dep-prox"><?= UI::icono('Clock') ?> <b data-cuenta-regresiva data-corto data-hasta="<?= $proxSub ?>" data-ahora="<?= time() ?>">&nbsp;</b></span>
+    </div>
+  </div>
+</section>
+        <?php endif;
+    }
 }
 ?>
 
