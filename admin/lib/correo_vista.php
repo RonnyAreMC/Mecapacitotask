@@ -446,9 +446,9 @@ function correoLeer(?array $m, array $carpeta, array $carpetas, array $hilo = []
     <?= UI::alertaDS('info', '', 'Este correo ya no está en el servidor (otro programa, como Gmail, lo descargó y lo quitó). '
         . 'Es la copia que el panel guardó el ' . e(Correo::fechaLarga((int)($m['guardado'] ?? time()))) . '.', true) ?>
   </div>
-  <?php else: ?>
-  <?php correoBloqueRequerimiento($m, $c); ?>
   <?php endif; ?>
+  <?php /* «Analizar con IA» siempre: si ya no está en el servidor, la IA lee la copia guardada */
+  if (empty($m['solo_cabecera'])) correoBloqueRequerimiento($m, $c); ?>
   <?php if ($hayRemotas && !$remotas): ?>
   <div class="correo-pad correo-pad--fino">
     <?= UI::alertaDS('info', '', 'Las imágenes externas están ocultas para cuidar tu privacidad (pueden avisar al remitente que abriste el correo). '

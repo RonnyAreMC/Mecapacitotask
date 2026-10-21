@@ -252,6 +252,13 @@ final class CorreoCopias
         ] + $m;
     }
 
+    /** El correo tal como llegó (MIME), si el panel guardó su contenido; si no, ''. */
+    public static function crudoDe(int $mid, string $carpeta, int $uid): string
+    {
+        $f = self::porUid($mid, $carpeta, $uid);
+        return $f ? self::crudo($f) : '';
+    }
+
     /** Los adjuntos de la copia (con sus datos). */
     public static function adjuntos(int $mid, string $carpeta, int $uid): array
     {

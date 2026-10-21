@@ -155,10 +155,12 @@ final class ReqCorreo
 
     /* ---------------- Leer un correo (sin marcarlo leído) ---------------- */
 
-    public static function leer(CorreoImap $imap, string $carpeta, int $uid): ?array
+    public static function leer(CorreoImap $imap, string $carpeta, int $uid, int $mid = 0): ?array
     {
         $imap->abrir($carpeta);
         $crudo = $imap->crudo($uid);
+        // Ya no está en el servidor (otro programa lo bajó por POP): la copia que guardó el panel
+        if ($crudo === '' && $mid > 0) $crudo = self::crudoCopia($mid, $carpeta, $uid);
         if ($crudo === '') return null;
         $m = CorreoMime::analizar($crudo);
         $h = $m['cab'];
@@ -186,6 +188,12 @@ final class ReqCorreo
             'texto'      => $texto,
             'adjuntos'   => $adj,
         ];
+    }
+
+    private static function crudoCopia(int $mid, string $carpeta, int $uid): string
+    {
+        if (!class_exists('CorreoCopias') && is_file(__DIR__ . '/CorreoCopias.php')) require_once __DIR__ . '/CorreoCopias.php';
+        return class_exists('CorreoCopias') ? CorreoCopias::crudoDe($mid, $carpeta, $uid) : '';
     }
 
     /* ---------------- Registro de lo analizado ---------------- */
@@ -239,11 +247,11 @@ final class ReqCorreo
         $propio = $imap === null;
         $imap ??= Correo::abrir($mid);
         try {
-            $msg = self::leer($imap, $carpeta, $uid);
+            $msg = self::leer($imap, $carpeta, $uid, $mid);
         } finally {
             if ($propio) $imap->cerrar();
         }
-        if (!$msg) throw new CorreoError('Ese correo ya no está en el buzón.', 'uso');
+        if (!$msg) throw new CorreoError('Ese correo ya no está en el buzón y el panel no guardó su contenido.', 'uso');
         $ya = self::deMensaje($mid, $msg['message_id']);
         // Ya registrado, o ya propuesto y sin indicaciones nuevas: no se gasta IA otra vez
         if ($ya && (($ya['estado'] ?? '') === 'registrado' || (($ya['estado'] ?? '') === 'propuesta' && $indicaciones === ''))) return $ya;
@@ -316,6 +324,7 @@ final class ReqCorreo
         } finally {
             $imap->cerrar();
         }
+        if ($crudo === '') $crudo = self::crudoCopia((int)$fila['miembro_id'], (string)$fila['carpeta'], (int)$fila['uid']);
         $m = $crudo !== '' ? CorreoMime::analizar($crudo) : ['adjuntos' => []];
         $out = $rech = [];
         $fi = new finfo(FILEINFO_MIME_TYPE);

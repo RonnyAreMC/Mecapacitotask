@@ -3320,3 +3320,93 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
 .correo-fila--p4 { box-shadow: inset 4px 0 0 #7FA7E8; }
 .correo-fila--p5 { box-shadow: inset 4px 0 0 #B4BCC8; }
 .correo-msg__asunto .correo-prio { font-size: .74rem; vertical-align: 4px; }
+
+/* =========================================================
+   IA: Inno (la mascota, iconos/ilustraciones/ia-mascota.svg) y la carga mientras piensa
+   (assets/ia.js: mostrarCarga). Flota, parpadea, la antena brilla y saluda; abajo, un
+   esqueleto con la forma de lo que va a llegar. Con «reducir movimiento», todo quieto.
+   ========================================================= */
+.ia-masc { display: block; width: 104px; height: 104px; overflow: visible; flex: none; }
+.ia-masc--mini { width: 52px; height: 52px; }
+.ia-masc__bot, .ia-masc__sombra, .ia-masc__ojos rect, .ia-masc__luz, .ia-masc__brazo-d, .ia-masc__chispa { transform-box: fill-box; transform-origin: center; }
+.ia-masc__brazo-d { transform-origin: 0% 100%; }
+.ia-carga .ia-masc__bot, .is-pensando .ia-masc__bot { animation: ia-flota 2.6s ease-in-out infinite; }
+.ia-carga .ia-masc__sombra, .is-pensando .ia-masc__sombra { animation: ia-sombra 2.6s ease-in-out infinite; }
+.ia-masc__ojos rect { animation: ia-parpadeo 4.4s infinite; }
+.ia-carga .ia-masc__luz, .is-pensando .ia-masc__luz { animation: ia-luz 1.3s ease-in-out infinite; }
+.ia-carga .ia-masc__brazo-d { animation: ia-saluda 1.7s ease-in-out infinite; }
+.ia-masc__chispa { animation: ia-chispa 2.4s ease-in-out infinite; }
+.ia-masc__chispa--2 { animation-delay: .8s; }
+.ia-masc__chispa--3 { animation-delay: 1.6s; }
+@keyframes ia-flota   { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
+@keyframes ia-sombra  { 0%, 100% { transform: scale(1); opacity: .12; } 50% { transform: scale(.8); opacity: .06; } }
+@keyframes ia-parpadeo { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
+@keyframes ia-luz     { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.78); } }
+@keyframes ia-saluda  { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-16deg); } }
+@keyframes ia-chispa  { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(20deg); } }
+
+/* La carga: Inno con el mensaje que va cambiando y, abajo, el esqueleto */
+.ia-carga { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--primary-line, var(--line));
+  border-radius: var(--radius-lg); background: linear-gradient(180deg, var(--primary-soft), var(--surface) 70%); animation: ia-aparece .3s var(--mc-ease-out) both; }
+.ia-carga__cab { display: flex; align-items: center; gap: var(--space-4); }
+.ia-carga__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.ia-carga__msg { font: 700 1.05rem/1.3 var(--font-display, var(--font-sans)); color: var(--ink); }
+.ia-carga__msg.is-entra { animation: ia-msg .4s var(--mc-ease-out) both; }
+.ia-carga__sub { display: inline-flex; align-items: baseline; gap: 2px; color: var(--ink-muted); font-size: var(--mc-fs-sm, .8125rem); }
+.ia-puntos { display: inline-flex; gap: 3px; margin-left: 4px; }
+.ia-puntos i { width: 5px; height: 5px; border-radius: 50%; background: var(--primary); animation: ia-punto 1.2s ease-in-out infinite; }
+.ia-puntos i:nth-child(2) { animation-delay: .15s; }
+.ia-puntos i:nth-child(3) { animation-delay: .3s; }
+@keyframes ia-punto { 0%, 80%, 100% { opacity: .25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
+@keyframes ia-msg { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+@keyframes ia-aparece { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: none; } }
+.ia-carga__skel { display: flex; flex-direction: column; gap: var(--space-3); }
+.ia-skel-card { display: flex; flex-direction: column; gap: 10px; padding: var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.ia-skel-card--info { background: var(--info-soft, var(--surface-alt)); border-color: var(--info-line, var(--line)); }
+.ia-skel-fila { display: flex; gap: 10px; margin-top: 4px; }
+.ia-skel { display: block; max-width: 100%; border-radius: 8px;
+  background: linear-gradient(90deg, var(--skeleton) 0%, var(--skeleton-shine) 45%, var(--skeleton) 90%); background-size: 220% 100%; animation: ia-brillo 1.4s ease-in-out infinite; }
+@keyframes ia-brillo { from { background-position: 120% 0; } to { background-position: -100% 0; } }
+
+/* Mientras piensa: lo de alrededor queda quieto (no se pulsa dos veces ni se cambia de paso) */
+.is-pensando .wz-pie .btn-meca, .is-pensando .wz-paso, .dlg-rc.is-pensando .rc-ideas, .dlg-rc.is-pensando .rc-fila, .dlg-rc.is-pensando .rc-tono { pointer-events: none; opacity: .55; transition: opacity var(--mc-dur-2) var(--mc-ease); }
+.wz-panel.is-cargando > :not(.ia-carga) { display: none; }
+
+/* «Analizar este correo»: alto justo al contenido (el paso 1 ya no queda medio vacío);
+   solo al revisar las tareas, que pueden ser muchas, toma el alto grande y se recorre por dentro. */
+.dlg-meca.dlg-wizard.dlg-tcw { height: fit-content; max-height: min(calc(100dvh - 60px), 760px); interpolate-size: allow-keywords; transition: height .32s var(--mc-ease-out); }
+.dlg-meca.dlg-wizard.dlg-tcw .wz { height: auto; }   /* el modal mide lo que su contenido (fit-content: centrado, sin estirarse) */
+.dlg-meca.dlg-wizard.dlg-tcw[data-paso="tareas"] .wz { height: 100%; }
+.dlg-meca.dlg-wizard.dlg-tcw[data-paso="tareas"] { height: min(calc(100dvh - 60px), 760px); }
+/* El riel a la altura del contenido: el asunto en dos líneas como mucho y menos aire entre bloques */
+.dlg-tcw .wz-riel { gap: 18px; padding: 24px 22px; }
+.dlg-tcw .wz-marca p { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dlg-tcw .wz-marca .wz-icono--masc { display: grid; place-items: center; width: 68px; height: 68px; padding: 0; background: none; box-shadow: none; border-radius: 0; }   /* el bot va suelto, sin la tarjeta blanca */
+.dlg-tcw .wz-icono--masc .ia-masc { width: 68px; height: 68px; }
+.dlg-tcw .tc-tarea { animation: ia-aparece .34s var(--mc-ease-out) both; }
+.dlg-tcw .tc-tarea:nth-child(3) { animation-delay: .06s; }
+.dlg-tcw .tc-tarea:nth-child(4) { animation-delay: .12s; }
+.dlg-tcw .tc-tarea:nth-child(n+5) { animation-delay: .18s; }
+
+/* «Responder con IA»: Inno junto al texto, campos alineados y la respuesta que entra suave */
+.rc-tono { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+.rc-tono__rot { margin-right: 4px; font: 600 var(--mc-fs-sm, .8125rem)/1 var(--font-sans); color: var(--ink); }
+.rc-tono__op { cursor: pointer; }
+.rc-tono__op span { display: inline-flex; align-items: center; height: 32px; padding: 0 14px; border: 1px solid var(--line); border-radius: var(--radius-full);
+  background: var(--surface); color: var(--ink); font: 600 var(--mc-fs-sm, .8125rem)/1 var(--font-sans); transition: background-color var(--mc-dur-1) var(--mc-ease), border-color var(--mc-dur-1) var(--mc-ease), color var(--mc-dur-1) var(--mc-ease); }
+.rc-tono__op:hover span { border-color: var(--primary-line, var(--primary)); background: var(--primary-soft); }
+.rc-tono__op input:checked + span { border-color: var(--primary); background: var(--primary); color: var(--on-primary, #fff); }
+.rc-tono__op input:focus-visible + span { box-shadow: var(--focus-ring); }
+.dlg-rc .rc-fila { display: block; }
+.rc-intro { display: flex; align-items: center; gap: var(--space-3); }
+.rc-intro .tc-ayuda { margin: 0; }
+.rc-carga:empty { display: none; }
+.rc-resultado:not([hidden]) { animation: ia-aparece .34s var(--mc-ease-out) both; }
+@media (max-width: 640px) {
+  .rc-intro .ia-masc { width: 44px; height: 44px; }
+  .ia-carga__cab .ia-masc { width: 76px; height: 76px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .ia-masc *, .ia-carga, .ia-carga__msg, .ia-puntos i, .ia-skel, .dlg-tcw .tc-tarea, .rc-resultado { animation: none !important; }
+  .dlg-meca.dlg-wizard.dlg-tcw { transition: none; }
+}

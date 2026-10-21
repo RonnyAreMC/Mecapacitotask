@@ -82,6 +82,42 @@
     : '';
 
   /* ---------- Modal genérico ---------- */
+  /* Inno, la mascota de la IA (iconos/ilustraciones/ia-mascota.svg), y la carga mientras la IA
+     piensa: la mascota que flota y parpadea, un mensaje que va cambiando y un esqueleto con la
+     forma de lo que va a llegar (tarjetas de tareas, la respuesta o el requerimiento).
+     mostrarCarga(contenedor, forma, mensajes) la pone y devuelve la función que la quita. */
+  const MASCOTA_IA = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 160" class="ia-masc" aria-hidden="true" focusable="false"><ellipse class="ia-masc__sombra" cx="80" cy="151" rx="34" ry="5.5" fill="#10285A" opacity=".12"/><g class="ia-masc__bot"><path d="M80 31V17" stroke="#10285A" stroke-width="4" stroke-linecap="round"/><circle class="ia-masc__luz" cx="80" cy="12" r="7.5" fill="#21D866"/><rect x="21" y="54" width="15" height="30" rx="7.5" fill="#3399FF"/><rect x="124" y="54" width="15" height="30" rx="7.5" fill="#3399FF"/><rect x="32" y="30" width="96" height="78" rx="32" fill="#FFFFFF" stroke="#BFD3F7" stroke-width="3"/><rect x="44" y="44" width="72" height="50" rx="21" fill="#10285A"/><g class="ia-masc__ojos"><rect x="58" y="58" width="12" height="17" rx="6" fill="#21D866"/><rect x="90" y="58" width="12" height="17" rx="6" fill="#3399FF"/></g><path d="M71 83q9 7 18 0" fill="none" stroke="#FFFFFF" stroke-width="3.2" stroke-linecap="round"/><path class="ia-masc__brazo-i" d="M54 120q-15 5-17 19" fill="none" stroke="#10285A" stroke-width="7" stroke-linecap="round"/><path class="ia-masc__brazo-d" d="M106 120q15-5 19-19" fill="none" stroke="#10285A" stroke-width="7" stroke-linecap="round"/><rect x="52" y="110" width="56" height="36" rx="17" fill="#FFFFFF" stroke="#BFD3F7" stroke-width="3"/><g transform="translate(67.8 115.5) scale(.4)"><path d="M8.14482 11.0762C10.2741 8.99499 12.3771 6.93687 14.5502 4.81236C18.2004 8.44943 21.9266 12.1644 25.6558 15.8823C25.7406 15.839 25.8225 15.7957 25.9073 15.7553C25.9073 15.5157 25.9073 15.2733 25.9073 15.0337C25.9073 10.2997 25.919 5.56287 25.8956 0.828902C25.8927 0.193858 26.0565 -0.0110884 26.7234 0.000457877C29.1685 0.0408698 31.6166 0.0379832 34.0618 0.00334444C34.7316 -0.00531525 34.9509 0.159219 34.948 0.849108C34.9188 5.5138 34.9334 10.1785 34.9334 14.8432C34.9334 15.1347 34.9334 15.4291 34.9334 15.8419C38.7737 12.0432 42.5029 8.35417 46.1706 4.72576C48.4081 6.92821 50.5169 9.00365 52.6754 11.1253C52.5848 11.2205 52.4356 11.3937 52.2747 11.5554C48.683 15.103 45.0884 18.6477 41.4967 22.1981C35.3867 28.2426 25.7523 28.3523 19.5692 22.3944C15.8167 18.7718 12.1343 15.077 8.42268 11.4139C8.31153 11.3014 8.21794 11.1657 8.14482 11.0762Z" fill="#000080"/><path d="M24.5483 59.1869C21.7726 58.4566 19.0467 57.735 16.3149 57.0278C15.765 56.8863 15.9229 56.5515 16.0165 56.2109C16.9905 52.6344 17.9645 49.0608 18.9355 45.4844C19.2719 44.2461 19.6024 43.0077 19.9358 41.7694C19.8861 41.7261 19.8393 41.6799 19.7896 41.6366C15.2268 44.2316 10.6612 46.8295 6.0253 49.465C5.47251 48.5297 4.95774 47.6666 4.44881 46.7978C3.58014 45.317 2.73779 43.8217 1.83694 42.3611C1.52398 41.8531 1.61172 41.6222 2.11772 41.3364C6.28269 38.9867 10.433 36.6111 14.5863 34.2441C14.8027 34.12 15.0133 33.9843 15.3701 33.7678C15.0016 33.6466 14.794 33.5629 14.5775 33.5052C9.94458 32.2813 5.31457 31.0458 0.675777 29.8479C0.0557122 29.6862 -0.113928 29.4842 0.0703364 28.8462C0.763522 26.4331 1.40991 24.0084 2.0446 21.5779C2.17037 21.0958 2.36048 21.0034 2.84016 21.1305C7.90304 22.4871 12.9835 23.7919 18.0376 25.1745C26.1306 27.3885 30.9215 35.5517 28.8302 43.5677C27.5228 48.5817 26.1277 53.5754 24.7706 58.575C24.715 58.7741 24.6302 58.9646 24.5483 59.1869Z" fill="#21D866"/><path d="M36.2513 59.2002C35.7161 57.2316 35.1984 55.3582 34.6953 53.4819C33.7448 49.9487 32.6596 46.4445 31.8846 42.8738C30.2086 35.1349 34.7948 27.5144 42.4783 25.2859C47.7167 23.7647 53.0194 22.4686 58.2958 21.0716C58.3631 21.0542 58.4333 21.0571 58.6439 21.0398C59.4073 23.8571 60.1765 26.6917 60.9691 29.6158C58.3543 30.3086 55.8156 30.9811 53.2768 31.6537C50.7381 32.3263 48.1964 32.9988 45.6576 33.6714C45.6371 33.7349 45.6196 33.7984 45.5991 33.8619C50.1589 36.4627 54.7158 39.0664 59.3517 41.7105C58.9276 42.4437 58.5386 43.1307 58.1379 43.8148C57.1639 45.4803 56.1636 47.1286 55.2248 48.8114C54.9147 49.3657 54.6661 49.3974 54.1309 49.0886C49.9688 46.6898 45.7863 44.3199 41.6096 41.9414C41.4312 41.8404 41.2411 41.7538 40.855 41.5575C42.2648 46.7562 43.6278 51.7788 45.0141 56.8909C42.0747 57.6674 39.2171 58.4179 36.2513 59.2002Z" fill="#3399FF"/></g></g><path class="ia-masc__chispa ia-masc__chispa--1" d="M141 28l3 7 7 3-7 3-3 7-3-7-7-3 7-3z" fill="#21D866"/><path class="ia-masc__chispa ia-masc__chispa--2" d="M17 100l2.4 5.6 5.6 2.4-5.6 2.4-2.4 5.6-2.4-5.6-5.6-2.4 5.6-2.4z" fill="#3399FF"/><path class="ia-masc__chispa ia-masc__chispa--3" d="M147 94l2 4.6 4.6 2-4.6 2-2 4.6-2-4.6-4.6-2 4.6-2z" fill="#000080"/></svg>';
+  const mascota = (extra) => MASCOTA_IA.replace('class="ia-masc"', 'class="ia-masc' + (extra ? ' ' + extra : '') + '"');
+  const skel = (ancho, alto) => '<span class="ia-skel" style="width:' + ancho + ';height:' + (alto || 10) + 'px"></span>';
+  const ESQUELETOS = {
+    tareas: [1, 2].map(() => '<div class="ia-skel-card">' + skel('58%', 14) + skel('100%') + skel('86%')
+      + '<div class="ia-skel-fila">' + skel('34%', 32) + skel('22%', 32) + skel('22%', 32) + skel('16%', 32) + '</div></div>').join(''),
+    respuesta: '<div class="ia-skel-card ia-skel-card--info">' + skel('30%', 9) + skel('94%') + skel('72%') + '</div>'
+      + '<div class="ia-skel-card">' + skel('100%') + skel('97%') + skel('93%') + skel('58%') + '</div>',
+    requerimiento: '<div class="ia-skel-card">' + skel('52%', 14) + skel('100%') + skel('90%')
+      + '<div class="ia-skel-fila">' + skel('42%', 32) + skel('30%', 32) + '</div></div>',
+  };
+  function mostrarCarga(cont, forma, mensajes) {
+    const el = document.createElement('div');
+    el.className = 'ia-carga';
+    el.setAttribute('role', 'status');
+    el.innerHTML = '<div class="ia-carga__cab">' + mascota() + '<div class="ia-carga__txt">'
+      + '<b class="ia-carga__msg">' + esc(mensajes[0]) + '</b>'
+      + '<span class="ia-carga__sub">Suele tardar unos segundos<span class="ia-puntos" aria-hidden="true"><i></i><i></i><i></i></span></span></div></div>'
+      + '<div class="ia-carga__skel" aria-hidden="true">' + (ESQUELETOS[forma] || '') + '</div>';
+    cont.prepend(el);
+    const msg = el.querySelector('.ia-carga__msg');
+    let i = 0;
+    const reloj = setInterval(() => {
+      i = (i + 1) % mensajes.length;
+      msg.classList.remove('is-entra');
+      void msg.offsetWidth;                 // reinicia la animación del mensaje nuevo
+      msg.textContent = mensajes[i];
+      msg.classList.add('is-entra');
+    }, 2400);
+    return () => { clearInterval(reloj); el.remove(); };
+  }
+
   function modal(titulo, icono, cuerpo, botones) {
     const dlg = document.createElement('dialog');
     dlg.className = 'dlg-meca dlg-ia';
@@ -370,8 +406,8 @@
     const dlg = document.createElement('dialog');
     dlg.className = 'dlg-meca dlg-wizard dlg-tcw';
     dlg.innerHTML = '<div class="dlg-form wz">'
-      + '<aside class="wz-riel"><div class="wz-marca"><span class="wz-icono"><i class="fa-solid fa-wand-magic-sparkles"></i></span>'
-      + '<h3 class="font-display">Analizar este correo</h3><p>' + (b.dataset.asunto ? '«' + esc(b.dataset.asunto) + '»' : 'Tareas de un proyecto o un requerimiento suelto') + '</p></div>'
+      + '<aside class="wz-riel"><div class="wz-marca"><span class="wz-icono wz-icono--masc">' + mascota('ia-masc--mini') + '</span>'
+      + '<h3 class="font-display">Analizar este correo</h3><p' + (b.dataset.asunto ? ' title="' + esc(b.dataset.asunto) + '"' : '') + '>' + (b.dataset.asunto ? '«' + esc(b.dataset.asunto) + '»' : 'Tareas de un proyecto o un requerimiento suelto') + '</p></div>'
       + '<div class="wz-pasos">' + [0, 1, 2].map((i) => '<button type="button" class="wz-paso" data-i="' + i + '"><span class="wz-num">' + (i + 1) + '</span>'
         + '<span class="wz-txt"><b></b><small></small></span></button>').join('') + '</div></aside>'
       + '<div class="wz-cuerpo"><header><div><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>'
@@ -433,6 +469,7 @@
 
     const ir = (p) => {
       paso = p;
+      dlg.dataset.paso = p;          // el alto del modal: justo al contenido, salvo al revisar tareas
       const n = NUM[p];
       const def = PASOS_TCW[tipo] || PASOS_TCW[''];
       const viejo = dlg.querySelector('.ia-error');
@@ -490,8 +527,17 @@
 
     /* ---------- 2b. Requerimiento suelto: el flujo de siempre, con indicaciones ---------- */
     bReq.addEventListener('click', () => conBoton(bReq, async () => {
-      const r = await pedir('ia_req_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: indReq.value.trim() });
-      if (r.url) location.href = r.url;
+      // Mientras la IA arma el requerimiento: Inno y el esqueleto del formulario
+      const panel = $('[data-p="requerimiento"]');
+      panel.classList.add('is-cargando');
+      dlg.classList.add('is-pensando');
+      const parar = mostrarCarga(panel, 'requerimiento', ['Leyendo el correo…', 'Viendo quién lo pide…', 'Armando el requerimiento…']);
+      const soltar = () => { parar(); panel.classList.remove('is-cargando'); dlg.classList.remove('is-pensando'); };
+      let r;
+      try { r = await pedir('ia_req_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: indReq.value.trim() }); }
+      catch (err) { soltar(); throw err; }
+      if (r.url) location.href = r.url;    // la carga sigue mientras se abre el formulario
+      else soltar();
     }));
 
     /* ---------- 3a. Tareas de un proyecto ---------- */
@@ -554,7 +600,24 @@
     bProponer.addEventListener('click', () => {
       if (!selProy.value) { avisarError(bProponer, 'Elige el proyecto donde van las tareas.'); return; }
       conBoton(bProponer, async () => {
-        const r = await pedir('ia_tareas_correo', { c: b.dataset.c, uid: b.dataset.uid, proyecto_id: selProy.value, instrucciones: indProy.value.trim() });
+        // Mientras la IA piensa: el paso de tareas con Inno y el esqueleto de las tarjetas
+        const antes = datos;
+        lista.innerHTML = '';
+        dlg.classList.add('is-pensando');
+        const parar = mostrarCarga(lista, 'tareas', ['Leyendo el correo…', 'Entendiendo lo que piden…', 'Armando las tareas…', 'Buscando a quién le toca cada una…']);
+        ir('tareas');
+        let r;
+        try {
+          r = await pedir('ia_tareas_correo', { c: b.dataset.c, uid: b.dataset.uid, proyecto_id: selProy.value, instrucciones: indProy.value.trim() });
+        } catch (err) {
+          parar();
+          dlg.classList.remove('is-pensando');
+          if (antes) pintar(antes);          // la propuesta anterior sigue ahí
+          ir('proyecto');
+          throw err;
+        }
+        parar();
+        dlg.classList.remove('is-pensando');
         pidPropuesta = selProy.value;
         indPropuesta = indProy.value.trim();
         pintar(r);
@@ -629,15 +692,17 @@
     if (!b) return;
     e.preventDefault();
     const dlg = modal('Responder con IA', 'fa-wand-magic-sparkles',
-      '<p class="tc-ayuda">Dile a la IA cómo quieres responder a <b>' + esc(b.dataset.de || 'este correo') + '</b>, o déjalo vacío y responde lo que corresponda. '
-      + 'La IA lee el correo solo cuando pulses el botón.</p>'
+      '<div class="rc-intro">' + mascota('ia-masc--mini') + '<p class="tc-ayuda">Dile a la IA cómo quieres responder a <b>' + esc(b.dataset.de || 'este correo') + '</b>, o déjalo vacío y responde lo que corresponda. '
+      + 'La IA lee el correo solo cuando pulses el botón.</p></div>'
+      + '<div class="rc-tono" role="radiogroup" aria-label="Tono de la respuesta"><span class="rc-tono__rot">Tono</span>'
+      + [['formal', 'Formal'], ['cercano', 'Cercano'], ['breve', 'Breve']].map(([v, t], i) => '<label class="rc-tono__op"><input type="radio" class="mc-sr-only" name="rc-tono" value="' + v + '"'
+        + (i === 0 ? ' checked' : '') + '><span>' + t + '</span></label>').join('') + '</div>'
       + '<div class="rc-ideas" role="group" aria-label="Ideas">' + IDEAS_RESPUESTA.map(([t, p]) => '<button type="button" class="rc-idea" data-rc-idea="' + esc(p) + '">' + esc(t) + '</button>').join('') + '</div>'
       + '<div class="rc-fila">'
       + '<div class="mc-field rc-ind"><label class="mc-field__label" for="rc-ind">¿Cómo quieres responder? <span class="ds-opcional">(opcional)</span></label>'
       + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control" id="rc-ind" rows="3" maxlength="1500" data-rc-ind placeholder="Ej.: confirma que lo publicamos el viernes y pide el logo en alta"></textarea></div></div>'
-      + '<div class="mc-field"><label class="mc-field__label">Tono</label><select data-ds-select data-rc-tono aria-label="Tono">'
-      + '<option value="formal">Formal</option><option value="cercano">Cercano</option><option value="breve">Breve</option></select></div>'
       + '</div>'
+      + '<div class="rc-carga" data-rc-carga></div>'
       + '<div class="rc-resultado" data-rc-resultado hidden>'
       + '<div class="rc-resumen"><h4>Lo que dice el correo</h4><ul data-rc-resumen></ul><p class="rc-pide" data-rc-pide hidden></p></div>'
       + '<div class="mc-field"><label class="mc-field__label" for="rc-respuesta">Respuesta propuesta <span class="ds-opcional">(puedes editarla)</span></label>'
@@ -648,7 +713,7 @@
       + '<button type="button" class="btn-primary btn-meca wz-oculto" data-rc-usar><i class="fa-solid fa-reply"></i> <span>Usar esta respuesta</span></button>');
     dlg.classList.add('dlg-ia-ancho', 'dlg-rc');
     const ind = dlg.querySelector('[data-rc-ind]');
-    const tono = dlg.querySelector('[data-rc-tono]');
+    const tono = () => (dlg.querySelector('input[name="rc-tono"]:checked') || {}).value || 'formal';
     const res = dlg.querySelector('[data-rc-resultado]');
     const bGen = dlg.querySelector('[data-rc-generar]');
     const bUsar = dlg.querySelector('[data-rc-usar]');
@@ -665,7 +730,13 @@
     });
 
     bGen.addEventListener('click', () => conBoton(bGen, async () => {
-      const r = await pedir('ia_responder_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: ind.value.trim(), tono: tono.value });
+      // Mientras la IA lee y escribe: Inno y el esqueleto del resumen y la respuesta
+      res.hidden = true;
+      dlg.classList.add('is-pensando');
+      const parar = mostrarCarga(dlg.querySelector('[data-rc-carga]'), 'respuesta', ['Leyendo el correo…', 'Entendiendo lo que piden…', 'Escribiendo la respuesta…']);
+      let r;
+      try { r = await pedir('ia_responder_correo', { c: b.dataset.c, uid: b.dataset.uid, instrucciones: ind.value.trim(), tono: tono() }); }
+      finally { parar(); dlg.classList.remove('is-pensando'); }
       dlg.querySelector('[data-rc-resumen]').innerHTML = (r.resumen || []).map((x) => '<li>' + esc(x) + '</li>').join('') || '<li>Sin resumen.</li>';
       const pide = dlg.querySelector('[data-rc-pide]');
       pide.textContent = r.pide ? 'Lo que esperan de nosotros: ' + r.pide : '';

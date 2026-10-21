@@ -84,7 +84,7 @@ final class TareasCorreo
         try {
             $c = Correo::carpetaValida(Correo::carpetas($imap, $mid), $carpeta);
             $carpeta = (string)$c['nombre'];
-            $msg = ReqCorreo::leer($imap, $carpeta, $uid);
+            $msg = ReqCorreo::leer($imap, $carpeta, $uid, $mid);   // con la copia del panel si ya no está en el servidor
         } finally {
             $imap->cerrar();
         }
