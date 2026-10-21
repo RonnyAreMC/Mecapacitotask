@@ -147,7 +147,7 @@ function actualizarPanel(array $opc): void
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva'],
         'index.php'         => ['ds-indicadores', 'portadaDe', 'dep-tira-crono'],
-        'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva'],
+        'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards'],
         'lib/deploy_tira.php' => ['dep-prox'],
         'lib/GitLab.php'    => ['pipelinesExitosos', 'GITLAB_PRUEBA'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir'],

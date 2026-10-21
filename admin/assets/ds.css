@@ -3473,3 +3473,71 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
   .dep-crono-builds li { flex-wrap: wrap; }
 }
 @media (prefers-reduced-motion: reduce) { .dep-dia-chk span { transition: none; } }
+
+/* Historial de despliegues en tarjetitas (deploys.php): por día, una tarjeta por subida; el detalle en su ventana */
+.dep-lista--cards { gap: var(--space-4); }
+.dep-dia2 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin-top: 6px; }
+.dep-dia2:first-child { margin-top: 0; }
+.dep-dia2 b { color: var(--ink); font-size: 1rem; }
+.dep-dia2 small { color: var(--ink-muted); font-size: .8rem; }
+.dep-dia2__n { margin-left: auto; color: var(--ink-muted); font-size: .76rem; font-weight: 600; }
+.dep-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: var(--space-3); }
+.dep-card { position: relative; display: flex; flex-direction: column; gap: 10px; min-width: 0; padding: 14px 14px 12px; border: 1px solid var(--line);
+  border-top: 3px solid var(--pc, var(--primary)); border-radius: var(--radius-lg); background: var(--surface);
+  transition: border-color var(--mc-dur-1) var(--mc-ease), box-shadow var(--mc-dur-1) var(--mc-ease); }
+.dep-card:hover { border-color: color-mix(in srgb, var(--pc, var(--primary)) 45%, var(--line)); box-shadow: 0 6px 18px -12px rgba(15, 40, 90, .35); }
+.dep-card__top { display: flex; align-items: baseline; gap: 8px; }
+.dep-card__hora { color: var(--ink); font-size: 1.25rem; font-weight: 700; line-height: 1.1; white-space: nowrap; }
+.dep-card__hace { color: var(--ink-muted); font-size: .76rem; }
+.dep-card__borrar { margin: 0 0 0 auto; }
+.dep-card__x { display: grid; place-items: center; width: 28px; height: 28px; border: 0; border-radius: 8px; background: transparent; color: var(--ink-subtle);
+  cursor: pointer; opacity: 0; transition: opacity var(--mc-dur-1) var(--mc-ease), background var(--mc-dur-1) var(--mc-ease), color var(--mc-dur-1) var(--mc-ease); }
+.dep-card:hover .dep-card__x, .dep-card__x:focus-visible { opacity: 1; }
+.dep-card__x:hover { background: var(--danger-soft, #FDECEC); color: var(--danger-ink, #C92A2A); }
+.dep-card__proys { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.dep-card__proy { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 3px 10px 3px 7px; border-radius: 999px;
+  background: color-mix(in srgb, var(--pc, var(--primary)) 10%, transparent); color: var(--ink); font-size: .78rem; font-weight: 600; text-decoration: none; }
+.dep-card__proy span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-card__proy .ico { flex: none; width: 14px; height: 14px; color: var(--pc, var(--primary)); }
+.dep-card__proy:hover { background: color-mix(in srgb, var(--pc, var(--primary)) 18%, transparent); }
+html.dark .dep-card__proy { background: rgba(255, 255, 255, .07); }
+html.dark .dep-card__proy .ico { color: var(--ink-muted); }
+.dep-card__mas { align-self: center; color: var(--ink-muted); font-size: .76rem; font-weight: 600; }
+.dep-card__nota { display: -webkit-box; margin: 0; overflow: hidden; color: var(--ink-muted); font-size: .8rem; line-height: 1.45; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.dep-card__pie { display: flex; align-items: center; gap: 8px; margin-top: auto; padding-top: 10px; border-top: 1px solid var(--line); }
+.dep-card__autor { display: inline-flex; align-items: center; gap: 7px; min-width: 0; color: var(--ink); font-size: .8rem; font-weight: 500; }
+.dep-card__autor > span:last-child { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.dep-card__autor--nadie { color: var(--ink-subtle); }
+.dep-card__ver { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; padding: 4px 10px; border: 0; border-radius: 999px; background: var(--primary-soft);
+  color: var(--primary-ink); font: 600 .76rem/1.4 var(--font-sans); white-space: nowrap; cursor: pointer; transition: background var(--mc-dur-1) var(--mc-ease); }
+.dep-card__ver:hover { background: color-mix(in srgb, var(--primary) 18%, var(--primary-soft)); }
+.dep-card__ver i { font-size: .7rem; transition: transform var(--mc-dur-1) var(--mc-ease); }
+.dep-card__ver:hover i { transform: translateX(2px); }
+.dep-card__cero { margin-left: auto; color: var(--ink-subtle); font-size: .76rem; white-space: nowrap; }
+/* La ventana con el detalle */
+.dlg-dep-det h3 small { display: block; margin-top: 2px; color: var(--ink-muted); font-size: .78rem; font-weight: 500; }
+.dlg-dep-det .dlg-cuerpo { display: flex; flex-direction: column; gap: 10px; }
+.dep-det-nota { margin: 0; padding: 10px 12px; border-radius: var(--radius-md); background: var(--surface-sunken); color: var(--ink); font-size: .84rem; line-height: 1.5; }
+.dep-det-tit { margin: 6px 0 0; color: var(--ink-muted); font-size: .72rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; }
+@media (max-width: 560px) { .dep-cards { grid-template-columns: 1fr; } .dep-card__x { opacity: 1; } }
+@media (prefers-reduced-motion: reduce) { .dep-card, .dep-card__x, .dep-card__ver, .dep-card__ver i { transition: none; } }
+
+/* Sin líneas en los bordes: las tarjetas de Despliegues se distinguen por su fondo, no por un contorno */
+.dep-card { border: 0; border-radius: 16px; background: var(--surface-sunken); box-shadow: none; }
+.dep-card:hover { border: 0; background: color-mix(in srgb, var(--primary) 6%, var(--surface-sunken)); box-shadow: none; }
+.dep-card__pie { padding-top: 4px; border-top: 0; }
+.dep-card__proy { background: var(--surface); }
+.dep-card__proy:hover { background: color-mix(in srgb, var(--pc, var(--primary)) 10%, var(--surface)); }
+html.dark .dep-card__proy { background: rgba(255, 255, 255, .07); }
+.dep-card__ver { background: var(--surface); }
+.dep-cuenta { border: 0; }
+.dep-cuenta.is-cerca, .dep-cuenta.is-ya { border: 0; }
+.dep-crono-lista { gap: 8px; border: 0; }
+.dep-crono-fila { border: 0; border-radius: 14px; background: var(--surface-sunken); }
+.dep-crono-proy { border: 0; background: var(--surface); }
+html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
+.dep-crono-builds li { border: 0; border-radius: 12px; background: var(--surface-sunken); }
+.dep-crono-builds li .dep-crono-proy { background: var(--surface); }
+.dep-crono-cfg { border: 0; background: var(--surface-sunken); }
+.dep-espera-card { border: 0; background: var(--surface-sunken); }
+.dep-espera-card:hover, .dep-espera-card:focus-visible { border: 0; background: color-mix(in srgb, var(--primary) 6%, var(--surface-sunken)); transform: none; box-shadow: none; }

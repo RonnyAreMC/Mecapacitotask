@@ -165,101 +165,158 @@ if ($crono):
             ? 'Cuando subas los cambios, pulsa "Cambios subidos" arriba y aquí queda la hora.'
             : 'Todavía nadie ha marcado una subida al servidor de pruebas.') ?>
   <?php else: ?>
-  <div class="dep-lista">
-    <?php
-    $diaPrevio = '';
-    foreach ($historial as $d):
-        $dia   = substr((string)$d['fecha'], 0, 10);
-        $autor = $miembros[(int)$d['autor_id']] ?? null;
-        $tids  = DeployRepo::tareasDe($d);
-        // Una subida puede tocar varios proyectos: aquí sí se dicen cuáles,
-        // que es la pantalla donde se viene a mirar el detalle.
-        $proysD = array_values(array_filter(array_map(
-            fn($pid) => $mapaProy[$pid] ?? null, DeployRepo::proyectosDe($d)
-        )));
-        $proy  = $proysD[0] ?? null;
-        if (!$proy) continue;
-        if ($dia !== $diaPrevio):
-            $diaPrevio = $dia;
-            $rotulo = match ($dia) {
-                date('Y-m-d')                          => 'Hoy',
-                date('Y-m-d', strtotime('-1 day'))     => 'Ayer',
-                default                                => $dia,
-            };
-    ?>
-    <div class="dep-dia"><?= e($rotulo) ?><small><?= e($dia) ?></small></div>
-    <?php endif; ?>
-
-    <article class="dep-item" style="--pc:<?= e(ProyectoRepo::colorBase($proy)) ?>">
-      <div class="dep-item-hora">
-        <b><?= e(substr($d['fecha'], 11, 5)) ?></b>
-        <small><?= e(DeployRepo::haceCuanto($d['fecha'])) ?></small>
-      </div>
-      <div class="dep-item-cuerpo">
-        <div class="dep-item-cab">
-          <?php foreach ($proysD as $pr): ?>
-          <a class="dep-item-proy" href="proyecto.php?id=<?= (int)$pr['id'] ?>"
-             style="--pc:<?= e(ProyectoRepo::colorBase($pr)) ?>">
-            <?= UI::icono($pr['icono'] ?? 'FolderOpen') ?> <?= e($pr['nombre']) ?>
-          </a>
-          <?php endforeach; ?>
-          <?php if ($autor): ?>
-          <span class="dep-item-autor"><?= UI::avatar($autor, 22, true) ?> <?= e($autor['nombre']) ?></span>
-          <?php endif; ?>
-          <span class="dep-item-n"><?= count($tids) ?> tarea<?= count($tids) === 1 ? '' : 's' ?></span>
-          <?php if (($d['origen'] ?? '') === 'cronograma'): ?>
-          <span class="dep-item-auto" title="La registró el horario de subidas con los builds de GitLab"><?= UI::icono('Clock') ?> Automática · horario</span>
+  <?php
+    // Tarjetitas por día: cada subida en su tarjeta (hora, proyectos, quién y cuántas tareas);
+    // el detalle —tareas, builds y la nota entera— en su ventana, para que la rejilla no se deforme.
+    $porDia = [];
+    foreach ($historial as $d) {
+        $proysD = array_values(array_filter(array_map(fn($pid) => $mapaProy[$pid] ?? null, DeployRepo::proyectosDe($d))));
+        if (!$proysD) continue;
+        $porDia[substr((string)$d['fecha'], 0, 10)][] = ['d' => $d, 'proys' => $proysD];
+    }
+    $diasSem = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+    $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    $fechaLarga = function (string $dia) use ($diasSem, $meses): string {
+        $t = strtotime($dia);
+        return $diasSem[(int)date('w', $t)] . ' ' . (int)date('j', $t) . ' de ' . $meses[(int)date('n', $t) - 1]
+            . (date('Y', $t) !== date('Y') ? ' de ' . date('Y', $t) : '');
+    };
+    $horaCorta = fn(string $f) => ($t = strtotime($f)) ? date('g:i', $t) . ' ' . date('a', $t) : substr($f, 11, 5);
+    $nombreCorto = function (array $m): string {
+        $p = preg_split('/\s+/', trim((string)$m['nombre'])) ?: [];
+        return trim(($p[0] ?? '') . ' ' . (count($p) >= 3 ? ($p[2] ?? '') : ($p[1] ?? '')));
+    };
+    $dialogos = [];
+  ?>
+  <div class="dep-lista dep-lista--cards">
+    <?php foreach ($porDia as $dia => $items):
+        $rotulo = match ($dia) {
+            date('Y-m-d')                      => 'Hoy',
+            date('Y-m-d', strtotime('-1 day')) => 'Ayer',
+            default                            => ucfirst($fechaLarga($dia)),
+        };
+        $n = count($items); ?>
+    <div class="dep-dia2">
+      <b class="font-display"><?= e($rotulo) ?></b>
+      <?php if ($rotulo === 'Hoy' || $rotulo === 'Ayer'): ?><small><?= e($fechaLarga($dia)) ?></small><?php endif; ?>
+      <span class="dep-dia2__n"><?= $n ?> subida<?= $n === 1 ? '' : 's' ?></span>
+    </div>
+    <div class="dep-cards">
+      <?php foreach ($items as ['d' => $d, 'proys' => $proysD]):
+          $did   = (int)$d['id'];
+          $autor = $miembros[(int)$d['autor_id']] ?? null;
+          $tids  = DeployRepo::tareasDe($d);
+          $nT    = count($tids);
+          $auto  = ($d['origen'] ?? '') === 'cronograma';
+          $bsD   = class_exists('Cronograma') ? Cronograma::deDeploy($d) : [];
+          $nota  = trim((string)($d['nota'] ?? ''));
+          $conDetalle = $nT || $bsD || $nota !== '';
+          if ($conDetalle) $dialogos[] = ['d' => $d, 'proys' => $proysD, 'autor' => $autor, 'tids' => $tids, 'builds' => $bsD, 'auto' => $auto]; ?>
+      <article class="dep-card" style="--pc:<?= e(ProyectoRepo::colorBase($proysD[0])) ?>">
+        <div class="dep-card__top">
+          <span class="dep-card__hora font-display"><?= e($horaCorta((string)$d['fecha'])) ?></span>
+          <span class="dep-card__hace"><?= e(DeployRepo::haceCuanto($d['fecha'])) ?></span>
+          <?php if (esAdmin()): ?>
+          <form method="post" action="actions.php" class="inline-form dep-card__borrar"
+                data-confirmar="Se borra el registro y sus <?= $nT ?> tarea(s) vuelven a quedar como «sin subir»."
+                data-confirmar-titulo="¿Eliminar el despliegue?" data-confirmar-ok="Sí, eliminar">
+            <input type="hidden" name="accion" value="deploy_eliminar">
+            <input type="hidden" name="id" value="<?= $did ?>">
+            <button class="dep-card__x" title="Eliminar el registro" aria-label="Eliminar el registro"><i class="fa-solid fa-trash"></i></button>
+          </form>
           <?php endif; ?>
         </div>
-        <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
-        <p class="dep-item-nota"><?= nl2br(e($d['nota'])) ?></p>
+        <div class="dep-card__proys">
+          <?php foreach (array_slice($proysD, 0, 3) as $pr): $alias = aliasDeploy((int)$pr['id']); ?>
+          <a class="dep-card__proy" href="proyecto.php?id=<?= (int)$pr['id'] ?>" style="--pc:<?= e(ProyectoRepo::colorBase($pr)) ?>" title="<?= e($pr['nombre']) ?>">
+            <?= UI::icono($pr['icono'] ?? 'FolderOpen') ?><span><?= e($alias ?: $pr['nombre']) ?></span>
+          </a>
+          <?php endforeach; ?>
+          <?php if (count($proysD) > 3): ?><span class="dep-card__mas">+<?= count($proysD) - 3 ?></span><?php endif; ?>
+        </div>
+        <?php if ($nota !== ''): ?>
+        <p class="dep-card__nota"><?= e($nota) ?></p>
         <?php endif; ?>
-        <?php $bsD = $crono || class_exists('Cronograma') ? Cronograma::deDeploy($d) : []; if ($bsD): ?>
-        <details class="dep-item-tareas">
-          <summary>Builds de GitLab (<?= count($bsD) ?>)</summary>
-          <ul>
-            <?php foreach ($bsD as $b): ?>
-            <li>
-              <b><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $b['repo']) ?></b> · <?= e($b['rama']) ?> ·
-              <?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?>
-              <small><?= $b['autor'] !== '' ? e($b['autor']) . ' · ' : '' ?>terminó <?= e(Cronograma::cuandoFue((string)$b['terminado'])) ?>
-                <?php if ($b['web_url'] !== ''): ?> · <a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">build #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
-            </li>
-            <?php endforeach; ?>
-          </ul>
-        </details>
-        <?php endif; ?>
-        <?php if ($tids): ?>
-        <details class="dep-item-tareas">
-          <summary>Qué subió</summary>
-          <ul>
-            <?php foreach ($tids as $tid): $t = $tituloTarea[$tid] ?? null; ?>
-            <li>
-              <b>#<?= $tid ?></b>
-              <?= $t ? e($t['titulo']) : '<i>tarea eliminada</i>' ?>
-              <?php if ($t && !empty($t['completada_en'])): ?>
-              <small>completada el <?= e($t['completada_en']) ?></small>
-              <?php endif; ?>
-            </li>
-            <?php endforeach; ?>
-          </ul>
-        </details>
-        <?php endif; ?>
-      </div>
-      <?php if (esAdmin()): ?>
-      <form method="post" action="actions.php" class="inline-form dep-item-borrar"
-            data-confirmar="Se borra el registro y sus <?= count($tids) ?> tarea(s) vuelven a quedar como «sin subir»."
-            data-confirmar-titulo="¿Eliminar el despliegue?" data-confirmar-ok="Sí, eliminar">
-        <input type="hidden" name="accion" value="deploy_eliminar">
-        <input type="hidden" name="id" value="<?= (int)$d['id'] ?>">
-        <button class="accion-btn accion-peligro" title="Eliminar el registro"><i class="fa-solid fa-trash"></i></button>
-      </form>
-      <?php endif; ?>
-    </article>
+        <div class="dep-card__pie">
+          <?php if ($auto): ?>
+          <span class="dep-item-auto" title="La registró el horario de subidas con los builds de GitLab"><?= UI::icono('Clock') ?> Automática</span>
+          <?php elseif ($autor): ?>
+          <span class="dep-card__autor"><?= UI::avatar($autor, 24, true) ?><span><?= e($nombreCorto($autor)) ?></span></span>
+          <?php else: ?>
+          <span class="dep-card__autor dep-card__autor--nadie">Sin autor</span>
+          <?php endif; ?>
+          <?php if ($conDetalle): ?>
+          <button type="button" class="dep-card__ver" aria-haspopup="dialog" onclick="document.getElementById('dlg-dep-<?= $did ?>').showModal()">
+            <?= $nT ? $nT . ' tarea' . ($nT === 1 ? '' : 's') : ($bsD ? count($bsD) . ' build' . (count($bsD) === 1 ? '' : 's') : 'Ver nota') ?>
+            <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
+          </button>
+          <?php else: ?>
+          <span class="dep-card__cero">Sin tareas nuevas</span>
+          <?php endif; ?>
+        </div>
+      </article>
+      <?php endforeach; ?>
+    </div>
     <?php endforeach; ?>
   </div>
   <?php endif; ?>
 </section>
+
+<?php /* El detalle de cada subida: la nota entera, los builds de GitLab y las tareas que se llevó. */ ?>
+<?php foreach ($dialogos ?? [] as $x): $d = $x['d']; $did = (int)$d['id']; ?>
+<dialog id="dlg-dep-<?= $did ?>" class="dlg-meca dlg-espera dlg-dep-det">
+  <div class="dlg-form">
+    <header>
+      <h3 class="font-display"><?= UI::icono('Upload') ?> Subida de las <?= e($horaCorta((string)$d['fecha'])) ?>
+        <small><?= e($fechaLarga(substr((string)$d['fecha'], 0, 10))) ?></small></h3>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+    </header>
+    <div class="dlg-cuerpo">
+      <div class="dep-card__proys">
+        <?php foreach ($x['proys'] as $pr): $alias = aliasDeploy((int)$pr['id']); ?>
+        <a class="dep-card__proy" href="proyecto.php?id=<?= (int)$pr['id'] ?>" style="--pc:<?= e(ProyectoRepo::colorBase($pr)) ?>">
+          <?= UI::icono($pr['icono'] ?? 'FolderOpen') ?><span><?= e($pr['nombre']) ?><?= $alias ? ' · ' . e($alias) : '' ?></span>
+        </a>
+        <?php endforeach; ?>
+      </div>
+      <p class="campo-ayuda">
+        <?= $x['auto'] ? 'La registró el horario de subidas.' : ($x['autor'] ? 'La registró ' . e($x['autor']['nombre']) . '.' : '') ?>
+        <?= e((string)($d['entorno'] ?? '')) !== '' ? ' En ' . e((string)$d['entorno']) . '.' : '' ?>
+      </p>
+      <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
+      <p class="dep-det-nota"><?= nl2br(e((string)$d['nota'])) ?></p>
+      <?php endif; ?>
+      <?php if ($x['builds']): ?>
+      <h4 class="dep-det-tit">Builds de GitLab (<?= count($x['builds']) ?>)</h4>
+      <ul class="dep-espera-lista">
+        <?php foreach ($x['builds'] as $b): ?>
+        <li>
+          <b><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $b['repo']) ?></b>
+          <span><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?> · <?= e($b['rama']) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?></span>
+          <small><?php if ($b['web_url'] !== ''): ?><a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">build #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+      <?php if ($x['tids']): ?>
+      <h4 class="dep-det-tit">Tareas que subió (<?= count($x['tids']) ?>)</h4>
+      <ul class="dep-espera-lista">
+        <?php foreach ($x['tids'] as $tid): $t = $tituloTarea[$tid] ?? null; ?>
+        <li>
+          <b>#<?= (int)$tid ?></b>
+          <span><?= $t ? e($t['titulo']) : '<i>tarea eliminada</i>' ?></span>
+          <?php if ($t && !empty($t['completada_en'])): ?><small><?= e($t['completada_en']) ?></small><?php endif; ?>
+        </li>
+        <?php endforeach; ?>
+      </ul>
+      <?php endif; ?>
+    </div>
+    <footer>
+      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
+    </footer>
+  </div>
+</dialog>
+<?php endforeach; ?>
 
 <?php if ($puedeDep): ?>
 <!-- Lo que entraría en el próximo despliegue de cada proyecto: así el
