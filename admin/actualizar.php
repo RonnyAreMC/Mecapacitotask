@@ -131,7 +131,7 @@ function actualizarPanel(array $opc): void
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols'],
         'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php'],
-        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista'],
+        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake'],
         'lib/Tutoriales.php' => ['function pendiente'],
         'tutoriales.php'    => ['tutorial_avisar'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera'],

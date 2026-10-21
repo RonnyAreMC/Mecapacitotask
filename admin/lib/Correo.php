@@ -508,17 +508,50 @@ final class CorreoMime
     {
         $cs = strtolower(trim($charset, " \t\"'"));
         if ($cs === '' || in_array($cs, ['utf-8', 'utf8', 'us-ascii', 'ascii'], true)) {
-            return mb_check_encoding($s, 'UTF-8') ? $s : (string)mb_convert_encoding($s, 'UTF-8', 'Windows-1252');
+            return self::sinMojibake(mb_check_encoding($s, 'UTF-8') ? $s : (string)mb_convert_encoding($s, 'UTF-8', 'Windows-1252'));
+        }
+        // Muchos programas declaran Latin-1 y mandan UTF-8: si los bytes son UTF-8 válido y traen
+        // acentos, se respetan tal cual (convertirlos otra vez volvía «creación» en «creaciÃ³n»)
+        if (in_array($cs, ['iso-8859-1', 'latin1', 'latin-1', 'windows-1252', 'cp1252', 'iso-8859-15'], true)
+            && preg_match('/[\x80-\xFF]/', $s) && mb_check_encoding($s, 'UTF-8')) {
+            return self::sinMojibake($s);
         }
         $alias = ['iso-8859-1' => 'Windows-1252', 'latin1' => 'Windows-1252', 'ks_c_5601-1987' => 'UHC', 'gb2312' => 'GB18030', 'gbk' => 'GB18030'];
         $cs = $alias[$cs] ?? $cs;
         try {
             $r = @mb_convert_encoding($s, 'UTF-8', $cs);
-            if (is_string($r) && $r !== '') return $r;
+            if (is_string($r) && $r !== '') return self::sinMojibake($r);
         } catch (\ValueError $e) {
         }
         $r = function_exists('iconv') ? @iconv($cs, 'UTF-8//IGNORE', $s) : false;
-        return is_string($r) ? $r : mb_scrub($s, 'UTF-8');
+        return self::sinMojibake(is_string($r) ? $r : mb_scrub($s, 'UTF-8'));
+    }
+
+    /**
+     * Deshace el texto que llega ya roto desde quien lo mandó: UTF-8 leído como
+     * Latin-1 en algún programa («creaciÃ³n», «Â¿», «â€œ»). Arregla solo cada
+     * trozo que, devuelto a sus bytes, forma una letra UTF-8 válida; lo demás
+     * (y una «ó» bien escrita al lado) queda igual.
+     */
+    public static function sinMojibake(string $s): string
+    {
+        if (!preg_match('/[\x{00C2}-\x{00F4}]/u', $s)) return $s;
+        $siguiente = '[\x{0080}-\x{00BF}\x{0152}\x{0153}\x{0160}\x{0161}\x{0178}\x{017D}\x{017E}\x{0192}\x{02C6}\x{02DC}\x{2013}\x{2014}\x{2018}-\x{201A}\x{201C}-\x{201E}\x{2020}-\x{2022}\x{2026}\x{2030}\x{2039}\x{203A}\x{20AC}\x{2122}]';
+        // Cada letra vuelve a su byte: las de Windows-1252 (€, “, ™…) por su tabla; el resto (incluidos
+        // los 0x81, 0x8D, 0x8F, 0x90 y 0x9D que Windows-1252 no tiene) por su número
+        static $cp1252 = ['€' => 0x80, '‚' => 0x82, 'ƒ' => 0x83, '„' => 0x84, '…' => 0x85, '†' => 0x86, '‡' => 0x87, 'ˆ' => 0x88, '‰' => 0x89,
+            'Š' => 0x8A, '‹' => 0x8B, 'Œ' => 0x8C, 'Ž' => 0x8E, '‘' => 0x91, '’' => 0x92, '“' => 0x93, '”' => 0x94, '•' => 0x95, '–' => 0x96,
+            '—' => 0x97, '˜' => 0x98, '™' => 0x99, 'š' => 0x9A, '›' => 0x9B, 'œ' => 0x9C, 'ž' => 0x9E, 'Ÿ' => 0x9F];
+        $r = preg_replace_callback('/[\x{00C2}-\x{00F4}]' . $siguiente . '{1,3}/u', function ($m) use ($cp1252) {
+            $b = '';
+            foreach (mb_str_split($m[0], 1, 'UTF-8') as $ch) {
+                $n = $cp1252[$ch] ?? mb_ord($ch, 'UTF-8');
+                if ($n === false || $n > 0xFF) return $m[0];
+                $b .= chr($n);
+            }
+            return mb_check_encoding($b, 'UTF-8') && mb_strlen($b, 'UTF-8') === 1 ? $b : $m[0];
+        }, $s);
+        return is_string($r) ? $r : $s;
     }
 
     /** "text/plain; charset=utf-8; name=…" → ['valor' => 'text/plain', 'charset' => …] (RFC 2231 incluido). */
