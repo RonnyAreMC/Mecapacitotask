@@ -851,21 +851,24 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
              . '<i class="fa-solid fa-wand-magic-sparkles"></i> ' . e($texto) . '</button>';
     }
 
-    /** $ilustracion: nombre de iconos/ilustraciones/<nombre>.svg que va a la izquierda del título (opcional). */
+    /** $ilustracion: iconos/ilustraciones/<nombre>.svg a la izquierda del título, o 'nexo:<pose>' para la mascota (flota suave). Opcional. */
     public static function cabecera(string $titulo, string $subtitulo = '', string $acciones = '', string $ilustracion = ''): void
     {
         $ilus = preg_replace('/[^a-z0-9-]/', '', $ilustracion);
-        if ($ilus !== '' && !is_file(__DIR__ . '/../iconos/ilustraciones/' . $ilus . '.svg')) $ilus = '';
+        $arte = str_starts_with($ilustracion, 'nexo:') ? self::nexo(substr($ilustracion, 5), 'page-head__arte page-head__nexo', true)
+            : ($ilus !== '' && is_file(__DIR__ . '/../iconos/ilustraciones/' . $ilus . '.svg')
+                ? '<img class="page-head__arte" src="' . e(asset('iconos/ilustraciones/' . $ilus . '.svg')) . '" alt="" width="520" height="420" decoding="async">'
+                : '');
         ?>
 <header class="page-head">
-  <div<?= $ilus !== '' ? ' class="page-head__main"' : '' ?>>
-    <?php if ($ilus !== ''): ?>
-    <img class="page-head__arte" src="<?= e(asset('iconos/ilustraciones/' . $ilus . '.svg')) ?>" alt="" width="520" height="420" decoding="async">
+  <div<?= $arte !== '' ? ' class="page-head__main"' : '' ?>>
+    <?php if ($arte !== ''): ?>
+    <?= $arte ?>
     <div>
     <?php endif; ?>
     <h1 class="page-title font-display"><?= $titulo ?></h1>
     <?php if ($subtitulo): ?><p class="page-sub"><?= $subtitulo ?></p><?php endif; ?>
-    <?php if ($ilus !== ''): ?></div><?php endif; ?>
+    <?php if ($arte !== ''): ?></div><?php endif; ?>
   </div>
   <?php if ($acciones): ?><div class="page-actions"><?= $acciones ?></div><?php endif; ?>
 </header>

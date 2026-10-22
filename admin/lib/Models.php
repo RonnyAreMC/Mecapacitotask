@@ -281,6 +281,7 @@ final class Config
             'deploys' => [
                 'activo'     => true,
                 'entorno'    => 'Servidor de pruebas',
+                'url'        => 'https://shell-frontend-build-mhlej2pikq-uk.a.run.app/auth/sign-in',   // el enlace para abrirlo
                 'encargados' => [],      // ids que registran deploys
                 'visores'    => [],      // ids extra que ven el modulo
                 'ver_po'     => true,    // los PO y Scrum Masters lo ven siempre
@@ -289,9 +290,9 @@ final class Config
                 // Alias tecnico por proyecto ("ms-academico"): es el nombre con
                 // el que quien sube los cambios reconoce lo que esta subiendo.
                 'alias'      => [],      // [proyecto_id => "ms-academico"]
-                // Cronograma (lib/Cronograma.php): los builds que terminan bien en GitLab
-                // esperan a la hora fija y a esa hora quedan registrados como subidos
-                // (horas: la hora propia de algún proyecto, [proyecto_id => 'HH:MM'])
+                // Horario (lib/Cronograma.php): la hora límite para dejar subidos los cambios
+                // (horas: la propia de algún proyecto, [proyecto_id => 'HH:MM']). Los deploys
+                // que terminan bien en GitLab se registran solos, con su hora real.
                 'cronograma' => ['activo' => true, 'hora' => '10:00', 'dias' => [1, 2, 3, 4, 5], 'horas' => [], 'gitlab' => true, 'aviso' => 30],
             ],
             // Registro publico: quien se registra NO entra al panel, deja una
@@ -2087,14 +2088,15 @@ class DeployRepo
             // despliegue del servidor, no uno por tablero.
             'proyectos'   => array_values(array_unique(array_filter(array_map('intval', (array)($datos['proyectos'] ?? []))))),
             'autor_id'    => (int)($datos['autor_id'] ?? 0),
-            // La de ahora; la subida del cronograma (lib/Cronograma.php) lleva la hora de su ventana
+            // La de ahora; la de un deploy de GitLab (lib/Cronograma.php), la hora en que terminó
             'fecha'       => preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}$/', (string)($datos['fecha'] ?? '')) ? (string)$datos['fecha'] : date('Y-m-d H:i'),
             'entorno'     => trim($datos['entorno'] ?? ''),
             'nota'        => trim($datos['nota'] ?? ''),
             'tareas'      => array_values(array_map('intval', (array)($datos['tareas'] ?? []))),
-            // 'manual' (alguien pulsó «Registrar deploy») o 'cronograma' (la subida de la hora fija)
-            'origen'      => ($datos['origen'] ?? '') === 'cronograma' ? 'cronograma' : 'manual',
-            // Los builds de GitLab que se llevó (ids de la colección deploy_builds)
+            // 'manual' (alguien pulsó «Registrar deploy»), 'gitlab' (un deploy de GitLab, lib/Cronograma.php)
+            // o 'cronograma' (las subidas de la hora fija de antes)
+            'origen'      => in_array($datos['origen'] ?? '', ['gitlab', 'cronograma'], true) ? (string)$datos['origen'] : 'manual',
+            // Los pipelines de GitLab que se llevó (ids de la colección deploy_builds)
             'builds'      => array_values(array_map('intval', (array)($datos['builds'] ?? []))),
         ]);
     }

@@ -3548,3 +3548,22 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
 .ent-caja .ent-nexo { width: auto; height: 124px; margin: 0 auto 14px; animation: mc-rise var(--mc-dur-3) var(--mc-ease-out) both; }
 @media (max-width: 640px) { .ent-caja .ent-nexo { height: 100px; margin-bottom: 10px; } }
 @media (prefers-reduced-motion: reduce) { .mc-empty .mc-empty__nexo, .ent-caja .ent-nexo { animation: none; } }
+
+/* Nexo en el encabezado (UI::cabecera 'nexo:<pose>'): flota suave. Solo transform, que va por la GPU y no recalcula la página. */
+.page-head__arte.page-head__nexo { width: auto; height: 92px; margin: -10px 0 -12px -6px; animation: nexo-flota 4.8s ease-in-out infinite; }
+@keyframes nexo-flota { 0%, 100% { transform: translateY(0) rotate(0deg); } 50% { transform: translateY(-5px) rotate(-2deg); } }
+@media (max-width: 640px) { .page-head__arte.page-head__nexo { height: 64px; margin: -4px 0 -6px -4px; } }
+@media (prefers-reduced-motion: reduce) { .page-head__arte.page-head__nexo { animation: none; } }
+
+/* ---------- Despliegues: hora límite con Nexo, enlace del servidor, deploys de GitLab ---------- */
+.dep-cuenta { position: relative; }
+.dep-cuenta .dep-cuenta__nexo { position: absolute; left: var(--space-5); bottom: 8px; width: auto; height: 112px; pointer-events: none; }
+@media (max-width: 760px) { .dep-cuenta .dep-cuenta__nexo { position: static; height: 76px; margin-bottom: 2px; } }
+.dep-tira-txt > .dep-tira-url { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: var(--primary-ink);
+  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; }
+.dep-tira-url i { font-size: .62rem; }
+.dep-tira-url:hover, .dep-tira-url:focus-visible { text-decoration: underline; }
+.dep-crono-nota > span { min-width: 0; }
+.dep-crono-nota .ico { flex: none; width: 16px; height: 16px; }
+.dep-crono-nota--alerta { color: var(--warning-ink); }
+.dep-card__autor .dep-item-auto { flex: none; margin-left: 2px; }

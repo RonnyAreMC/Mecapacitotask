@@ -51,7 +51,11 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
       <?= UI::icono('Upload') ?>
     </span>
     <div class="dep-tira-txt">
+      <?php if ($dtCfg['url'] !== ''): ?>
+      <a class="dep-tira-url" href="<?= e($dtCfg['url']) ?>" target="_blank" rel="noopener" title="Abrir <?= e($dtCfg['entorno']) ?>"><?= e($dtCfg['entorno']) ?> <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+      <?php else: ?>
       <small><?= e($dtCfg['entorno']) ?></small>
+      <?php endif; ?>
       <?php if ($dtUltimo): ?>
       <b class="font-display">Cambios subidos a las <?= e(substr($dtUltimo['fecha'], 11, 5)) ?></b>
       <span class="dep-sub">
@@ -72,7 +76,7 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
     </div>
     <div class="dep-tira-fin">
       <?php
-        // La próxima subida de los proyectos de quien mira, con su cuenta regresiva (lib/Cronograma.php).
+        // La próxima hora límite de los proyectos de quien mira, con su cuenta regresiva (lib/Cronograma.php).
         // En Despliegues no: allí está el horario completo.
         $dtProx = 0;
         if ($dtVolver !== 'deploys' && is_file(__DIR__ . '/Cronograma.php')) {
@@ -86,8 +90,8 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
         }
       ?>
       <?php if ($dtProx): ?>
-      <a class="dep-prox" href="deploys.php" title="Próxima subida: <?= e(Cronograma::texto($dtProx)) ?>">
-        <?= UI::icono('Clock') ?> Sube <?= e(Cronograma::texto($dtProx)) ?> ·
+      <a class="dep-prox" href="deploys.php" title="Hora límite para subir los cambios: <?= e(Cronograma::texto($dtProx)) ?>">
+        <?= UI::icono('Clock') ?> Límite <?= e(Cronograma::texto($dtProx)) ?> ·
         <b data-cuenta-regresiva data-corto data-hasta="<?= $dtProx ?>" data-ahora="<?= time() ?>">&nbsp;</b>
       </a>
       <?php endif; ?>

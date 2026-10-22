@@ -53,7 +53,7 @@ UI::inicio('Despliegues', 'deploys');
 UI::cabecera(
     'Despliegues <span class="text-secondary">' . e($cfgDep['entorno']) . '</span>',
     $puedeDep
-        ? 'Cuando subas los cambios, pulsa <b>Cambios subidos</b>: la fecha y la hora se guardan solas.'
+        ? 'Los deploys que terminan bien en GitLab se registran solos. Si subes algo a mano, pulsa <b>Registrar deploy</b>: la fecha y la hora se guardan solas.'
         : 'Aquí ves a qué hora quedaron los últimos cambios en el servidor de pruebas.',
     $fProy ? '<a class="btn-outline btn-meca btn-neutro" href="deploys.php">'
              . UI::icono('Close') . ' Ver todos los proyectos</a>' : ''
@@ -64,8 +64,8 @@ $dtMiembros = $miembros;
 $dtVolver   = 'deploys';
 require __DIR__ . '/lib/deploy_tira.php';
 
-// El horario de subidas (lib/Cronograma.php): a qué hora sube cada proyecto, la cuenta
-// regresiva a la próxima y los builds de GitLab que la esperan
+// El horario de subidas (lib/Cronograma.php): la hora límite de cada proyecto con su cuenta
+// regresiva, y el último deploy que se vio en GitLab (esos se registran solos, abajo)
 $crono = false;
 if (is_file(__DIR__ . '/lib/Cronograma.php')) {
     require_once __DIR__ . '/lib/Cronograma.php';
@@ -77,16 +77,17 @@ if ($crono):
         $fA['proyectos'] = array_values(array_filter($fA['proyectos'], fn($x) => isset($mapaProy[$x['id']])));
         if ($fA['proyectos']) $agenda[] = $fA;
     }
-    $colaV = array_values(array_filter(Cronograma::enCola(), fn($b) => isset($mapaProy[(int)$b['proyecto_id']])));
     $primera = $agenda[0] ?? null;
     $nombreP = fn(array $x) => $x['alias'] !== '' ? $x['alias'] : $x['nombre'];
+    $ultGl = Cronograma::ultimoDeGitLab(array_keys($mapaProy));
+    $sinRespuesta = esAdmin() ? (array)(Cronograma::estado()['errores'] ?? []) : [];
 ?>
 <section class="card-base dep-crono">
   <div class="dep-crono-cab">
     <span class="dep-crono-ico" aria-hidden="true"><?= UI::icono('Clock') ?></span>
     <div class="dep-crono-tit">
       <h2 class="font-display">Horario de subidas</h2>
-      <p>Los cambios suben <?= e(Cronograma::dias()) ?> a la hora de cada proyecto. Los builds que terminan bien en GitLab esperan esa hora y suben solos.</p>
+      <p>Hasta la hora de cada proyecto (<?= e(Cronograma::dias()) ?>) hay que dejar subidos los cambios. Los deploys que terminan bien en GitLab se registran solos, con su hora.</p>
     </div>
     <?php if (esAdmin()): ?>
     <a class="btn-outline btn-meca btn-sm btn-neutro" href="ajustes.php#tab-deploys"><?= UI::icono('Settings') ?> Configurar</a>
@@ -95,11 +96,12 @@ if ($crono):
 
   <?php if ($primera): ?>
   <div class="dep-cuenta" data-cuenta-regresiva data-hasta="<?= (int)$primera['proxima'] ?>" data-ahora="<?= time() ?>">
-    <small>Próxima subida</small>
+    <?php /* Nexo: con tiempo de sobra trabaja tranquilo; en las últimas tres horas, corre */ ?>
+    <?= UI::nexo((int)$primera['proxima'] - time() > 3 * 3600 ? 'con-laptop' : 'corriendo', 'dep-cuenta__nexo') ?>
+    <small>Hora límite para subir los cambios</small>
     <b class="dep-cuenta__reloj font-display" data-cuenta-reloj>&nbsp;</b>
     <span class="dep-cuenta__cuando"><?= e(ucfirst(Cronograma::texto((int)$primera['proxima']))) ?> ·
       <?= e(implode(', ', array_map($nombreP, $primera['proyectos']))) ?>
-      <?php if ($primera['cola']): ?> · <b><?= (int)$primera['cola'] ?> build<?= $primera['cola'] === 1 ? '' : 's' ?></b> en cola<?php endif; ?>
     </span>
   </div>
   <?php endif; ?>
@@ -110,9 +112,7 @@ if ($crono):
       <span class="dep-crono-hora font-display"><?= e(Cronograma::horaTexto($fA['hora'])) ?></span>
       <span class="dep-crono-proys">
         <?php foreach ($fA['proyectos'] as $x): ?>
-        <span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($x['p'])) ?>" title="<?= e($x['nombre']) ?>">
-          <?= e($nombreP($x)) ?><?php if ($x['cola']): ?> <b><?= (int)$x['cola'] ?></b><?php endif; ?>
-        </span>
+        <span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($x['p'])) ?>" title="<?= e($x['nombre']) ?>"><?= e($nombreP($x)) ?></span>
         <?php endforeach; ?>
       </span>
       <span class="dep-crono-cuando"><?= e(Cronograma::texto((int)$fA['proxima'])) ?> ·
@@ -121,26 +121,17 @@ if ($crono):
     <?php endforeach; ?>
   </ul>
 
-  <?php if ($colaV): ?>
-  <details class="dep-crono-builds" open>
-    <summary>En cola para subir <span class="tabla-count"><?= count($colaV) ?></span></summary>
-    <ul>
-      <?php foreach ($colaV as $b): $pB = $mapaProy[(int)$b['proyecto_id']]; ?>
-      <li>
-        <span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($pB)) ?>"><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $pB['nombre']) ?></span>
-        <span class="dep-build-txt"><b><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?></b>
-          <small><?= e($b['rama']) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?> · build terminado <?= e(Cronograma::cuandoFue((string)$b['terminado'])) ?></small></span>
-        <span class="dep-build-sube">sube <?= e(Cronograma::texto(Cronograma::proxima((int)$b['proyecto_id']))) ?></span>
-        <?php if ($b['web_url'] !== ''): ?><a class="dep-build-ver" href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">#<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?>
-      </li>
-      <?php endforeach; ?>
-    </ul>
-  </details>
-  <?php elseif (!Cronograma::conGitLab()): ?>
-  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Los builds de GitLab todavía no se toman solos:
+  <?php if (!Cronograma::conGitLab()): ?>
+  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Los deploys de GitLab todavía no se registran solos:
     <?= esAdmin() ? 'pon el token de GitLab en <a href="ajustes.php#tab-acceso">Ajustes → Acceso y respaldo</a> y el repositorio en cada proyecto.' : 'falta configurarlo en Ajustes.' ?></p>
+  <?php elseif ($ultGl): ?>
+  <p class="dep-crono-nota"><?= UI::icono('Upload') ?> <span>Último deploy en GitLab:
+    <b>#<?= (int)($ultGl['iid'] ?: $ultGl['pipeline_id']) ?></b> en <b><?= e($ultGl['rama']) ?></b>, terminó <?= e(Cronograma::cuandoFue((string)$ultGl['terminado'])) ?><?= $ultGl['lanzo'] !== '' ? ' · lo lanzó ' . e($ultGl['lanzo']) : '' ?><?php if ($ultGl['web_url'] !== ''): ?> · <a href="<?= e($ultGl['web_url']) ?>" target="_blank" rel="noopener">ver pipeline</a><?php endif; ?></span></p>
   <?php else: ?>
-  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> No hay builds esperando: cuando uno termine bien en GitLab, aparece aquí con la hora a la que sube.</p>
+  <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Todavía no se ha visto ningún deploy en GitLab: cuando un pipeline con deploy termine bien, queda registrado solo aquí abajo.</p>
+  <?php endif; ?>
+  <?php if ($sinRespuesta): ?>
+  <p class="dep-crono-nota dep-crono-nota--alerta"><?= UI::iconoDS('info', 16) ?> GitLab no respondió por <?= e(implode(', ', $sinRespuesta)) ?>: revisa el token y el repositorio del proyecto.</p>
   <?php endif; ?>
 </section>
 <?php endif; ?>
@@ -207,7 +198,7 @@ if ($crono):
           $autor = $miembros[(int)$d['autor_id']] ?? null;
           $tids  = DeployRepo::tareasDe($d);
           $nT    = count($tids);
-          $auto  = ($d['origen'] ?? '') === 'cronograma';
+          $auto  = in_array($d['origen'] ?? '', ['gitlab', 'cronograma'], true);
           $bsD   = class_exists('Cronograma') ? Cronograma::deDeploy($d) : [];
           $nota  = trim((string)($d['nota'] ?? ''));
           $conDetalle = $nT || $bsD || $nota !== '';
@@ -238,16 +229,16 @@ if ($crono):
         <p class="dep-card__nota"><?= e($nota) ?></p>
         <?php endif; ?>
         <div class="dep-card__pie">
-          <?php if ($auto): ?>
-          <span class="dep-item-auto" title="La registró el horario de subidas con los builds de GitLab"><?= UI::icono('Clock') ?> Automática</span>
+          <?php if ($auto && !$autor): ?>
+          <span class="dep-item-auto" title="Se registró sola con el deploy de GitLab"><?= UI::icono('Upload') ?> <?= ($d['origen'] ?? '') === 'gitlab' ? 'GitLab' : 'Automática' ?></span>
           <?php elseif ($autor): ?>
-          <span class="dep-card__autor"><?= UI::avatar($autor, 24, true) ?><span><?= e($nombreCorto($autor)) ?></span></span>
+          <span class="dep-card__autor"><?= UI::avatar($autor, 24, true) ?><span><?= e($nombreCorto($autor)) ?></span><?php if ($auto): ?><span class="dep-item-auto" title="Se registró sola con el deploy de GitLab que lanzó"><?= UI::icono('Upload') ?> GitLab</span><?php endif; ?></span>
           <?php else: ?>
           <span class="dep-card__autor dep-card__autor--nadie">Sin autor</span>
           <?php endif; ?>
           <?php if ($conDetalle): ?>
           <button type="button" class="dep-card__ver" aria-haspopup="dialog" onclick="document.getElementById('dlg-dep-<?= $did ?>').showModal()">
-            <?= $nT ? $nT . ' tarea' . ($nT === 1 ? '' : 's') : ($bsD ? count($bsD) . ' build' . (count($bsD) === 1 ? '' : 's') : 'Ver nota') ?>
+            <?= $nT ? $nT . ' tarea' . ($nT === 1 ? '' : 's') : ($bsD ? 'Ver pipeline' : 'Ver nota') ?>
             <i class="fa-solid fa-arrow-right" aria-hidden="true"></i>
           </button>
           <?php else: ?>
@@ -280,20 +271,20 @@ if ($crono):
         <?php endforeach; ?>
       </div>
       <p class="campo-ayuda">
-        <?= $x['auto'] ? 'La registró el horario de subidas.' : ($x['autor'] ? 'La registró ' . e($x['autor']['nombre']) . '.' : '') ?>
+        <?= $x['auto'] ? 'Se registró sola con el deploy de GitLab' . ($x['autor'] ? ' que lanzó ' . e($x['autor']['nombre']) : '') . '.' : ($x['autor'] ? 'La registró ' . e($x['autor']['nombre']) . '.' : '') ?>
         <?= e((string)($d['entorno'] ?? '')) !== '' ? ' En ' . e((string)$d['entorno']) . '.' : '' ?>
       </p>
       <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
       <p class="dep-det-nota"><?= nl2br(e((string)$d['nota'])) ?></p>
       <?php endif; ?>
       <?php if ($x['builds']): ?>
-      <h4 class="dep-det-tit">Builds de GitLab (<?= count($x['builds']) ?>)</h4>
+      <h4 class="dep-det-tit">Pipeline de GitLab</h4>
       <ul class="dep-espera-lista">
         <?php foreach ($x['builds'] as $b): ?>
         <li>
-          <b><?= e(aliasDeploy((int)$b['proyecto_id']) ?: $b['repo']) ?></b>
-          <span><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?> · <?= e($b['rama']) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?></span>
-          <small><?php if ($b['web_url'] !== ''): ?><a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">build #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
+          <b><?= e($b['repo']) ?> · <?= e($b['rama']) ?></b>
+          <span><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?><?= !empty($b['jobs']) ? ' · ' . e(implode(', ', (array)$b['jobs'])) : '' ?></span>
+          <small><?php if ($b['web_url'] !== ''): ?><a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">pipeline #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
         </li>
         <?php endforeach; ?>
       </ul>

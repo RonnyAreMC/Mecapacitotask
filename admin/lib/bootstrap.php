@@ -565,6 +565,8 @@ function configDeploys(): array
     return [
         'activo'     => !isset($d['activo']) || !empty($d['activo']),
         'entorno'    => trim((string)($d['entorno'] ?? '')) ?: 'Servidor de pruebas',
+        // Enlace del servidor (para abrirlo desde Despliegues); solo http(s)
+        'url'        => preg_match('#^https?://\S+$#i', $u = trim((string)($d['url'] ?? 'https://shell-frontend-build-mhlej2pikq-uk.a.run.app/auth/sign-in'))) ? $u : '',
         'encargados' => array_values(array_filter(array_map('intval', (array)($d['encargados'] ?? [])))),
         'visores'    => array_values(array_filter(array_map('intval', (array)($d['visores'] ?? [])))),
         'ver_po'     => !isset($d['ver_po']) || !empty($d['ver_po']),
@@ -577,7 +579,7 @@ function configDeploys(): array
         // lo que sube quien lo sube: el nombre del proyecto en el panel
         // ("Equipo Delta") no es el de la carpeta ni el del microservicio.
         'alias'      => aliasDeploys($d['alias'] ?? []),
-        // A qué hora y qué días se sube (lib/Cronograma.php), y si se toman solos los builds de GitLab
+        // La hora límite y los días (lib/Cronograma.php), y si se toman solos los deploys de GitLab
         'cronograma' => cronogramaDeploys($d['cronograma'] ?? []),
     ];
 }

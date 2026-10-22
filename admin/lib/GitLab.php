@@ -219,59 +219,71 @@ class GitLab
         file_put_contents(self::archivoCache(), json_encode($cache));
     }
 
-    /* ---------- Builds (pipelines) para el cronograma de subidas (lib/Cronograma.php) ---------- */
-
-    /** La rama principal del repo (default_branch), o '' si no se pudo leer. Sin cache: la guarda quien llama. */
-    public static function ramaPrincipal(?string $repoUrl): string
-    {
-        $repo = self::parsearRepo($repoUrl);
-        if (!$repo) return '';
-        [$codigo, $cuerpo] = self::api($repo[0], self::ruta($repo[1]));
-        return $codigo === 200 ? (string)((json_decode($cuerpo, true) ?: [])['default_branch'] ?? '') : '';
-    }
+    /* ---------- Deploys (pipelines) para el horario de subidas (lib/Cronograma.php) ---------- */
 
     /**
-     * Builds que terminaron bien (status=success) en la rama, actualizados
-     * después de $desde (ISO 8601), del más viejo al más nuevo. Cada uno con
-     * su commit (título y autor) y quién lo lanzó. null si GitLab no respondió.
-     * [['id','iid','sha','ref','web_url','terminado' (timestamp),'titulo','autor','lanzo','actualizado' (ISO)]]
+     * Los deploys que terminaron bien: pipelines exitosos de CUALQUIER rama (el
+     * deploy suele salir de una propia, p. ej. «build») con algún job de deploy
+     * —stage o nombre con «deploy»— que terminó bien. Los actualizados después
+     * de $desde (ISO 8601), del más viejo al más nuevo. null si GitLab no respondió.
+     * ['hasta' => el updated_at más nuevo que se miró (de ahí sigue la próxima vez),
+     *  'deploys' => [['id','iid','sha','ref','web_url','inicio','terminado' (timestamps),
+     *                 'titulo','autor','lanzo','usuario','actualizado','jobs' (los de deploy)]]]
      */
-    public static function pipelinesExitosos(?string $repoUrl, string $rama, string $desde, int $max = 20): ?array
+    public static function deploysExitosos(?string $repoUrl, string $desde, int $max = 30): ?array
     {
         $repo = self::parsearRepo($repoUrl);
         if (!$repo) return null;
         [$host, $ruta] = $repo;
-        [$codigo, $cuerpo] = self::api($host, self::ruta($ruta) . '/pipelines?' . http_build_query(array_filter([
-            'status' => 'success', 'ref' => $rama, 'updated_after' => $desde,
+        $base = self::ruta($ruta);
+        [$codigo, $cuerpo] = self::api($host, $base . '/pipelines?' . http_build_query([
+            'status' => 'success', 'updated_after' => $desde,
             'order_by' => 'updated_at', 'sort' => 'asc', 'per_page' => max(1, min(50, $max)),
-        ], fn($v) => $v !== '')));
+        ]));
         if ($codigo !== 200) return null;
+        $hasta = $desde;
         $out = [];
-        foreach (array_slice(json_decode($cuerpo, true) ?: [], 0, $max) as $p) {
-            if (!is_array($p) || empty($p['id']) || ($p['status'] ?? '') !== 'success') continue;
-            // El detalle trae cuándo terminó y quién lo lanzó; el commit, su título y su autor
-            [$c1, $b1] = self::api($host, self::ruta($ruta) . '/pipelines/' . (int)$p['id']);
+        foreach (json_decode($cuerpo, true) ?: [] as $p) {
+            if (!is_array($p) || empty($p['id'])) continue;
+            if (($p['status'] ?? '') !== 'success') continue;
+            // Solo cuenta si desplegó; los builds de una rama cualquiera no suben nada
+            [$cj, $bj] = self::api($host, $base . '/pipelines/' . (int)$p['id'] . '/jobs?per_page=100');
+            if ($cj !== 200) return null;       // la próxima vuelta sigue desde el mismo punto
+            $jobs = [];
+            foreach (json_decode($bj, true) ?: [] as $j) {
+                if (is_array($j) && ($j['status'] ?? '') === 'success' && preg_match('/deploy/i', ($j['stage'] ?? '') . ' ' . ($j['name'] ?? ''))) {
+                    $jobs[] = mb_substr((string)($j['name'] ?? ''), 0, 80);
+                }
+            }
+            if ((string)($p['updated_at'] ?? '') > $hasta) $hasta = (string)$p['updated_at'];
+            if (!$jobs) continue;
+            // El detalle trae cuándo empezó y terminó y quién lo lanzó; el commit, su título y su autor
+            [$c1, $b1] = self::api($host, $base . '/pipelines/' . (int)$p['id']);
             $det = $c1 === 200 ? (json_decode($b1, true) ?: []) : [];
             $commit = [];
             if (!empty($p['sha'])) {
-                [$c2, $b2] = self::api($host, self::ruta($ruta) . '/repository/commits/' . rawurlencode((string)$p['sha']));
+                [$c2, $b2] = self::api($host, $base . '/repository/commits/' . rawurlencode((string)$p['sha']));
                 $commit = $c2 === 200 ? (json_decode($b2, true) ?: []) : [];
             }
             $fin = (string)($det['finished_at'] ?? $p['updated_at'] ?? '');
+            $terminado = ($t = strtotime($fin)) !== false ? $t : time();
             $out[] = [
                 'id'          => (int)$p['id'],
                 'iid'         => (int)($p['iid'] ?? 0),
                 'sha'         => (string)($p['sha'] ?? ''),
-                'ref'         => (string)($p['ref'] ?? $rama),
+                'ref'         => (string)($p['ref'] ?? ''),
                 'web_url'     => (string)($p['web_url'] ?? ''),
-                'terminado'   => ($t = strtotime($fin)) !== false ? $t : time(),
+                'inicio'      => ($t = strtotime((string)($det['started_at'] ?? $p['created_at'] ?? ''))) !== false ? $t : $terminado,
+                'terminado'   => $terminado,
                 'titulo'      => mb_substr(trim((string)($commit['title'] ?? '')), 0, 200),
                 'autor'       => mb_substr(trim((string)($commit['author_name'] ?? '')), 0, 80),
                 'lanzo'       => mb_substr(trim((string)($det['user']['name'] ?? '')), 0, 80),
+                'usuario'     => mb_substr(trim((string)($det['user']['username'] ?? '')), 0, 80),
                 'actualizado' => (string)($p['updated_at'] ?? $fin),
+                'jobs'        => array_slice($jobs, 0, 12),
             ];
         }
-        return $out;
+        return ['hasta' => $hasta, 'deploys' => $out];
     }
 
     /** GET a la API v4 del host indicado. Devuelve [codigoHttp, cuerpo]. */

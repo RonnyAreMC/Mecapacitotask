@@ -1,22 +1,21 @@
 <?php
 /**
- * Cronograma de subidas: los builds que terminan bien en GitLab esperan a la
- * hora fija de su proyecto (por defecto las 10:00 de lunes a viernes; un
- * proyecto puede tener la suya, p. ej. la Agraria a las 15:00) y a esa hora
- * quedan registrados como un despliegue —con las tareas completadas de sus
- * proyectos— y se avisa a todos. Así el equipo sabe qué sube y cuándo, y los
- * dev saben que lo suyo ya está en fila. Despliegues muestra el horario y la
- * cuenta regresiva.
+ * Horario de subidas y deploys de GitLab.
+ *
+ * Cada proyecto tiene su HORA LÍMITE (por defecto las 10:00 de lunes a viernes;
+ * la Agraria, p. ej., a las 15:00): hasta esa hora el equipo tiene que dejar
+ * subidos sus cambios. Despliegues la muestra con su cuenta regresiva y, unos
+ * minutos antes, se le recuerda al equipo.
+ *
+ * Los deploys NO esperan a esa hora: cuando un pipeline de GitLab termina bien
+ * y trae jobs de deploy (en la rama que sea, p. ej. «build»), queda registrado
+ * en ese momento, con su hora real, los proyectos de ese repo y las tareas
+ * completadas que nadie había subido, y se avisa a todos. Si alguien ya lo
+ * registró a mano mientras corría el pipeline, se le junta a ese registro.
  *
  * Lo mueve el cron de cada minuto (cron_correo.php) o cron_deploys.php:
- *  1. buscar(): cada 5 minutos pregunta a GitLab por los builds exitosos de la
- *     rama de cada repo de los proyectos con despliegues. Los nuevos quedan
- *     «en cola» y a su equipo le llega a qué hora suben.
- *  2. avisoPrevio(): unos minutos antes de la hora, lo que va a subir.
- *  3. subirVentana(): a la hora, el despliegue con lo que está en cola y el
- *     aviso a todos.
- * Si alguien registra la subida a mano antes, se lleva los builds en cola de
- * sus proyectos (alRegistrarAMano).
+ *  1. buscar(): cada 5 minutos pregunta a GitLab por los deploys nuevos.
+ *  2. avisoPrevio(): unos minutos antes de la hora límite, el recordatorio.
  *
  * La configuración (hora general, hora por proyecto, días, GitLab sí/no, aviso
  * previo) está en Ajustes → Despliegues (configDeploys()['cronograma']).
@@ -29,6 +28,12 @@ final class Cronograma
 {
     /** Segundos entre una pregunta a GitLab y la siguiente. */
     private const BUSCAR_CADA = 300;
+
+    /** La primera vez se mira tres días atrás: así entra el deploy de ayer que nadie registró. */
+    private const PRIMERA_VEZ = 3 * 86400;
+
+    /** Un deploy más viejo que esto se registra sin avisar: es ponerse al día, no una novedad. */
+    private const AVISAR_HASTA = 2 * 3600;
 
     private static function builds(): JsonStore
     {
@@ -49,24 +54,45 @@ final class Cronograma
         return $d['activo'] && $d['cronograma']['activo'];
     }
 
-    /** ¿Puede leer builds? GitLab encendido en el cronograma y el token puesto en Ajustes. */
+    /** ¿Puede leer deploys? GitLab encendido en el cronograma y el token puesto en Ajustes. */
     public static function conGitLab(): bool
     {
         return self::conf()['gitlab'] && trim((string)(Config::get('gitlab_token') ?? '')) !== '';
     }
 
-    /** La hora de subida de un proyecto: la suya o la general ($pid 0 = la general). */
+    /** La hora límite de un proyecto: la suya o la general ($pid 0 = la general). */
     public static function horaDe(int $pid = 0): string
     {
         $c = self::conf();
         return $c['horas'][$pid] ?? $c['hora'];
     }
 
-    /** Los proyectos que siguen el cronograma: los de Despliegues que no están completados. */
+    /** Los proyectos que siguen el horario: los de Despliegues que no están completados. */
     public static function proyectos(): array
     {
         return array_values(array_filter((new ProyectoRepo())->todos(),
             fn($p) => ($p['estado'] ?? 'activo') !== 'completado' && proyectoConDeploys((int)$p['id'])));
+    }
+
+    /**
+     * Los repos de GitLab de esos proyectos, cada uno una vez: varios proyectos
+     * pueden vivir en el mismo repo (un monorepo con un módulo por proyecto), y
+     * un deploy de ese repo los sube a todos.
+     * ['host/ruta' => ['url','ruta','pids']]
+     */
+    private static function repos(): array
+    {
+        $out = [];
+        foreach (self::proyectos() as $p) {
+            foreach (ProyectoRepo::repos($p) as $r) {
+                $url = (string)($r['url'] ?? '');
+                if (Repos::proveedor($url) !== 'gitlab' || !($rp = GitLab::parsearRepo($url))) continue;
+                $k = strtolower($rp[0] . '/' . $rp[1]);
+                $out[$k] ??= ['url' => $url, 'ruta' => $rp[1], 'pids' => []];
+                if (!in_array((int)$p['id'], $out[$k]['pids'], true)) $out[$k]['pids'][] = (int)$p['id'];
+            }
+        }
+        return $out;
     }
 
     private static function archivoEstado(): string
@@ -74,7 +100,7 @@ final class Cronograma
         return __DIR__ . '/../data/cronograma.json';
     }
 
-    /** Lo que recuerda entre vueltas: última búsqueda, ventanas hechas y avisos por proyecto, cursores… */
+    /** Lo que recuerda entre vueltas: última búsqueda, avisos por proyecto, desde dónde sigue cada repo… */
     public static function estado(): array
     {
         $f = self::archivoEstado();
@@ -86,9 +112,9 @@ final class Cronograma
         @file_put_contents(self::archivoEstado(), json_encode(array_replace(self::estado(), $cambios), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), LOCK_EX);
     }
 
-    /* ======================= Las ventanas (la hora fija) ======================= */
+    /* ======================= La hora límite ======================= */
 
-    /** La ventana de un día a esa hora (timestamp), o 0 si ese día no se sube. */
+    /** La hora límite de un día (timestamp), o 0 si ese día no hay. */
     private static function ventanaDelDia(int $dia, string $hora): int
     {
         if (!in_array((int)date('N', $dia), self::conf()['dias'], true)) return 0;
@@ -96,7 +122,7 @@ final class Cronograma
         return mktime($h, $m, 0, (int)date('n', $dia), (int)date('j', $dia), (int)date('Y', $dia));
     }
 
-    /** La primera ventana del proyecto en $t o después. */
+    /** La primera hora límite del proyecto en $t o después. */
     public static function siguiente(int $t, int $pid = 0): int
     {
         $hora = self::horaDe($pid);
@@ -107,29 +133,10 @@ final class Cronograma
         return 0;
     }
 
-    /** La última ventana del proyecto en $t o antes (0 si ninguna en dos semanas). */
-    public static function anterior(int $t, int $pid = 0): int
-    {
-        $hora = self::horaDe($pid);
-        for ($i = 0; $i <= 14; $i++) {
-            $v = self::ventanaDelDia(strtotime(date('Y-m-d', $t) . ' -' . $i . ' day'), $hora);
-            if ($v > 0 && $v <= $t) return $v;
-        }
-        return 0;
-    }
-
-    /**
-     * La próxima subida de un proyecto: su ventana que viene o, si el cron se
-     * atrasó y la de hoy aún no se hizo, esa.
-     */
+    /** La próxima hora límite de un proyecto. */
     public static function proxima(int $pid = 0, ?int $ahora = null): int
     {
-        $ahora ??= time();
-        $a = self::anterior($ahora, $pid);
-        $hechas = (array)(self::estado()['ventanas'] ?? []);
-        $ult = (int)($hechas[$pid] ?? 0);
-        if ($a > 0 && $ult > 0 && $a > $ult) return $a;
-        return self::siguiente($ahora, $pid);
+        return self::siguiente($ahora ?? time(), $pid);
     }
 
     /** «hoy a las 10:00 am», «mañana miércoles 22 a las 10:00 am», «el lunes 26 a las 3:00 pm». */
@@ -179,41 +186,30 @@ final class Cronograma
     }
 
     /**
-     * El horario para mostrarlo: una fila por hora de subida con sus proyectos,
-     * la próxima ventana y los builds en cola, ordenadas por la más cercana.
-     * [['hora','proxima','proyectos' => [[id, nombre, alias, cola]], 'cola']]
+     * El horario para mostrarlo: una fila por hora límite con sus proyectos y
+     * la próxima, ordenadas por la más cercana.
+     * [['hora','proxima','proyectos' => [[id, nombre, alias, p]]]]
      */
     public static function agenda(?int $ahora = null): array
     {
         $ahora ??= time();
-        $cola = [];
-        foreach (self::enCola() as $b) $cola[(int)$b['proyecto_id']] = ($cola[(int)$b['proyecto_id']] ?? 0) + 1;
         $filas = [];
         foreach (self::proyectos() as $p) {
             $pid = (int)$p['id'];
             $hora = self::horaDe($pid);
             $prox = self::proxima($pid, $ahora);
             $k = $hora . '|' . $prox;
-            $filas[$k] ??= ['hora' => $hora, 'proxima' => $prox, 'proyectos' => [], 'cola' => 0];
-            $filas[$k]['proyectos'][] = ['id' => $pid, 'nombre' => (string)$p['nombre'], 'alias' => aliasDeploy($pid), 'cola' => $cola[$pid] ?? 0, 'p' => $p];
-            $filas[$k]['cola'] += $cola[$pid] ?? 0;
+            $filas[$k] ??= ['hora' => $hora, 'proxima' => $prox, 'proyectos' => []];
+            $filas[$k]['proyectos'][] = ['id' => $pid, 'nombre' => (string)$p['nombre'], 'alias' => aliasDeploy($pid), 'p' => $p];
         }
         $filas = array_values($filas);
         usort($filas, fn($a, $b) => $a['proxima'] <=> $b['proxima']);
         return $filas;
     }
 
-    /* ======================= Los builds ======================= */
+    /* ======================= Los deploys de GitLab ======================= */
 
-    /** Los que esperan su subida, del más viejo al más nuevo. */
-    public static function enCola(): array
-    {
-        $l = array_values(array_filter(self::builds()->all(), fn($b) => ($b['estado'] ?? '') === 'en_cola'));
-        usort($l, fn($a, $b) => (int)$a['terminado_t'] <=> (int)$b['terminado_t']);
-        return $l;
-    }
-
-    /** Los builds que se llevó un despliegue. */
+    /** Los pipelines de GitLab que se llevó un despliegue. */
     public static function deDeploy(array $deploy): array
     {
         $ids = array_flip(array_map('intval', (array)($deploy['builds'] ?? [])));
@@ -223,9 +219,21 @@ final class Cronograma
         return $l;
     }
 
+    /** El último deploy que se vio en GitLab de alguno de esos proyectos (null si ninguno). */
+    public static function ultimoDeGitLab(array $pids): ?array
+    {
+        $pids = array_flip(array_map('intval', $pids));
+        $ult = null;
+        foreach (self::builds()->all() as $b) {
+            if (($b['estado'] ?? '') !== 'subido' || !array_intersect_key(array_flip(array_map('intval', (array)($b['proyectos'] ?? [$b['proyecto_id'] ?? 0]))), $pids)) continue;
+            if (!$ult || (int)$b['terminado_t'] > (int)$ult['terminado_t']) $ult = $b;
+        }
+        return $ult;
+    }
+
     /**
-     * Pregunta a GitLab por los builds exitosos nuevos (cada 5 minutos, o ya con
-     * $forzar). Los mete en cola y avisa a su equipo. Devuelve los nuevos.
+     * Pregunta a GitLab por los deploys nuevos (cada 5 minutos, o ya con $forzar)
+     * y registra cada uno con su hora real. Devuelve los despliegues que creó.
      */
     public static function buscar(bool $forzar = false): array
     {
@@ -236,69 +244,128 @@ final class Cronograma
 
         $store = self::builds();
         $vistos = [];
-        foreach ($store->all() as $b) $vistos[(string)$b['llave']] = true;
-        $cursores = (array)($e['cursores'] ?? []);
-        $ramas = (array)($e['ramas'] ?? []);
+        foreach ($store->all() as $b) {
+            // Lo que quedó «en cola» del horario de antes no cuenta como visto: se registra ahora
+            if (($b['estado'] ?? '') === 'subido') $vistos[(string)$b['llave']] = true;
+            else $store->delete((int)$b['id']);
+        }
+        $desdeRepo = (array)($e['deploys_desde'] ?? []);
         $errores = [];
-        $nuevos = [];
+        $creados = [];
         $inicio = time();
-        foreach (self::proyectos() as $p) {
-            $pid = (int)$p['id'];
-            foreach (ProyectoRepo::repos($p) as $r) {
-                if (time() - $inicio > 25) break 2;            // lo que falte, en la próxima vuelta
-                $url = (string)($r['url'] ?? '');
-                if (Repos::proveedor($url) !== 'gitlab' || !($rp = GitLab::parsearRepo($url))) continue;
-                // La rama del repo en el proyecto o, si no se puso, la principal de GitLab
-                $rama = trim((string)($r['rama'] ?? '')) ?: (string)($ramas[$url] ?? '');
-                if ($rama === '') {
-                    $rama = GitLab::ramaPrincipal($url);
-                    if ($rama === '') { $errores[] = $rp[1]; continue; }
-                    $ramas[$url] = $rama;
-                }
-                $clave = $url . '#' . $rama;
-                // La primera vez, solo lo de las últimas 24 h: no se encolan de golpe builds viejos
-                $desde = (string)($cursores[$clave] ?? gmdate('Y-m-d\TH:i:s\Z', time() - 86400));
-                $lista = GitLab::pipelinesExitosos($url, $rama, $desde);
-                if ($lista === null) { $errores[] = $rp[1]; continue; }
-                foreach ($lista as $pl) {
-                    if ((string)$pl['actualizado'] > (string)($cursores[$clave] ?? '')) $cursores[$clave] = (string)$pl['actualizado'];
-                    $llave = strtolower($rp[0] . '/' . $rp[1]) . '#' . (int)$pl['id'];
-                    if (isset($vistos[$llave])) continue;
-                    $vistos[$llave] = true;
-                    $nuevos[] = $store->insert([
-                        'llave'       => $llave,
-                        'proyecto_id' => $pid,
-                        'repo'        => (string)($r['label'] ?? $rp[1]),
-                        'ruta'        => $rp[1],
-                        'rama'        => (string)$pl['ref'],
-                        'pipeline_id' => (int)$pl['id'],
-                        'iid'         => (int)$pl['iid'],
-                        'sha'         => substr((string)$pl['sha'], 0, 40),
-                        'titulo'      => (string)$pl['titulo'],
-                        'autor'       => (string)$pl['autor'],
-                        'lanzo'       => (string)$pl['lanzo'],
-                        'web_url'     => preg_match('#^https?://#i', (string)$pl['web_url']) ? (string)$pl['web_url'] : '',
-                        'terminado'   => date('Y-m-d H:i', (int)$pl['terminado']),
-                        'terminado_t' => (int)$pl['terminado'],
-                        'estado'      => 'en_cola',
-                        'deploy_id'   => 0,
-                        'visto'       => date('Y-m-d H:i'),
-                    ]);
-                }
+        foreach (self::repos() as $k => $r) {
+            if (time() - $inicio > 25) break;                  // lo que falte, en la próxima vuelta
+            $desde = (string)($desdeRepo[$k] ?? gmdate('Y-m-d\TH:i:s\Z', time() - self::PRIMERA_VEZ));
+            $res = GitLab::deploysExitosos($r['url'], $desde);
+            if ($res === null) { $errores[] = $r['ruta']; continue; }
+            $desdeRepo[$k] = $res['hasta'];
+            foreach ($res['deploys'] as $pl) {
+                $llave = $k . '#' . (int)$pl['id'];
+                if (isset($vistos[$llave])) continue;
+                $vistos[$llave] = true;
+                $b = $store->insert([
+                    'llave'       => $llave,
+                    'proyecto_id' => $r['pids'][0],
+                    'proyectos'   => $r['pids'],
+                    'repo'        => $r['ruta'],
+                    'ruta'        => $r['ruta'],
+                    'rama'        => (string)$pl['ref'],
+                    'pipeline_id' => (int)$pl['id'],
+                    'iid'         => (int)$pl['iid'],
+                    'sha'         => substr((string)$pl['sha'], 0, 40),
+                    'titulo'      => (string)$pl['titulo'],
+                    'autor'       => (string)$pl['autor'],
+                    'lanzo'       => (string)$pl['lanzo'],
+                    'usuario'     => (string)$pl['usuario'],
+                    'jobs'        => (array)$pl['jobs'],
+                    'web_url'     => preg_match('#^https?://#i', (string)$pl['web_url']) ? (string)$pl['web_url'] : '',
+                    'inicio_t'    => (int)$pl['inicio'],
+                    'terminado'   => date('Y-m-d H:i', (int)$pl['terminado']),
+                    'terminado_t' => (int)$pl['terminado'],
+                    'estado'      => 'subido',
+                    'deploy_id'   => 0,
+                    'visto'       => date('Y-m-d H:i'),
+                ]);
+                $dep = self::registrar($b, $r['pids']);
+                if ($dep) $creados[] = $dep;
             }
         }
-        self::guardarEstado(['cursores' => $cursores, 'ramas' => $ramas, 'errores' => array_values(array_unique($errores)),
+        self::guardarEstado(['deploys_desde' => $desdeRepo, 'errores' => array_values(array_unique($errores)),
                              'ultima_ok' => $errores ? (int)($e['ultima_ok'] ?? 0) : time()]);
-        if ($nuevos) self::avisarNuevos($nuevos);
-        return $nuevos;
+        return $creados;
+    }
+
+    /**
+     * El despliegue de un deploy de GitLab. Si alguien ya lo registró a mano
+     * mientras corría el pipeline (o justo al terminar), es ese mismo: se le
+     * junta y no se avisa otra vez. Si no, uno nuevo con su hora real, las
+     * tareas completadas que nadie había subido y el aviso a todos.
+     */
+    private static function registrar(array $b, array $pids): ?array
+    {
+        $deploys = new DeployRepo();
+        $ini = (int)$b['inicio_t'];
+        $fin = (int)$b['terminado_t'];
+        foreach ($deploys->todos() as $d) {
+            if (($d['origen'] ?? 'manual') !== 'manual' || !empty($d['builds'])) continue;
+            $t = strtotime((string)$d['fecha']);
+            if ($t === false || $t < $ini - 600 || $t > $fin + 1800) continue;
+            if (!array_intersect(array_map('intval', DeployRepo::proyectosDe($d)), $pids)) continue;
+            $deploys->actualizar((int)$d['id'], ['builds' => [(int)$b['id']]]);
+            self::builds()->update((int)$b['id'], ['deploy_id' => (int)$d['id']]);
+            return null;
+        }
+
+        // Las tareas completadas hasta que arrancó el pipeline y que ningún despliegue se llevó
+        $tareas = new TareaRepo();
+        $finales = Catalogo::estadosFinales();
+        $hasta = date('Y-m-d H:i', $ini);
+        $pend = [];
+        foreach ($pids as $pid) {
+            foreach ($tareas->delProyecto($pid) as $t) {
+                if (!in_array($t['estado'] ?? '', $finales, true) || (int)($t['deploy_id'] ?? 0) !== 0) continue;
+                if ((string)($t['completada_en'] ?? '') > $hasta) continue;
+                $pend[] = (int)$t['id'];
+            }
+        }
+        $cfg = configDeploys();
+        $quien = $b['lanzo'] !== '' ? $b['lanzo'] : $b['autor'];
+        $nota = 'Deploy de GitLab · pipeline #' . (int)($b['iid'] ?: $b['pipeline_id']) . ' en ' . $b['rama']
+            . ' · empezó a las ' . date('g:i a', $ini) . ' y terminó a las ' . date('g:i a', $fin)
+            . ($quien !== '' ? ' · lo lanzó ' . $quien : '') . '.'
+            . ($b['titulo'] !== '' ? "\n«" . $b['titulo'] . '»' : '');
+        $dep = $deploys->crear([
+            'proyectos' => $pids, 'autor_id' => self::miembroDe($b), 'entorno' => $cfg['entorno'], 'fecha' => date('Y-m-d H:i', $fin),
+            'nota' => mb_substr($nota, 0, 1500), 'tareas' => $pend, 'origen' => 'gitlab', 'builds' => [(int)$b['id']],
+        ]);
+        foreach ($pend as $tid) $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]);
+        self::builds()->update((int)$b['id'], ['deploy_id' => (int)$dep['id']]);
+
+        if (time() - $fin <= self::AVISAR_HASTA) {
+            $nt = count($pend);
+            self::avisar(self::interesados($pids, true), 'Se subieron los cambios a ' . $cfg['entorno'],
+                self::nombres($pids) . ($nt ? ' · ' . $nt . ' tarea' . ($nt === 1 ? '' : 's') : '')
+                . ' · deploy de GitLab terminado a las ' . date('g:i a', $fin) . ($quien !== '' ? ' (lo lanzó ' . $quien . ')' : '') . '.');
+        }
+        return $dep;
+    }
+
+    /** El miembro del panel que lanzó el pipeline (por su usuario de Git o su nombre), o 0. */
+    private static function miembroDe(array $b): int
+    {
+        $norm = fn(string $s) => trim(preg_replace('/\s+/', ' ', strtolower(strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n', 'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n']))));
+        $usuario = $norm((string)($b['usuario'] ?? ''));
+        $nombre = $norm((string)($b['lanzo'] ?? ''));
+        foreach ((new MiembroRepo())->todos() as $m) {
+            if ($usuario !== '' && ($norm((string)($m['git_user'] ?? '')) === $usuario || $norm(strtok((string)($m['email'] ?? ''), '@') ?: '') === $usuario)) return (int)$m['id'];
+            if ($nombre !== '' && $norm((string)($m['nombre'] ?? '')) === $nombre) return (int)$m['id'];
+        }
+        return 0;
     }
 
     /* ======================= La vuelta del cron ======================= */
 
-    /**
-     * Una vuelta (cada minuto): busca builds, avisa antes de la hora y, a la
-     * hora de cada proyecto, sube lo que tiene en cola. Devuelve qué hizo.
-     */
+    /** Una vuelta (cada minuto): busca deploys en GitLab y avisa antes de la hora límite. Devuelve qué hizo. */
     public static function paso(?int $ahora = null): array
     {
         $ahora ??= time();
@@ -307,24 +374,9 @@ final class Cronograma
         $candado = @fopen(__DIR__ . '/../data/cronograma.lock', 'c');
         if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) return $res;
         try {
-            $ventanas = (array)(self::estado()['ventanas'] ?? []);
-            $porSubir = [];
-            foreach (self::proyectos() as $p) {
-                $pid = (int)$p['id'];
-                $a = self::anterior($ahora, $pid);
-                // La primera vez se toma como hecha su última ventana: no se sube de golpe lo de antes
-                if (empty($ventanas[$pid])) { $ventanas[$pid] = $a ?: $ahora; continue; }
-                if ($a > (int)$ventanas[$pid]) $porSubir[$a][] = $pid;
-            }
-            self::guardarEstado(['ventanas' => $ventanas]);
-            // Justo antes de subir se pregunta otra vez a GitLab: lo que terminó un minuto antes también va
-            $res['nuevos'] = count(self::buscar((bool)$porSubir));
+            $res['deploys'] = array_map(fn($d) => (int)$d['id'], self::buscar());
+            $res['nuevos'] = count($res['deploys']);
             $res['avisos'] = self::avisoPrevio($ahora);
-            ksort($porSubir);
-            foreach ($porSubir as $v => $pids) {
-                $dep = self::subirVentana((int)$v, $pids);
-                if ($dep) $res['deploys'][] = (int)$dep['id'];
-            }
         } finally {
             flock($candado, LOCK_UN);
             fclose($candado);
@@ -332,118 +384,41 @@ final class Cronograma
         return $res;
     }
 
-    /** Unos minutos antes de la hora de cada proyecto: qué va a subir. Una vez por ventana. Devuelve cuántos avisos. */
+    /** Unos minutos antes de la hora límite de cada proyecto, el recordatorio a su equipo. Una vez por día. Devuelve cuántos avisos. */
     public static function avisoPrevio(?int $ahora = null): int
     {
         $ahora ??= time();
         $min = (int)self::conf()['aviso'];
         if ($min <= 0) return 0;
         $avisados = (array)(self::estado()['avisos'] ?? []);
-        $porVentana = [];
+        $porHora = [];
         foreach (self::proyectos() as $p) {
             $pid = (int)$p['id'];
             $v = self::siguiente($ahora, $pid);
             if ($v <= 0 || $v - $ahora > $min * 60 || (int)($avisados[$pid] ?? 0) >= $v) continue;
             $avisados[$pid] = $v;
-            $porVentana[$v][] = $pid;
+            $porHora[$v][] = $pid;
         }
-        if (!$porVentana) return 0;
+        if (!$porHora) return 0;
         self::guardarEstado(['avisos' => $avisados]);
-        $n = 0;
-        foreach ($porVentana as $v => $pids) {
-            $cola = array_values(array_filter(self::enCola(), fn($b) => in_array((int)$b['proyecto_id'], $pids, true) && (int)$b['terminado_t'] <= $ahora));
-            if (!$cola) continue;
-            $conCola = array_values(array_unique(array_map(fn($b) => (int)$b['proyecto_id'], $cola)));
-            $nb = count($cola);
-            self::avisar(self::interesados($conCola), 'Hoy a las ' . self::horaTexto(date('H:i', (int)$v)) . ' se suben los cambios',
-                $nb . ' build' . ($nb === 1 ? '' : 's') . ' de ' . self::nombres($conCola) . ': '
-                . implode(' · ', array_map(fn($b) => $b['titulo'] !== '' ? $b['titulo'] : $b['rama'], array_slice($cola, 0, 3))) . ($nb > 3 ? '…' : ''));
-            $n++;
+        foreach ($porHora as $v => $pids) {
+            self::avisar(self::interesados($pids), 'Hoy a las ' . self::horaTexto(date('H:i', (int)$v)) . ' es la hora límite para subir los cambios',
+                'Deja subido lo de ' . self::nombres($pids) . ' antes de esa hora.');
         }
-        return $n;
+        return count($porHora);
     }
 
-    /**
-     * La subida de la ventana $v de esos proyectos: un despliegue con sus builds
-     * en cola que terminaron antes de esa hora, las tareas completadas que nadie
-     * subió, y el aviso a todos. Sin builds no se registra nada.
-     */
-    public static function subirVentana(int $v, array $pids): ?array
-    {
-        $ventanas = (array)(self::estado()['ventanas'] ?? []);
-        foreach ($pids as $pid) $ventanas[(int)$pid] = $v;
-        self::guardarEstado(['ventanas' => $ventanas]);
-        $cola = array_values(array_filter(self::enCola(), fn($b) => in_array((int)$b['proyecto_id'], $pids, true) && (int)$b['terminado_t'] <= $v));
-        if (!$cola) return null;
-        $pids = array_values(array_filter(array_unique(array_map(fn($b) => (int)$b['proyecto_id'], $cola)), fn($pid) => proyectoConDeploys($pid)));
-        if (!$pids) return null;
-
-        $tareas = new TareaRepo();
-        $finales = Catalogo::estadosFinales();
-        $pend = [];
-        foreach ($pids as $pid) {
-            foreach ($tareas->delProyecto($pid) as $t) {
-                if (in_array($t['estado'] ?? '', $finales, true) && (int)($t['deploy_id'] ?? 0) === 0) $pend[] = (int)$t['id'];
-            }
-        }
-        $cfg = configDeploys();
-        $nota = 'Subida programada de las ' . self::horaTexto(date('H:i', $v)) . ' (cronograma).' . "\n"
-            . implode("\n", array_map(fn($b) => '- ' . (aliasDeploy((int)$b['proyecto_id']) ?: $b['repo']) . ' · ' . $b['rama'] . ' · '
-                . ($b['titulo'] !== '' ? $b['titulo'] : substr($b['sha'], 0, 8)) . ($b['autor'] !== '' ? ' (' . $b['autor'] . ')' : ''), $cola));
-        $dep = (new DeployRepo())->crear([
-            'proyectos' => $pids, 'autor_id' => 0, 'entorno' => $cfg['entorno'], 'fecha' => date('Y-m-d H:i', $v),
-            'nota' => mb_substr($nota, 0, 1500), 'tareas' => $pend, 'origen' => 'cronograma',
-            'builds' => array_map(fn($b) => (int)$b['id'], $cola),
-        ]);
-        foreach ($pend as $tid) $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]);
-        $store = self::builds();
-        foreach ($cola as $b) $store->update((int)$b['id'], ['estado' => 'subido', 'deploy_id' => (int)$dep['id']]);
-
-        $n = count($cola);
-        $nt = count($pend);
-        self::avisar(self::interesados($pids, true), 'Se subieron los cambios a ' . $cfg['entorno'],
-            self::nombres($pids) . ' · ' . $n . ' build' . ($n === 1 ? '' : 's') . ($nt ? ' y ' . $nt . ' tarea' . ($nt === 1 ? '' : 's') : '')
-            . ' · subida de las ' . self::horaTexto(date('H:i', $v)) . '.');
-        return $dep;
-    }
-
-    /**
-     * Alguien registró la subida a mano: se lleva los builds en cola de sus
-     * proyectos (ya están arriba) y se avisa igual que en la subida programada.
-     */
+    /** Alguien registró la subida a mano: se avisa a todos. */
     public static function alRegistrarAMano(array $deploy): void
     {
         $pids = array_map('intval', DeployRepo::proyectosDe($deploy));
-        $cola = array_values(array_filter(self::enCola(), fn($b) => in_array((int)$b['proyecto_id'], $pids, true)));
-        if ($cola) {
-            $store = self::builds();
-            foreach ($cola as $b) $store->update((int)$b['id'], ['estado' => 'subido', 'deploy_id' => (int)$deploy['id']]);
-            (new DeployRepo())->actualizar((int)$deploy['id'], ['builds' => array_map(fn($b) => (int)$b['id'], $cola)]);
-        }
-        $n = count($cola);
         $nt = count(DeployRepo::tareasDe($deploy));
         self::avisar(self::interesados($pids, true), 'Se subieron los cambios a ' . (string)($deploy['entorno'] ?? configDeploys()['entorno']),
-            self::nombres($pids) . ($n ? ' · ' . $n . ' build' . ($n === 1 ? '' : 's') : '') . ($nt ? ' · ' . $nt . ' tarea' . ($nt === 1 ? '' : 's') : '')
+            self::nombres($pids) . ($nt ? ' · ' . $nt . ' tarea' . ($nt === 1 ? '' : 's') : '')
             . ' · a las ' . self::horaTexto(substr((string)$deploy['fecha'], 11, 5)) . '.', (int)($deploy['autor_id'] ?? 0));
     }
 
     /* ======================= Avisos ======================= */
-
-    /** Al equipo de cada proyecto, cuando sus builds entran en cola: a qué hora suben. */
-    private static function avisarNuevos(array $nuevos): void
-    {
-        $porProy = [];
-        foreach ($nuevos as $b) $porProy[(int)$b['proyecto_id']][] = $b;
-        foreach ($porProy as $pid => $bs) {
-            $n = count($bs);
-            $nombre = self::nombres([$pid]);
-            $cuando = self::texto(self::proxima($pid));
-            self::avisar(self::interesados([$pid]),
-                $n === 1 ? 'Build listo de ' . $nombre : $n . ' builds listos de ' . $nombre,
-                $n === 1 ? '«' . ($bs[0]['titulo'] !== '' ? $bs[0]['titulo'] : $bs[0]['rama']) . '»' . ($bs[0]['autor'] !== '' ? ' de ' . $bs[0]['autor'] : '') . ' sube ' . $cuando . '.'
-                         : 'Suben ' . $cuando . '.');
-        }
-    }
 
     /**
      * A quién se avisa: el equipo de esos proyectos (miembros, PO y Scrum Master),

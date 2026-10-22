@@ -2737,6 +2737,7 @@ switch ($accion) {
         $deploysCfg = [
             'activo'     => !empty($depPost['activo']),
             'entorno'    => trim($depPost['entorno'] ?? '') ?: $def['deploys']['entorno'],
+            'url'        => preg_match('#^https?://\S+$#i', $uDep = trim((string)($depPost['url'] ?? ''))) ? $uDep : '',
             'encargados' => $idsValidos($depPost['encargados'] ?? []),
             'visores'    => $idsValidos($depPost['visores'] ?? []),
             'ver_po'     => !empty($depPost['ver_po']),
@@ -2752,8 +2753,8 @@ switch ($accion) {
             'alias'      => array_intersect_key(
                 aliasDeploys($depPost['alias'] ?? []), array_flip($idsProy)
             ),
-            // Cronograma de subidas (lib/Cronograma.php): hora general, días, hora propia por
-            // proyecto (vacía = la general), builds de GitLab y aviso previo
+            // Horario de subidas (lib/Cronograma.php): hora límite general, días, hora propia por
+            // proyecto (vacía = la general), deploys de GitLab y aviso previo
             'cronograma' => (function () use ($depPost, $idsProy) {
                 $cr = (array)($depPost['cronograma'] ?? []);
                 $hora = trim((string)($cr['hora'] ?? ''));

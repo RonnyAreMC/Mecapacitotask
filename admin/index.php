@@ -61,7 +61,8 @@ UI::cabecera(
      </button>
      <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
        <i class="fa-solid fa-plus"></i> Nuevo proyecto
-     </button>'
+     </button>',
+    'nexo:saludando'   // en lugar de los indicadores: Nexo saluda, flotando suave
 );
 
 /* ---------- Horario de reuniones fijas ("dailies") ----------
@@ -113,41 +114,15 @@ foreach ($mapaProy as $pid => $p) {
 ?>
 
 <?php
-/* Indicadores de arriba: lo que suman los proyectos que esta persona ve
-   (con «ver como», los de esa persona). Cada tarjeta de abajo dice lo suyo. */
+/* El resumen de tareas de cada tarjeta de abajo. Los indicadores de arriba
+   (proyectos, tareas, terminadas…) se quitaron: arriba saluda Nexo. */
 $finalesDash = Catalogo::estadosFinales();
 $resumenes = [];
-$indTotal = $indHechas = $indActivos = 0;
-foreach ($proyectos as $p) {
-    $pidDash = (int)$p['id'];
-    $resumenes[$pidDash] = $tareasRepo->resumen($pidDash);
-    $indTotal  += array_sum($resumenes[$pidDash]);
-    $indHechas += $tareasRepo->completadas($pidDash);
-    if (($p['estado'] ?? 'activo') === 'activo') $indActivos++;
-}
-$indPend = max(0, $indTotal - $indHechas);
-$indPct  = $indTotal ? (int)round($indHechas * 100 / $indTotal) : 0;
-$indicadores = [
-    ['Proyectos activos', $indActivos, 'carpeta', 'azul'],
-    ['Tareas', $indTotal, 'completar', 'petroleo'],
-    ['Terminadas', $indHechas, 'exito', 'verde'],
-    ['Pendientes', $indPend, 'reloj', 'amarillo'],
-    ['Avance', $indPct . '%', 'progreso', 'cian'],
-];
+foreach ($proyectos as $p) $resumenes[(int)$p['id']] = $tareasRepo->resumen((int)$p['id']);
 ?>
-<?php if ($proyectos): ?>
-<section class="ds-indicadores" aria-label="Resumen de tus proyectos">
-  <?php foreach ($indicadores as [$rot, $num, $ico, $tono]): ?>
-  <div class="ds-ind ds-ind--<?= $tono ?>">
-    <span class="mc-tile mc-tile--<?= $tono === 'amarillo' ? 'naranja' : $tono ?>"><?= UI::iconoDS($ico, 20) ?></span>
-    <span class="ds-ind__txt"><span class="ds-ind__rot"><?= e($rot) ?></span><span class="ds-ind__num"><?= e((string)$num) ?></span></span>
-  </div>
-  <?php endforeach; ?>
-</section>
-<?php endif; ?>
 
 <?php
-/* Debajo de los indicadores, lo que nadie sabía sin preguntar por chat: a
+/* Arriba, lo que nadie sabía sin preguntar por chat: a
    qué hora se subieron los últimos cambios al servidor de pruebas. */
 // Solo los proyectos en los que participo: aquí salían los ocho del panel, y
 // a quien no está en SIGE no le importa cuándo subió SIGE. El registro
@@ -160,8 +135,8 @@ if (puedeVerDeploys()) {
         require __DIR__ . '/lib/deploy_tira.php';
     }
 } elseif (configDeploys()['activo'] && is_file(__DIR__ . '/lib/Cronograma.php')) {
-    // Quien no entra a Despliegues (los dev) igual ve cuándo suben los cambios de sus proyectos,
-    // con la cuenta regresiva (lib/Cronograma.php): para eso es el horario
+    // Quien no entra a Despliegues (los dev) igual ve hasta cuándo puede subir los cambios de
+    // sus proyectos, con la cuenta regresiva (lib/Cronograma.php): para eso es el horario
     require_once __DIR__ . '/lib/Cronograma.php';
     if (Cronograma::activo()) {
         $proxSub = 0;
@@ -177,9 +152,9 @@ if (puedeVerDeploys()) {
   <div class="dep-tira-main">
     <span class="dep-pulso" aria-hidden="true"><?= UI::icono('Clock') ?></span>
     <div class="dep-tira-txt">
-      <small>Próxima subida de tus proyectos</small>
+      <small>Hora límite para subir tus cambios</small>
       <b class="font-display"><?= e(ucfirst(Cronograma::texto($proxSub))) ?></b>
-      <span class="dep-sub"><?= e(implode(', ', $quienesSub)) ?> · los cambios suben <?= e(Cronograma::dias()) ?> a su hora</span>
+      <span class="dep-sub"><?= e(implode(', ', $quienesSub)) ?> · <?= e(Cronograma::dias()) ?>, hasta esa hora</span>
     </div>
     <div class="dep-tira-fin">
       <span class="dep-prox"><?= UI::icono('Clock') ?> <b data-cuenta-regresiva data-corto data-hasta="<?= $proxSub ?>" data-ahora="<?= time() ?>">&nbsp;</b></span>
