@@ -4111,7 +4111,8 @@ document.addEventListener('change', (e) => {
    ========================================================= */
 document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
   const card = input.closest('.tabla-card') || document;
-  const tbody = card.querySelector('table tbody');
+  // Filas de una tabla o tarjetas de una lista ([data-buscar-lista], p. ej. el equipo)
+  const tbody = card.querySelector('table tbody') || card.querySelector('[data-buscar-lista]');
   if (!tbody) return;
   const vacio = card.querySelector('[data-buscar-vacio]');
   const contador = card.querySelector('[data-buscar-count]');
@@ -4122,7 +4123,7 @@ document.querySelectorAll('[data-tabla-buscar]').forEach((input) => {
   const filtrar = () => {
     const q = normalizar(input.value.trim());
     let n = 0;
-    tbody.querySelectorAll('tr').forEach((tr) => {
+    Array.from(tbody.children).forEach((tr) => {
       if (tr.hasAttribute('data-no-buscar')) return;
       const hay = normalizar(tr.dataset.buscar || tr.textContent || '');
       const ok = !q || hay.includes(q);

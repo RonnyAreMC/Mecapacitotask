@@ -132,7 +132,7 @@ function actualizarPanel(array $opc): void
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols'],
-        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url'],
+        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url', '.eq-card'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php', 'nexo:descansando'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake'],
         'lib/Tutoriales.php' => ['function pendiente'],
@@ -148,14 +148,14 @@ function actualizarPanel(array $opc): void
         'lib/Mailer.php'    => ['codigoRecuperacion'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor'],
+        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista'],
         'index.php'         => ['nexo:saludando', 'portadaDe', 'dep-tira-crono'],
         'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards', 'ultimoDeGitLab'],
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos'],
         'lib/deploy_tira.php' => ['dep-prox', 'dep-tira-url'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor'],
-        'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'celda-contacto', 'equipos.php?desde='],
+        'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir'],
         'oauth_google.php'  => ['oauth_drive'],
@@ -170,7 +170,7 @@ function actualizarPanel(array $opc): void
     // equipo.php no lleva name="telefono" (eso está en campos_persona.php): lo revisa aparte
     $viejos = array_values(array_diff($viejos, ['equipo.php']));
     $txtEquipo = (string)@file_get_contents($dir . '/equipo.php');
-    if (!str_contains($txtEquipo, 'Copiar teléfono') || !str_contains($txtEquipo, 'celda-contacto')) $viejos[] = 'equipo.php';
+    if (!str_contains($txtEquipo, 'Copiar teléfono') || !str_contains($txtEquipo, 'eq-cards')) $viejos[] = 'equipo.php';
     $txtCampos = (string)@file_get_contents($dir . '/lib/campos_persona.php');
     if (!str_contains($txtCampos, 'name="telefono"') || !str_contains($txtCampos, 'TELEFONO_PATRON')) $viejos[] = 'lib/campos_persona.php';
     $viejos ? nota('error', 'Estos archivos son de la versión anterior (vuelve a subirlos): ' . implode(', ', array_unique($viejos)) . '.')

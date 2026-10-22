@@ -36,14 +36,22 @@ $abiertas = [];
 $asignadas = [];
 $tareasDe = [];
 $nombresProyecto = [];
+$proyVisibles = [];
+$proyectosDe = [];   // [miembro => [proyecto_id => proyecto]]: lo que sale en su tarjeta
 foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) {
     $nombresProyecto[(int)$p['id']] = $p['nombre'];
+    if (($p['estado'] ?? 'activo') === 'completado') continue;
+    $proyVisibles[(int)$p['id']] = $p;
+    // Un proyecto sin equipo definido es de todos: no se le pone a nadie por eso
+    $deEse = array_merge((array)(ProyectoRepo::miembrosDe($p) ?? []), [ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)]);
+    foreach ($deEse as $midP) if ((int)$midP > 0) $proyectosDe[(int)$midP][(int)$p['id']] = $p;
 }
 foreach ($tareasRepo->todas() as $t) {
     if ($alcance !== null && !isset($alcance[(int)$t['proyecto_id']])) continue;
     $abierta = !in_array($t['estado'] ?? '', $finales, true);
     foreach (TareaRepo::asignadosDe($t) as $mid) {   // cuenta para cada responsable
         $asignadas[$mid] = ($asignadas[$mid] ?? 0) + 1;
+        if ($abierta && isset($proyVisibles[(int)$t['proyecto_id']])) $proyectosDe[$mid][(int)$t['proyecto_id']] = $proyVisibles[(int)$t['proyecto_id']];
         if ($abierta) {
             $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
             $tareasDe[$mid][] = $t;
@@ -261,131 +269,127 @@ UI::cabecera(
   ?>
 <?php else: ?>
 
-  <!-- Tabla de colaboradores: vision general con git/correo copiables -->
-  <div class="card-base tabla-card">
+  <!-- Colaboradores en tarjetas (la «Card - Docente» del design system), sin bordes:
+       quién es, en qué proyectos está, cómo contactarlo y cuántas tareas tiene abiertas -->
+  <div class="card-base tabla-card eq-panel">
     <div class="tabla-toolbar">
       <h2 class="font-display"><?= UI::iconoEquipo($eq, $eqIcono, 'text-secondary') ?> Colaboradores
         <span class="tabla-count" data-buscar-count><?= count($equipo) ?></span>
       </h2>
       <label class="tabla-buscar">
         <i class="fa-solid fa-magnifying-glass"></i>
-        <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por nombre, usuario o correo…" autocomplete="off">
+        <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por nombre, proyecto, usuario o correo…" autocomplete="off">
       </label>
     </div>
-    <div class="tabla-scroll">
-      <table class="tabla-meca tabla-equipo">
-        <thead>
-          <tr>
-            <th>Colaborador</th>
-            <th><i class="fa-brands fa-github"></i> Usuario de Git</th>
-            <th><i class="fa-solid fa-address-book"></i> Contacto</th>
-            <th class="th-centro">Abiertas</th>
-            <?php if ($puedeAcceso): ?><th><i class="fa-solid fa-shield-halved"></i> Admin</th><?php endif; ?>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <?php foreach ($equipo as $m):
-              $c1 = Catalogo::colorDe($m['color'] ?? 0);
-              $mid = (int)$m['id'];
-              $pendientes = $abiertas[$mid] ?? 0;
-              // La ficha ajena es solo para el administrador
-              $ficha = (esAdmin() || $mid === $yo) ? 'colaborador.php?id=' . $mid : '';
-          ?>
-          <tr class="fila-colab<?= $ficha ? '' : ' fila-sin-ficha' ?>" style="--av-c1:<?= $c1 ?>"
-              data-buscar="<?= e(mb_strtolower(($m['nombre'] ?? '') . ' ' . ($m['rol'] ?? '') . ' ' . ($m['git_user'] ?? '') . ' ' . ($m['email'] ?? ''))) ?>"
-              <?php if ($ficha): ?>onclick="if(!event.target.closest('.btn-copiar'))location.href='<?= $ficha ?>'"<?php endif; ?>>
-            <td>
-              <div class="celda-persona">
-                <?= UI::avatar($m, 38) ?>
-                <div class="cp-info">
-                  <span title="<?= e($m['nombre']) ?>"><?= e($m['nombre']) ?></span>
-                  <small><?= e($m['rol']) ?></small>
-                </div>
-              </div>
-            </td>
-            <td>
-              <?php if (!empty($m['git_user'])): ?>
-              <span class="chip-copiar">
-                <code title="@<?= e($m['git_user']) ?>"><i class="fa-brands fa-github"></i> <span>@<?= e($m['git_user']) ?></span></code>
-                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git">
-                  <i class="fa-regular fa-copy"></i>
-                </button>
-              </span>
-              <?php else: ?><span class="celda-muted">—</span><?php endif; ?>
-            </td>
-            <td class="celda-contacto">
-              <?php // Correo y teléfono, uno debajo del otro: en columnas separadas la tabla no cabía ?>
-              <?php if (!empty($m['email'])): ?>
-              <span class="chip-copiar">
-                <code title="<?= e($m['email']) ?>"><i class="fa-solid fa-envelope"></i> <span><?= e($m['email']) ?></span></code>
-                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['email']) ?>" title="Copiar correo">
-                  <i class="fa-regular fa-copy"></i>
-                </button>
-              </span>
-              <?php endif; ?>
-              <?php if (!empty($m['telefono'])):
-                  // Mal escrito: se marca en rojo y el panel le pide corregirlo cuando entre
-                  $telMal = !MiembroRepo::telefonoValido((string)$m['telefono']); ?>
-              <span class="chip-copiar<?= $telMal ? ' chip-copiar--mal' : '' ?>">
-                <code<?= $telMal ? ' title="Número no válido: se le pedirá corregirlo cuando entre al panel"' : '' ?>><i class="fa-solid <?= $telMal ? 'fa-triangle-exclamation' : 'fa-phone' ?>"></i> <span><?= e($m['telefono']) ?></span></code>
-                <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono">
-                  <i class="fa-regular fa-copy"></i>
-                </button>
-              </span>
-              <?php else: ?>
-              <span class="celda-muted sin-tel" title="Se le pide la próxima vez que entre al panel"><i class="fa-solid fa-phone"></i> Sin teléfono</span>
-              <?php endif; ?>
-            </td>
-            <td class="td-centro"><span class="pr-chip" title="Tareas abiertas"><?= $pendientes ?></span></td>
-            <?php if ($puedeAcceso):
-                // Los perfiles son varios: lo normal es "administrador y Scrum
-                // Master". El color de la píldora lo pone el de más mando.
-                $susAccesos = MiembroRepo::accesosDe($m);
-                $mandaEn    = MiembroRepo::accesoDominante($susAccesos);
-                $esAdm      = in_array('admin', $susAccesos, true); ?>
-            <td class="celda-acceso" onclick="event.stopPropagation()">
-              <?php if ($mid === $yoId): ?>
-                <span class="acceso-yo"><i class="fa-solid fa-shield-halved"></i> Tú (admin)</span>
-              <?php else: ?>
-              <form method="post" action="actions.php" class="inline-form">
-                <input type="hidden" name="accion" value="miembro_acceso_set">
-                <input type="hidden" name="id" value="<?= $mid ?>">
-                <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
-                <!-- Sin esto, quitar TODAS las casillas no manda 'accesos' y la
-                     acción no sabría distinguirlo de un formulario antiguo. -->
-                <input type="hidden" name="accesos[]" value="">
-                <?= UI::select('accesos', Auth::ROLES, $susAccesos, true,
-                               'select-sm select-acceso es-' . e($mandaEn), true) ?>
-              </form>
-              <?php if (in_array('supervisor', $susAccesos, true)): ?>
-                <button type="button" class="accion-btn sw-config" title="Configurar los proyectos que ve"
-                        data-config-super='<?= e(json_encode([
-                            'id' => $mid, 'nombre' => $m['nombre'],
-                            'proyectos' => array_map('intval', (array)($m['proyectos_sup'] ?? [])),
-                        ], JSON_UNESCAPED_UNICODE)) ?>'>
-                  <i class="fa-solid fa-gear"></i>
-                </button>
-              <?php endif; ?>
-              <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
-                <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
-              <?php endif; ?>
-              <?php endif; ?>
-            </td>
+    <div class="eq-cards" data-buscar-lista>
+      <?php foreach ($equipo as $m):
+          $mid = (int)$m['id'];
+          $pendientes = $abiertas[$mid] ?? 0;
+          // La ficha ajena es solo para el administrador
+          $ficha = (esAdmin() || $mid === $yo) ? 'colaborador.php?id=' . $mid : '';
+          $susProy = array_values($proyectosDe[$mid] ?? []);
+          usort($susProy, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
+          $inactivo = isset($m['activo']) && !$m['activo'];
+      ?>
+      <article class="eq-card<?= $inactivo ? ' is-inactivo' : '' ?>" style="--av-c1:<?= Catalogo::colorDe($m['color'] ?? 0) ?>"
+               data-buscar="<?= e(mb_strtolower(($m['nombre'] ?? '') . ' ' . ($m['rol'] ?? '') . ' ' . ($m['git_user'] ?? '') . ' ' . ($m['email'] ?? '')
+                   . ' ' . implode(' ', array_map(fn($x) => (string)$x['nombre'], $susProy)))) ?>">
+        <header class="eq-card__cab">
+          <?= UI::avatar($m, 52) ?>
+          <div class="eq-card__quien">
+            <b title="<?= e($m['nombre']) ?>"><?= e($m['nombre']) ?></b>
+            <span><?= e($m['rol'] ?? '') ?></span>
+          </div>
+        </header>
+
+        <div class="eq-card__bloque">
+          <span class="eq-card__rot">Proyectos</span>
+          <?php if ($susProy): ?>
+          <div class="eq-card__chips">
+            <?php foreach (array_slice($susProy, 0, 3) as $pr): ?>
+            <span class="eq-chip" style="--pc:<?= e(ProyectoRepo::colorBase($pr)) ?>" title="<?= e($pr['nombre']) ?>"><?= e($pr['nombre']) ?></span>
+            <?php endforeach; ?>
+            <?php if (count($susProy) > 3): ?>
+            <span class="eq-chip eq-chip--mas" title="<?= e(implode(', ', array_map(fn($x) => (string)$x['nombre'], array_slice($susProy, 3)))) ?>">+<?= count($susProy) - 3 ?></span>
             <?php endif; ?>
-            <td class="celda-acciones">
-              <?php if ($ficha): ?>
-              <a class="accion-btn" href="<?= $ficha ?>" title="Ver ficha"><i class="fa-solid fa-eye"></i></a>
-              <?php endif; ?>
-            </td>
-          </tr>
-          <?php endforeach; ?>
-          <tr data-buscar-vacio data-no-buscar hidden>
-            <td colspan="<?= $puedeAcceso ? 6 : 5 ?>" class="tabla-buscar-vacio">Nadie coincide con la búsqueda.</td>
-          </tr>
-        </tbody>
-      </table>
+          </div>
+          <?php else: ?>
+          <span class="eq-card__nada">Sin proyectos todavía</span>
+          <?php endif; ?>
+        </div>
+
+        <ul class="eq-card__contacto">
+          <?php if (!empty($m['email'])): ?>
+          <li><?= UI::iconoDS('correo', 16) ?><span title="<?= e($m['email']) ?>"><?= e($m['email']) ?></span>
+            <button type="button" class="eq-copiar btn-copiar" data-copiar="<?= e($m['email']) ?>" title="Copiar correo" aria-label="Copiar correo"><i class="fa-regular fa-copy"></i></button></li>
+          <?php endif; ?>
+          <?php if (!empty($m['telefono'])):
+              // Mal escrito: se marca en rojo y el panel le pide corregirlo cuando entre
+              $telMal = !MiembroRepo::telefonoValido((string)$m['telefono']); ?>
+          <li class="<?= $telMal ? 'is-mal' : '' ?>"<?= $telMal ? ' title="Número no válido: se le pedirá corregirlo cuando entre al panel"' : '' ?>>
+            <?= $telMal ? '<i class="fa-solid fa-triangle-exclamation"></i>' : UI::iconoDS('telefono', 16) ?><span><?= e($m['telefono']) ?></span>
+            <button type="button" class="eq-copiar btn-copiar" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono" aria-label="Copiar teléfono"><i class="fa-regular fa-copy"></i></button></li>
+          <?php else: ?>
+          <li class="is-vacio" title="Se le pide la próxima vez que entre al panel"><?= UI::iconoDS('telefono', 16) ?><span>Sin teléfono</span></li>
+          <?php endif; ?>
+          <?php if (!empty($m['git_user'])): ?>
+          <li><i class="fa-brands fa-github"></i><span title="@<?= e($m['git_user']) ?>">@<?= e($m['git_user']) ?></span>
+            <button type="button" class="eq-copiar btn-copiar" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git" aria-label="Copiar usuario de Git"><i class="fa-regular fa-copy"></i></button></li>
+          <?php endif; ?>
+        </ul>
+
+        <div class="eq-card__dato">
+          <span><b class="eq-card__num<?= $pendientes ? '' : ' is-cero' ?>"><?= $pendientes ?></b>
+            <small>Tarea<?= $pendientes === 1 ? '' : 's' ?> abierta<?= $pendientes === 1 ? '' : 's' ?></small></span>
+          <?= UI::iconoDS('requerimiento', 30, 'eq-card__dato-ico') ?>
+        </div>
+
+        <?php if ($puedeAcceso):
+            // Los perfiles son varios: lo normal es "administrador y Scrum
+            // Master". El color de la píldora lo pone el de más mando.
+            $susAccesos = MiembroRepo::accesosDe($m);
+            $mandaEn    = MiembroRepo::accesoDominante($susAccesos);
+            $esAdm      = in_array('admin', $susAccesos, true); ?>
+        <div class="eq-card__acceso celda-acceso">
+          <span class="eq-card__rot">Perfil</span>
+          <?php if ($mid === $yoId): ?>
+            <span class="acceso-yo"><i class="fa-solid fa-shield-halved"></i> Tú (admin)</span>
+          <?php else: ?>
+          <form method="post" action="actions.php" class="inline-form">
+            <input type="hidden" name="accion" value="miembro_acceso_set">
+            <input type="hidden" name="id" value="<?= $mid ?>">
+            <input type="hidden" name="volver" value="equipo.php?e=<?= e($eq) ?>">
+            <!-- Sin esto, quitar TODAS las casillas no manda 'accesos' y la
+                 acción no sabría distinguirlo de un formulario antiguo. -->
+            <input type="hidden" name="accesos[]" value="">
+            <?= UI::select('accesos', Auth::ROLES, $susAccesos, true,
+                           'select-sm select-acceso es-' . e($mandaEn), true) ?>
+          </form>
+          <?php if (in_array('supervisor', $susAccesos, true)): ?>
+            <button type="button" class="accion-btn sw-config" title="Configurar los proyectos que ve"
+                    data-config-super='<?= e(json_encode([
+                        'id' => $mid, 'nombre' => $m['nombre'],
+                        'proyectos' => array_map('intval', (array)($m['proyectos_sup'] ?? [])),
+                    ], JSON_UNESCAPED_UNICODE)) ?>'>
+              <i class="fa-solid fa-gear"></i>
+            </button>
+          <?php endif; ?>
+          <?php if ($esAdm && empty($m['pass_hash']) && empty($m['email'])): ?>
+            <small class="sw-aviso"><i class="fa-solid fa-triangle-exclamation"></i> sin correo ni clave</small>
+          <?php endif; ?>
+          <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <?php if ($ficha): ?>
+        <a class="mc-btn mc-btn--primary mc-btn--md mc-btn--block eq-card__ver" href="<?= $ficha ?>">
+          <?= UI::iconoDS('ver', 18) ?><span class="mc-btn__label">Ver perfil</span>
+        </a>
+        <?php endif; ?>
+      </article>
+      <?php endforeach; ?>
     </div>
+    <p class="tabla-buscar-vacio eq-cards-vacio" data-buscar-vacio hidden>Nadie coincide con la búsqueda.</p>
   </div>
 <?php endif; ?>
 

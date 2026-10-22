@@ -3567,3 +3567,49 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
 .dep-crono-nota .ico { flex: none; width: 16px; height: 16px; }
 .dep-crono-nota--alerta { color: var(--warning-ink); }
 .dep-card__autor .dep-item-auto { flex: none; margin-left: 2px; }
+
+/* ---------- Equipo en tarjetas (la «Card - Docente» del DS), sin bordes ni líneas ---------- */
+.eq-cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); gap: var(--space-4); padding: 0 var(--space-5) var(--space-5); }
+.eq-card { display: flex; flex-direction: column; gap: var(--space-4); min-width: 0; padding: var(--space-4); border-radius: var(--radius-lg);
+  background: var(--surface-sunken); transition: background var(--mc-dur-1) var(--mc-ease); }
+.eq-card:hover { background: color-mix(in srgb, var(--primary) 5%, var(--surface-sunken)); }
+.eq-card.is-inactivo { opacity: .6; }
+.eq-card.is-inactivo .avatar { filter: grayscale(1); }
+.eq-card__cab { display: flex; align-items: center; gap: var(--space-3); min-width: 0; }
+.eq-card__quien { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.eq-card__quien b { overflow: hidden; color: var(--ink); font-size: .95rem; font-weight: 600; line-height: 1.3; text-overflow: ellipsis;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; white-space: normal; }
+.eq-card__quien span { color: var(--ink-muted); font-size: .82rem; }
+.eq-card__bloque { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.eq-card__rot { color: var(--ink-muted); font-size: .75rem; font-weight: 600; }
+.eq-card__nada { color: var(--ink-subtle); font-size: .78rem; }
+.eq-card__chips { display: flex; flex-wrap: wrap; gap: 6px; min-width: 0; }
+.eq-chip { display: inline-flex; align-items: center; gap: 5px; max-width: 100%; padding: 2px 9px; overflow: hidden; border-radius: 999px;
+  background: var(--surface); color: var(--ink); font-size: .72rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.eq-chip::before { content: ""; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--pc, var(--primary)); }
+.eq-chip--mas { color: var(--ink-muted); }
+.eq-chip--mas::before { display: none; }
+.eq-card__contacto { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.eq-card__contacto li { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--ink); font-size: .82rem; }
+.eq-card__contacto li > .mc-icon, .eq-card__contacto li > i { flex: none; width: 16px; color: var(--ink-subtle); text-align: center; }
+.eq-card__contacto li > span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.eq-card__contacto li.is-vacio { color: var(--ink-subtle); }
+.eq-card__contacto li.is-mal, .eq-card__contacto li.is-mal > i { color: var(--danger-ink, #C0392B); }
+.eq-copiar { flex: none; display: inline-grid; place-items: center; width: 24px; height: 24px; margin-left: auto; padding: 0; border: 0; border-radius: 6px;
+  background: none; color: var(--ink-subtle); font-size: .78rem; cursor: pointer; opacity: .55; transition: opacity var(--mc-dur-1) var(--mc-ease), background var(--mc-dur-1) var(--mc-ease); }
+.eq-card:hover .eq-copiar, .eq-copiar:focus-visible { opacity: 1; }
+.eq-copiar:hover { background: var(--surface); color: var(--primary-ink); }
+.eq-card__dato { display: flex; align-items: flex-end; justify-content: space-between; gap: var(--space-3); margin-top: auto; }
+.eq-card__dato > span { display: flex; flex-direction: column; }
+.eq-card__num { color: var(--success-ink, #15803D); font: 700 1.6rem/1.1 var(--font-display, var(--font-sans)); font-variant-numeric: tabular-nums; }
+.eq-card__num.is-cero { color: var(--ink-subtle); }
+.eq-card__dato small { color: var(--ink-muted); font-size: .74rem; }
+.eq-card__dato-ico { color: var(--ink-subtle); opacity: .45; }
+.eq-card__acceso { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.eq-card__acceso .eq-card__rot { margin-right: auto; }
+.eq-card__acceso .inline-form { display: inline-block; }
+.eq-card__ver { justify-content: center; }
+.eq-cards-vacio[hidden] { display: none; }
+@media (max-width: 640px) { .eq-cards { grid-template-columns: 1fr; padding: 0 var(--space-3) var(--space-3); } }
+html.dark .eq-card { background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
+html.dark .eq-card:hover { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
