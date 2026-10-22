@@ -1394,7 +1394,78 @@ class TareaRepo
             'depende_de'  => $deps[0] ?? 0,   // compat con lecturas antiguas
             // Documentos de respaldo para quien la ejecute (los sube actions.php)
             'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
-        ] + self::camposAsignado($datos));
+            // De dónde salió: '' a mano, 'plan' importada, 'ia' del acta o el desglose, 'correo'
+            'origen'      => isset(self::ORIGENES[$datos['origen'] ?? '']) ? (string)$datos['origen'] : '',
+        ] + self::autoria((int)($datos['proyecto_id'] ?? 0)) + self::camposAsignado($datos));
+    }
+
+    /** Cómo llegó una tarea al tablero, cuando no la escribieron a mano. */
+    public const ORIGENES = ['' => '', 'plan' => 'importada', 'ia' => 'con la IA', 'correo' => 'desde un correo'];
+
+    /** Con qué papel la anotó: el del proyecto pesa más que el perfil general. */
+    public const PAPELES = ['po' => ['Product Owner', 'PO'], 'scrum' => ['Scrum Master', 'SM'], 'admin' => ['Administrador', 'Admin']];
+
+    /**
+     * Quién anota la tarea y con qué papel. Se guarda al crearla (y no se
+     * calcula al pintarla) porque el PO o el SM del proyecto cambian después.
+     * Siempre es quien tiene la sesión: nunca sale de lo que llega por POST.
+     */
+    private static function autoria(int $proyectoId): array
+    {
+        $yo = class_exists('Auth') ? Auth::usuario() : null;
+        $id = (int)($yo['id'] ?? 0);
+        if ($id <= 0) return ['creado_por' => 0, 'creado_como' => ''];
+        $p = (new ProyectoRepo())->buscar($proyectoId) ?? [];
+        $como = match (true) {
+            ProyectoRepo::poDe($p) === $id || (int)($p['po_relevo'] ?? 0) === $id => 'po',
+            ProyectoRepo::scrumDe($p) === $id         => 'scrum',
+            MiembroRepo::tieneAcceso($yo, 'admin')    => 'admin',
+            MiembroRepo::tieneAcceso($yo, 'scrum')    => 'scrum',
+            default                                   => '',
+        };
+        return ['creado_por' => $id, 'creado_como' => $como];
+    }
+
+    /**
+     * Quién agregó la tarea y cuándo, listo para pintar. 'miembro' es null en
+     * las tareas de antes de guardar el autor: de esas solo se sabe la fecha.
+     */
+    public static function agregadaPor(array $t, array $miembros): array
+    {
+        $m = $miembros[(int)($t['creado_por'] ?? 0)] ?? null;
+        $papel = self::PAPELES[(string)($t['creado_como'] ?? '')] ?? ['', ''];
+        $ts = strtotime((string)($t['creado'] ?? '')) ?: 0;
+        $conHora = strlen(trim((string)($t['creado'] ?? ''))) > 10;
+        return [
+            'miembro' => $m,
+            'papel'   => $papel[0],
+            'sigla'   => $papel[1],
+            'origen'  => self::ORIGENES[(string)($t['origen'] ?? '')] ?? '',
+            'largo'   => $ts ? self::cuandoLargo($ts, $conHora) : '',
+            'corto'   => $ts ? self::cuandoCorto($ts, $conHora) : '',
+        ];
+    }
+
+    /** "miércoles 21 de octubre a las 4:34 pm" (con el año si no es este). */
+    private static function cuandoLargo(int $ts, bool $conHora): string
+    {
+        $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        $txt = $dias[(int)date('w', $ts)] . ' ' . (int)date('j', $ts) . ' de ' . $meses[(int)date('n', $ts) - 1];
+        if (date('Y', $ts) !== date('Y')) $txt .= ' de ' . date('Y', $ts);
+        return $conHora ? $txt . ' a las ' . date('g:i a', $ts) : $txt;
+    }
+
+    /** "hoy, 4:34 pm" · "ayer, 9:10 am" · "21 oct, 4:34 pm". */
+    private static function cuandoCorto(int $ts, bool $conHora): string
+    {
+        $meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+        $dia = match (date('Y-m-d', $ts)) {
+            date('Y-m-d')                     => 'hoy',
+            date('Y-m-d', strtotime('-1 day')) => 'ayer',
+            default => (int)date('j', $ts) . ' ' . $meses[(int)date('n', $ts) - 1] . (date('Y', $ts) !== date('Y') ? ' ' . date('Y', $ts) : ''),
+        };
+        return $conHora ? $dia . ', ' . date('g:i a', $ts) : $dia;
     }
 
     /** Adjuntos de una tarea; las tareas anteriores a esto no traen el campo. */

@@ -389,6 +389,7 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
     }
     // Dependencias resueltas con equipo/color/urgencia (propias y de otros equipos).
     $deps = array_values(array_filter(array_map($infoDep, TareaRepo::dependenciasDe($t))));
+    $ag = TareaRepo::agregadaPor($t, $miembros);
     return e(json_encode([
         'id'           => (int)$t['id'],
         'titulo'       => $t['titulo'] ?? '',
@@ -403,6 +404,12 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
         'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
         'adjuntos'     => TareaRepo::adjuntosDe($t),
         'creado'       => $t['creado'] ?? '',
+        // Quién la anotó (PO, SM o administrador) y cuándo
+        'agrego'       => $ag['miembro'] ? [
+            'nombre' => $ag['miembro']['nombre'] ?? '', 'avatar' => UI::avatar($ag['miembro'], 26),
+            'papel'  => $ag['papel'], 'origen' => $ag['origen'],
+        ] : null,
+        'creado_txt'   => $ag['largo'],
         'carga_extra'  => $cargaExtra($t),
     ], JSON_UNESCAPED_UNICODE));
 };
@@ -874,6 +881,19 @@ foreach ($tareas as $t) {
                   <i class="fa-regular fa-clock"></i> Sin subir
                 </small>
                 <?php endif; ?>
+              <?php endif; ?>
+              <?php $ag = TareaRepo::agregadaPor($t, $miembros); if ($ag['miembro'] || $ag['corto'] !== ''): ?>
+              <small class="tarea-autor" title="<?= e(($ag['miembro'] ? 'La agregó ' . $ag['miembro']['nombre'] . ($ag['papel'] ? ' (' . $ag['papel'] . ')' : '') . ' el ' : 'Agregada el ') . $ag['largo'] . ($ag['origen'] ? ' · ' . $ag['origen'] : '')) ?>">
+                <?php if ($ag['miembro']): ?>
+                  <?= UI::avatar($ag['miembro'], 16) ?>
+                  <span class="tarea-autor__quien"><?= e(explode(' ', trim($ag['miembro']['nombre']))[0]) ?></span>
+                  <?php if ($ag['sigla']): ?><span class="tarea-autor__papel"><?= e($ag['sigla']) ?></span><?php endif; ?>
+                  <span aria-hidden="true">·</span>
+                <?php else: ?>
+                  <i class="fa-regular fa-clock"></i> Agregada
+                <?php endif; ?>
+                <span><?= e($ag['corto']) ?></span>
+              </small>
               <?php endif; ?>
             </div>
           </td>
@@ -2569,7 +2589,7 @@ function depPicker(): void { ?>
       <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
       <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Depende de</dt><dd class="dt-dep"></dd></div>
       <div class="dt-fila-obs" hidden><dt><i class="fa-solid fa-comment-dots"></i> Observaciones</dt><dd class="dt-obs"></dd></div>
-      <div class="dt-fila-creada" hidden><dt><i class="fa-regular fa-clock"></i> Creada</dt><dd class="dt-creada"></dd></div>
+      <div class="dt-fila-creada" hidden><dt><i class="fa-solid fa-user-pen"></i> Agregada por</dt><dd class="dt-creada"></dd></div>
       <div class="dt-fila-adj" hidden><dt><i class="fa-solid fa-paperclip"></i> Documentos</dt><dd class="dt-adjuntos"></dd></div>
     </dl>
     <footer class="dt-foot">

@@ -1254,6 +1254,7 @@ switch ($accion) {
         // Documentos de respaldo: van con la tarea desde que se asigna
         $rechazados = [];
         $datosTarea = $_POST;
+        $datosTarea['origen'] = '';   // a mano; el autor lo pone el modelo con la sesión
         // La descripción es texto enriquecido (se puede pegar tablas): se sanea
         // a lista blanca antes de guardar para que no entre HTML peligroso.
         $datosTarea['descripcion'] = HtmlRico::limpiar($_POST['descripcion'] ?? '');
@@ -2495,7 +2496,7 @@ switch ($accion) {
                 'datos' => [
                     'proyecto_id' => $pidTc, 'titulo' => $tituloTc, 'descripcion' => HtmlRico::limpiar($descTc),
                     'prioridad' => Catalogo::prioridadValida((string)($tTc['prioridad'] ?? '')),
-                    'fecha_inicio' => $fiTc, 'fecha_limite' => $flTc, 'asignados' => $respTc,
+                    'fecha_inicio' => $fiTc, 'fecha_limite' => $flTc, 'asignados' => $respTc, 'origen' => 'correo',
                 ],
             ];
         }
@@ -3537,6 +3538,7 @@ switch ($accion) {
                         $loteIa[] = ['proyecto' => $proyIa['nombre']] + array_intersect_key($tIa, array_flip($permitidosIa));
                     }
                     $impIa = new ImportadorTareas(new ProyectoRepo(), new MiembroRepo(), new TareaRepo());
+                    $impIa->origen = 'ia';
                     $repIa = $impIa->procesar(['tareas' => $loteIa], false, false, Auth::esAdmin() ? null : array_keys(alcanceProyectos() ?? []));
                     if (empty($repIa['ok'])) throw new IAError('No se crearon: ' . implode(' ', array_slice((array)($repIa['errores'] ?? []), 0, 3)));
                     $iaFin(['ok' => true, 'creadas' => (int)($repIa['creadas'] ?? 0)]);

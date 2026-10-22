@@ -34,6 +34,7 @@ final class ImportadorTareas
     private array $miembros;    // [idNorm(nombre) => miembro]
     private array $prioridades; // claves validas
     private array $estados;     // claves validas
+    public string $origen = 'plan';   // lo que la tarea dice de dónde salió (TareaRepo::ORIGENES)
 
     public function __construct(
         private ProyectoRepo $proyectosRepo,
@@ -262,7 +263,7 @@ final class ImportadorTareas
                 $id = (int)$p['existe'];
                 $actualizadas++;
             } else {
-                $t = $this->tareasRepo->crear($p['datos']);
+                $t = $this->tareasRepo->crear($p['datos'] + ['origen' => $this->origen]);
                 $id = (int)$t['id'];
                 $creadas++;
             }
