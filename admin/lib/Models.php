@@ -1396,35 +1396,13 @@ class TareaRepo
             'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
             // De dónde salió: '' a mano, 'plan' importada, 'ia' del acta o el desglose, 'correo'
             'origen'      => isset(self::ORIGENES[$datos['origen'] ?? '']) ? (string)$datos['origen'] : '',
-        ] + self::autoria((int)($datos['proyecto_id'] ?? 0)) + self::camposAsignado($datos));
+            // Quién la anotó: siempre quien tiene la sesión, nunca lo que llega por POST
+            'creado_por'  => class_exists('Auth') ? (int)(Auth::usuario()['id'] ?? 0) : 0,
+        ] + self::camposAsignado($datos));
     }
 
     /** Cómo llegó una tarea al tablero, cuando no la escribieron a mano. */
     public const ORIGENES = ['' => '', 'plan' => 'importada', 'ia' => 'con la IA', 'correo' => 'desde un correo'];
-
-    /** Con qué papel la anotó: el del proyecto pesa más que el perfil general. */
-    public const PAPELES = ['po' => ['Product Owner', 'PO'], 'scrum' => ['Scrum Master', 'SM'], 'admin' => ['Administrador', 'Admin']];
-
-    /**
-     * Quién anota la tarea y con qué papel. Se guarda al crearla (y no se
-     * calcula al pintarla) porque el PO o el SM del proyecto cambian después.
-     * Siempre es quien tiene la sesión: nunca sale de lo que llega por POST.
-     */
-    private static function autoria(int $proyectoId): array
-    {
-        $yo = class_exists('Auth') ? Auth::usuario() : null;
-        $id = (int)($yo['id'] ?? 0);
-        if ($id <= 0) return ['creado_por' => 0, 'creado_como' => ''];
-        $p = (new ProyectoRepo())->buscar($proyectoId) ?? [];
-        $como = match (true) {
-            ProyectoRepo::poDe($p) === $id || (int)($p['po_relevo'] ?? 0) === $id => 'po',
-            ProyectoRepo::scrumDe($p) === $id         => 'scrum',
-            MiembroRepo::tieneAcceso($yo, 'admin')    => 'admin',
-            MiembroRepo::tieneAcceso($yo, 'scrum')    => 'scrum',
-            default                                   => '',
-        };
-        return ['creado_por' => $id, 'creado_como' => $como];
-    }
 
     /**
      * Quién agregó la tarea y cuándo, listo para pintar. 'miembro' es null en
@@ -1433,13 +1411,10 @@ class TareaRepo
     public static function agregadaPor(array $t, array $miembros): array
     {
         $m = $miembros[(int)($t['creado_por'] ?? 0)] ?? null;
-        $papel = self::PAPELES[(string)($t['creado_como'] ?? '')] ?? ['', ''];
         $ts = strtotime((string)($t['creado'] ?? '')) ?: 0;
         $conHora = strlen(trim((string)($t['creado'] ?? ''))) > 10;
         return [
             'miembro' => $m,
-            'papel'   => $papel[0],
-            'sigla'   => $papel[1],
             'origen'  => self::ORIGENES[(string)($t['origen'] ?? '')] ?? '',
             'largo'   => $ts ? self::cuandoLargo($ts, $conHora) : '',
             'corto'   => $ts ? self::cuandoCorto($ts, $conHora) : '',

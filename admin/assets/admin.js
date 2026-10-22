@@ -1836,14 +1836,13 @@ function abrirDetalleTarea(t) {
 
   const filaCreada = dlg.querySelector('.dt-fila-creada');
   if (filaCreada) {
-    // Quién la anotó (con su papel en el proyecto) y cuándo; las tareas de
+    // Quién la anotó y cuándo; las tareas de
     // antes de guardar el autor solo traen la fecha.
     const ag = t.agrego;
     const cuando = t.creado_txt || t.creado || '';
     filaCreada.hidden = !ag && !cuando;
     dlg.querySelector('.dt-creada').innerHTML = ag
       ? '<span class="dt-autor">' + (ag.avatar || '') + '<span class="dt-autor__txt"><b>' + esc(ag.nombre) + '</b>'
-        + (ag.papel ? ' <span class="dt-autor__papel">' + esc(ag.papel) + '</span>' : '')
         + '<small>' + esc(cuando) + (ag.origen ? ' · ' + esc(ag.origen) : '') + '</small></span></span>'
       : esc(cuando);
   }

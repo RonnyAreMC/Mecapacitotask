@@ -404,10 +404,9 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
         'obs'          => $obsPorTarea[(int)$t['id']] ?? 0,
         'adjuntos'     => TareaRepo::adjuntosDe($t),
         'creado'       => $t['creado'] ?? '',
-        // Quién la anotó (PO, SM o administrador) y cuándo
+        // Quién la anotó y cuándo
         'agrego'       => $ag['miembro'] ? [
-            'nombre' => $ag['miembro']['nombre'] ?? '', 'avatar' => UI::avatar($ag['miembro'], 26),
-            'papel'  => $ag['papel'], 'origen' => $ag['origen'],
+            'nombre' => $ag['miembro']['nombre'] ?? '', 'avatar' => UI::avatar($ag['miembro'], 26), 'origen' => $ag['origen'],
         ] : null,
         'creado_txt'   => $ag['largo'],
         'carga_extra'  => $cargaExtra($t),
@@ -883,11 +882,10 @@ foreach ($tareas as $t) {
                 <?php endif; ?>
               <?php endif; ?>
               <?php $ag = TareaRepo::agregadaPor($t, $miembros); if ($ag['miembro'] || $ag['corto'] !== ''): ?>
-              <small class="tarea-autor" title="<?= e(($ag['miembro'] ? 'La agregó ' . $ag['miembro']['nombre'] . ($ag['papel'] ? ' (' . $ag['papel'] . ')' : '') . ' el ' : 'Agregada el ') . $ag['largo'] . ($ag['origen'] ? ' · ' . $ag['origen'] : '')) ?>">
+              <small class="tarea-autor" title="<?= e(($ag['miembro'] ? 'La agregó ' . $ag['miembro']['nombre'] . ' el ' : 'Agregada el ') . $ag['largo'] . ($ag['origen'] ? ' · ' . $ag['origen'] : '')) ?>">
                 <?php if ($ag['miembro']): ?>
                   <?= UI::avatar($ag['miembro'], 16) ?>
                   <span class="tarea-autor__quien"><?= e(explode(' ', trim($ag['miembro']['nombre']))[0]) ?></span>
-                  <?php if ($ag['sigla']): ?><span class="tarea-autor__papel"><?= e($ag['sigla']) ?></span><?php endif; ?>
                   <span aria-hidden="true">·</span>
                 <?php else: ?>
                   <i class="fa-regular fa-clock"></i> Agregada

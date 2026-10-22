@@ -3548,11 +3548,8 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
   color: var(--ink-subtle, var(--ink-muted)); font-size: .72rem; line-height: 1.2; white-space: nowrap; }
 .tarea-autor .avatar { flex: 0 0 auto; font-size: .5rem; box-shadow: none; }
 .tarea-autor__quien { color: var(--ink-muted); font-weight: 600; }
-.tarea-autor__papel { padding: 1px 6px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink);
-  font-size: .62rem; font-weight: 700; letter-spacing: .02em; }
 .dt-autor { display: inline-flex; align-items: center; gap: 10px; }
 .dt-autor .avatar { flex: 0 0 auto; box-shadow: none; }
 .dt-autor__txt { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 2px; min-width: 0; }
 .dt-autor__txt b { color: var(--ink); font-weight: 600; }
-.dt-autor__papel { padding: 1px 8px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-size: .72rem; font-weight: 700; }
 .dt-autor__txt small { flex-basis: 100%; color: var(--ink-muted); font-size: .8rem; }
