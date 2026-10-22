@@ -111,6 +111,18 @@ class GoogleLogin
     }
 
     /**
+     * Marca a qué flujo vuelve Google (calendario, correo, registro, drive o ''
+     * para entrar) y borra la de los demás. Sin esto, un intento a medias de otro
+     * botón dejaba su marca y el siguiente «Conectar» se iba por ese camino: un
+     * «Conectar Google Drive» terminó guardado como la cuenta que envía correos.
+     */
+    public static function flujo(string $cual): void
+    {
+        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive']);
+        if ($cual !== '') $_SESSION['oauth_' . $cual] = true;
+    }
+
+    /**
      * URL para INICIAR SESIÓN. Pide solo lo básico (openid/email/profile), que
      * no requiere verificación de Google. El permiso de calendario NO va aquí:
      * es un permiso "sensible" que en modo prueba bloquea el acceso a todo el
@@ -120,14 +132,9 @@ class GoogleLogin
     {
         $c = self::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        unset($_SESSION['oauth_calendario']);   // este flujo es solo de acceso
         // Marca de por dónde entró: al volver, "crear cuenta" deja una solicitud
         // en vez de mandar a "¿quién eres?" o a un error de no registrado.
-        if ($registro) {
-            $_SESSION['oauth_registro'] = true;
-        } else {
-            unset($_SESSION['oauth_registro']);
-        }
+        self::flujo($registro ? 'registro' : '');
         $params = [
             'client_id'     => $c['client_id'],
             'redirect_uri'  => self::redirectUri(),
@@ -148,7 +155,7 @@ class GoogleLogin
     {
         $c = self::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        $_SESSION['oauth_calendario'] = true;
+        self::flujo('calendario');
         $params = [
             'client_id'     => $c['client_id'],
             'redirect_uri'  => self::redirectUri(),

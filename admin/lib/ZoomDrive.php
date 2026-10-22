@@ -138,7 +138,7 @@ final class ZoomDrive
     {
         $c = GoogleLogin::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        $_SESSION['oauth_drive'] = true;
+        GoogleLogin::flujo('drive');
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
             'client_id'     => $c['client_id'],
             'redirect_uri'  => GoogleLogin::redirectUri(),

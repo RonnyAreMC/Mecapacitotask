@@ -81,8 +81,7 @@ class Mailer
     {
         $o = self::credOauth();
         $_SESSION['oauth_state']  = bin2hex(random_bytes(16));
-        $_SESSION['oauth_correo'] = true;
-        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_registro']);
+        GoogleLogin::flujo('correo');
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
             'client_id'     => $o['client_id'],
             'redirect_uri'  => GoogleLogin::redirectUri(),
@@ -117,6 +116,10 @@ class Mailer
         $tok = json_decode($cuerpo, true) ?: [];
         if ($codigo !== 200 || empty($tok['access_token'])) {
             return 'Google no autorizó el envío: ' . ($tok['error_description'] ?? $tok['error'] ?? ('HTTP ' . $codigo));
+        }
+        // Sin el permiso de enviar no se toca nada: quedaría el correo del panel sin poder salir
+        if (!empty($tok['scope']) && !str_contains((string)$tok['scope'], '/auth/gmail.send')) {
+            return 'Esa autorización no trae el permiso para enviar correos (gmail.send): no cambié nada. Vuelve a pulsar «Conectar cuenta de envío» y marca la casilla de Gmail.';
         }
         if (empty($tok['refresh_token'])) {
             // Pasa cuando ya habías concedido el permiso antes: hay que quitar

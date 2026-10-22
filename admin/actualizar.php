@@ -145,7 +145,6 @@ function actualizarPanel(array $opc): void
         'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo', 'responder_correo'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar', 'ent-nexo'],
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
-        'lib/Mailer.php'    => ['codigoRecuperacion'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista'],
@@ -159,7 +158,8 @@ function actualizarPanel(array $opc): void
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users'],
         'lib/ZoomDrive.php' => ['function errorDrive', 'function faltanPermisos'],
-        'lib/GoogleLogin.php' => ["'scope'"],
+        'lib/GoogleLogin.php' => ["'scope'", 'function flujo'],
+        'lib/Mailer.php'    => ['codigoRecuperacion', '/auth/gmail.send'],
         'oauth_google.php'  => ['oauth_drive', '/auth/drive'],
     ];
     $viejos = [];
