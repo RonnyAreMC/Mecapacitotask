@@ -206,6 +206,8 @@ class GoogleLogin
             'nombre'        => $info['name'] ?? '',
             // Solo llega la primera vez que consiente (o con prompt=consent)
             'refresh_token' => $tok['refresh_token'] ?? '',
+            // Los permisos que la persona dejó marcados (Google deja desmarcar cada uno)
+            'scope'         => (string)($tok['scope'] ?? ''),
         ];
     }
 

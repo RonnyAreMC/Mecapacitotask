@@ -58,6 +58,10 @@ if ($esDrive && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
     if (empty($r['refresh_token'])) {
         redirigir('zoom_drive.php', 'Google no devolvió el permiso esta vez. Entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a pulsar «Conectar Google Drive».', 'error');
     }
+    // Google deja desmarcar cada permiso: sin el de Drive, «conectado» sería mentira
+    if ($r['scope'] !== '' && !str_contains($r['scope'], '/auth/drive')) {
+        redirigir('zoom_drive.php', 'Conectaste ' . $r['email'] . ' pero sin el permiso de Google Drive. Pulsa otra vez «Conectar Google Drive» y, en la pantalla de Google, marca la casilla de Drive.', 'error');
+    }
     ZoomDrive::guardarConexion($r['refresh_token'], $r['email']);
     $prueba = ZoomDrive::probarCarpeta();
     redirigir('zoom_drive.php', 'Google Drive conectado (' . $r['email'] . '). ' . $prueba['msg'], $prueba['ok'] ? 'success' : 'warning');

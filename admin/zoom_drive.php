@@ -54,8 +54,10 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         case 'probar':
             $z = ZoomDrive::probarZoom();
-            $d = ZoomDrive::driveListo() ? ZoomDrive::probarCarpeta() : ['ok' => false, 'msg' => 'Google Drive todavía no está conectado.'];
-            redirigir('zoom_drive.php', $z['msg'] . ' ' . $d['msg'], $z['ok'] && $d['ok'] ? 'success' : 'warning');
+            $d = ZoomDrive::driveListo() ? ZoomDrive::probarCarpeta() : ['ok' => false, 'msg' => 'Todavía no está conectado: pulsa «Conectar Google Drive».'];
+            // Cada lado con su resultado: así se ve cuál es el que falla
+            redirigir('zoom_drive.php', ($z['ok'] ? '✓ ' : '✗ ') . 'Zoom: ' . $z['msg'] . "\n" . ($d['ok'] ? '✓ ' : '✗ ') . 'Drive: ' . $d['msg'],
+                $z['ok'] && $d['ok'] ? 'success' : 'warning');
 
         case 'buscar':
             // Por partes: la página repite hasta que termina
@@ -142,7 +144,7 @@ UI::cabecera(
       <div class="zd-con__fila">
         <span class="zd-punto zd-punto--<?= $zoomOk ? 'ok' : 'no' ?>"></span>
         <div class="zd-con__txt"><b>Zoom</b>
-          <small><?= $zoomOk ? 'La app de Ajustes. Necesita los permisos user:read:admin, recording:read:admin y recording:write:admin.'
+          <small><?= $zoomOk ? 'La app de Ajustes. Para esto necesita, además: List users, List all recordings, Get meeting recordings y Delete meeting recordings.'
                              : 'Falta conectar Zoom en Ajustes → Reuniones → Conexión con Zoom.' ?></small></div>
       </div>
       <div class="zd-con__fila">

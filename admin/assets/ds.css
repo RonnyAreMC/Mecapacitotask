@@ -3613,3 +3613,6 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
 @media (max-width: 640px) { .eq-cards { grid-template-columns: 1fr; padding: 0 var(--space-3) var(--space-3); } }
 html.dark .eq-card { background: color-mix(in srgb, var(--ink) 6%, var(--surface)); }
 html.dark .eq-card:hover { background: color-mix(in srgb, var(--primary) 10%, var(--surface)); }
+
+/* Un aviso puede traer varias líneas (p. ej. «Probar conexión»: Zoom en una, Drive en otra) */
+.mc-toast__title { white-space: pre-line; }

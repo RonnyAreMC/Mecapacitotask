@@ -157,8 +157,10 @@ function actualizarPanel(array $opc): void
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
-        'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir'],
-        'oauth_google.php'  => ['oauth_drive'],
+        'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users'],
+        'lib/ZoomDrive.php' => ['function errorDrive', 'function faltanPermisos'],
+        'lib/GoogleLogin.php' => ["'scope'"],
+        'oauth_google.php'  => ['oauth_drive', '/auth/drive'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {

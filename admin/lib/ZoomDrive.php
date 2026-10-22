@@ -222,7 +222,9 @@ final class ZoomDrive
         ]);
         $j = json_decode($cuerpo, true) ?: [];
         if ($codigo !== 200 || empty($j['access_token'])) {
-            self::$ultimoError = 'Zoom no dejó entrar: ' . ($j['reason'] ?? $j['error'] ?? ('HTTP ' . $codigo));
+            self::$ultimoError = $codigo === 0 && self::$ultimoError !== '' ? self::$ultimoError
+                : 'Zoom no dejó entrar con las credenciales de Ajustes → Reuniones (' . ($j['reason'] ?? $j['error'] ?? ('HTTP ' . $codigo))
+                  . '): revisa Account ID, Client ID y Client Secret, y que la app esté activada en marketplace.zoom.us.';
             return '';
         }
         @file_put_contents($f, json_encode(['t' => $j['access_token'], 'exp' => time() + (int)($j['expires_in'] ?? 3600)]));
@@ -243,8 +245,14 @@ final class ZoomDrive
         ]);
         $j = json_decode($cuerpo, true) ?: [];
         if ($codigo !== 200 || empty($j['access_token'])) {
-            self::$ultimoError = 'Google no renovó el permiso de Drive (' . ($j['error_description'] ?? $j['error'] ?? ('HTTP ' . $codigo))
-                . '). Vuelve a conectar Google Drive.';
+            $e = (string)($j['error'] ?? '');
+            self::$ultimoError = match (true) {
+                $codigo === 0 && self::$ultimoError !== '' => self::$ultimoError,
+                // Revocado, o la app de Google está en modo «Prueba» (ahí el permiso dura 7 días)
+                $e === 'invalid_grant' => 'Google canceló el permiso de Drive. Vuelve a conectar Google Drive; si pasa cada semana, en Google Cloud la app está en modo «Prueba»: pásala a «En producción».',
+                in_array($e, ['invalid_client', 'unauthorized_client'], true) => 'Google no reconoce el Client ID / Client Secret de Ajustes → Acceso y respaldo.',
+                default => 'Google no renovó el permiso de Drive (' . ($j['error_description'] ?? ($e ?: 'HTTP ' . $codigo)) . '). Vuelve a conectar Google Drive.',
+            };
             return '';
         }
         @file_put_contents($f, json_encode(['t' => $j['access_token'], 'exp' => time() + (int)($j['expires_in'] ?? 3600)]));
@@ -258,10 +266,11 @@ final class ZoomDrive
             $t = self::tokenZoom($forzar);
             if ($t === '') return [0, []];
             [$codigo, $cuerpo] = self::http($metodo, self::url('zoom') . $ruta, ['cabeceras' => ['Authorization: Bearer ' . $t], 'timeout' => 60]);
-            if ($codigo !== 401) break;
+            // 401, o un token guardado de antes de agregar permisos en la app de Zoom: se pide otro
+            if ($codigo !== 401 && !($codigo === 400 && self::faltanPermisos(json_decode($cuerpo, true) ?: []))) break;
         }
         $j = json_decode($cuerpo, true) ?: [];
-        if ($codigo >= 300) self::$ultimoError = 'Zoom: ' . ($j['message'] ?? ('HTTP ' . $codigo));
+        if ($codigo >= 300) self::$ultimoError = self::errorZoom($codigo, $j);
         return [$codigo, $j];
     }
 
@@ -279,8 +288,57 @@ final class ZoomDrive
             if ($codigo !== 401) break;
         }
         $j = json_decode($cuerpo, true) ?: [];
-        if ($codigo >= 300 && $codigo !== 308) self::$ultimoError = 'Drive: ' . ($j['error']['message'] ?? ('HTTP ' . $codigo));
+        if ($codigo >= 300 && $codigo !== 308) self::$ultimoError = self::errorDrive($codigo, $j);
         return [$codigo, $j, $cabR];
+    }
+
+    /** Los permisos de Zoom y cómo se llaman en el Marketplace (inglés · español) */
+    private const PERMISOS_ZOOM = [
+        'user:read:list_users:admin'                     => 'List users · Ver la lista de usuarios',
+        'cloud_recording:read:list_user_recordings:admin' => 'List all recordings · Ver todas las grabaciones de un usuario',
+        'cloud_recording:read:list_recording_files:admin' => 'Get meeting recordings · Ver las grabaciones de una reunión',
+        'cloud_recording:delete:meeting_recording:admin'  => 'Delete meeting recordings · Eliminar grabaciones de una reunión',
+    ];
+
+    /** ¿Zoom dice que al token le faltan permisos? (código 4711, «does not contain scopes») */
+    private static function faltanPermisos(array $j): bool
+    {
+        return (int)($j['code'] ?? 0) === 4711 || stripos((string)($j['message'] ?? ''), 'scope') !== false;
+    }
+
+    /** El error de Zoom dicho en español y con qué hacer */
+    private static function errorZoom(int $codigo, array $j): string
+    {
+        $msg = (string)($j['message'] ?? '');
+        if (self::faltanPermisos($j)) {
+            preg_match('/scopes?:\s*\[([^\]]*)\]/i', $msg, $m);
+            $faltan = array_filter(array_map('trim', explode(',', $m[1] ?? '')));
+            $nombres = array_map(fn($s) => isset(self::PERMISOS_ZOOM[$s]) ? '«' . self::PERMISOS_ZOOM[$s] . '» (' . $s . ')' : $s, $faltan);
+            return 'A la app de Zoom le falta ' . ($nombres ? 'el permiso ' . implode(', ', $nombres) : 'un permiso') . '. Agrégalo en marketplace.zoom.us → Manage → tu app → Scopes y vuelve a activarla.';
+        }
+        if ($codigo === 404) return 'Zoom no encontró la reunión o el usuario (' . ($msg ?: 'HTTP 404') . ').';
+        return 'Zoom respondió: ' . ($msg ?: 'HTTP ' . $codigo) . '.';
+    }
+
+    /** El error de Drive dicho en español y con qué hacer */
+    private static function errorDrive(int $codigo, array $j): string
+    {
+        $err = (array)($j['error'] ?? []);
+        $razon = (string)($err['errors'][0]['reason'] ?? '');
+        foreach ((array)($err['details'] ?? []) as $d) $razon .= ' ' . (string)($d['reason'] ?? '');
+        $msg = (string)($err['message'] ?? '');
+        $correo = self::conf()['email'];
+        return match (true) {
+            str_contains($razon, 'accessNotConfigured') || str_contains($razon, 'SERVICE_DISABLED') || stripos($msg, 'has not been used') !== false
+                => 'Falta habilitar la «Google Drive API» en Google Cloud (APIs y servicios → Biblioteca → Google Drive API → Habilitar), en el mismo proyecto del acceso con Google.',
+            str_contains($razon, 'insufficientPermissions') || str_contains($razon, 'ACCESS_TOKEN_SCOPE_INSUFFICIENT') || stripos($msg, 'insufficient') !== false
+                => 'Al conectar no se dio el permiso de Drive. Pulsa «Cambiar cuenta» y, en la pantalla de Google, marca la casilla de Google Drive.',
+            $codigo === 404
+                => 'No encuentro la carpeta de Drive' . ($correo !== '' ? ' con la cuenta ' . $correo : '') . ': revisa el enlace o compártela con esa cuenta como editor.',
+            $codigo === 403
+                => 'Drive no dejó entrar' . ($correo !== '' ? ' a ' . $correo : '') . ': ' . ($msg ?: 'sin permiso') . '.',
+            default => 'Drive respondió: ' . ($msg ?: 'HTTP ' . $codigo) . '.',
+        };
     }
 
     /* ======================= Pruebas de conexión ======================= */
@@ -289,9 +347,11 @@ final class ZoomDrive
     public static function probarZoom(): array
     {
         self::$ultimoError = '';
+        @unlink(self::cache('zoom'));      // token nuevo: así toma los permisos que se acaban de agregar
+        if (!self::zoomListo()) return ['ok' => false, 'msg' => 'Falta conectar Zoom en Ajustes → Reuniones → Conexión con Zoom.'];
         [$codigo, $j] = self::zoom('GET', '/users?page_size=1&status=active');
         if ($codigo === 200) return ['ok' => true, 'msg' => 'Zoom conectado: ' . (int)($j['total_records'] ?? 0) . ' usuario(s) en la cuenta.'];
-        return ['ok' => false, 'msg' => self::$ultimoError . ' — la app de Zoom necesita los permisos user:read:admin, recording:read:admin y recording:write:admin (o los «granulares» equivalentes).'];
+        return ['ok' => false, 'msg' => self::$ultimoError ?: 'Zoom no respondió.'];
     }
 
     /** Revisa que la carpeta de Drive exista y se pueda escribir en ella */
