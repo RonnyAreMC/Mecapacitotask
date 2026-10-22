@@ -45,6 +45,7 @@ if ($recuperar === 'codigo' && empty($_SESSION['recup'])) $recuperar = '1';
 
   <main class="ent-panel">
     <div class="ent-caja">
+      <?= UI::nexo($recuperar === '' ? 'saludando' : 'pensando', 'ent-nexo', true) ?>
       <img class="ent-logo" src="<?= e(logoPanel()) ?>" alt="<?= e($marca['titulo']) ?>">
 
       <?php if ($recuperar === '1'): ?>

@@ -105,6 +105,8 @@ function actualizarPanel(array $opc): void
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
 
+    $nNexo = count(glob($dir . '/iconos/nexo/*.webp') ?: []);
+    $nNexo >= 40 ? nota('ok', $nNexo . ' poses de Nexo (iconos/nexo)') : nota('error', 'Solo hay ' . $nNexo . ' imágenes de Nexo en iconos/nexo: falta subir la carpeta completa (40).');
     $nIconos = count(glob($dir . '/iconos/DS/ds-*.svg') ?: []);
     $nIconos >= 118 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (118).');
     $ilus = ['notificaciones-vacio', 'reportes-vacio', 'instructores-equipo', 'asistente-ia', 'sin-resultados-cursos', 'curso-sin-modulos',
@@ -117,7 +119,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -127,21 +129,21 @@ function actualizarPanel(array $opc): void
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys'],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
-        'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga'],
+        'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/'],
         'planificar.php'    => ['dlg-ia-plan'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols'],
-        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor'],
-        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php'],
+        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo'],
+        'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php', 'nexo:descansando'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake'],
         'lib/Tutoriales.php' => ['function pendiente'],
         'tutoriales.php'    => ['tutorial_avisar'],
-        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera'],
+        'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando'],
         'lib/ReqCorreo.php' => ['crudoCopia'],
         'lib/CorreoCopias.php' => ['function crudoDe'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo'],
         'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo', 'responder_correo'],
-        'login.php'         => ['entradaArte', 'auth_recuperar_cambiar'],
+        'login.php'         => ['entradaArte', 'auth_recuperar_cambiar', 'ent-nexo'],
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]'],
         'lib/Mailer.php'    => ['codigoRecuperacion'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],

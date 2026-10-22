@@ -1395,7 +1395,7 @@ class TareaRepo
             // Documentos de respaldo para quien la ejecute (los sube actions.php)
             'adjuntos'    => is_array($datos['adjuntos'] ?? null) ? array_values($datos['adjuntos']) : [],
             // De dónde salió: '' a mano, 'plan' importada, 'ia' del acta o el desglose, 'correo'
-            'origen'      => isset(self::ORIGENES[$datos['origen'] ?? '']) ? (string)$datos['origen'] : '',
+            'origen'      => isset(self::ORIGENES[$o = (string)($datos['origen'] ?? '')]) ? $o : '',
             // Quién la anotó: siempre quien tiene la sesión, nunca lo que llega por POST
             'creado_por'  => class_exists('Auth') ? (int)(Auth::usuario()['id'] ?? 0) : 0,
         ] + self::camposAsignado($datos));

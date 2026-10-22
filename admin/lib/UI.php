@@ -1617,12 +1617,12 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
      * ya pasaba cada pantalla (iconos/ilustraciones/<nombre>.svg).
      */
     private const ILUSTRACION_VACIO = [
-        'fa-mug-hot'             => 'notificaciones-vacio',   // nada pendiente: estás al día
-        'fa-inbox'               => 'notificaciones-vacio',
+        'fa-mug-hot'             => 'nexo:descansando',       // nada pendiente: Nexo descansa
+        'fa-inbox'               => 'nexo:descansando',
         'fa-folder-plus'         => 'curso-sin-modulos',      // todavía sin proyectos
         'fa-clipboard-list'      => 'curso-sin-modulos',
         'fa-diagram-project'     => 'curso-sin-modulos',
-        'fa-filter-circle-xmark' => 'sin-resultados-cursos',  // nada con esos filtros
+        'fa-filter-circle-xmark' => 'nexo:pensando',          // nada con esos filtros
         'fa-chart-column'        => 'reportes-vacio',
         'fa-cloud-arrow-up'      => 'despliegue',             // sin despliegues registrados
         'fa-building-columns'    => 'banco-vacio',
@@ -1771,12 +1771,30 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         return $h . '</div>';
     }
 
+    /**
+     * Nexo, la mascota de InnoTech (iconos/nexo/<pose>.webp, sin fondo): 'saludando',
+     * 'pensando', 'descansando', 'celebrando', 'leyendo'... Lleva su ancho y alto
+     * reales para que la página no salte al cargarla.
+     */
+    public static function nexo(string $pose, string $clase = '', bool $yaMismo = false): string
+    {
+        $src = 'iconos/nexo/' . preg_replace('/[^a-z-]/', '', $pose) . '.webp';
+        $ruta = __DIR__ . '/../' . $src;
+        if (!is_file($ruta)) return '';
+        [$w, $h] = @getimagesize($ruta) ?: [400, 400];
+        return '<img class="nexo' . ($clase !== '' ? ' ' . e($clase) : '') . '" src="' . e(asset($src)) . '" width="' . (int)$w . '" height="' . (int)$h
+            . '" alt="" decoding="async"' . ($yaMismo ? ' fetchpriority="high"' : ' loading="lazy"') . '>';
+    }
+
+    /** $ilustracion: el nombre de una de iconos/ilustraciones, o 'nexo:<pose>' para la mascota. */
     public static function vacioDS(string $ilustracion, string $titulo, string $desc = '', string $acciones = '', string $tam = 'md', bool $borde = true): string
     {
         $src = 'iconos/ilustraciones/' . preg_replace('/[^a-z0-9-]/', '', $ilustracion) . '.svg';
-        $img = is_file(__DIR__ . '/../' . $src)
-            ? '<img class="mc-empty__ill mc-ill mc-ill--' . ($tam === 'sm' ? 'sm' : 'md') . '" src="' . e(asset($src)) . '" width="520" height="420" alt="" loading="lazy" decoding="async">'
-            : '';
+        $img = str_starts_with($ilustracion, 'nexo:')
+            ? self::nexo(substr($ilustracion, 5), 'mc-empty__ill mc-empty__nexo mc-empty__nexo--' . ($tam === 'sm' ? 'sm' : 'md'))
+            : (is_file(__DIR__ . '/../' . $src)
+                ? '<img class="mc-empty__ill mc-ill mc-ill--' . ($tam === 'sm' ? 'sm' : 'md') . '" src="' . e(asset($src)) . '" width="520" height="420" alt="" loading="lazy" decoding="async">'
+                : '');
         return '<div class="mc-empty mc-empty--vacio mc-empty--' . ($tam === 'sm' ? 'sm' : 'md') . ($borde ? ' mc-empty--bordered' : '') . ($img ? ' mc-empty--ill' : '') . '">'
             . $img
             . '<h3 class="mc-empty__title">' . e($titulo) . '</h3>'

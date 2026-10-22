@@ -89,7 +89,7 @@ UI::cabecera(
     <?php pushDispositivos($yo); ?>
   <?php else: $todas = Notif::de($mid, 200); ?>
   <?php if (!$todas): ?>
-    <?= UI::vacioDS('notificaciones-vacio', 'Estás al día', 'No tienes avisos. Cuando te asignen una tarea, te inviten a una reunión o te pidan algo de otro equipo, te llega aquí y en la campana de arriba.') ?>
+    <?= UI::vacioDS('nexo:descansando', 'Estás al día', 'No tienes avisos. Cuando te asignen una tarea, te inviten a una reunión o te pidan algo de otro equipo, te llega aquí y en la campana de arriba.') ?>
   <?php else: ?>
   <section class="mc-card">
     <div class="mc-card__body" style="padding:6px">

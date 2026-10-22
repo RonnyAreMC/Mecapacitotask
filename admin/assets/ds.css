@@ -3162,8 +3162,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 /* Listo: grande y centrado, con lo que se creó y la flecha para ir al proyecto */
 .tcw-listo { display: flex; flex-direction: column; gap: var(--space-5); width: 100%; max-width: 660px; margin: auto; padding: var(--space-2) 0; }
 .tcw-listo__cab { display: flex; flex-direction: column; align-items: center; gap: var(--space-2); text-align: center; }
-.tcw-listo__ok { display: inline-flex; align-items: center; justify-content: center; width: 68px; height: 68px; margin-bottom: var(--space-2);
-  border-radius: 50%; background: var(--tone-verde-bg); color: var(--tone-verde-fg); }
+.tcw-listo__cab .tcw-listo__nexo { width: 132px; height: 132px; margin-bottom: var(--space-1); }
 .tcw-listo__cab h3 { margin: 0; color: var(--ink); font-size: 1.4rem; }
 .tcw-listo__cab p { margin: 0; color: var(--ink-muted); font-size: var(--mc-fs-sm); }
 .tcw-listo__tareas { margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
@@ -3322,28 +3321,14 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
 .correo-msg__asunto .correo-prio { font-size: .74rem; vertical-align: 4px; }
 
 /* =========================================================
-   IA: Inno (la mascota, iconos/ilustraciones/ia-mascota.svg) y la carga mientras piensa
-   (assets/ia.js: mostrarCarga). Flota, parpadea, la antena brilla y saluda; abajo, un
-   esqueleto con la forma de lo que va a llegar. Con «reducir movimiento», todo quieto.
+   IA: Nexo (la mascota, iconos/nexo/*.webp) y la carga mientras piensa
+   (assets/ia.js: mostrarCarga). Nexo pensando flota; abajo, un esqueleto con
+   la forma de lo que va a llegar. Con «reducir movimiento», todo quieto.
    ========================================================= */
-.ia-masc { display: block; width: 104px; height: 104px; overflow: visible; flex: none; }
+.ia-masc { display: block; width: 104px; height: 104px; object-fit: contain; flex: none; }
 .ia-masc--mini { width: 52px; height: 52px; }
-.ia-masc__bot, .ia-masc__sombra, .ia-masc__ojos rect, .ia-masc__luz, .ia-masc__brazo-d, .ia-masc__chispa { transform-box: fill-box; transform-origin: center; }
-.ia-masc__brazo-d { transform-origin: 0% 100%; }
-.ia-carga .ia-masc__bot, .is-pensando .ia-masc__bot { animation: ia-flota 2.6s ease-in-out infinite; }
-.ia-carga .ia-masc__sombra, .is-pensando .ia-masc__sombra { animation: ia-sombra 2.6s ease-in-out infinite; }
-.ia-masc__ojos rect { animation: ia-parpadeo 4.4s infinite; }
-.ia-carga .ia-masc__luz, .is-pensando .ia-masc__luz { animation: ia-luz 1.3s ease-in-out infinite; }
-.ia-carga .ia-masc__brazo-d { animation: ia-saluda 1.7s ease-in-out infinite; }
-.ia-masc__chispa { animation: ia-chispa 2.4s ease-in-out infinite; }
-.ia-masc__chispa--2 { animation-delay: .8s; }
-.ia-masc__chispa--3 { animation-delay: 1.6s; }
+.ia-carga .ia-masc, .is-pensando .ia-masc { animation: ia-flota 2.6s ease-in-out infinite; }
 @keyframes ia-flota   { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-6px); } }
-@keyframes ia-sombra  { 0%, 100% { transform: scale(1); opacity: .12; } 50% { transform: scale(.8); opacity: .06; } }
-@keyframes ia-parpadeo { 0%, 91%, 100% { transform: scaleY(1); } 94% { transform: scaleY(.12); } }
-@keyframes ia-luz     { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .5; transform: scale(.78); } }
-@keyframes ia-saluda  { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(-16deg); } }
-@keyframes ia-chispa  { 0%, 100% { opacity: .25; transform: scale(.6) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(20deg); } }
 
 /* La carga: Inno con el mensaje que va cambiando y, abajo, el esqueleto */
 .ia-carga { display: flex; flex-direction: column; gap: var(--space-4); padding: var(--space-4); border: 1px solid var(--primary-line, var(--line));
@@ -3407,7 +3392,7 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
   .ia-carga__cab .ia-masc { width: 76px; height: 76px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .ia-masc *, .ia-carga, .ia-carga__msg, .ia-puntos i, .ia-skel, .dlg-tcw .tc-tarea, .rc-resultado { animation: none !important; }
+  .ia-masc, .ia-carga, .ia-carga__msg, .ia-puntos i, .ia-skel, .dlg-tcw .tc-tarea, .rc-resultado { animation: none !important; }
   .dlg-meca.dlg-wizard.dlg-tcw { transition: none; }
 }
 
@@ -3553,3 +3538,13 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
 .dt-autor__txt { display: flex; flex-wrap: wrap; align-items: center; column-gap: 6px; row-gap: 2px; min-width: 0; }
 .dt-autor__txt b { color: var(--ink); font-weight: 600; }
 .dt-autor__txt small { flex-basis: 100%; color: var(--ink-muted); font-size: .8rem; }
+
+/* ---------- Nexo, la mascota (UI::nexo, iconos/nexo/*.webp) ---------- */
+.nexo { display: block; height: auto; max-width: 100%; user-select: none; -webkit-user-drag: none; }
+.mc-empty .mc-empty__nexo { width: auto; margin: 0 auto var(--space-2); animation: mc-rise var(--mc-dur-3) var(--mc-ease-out) both; }
+.mc-empty .mc-empty__nexo--md { height: 150px; }
+.mc-empty .mc-empty__nexo--sm { height: 112px; }
+/* En la entrada saluda encima del logo; recuperando la clave, piensa */
+.ent-caja .ent-nexo { width: auto; height: 124px; margin: 0 auto 14px; animation: mc-rise var(--mc-dur-3) var(--mc-ease-out) both; }
+@media (max-width: 640px) { .ent-caja .ent-nexo { height: 100px; margin-bottom: 10px; } }
+@media (prefers-reduced-motion: reduce) { .mc-empty .mc-empty__nexo, .ent-caja .ent-nexo { animation: none; } }

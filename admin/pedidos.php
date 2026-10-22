@@ -124,7 +124,7 @@ UI::cabecera(
       <?= $tid === 'enviados'
           ? UI::vacioDS('instructores-equipo', 'Todavía no has pedido nada', 'Con «Nuevo pedido» le pides algo a otro equipo: un cambio, un dato, que revisen algo. Le llega el aviso a todo el equipo (o a la persona que elijas).',
               $puedePedir ? '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-pedido-nuevo>' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nuevo pedido</span></button>' : '')
-          : UI::vacioDS('notificaciones-vacio', $tid === 'todos' ? 'Todavía no hay pedidos' : 'Nada pendiente para ti ni para tu equipo', $tid === 'todos'
+          : UI::vacioDS('nexo:descansando', $tid === 'todos' ? 'Todavía no hay pedidos' : 'Nada pendiente para ti ni para tu equipo', $tid === 'todos'
               ? 'Cuando alguien le pida algo a otro equipo, aparece aquí.'
               : 'Cuando otro equipo les pida algo, aparece aquí y en la campana de arriba.') ?>
     <?php else: foreach ($lista as $p) echo $tarjeta($p); endif; ?>

@@ -23,7 +23,7 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
 ?>
 <div class="ds" id="tutoriales-pagina">
   <?php if (!$lista): ?>
-    <?= UI::vacioDS('curso-sin-modulos', 'Todavía no hay tutoriales', $esAdmin
+    <?= UI::vacioDS('nexo:leyendo', 'Todavía no hay tutoriales', $esAdmin
         ? 'Publica el primero con «Agregar tutorial»: pega el enlace de YouTube o de Google Drive y listo.'
         : 'Pronto vas a encontrar aquí videos cortos para aprender a usar el panel.') ?>
   <?php else: ?>

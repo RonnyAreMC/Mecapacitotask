@@ -312,8 +312,8 @@ function correoLista(array $lista, array $carpeta): void
   </div>
   <?php if (!$lista['items']): ?>
     <?= $q !== ''
-        ? UI::vacioDS('sin-resultados-cursos', 'Sin resultados', 'No hay correos en ' . $carpeta['etiqueta'] . ' que coincidan con «' . $q . '».', '', 'sm', false)
-        : UI::vacioDS('notificaciones-vacio', 'No hay correos aquí', $carpeta['etiqueta'] . ' está vacía.', '', 'sm', false) ?>
+        ? UI::vacioDS('nexo:pensando', 'Sin resultados', 'No hay correos en ' . $carpeta['etiqueta'] . ' que coincidan con «' . $q . '».', '', 'sm', false)
+        : UI::vacioDS('nexo:descansando', 'No hay correos aquí', $carpeta['etiqueta'] . ' está vacía.', '', 'sm', false) ?>
   <?php else: ?>
   <ul class="correo-lista">
     <?php foreach ($lista['items'] as $it):
