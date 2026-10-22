@@ -228,7 +228,8 @@ class GitLab
      * de $desde (ISO 8601), del más viejo al más nuevo. null si GitLab no respondió.
      * ['hasta' => el updated_at más nuevo que se miró (de ahí sigue la próxima vez),
      *  'deploys' => [['id','iid','sha','ref','web_url','inicio','terminado' (timestamps),
-     *                 'titulo','autor','lanzo','usuario','actualizado','jobs' (los de deploy)]]]
+     *                 'titulo','actualizado','jobs' (los de deploy)]]]
+     * Quién lo lanzó no se trae: en el panel no se muestra.
      */
     public static function deploysExitosos(?string $repoUrl, string $desde, int $max = 30): ?array
     {
@@ -257,7 +258,7 @@ class GitLab
             }
             if ((string)($p['updated_at'] ?? '') > $hasta) $hasta = (string)$p['updated_at'];
             if (!$jobs) continue;
-            // El detalle trae cuándo empezó y terminó y quién lo lanzó; el commit, su título y su autor
+            // El detalle trae cuándo empezó y terminó; el commit, su título
             [$c1, $b1] = self::api($host, $base . '/pipelines/' . (int)$p['id']);
             $det = $c1 === 200 ? (json_decode($b1, true) ?: []) : [];
             $commit = [];
@@ -276,9 +277,6 @@ class GitLab
                 'inicio'      => ($t = strtotime((string)($det['started_at'] ?? $p['created_at'] ?? ''))) !== false ? $t : $terminado,
                 'terminado'   => $terminado,
                 'titulo'      => mb_substr(trim((string)($commit['title'] ?? '')), 0, 200),
-                'autor'       => mb_substr(trim((string)($commit['author_name'] ?? '')), 0, 80),
-                'lanzo'       => mb_substr(trim((string)($det['user']['name'] ?? '')), 0, 80),
-                'usuario'     => mb_substr(trim((string)($det['user']['username'] ?? '')), 0, 80),
                 'actualizado' => (string)($p['updated_at'] ?? $fin),
                 'jobs'        => array_slice($jobs, 0, 12),
             ];

@@ -12,6 +12,7 @@
  * en ese momento, con su hora real, los proyectos de ese repo y las tareas
  * completadas que nadie había subido, y se avisa a todos. Si alguien ya lo
  * registró a mano mientras corría el pipeline, se le junta a ese registro.
+ * Quién lanzó el pipeline no sale en ningún lado (lo pidió así el equipo).
  *
  * Lo mueve el cron de cada minuto (cron_correo.php) o cron_deploys.php:
  *  1. buscar(): cada 5 minutos pregunta a GitLab por los deploys nuevos.
@@ -274,9 +275,6 @@ final class Cronograma
                     'iid'         => (int)$pl['iid'],
                     'sha'         => substr((string)$pl['sha'], 0, 40),
                     'titulo'      => (string)$pl['titulo'],
-                    'autor'       => (string)$pl['autor'],
-                    'lanzo'       => (string)$pl['lanzo'],
-                    'usuario'     => (string)$pl['usuario'],
                     'jobs'        => (array)$pl['jobs'],
                     'web_url'     => preg_match('#^https?://#i', (string)$pl['web_url']) ? (string)$pl['web_url'] : '',
                     'inicio_t'    => (int)$pl['inicio'],
@@ -329,13 +327,11 @@ final class Cronograma
             }
         }
         $cfg = configDeploys();
-        $quien = $b['lanzo'] !== '' ? $b['lanzo'] : $b['autor'];
         $nota = 'Deploy de GitLab · pipeline #' . (int)($b['iid'] ?: $b['pipeline_id']) . ' en ' . $b['rama']
-            . ' · empezó a las ' . date('g:i a', $ini) . ' y terminó a las ' . date('g:i a', $fin)
-            . ($quien !== '' ? ' · lo lanzó ' . $quien : '') . '.'
+            . ' · empezó a las ' . date('g:i a', $ini) . ' y terminó a las ' . date('g:i a', $fin) . '.'
             . ($b['titulo'] !== '' ? "\n«" . $b['titulo'] . '»' : '');
         $dep = $deploys->crear([
-            'proyectos' => $pids, 'autor_id' => self::miembroDe($b), 'entorno' => $cfg['entorno'], 'fecha' => date('Y-m-d H:i', $fin),
+            'proyectos' => $pids, 'autor_id' => 0, 'entorno' => $cfg['entorno'], 'fecha' => date('Y-m-d H:i', $fin),
             'nota' => mb_substr($nota, 0, 1500), 'tareas' => $pend, 'origen' => 'gitlab', 'builds' => [(int)$b['id']],
         ]);
         foreach ($pend as $tid) $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]);
@@ -345,22 +341,9 @@ final class Cronograma
             $nt = count($pend);
             self::avisar(self::interesados($pids, true), 'Se subieron los cambios a ' . $cfg['entorno'],
                 self::nombres($pids) . ($nt ? ' · ' . $nt . ' tarea' . ($nt === 1 ? '' : 's') : '')
-                . ' · deploy de GitLab terminado a las ' . date('g:i a', $fin) . ($quien !== '' ? ' (lo lanzó ' . $quien . ')' : '') . '.');
+                . ' · deploy de GitLab terminado a las ' . date('g:i a', $fin) . '.');
         }
         return $dep;
-    }
-
-    /** El miembro del panel que lanzó el pipeline (por su usuario de Git o su nombre), o 0. */
-    private static function miembroDe(array $b): int
-    {
-        $norm = fn(string $s) => trim(preg_replace('/\s+/', ' ', strtolower(strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ñ' => 'n', 'Á' => 'a', 'É' => 'e', 'Í' => 'i', 'Ó' => 'o', 'Ú' => 'u', 'Ñ' => 'n']))));
-        $usuario = $norm((string)($b['usuario'] ?? ''));
-        $nombre = $norm((string)($b['lanzo'] ?? ''));
-        foreach ((new MiembroRepo())->todos() as $m) {
-            if ($usuario !== '' && ($norm((string)($m['git_user'] ?? '')) === $usuario || $norm(strtok((string)($m['email'] ?? ''), '@') ?: '') === $usuario)) return (int)$m['id'];
-            if ($nombre !== '' && $norm((string)($m['nombre'] ?? '')) === $nombre) return (int)$m['id'];
-        }
-        return 0;
     }
 
     /* ======================= La vuelta del cron ======================= */

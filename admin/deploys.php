@@ -126,7 +126,7 @@ if ($crono):
     <?= esAdmin() ? 'pon el token de GitLab en <a href="ajustes.php#tab-acceso">Ajustes → Acceso y respaldo</a> y el repositorio en cada proyecto.' : 'falta configurarlo en Ajustes.' ?></p>
   <?php elseif ($ultGl): ?>
   <p class="dep-crono-nota"><?= UI::icono('Upload') ?> <span>Último deploy en GitLab:
-    <b>#<?= (int)($ultGl['iid'] ?: $ultGl['pipeline_id']) ?></b> en <b><?= e($ultGl['rama']) ?></b>, terminó <?= e(Cronograma::cuandoFue((string)$ultGl['terminado'])) ?><?= $ultGl['lanzo'] !== '' ? ' · lo lanzó ' . e($ultGl['lanzo']) : '' ?><?php if ($ultGl['web_url'] !== ''): ?> · <a href="<?= e($ultGl['web_url']) ?>" target="_blank" rel="noopener">ver pipeline</a><?php endif; ?></span></p>
+    <b>#<?= (int)($ultGl['iid'] ?: $ultGl['pipeline_id']) ?></b> en <b><?= e($ultGl['rama']) ?></b>, terminó <?= e(Cronograma::cuandoFue((string)$ultGl['terminado'])) ?><?php if ($ultGl['web_url'] !== ''): ?> · <a href="<?= e($ultGl['web_url']) ?>" target="_blank" rel="noopener">ver pipeline</a><?php endif; ?></span></p>
   <?php else: ?>
   <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Todavía no se ha visto ningún deploy en GitLab: cuando un pipeline con deploy termine bien, queda registrado solo aquí abajo.</p>
   <?php endif; ?>
@@ -229,10 +229,10 @@ if ($crono):
         <p class="dep-card__nota"><?= e($nota) ?></p>
         <?php endif; ?>
         <div class="dep-card__pie">
-          <?php if ($auto && !$autor): ?>
+          <?php if ($auto): ?>
           <span class="dep-item-auto" title="Se registró sola con el deploy de GitLab"><?= UI::icono('Upload') ?> <?= ($d['origen'] ?? '') === 'gitlab' ? 'GitLab' : 'Automática' ?></span>
           <?php elseif ($autor): ?>
-          <span class="dep-card__autor"><?= UI::avatar($autor, 24, true) ?><span><?= e($nombreCorto($autor)) ?></span><?php if ($auto): ?><span class="dep-item-auto" title="Se registró sola con el deploy de GitLab que lanzó"><?= UI::icono('Upload') ?> GitLab</span><?php endif; ?></span>
+          <span class="dep-card__autor"><?= UI::avatar($autor, 24, true) ?><span><?= e($nombreCorto($autor)) ?></span></span>
           <?php else: ?>
           <span class="dep-card__autor dep-card__autor--nadie">Sin autor</span>
           <?php endif; ?>
@@ -271,7 +271,7 @@ if ($crono):
         <?php endforeach; ?>
       </div>
       <p class="campo-ayuda">
-        <?= $x['auto'] ? 'Se registró sola con el deploy de GitLab' . ($x['autor'] ? ' que lanzó ' . e($x['autor']['nombre']) : '') . '.' : ($x['autor'] ? 'La registró ' . e($x['autor']['nombre']) . '.' : '') ?>
+        <?= $x['auto'] ? 'Se registró sola con el deploy de GitLab.' : ($x['autor'] ? 'La registró ' . e($x['autor']['nombre']) . '.' : '') ?>
         <?= e((string)($d['entorno'] ?? '')) !== '' ? ' En ' . e((string)$d['entorno']) . '.' : '' ?>
       </p>
       <?php if (trim((string)($d['nota'] ?? '')) !== ''): ?>
@@ -283,7 +283,7 @@ if ($crono):
         <?php foreach ($x['builds'] as $b): ?>
         <li>
           <b><?= e($b['repo']) ?> · <?= e($b['rama']) ?></b>
-          <span><?= e($b['titulo'] !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?><?= $b['autor'] !== '' ? ' · ' . e($b['autor']) : '' ?><?= !empty($b['jobs']) ? ' · ' . e(implode(', ', (array)$b['jobs'])) : '' ?></span>
+          <span><?= e(($b['titulo'] ?? '') !== '' ? $b['titulo'] : substr((string)$b['sha'], 0, 8)) ?><?= !empty($b['jobs']) ? ' · ' . e(implode(', ', (array)$b['jobs'])) : '' ?></span>
           <small><?php if ($b['web_url'] !== ''): ?><a href="<?= e($b['web_url']) ?>" target="_blank" rel="noopener">pipeline #<?= (int)($b['iid'] ?: $b['pipeline_id']) ?></a><?php endif; ?></small>
         </li>
         <?php endforeach; ?>

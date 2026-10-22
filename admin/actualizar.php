@@ -151,7 +151,7 @@ function actualizarPanel(array $opc): void
         'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista'],
         'index.php'         => ['nexo:saludando', 'portadaDe', 'dep-tira-crono'],
         'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards', 'ultimoDeGitLab'],
-        'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos'],
+        'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado'],
         'lib/deploy_tira.php' => ['dep-prox', 'dep-tira-url'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
         'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor'],
@@ -285,6 +285,23 @@ function actualizarPanel(array $opc): void
     nota('info', count($conPortada) . ' de ' . count($proyectos) . ' proyectos con portada' . ($conPortada ? ': ' . implode('; ', $conPortada) : ''));
     if ($sinPortada) nota('aviso', 'Sin portada (se elige en Editar proyecto → Portada): ' . implode(', ', $sinPortada) . '.');
     nota('info', $conRelevo . ' proyecto(s) con PO de relevo');
+    // Deploys de GitLab: no se muestra quién lanzó el pipeline. Lo que ya se registró con
+    // «lo lanzó …» (y con su autor) queda sin nombre; los pipelines guardados, sin quién.
+    $repoDep = new DeployRepo();
+    $depLimpios = 0;
+    foreach ($repoDep->todos() as $dL) {
+        if (($dL['origen'] ?? '') !== 'gitlab') continue;
+        $notaL = preg_replace('/ · lo lanzó [^\n]*?\.(?=\n|$)/u', '.', (string)($dL['nota'] ?? ''));
+        if ($notaL === (string)($dL['nota'] ?? '') && (int)($dL['autor_id'] ?? 0) === 0) continue;
+        $depLimpios++;
+        if (!$seco) $repoDep->actualizar((int)$dL['id'], ['nota' => $notaL, 'autor_id' => 0]);
+    }
+    $storeBuilds = new JsonStore('deploy_builds');
+    foreach ($storeBuilds->all() as $bL) {
+        if (!isset($bL['lanzo']) && !isset($bL['usuario']) && !isset($bL['autor'])) continue;
+        if (!$seco) $storeBuilds->update((int)$bL['id'], ['lanzo' => null, 'usuario' => null, 'autor' => null]);
+    }
+    if ($depLimpios) nota('ok', $depLimpios . ' deploy(s) de GitLab ' . ($seco ? 'quedarían' : 'quedaron') . ' sin el nombre de quién lo lanzó');
     // Teléfonos: van solo con números. Los guardados con +, espacios o guiones quedan en dígitos.
     $repoTel = new MiembroRepo();
     $telLimpios = 0;
