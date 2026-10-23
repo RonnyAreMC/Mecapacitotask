@@ -1169,6 +1169,23 @@ final class Correo
         return '';
     }
 
+    /**
+     * El administrador cambió la contraseña de ese correo en cPanel (buzones.php):
+     * quien lo tiene sincronizado en el panel sigue entrando con la nueva, sin
+     * volver a escribirla. Devuelve cuántas conexiones quedaron al día.
+     */
+    public static function actualizarClave(string $email, string $clave): int
+    {
+        $email = strtolower(trim($email));
+        $n = 0;
+        foreach (self::repo()->all() as $c) {
+            if (strtolower((string)($c['email'] ?? '')) !== $email) continue;
+            self::repo()->update((int)$c['id'], ['clave' => self::cifrar($clave), 'estado' => 'ok', 'error' => '', 'fallos' => []]);
+            $n++;
+        }
+        return $n;
+    }
+
     public static function desconectar(int $mid): void
     {
         foreach (self::repo()->where('miembro_id', $mid) as $c) self::repo()->delete((int)$c['id']);

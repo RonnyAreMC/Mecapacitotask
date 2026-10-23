@@ -90,7 +90,7 @@ function actualizarPanel(array $opc): void
         'lib/Push.php', 'sw.js', 'manifest.webmanifest', 'cron_correo.php',
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
-        'tutoriales.php', 'lib/Tutoriales.php', 'lib/ReqCorreo.php', 'lib/ReqSeguimiento.php', 'arreglar_tildes.php', 'lib/CorreoCopias.php',
+        'tutoriales.php', 'lib/Tutoriales.php', 'lib/ReqCorreo.php', 'lib/ReqSeguimiento.php', 'arreglar_tildes.php', 'lib/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/CorreoCopias.php',
         'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg',
         'lib/Whatsapp.php', 'cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber', 'buzones.php'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -138,9 +138,9 @@ function actualizarPanel(array $opc): void
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
         'planificar.php'    => ['dlg-ia-plan', 'item_release', 'plan-item'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols', 'fq-colab', 'fq-obs-editor', 'fq-colab-form'],
-        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url', '.eq-card', '.rl-res__main', '.rl-dailies', '.rl-ses__editar'],
+        'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url', '.eq-card', '.rl-res__main', '.rl-dailies', '.rl-ses__editar', '.bz-kpis'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php', 'nexo:descansando'],
-        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake', 'HtmlRico::paraCorreo', 'guion invisible'],
+        'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake', 'HtmlRico::paraCorreo', 'guion invisible', 'function actualizarClave'],
         'lib/Tutoriales.php' => ['function pendiente'],
         'tutoriales.php'    => ['tutorial_avisar'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando', 'correoTextoAHtml'],

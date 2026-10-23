@@ -318,8 +318,9 @@ class UI
 
         /* ---- Configuración (solo administradores) ---- */
         $itConf = (is_file(__DIR__ . '/../ia.php') ? $navLink('ia.php', 'ia', UI::icono('ds-ia'), 'Consola de IA', 'Claves, modelos y consumo de la IA') : '')
+            . (is_file(__DIR__ . '/../buzones.php') ? $navLink('buzones.php', 'buzones', UI::icono('ds-correo'), 'Cuentas de correo', 'Las cuentas del cPanel: crear, contraseñas, espacio y reenvíos') : '')
             . $navLink('ajustes.php', 'ajustes', UI::icono('ds-configuracion'), 'Ajustes');
-        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes'], true), 0, '', true);
+        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones'], true), 0, '', true);
     } else {
         /* ---- Conocimiento (los demás equipos): el release y los hitos (solo ver), la documentación y los tutoriales ---- */
         if (is_file(__DIR__ . '/Releases.php')) require_once __DIR__ . '/Releases.php';
