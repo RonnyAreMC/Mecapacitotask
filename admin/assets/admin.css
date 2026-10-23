@@ -5614,14 +5614,17 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
 }
 
 .plan-lista { margin-top: 16px; display: flex; flex-direction: column; gap: 8px; max-height: 460px; overflow-y: auto; }
+/* Sin franja de color: el estado lo dice el ícono de cada fila */
 .plan-fila {
   padding: 11px 13px; border-radius: 12px;
   background: var(--n-bg); box-shadow: var(--sh-mini);
-  border-left: 3px solid var(--c-text-soft);
 }
-.plan-fila.ok    { border-left-color: var(--c-success); }
-.plan-fila.aviso { border-left-color: var(--c-warning); }
-.plan-fila.mala  { border-left-color: var(--c-danger); }
+/* El ítem del release de la tarea (se elige al validar) */
+.plan-item { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
+.plan-item > i { color: var(--c-primary); font-size: .8rem; flex: none; }
+.plan-item select { flex: 1; min-width: 0; font-size: .8rem; padding-top: 6px; padding-bottom: 6px; }
+.plan-item-ayuda { margin: 10px 0 0; color: var(--c-text-soft); font-size: .82rem; line-height: 1.5; }
+.plan-item-ayuda i { color: var(--c-primary); margin-right: 4px; }
 .plan-fila-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-fila-top b { font-size: .88rem; color: var(--c-text); }
 .plan-fila.ok    .plan-fila-top > i { color: var(--c-success); }

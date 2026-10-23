@@ -29,6 +29,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 
     $datos = json_decode(trim($jsonPegado), true);
+    // El ítem del release que se eligió en cada fila al validar (item[n] => código; '' = sin ítem)
+    if (is_array($datos) && isset($_POST['item']) && is_array($_POST['item'])) {
+        $conEnvoltura = isset($datos['tareas']) && is_array($datos['tareas']);
+        $lista = $conEnvoltura ? $datos['tareas'] : $datos;
+        if (array_is_list($lista)) {
+            foreach ($_POST['item'] as $n => $cod) {
+                $i = (int)$n - 1;
+                if (!isset($lista[$i]) || !is_array($lista[$i])) continue;
+                // Solo si la fila sigue siendo la misma que se validó
+                if (trim((string)($lista[$i]['titulo'] ?? '')) !== trim((string)($_POST['item_titulo'][$n] ?? ''))) continue;
+                $cod = strtoupper(trim((string)$cod));
+                unset($lista[$i]['items_release'], $lista[$i]['release_item'], $lista[$i]['item']);
+                if ($cod === '') unset($lista[$i]['item_release']); else $lista[$i]['item_release'] = $cod;
+            }
+            if ($conEnvoltura) $datos['tareas'] = $lista; else $datos = $lista;
+            // El editor se queda con lo elegido, para que se vea en el JSON
+            $jsonPegado = json_encode($datos, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        }
+    }
     if (!is_array($datos)) {
         $reporte = ['ok' => false, 'creadas' => 0, 'filas' => [],
                     'errores' => ['El texto no es un JSON válido. Revisa que no falten comas o comillas. (' . json_last_error_msg() . ')']];
@@ -102,7 +121,7 @@ UI::cabecera(
 
   <!-- Editor -->
   <section class="card-base plan-card">
-    <form method="post" action="planificar.php" enctype="multipart/form-data" class="plan-form">
+    <form method="post" action="planificar.php" enctype="multipart/form-data" class="plan-form" id="plan-form">
       <div class="plan-toolbar">
         <h2 class="font-display"><i class="fa-solid fa-file-code text-secondary"></i> JSON de tareas</h2>
         <div class="plan-acc">
@@ -187,9 +206,37 @@ UI::cabecera(
         </p>
       <?php endif; ?>
 
-      <?php if (!empty($reporte['filas'])): ?>
+      <?php if (!empty($reporte['filas'])):
+        // Ítem del release de cada fila: al validar se elige aquí (va con el formulario al importar)
+        $conItems = class_exists('Releases') && (new JsonStore('rel_items'))->all();
+        $yaImporto = ($reporte['creadas'] ?? 0) + ($reporte['actualizadas'] ?? 0) > 0;
+        $opcionesItem = function (int $pid, string $sel) {
+            static $cache = [];
+            if (!isset($cache[$pid])) {
+                $suyos = array_column(Releases::itemsDeProyecto($pid), 'codigo');
+                $grupos = [];
+                foreach (Releases::items() as $it) {
+                    $g = in_array($it['codigo'], $suyos, true) ? 'Del equipo de este proyecto' : 'Equipo ' . $it['equipo'];
+                    $grupos[$g][] = $it;
+                }
+                uksort($grupos, fn($a, $b) => [$a !== 'Del equipo de este proyecto', $a] <=> [$b !== 'Del equipo de este proyecto', $b]);
+                $cache[$pid] = $grupos;
+            }
+            $h = '<option value="">— Sin ítem del release —</option>';
+            foreach ($cache[$pid] as $g => $its) {
+                $h .= '<optgroup label="' . e($g) . '">';
+                foreach ($its as $it) $h .= '<option value="' . e($it['codigo']) . '"' . ($it['codigo'] === $sel ? ' selected' : '') . '>'
+                    . e($it['codigo'] . ' · ' . mb_strimwidth((string)$it['titulo'], 0, 64, '…') . ($g !== 'Del equipo de este proyecto' ? ' · ' . $it['equipo'] : '') . ($it['estado'] === 'cerrado' ? ' (terminado)' : '')) . '</option>';
+                $h .= '</optgroup>';
+            }
+            return $h;
+        };
+      ?>
+      <?php if ($conItems && !$yaImporto && empty($reporte['errores'])): ?>
+      <p class="plan-item-ayuda"><i class="fa-solid fa-route"></i> Elige en cada tarea a qué <b>ítem del release</b> se amarra (o ponlo en el JSON con <b>item_release</b>). Se guarda al pulsar <b>Importar</b>.</p>
+      <?php endif; ?>
       <div class="plan-lista">
-        <?php foreach ($reporte['filas'] as $f): ?>
+        <?php foreach ($reporte['filas'] as $f): $conSelect = $conItems && !$yaImporto && empty($reporte['errores']) && count($f['items'] ?? []) <= 1; ?>
         <div class="plan-fila <?= $f['error'] ? 'mala' : (empty($f['avisos']) ? 'ok' : 'aviso') ?>">
           <div class="plan-fila-top">
             <i class="fa-solid <?= $f['error'] ? 'fa-circle-xmark' : (empty($f['avisos']) ? 'fa-circle-check' : 'fa-circle-exclamation') ?>"></i>
@@ -197,8 +244,16 @@ UI::cabecera(
             <span class="plan-tag"><?= e($f['proyecto']) ?></span>
             <?php if (($f['accion'] ?? 'crear') === 'actualizar'): ?><span class="plan-tag-act"><i class="fa-solid fa-rotate"></i> Actualiza</span><?php endif; ?>
             <?php if ($f['asignados']): ?><span class="plan-tag-p"><i class="fa-solid fa-user"></i> <?= e(implode(', ', $f['asignados'])) ?></span><?php endif; ?>
-            <?php if (!empty($f['items'])): ?><span class="plan-tag-p"><i class="fa-solid fa-route"></i> <?= e(implode(', ', $f['items'])) ?></span><?php endif; ?>
+            <?php if (!empty($f['items']) && !$conSelect): ?><span class="plan-tag-p"><i class="fa-solid fa-route"></i> <?= e(implode(', ', $f['items'])) ?></span><?php endif; ?>
           </div>
+          <?php if ($conSelect): ?>
+          <label class="plan-item"><i class="fa-solid fa-route" aria-hidden="true"></i><span class="mc-sr-only">Ítem del release</span>
+            <input type="hidden" name="item_titulo[<?= (int)$f['n'] ?>]" value="<?= e($f['titulo']) ?>" form="plan-form">
+            <select name="item[<?= (int)$f['n'] ?>]" form="plan-form" class="select-meca" aria-label="Ítem del release de «<?= e($f['titulo']) ?>»">
+              <?= $opcionesItem((int)($f['proyecto_id'] ?? 0), (string)($f['items'][0] ?? '')) ?>
+            </select>
+          </label>
+          <?php endif; ?>
           <?php foreach ($f['avisos'] as $a): ?><small class="plan-aviso">↳ <?= e($a) ?></small><?php endforeach; ?>
           <?php if ($f['error']): ?><small class="plan-mal">↳ <?= e($f['error']) ?></small><?php endif; ?>
         </div>

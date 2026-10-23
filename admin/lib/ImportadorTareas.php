@@ -246,6 +246,7 @@ final class ImportadorTareas
                 'n'         => $n,
                 'titulo'    => $titulo ?: '(sin título)',
                 'proyecto'  => $proyecto['nombre'] ?? $nomProy,
+                'proyecto_id' => (int)($proyecto['id'] ?? 0),
                 'asignados' => $nombresOk,
                 'avisos'    => $avisos,
                 'error'     => $error,
