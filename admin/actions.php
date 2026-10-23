@@ -3780,7 +3780,7 @@ switch ($accion) {
                 case 'rel_item_guardar':
                     $idRl = (int)($_POST['id'] ?? 0);
                     $datosRl = array_intersect_key($_POST, array_flip(['codigo', 'titulo', 'release', 'equipo', 'inicio', 'fin', 'estado', 'avance',
-                        'microservicio', 'sprints', 'alcance', 'demostrar', 'nota', 'motivo', 'proceso', 'actividades', 'criterio', 'entregable', 'responsable']));
+                        'microservicio', 'sprints', 'alcance', 'demostrar', 'nota', 'motivo', 'proceso', 'actividades', 'criterio', 'entregable', 'responsable', 'avance_fuente']));
                     if (!$relEditor) {
                         // El Scrum Master del equipo marca cómo va lo suyo (estado, %, nota); fechas y equipo, los editores
                         $antesRl = $idRl ? Releases::item($idRl) : null;
