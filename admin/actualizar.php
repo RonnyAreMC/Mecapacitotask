@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -133,7 +133,7 @@ function actualizarPanel(array $opc): void
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador'],
         'lib/ImportadorTareas.php' => ['$origen', 'item_release'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
         'planificar.php'    => ['dlg-ia-plan', 'item_release', 'plan-item'],
@@ -150,9 +150,9 @@ function actualizarPanel(array $opc): void
         'releases.php'      => ['Releases::', 'rl-rfila__cuerpo', 'VISTAS_LECTOR', 'rl-dlg--ancho', 'rl-dlg-daily', 'data-rl-editar-rev'],
         'assets/releases.js' => ['data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg'],
         'lib/Zoom.php'      => ['function participantes'],
-        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir'],
+        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc'],
         'lib/CorreoCopias.php' => ['function crudoDe'],
-        'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg'],
+        'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg', 'panelObservacion'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel'],
         'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo', 'responder_correo', 'release_tareas'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar', 'ent-nexo'],

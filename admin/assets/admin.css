@@ -7092,7 +7092,10 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .dlg-ficha footer .fq-terminar .campo { margin: 0; }
 .dlg-ficha footer .fq-terminar .campo > span small { color: var(--c-text-soft); font-weight: 500; }
 .dlg-ficha footer .fq-terminar textarea { resize: vertical; min-height: 52px; }
-.dlg-ficha footer .fq-terminar .btn-meca { align-self: stretch; justify-content: center; }
+/* «Cerrar» y «Marcar como terminado» en una fila, mitad y mitad */
+.fq-terminar-acc { display: flex; gap: 12px; }
+.fq-terminar-acc .btn-meca { flex: 1 1 0; justify-content: center; }
+.dlg-ficha footer > .btn-meca[hidden] { display: none; }
 /* Los botones del pie van a lo ancho del modal, repartidos (el de borrar se queda chico) */
 .dlg-ficha footer { flex-wrap: wrap; }
 .dlg-ficha footer > .btn-meca, .dlg-ficha footer > .inline-form:not(#fq-borrar) { flex: 1 1 0; }

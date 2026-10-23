@@ -296,7 +296,7 @@ function fechasRequerimiento(array $post): array
     return ['fecha_inicio' => $ini, 'fecha_fin' => $fin];
 }
 
-function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, MiembroRepo $miembros, array $fechas = []): string
+function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, MiembroRepo $miembros, array $fechas = [], string $nota = ''): string
 {
     $validos = [];
     foreach ($ids as $id) {
@@ -318,7 +318,7 @@ function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, M
         // A cada quien se le dice con quien lo comparte: si no, dos personas
         // se ponen a hacer lo mismo sin saberlo.
         $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validos, [$mid => true]));
-        $r = Mailer::notificarRequerimiento($req, $m, array_values($otros));
+        $r = Mailer::notificarRequerimiento($req, $m, array_values($otros), $nota);
         if ($r === true) $avisados++;
         elseif (is_string($r)) $fallo = $r;
     }
@@ -333,6 +333,42 @@ function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, M
                  . ($fallo !== '' ? ' (' . $fallo . ')' : '') . '.',
     };
     return $nombres . '.' . $correo;
+}
+
+/**
+ * La observación del paso «Observaciones» de los asistentes (Nuevo, Asignar,
+ * Editar), ya saneada; '' si no se escribió nada.
+ */
+function reqObsAsistente(): string
+{
+    $html = HtmlRico::limpiar((string)($_POST['observacion'] ?? ''));
+    return HtmlRico::vacio($html) ? '' : $html;
+}
+
+/**
+ * La deja anotada en el requerimiento. $yaAvisados: los que ya la recibieron
+ * dentro del correo de asignación; al resto de responsables (en Editar, los que
+ * ya estaban) les llega como observación. Devuelve la coletilla.
+ */
+function reqObsGuardar(RequerimientoRepo $repo, int $reqId, string $html, MiembroRepo $miembros, array $yaAvisados): string
+{
+    if ($html === '') return '';
+    $req = $repo->buscar($reqId);
+    if (!$req) return '';
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    $autor = $miembros->buscar($yo) ?? [];
+    // Los que de verdad la recibieron en el correo de asignación (con correo y el envío configurado)
+    $avisados = Mailer::listo() ? array_values(array_filter(array_map('intval', $yaAvisados), fn($id) => !empty($miembros->buscar($id)['email']))) : [];
+    $yaAvisados = array_map('intval', $yaAvisados);
+    foreach (RequerimientoRepo::asignadosDe($req) as $mid) {
+        if ($mid === $yo || in_array($mid, $yaAvisados, true)) continue;
+        $m = $miembros->buscar($mid);
+        if (!$m) continue;
+        avisoPanel([$mid], 'requerimiento', 'Observación en un requerimiento', '«' . ($req['titulo'] ?? '') . '» · ' . HtmlRico::texto($html, 100), 'bandeja.php');
+        if (Mailer::observacionRequerimiento($req, $autor, $m, $html) === true) $avisados[] = $mid;
+    }
+    $repo->observar($reqId, $html, $yo, $avisados, 0, true);
+    return ' Las observaciones quedaron anotadas.';
 }
 
 /**
@@ -2283,11 +2319,13 @@ switch ($accion) {
         $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), $propReq ? 'Lo registró desde un correo analizado con IA.' : 'Lo registró.');
         $notaCorreo = ($adjCorreo ? ' Se guardaron ' . count($adjCorreo) . ' adjunto' . (count($adjCorreo) === 1 ? '' : 's') . ' del correo.' : '')
             . ($rechCorreo ? ' No se pudo guardar: ' . implode(', ', $rechCorreo) . '.' : '');
-        // Se puede asignar de una vez, sin pasar dos veces por el formulario
-        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq);
+        // Se puede asignar de una vez, sin pasar dos veces por el formulario (con sus observaciones en el correo)
+        $obsReq = reqObsAsistente();
+        $avisoReq = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []), $miembros, $fechasReq, $obsReq);
+        $notaObs = reqObsGuardar($reqRepo, (int)$req['id'], $obsReq, $miembros, RequerimientoRepo::asignadosDe($reqRepo->buscar((int)$req['id']) ?? []));
         redirigir('requerimientos.php', ($avisoReq === ''
             ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
-            : 'Requerimiento registrado y asignado a ' . $avisoReq) . $notaCorreo);
+            : 'Requerimiento registrado y asignado a ' . $avisoReq) . $notaObs . $notaCorreo);
 
     /* ---------- Requerimientos desde el correo (lib/ReqCorreo.php) ---------- */
     case 'req_correo_conf':
@@ -2349,17 +2387,20 @@ switch ($accion) {
             . (RequerimientoRepo::fechaFin($reqActEd) !== '' ? 'al ' . date('d/m/Y', strtotime(RequerimientoRepo::fechaFin($reqActEd))) : 'a sin fecha');
         $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), $cambiosEd ? 'Editó: ' . implode('; ', $cambiosEd) . '.' : 'Editó los datos.');
         avisoPanel($nuevosEd, 'requerimiento', 'Te asignaron un requerimiento', '«' . trim($_POST['titulo'] ?? '') . '»', 'bandeja.php');
+        $obsEd = reqObsAsistente();
         $avisadosEd = 0;
         foreach ($nuevosEd as $mid) {
             $otros = array_map(fn($o) => $o['nombre'], array_diff_key($validosEd, [$mid => true]));
-            if (Mailer::notificarRequerimiento($reqActEd, $validosEd[$mid], array_values($otros)) === true) {
+            if (Mailer::notificarRequerimiento($reqActEd, $validosEd[$mid], array_values($otros), $obsEd) === true) {
                 $avisadosEd++;
             }
         }
+        // Los nuevos la recibieron en su correo de asignación; a los que ya estaban les llega como observación
+        $notaEd = reqObsGuardar($reqRepo, (int)$req['id'], $obsEd, $miembros, array_values($nuevosEd));
         $sufijoEd = $avisadosEd
             ? ' Avisamos por correo a ' . $avisadosEd . ' responsable' . ($avisadosEd === 1 ? '' : 's') . ' nuevo' . ($avisadosEd === 1 ? '' : 's') . '.'
             : '';
-        redirigir('requerimientos.php', '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd);
+        redirigir('requerimientos.php', '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd . $notaEd);
 
     case 'req_asignar':
         $reqRepo = new RequerimientoRepo();
@@ -2367,12 +2408,15 @@ switch ($accion) {
         if (!$req) {
             redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
         }
+        $obsAs = reqObsAsistente();
         $aviso = derivarRequerimiento($reqRepo, (int)$req['id'], (array)($_POST['asignados'] ?? []),
-                                      $miembros, fechasRequerimiento($_POST));
+                                      $miembros, fechasRequerimiento($_POST), $obsAs);
+        // Todos los responsables la recibieron en el correo de asignación
+        $notaAs = reqObsGuardar($reqRepo, (int)$req['id'], $obsAs, $miembros, RequerimientoRepo::asignadosDe($reqRepo->buscar((int)$req['id']) ?? []));
         if ($aviso === '') {
-            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».', 'info');
+            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».' . $notaAs, 'info');
         }
-        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso);
+        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso . $notaAs);
 
     case 'req_estado':
         $reqRepo = new RequerimientoRepo();

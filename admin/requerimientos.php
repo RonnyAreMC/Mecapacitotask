@@ -319,6 +319,25 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo, ar
  * Paso "Plazo": las dos fechas del encargo, con los mismos atajos y el mismo
  * aviso de duración que el asistente de tareas.
  */
+/**
+ * Paso «Observaciones» de los asistentes: indicaciones para quien lo hace, con
+ * el editor de formato (viñetas, tablas). Opcional: si se escribe, queda como
+ * observación del requerimiento y va en el correo a los responsables.
+ */
+function panelObservacion(string $prefijo): void
+{
+    ?>
+    <section class="wz-panel">
+      <div class="campo">
+        <span>Observaciones <small>(opcional)</small></span>
+        <?= UI::editorRico(['name' => 'observacion', 'id' => $prefijo . '-obs', 'clase' => 'rt--obs',
+              'placeholder' => 'Ej. Coordina con Diseño; la referencia está en el documento adjunto… (puedes pegar tablas)']) ?>
+        <small class="campo-ayuda">Queda en las observaciones del requerimiento y les llega por correo a los responsables.</small>
+      </div>
+    </section>
+    <?php
+}
+
 function panelPlazo(string $prefijo, string $inicioPorDefecto = '', string $finPorDefecto = ''): void
 {
     ?>
@@ -608,6 +627,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
 
       <?php panelResponsables($carga, $opcionesRol, 'nr', array_map('intval', (array)($pd['responsables'] ?? []))); ?>
       <?php panelPlazo('nr', (string)($pd['fecha_inicio'] ?? $hoy), (string)($pd['fecha_fin_calc'] ?? '')); ?>
+      <?php panelObservacion('nr'); ?>
 
       <section class="wz-panel">
         <dl class="wz-resumen"></dl>
@@ -644,6 +664,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
 
       <?php panelResponsables($carga, $opcionesRol, 'dv'); ?>
       <?php panelPlazo('dv'); ?>
+      <?php panelObservacion('dv'); ?>
 
       <section class="wz-panel">
         <dl class="wz-resumen"></dl>
@@ -711,6 +732,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
 
       <?php panelResponsables($carga, $opcionesRol, 're'); ?>
       <?php panelPlazo('re'); ?>
+      <?php panelObservacion('re'); ?>
 
       <section class="wz-panel">
         <dl class="wz-resumen"></dl>

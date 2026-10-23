@@ -356,7 +356,10 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
               <textarea class="input-meca" name="nota" rows="2" maxlength="600"
                         placeholder="Ej. Subido en la rama feature/nota-credito con los commits ab12cd y 34ef56"></textarea>
             </label>
-            <button class="btn-primary btn-meca"><i class="fa-solid fa-circle-check"></i> Marcar como terminado</button>
+            <div class="fq-terminar-acc">
+              <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
+              <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-circle-check"></i> Marcar como terminado</button>
+            </div>
           </form>
           <p class="ajuste-ayuda fq-nota" id="fq-ya-cerrado" hidden>
             <i class="fa-solid fa-circle-check"></i> Ya está marcado como terminado.
@@ -367,7 +370,7 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
             Lo reparte el administrador: si algo no cuadra (el plazo, o que no te toque a ti), díselo.
           </p>
           <?php endif; ?>
-          <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
+          <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-cerrar-pie" onclick="this.closest('dialog').close()">Cerrar</button>
           <?php endif; ?>
         </footer>
       </div>

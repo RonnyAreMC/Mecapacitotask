@@ -3346,6 +3346,7 @@ document.addEventListener('change', (e) => {
     if (!btn) return;
     dlg.querySelector('#dv-id').value = btn.dataset.derivar;
     dlg.querySelector('#dv-titulo').textContent = btn.dataset.titulo || '';
+    if (window.MecaRT) window.MecaRT.set('dv-obs', '');   // la observación es de cada asignación
     // setFecha (y no .value) porque MecaDate sustituye el input por su propio
     // selector: sin avisarle, la fecha se guardaría pero no se vería.
     setFecha(dlg.querySelector('[data-req-fecha="dv-inicio"]'), btn.dataset.inicio);
@@ -3575,6 +3576,9 @@ document.addEventListener('change', (e) => {
     // siga abierto; si ya está cerrado, se muestra el aviso en su lugar.
     const fTerm = $('fq-terminar');
     if (fTerm) fTerm.hidden = r.cerrado;
+    // Abierto, «Cerrar» va junto a «Marcar como terminado» (mitad y mitad); cerrado, va solo
+    const cerrarPie = $('fq-cerrar-pie');
+    if (cerrarPie && fTerm) cerrarPie.hidden = !r.cerrado;
     const yaCerr = $('fq-ya-cerrado');
     if (yaCerr) yaCerr.hidden = !r.cerrado;
 
@@ -3603,6 +3607,7 @@ document.addEventListener('change', (e) => {
         setSelect(em.querySelector('.js-re-prioridad'), r.prioridadKey || 'media');
         setSelect(em.querySelector('.js-re-inst'), r.instituciones || []);
         window.MecaRT.set('re-detalle', r.detalle || '');
+        window.MecaRT.set('re-obs', '');
         // Plazo actual (setFecha, no .value: MecaDate sustituye el input)
         setFecha(em.querySelector('[data-req-fecha="re-inicio"]'), r.inicio || '');
         setFecha(em.querySelector('[data-req-fecha="re-fin"]'), r.fin || '');

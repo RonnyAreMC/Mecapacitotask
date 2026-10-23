@@ -788,7 +788,8 @@ class Mailer
         return self::enviar($miembro['email'], $titulo, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Abrir en el panel' : ''));
     }
 
-    public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
+    /** $nota: la observación que se escribió al asignarlo (HTML saneado, con formato), si hay. */
+    public static function notificarRequerimiento(array $req, array $miembro, array $companeros = [], string $nota = ''): true|string|null
     {
         if (!self::listo() || empty($miembro['email'])) {
             return null;
@@ -808,7 +809,11 @@ class Mailer
         $cuerpo = self::encabezado($acento, '&#9679;', 'Te asignaron un requerimiento',
                     'Hola ' . e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '') . ', esto no pertenece a '
                     . 'ningún proyecto: llegó suelto y te lo asignaron.')
-            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true);
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            . (($rico = $nota !== '' ? HtmlRico::paraCorreo($nota, $acento) : '') !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#f7f8fa;color:#1d1d1f;font-size:14px;line-height:1.55;">'
+                  . '<b>Observaciones</b><br>' . $rico . '</div>'
+                : '');
 
         return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
             self::plantilla($cuerpo));

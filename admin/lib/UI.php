@@ -1162,12 +1162,14 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.'],
         ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.'],
         ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.'],
+        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.'],
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
     ];
 
     public const PASOS_ASIGNAR = [
         ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.'],
         ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.'],
+        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.'],
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.'],
     ];
 
