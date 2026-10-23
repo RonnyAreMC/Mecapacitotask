@@ -1126,6 +1126,7 @@ switch ($accion) {
             $_SESSION['correo_borrador'] = [
                 'para' => (string)($_POST['para'] ?? ''), 'cc' => (string)($_POST['cc'] ?? ''), 'cco' => (string)($_POST['cco'] ?? ''),
                 'asunto' => (string)($_POST['asunto'] ?? ''), 'texto' => (string)($_POST['texto'] ?? ''),
+                'html' => HtmlRico::limpiar((string)($_POST['html'] ?? '')),
                 'en_respuesta_a' => (string)($_POST['en_respuesta_a'] ?? ''), 'referencias' => (string)($_POST['referencias'] ?? ''),
                 'reenviar_uid' => (int)($_POST['reenviar_uid'] ?? 0),
                 'prioridad' => (int)($_POST['prioridad'] ?? 3), 'acuse' => !empty($_POST['acuse']), 'dsn' => !empty($_POST['dsn']),
@@ -1171,7 +1172,7 @@ switch ($accion) {
             }
             $envC = Correo::enviar($midC, trim((string)$yoC['nombre']), [
                 'para' => $_POST['para'] ?? '', 'cc' => $_POST['cc'] ?? '', 'cco' => $_POST['cco'] ?? '',
-                'asunto' => $_POST['asunto'] ?? '', 'texto' => $_POST['texto'] ?? '',
+                'asunto' => $_POST['asunto'] ?? '', 'texto' => $_POST['texto'] ?? '', 'html' => (string)($_POST['html'] ?? ''),
                 'en_respuesta_a' => $_POST['en_respuesta_a'] ?? '', 'referencias' => $_POST['referencias'] ?? '',
                 'adjuntos' => $adjC,
                 // Opciones de envío (como en Roundcube): prioridad, confirmación de lectura, aviso de entrega y dónde guardar la copia

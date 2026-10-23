@@ -1706,6 +1706,19 @@ final class Correo
         $texto = str_replace("\r\n", "\n", (string)($d['texto'] ?? ''));
         $html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1f2937">'
             . nl2br(CorreoHtml::texto($texto)) . '</div>';
+        // Con el editor (negrita, listas, tablas…): el HTML saneado con estilos en línea (Gmail, Outlook)
+        // y, para quien lee en texto plano, la misma versión sin formato.
+        $rico = class_exists('HtmlRico') ? HtmlRico::paraCorreo((string)($d['html'] ?? ''), (string)(Config::all()['color_secundario'] ?? '#2B76F7')) : '';
+        if ($rico !== '') {
+            $html = '<div style="font-family:Arial,Helvetica,sans-serif;font-size:14px;line-height:1.55;color:#1f2937">' . $rico . '</div>';
+            // Texto plano: listas numeradas con su número y las celdas de una tabla separadas
+            $plano = (string)preg_replace_callback('~<ol\b[^>]*>(.*?)</ol>~is', function ($m) {
+                $n = 0;
+                return (string)preg_replace_callback('~<li\b[^>]*>~i', function () use (&$n) { return '<span>' . (++$n) . '. </span>'; }, $m[1]);
+            }, $rico);
+            $plano = (string)preg_replace('~</t[dh]>~i', ' | ', $plano);
+            $texto = CorreoHtml::aTexto($plano);
+        }
         $crudo = CorreoMime::armar([
             'de_nombre' => $nombre, 'de_email' => (string)$c['email'],
             'para' => $para, 'cc' => $cc, 'asunto' => $asunto !== '' ? $asunto : '(sin asunto)',

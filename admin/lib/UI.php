@@ -1374,6 +1374,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
             ['insertOrderedList',   '', 'fa-list-ol',  'Lista numerada'],
             ['formatBlock', 'blockquote', 'fa-quote-right', 'Cita'],
             ['createLink',  '',   'fa-link',          'Enlace'],
+            ['insertTable', '',   'fa-table',         'Tabla (Tab pasa a la siguiente celda)'],
             ['removeFormat','',   'fa-eraser',        'Quitar formato'],
         ];
         $barra = '';
@@ -1384,7 +1385,8 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         }
 
         $vacio = HtmlRico::vacio($val);
-        $h  = '<div class="rt' . ($vacio ? ' rt-vacio' : '') . '" data-editor-rico'
+        $clase = trim((string)($o['clase'] ?? ''));
+        $h  = '<div class="rt' . ($clase !== '' ? ' ' . e($clase) : '') . ($vacio ? ' rt-vacio' : '') . '" data-editor-rico'
             . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>';
         $h .= '<div class="rt-barra" role="toolbar">' . $barra . '</div>';
         // El HTML inicial NO se escapa: es el contenido editable, ya saneado.

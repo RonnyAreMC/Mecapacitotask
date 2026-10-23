@@ -611,10 +611,19 @@ function correoDirectorio(int $mid, string $yoMail): array
     return ['equipo' => array_values($equipo), 'recientes' => array_map(fn($r) => ['e' => $r['e'], 'n' => (string)($r['n'] ?? '')], $recientes)];
 }
 
+/** Texto plano a HTML para el editor: párrafos por líneas en blanco y saltos de línea. */
+function correoTextoAHtml(string $t): string
+{
+    $t = trim(str_replace("\r\n", "\n", $t));
+    if ($t === '') return '';
+    return implode('', array_map(fn($p) => '<p>' . str_replace("\n", '<br>', e($p)) . '</p>', preg_split('/\n{2,}/', $t)));
+}
+
 function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, array $carpetas = []): void
 {
     $yoMail = strtolower((string)$cuenta['email']);
     $para = $cc = $cco = $asunto = $texto = $enResp = $refs = '';
+    $html = '';   // lo que va en el editor (con formato); $texto queda como respaldo en texto plano
     // Opciones de envío: prioridad normal, sin confirmación ni aviso, copia en Enviados
     $prioridad = 3;
     $acuse = $dsn = false;
@@ -625,10 +634,14 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
         $quien = correoQuien($de);
         $cita = "\n\n\nEl " . Correo::fechaLarga($base['fecha']) . ', ' . $quien . " escribió:\n"
             . preg_replace('/^/m', '> ', trim((string)$base['texto_cita']));
+        $citaHtml = '<p><br></p><p>El ' . e(Correo::fechaLarga($base['fecha'])) . ', ' . e($quien) . ' escribió:</p>'
+            . '<blockquote>' . correoTextoAHtml((string)$base['texto_cita']) . '</blockquote>';
         if ($reenviar) {
             $asunto = preg_match('/^(rv|fwd?|reenv)\s*:/i', $base['asunto']) ? $base['asunto'] : 'Rv: ' . $base['asunto'];
             $texto = "\n\n\n---------- Mensaje reenviado ----------\nDe: " . correoDirs($base['de']) . "\nFecha: " . Correo::fechaLarga($base['fecha'])
                 . "\nAsunto: " . $base['asunto'] . "\nPara: " . correoDirs($base['para']) . "\n\n" . trim((string)$base['texto_cita']);
+            $html = '<p><br></p><p>---------- Mensaje reenviado ----------<br>De: ' . e(correoDirs($base['de'])) . '<br>Fecha: ' . e(Correo::fechaLarga($base['fecha']))
+                . '<br>Asunto: ' . e($base['asunto']) . '<br>Para: ' . e(correoDirs($base['para'])) . '</p><blockquote>' . correoTextoAHtml((string)$base['texto_cita']) . '</blockquote>';
         } else {
             $responderA = $base['responder_a'] ?: $base['de'];
             $para = implode(', ', array_column($responderA, 'email'));
@@ -638,6 +651,7 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
             }
             $asunto = preg_match('/^re\s*:/i', $base['asunto']) ? $base['asunto'] : 'Re: ' . $base['asunto'];
             $texto = $cita;
+            $html = $citaHtml;
             $enResp = $base['message_id'];
             $refs = trim($base['referencias'] . ' ' . $base['message_id']);
         }
@@ -648,6 +662,7 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
     if (is_array($ri) && $base && !$reenviar && (int)($ri['uid'] ?? 0) === (int)$base['uid'] && (string)($ri['c'] ?? '') === (string)$carpeta['nombre']) {
         unset($_SESSION['correo_respuesta_ia']);
         $texto = rtrim((string)$ri['texto']) . $texto;
+        $html = correoTextoAHtml((string)$ri['texto']) . $html;
         $deIa = true;
     }
     // Si el envío anterior falló, vuelve lo que la persona había escrito
@@ -659,6 +674,7 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
         $cco = (string)($bor['cco'] ?? $cco);
         $asunto = (string)($bor['asunto'] ?? $asunto);
         $texto = (string)($bor['texto'] ?? $texto);
+        $html = isset($bor['html']) ? (string)$bor['html'] : correoTextoAHtml($texto);
         $enResp = (string)($bor['en_respuesta_a'] ?? $enResp);
         $refs = (string)($bor['referencias'] ?? $refs);
         if ((int)($bor['reenviar_uid'] ?? 0) > 0) $reUid = (int)$bor['reenviar_uid'];
@@ -715,8 +731,10 @@ function correoRedactar(array $yo, array $cuenta, array $carpeta, ?array $base, 
     <div class="mc-field"><label class="mc-field__label" for="cr-asunto">Asunto</label>
       <div class="mc-input"><input class="mc-input__control" id="cr-asunto" name="asunto" maxlength="250" value="<?= e($asunto) ?>"></div></div>
     <?php if ($deIa): ?><?= UI::alertaDS('info', '', 'La respuesta la armó la IA: revísala (y completa lo que esté entre [corchetes]) antes de enviar.', true) ?><?php endif; ?>
-    <div class="mc-field"><label class="mc-field__label" for="cr-texto">Mensaje</label>
-      <div class="mc-input mc-input--multiline"><textarea class="mc-input__control correo-redactar__texto" id="cr-texto" name="texto" rows="12"<?= $para !== '' ? ' autofocus' : '' ?>><?= e($texto) ?></textarea></div></div>
+    <div class="mc-field"><span class="mc-field__label" id="cr-texto-l">Mensaje</span>
+      <?php /* Con formato: negrita, listas, numeración, tablas, citas y enlaces (se sanea al enviar) */ ?>
+      <?= UI::editorRico(['name' => 'html', 'id' => 'cr-texto', 'clase' => 'rt--correo', 'placeholder' => 'Escribe tu mensaje… (puedes pegar tablas)',
+          'valor' => class_exists('HtmlRico') ? HtmlRico::limpiar($html !== '' ? $html : correoTextoAHtml($texto)) : '']) ?></div>
     <div class="mc-field">
       <span class="mc-field__label" id="cr-adj-l">Adjuntos</span>
       <?= correoZonaAdjuntos('adjuntos[]', 'cr-adj', 'cr-adj-l') ?>

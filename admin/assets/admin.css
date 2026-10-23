@@ -5926,6 +5926,9 @@ html.sb-collapsed .nav-badge { display: none; }
 .rt.rt-vacio .rt-area::before {
   content: attr(data-ph); color: var(--c-text-muted); pointer-events: none;
 }
+/* En el correo, el editor ocupa lo que un mensaje necesita */
+.rt--correo .rt-area { min-height: 280px; max-height: 62vh; font-size: .95rem; }
+.rt--correo .rt-barra { position: sticky; top: 0; z-index: 1; }
 
 /* Contenido renderizado (común a editor, ficha y detalle) */
 .rt-render { overflow-x: auto; overflow-wrap: anywhere; }

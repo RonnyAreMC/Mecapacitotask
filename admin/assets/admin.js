@@ -3698,6 +3698,10 @@ document.addEventListener('change', (e) => {
         if (cmd === 'createLink') {
           const url = prompt('URL del enlace (https://…):');
           if (url) document.execCommand('createLink', false, url);
+        } else if (cmd === 'insertTable') {
+          // Tabla de 3 columnas: encabezado y dos filas (Tab avanza; en la última celda, agrega una fila)
+          const fila = (tag) => '<tr>' + [1, 2, 3].map((n) => '<' + tag + '>' + (tag === 'th' ? 'Columna ' + n : '<br>') + '</' + tag + '>').join('') + '</tr>';
+          document.execCommand('insertHTML', false, '<table><thead>' + fila('th') + '</thead><tbody>' + fila('td') + fila('td') + '</tbody></table><p><br></p>');
         } else if (cmd === 'formatBlock') {
           // Alternar: si ya es ese bloque, se vuelve a párrafo.
           const val = (b.dataset.val || 'p').toUpperCase();
@@ -3708,6 +3712,34 @@ document.addEventListener('change', (e) => {
         }
         sync();
       });
+    });
+
+    // En una tabla, Tab pasa a la siguiente celda (Mayús+Tab, a la anterior); al final, una fila nueva
+    area.addEventListener('keydown', (e) => {
+      if (e.key !== 'Tab') return;
+      const sel = getSelection();
+      const celda = sel && sel.anchorNode && (sel.anchorNode.nodeType === 1 ? sel.anchorNode : sel.anchorNode.parentElement)?.closest('td, th');
+      if (!celda || !area.contains(celda)) return;
+      e.preventDefault();
+      const tabla = celda.closest('table');
+      const celdas = [...tabla.querySelectorAll('td, th')];
+      let i = celdas.indexOf(celda) + (e.shiftKey ? -1 : 1);
+      if (i >= celdas.length) {
+        const ultima = tabla.querySelector('tr:last-child');
+        const nueva = document.createElement('tr');
+        [...ultima.children].forEach(() => { const td = document.createElement('td'); td.innerHTML = '<br>'; nueva.appendChild(td); });
+        (tabla.tBodies[0] || tabla).appendChild(nueva);
+        i = celdas.length;
+      }
+      const destino = [...tabla.querySelectorAll('td, th')][Math.max(0, i)];
+      if (destino) {
+        const r = document.createRange();
+        r.selectNodeContents(destino);
+        r.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(r);
+      }
+      sync();
     });
 
     const form = rt.closest('form');
