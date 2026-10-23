@@ -80,6 +80,7 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
     $fin     = RequerimientoRepo::fechaFin($r);
     $vencido = RequerimientoRepo::vencido($r);
     [$plazoTxt, $plazoNivel, $plazoDetalle] = plazoDe($r);
+    $colab   = RequerimientoRepo::colaboradoresDe($r);
 
     // Nombres de pila: "Coddy, Dulce +1". Los avatares solos son iniciales de
     // colores y hay que pasar el ratón por encima para saber de quién son.
@@ -109,7 +110,12 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'cerrado'     => RequerimientoRepo::cerrado($r),
         'asignados'   => implode(',', $ids),
         'adjuntos'    => array_values((array)($r['adjuntos'] ?? [])),
-        'personas'    => array_map(fn($m) => ['nombre' => $m['nombre'], 'rol' => $m['rol'] ?? ''], $gente),
+        // Los que sumó como colaboradores quien ya lo tenía, con quién los sumó
+        'personas'    => array_map(fn($m) => ['nombre' => $m['nombre'], 'rol' => $m['rol'] ?? '',
+                             'colab' => isset($colab[(int)$m['id']]) ? (string)($mapa[$colab[(int)$m['id']]['por']]['nombre'] ?? 'alguien') : ''], $gente),
+        // Trazabilidad: qué le pasó, cuándo y quién (0 = el panel: la IA, el aviso de vencido)
+        'historial'   => array_map(fn($h) => ['fecha' => (string)($h['fecha'] ?? ''), 'quien' => (int)($h['quien'] ?? 0) > 0 ? (string)($mapa[(int)$h['quien']]['nombre'] ?? 'Alguien') : 'El panel',
+                             'texto' => (string)$h['texto']], RequerimientoRepo::historialDe($r)),
         // Observación de cierre que deja el responsable al marcarlo terminado.
         'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
         'cerradoPor'  => (string)($mapa[(int)($r['cerrado_por'] ?? 0)]['nombre'] ?? ''),
@@ -283,6 +289,28 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
         <div class="fq-bloque">
           <h4>Responsables</h4>
           <ul class="fq-personas" id="fq-personas"></ul>
+          <?php if ($puedeTerminar): $equipoCol = (new MiembroRepo())->todos(); ?>
+          <!-- Quien lo tiene suma a alguien que le ayude. Solo eso: las fechas
+               y el resto los cambia el administrador. JS lo esconde si ya está
+               cerrado y apaga a quienes ya están. -->
+          <form method="post" action="actions.php" class="fq-colab" id="fq-colab">
+            <input type="hidden" name="accion" value="req_colaborador">
+            <input type="hidden" name="id" id="fq-id-colab">
+            <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'bandeja.php')) ?>">
+            <label class="campo"><span>Sumar a un colaborador</span>
+              <select name="colaborador" class="select-meca" id="fq-colab-sel" required>
+                <option value="">Elige quién te ayuda…</option>
+                <?php foreach ($equipoCol as $mC): ?><option value="<?= (int)$mC['id'] ?>"><?= e($mC['nombre']) ?><?= trim((string)($mC['rol'] ?? '')) !== '' ? ' · ' . e($mC['rol']) : '' ?></option><?php endforeach; ?>
+              </select></label>
+            <button class="btn-outline btn-meca btn-azul btn-sm"><i class="fa-solid fa-user-plus"></i> Sumar</button>
+            <small class="campo-ayuda">Le llega como a ti y queda anotado que lo sumaste. Las fechas las cambia el administrador.</small>
+          </form>
+          <?php endif; ?>
+        </div>
+
+        <div class="fq-bloque" id="fq-hist-bloque" hidden>
+          <h4><i class="fa-solid fa-clock-rotate-left text-secondary"></i> Trazabilidad</h4>
+          <ol class="fq-hist" id="fq-hist"></ol>
         </div>
 
         <div class="fq-bloque" id="fq-docs-bloque" hidden>

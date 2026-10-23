@@ -17,7 +17,9 @@
  *       "fecha_limite": "2026-08-01",       (opcional)
  *       "asignados": ["Kevin", "Dulce"],    (opcional, nombres)
  *       "ref": "t1",                        (opcional, id temporal en este lote)
- *       "depende_de": "t0"                  (opcional: ref o titulo de otra tarea del lote)
+ *       "depende_de": "t0",                 (opcional: ref o titulo de otra tarea del lote)
+ *       "item_release": "R2-B04"            (opcional: el ítem del release al que se amarra;
+ *                                             uno o una lista de códigos. Ver lib/Releases.php)
  *     }
  *   ]
  * }
@@ -34,6 +36,7 @@ final class ImportadorTareas
     private array $miembros;    // [idNorm(nombre) => miembro]
     private array $prioridades; // claves validas
     private array $estados;     // claves validas
+    private array $itemsRel = [];   // [CODIGO => ítem del release] (si el módulo está)
     public string $origen = 'plan';   // lo que la tarea dice de dónde salió (TareaRepo::ORIGENES)
 
     public function __construct(
@@ -51,6 +54,34 @@ final class ImportadorTareas
         }
         $this->prioridades = array_keys(Catalogo::prioridades());
         $this->estados     = array_keys(Catalogo::estadosTarea());
+        if (is_file(__DIR__ . '/Releases.php')) {
+            require_once __DIR__ . '/Releases.php';
+            foreach ((new JsonStore('rel_items'))->all() as $it) $this->itemsRel[strtoupper(trim((string)$it['codigo']))] = $it;
+        }
+    }
+
+    /**
+     * Los ítems del release que pide la tarea ("item_release": "R2-B04" o una
+     * lista). Los que no existen o son de un equipo que no lleva ese proyecto
+     * solo avisan. Devuelve [[id, codigo], ...].
+     */
+    private function itemsDe(array $t, ?array $proyecto, array &$avisos): array
+    {
+        $pedidos = $t['item_release'] ?? $t['items_release'] ?? $t['release_item'] ?? $t['item'] ?? [];
+        $pedidos = is_array($pedidos) ? $pedidos : preg_split('/[\s,;]+/', (string)$pedidos);
+        $out = [];
+        foreach ($pedidos as $cod) {
+            $cod = strtoupper(trim((string)$cod));
+            if ($cod === '') continue;
+            if (!$this->itemsRel) { $avisos[] = 'el módulo de Releases no está: no se amarra a «' . $cod . '»'; continue; }
+            $it = $this->itemsRel[$cod] ?? null;
+            if (!$it) { $avisos[] = 'no existe el ítem del release «' . $cod . '», la tarea queda sin amarrar'; continue; }
+            if ($proyecto && class_exists('Releases') && !in_array((int)$proyecto['id'], Releases::proyectosEquipo((string)$it['equipo']), true)) {
+                $avisos[] = $cod . ' es del equipo ' . $it['equipo'] . ', que no tiene «' . $proyecto['nombre'] . '» entre sus proyectos: se amarra igual';
+            }
+            $out[(int)$it['id']] = [(int)$it['id'], (string)$it['codigo']];
+        }
+        return array_values($out);
     }
 
     /** Quita tildes/mayusculas/espacios para comparar nombres. */
@@ -200,6 +231,9 @@ final class ImportadorTareas
             if (!empty($t['fecha_limite']) && $fl === '') $avisos[] = 'fecha_limite inválida (usa AAAA-MM-DD), la dejé vacía';
             if ($fi !== '' && $fl !== '' && $fl < $fi) $avisos[] = 'la fecha límite es anterior al inicio';
 
+            // Ítems del release a los que se amarra
+            $itemsT = $this->itemsDe($t, $proyecto, $avisos);
+
             // ¿Ya existe una tarea con ese título en el proyecto?
             $existe = ($proyecto && $titulo !== '')
                 ? ($existentes[(int)$proyecto['id'] . '|' . self::norm($titulo)] ?? 0)
@@ -216,6 +250,7 @@ final class ImportadorTareas
                 'avisos'    => $avisos,
                 'error'     => $error,
                 'accion'    => ($existe && $actualizar) ? 'actualizar' : 'crear',
+                'items'     => array_column($itemsT, 1),
             ];
             if ($error) {
                 $errores[] = "Tarea #$n («" . ($titulo ?: $nomProy) . "»): $error.";
@@ -226,6 +261,7 @@ final class ImportadorTareas
                 'ref'  => trim((string)($t['ref'] ?? '')),
                 'dep'  => trim((string)($t['depende_de'] ?? '')),
                 'existe' => $existe,
+                'items' => array_column($itemsT, 0),
                 'datos' => [
                     'proyecto_id'  => (int)$proyecto['id'],
                     'titulo'       => $titulo,
@@ -255,6 +291,7 @@ final class ImportadorTareas
         $porRef = [];
         $porTitulo = [];
         $creadasIds = [];
+        $porItem = [];      // ítem del release => tareas que se le amarran
         $creadas = 0;
         $actualizadas = 0;
         foreach ($preparadas as $p) {
@@ -268,6 +305,7 @@ final class ImportadorTareas
                 $creadas++;
             }
             $creadasIds[] = ['id' => $id, 'pid' => (int)$p['datos']['proyecto_id'], 'dep' => $p['dep']];
+            foreach ($p['items'] as $iid) $porItem[$iid][] = $id;
             if ($p['ref'] !== '') $porRef[self::norm($p['ref'])] = $id;
             $porTitulo[self::norm($p['datos']['titulo'])] = $id;
         }
@@ -281,6 +319,16 @@ final class ImportadorTareas
             if ($valido > 0) $this->tareasRepo->actualizar($c['id'], ['depende_de' => $valido]);
         }
 
-        return ['ok' => true, 'creadas' => $creadas, 'actualizadas' => $actualizadas, 'filas' => $filas, 'errores' => []];
+        // Amarrarlas a sus ítems del release (una vez por ítem): su avance sale de ahí
+        $amarradas = [];
+        foreach ($porItem as $iid => $tids) {
+            try {
+                Releases::vincularTareas((int)$iid, $tids, -1, true);
+                foreach ($tids as $tid) $amarradas[$tid] = true;
+            } catch (Throwable $e) { /* un ítem que ya no está no frena el lote */ }
+        }
+        $amarradas = count($amarradas);
+
+        return ['ok' => true, 'creadas' => $creadas, 'actualizadas' => $actualizadas, 'amarradas' => $amarradas, 'filas' => $filas, 'errores' => []];
     }
 }

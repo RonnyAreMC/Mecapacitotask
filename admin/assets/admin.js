@@ -2583,6 +2583,13 @@ document.querySelectorAll('[data-editar-tarea]').forEach((btn) => {
     setSelect(dlg.querySelector('.js-et-asignado'), t.asignados || (t.asignado_id ? [t.asignado_id] : []));
     setSelect(dlg.querySelector('.js-et-prioridad'), t.prioridad);
     setSelect(dlg.querySelector('.js-et-estado'), t.estado);
+    // El ítem del release al que está amarrada (Releases)
+    const relSel = dlg.querySelector('.js-et-rel');
+    if (relSel) {
+      let mapa = {};
+      try { mapa = JSON.parse(document.getElementById('rel-tareas-item').textContent || '{}'); } catch (e) { mapa = {}; }
+      setSelect(relSel, mapa[t.id] || '');
+    }
     const picker = dlg.querySelector('[data-dep-picker]');
     if (picker && picker.depAPI) {
       // El selector se rellena vía su API (excluye la propia tarea de la lista).
@@ -3410,6 +3417,13 @@ document.addEventListener('change', (e) => {
         const s = document.createElement('small');
         s.textContent = p.rol || '';
         li.append(b, s);
+        // Colaborador: lo sumó quien ya lo tenía
+        if (p.colab) {
+          const c = document.createElement('small');
+          c.className = 'fq-colab-tag';
+          c.textContent = 'Colaborador · lo sumó ' + p.colab.split(' ')[0];
+          li.append(c);
+        }
         personas.append(li);
       });
     } else {
@@ -3419,7 +3433,33 @@ document.addEventListener('change', (e) => {
       personas.append(li);
     }
 
-    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar', 'fq-id-colab'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    // Sumar colaborador (bandeja): mientras siga abierto, y sin ofrecer a quien ya está
+    const fCol = $('fq-colab');
+    if (fCol) {
+      fCol.hidden = r.cerrado;
+      const ya = new Set(String(r.asignados || '').split(',').filter(Boolean));
+      const sel = $('fq-colab-sel');
+      [...sel.options].forEach((o) => { if (o.value) { o.disabled = ya.has(o.value); o.hidden = ya.has(o.value); } });
+      sel.value = '';
+      sel.dispatchEvent(new Event('ms-sync'));
+    }
+    // Trazabilidad: de lo más nuevo a lo más viejo (textContent: lo escribe gente)
+    const hist = $('fq-hist');
+    if (hist) {
+      const lista = Array.isArray(r.historial) ? r.historial.slice().reverse() : [];
+      $('fq-hist-bloque').hidden = lista.length === 0;
+      hist.textContent = '';
+      lista.forEach((h) => {
+        const li = document.createElement('li');
+        const meta = document.createElement('small');
+        meta.textContent = (h.fecha || '') + ' · ' + (h.quien || '');
+        const t = document.createElement('span');
+        t.textContent = h.texto || '';
+        li.append(t, meta);
+        hist.append(li);
+      });
+    }
     const idObs = $('fq-id-observar');
     if (idObs) idObs.value = r.id;
 

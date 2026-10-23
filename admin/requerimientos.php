@@ -13,7 +13,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/req_ui.php';
 // Requerimientos desde el correo (lib/ReqCorreo.php): si falta algo, solo no aparece
-foreach (['Correo', 'ReqCorreo'] as $modRc) {
+foreach (['Correo', 'ReqCorreo', 'ReqSeguimiento'] as $modRc) {
     if (is_file(__DIR__ . '/lib/' . $modRc . '.php')) require_once __DIR__ . '/lib/' . $modRc . '.php';
 }
 if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
@@ -348,6 +348,9 @@ UI::cabecera(
      <a class="btn-outline btn-meca btn-azul btn-icono" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> <span class="tab-txt">Instituciones</span>
      </a>
+     ' . (class_exists('ReqSeguimiento') ? '<button type="button" class="btn-outline btn-meca btn-azul btn-icono" onclick="document.getElementById(\'dlg-req-seg\').showModal()" title="Quién recibe los terminados y los que se pasan de fecha">
+       <i class="fa-solid fa-binoculars"></i> <span class="tab-txt">Seguimiento</span>
+     </button>' : '') . '
      ' . ($conCorreo ? '<button type="button" class="btn-outline btn-meca btn-azul btn-icono" onclick="document.getElementById(\'dlg-req-correo\').showModal()" title="La IA convierte tus correos en requerimientos">
        <i class="fa-solid fa-envelope-open-text"></i> <span class="tab-txt">Desde el correo</span>'
        . ($propuestas ? ' <span class="tab-badge">' . count($propuestas) . '</span>' : '') . '
@@ -537,7 +540,8 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
             <li><b>Magnitud: <?= e($mg[0]) ?></b><?= !empty($pd['magnitud_motivo']) ? ' — ' . e((string)$pd['magnitud_motivo']) : '' ?>.
               <?= !empty($pd['fecha_del_correo'])
                   ? 'El correo pide entregarlo el <b>' . e((string)$pd['fecha_fin_calc']) . '</b>.'
-                  : 'Entrega en ' . (int)($pd['dias'] ?? 0) . ' día' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 's') . ' hábil' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 'es') . ': <b>' . e((string)($pd['fecha_fin_calc'] ?? '')) . '</b>.' ?></li>
+                  : 'Plazo que estimó la IA: ' . (int)($pd['dias'] ?? 0) . ' día' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 's') . ' hábil' . ((int)($pd['dias'] ?? 0) === 1 ? '' : 'es') . ', entrega el <b>' . e((string)($pd['fecha_fin_calc'] ?? '')) . '</b>'
+                    . (!empty($pd['dias_motivo']) ? ' — ' . e((string)$pd['dias_motivo']) : '') . '.' ?></li>
             <?php if (!empty($pd['institucion_texto']) && empty($pd['instituciones'])): ?>
             <li>Institución: «<?= e((string)$pd['institucion_texto']) ?>», que no está en el catálogo. <a href="instituciones.php">Agrégala</a> o elige otra abajo.</li>
             <?php endif; ?>
@@ -760,7 +764,8 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
       <?php endif; ?>
 
       <fieldset class="req-plazos">
-        <legend>Plazo según la magnitud <small>(días hábiles; máximo 5, una semana)</small></legend>
+        <legend>Plazo de respaldo <small>(días hábiles; solo si la IA no puede estimarlo)</small></legend>
+        <p class="mc-field__hint">La IA estima los días de cada pedido sabiendo que el equipo trabaja con Claude Code: un cambio de texto o de etiqueta es 1 día, una pantalla nueva 2 o 3.</p>
         <?php foreach (ReqCorreo::MAGNITUDES as $k => [$etq, $desc]): ?>
         <label class="req-plazo">
           <span><b><?= e($etq) ?></b><small><?= e($desc) ?></small></span>
@@ -790,6 +795,36 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         </ul>
       </div>
       <?php endif; ?>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar</span></button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
+
+<?php if (class_exists('ReqSeguimiento')):
+    $seg = ReqSeguimiento::conf();
+    $opsSeg = [];
+    foreach ($miembros->todos() as $mS) $opsSeg[(int)$mS['id']] = $mS['nombre'] . (trim((string)($mS['rol'] ?? '')) !== '' ? ' · ' . $mS['rol'] : '');
+?>
+<!-- Seguimiento: a quién le llegan los terminados y los que se pasan de fecha (Felipe) -->
+<dialog class="ds-modal" id="dlg-req-seg" aria-labelledby="dlg-seg-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="req_seguimiento_conf">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><i class="fa-solid fa-binoculars"></i></span>
+      <div><h2 class="ds-modal__title" id="dlg-seg-t">Seguimiento de requerimientos</h2>
+        <p class="ds-modal__sub">Quien da seguimiento recibe en la campana y por correo los datos de cada uno: responsables y colaboradores, fechas, si llegó a tiempo y cómo lo dejaron.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body req-seg">
+      <label class="campo"><span>Quién da seguimiento</span>
+        <?= UI::select('personas', $opsSeg, $seg['personas'], false, '', true) ?>
+        <small class="campo-ayuda">Puedes elegir a varias personas.</small></label>
+      <?= UI::checkDS('terminado', $seg['terminado'], 'Cuando alguien termina uno', 'Quién lo terminó, cuándo, si fue a tiempo o con cuántos días de retraso, y cómo lo dejó.') ?>
+      <?= UI::checkDS('vencido', $seg['vencido'], 'Cuando a uno se le pasa la fecha de entrega', 'Una vez al día, en un solo correo con todos los que se pasaron, sus responsables y los días de retraso.') ?>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>

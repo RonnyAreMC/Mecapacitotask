@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias', 'TareasCorreo'] as $moduloNuevo) {
+foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias', 'TareasCorreo', 'ReqSeguimiento'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -44,6 +44,9 @@ $accionesDeCualquiera = [
     // su bandeja, y anotar observaciones en el que tenga asignado (dentro se
     // comprueba que sea suyo).
     'req_terminar', 'req_observar',
+    // Quien tiene un requerimiento suma a un colaborador (solo eso: no cambia
+    // fechas ni quita a nadie). Dentro se comprueba que lo tenga asignado.
+    'req_colaborador',
     // Quien sube los cambios al servidor de pruebas suele ser un colaborador
     // sin permisos de gestion: el encargado se comprueba con puedeDesplegar().
     'deploy_registrar',
@@ -196,6 +199,38 @@ function relMoverReunion(array $antes, array $rev, ProyectoRepo $proyectos, Miem
 }
 
 /**
+ * Releases: el PO o el SM amarra la tarea a un ítem del release desde el
+ * formulario de la tarea (campo rel_item; vacío = sin ítem). Solo se tocan los
+ * ítems de los equipos que trabajan en ese proyecto. Devuelve la coletilla.
+ */
+function relAmarrar(int $tareaId, int $pid, array $post): string
+{
+    if (!array_key_exists('rel_item', $post) || !is_file(__DIR__ . '/lib/Releases.php')) return '';
+    try {
+        require_once __DIR__ . '/lib/Releases.php';
+        $items = [];
+        foreach (Releases::itemsDeProyecto($pid) as $it) $items[(int)$it['id']] = $it;
+        $nuevo = (int)$post['rel_item'];
+        if ($nuevo > 0 && !isset($items[$nuevo])) return ' Ese ítem del release no es de los equipos de este proyecto.';
+        $txt = '';
+        foreach ($items as $iid => $it) {
+            $tiene = in_array($tareaId, array_map('intval', (array)($it['tareas'] ?? [])), true);
+            if ($tiene && $iid !== $nuevo) {
+                // Quitada a mano: la IA ya no la vuelve a poner en ese ítem
+                Releases::vincularTareas($iid, array_values(array_diff(array_map('intval', (array)$it['tareas']), [$tareaId])));
+                if (!$nuevo) $txt = ' Ya no está amarrada a ' . $it['codigo'] . '.';
+            } elseif (!$tiene && $iid === $nuevo) {
+                Releases::vincularTareas($iid, [$tareaId], -1, true);
+                $txt = ' Amarrada a ' . $it['codigo'] . ' del release.';
+            }
+        }
+        return $txt;
+    } catch (Throwable $e) {
+        return ' No se pudo amarrar al release: ' . $e->getMessage();
+    }
+}
+
+/**
  * Releases: el ítem del release de esa tarea queda al día con lo que marcó el
  * equipo (avance y estado según sus tareas). Si el módulo no está, no hace nada.
  */
@@ -268,10 +303,13 @@ function derivarRequerimiento(RequerimientoRepo $repo, int $reqId, array $ids, M
         if ($m = $miembros->buscar((int)$id)) $validos[(int)$m['id']] = $m;
     }
     $repo->asignar($reqId, array_keys($validos), $fechas);
+    $req = $repo->buscar($reqId) ?? [];
+    $repo->anotar($reqId, (int)(Auth::usuario()['id'] ?? 0), $validos
+        ? 'Lo asignó a ' . implode(', ', array_map(fn($m) => $m['nombre'], $validos)) . (RequerimientoRepo::fechaFin($req) !== '' ? ' · entrega ' . date('d/m/Y', strtotime(RequerimientoRepo::fechaFin($req))) : '')
+        : 'Lo dejó sin asignar.');
     if (!$validos) {
         return '';
     }
-    $req = $repo->buscar($reqId) ?? [];
     avisoPanel(array_keys($validos), 'requerimiento', 'Te asignaron un requerimiento',
         '«' . ($req['titulo'] ?? '') . '»' . (!empty($req['fecha_fin']) ? ' · entrega ' . $req['fecha_fin'] : ''), 'bandeja.php');
     $avisados = 0;
@@ -370,6 +408,11 @@ function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, 
     $aQuienPidio = $para !== ''
         && Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true;
     $alAdmin = Mailer::avisarAdminRequerimientoHecho($req, $quien, $nota, $para) === true;
+    // Quien da seguimiento (Felipe): lo terminado, con si llegó a tiempo (sin repetir a los de arriba)
+    $alSeguimiento = class_exists('ReqSeguimiento')
+        ? ReqSeguimiento::avisarTerminado($req, $quien, $nota, array_merge([$para], Mailer::listo() ? Mailer::destinatariosAdmin($para) : []))
+        : 0;
+    if ($alSeguimiento) return ' Avisamos por correo a quien lo asignó y a quien le da seguimiento.';
 
     if ($aQuienPidio && $alAdmin) return ' Avisamos por correo a quien lo asignó y al administrador.';
     if ($aQuienPidio)             return ' Le avisamos por correo a quien lo asignó.';
@@ -1380,12 +1423,13 @@ switch ($accion) {
         $deps = $tareas->dependenciasValidas((int)$t['id'], TareaRepo::dependenciasEntrada($_POST), $pid);
         $tareas->actualizar((int)$t['id'], ['dependencias' => $deps, 'depende_de' => $deps[0] ?? 0]);
         $tCreada = $tareas->buscar((int)$t['id']);
+        $msgRel = relAmarrar((int)$t['id'], $pid, $_POST);
         [$msg, $tipo] = notificarSiAsignada($t, TareaRepo::asignadosDe($t), [], $proyectos, $miembros);
         $msg .= notificarDepsExternas($tCreada, [], $deps, $proyectos, $miembros, $tareas);
         sincronizarCalendario($tCreada, $proyectos, $miembros, $tareas);
         chequearEntrega($pid, $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
-        redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msg, $tipo);
+        redirigir('proyecto.php?id=' . $pid, 'Tarea creada.' . $msgRel . $msg, $tipo);
 
     case 'tarea_estado':
         // Si viene por AJAX (kanban/tabla), respondemos JSON y NO redirigimos:
@@ -1474,8 +1518,9 @@ switch ($accion) {
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
+        $msgRel = relAmarrar((int)$t['id'], (int)$t['proyecto_id'], $_POST);
         relAlDia([(int)$t['id']]);
-        redirigir(volverAqui('proyecto.php?id=' . $t['proyecto_id']), 'Tarea actualizada.' . $msg, $tipo);
+        redirigir(volverAqui('proyecto.php?id=' . $t['proyecto_id']), 'Tarea actualizada.' . $msgRel . $msg, $tipo);
 
     case 'tareas_avisar':
         // Un correo POR PERSONA con todas sus tareas del proyecto, no uno por
@@ -2235,6 +2280,7 @@ switch ($accion) {
             $reqRepo->actualizar((int)$req['id'], ['origen_correo' => ReqCorreo::origen($propReq)]);
             ReqCorreo::marcarRegistrado($propReq, $req);
         }
+        $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), $propReq ? 'Lo registró desde un correo analizado con IA.' : 'Lo registró.');
         $notaCorreo = ($adjCorreo ? ' Se guardaron ' . count($adjCorreo) . ' adjunto' . (count($adjCorreo) === 1 ? '' : 's') . ' del correo.' : '')
             . ($rechCorreo ? ' No se pudo guardar: ' . implode(', ', $rechCorreo) . '.' : '');
         // Se puede asignar de una vez, sin pasar dos veces por el formulario
@@ -2272,6 +2318,7 @@ switch ($accion) {
         }
         $fechasReqEd = fechasRequerimiento($_POST);
         $antesResp   = RequerimientoRepo::asignadosDe($req);
+        $antesFinEd  = RequerimientoRepo::fechaFin($req);
 
         // Contenido (el detalle es texto enriquecido: se sanea).
         $reqRepo->actualizar((int)$req['id'], [
@@ -2292,6 +2339,15 @@ switch ($accion) {
         $reqRepo->asignar((int)$req['id'], array_keys($validosEd), $fechasReqEd);
         $reqActEd = $reqRepo->buscar((int)$req['id']) ?? [];
         $nuevosEd = array_diff(array_keys($validosEd), $antesResp);
+        // Trazabilidad: quién entró, quién salió y si se movió la entrega
+        $fuerasEd = array_diff($antesResp, array_keys($validosEd));
+        $nomEd = fn(array $ids) => implode(', ', array_map(fn($i) => (string)($miembros->buscar((int)$i)['nombre'] ?? '#' . $i), $ids));
+        $cambiosEd = [];
+        if ($nuevosEd) $cambiosEd[] = 'sumó a ' . $nomEd($nuevosEd);
+        if ($fuerasEd) $cambiosEd[] = 'quitó a ' . $nomEd($fuerasEd);
+        if (RequerimientoRepo::fechaFin($reqActEd) !== $antesFinEd) $cambiosEd[] = 'movió la entrega ' . ($antesFinEd !== '' ? 'del ' . date('d/m', strtotime($antesFinEd)) . ' ' : '')
+            . (RequerimientoRepo::fechaFin($reqActEd) !== '' ? 'al ' . date('d/m/Y', strtotime(RequerimientoRepo::fechaFin($reqActEd))) : 'a sin fecha');
+        $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), $cambiosEd ? 'Editó: ' . implode('; ', $cambiosEd) . '.' : 'Editó los datos.');
         avisoPanel($nuevosEd, 'requerimiento', 'Te asignaron un requerimiento', '«' . trim($_POST['titulo'] ?? '') . '»', 'bandeja.php');
         $avisadosEd = 0;
         foreach ($nuevosEd as $mid) {
@@ -2325,7 +2381,9 @@ switch ($accion) {
             redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
         }
         $estadoReq = RequerimientoRepo::estadoValido($_POST['estado'] ?? '');
-        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]);
+        $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]
+            + ($estadoReq === 'hecho' && empty($req['cerrado_en']) ? ['cerrado_en' => date('Y-m-d H:i'), 'cerrado_por' => (int)(Auth::usuario()['id'] ?? 0)] : []));
+        $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), 'Lo pasó a «' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '».');
         redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
 
     case 'req_terminar':
@@ -2351,6 +2409,9 @@ switch ($accion) {
             'cerrado_en'  => date('Y-m-d H:i'),
         ]);
         $reqTermAct = $reqRepo->buscar((int)$req['id']) ?? $req;
+        $retTerm = class_exists('ReqSeguimiento') ? ReqSeguimiento::retraso($reqTermAct) : null;
+        $reqRepo->anotar((int)$req['id'], $yoTerm, 'Lo marcó terminado' . ($retTerm ? ' con ' . $retTerm . ' día' . ($retTerm === 1 ? '' : 's') . ' de retraso' : ($retTerm === 0 ? ' a tiempo' : ''))
+            . ($notaTerm !== '' ? ': ' . mb_substr($notaTerm, 0, 200) : '.'));
         $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
         redirigir('bandeja.php', 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
 
@@ -2435,6 +2496,40 @@ switch ($accion) {
                         ? ' No salió correo: la escribiste tú o quien la escribió ya no está en el equipo.'
                         : ' Nadie la tiene asignada todavía, así que no salió ningún correo.')
                     : ' No salió el correo (revisa Ajustes → Correo), pero queda anotada.')));
+
+    case 'req_colaborador':
+        // Quien lo tiene asignado suma a alguien para que le ayude. Nada más:
+        // las fechas, la prioridad y quitar gente siguen siendo del administrador.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $volverCol = volverAqui('bandeja.php');
+        if (!$req) redirigir($volverCol, 'Ese requerimiento ya no existe.', 'error');
+        $yoCol = (int)(Auth::usuario()['id'] ?? 0);
+        if (Auth::esSupervisor() || (!esAdmin() && !RequerimientoRepo::tieneAsignado($req, $yoCol))) {
+            redirigir($volverCol, 'Solo quien tiene el requerimiento puede sumar a un colaborador.', 'error');
+        }
+        if (RequerimientoRepo::cerrado($req)) redirigir($volverCol, 'Ese requerimiento ya está cerrado.', 'info');
+        $colab = $miembros->buscar((int)($_POST['colaborador'] ?? 0));
+        if (!$colab) redirigir($volverCol, 'Elige a la persona que te va a ayudar.', 'error');
+        if (RequerimientoRepo::tieneAsignado($req, (int)$colab['id'])) redirigir($volverCol, $colab['nombre'] . ' ya está en este requerimiento.', 'info');
+        $reqRepo->agregarColaborador((int)$req['id'], (int)$colab['id'], $yoCol);
+        $yoNomCol = (string)(Auth::usuario()['nombre'] ?? 'Alguien');
+        $reqRepo->anotar((int)$req['id'], $yoCol, 'Sumó a ' . $colab['nombre'] . ' como colaborador.');
+        $reqCol = $reqRepo->buscar((int)$req['id']) ?? $req;
+        // Al colaborador le llega como a cualquier responsable, con quién lo comparte
+        avisoPanel([(int)$colab['id']], 'requerimiento', 'Te sumaron a un requerimiento', '«' . $req['titulo'] . '» · te sumó ' . $yoNomCol, 'bandeja.php');
+        $otrosCol = array_values(array_filter(array_map(fn($i) => (string)($miembros->buscar($i)['nombre'] ?? ''), array_diff(RequerimientoRepo::asignadosDe($reqCol), [(int)$colab['id']]))));
+        $correoCol = Mailer::notificarRequerimiento($reqCol, $colab, $otrosCol) === true;
+        // Quien lo asignó, los administradores y quien da seguimiento se enteran en la campana
+        $segCol = class_exists('ReqSeguimiento') ? ReqSeguimiento::conf()['personas'] : [];
+        avisoPanel(array_values(array_diff(array_unique(array_merge([(int)($req['creado_por'] ?? 0)], idsAdmins($miembros), $segCol)), [$yoCol])), 'requerimiento',
+            'Sumaron un colaborador', '«' . $req['titulo'] . '» · ' . $yoNomCol . ' sumó a ' . $colab['nombre'], 'requerimientos.php?ver=' . (int)$req['id']);
+        redirigir($volverCol, $colab['nombre'] . ' ya está contigo en «' . $req['titulo'] . '».' . ($correoCol ? ' Le avisamos por correo.' : ''));
+
+    case 'req_seguimiento_conf':
+        if (!class_exists('ReqSeguimiento')) redirigir('requerimientos.php', 'Falta lib/ReqSeguimiento.php en el servidor.', 'error');
+        ReqSeguimiento::guardar($_POST);
+        redirigir('requerimientos.php', 'Listo: el seguimiento de requerimientos quedó guardado.');
 
     case 'req_eliminar':
         $reqRepo = new RequerimientoRepo();
@@ -3535,7 +3630,16 @@ switch ($accion) {
                     foreach ((new RequerimientoRepo())->todos() as $rIa) {
                         if (!RequerimientoRepo::cerrado($rIa)) $abiertosIa[] = ['id' => (int)$rIa['id'], 'titulo' => (string)($rIa['titulo'] ?? '')];
                     }
-                    $resIa = IAFunciones::requerimiento($textoIa, array_slice($abiertosIa, 0, 200));
+                    // El equipo con su carga y los responsables que ya marcó: la IA estima el plazo pensando en ellos
+                    $genteIa = class_exists('ReqCorreo') ? ReqCorreo::gente() : [];
+                    $resIa = IAFunciones::requerimiento($textoIa, array_slice($abiertosIa, 0, 200), $genteIa, (array)($_POST['responsables'] ?? []));
+                    if (class_exists('ReqCorreo')) {
+                        $plzIa = ReqCorreo::plazoDe($resIa + ['magnitud' => 'mediana']);
+                        $resIa['fecha_inicio'] = $plzIa['fecha_inicio'];
+                        $resIa['fecha_fin'] = $plzIa['fecha_fin_calc'];
+                        $resIa['dias'] = $plzIa['dias'];
+                        $resIa['fecha_del_mensaje'] = $plzIa['fecha_del_correo'];
+                    }
                     break;
 
                 case 'ia_req_correo':

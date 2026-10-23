@@ -7049,6 +7049,19 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
   font-size: .88rem;
 }
 .fq-personas small { color: var(--c-text-soft); font-size: .76rem; }
+.fq-personas li { flex-wrap: wrap; }
+.fq-personas .fq-colab-tag { flex-basis: 100%; margin-top: -3px; color: var(--c-primary); font-weight: 600; }
+/* Sumar colaborador (bandeja): la lista y el botón, debajo de los responsables */
+.fq-colab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 10px 0 0; }
+.fq-colab .campo { flex: 1 1 180px; margin: 0; }
+.fq-colab .campo-ayuda { flex-basis: 100%; }
+/* Con display:flex, [hidden] no basta: cerrado, ni sumar ni «marcar terminado» */
+.fq-colab[hidden], .dlg-ficha footer .fq-terminar[hidden] { display: none; }
+/* Trazabilidad: lo que le pasó al requerimiento, lo último arriba */
+.fq-hist { list-style: none; margin: 0; padding: 0 0 0 12px; display: flex; flex-direction: column; gap: 9px; border-left: 2px solid rgba(30, 55, 100, .12); max-height: 260px; overflow: auto; }
+.fq-hist li { position: relative; display: flex; flex-direction: column; gap: 2px; font-size: .82rem; line-height: 1.45; overflow-wrap: anywhere; }
+.fq-hist li::before { content: ''; position: absolute; left: -17px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--c-primary); }
+.fq-hist small { color: var(--c-text-soft); font-size: .74rem; }
 .dlg-ficha footer .inline-form { margin: 0; }
 
 /* Formulario "marcar terminado" (bandeja del responsable): ocupa todo el ancho

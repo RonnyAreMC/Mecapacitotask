@@ -1218,6 +1218,48 @@ class RequerimientoRepo
         if ($r && !empty($r['adjuntos'])) borrarAdjuntos((array)$r['adjuntos']);
         return $this->store->delete($id);
     }
+
+    /**
+     * Trazabilidad: lo que le pasó al requerimiento, con fecha y quién (0 = el
+     * panel solo: la IA, el cron). Se guarda dentro del propio requerimiento.
+     */
+    public function anotar(int $id, int $quien, string $texto): void
+    {
+        $r = $this->buscar($id);
+        if (!$r || trim($texto) === '') return;
+        $h = (array)($r['historial'] ?? []);
+        $h[] = ['fecha' => date('Y-m-d H:i'), 'quien' => $quien, 'texto' => mb_substr(trim($texto), 0, 400)];
+        $this->store->update($id, ['historial' => array_slice($h, -120)]);
+    }
+
+    /** El historial, del más viejo al más nuevo. */
+    public static function historialDe(array $r): array
+    {
+        return array_values(array_filter((array)($r['historial'] ?? []), fn($h) => is_array($h) && trim((string)($h['texto'] ?? '')) !== ''));
+    }
+
+    /** Los que sumó como colaboradores alguien que ya lo tenía: id => [por, en]. */
+    public static function colaboradoresDe(array $r): array
+    {
+        $out = [];
+        foreach ((array)($r['colaboradores'] ?? []) as $mid => $c) $out[(int)$mid] = ['por' => (int)($c['por'] ?? 0), 'en' => (string)($c['en'] ?? '')];
+        return $out;
+    }
+
+    /**
+     * Quien tiene el requerimiento suma a otra persona para que le ayude. Solo
+     * eso: no cambia fechas, ni prioridad, ni quita a nadie. Queda como
+     * responsable más (lo ve en su bandeja) y marcado como colaborador.
+     */
+    public function agregarColaborador(int $id, int $mid, int $quien): bool
+    {
+        $r = $this->buscar($id);
+        if (!$r || $mid <= 0 || self::tieneAsignado($r, $mid)) return false;
+        $col = (array)($r['colaboradores'] ?? []);
+        $col[(string)$mid] = ['por' => $quien, 'en' => date('Y-m-d H:i')];
+        return $this->store->update($id, ['asignados' => array_values(array_unique(array_merge(self::asignadosDe($r), [$mid]))),
+                                           'asignado_a' => 0, 'colaboradores' => $col]);
+    }
 }
 
 /* =========================================================

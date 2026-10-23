@@ -287,23 +287,55 @@ final class ReqCorreo
         foreach ((new RequerimientoRepo())->todos() as $r) {
             if (!RequerimientoRepo::cerrado($r)) $abiertos[] = ['id' => (int)$r['id'], 'titulo' => (string)($r['titulo'] ?? '')];
         }
-        $equipos = Catalogo::equipos();
         $sinc = Correo::correosSincronizados();
-        $gente = [];
-        foreach ((new MiembroRepo())->todos() as $m) {
-            $gente[] = ['id' => (int)$m['id'], 'nombre' => (string)$m['nombre'],
-                        'rol' => trim((string)($m['rol'] ?? '') . ' · ' . ($equipos[$m['equipo'] ?? ''][0] ?? ''), ' ·'),
-                        'correos' => array_values(array_unique(array_filter([strtolower((string)($m['email'] ?? '')), $sinc[(int)$m['id']] ?? ''])))];
-        }
+        $gente = self::gente($sinc);
         $inst = [];
         foreach ((new InstitucionRepo())->todas() as $i) $inst[] = ['id' => (int)$i['id'], 'nombre' => (string)$i['nombre']];
 
         $d = IAFunciones::requerimientoCorreo($msg, array_slice($abiertos, 0, 200), $gente, $inst, $indicaciones);
-        $plazos = self::plazos();
+        return $d + self::plazoDe($d);
+    }
+
+    /**
+     * Fechas del pedido: la del correo si da una; si no, los días que estimó la
+     * IA (sabe que el equipo trabaja con Claude Code) y, si no estimó, los de
+     * respaldo según la magnitud.
+     */
+    public static function plazoDe(array $d): array
+    {
         $inicio = self::inicioHabil();
-        $fin = $d['fecha_fin'] !== '' && $d['fecha_fin'] >= $inicio ? $d['fecha_fin'] : self::sumarHabiles($inicio, $plazos[$d['magnitud']]);
-        return $d + ['fecha_inicio' => $inicio, 'fecha_fin_calc' => $fin, 'dias' => $plazos[$d['magnitud']],
-                     'fecha_del_correo' => $d['fecha_fin'] !== '' && $d['fecha_fin'] >= $inicio];
+        $dias = (int)($d['dias'] ?? 0) ?: self::plazos()[$d['magnitud'] ?? 'mediana'] ?? 3;
+        $delCorreo = ($d['fecha_fin'] ?? '') !== '' && $d['fecha_fin'] >= $inicio;
+        return ['fecha_inicio' => $inicio, 'fecha_fin_calc' => $delCorreo ? $d['fecha_fin'] : self::sumarHabiles($inicio, $dias),
+                'dias' => $dias, 'fecha_del_correo' => $delCorreo];
+    }
+
+    /**
+     * El equipo para la IA: id, nombre, rol, correos y cuánto tiene encima
+     * (tareas de proyecto abiertas y requerimientos sin cerrar).
+     */
+    public static function gente(array $sinc = []): array
+    {
+        $equipos = Catalogo::equipos();
+        $finales = Catalogo::estadosFinales();
+        $carga = [];
+        foreach ((new TareaRepo())->todas() as $t) {
+            if (in_array($t['estado'] ?? '', $finales, true)) continue;
+            foreach (TareaRepo::asignadosDe($t) as $mid) $carga[$mid]['t'] = ($carga[$mid]['t'] ?? 0) + 1;
+        }
+        foreach ((new RequerimientoRepo())->todos() as $r) {
+            if (RequerimientoRepo::cerrado($r)) continue;
+            foreach (RequerimientoRepo::asignadosDe($r) as $mid) $carga[$mid]['r'] = ($carga[$mid]['r'] ?? 0) + 1;
+        }
+        $gente = [];
+        foreach ((new MiembroRepo())->todos() as $m) {
+            $id = (int)$m['id'];
+            $gente[] = ['id' => $id, 'nombre' => (string)$m['nombre'],
+                        'rol' => trim((string)($m['rol'] ?? '') . ' · ' . ($equipos[$m['equipo'] ?? ''][0] ?? ''), ' ·'),
+                        'correos' => array_values(array_unique(array_filter([strtolower((string)($m['email'] ?? '')), $sinc[$id] ?? '']))),
+                        'carga' => ['tareas' => (int)($carga[$id]['t'] ?? 0), 'requerimientos' => (int)($carga[$id]['r'] ?? 0)]];
+        }
+        return $gente;
     }
 
     /* ---------------- Registrar ---------------- */
@@ -397,6 +429,8 @@ final class ReqCorreo
         $resp = [];
         foreach ((array)$d['responsables'] as $id) if ($m = $miembros->buscar((int)$id)) $resp[(int)$m['id']] = $m;
         $repo->asignar((int)$req['id'], array_keys($resp), ['fecha_inicio' => (string)$d['fecha_inicio'], 'fecha_fin' => (string)$d['fecha_fin_calc']]);
+        $repo->anotar((int)$req['id'], 0, 'La IA lo registró desde un correo' . ($resp ? ' y lo asignó a ' . implode(', ', array_map(fn($m) => $m['nombre'], $resp)) : '')
+            . ' · entrega ' . date('d/m/Y', strtotime((string)$d['fecha_fin_calc'])) . (!empty($d['dias_motivo']) ? ' (' . $d['dias_motivo'] . ')' : '') . '.');
         $req = $repo->buscar((int)$req['id']) ?? $req;
         if ($resp && class_exists('Notif')) {
             Notif::crear(array_keys($resp), 'requerimiento', 'Te asignaron un requerimiento',

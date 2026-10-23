@@ -388,6 +388,28 @@ if (is_file(__DIR__ . '/lib/Releases.php')) {
     require_once __DIR__ . '/lib/Releases.php';
     if (Releases::puedeVer()) $relDeTarea = Releases::vinculosDetalle();
 }
+// El PO o el SM amarra la tarea al ítem del release al crearla o editarla: los ítems
+// de los equipos que trabajan en este proyecto, y a cuál está amarrada cada tarea
+$relOpciones = [];
+$relDeTareaAqui = [];
+if (class_exists('Releases')) {
+    $relEqs = [];
+    foreach (Releases::itemsDeProyecto((int)$id) as $ri) {
+        $relEqs[(string)$ri['equipo']] = true;
+        $relOpciones[(string)$ri['id']] = [$ri, $ri['estado'] ?? ''];
+        foreach ((array)($ri['tareas'] ?? []) as $tid) $relDeTareaAqui[(int)$tid] ??= (int)$ri['id'];
+    }
+    foreach ($relOpciones as $k => [$ri, $est]) {
+        $relOpciones[$k] = $ri['codigo'] . ' · ' . mb_strimwidth((string)$ri['titulo'], 0, 70, '…')
+            . (count($relEqs) > 1 ? ' · ' . $ri['equipo'] : '') . ($est === 'cerrado' ? ' (terminado)' : '');
+    }
+}
+$relCampo = function (string $clase = '') use ($relOpciones): string {
+    if (!$relOpciones) return '';
+    return '<label class="campo"><span>Ítem del release</span>'
+        . UI::select('rel_item', ['' => '— Sin ítem del release —'] + $relOpciones, '', false, $clase)
+        . '<small class="campo-ayuda">La historia o el frente del release al que suma esta tarea: su avance sale de sus tareas.</small></label>';
+};
 $relChips = function (array $t) use ($relDeTarea): string {
     $out = '';
     foreach ($relDeTarea[(int)$t['id']] ?? [] as $ri) {
@@ -2368,6 +2390,7 @@ function depPicker(): void { ?>
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media') ?></label>
           <label class="campo"><span>Estado inicial</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente') ?></label>
         </div>
+        <?= $relCampo() ?>
       </section>
 
       <section class="wz-panel">
@@ -2438,6 +2461,8 @@ function depPicker(): void { ?>
           <label class="campo"><span>Prioridad</span><?= UI::select('prioridad', array_map(fn($v) => $v[0], Catalogo::prioridades()), 'media', false, 'js-et-prioridad') ?></label>
           <label class="campo"><span>Estado</span><?= UI::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), 'pendiente', false, 'js-et-estado') ?></label>
         </div>
+        <?= $relCampo('js-et-rel') ?>
+        <?php if ($relOpciones): ?><script type="application/json" id="rel-tareas-item"><?= json_encode((object)$relDeTareaAqui) ?></script><?php endif; ?>
       </section>
 
       <section class="wz-panel">

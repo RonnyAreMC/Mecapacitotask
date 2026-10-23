@@ -479,6 +479,22 @@ final class Releases
         return array_map('intval', array_keys($ids));
     }
 
+    /**
+     * Los ítems de los equipos que trabajan en ese proyecto del panel, en el
+     * orden del plan (R0, R1… y su código). Para que el PO o el SM amarre la
+     * tarea a su ítem al crearla o editarla.
+     */
+    public static function itemsDeProyecto(int $pid): array
+    {
+        $eqs = [];
+        foreach (array_keys(self::equipos()) as $nom) if (in_array($pid, self::proyectosEquipo((string)$nom), true)) $eqs[(string)$nom] = true;
+        if (!$eqs) return [];
+        $orden = array_flip(array_keys(self::releases()));
+        $out = array_values(array_filter(self::repo('rel_items')->all(), fn($it) => isset($eqs[(string)($it['equipo'] ?? '')])));
+        usort($out, fn($a, $b) => [$orden[$a['release'] ?? ''] ?? 99, (string)$a['codigo']] <=> [$orden[$b['release'] ?? ''] ?? 99, (string)$b['codigo']]);
+        return $out;
+    }
+
     /** Las tareas de los proyectos del equipo (para cruzarlas con sus ítems). */
     public static function tareasEquipo(string $equipo, bool $soloAbiertas = false): array
     {

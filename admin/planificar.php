@@ -46,6 +46,12 @@ $ejM2   = $miembros[1]['nombre'] ?? 'Dulce Villacis';
 $hoy    = date('Y-m-d');
 $mas7   = date('Y-m-d', strtotime('+7 day'));
 $mas14  = date('Y-m-d', strtotime('+14 day'));
+$ejItem = '';
+if (is_file(__DIR__ . '/lib/Releases.php')) {
+    require_once __DIR__ . '/lib/Releases.php';
+    foreach ((new JsonStore('rel_items'))->all() as $itE) if (($itE['estado'] ?? '') !== 'cerrado') { $ejItem = (string)$itE['codigo']; break; }
+}
+$ejItemLinea = $ejItem !== '' ? ",\n      \"item_release\": \"$ejItem\"" : '';
 $ejemplo = <<<JSON
 {
   "tareas": [
@@ -57,7 +63,7 @@ $ejemplo = <<<JSON
       "fecha_inicio": "$hoy",
       "fecha_limite": "$mas7",
       "asignados": ["$ejM1"],
-      "ref": "login"
+      "ref": "login"$ejItemLinea
     },
     {
       "proyecto": "$ejProy",
@@ -142,6 +148,7 @@ UI::cabecera(
         <li>Lo único obligatorio es <b>titulo</b> y <b>proyecto</b>. El resto es opcional.</li>
         <li><b>prioridad</b>: baja · media · alta. <b>fechas</b>: AAAA-MM-DD.</li>
         <li>Para encadenar, ponle <b>ref</b> a una tarea y <b>depende_de</b> con esa ref en otra.</li>
+        <li>Para amarrarla al release, <b>item_release</b> con el código del ítem (<b>R2-B04</b>) o una lista de códigos. Su avance sale de sus tareas.</li>
         <li>Primero <b>Validar</b> para ver qué se va a crear; si algo falla, no se crea nada.</li>
       </ul>
       <p class="plan-nota">Proyectos disponibles:
@@ -162,6 +169,7 @@ UI::cabecera(
         <?php $partes = [];
           if ($reporte['creadas'] > 0)      $partes[] = $reporte['creadas'] . ' creada' . ($reporte['creadas'] === 1 ? '' : 's');
           if ($reporte['actualizadas'] > 0) $partes[] = $reporte['actualizadas'] . ' actualizada' . ($reporte['actualizadas'] === 1 ? '' : 's'); ?>
+        <?php if (!empty($reporte['amarradas'])) $partes[] = $reporte['amarradas'] . ' amarrada' . ($reporte['amarradas'] === 1 ? '' : 's') . ' al release'; ?>
         <h2 class="font-display"><i class="fa-solid fa-circle-check" style="color:var(--c-success)"></i>
           <?= e(implode(' · ', $partes)) ?></h2>
       <?php else: ?>
@@ -189,6 +197,7 @@ UI::cabecera(
             <span class="plan-tag"><?= e($f['proyecto']) ?></span>
             <?php if (($f['accion'] ?? 'crear') === 'actualizar'): ?><span class="plan-tag-act"><i class="fa-solid fa-rotate"></i> Actualiza</span><?php endif; ?>
             <?php if ($f['asignados']): ?><span class="plan-tag-p"><i class="fa-solid fa-user"></i> <?= e(implode(', ', $f['asignados'])) ?></span><?php endif; ?>
+            <?php if (!empty($f['items'])): ?><span class="plan-tag-p"><i class="fa-solid fa-route"></i> <?= e(implode(', ', $f['items'])) ?></span><?php endif; ?>
           </div>
           <?php foreach ($f['avisos'] as $a): ?><small class="plan-aviso">↳ <?= e($a) ?></small><?php endforeach; ?>
           <?php if ($f['error']): ?><small class="plan-mal">↳ <?= e($f['error']) ?></small><?php endif; ?>

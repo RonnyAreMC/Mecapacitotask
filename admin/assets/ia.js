@@ -344,7 +344,9 @@
       const texto = dlg.querySelector('[data-ia-req-texto]').value.trim();
       if (texto.length < 10) { toast('Pega el mensaje con el pedido.', 'error'); return; }
       conBoton(ev.currentTarget, async () => {
-        const r = await pedir('ia_req_texto', { texto });
+        // Los responsables que ya marcó: la IA estima el plazo pensando en ellos
+        const elegidos = [...form.querySelectorAll('input[name="asignados[]"]:checked')].map((c) => c.value);
+        const r = await pedir('ia_req_texto', { texto, responsables: elegidos });
         const set = (sel, v) => { const el = form.querySelector(sel); if (el && v) { el.value = v; el.dispatchEvent(new Event('input', { bubbles: true })); } };
         set('input[name="titulo"]', r.titulo);
         set('input[name="solicitante"]', r.solicitante);
@@ -354,13 +356,23 @@
         if (pr && r.prioridad) (window.setSelect ? setSelect(pr, r.prioridad) : (pr.value = r.prioridad));
         const fin = form.querySelector('input[name="fecha_fin"]');
         if (fin && r.fecha_fin) (window.setFecha ? setFecha(fin, r.fecha_fin) : (fin.value = r.fecha_fin));
+        const ini = form.querySelector('input[name="fecha_inicio"]');
+        if (ini && r.fecha_inicio) (window.setFecha ? setFecha(ini, r.fecha_inicio) : (ini.value = r.fecha_inicio));
+        // Quién lo hace: si no había nadie marcado, lo que propone la IA
+        if (!elegidos.length && Array.isArray(r.responsables)) {
+          r.responsables.forEach((id) => {
+            const c = form.querySelector('input[name="asignados[]"][value="' + id + '"]');
+            if (c && !c.checked) { c.checked = true; c.dispatchEvent(new Event('change', { bubbles: true })); }
+          });
+        }
+        const plazo = r.dias ? ' Plazo: ' + r.dias + ' día' + (r.dias === 1 ? '' : 's') + ' hábil' + (r.dias === 1 ? '' : 'es') + (r.fecha_del_mensaje ? ' (la fecha la da el mensaje)' : (r.dias_motivo ? ' — ' + r.dias_motivo : '')) + '.' : '';
         if (r.parecidos && r.parecidos.length) {
           dlg.querySelector('[data-ia-req-res]').innerHTML = '<div class="ia-aviso"><b>Ojo, puede que ya exista:</b><ul>'
             + r.parecidos.map((p) => '<li>#' + p.id + ' ' + esc(p.titulo) + '</li>').join('') + '</ul>'
-            + 'El formulario ya quedó relleno; revísalo antes de crear.</div>' + firma(r);
+            + 'El formulario ya quedó relleno; revísalo antes de crear.' + esc(plazo) + '</div>' + firma(r);
           toast('Formulario relleno. Hay requerimientos parecidos: revísalos.', 'info', 6000);
         } else {
-          toast('Formulario relleno: revísalo antes de crear.', 'success');
+          toast('Formulario relleno: revísalo antes de crear.' + plazo, 'success', 8000);
           dlg.close();
         }
       });
@@ -433,7 +445,7 @@
       + '<p class="tcw-nota"><i class="fa-solid fa-wand-magic-sparkles"></i> Al pulsar «Proponer tareas» la IA lee el correo y arma las tareas. Las revisas antes de crearlas.</p></section>'
       // 2b. Requerimiento
       + '<section class="wz-panel" data-p="requerimiento"><div class="tcw-incluye"><p>La IA lee el correo y deja lleno el formulario con:</p><ul>'
-      + ['El título y el detalle de lo que piden', 'Quién lo pide y su institución', 'El responsable y el plazo según el tamaño del trabajo', 'Los adjuntos del correo, como documentos']
+      + ['El título y el detalle de lo que piden', 'Quién lo pide y su institución', 'El responsable, mirando cuánto tiene encima cada persona', 'El plazo real con Claude Code: un cambio de texto o de etiqueta es 1 día', 'Los adjuntos del correo, como documentos']
         .map((t) => '<li><i class="fa-solid fa-check"></i> ' + t + '</li>').join('') + '</ul></div>'
       + ind('tc-ind-req', 'Ej.: es para la web de la UBE; asígnalo a Kevin; prioridad alta')
       + '<p class="tcw-nota"><i class="fa-solid fa-circle-info"></i> Nada se registra hasta que lo revises y pulses «Registrar».</p></section>'

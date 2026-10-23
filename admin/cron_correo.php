@@ -48,6 +48,16 @@ $cronograma = function (): string {
             echo 'Releases: ' . $e->getMessage() . "\n";
         }
     }
+    // Requerimientos (lib/ReqSeguimiento.php): una vez al día, los que se pasaron de fecha, a quien da seguimiento
+    if (is_file(__DIR__ . '/lib/ReqSeguimiento.php')) {
+        require_once __DIR__ . '/lib/ReqSeguimiento.php';
+        try {
+            $nSeg = ReqSeguimiento::paso();
+            if ($nSeg) $rel .= ' · avisos de requerimientos vencidos: ' . $nSeg;
+        } catch (Throwable $e) {
+            echo 'Seguimiento de requerimientos: ' . $e->getMessage() . "\n";
+        }
+    }
     try {
         $r = Cronograma::paso();
         return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '') . $rel;

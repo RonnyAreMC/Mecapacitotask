@@ -767,6 +767,27 @@ class Mailer
         return self::enviar($miembro['email'], 'Releases: ' . $titulo, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Abrir en el panel' : ''));
     }
 
+    /**
+     * Seguimiento de requerimientos (lib/ReqSeguimiento.php): a quien da
+     * seguimiento, uno terminado o los que se pasaron de fecha. $bloques:
+     * [[título, [etiqueta => texto], nota], …]. $url, página del panel.
+     */
+    public static function seguimientoRequerimientos(array $miembro, string $titulo, string $intro, array $bloques, string $url, string $color): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email']) || !$bloques) {
+            return null;
+        }
+        $nombre = e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '');
+        $cuerpo = self::encabezado($color, '&#9679;', e($titulo), ($nombre !== '' ? 'Hola ' . $nombre . ', ' : '') . e($intro));
+        foreach ($bloques as [$t, $filas, $nota]) {
+            $cuerpo .= self::detalle((string)$t, array_map(fn($v) => e((string)$v), (array)$filas))
+                . ((string)$nota !== '' ? '<div style="margin-top:10px;padding:10px 14px;border-left:3px solid ' . $color . ';background:#f7f8fa;color:#1d1d1f;font-size:13px;line-height:1.5;">'
+                    . nl2br(e((string)$nota)) . '</div>' : '');
+        }
+        $abs = preg_match('#^https?://#i', $url) ? $url : self::urlPagina($url);
+        return self::enviar($miembro['email'], $titulo, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Abrir en el panel' : ''));
+    }
+
     public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
     {
         if (!self::listo() || empty($miembro['email'])) {
