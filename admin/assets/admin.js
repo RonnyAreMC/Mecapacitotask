@@ -3438,6 +3438,13 @@ document.addEventListener('change', (e) => {
     const fCol = $('fq-colab');
     if (fCol) {
       fCol.hidden = r.cerrado;
+      // Empieza plegado: un botón; al pulsarlo sale la lista y el «Sumar»
+      const abrirCol = $('fq-colab-abrir');
+      const formCol = $('fq-colab-form');
+      const plegar = (abierto) => { formCol.hidden = !abierto; abrirCol.hidden = abierto; };
+      plegar(false);
+      abrirCol.onclick = () => { plegar(true); $('fq-colab-sel').focus(); };
+      $('fq-colab-cancelar').onclick = () => plegar(false);
       const ya = new Set(String(r.asignados || '').split(',').filter(Boolean));
       const sel = $('fq-colab-sel');
       [...sel.options].forEach((o) => { if (o.value) { o.disabled = ya.has(o.value); o.hidden = ya.has(o.value); } });
@@ -3474,14 +3481,17 @@ document.addEventListener('change', (e) => {
       const padre = $('fq-obs-padre');
       const tira = $('fq-obs-respondiendo');
       const enviar = $('fq-obs-enviar');
-      const caja = $('fq-obs-form') && $('fq-obs-form').querySelector('textarea');
+      // La caja es el editor con formato (o el textarea de antes, si no está)
+      const caja = $('fq-obs-form') && ($('fq-obs-form').querySelector('.rt-area') || $('fq-obs-form').querySelector('textarea'));
+      const ponPh = (t) => { if (!caja) return; if (caja.classList.contains('rt-area')) caja.dataset.ph = t; else caja.placeholder = t; };
+      if (window.MecaRT && $('fq-obs-editor')) window.MecaRT.set('fq-obs-editor', '');
 
       // Deja de responder: la siguiente vuelve a abrir hilo.
       const soltar = () => {
         if (padre) padre.value = '0';
         if (tira) tira.hidden = true;
         if (enviar) enviar.textContent = 'Notificar';
-        if (caja) caja.placeholder = 'Estimado, ¿qué pasó con este requerimiento?';
+        ponPh('Estimado, ¿qué pasó con este requerimiento? (puedes pegar tablas)');
       };
       const responderA = (o) => {
         if (padre) padre.value = o.id;
@@ -3490,7 +3500,8 @@ document.addEventListener('change', (e) => {
           tira.hidden = false;
         }
         if (enviar) enviar.textContent = 'Responder';
-        if (caja) { caja.placeholder = 'Tu respuesta para ' + o.autor + '…'; caja.focus(); }
+        ponPh('Tu respuesta para ' + o.autor + '…');
+        if (caja) caja.focus();
       };
       if (tira && !tira.dataset.listo) {
         tira.dataset.listo = '1';
@@ -3500,8 +3511,9 @@ document.addEventListener('change', (e) => {
       const pinta = (o, esRespuesta) => {
         const li = document.createElement('li');
         if (esRespuesta) li.className = 'fq-obs-r';
-        const p = document.createElement('p');
-        p.textContent = o.texto;
+        // Con formato: HTML ya saneado en el servidor (viñetas, tablas). Las de antes, texto plano
+        const p = document.createElement(o.html ? 'div' : 'p');
+        if (o.html) { p.className = 'rt-render fq-obs-rico'; p.innerHTML = o.texto; } else p.textContent = o.texto;
         const meta = document.createElement('small');
         meta.textContent = [o.autor, o.creado].filter(Boolean).join(' · ');
         li.append(p, meta);

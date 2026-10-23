@@ -843,10 +843,11 @@ class Mailer
         }
         $filas['Te escribe'] = e($nombre);
 
-        $recuadro = function (string $titulo, string $cuerpo, string $color) {
+        // Con formato (viñetas, tablas) va con sus estilos de correo; el texto de antes, con sus saltos
+        $recuadro = function (string $titulo, string $cuerpo, string $color, bool $html = false) {
             return '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $color . ';'
                  . 'background:#f7f8fa;color:#1d1d1f;font-size:14px;line-height:1.55;">'
-                 . '<b>' . $titulo . '</b><br>' . nl2br(e($cuerpo)) . '</div>';
+                 . '<b>' . $titulo . '</b><br>' . ($html ? HtmlRico::paraCorreo($cuerpo, $color) : nl2br(e($cuerpo))) . '</div>';
         };
 
         $cuerpo = self::encabezado($acento, '&#128172;',
@@ -858,8 +859,8 @@ class Mailer
             . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
             // Lo que se responde va ARRIBA y apagado; la respuesta, debajo y
             // con el acento: se lee en el orden en que pasó.
-            . ($responde ? $recuadro('Observación', (string)$responde['texto'], '#c9ced8') : '')
-            . $recuadro($responde ? 'Respuesta' : 'Observación', $texto, $acento);
+            . ($responde ? $recuadro('Observación', (string)$responde['texto'], '#c9ced8', !empty($responde['html'])) : '')
+            . $recuadro($responde ? 'Respuesta' : 'Observación', $texto, $acento, $texto !== strip_tags($texto));
 
         return self::enviar($miembro['email'],
             ($responde ? 'Respuesta: ' : 'Observación: ') . ($req['titulo'] ?? ''),

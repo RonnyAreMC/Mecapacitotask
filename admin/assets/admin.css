@@ -5621,10 +5621,10 @@ html.dark .mc-confirm-icono.es-peligro { color: #ff9d5c; }
 }
 /* El ítem del release de la tarea (se elige al validar) */
 .plan-item { display: flex; align-items: center; gap: 8px; margin-top: 8px; }
-.plan-item > i { color: var(--c-primary); font-size: .8rem; flex: none; }
+.plan-item > i { color: var(--primary, #2970EB); font-size: .8rem; flex: none; }
 .plan-item select { flex: 1; min-width: 0; font-size: .8rem; padding-top: 6px; padding-bottom: 6px; }
 .plan-item-ayuda { margin: 10px 0 0; color: var(--c-text-soft); font-size: .82rem; line-height: 1.5; }
-.plan-item-ayuda i { color: var(--c-primary); margin-right: 4px; }
+.plan-item-ayuda i { color: var(--primary, #2970EB); margin-right: 4px; }
 .plan-fila-top { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .plan-fila-top b { font-size: .88rem; color: var(--c-text); }
 .plan-fila.ok    .plan-fila-top > i { color: var(--c-success); }
@@ -5932,6 +5932,8 @@ html.sb-collapsed .nav-badge { display: none; }
 /* En el correo, el editor ocupa lo que un mensaje necesita */
 .rt--correo .rt-area { min-height: 280px; max-height: 62vh; font-size: .95rem; }
 .rt--correo .rt-barra { position: sticky; top: 0; z-index: 1; }
+/* Observaciones del requerimiento: más bajo, crece hasta un tope y luego desplaza */
+.rt--obs .rt-area { min-height: 80px; max-height: 260px; font-size: .9rem; }
 
 /* Contenido renderizado (común a editor, ficha y detalle) */
 .rt-render { overflow-x: auto; overflow-wrap: anywhere; }
@@ -7053,17 +7055,30 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 }
 .fq-personas small { color: var(--c-text-soft); font-size: .76rem; }
 .fq-personas li { flex-wrap: wrap; }
-.fq-personas .fq-colab-tag { flex-basis: 100%; margin-top: -3px; color: var(--c-primary); font-weight: 600; }
+.fq-personas .fq-colab-tag { flex-basis: 100%; margin-top: -3px; color: var(--primary, #2970EB); font-weight: 600; }
 /* Sumar colaborador (bandeja): la lista y el botón, debajo de los responsables */
-.fq-colab { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 8px; margin: 10px 0 0; }
-.fq-colab .campo { flex: 1 1 180px; margin: 0; }
-.fq-colab .campo-ayuda { flex-basis: 100%; }
+.fq-colab { margin: 10px 0 0; }
+.fq-colab-abrir {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 10px 12px; border: 1.5px dashed rgba(41, 112, 235, .45); border-radius: 12px;
+  background: transparent; color: var(--primary, #2970EB); font: inherit; font-size: .86rem; font-weight: 700; cursor: pointer;
+}
+.fq-colab-abrir:hover { background: rgba(41, 112, 235, .06); border-color: var(--primary, #2970EB); }
+.fq-colab-abrir:focus-visible { outline: 2px solid var(--primary, #2970EB); outline-offset: 2px; }
+.fq-colab-form { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-mini); }
+.fq-colab-form .campo { margin: 0; }
+.fq-colab-acc { display: flex; gap: 8px; }
+.fq-colab-acc .btn-meca { flex: 1 1 0; justify-content: center; }
+.fq-colab-form .campo-ayuda { margin: 0; }
 /* Con display:flex, [hidden] no basta: cerrado, ni sumar ni «marcar terminado» */
-.fq-colab[hidden], .dlg-ficha footer .fq-terminar[hidden] { display: none; }
+.fq-colab[hidden], .fq-colab-abrir[hidden], .fq-colab-form[hidden], .dlg-ficha footer .fq-terminar[hidden] { display: none; }
 /* Trazabilidad: lo que le pasó al requerimiento, lo último arriba */
-.fq-hist { list-style: none; margin: 0; padding: 0 0 0 12px; display: flex; flex-direction: column; gap: 9px; border-left: 2px solid rgba(30, 55, 100, .12); max-height: 260px; overflow: auto; }
-.fq-hist li { position: relative; display: flex; flex-direction: column; gap: 2px; font-size: .82rem; line-height: 1.45; overflow-wrap: anywhere; }
-.fq-hist li::before { content: ''; position: absolute; left: -17px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--c-primary); }
+.fq-hist { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; max-height: 260px; overflow: auto; }
+.fq-hist li { position: relative; display: flex; flex-direction: column; gap: 2px; padding: 0 0 10px 20px; font-size: .82rem; line-height: 1.45; overflow-wrap: anywhere; }
+.fq-hist li::before { content: ''; position: absolute; left: 3px; top: 6px; width: 8px; height: 8px; border-radius: 50%; background: var(--primary, #2970EB); }
+.fq-hist li::after { content: ''; position: absolute; left: 6px; top: 17px; bottom: 0; width: 2px; border-radius: 2px; background: rgba(30, 55, 100, .12); }
+.fq-hist li:last-child { padding-bottom: 0; }
+.fq-hist li:last-child::after { display: none; }
 .fq-hist small { color: var(--c-text-soft); font-size: .74rem; }
 .dlg-ficha footer .inline-form { margin: 0; }
 
@@ -7077,7 +7092,13 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 .dlg-ficha footer .fq-terminar .campo { margin: 0; }
 .dlg-ficha footer .fq-terminar .campo > span small { color: var(--c-text-soft); font-weight: 500; }
 .dlg-ficha footer .fq-terminar textarea { resize: vertical; min-height: 52px; }
-.dlg-ficha footer .fq-terminar .btn-meca { align-self: flex-end; }
+.dlg-ficha footer .fq-terminar .btn-meca { align-self: stretch; justify-content: center; }
+/* Los botones del pie van a lo ancho del modal, repartidos (el de borrar se queda chico) */
+.dlg-ficha footer { flex-wrap: wrap; }
+.dlg-ficha footer > .btn-meca, .dlg-ficha footer > .inline-form:not(#fq-borrar) { flex: 1 1 0; }
+.dlg-ficha footer > .btn-meca, .dlg-ficha footer > .inline-form:not(#fq-borrar) .btn-meca { justify-content: center; }
+.dlg-ficha footer > .inline-form:not(#fq-borrar) .btn-meca { width: 100%; }
+.dlg-ficha footer > * { min-width: 0; }
 /* Observación de cierre (cómo se entregó) */
 .fq-cierre p { margin: 0; font-size: .9rem; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 .fq-cierre-meta { display: block; margin-top: 6px; color: var(--c-text-soft); font-size: .78rem; }
@@ -7087,16 +7108,20 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
    revés que la lista de requerimientos, porque aquí es un hilo. */
 .fq-obs { list-style: none; margin: 0 0 10px; padding: 0; display: flex; flex-direction: column; gap: 8px; }
 .fq-obs[hidden] { display: none; }
-.fq-obs li {
+.fq-obs > li {
   padding: 9px 13px; border-radius: 12px;
   border: 1px solid var(--c-border-soft);
   background: color-mix(in srgb, var(--c-secondary) 4%, transparent);
 }
-.fq-obs li p {
+.fq-obs > li > p {
   margin: 0; font-size: .87rem; line-height: 1.5;
   white-space: pre-wrap; overflow-wrap: anywhere;
 }
-.fq-obs li small { display: block; margin-top: 5px; color: var(--c-text-soft); font-size: .74rem; }
+.fq-obs > li > small { display: block; margin-top: 5px; color: var(--c-text-soft); font-size: .74rem; }
+/* Observación con formato: viñetas y tablas como en el detalle, con su barra si es ancha */
+.fq-obs-rico { font-size: .87rem; line-height: 1.5; overflow-wrap: anywhere; overflow-x: auto; }
+.fq-obs-rico > :first-child { margin-top: 0; }
+.fq-obs-rico > :last-child { margin-bottom: 0; }
 .fq-obs-vacio { margin: 0 0 10px; color: var(--c-text-soft); font-style: italic; font-size: .86rem; }
 .fq-obs-n {
   margin-left: 6px; padding: 1px 8px; border-radius: 999px;
@@ -7105,11 +7130,11 @@ html.dark .fq-chip.fq-vencido { color: #ff9d5c; }
 }
 .fq-obs-form { display: flex; flex-direction: column; gap: 8px; margin: 0; }
 .fq-obs-form textarea { resize: vertical; min-height: 52px; }
-.fq-obs-form .btn-meca { align-self: flex-end; }
+.fq-obs-form .btn-meca { align-self: stretch; justify-content: center; }
 /* Las respuestas: sangradas y con la línea del hilo al costado. Un solo nivel
    —quien responde a una respuesta cuelga igual del hilo—, porque a la tercera
    sangría no queda ancho para leer nada. */
-.fq-obs li.fq-obs-r {
+.fq-obs > li.fq-obs-r {
   margin-left: 22px;
   border-left: 2px solid color-mix(in srgb, var(--c-secondary) 30%, transparent);
   border-radius: 4px 12px 12px 4px;

@@ -468,6 +468,9 @@ final class Releases
         // varios equipos (ms-academico es de Beta y de Delta) y se cruzarían sus tareas.
         if (!empty($e['proyectos'])) return array_values(array_map('intval', $e['proyectos']));
         $ids = [];
+        // Sin vincular: el proyecto que se llama como el equipo («Equipo Betta» es de Beta)
+        foreach ((new ProyectoRepo())->todos() as $p) if (self::mismoNombre((string)$p['nombre'], $equipo)) $ids[(int)$p['id']] = true;
+        if ($ids) return array_map('intval', array_keys($ids));   // como los propios: sin mezclar por microservicio
         $alias = array_map(fn($a) => strtolower(trim($a)), aliasDeploys(configDeploys()['alias'] ?? []));
         $micro = [];
         foreach (self::repo('rel_items')->where('equipo', $equipo) as $it) {
@@ -488,11 +491,30 @@ final class Releases
     {
         $eqs = [];
         foreach (array_keys(self::equipos()) as $nom) if (in_array($pid, self::proyectosEquipo((string)$nom), true)) $eqs[(string)$nom] = true;
+        // El proyecto que se llama como el equipo («Equipo Betta» → Beta) es suyo aunque no se haya vinculado
+        $p = (new ProyectoRepo())->buscar($pid);
+        if ($p) foreach (array_keys(self::equipos()) as $nom) if (self::mismoNombre((string)$p['nombre'], (string)$nom)) $eqs[(string)$nom] = true;
         if (!$eqs) return [];
         $orden = array_flip(array_keys(self::releases()));
         $out = array_values(array_filter(self::repo('rel_items')->all(), fn($it) => isset($eqs[(string)($it['equipo'] ?? '')])));
         usort($out, fn($a, $b) => [$orden[$a['release'] ?? ''] ?? 99, (string)$a['codigo']] <=> [$orden[$b['release'] ?? ''] ?? 99, (string)$b['codigo']]);
         return $out;
+    }
+
+    /**
+     * ¿El proyecto se llama como el equipo? Sin «Equipo», sin tildes ni
+     * mayúsculas y sin letras repetidas: «Equipo Betta» = Beta, «Equipo Alpha» = Alpha.
+     */
+    public static function mismoNombre(string $proyecto, string $equipo): bool
+    {
+        $clave = function (string $s): string {
+            $s = mb_strtolower(trim($s));
+            $s = strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+            $s = (string)preg_replace('/\bequipo\b|[^a-z0-9]+/', '', $s);
+            return (string)preg_replace('/(.)\1+/', '$1', $s);
+        };
+        $e = $clave($equipo);
+        return $e !== '' && $clave($proyecto) === $e;
     }
 
     /** Las tareas de los proyectos del equipo (para cruzarlas con sus ítems). */

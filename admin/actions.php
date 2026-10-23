@@ -2437,8 +2437,9 @@ switch ($accion) {
         if (Auth::esSupervisor() || (!esAdmin() && !RequerimientoRepo::tieneAsignado($req, $yoObs))) {
             redirigir($volverObs, 'Solo quien gestiona el requerimiento o lo tiene asignado puede anotar observaciones.', 'error');
         }
-        $textoObs = trim($_POST['texto'] ?? '');
-        if ($textoObs === '') {
+        // Viene del editor con formato (viñetas, tablas): se sanea a lista blanca
+        $textoObs = HtmlRico::limpiar((string)($_POST['texto'] ?? ''));
+        if (HtmlRico::vacio($textoObs)) {
             redirigir($volverObs, 'Escribe la observación antes de enviarla.', 'error');
         }
 
@@ -2483,7 +2484,7 @@ switch ($accion) {
                 $avisadosObs[] = $midObs;
             }
         }
-        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs);
+        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs, true);
 
         $nAvObs = count($avisadosObs);
         $rotuloObs = $laQueRespondeObs ? 'Respuesta anotada en «' : 'Observación anotada en «';
@@ -3304,10 +3305,10 @@ switch ($accion) {
             $hilosReq = [];
             foreach (RequerimientoRepo::hilosDe($r) as $h) {
                 $hilosReq[] = [
-                    'texto'      => $h['texto'],
+                    'texto'      => !empty($h['html']) ? HtmlRico::texto($h['texto']) : $h['texto'],
                     'creado'     => $h['creado'],
                     'respuestas' => array_map(
-                        fn($x) => ['texto' => $x['texto'], 'creado' => $x['creado']],
+                        fn($x) => ['texto' => !empty($x['html']) ? HtmlRico::texto($x['texto']) : $x['texto'], 'creado' => $x['creado']],
                         $h['respuestas']
                     ),
                 ];

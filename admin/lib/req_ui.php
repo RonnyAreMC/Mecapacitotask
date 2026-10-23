@@ -125,11 +125,13 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'observaciones' => array_map(fn($o) => [
             'id'     => $o['id'],
             'texto'  => $o['texto'],
+            'html'   => !empty($o['html']),
             'autor'  => (string)($mapa[$o['autor']]['nombre'] ?? 'Alguien'),
             'creado' => $o['creado'],
             'respuestas' => array_map(fn($rr) => [
                 'id'     => $rr['id'],
                 'texto'  => $rr['texto'],
+                'html'   => !empty($rr['html']),
                 'autor'  => (string)($mapa[$rr['autor']]['nombre'] ?? 'Alguien'),
                 'creado' => $rr['creado'],
             ], $o['respuestas']),
@@ -268,8 +270,7 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
                 <i class="fa-solid fa-xmark"></i>
               </button>
             </p>
-            <textarea class="input-meca" name="texto" rows="2" maxlength="1000" required
-                      placeholder="Estimado, ¿qué pasó con este requerimiento?"></textarea>
+            <?= UI::editorRico(['name' => 'texto', 'id' => 'fq-obs-editor', 'clase' => 'rt--obs', 'placeholder' => 'Estimado, ¿qué pasó con este requerimiento? (puedes pegar tablas)']) ?>
             <button class="btn-primary btn-meca">
               <i class="fa-solid fa-paper-plane"></i> <span id="fq-obs-enviar">Notificar</span>
             </button>
@@ -293,18 +294,24 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
           <!-- Quien lo tiene suma a alguien que le ayude. Solo eso: las fechas
                y el resto los cambia el administrador. JS lo esconde si ya está
                cerrado y apaga a quienes ya están. -->
-          <form method="post" action="actions.php" class="fq-colab" id="fq-colab">
-            <input type="hidden" name="accion" value="req_colaborador">
-            <input type="hidden" name="id" id="fq-id-colab">
-            <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'bandeja.php')) ?>">
-            <label class="campo"><span>Sumar a un colaborador</span>
-              <select name="colaborador" class="select-meca" id="fq-colab-sel" required>
-                <option value="">Elige quién te ayuda…</option>
-                <?php foreach ($equipoCol as $mC): ?><option value="<?= (int)$mC['id'] ?>"><?= e($mC['nombre']) ?><?= trim((string)($mC['rol'] ?? '')) !== '' ? ' · ' . e($mC['rol']) : '' ?></option><?php endforeach; ?>
-              </select></label>
-            <button class="btn-outline btn-meca btn-azul btn-sm"><i class="fa-solid fa-user-plus"></i> Sumar</button>
-            <small class="campo-ayuda">Le llega como a ti y queda anotado que lo sumaste. Las fechas las cambia el administrador.</small>
-          </form>
+          <div class="fq-colab" id="fq-colab">
+            <button type="button" class="fq-colab-abrir" id="fq-colab-abrir"><i class="fa-solid fa-user-plus"></i> Sumar a alguien que te ayude</button>
+            <form method="post" action="actions.php" class="fq-colab-form" id="fq-colab-form" hidden>
+              <input type="hidden" name="accion" value="req_colaborador">
+              <input type="hidden" name="id" id="fq-id-colab">
+              <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'bandeja.php')) ?>">
+              <label class="campo"><span>¿Quién te ayuda?</span>
+                <select name="colaborador" class="select-meca" id="fq-colab-sel" required>
+                  <option value="">Elige a alguien del equipo…</option>
+                  <?php foreach ($equipoCol as $mC): ?><option value="<?= (int)$mC['id'] ?>"><?= e($mC['nombre']) ?><?= trim((string)($mC['rol'] ?? '')) !== '' ? ' · ' . e($mC['rol']) : '' ?></option><?php endforeach; ?>
+                </select></label>
+              <div class="fq-colab-acc">
+                <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-colab-cancelar">Cancelar</button>
+                <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Sumar</button>
+              </div>
+              <small class="campo-ayuda">Le llega como a ti y queda anotado que lo sumaste. Las fechas las cambia el administrador.</small>
+            </form>
+          </div>
           <?php endif; ?>
         </div>
 

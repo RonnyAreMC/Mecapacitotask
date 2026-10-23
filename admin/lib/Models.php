@@ -1104,6 +1104,8 @@ class RequerimientoRepo
                 'id'     => (int)($o['id'] ?? 0) ?: $n,
                 'padre'  => (int)($o['padre'] ?? 0),
                 'texto'  => (string)$o['texto'],
+                // Con formato (viñetas, tablas): HTML ya saneado. Las de antes son texto plano
+                'html'   => !empty($o['html']),
                 'autor'  => (int)($o['autor'] ?? 0),
                 'creado' => (string)($o['creado'] ?? ''),
                 'avisados' => array_values(array_filter(array_map('intval', (array)($o['avisados'] ?? [])))),
@@ -1160,7 +1162,7 @@ class RequerimientoRepo
      * guarda el campo tal cual: sumar al array en memoria de quien llamo
      * pisaria lo que otro hubiera anotado mientras tanto.
      */
-    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0): ?array
+    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0, bool $html = false): ?array
     {
         $r = $this->buscar($id);
         if (!$r) return null;
@@ -1175,7 +1177,9 @@ class RequerimientoRepo
         $lista[] = [
             'id'       => $siguiente,
             'padre'    => $padre,
-            'texto'    => mb_substr(trim($texto), 0, 1000),
+            // Con formato puede traer una tabla: cabe más (ya viene saneado)
+            'texto'    => $html ? mb_substr(trim($texto), 0, 20000) : mb_substr(trim($texto), 0, 1000),
+            'html'     => $html,
             'autor'    => $autorId,
             'creado'   => date('Y-m-d H:i'),
             'avisados' => array_values(array_unique(array_map('intval', $avisados))),
