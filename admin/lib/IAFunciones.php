@@ -605,4 +605,172 @@ final class IAFunciones
         }
         return ['general' => $general, 'personas' => $out, 'texto' => $md, 'desde' => $desde, 'commits' => $nCommits] + $meta;
     }
+
+
+    /* ---------------- 8. Releases (lib/Releases.php) ---------------- */
+
+    private static function lineaItem(array $it): string
+    {
+        return $it['codigo'] . ' · ' . self::txt($it['titulo'], 160) . ' · ' . ($it['inicio'] ?: '?') . ' → ' . ($it['fin'] ?: '?')
+            . ' · ' . (Releases::ESTADOS[$it['estado']][0] ?? $it['estado']) . ' ' . (int)$it['avance'] . ' % (el plan espera ' . (int)$it['esperado'] . ' %)'
+            . (($it['microservicio'] ?? '') !== '' ? ' · ' . $it['microservicio'] : '')
+            . (($it['alcance'] ?? '') !== '' ? "\n    Alcance: " . self::txt($it['alcance'], 500) : '')
+            . (($it['demostrar'] ?? '') !== '' ? "\n    Debe demostrarse: " . self::txt($it['demostrar'], 400) : '')
+            . ($it['tareas'] ? "\n    Ya vinculadas: " . implode(', ', array_map(fn($t) => '#' . $t, $it['tareas'])) : '');
+    }
+
+    /**
+     * Cruza las tareas del equipo con sus ítems vigentes (en curso, atrasados
+     * y los que empiezan en las próximas 6 semanas). No crea nada: devuelve
+     * qué cubre cada tarea, alertas y tareas sugeridas con fechas.
+     */
+    public static function releaseTareas(array $equipo, array $items, array $tareas, array $proyectos): array
+    {
+        $hoy = date('Y-m-d');
+        $limite = date('Y-m-d', strtotime('+42 days'));
+        $vigentes = array_values(array_filter($items, fn($it) => $it['estado'] !== 'cerrado' && ($it['inicio'] === '' || $it['inicio'] <= $limite)));
+        if (!$vigentes) throw new IAError('El equipo no tiene ítems en curso ni por empezar en las próximas semanas.');
+        $estados = Catalogo::estadosTarea();
+        $miembros = (new MiembroRepo())->mapa();
+        $lt = [];
+        foreach (array_slice($tareas, 0, 220) as $t) {
+            $asig = array_filter(array_map(fn($id) => $miembros[(int)$id]['nombre'] ?? '', TareaRepo::asignadosDe($t)));
+            $lt[] = '#' . $t['id'] . ' [' . ($proyectos[(int)$t['proyecto_id']]['nombre'] ?? 'proyecto') . '] ' . self::txt($t['titulo'], 160)
+                . ' · ' . ($estados[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? '')) . ' · ' . (($t['fecha_inicio'] ?? '') ?: '?') . ' → ' . (($t['fecha_limite'] ?? '') ?: '?')
+                . ($asig ? ' · ' . implode(', ', $asig) : '');
+        }
+        $ins = "Eres el asistente de planificación de un programa con releases y equipos Scrum. Te doy los ítems vigentes del release "
+            . "(historias con su ventana de fechas) y las tareas del equipo en el panel. Haz esto:\n"
+            . "1. «items»: por cada ítem, qué tareas (por #id, SOLO de la lista) lo cubren de verdad por su título y descripción "
+            . "(cada tarea va a lo sumo a un ítem, al que mejor le corresponda; incluye las ya vinculadas que sigan valiendo); "
+            . "«cobertura» = completa | parcial | sin_tareas; «comentario» corto (qué falta, si algo).\n"
+            . "2. «alertas»: fechas que no cuadran (una tarea que termina después del fin del ítem, un ítem que empieza pronto sin tareas, "
+            . "un ítem atrasado frente a lo esperado), tareas que no corresponden a ningún ítem del plan («fuera_de_plan»). "
+            . "tipo = fecha | sin_tareas | fuera_de_plan | riesgo; gravedad = alta | media | baja; con «codigo» y/o «tarea_id» y un «mensaje» claro.\n"
+            . "3. «sugerencias»: tareas que el Scrum Master debería crear para cumplir los ítems sin cobertura o parciales, con título concreto, "
+            . "descripción breve y fechas AAAA-MM-DD dentro de la ventana del ítem (el equipo trabaja medio tiempo: 2 a 5 días hábiles por tarea, "
+            . "sin fines de semana). Como máximo 12.\n"
+            . "4. «resumen»: 2 a 4 frases sobre cómo va el equipo frente al plan.\n"
+            . 'Estructura: {"resumen":"","items":[{"codigo":"","tareas":[0],"cobertura":"","comentario":""}],'
+            . '"alertas":[{"tipo":"","gravedad":"","codigo":"","tarea_id":0,"mensaje":""}],'
+            . '"sugerencias":[{"codigo":"","titulo":"","descripcion":"","fecha_inicio":"","fecha_limite":""}]}';
+        $cont = 'Equipo: ' . $equipo['nombre'] . (($equipo['sm_nombre'] ?? '') !== '' ? ' · SM ' . $equipo['sm_nombre'] : '') . ' · Hoy: ' . $hoy
+            . "\n\n## Ítems vigentes\n- " . implode("\n- ", array_map(fn($it) => self::lineaItem($it), $vigentes))
+            . "\n\n## Tareas del equipo\n" . ($lt ? '- ' . implode("\n- ", $lt) : '(el equipo no tiene tareas en el panel)');
+        [$d, $meta] = self::pedir('release_tareas', $ins, $cont, [], ['max' => 7000]);
+        $ids = array_flip(array_map(fn($t) => (int)$t['id'], $tareas));
+        $codigos = array_flip(array_map(fn($it) => $it['codigo'], $vigentes));
+        $pidDefecto = (int)($equipo['proyectos'][0] ?? 0);
+        $porCodigo = array_column($vigentes, null, 'codigo');
+        $outItems = [];
+        foreach ((array)($d['items'] ?? []) as $x) {
+            $cod = self::txt($x['codigo'] ?? '', 30);
+            if (!isset($codigos[$cod])) continue;
+            $cob = self::txt($x['cobertura'] ?? '', 20);
+            $outItems[] = ['codigo' => $cod, 'tareas' => array_values(array_filter(array_map('intval', (array)($x['tareas'] ?? [])), fn($t) => isset($ids[$t]))),
+                           'cobertura' => in_array($cob, ['completa', 'parcial', 'sin_tareas'], true) ? $cob : 'parcial', 'comentario' => self::txt($x['comentario'] ?? '', 400)];
+        }
+        $alertas = [];
+        foreach (array_slice((array)($d['alertas'] ?? []), 0, 30) as $x) {
+            $msg = self::txt($x['mensaje'] ?? '', 400);
+            if ($msg === '') continue;
+            $tipo = self::txt($x['tipo'] ?? '', 20);
+            $grav = self::txt($x['gravedad'] ?? '', 10);
+            $tid = (int)($x['tarea_id'] ?? 0);
+            $cod = self::txt($x['codigo'] ?? '', 30);
+            $alertas[] = ['tipo' => in_array($tipo, ['fecha', 'sin_tareas', 'fuera_de_plan', 'riesgo'], true) ? $tipo : 'riesgo',
+                          'gravedad' => in_array($grav, ['alta', 'media', 'baja'], true) ? $grav : 'media',
+                          'codigo' => isset($codigos[$cod]) ? $cod : '', 'tarea_id' => isset($ids[$tid]) ? $tid : 0, 'mensaje' => $msg];
+        }
+        $orden = ['alta' => 0, 'media' => 1, 'baja' => 2];
+        usort($alertas, fn($a, $b) => $orden[$a['gravedad']] <=> $orden[$b['gravedad']]);
+        $sug = [];
+        foreach (array_slice((array)($d['sugerencias'] ?? []), 0, 12) as $x) {
+            $cod = self::txt($x['codigo'] ?? '', 30);
+            $tit = self::txt($x['titulo'] ?? '', 200);
+            if ($tit === '' || !isset($codigos[$cod])) continue;
+            $fi = Releases::fecha($x['fecha_inicio'] ?? '') ?: max($hoy, $porCodigo[$cod]['inicio'] ?: $hoy);
+            $fl = Releases::fecha($x['fecha_limite'] ?? '') ?: ($porCodigo[$cod]['fin'] ?: $fi);
+            if ($fl < $fi) $fl = $fi;
+            $sug[] = ['codigo' => $cod, 'titulo' => $tit, 'descripcion' => self::txt($x['descripcion'] ?? '', 1200),
+                      'fecha_inicio' => $fi, 'fecha_limite' => $fl, 'proyecto_id' => $pidDefecto];
+        }
+        return ['resumen' => self::txt($d['resumen'] ?? '', 1500), 'items' => $outItems, 'alertas' => $alertas, 'sugerencias' => $sug,
+                'tareas_vistas' => count($lt), 'items_vistos' => count($vigentes)] + $meta;
+    }
+
+    /** Resumen de una revisión semanal: lo cumplido, los riesgos y los compromisos. */
+    public static function releaseRevision(array $rev, array $nombres = [], string $transcripcion = ''): array
+    {
+        $lineas = [];
+        foreach ((array)$rev['filas'] as $f) {
+            $lineas[] = '- ' . $f['codigo'] . ' ' . self::txt($f['titulo'] ?? '', 140) . ' · ' . ($f['tipo'] ?? '')
+                . ' · resultado: ' . (Releases::RESULTADOS[$f['estado']][0] ?? $f['estado'])
+                . ($f['pct'] !== null ? ' · ' . (int)$f['pct'] . ' % real' : '') . (($f['esperado'] ?? null) !== null ? ' (esperado ' . (int)$f['esperado'] . ' %)' : '')
+                . (($f['entregado'] ?? '') !== '' ? "\n  Debía estar: " . self::txt($f['entregado'], 300) : '')
+                . (($f['obs'] ?? '') !== '' ? "\n  Observación: " . self::txt($f['obs'], 600) : '');
+        }
+        if (!$lineas) throw new IAError('La revisión no tiene ítems que resumir.');
+        $ins = "Resumes la revisión semanal de un equipo de un programa de software frente a su plan. Devuelve:\n"
+            . "- resumen: 3 a 5 frases para la gerencia (qué se revisó, cómo quedó el cumplimiento, lo más importante).\n"
+            . "- logros: lo cumplido que vale la pena destacar (frases cortas).\n"
+            . "- riesgos: lo parcial, no cumplido o bloqueado y por qué (frases cortas).\n"
+            . "- compromisos: lo que quedó por hacer antes de la próxima sesión: quién (el equipo o una persona si se menciona), qué y cuándo (AAAA-MM-DD si se deduce; si no, \"\").\n"
+            . "- siguiente: el foco de la próxima revisión, en una frase.\n"
+            . 'Estructura: {"resumen":"","logros":[""],"riesgos":[""],"compromisos":[{"quien":"","que":"","cuando":""}],"siguiente":""}';
+        $cont = 'Equipo: ' . $rev['equipo'] . ' · Fecha: ' . $rev['fecha'] . ' ' . ($rev['hora'] ?? '') . (($rev['titulo'] ?? '') !== '' ? "\nFoco: " . self::txt($rev['titulo'], 300) : '')
+            . ($nombres ? "\nAsistentes: " . implode(', ', $nombres) : '')
+            . "\n\n## Ítems revisados\n" . implode("\n", $lineas)
+            . (trim((string)($rev['acuerdos'] ?? '')) !== '' ? "\n\n## Acuerdos anotados\n" . self::txt($rev['acuerdos'], 4000) : '')
+            // La reunión de Zoom quedó grabada: lo que se dijo completa lo anotado
+            . (trim($transcripcion) !== '' ? "\n\n## Transcripción de la reunión (Zoom)\n" . mb_substr(trim($transcripcion), 0, 30000) : '');
+        [$d, $meta] = self::pedir('release_revision', $ins, $cont, [], ['max' => 3000]);
+        $comp = [];
+        foreach (array_slice((array)($d['compromisos'] ?? []), 0, 15) as $c) {
+            if (!is_array($c) || self::txt($c['que'] ?? '') === '') continue;
+            $comp[] = ['quien' => self::txt($c['quien'] ?? '', 80), 'que' => self::txt($c['que'], 300), 'cuando' => Releases::fecha($c['cuando'] ?? '')];
+        }
+        return ['resumen' => self::txt($d['resumen'] ?? '', 1500), 'logros' => self::lista($d['logros'] ?? [], 10),
+                'riesgos' => self::lista($d['riesgos'] ?? [], 10), 'compromisos' => $comp, 'siguiente' => self::txt($d['siguiente'] ?? '', 400)] + $meta;
+    }
+
+    /** El estado general (o de un release o un equipo) para la gerencia. */
+    public static function releaseGeneral(array $tablero, array $items, array $revisiones, string $release = '', string $equipo = ''): array
+    {
+        $lin = [];
+        foreach ($tablero['releases'] as $cod => $r) {
+            if ($release !== '' && $cod !== $release) continue;
+            $lin[] = sprintf('%s %s: %d %% (esperado %d %%) · %d/%d terminados · %d atrasados · %s', $cod, $r['release']['nombre'] ?? '', $r['pct'], $r['esperado'],
+                $r['cerrados'], $r['total'], $r['atrasados'], Releases::rango((string)($r['release']['inicio'] ?? ''), (string)($r['release']['fin'] ?? '')));
+            foreach ($r['equipos'] as $e => $x) {
+                if ($equipo !== '' && $e !== $equipo) continue;
+                $lin[] = sprintf('   · %s: %d %% (esperado %d %%) · %d atrasados · %d en riesgo', $e, $x['pct'], $x['esperado'], $x['atrasados'], $x['riesgo']);
+            }
+        }
+        $criticos = array_slice(array_values(array_filter($items, fn($it) => in_array($it['salud'], ['atrasado', 'vencido', 'bloqueado', 'riesgo'], true))), 0, 30);
+        $revs = [];
+        foreach (array_slice($revisiones, -12) as $rv) {
+            $cu = $rv['cumplimiento'];
+            $revs[] = $rv['fecha'] . ' ' . $rv['equipo'] . ': ' . ($cu['pct'] !== null ? $cu['pct'] . ' % de cumplimiento' : 'sin resultados') . ' · '
+                . (($rv['resumen_ia']['resumen'] ?? '') !== '' ? self::txt($rv['resumen_ia']['resumen'], 300) : self::txt($rv['acuerdos'] ?? '', 200));
+        }
+        $ins = "Escribes el estado del programa para la gerencia, con datos reales del plan y las revisiones. Devuelve:\n"
+            . "- titular: una frase que diga cómo va el programa (al día, con riesgo o atrasado y por qué).\n"
+            . "- resumen: 3 a 6 frases.\n- por_equipo: por cada equipo, estado (al_dia | riesgo | atrasado) y una frase.\n"
+            . "- riesgos: los 3 a 6 riesgos más importantes, concretos (con el código del ítem).\n"
+            . "- recomendaciones: 3 a 5 acciones para la semana.\n"
+            . 'Estructura: {"titular":"","resumen":"","por_equipo":[{"equipo":"","estado":"","texto":""}],"riesgos":[""],"recomendaciones":[""]}';
+        $cont = 'Hoy: ' . date('Y-m-d') . "\n\n## Avance por release y equipo\n" . implode("\n", $lin)
+            . "\n\n## Ítems atrasados o en riesgo\n" . ($criticos ? '- ' . implode("\n- ", array_map(fn($it) => self::lineaItem($it), $criticos)) : '(ninguno)')
+            . "\n\n## Últimas revisiones\n" . ($revs ? '- ' . implode("\n- ", $revs) : '(ninguna registrada)');
+        [$d, $meta] = self::pedir('release_general', $ins, $cont, [], ['max' => 3000]);
+        $eq = [];
+        foreach (array_slice((array)($d['por_equipo'] ?? []), 0, 12) as $x) {
+            if (!is_array($x) || self::txt($x['equipo'] ?? '') === '') continue;
+            $est = self::txt($x['estado'] ?? '', 20);
+            $eq[] = ['equipo' => self::txt($x['equipo'], 40), 'estado' => in_array($est, ['al_dia', 'riesgo', 'atrasado'], true) ? $est : 'riesgo', 'texto' => self::txt($x['texto'] ?? '', 400)];
+        }
+        return ['titular' => self::txt($d['titular'] ?? '', 300), 'resumen' => self::txt($d['resumen'] ?? '', 2000), 'por_equipo' => $eq,
+                'riesgos' => self::lista($d['riesgos'] ?? [], 8), 'recomendaciones' => self::lista($d['recomendaciones'] ?? [], 6)] + $meta;
+    }
 }

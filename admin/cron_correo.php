@@ -17,6 +17,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Solo desde el cron.');
 }
 require_once __DIR__ . '/lib/bootstrap.php';
+cronCallado('correo');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_correo.log
 foreach (['Correo', 'Push'] as $m) {
     if (!is_file(__DIR__ . '/lib/' . $m . '.php')) exit("Falta lib/$m.php\n");
     require_once __DIR__ . '/lib/' . $m . '.php';
@@ -34,11 +35,24 @@ if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) exit("Ya hay una revisión
 $cronograma = function (): string {
     if (!is_file(__DIR__ . '/lib/Cronograma.php')) return '';
     require_once __DIR__ . '/lib/Cronograma.php';
+    // Releases (lib/Releases.php): una vez al día, lo que vence pronto, lo atrasado, las revisiones de hoy y el resumen del lunes
+    $rel = '';
+    if (is_file(__DIR__ . '/lib/Releases.php')) {
+        require_once __DIR__ . '/lib/Releases.php';
+        try {
+            $sRel = Releases::pasoRapido();   // los ítems al día con lo que el equipo marcó en sus tareas
+            $nRel = Releases::paso();
+            if ($sRel) $rel .= ' · ítems al día con sus tareas: ' . $sRel;
+            if ($nRel) $rel .= ' · avisos de releases: ' . $nRel;
+        } catch (Throwable $e) {
+            echo 'Releases: ' . $e->getMessage() . "\n";
+        }
+    }
     try {
         $r = Cronograma::paso();
-        return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '');
+        return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '') . $rel;
     } catch (Throwable $e) {
-        fwrite(STDERR, 'Horario de subidas: ' . $e->getMessage() . "\n");
+        echo 'Horario de subidas: ' . $e->getMessage() . "\n";   // al registro (data/cron_correo.log)
         return '';
     }
 };
@@ -99,7 +113,7 @@ if (is_file(__DIR__ . '/lib/ReqCorreo.php') && is_file(__DIR__ . '/lib/IA.php') 
         try {
             $reqAnalizados += ReqCorreo::procesar($mid, 2);
         } catch (Throwable $e) {
-            fwrite(STDERR, 'Requerimientos del correo de #' . $mid . ': ' . $e->getMessage() . "\n");
+            echo 'Requerimientos del correo de #' . $mid . ': ' . $e->getMessage() . "\n";
         }
     }
 }

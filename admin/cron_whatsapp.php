@@ -14,6 +14,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Solo desde el cron.');
 }
 require_once __DIR__ . '/lib/bootstrap.php';
+cronCallado('whatsapp');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_whatsapp.log
 if (!is_file(__DIR__ . '/lib/Whatsapp.php')) exit("Falta lib/Whatsapp.php\n");
 require_once __DIR__ . '/lib/Whatsapp.php';
 @set_time_limit(58);

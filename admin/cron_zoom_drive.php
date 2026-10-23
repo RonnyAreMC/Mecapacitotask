@@ -13,6 +13,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Solo desde la terminal o el cron.');
 }
 require_once __DIR__ . '/lib/bootstrap.php';
+cronCallado('zoom_drive');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_zoom_drive.log
 foreach (['Correo', 'ZoomDrive'] as $m) {
     if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
 }

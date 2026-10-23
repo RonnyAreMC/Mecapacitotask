@@ -748,6 +748,25 @@ class Mailer
      *
      * $companeros son los nombres de los demas responsables, si va a varios.
      */
+    /**
+     * Aviso de Releases (lib/Releases.php): cambió una fecha o un estado, se
+     * registró una revisión, algo vence pronto o va atrasado. $filas son los
+     * datos de la tarjeta y $detalle el texto de abajo (con saltos de línea).
+     */
+    public static function avisoRelease(array $miembro, string $titulo, string $texto, array $filas, string $detalle, string $url): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $nombre = e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '');
+        $cuerpo = self::encabezado($acento, '&#9679;', e($titulo), ($nombre !== '' ? 'Hola ' . $nombre . ', ' : '') . e($texto))
+            . self::detalle($titulo, array_map(fn($v) => e((string)$v), array_filter($filas, fn($v) => (string)$v !== '')), nl2br(e($detalle)), true);
+        // $url es la página del panel («releases.php?v=…»): con la dirección pública (url_panel), también desde el cron
+        $abs = preg_match('#^https?://#i', $url) ? $url : self::urlPagina($url);
+        return self::enviar($miembro['email'], 'Releases: ' . $titulo, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Abrir en el panel' : ''));
+    }
+
     public static function notificarRequerimiento(array $req, array $miembro, array $companeros = []): true|string|null
     {
         if (!self::listo() || empty($miembro['email'])) {

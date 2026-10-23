@@ -77,6 +77,15 @@ final class IA
         'daily_resumen'      => ['Resumen para el daily', 'Daily',
                                  'Qué hizo cada persona (commits y tareas) y en qué sigue.',
                                  'gemini:gemini-2.5-flash', 'openai:gpt-4.1-mini'],
+        'release_tareas'     => ['Releases: revisar las tareas de un equipo', 'Releases',
+                                 'Cruza las tareas del equipo con los ítems del release: qué cubre cada una, qué falta y qué fechas no cuadran.',
+                                 'gemini:gemini-2.5-flash', 'openai:gpt-4.1-mini'],
+        'release_revision'   => ['Releases: resumen de una revisión', 'Releases',
+                                 'Resume la revisión semanal de un equipo: lo cumplido, los riesgos y los compromisos.',
+                                 'openai:gpt-4.1-mini', 'gemini:gemini-2.5-flash'],
+        'release_general'    => ['Releases: resumen del avance', 'Releases',
+                                 'El estado general del programa por equipo y por release, para la gerencia.',
+                                 'openai:gpt-4.1-mini', 'gemini:gemini-2.5-flash'],
     ];
 
     /**

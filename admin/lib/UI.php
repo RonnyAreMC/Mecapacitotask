@@ -290,6 +290,13 @@ class UI
     </a>
     <?php endif; ?>
 
+    <?php if (is_file(__DIR__ . '/Releases.php')) require_once __DIR__ . '/Releases.php'; ?>
+    <?php if (class_exists('Releases') && Releases::puedeVer()): /* planificación estratégica: releases, equipos y revisiones */ ?>
+    <a href="releases.php" class="sidebar-link <?= $activo === 'releases' ? 'active' : '' ?>" title="Planificación estratégica: releases, equipos y revisiones">
+      <?= UI::icono('ds-ruta') ?> <span class="truncate">Releases</span>
+    </a>
+    <?php endif; ?>
+
     <?php if (Auth::esGestor()): ?>
     <span class="sidebar-label">Configuración</span>
     <?php endif; ?>

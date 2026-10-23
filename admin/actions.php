@@ -71,6 +71,11 @@ $accionesDeCualquiera = [
     'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_eliminar',
     // Notificaciones nativas: cada persona anota y quita SUS dispositivos
     'push_suscribir', 'push_quitar', 'push_prefs', 'push_prueba',
+    // Releases: los ven los editores y los Scrum Master; cada acción comprueba
+    // por dentro quién puede qué (Releases::puedeVer, puedeEditar o SM del equipo).
+    'rel_importar', 'rel_item_guardar', 'rel_item_tareas', 'rel_item_borrar', 'rel_tarea_crear', 'rel_equipo_guardar',
+    'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar',
+    'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -93,6 +98,75 @@ $tareas    = new TareaRepo();
 function avisoPanel(array $para, string $tipo, string $titulo, string $texto = '', string $url = '', int $de = -1): void
 {
     if (class_exists('Notif')) Notif::crear($para, $tipo, $titulo, $texto, $url, $de);
+}
+
+/**
+ * Releases: crea la reunión virtual de una revisión en el proyecto del equipo,
+ * igual que «Nueva reunión» (Zoom, Meet o enlace según Ajustes → Reuniones):
+ * la agenda en el calendario de cada invitado y avisa por WhatsApp o correo.
+ * Devuelve la reunión creada o el texto del error.
+ */
+function relCrearReunion(array $rev, int $pid, array $invitados, string $pedida, string $enlace, ProyectoRepo $proyectos, MiembroRepo $miembros): array|string
+{
+    $p = $proyectos->buscar($pid);
+    if (!$p) return 'El equipo no tiene un proyecto del panel donde crear la reunión (Releases → Ajustes → Equipos).';
+    if (!puedeReunionesDelProyecto($pid)) return 'Solo crean reuniones en «' . $p['nombre'] . '» su Scrum Master, su PO o el administrador.';
+    $plataforma = Reuniones::resolverPlataforma($pedida, $p);
+    if ($plataforma === '') return 'No hay ninguna plataforma de reuniones configurada (Ajustes → Reuniones).';
+    [$hIni, $dur] = Releases::horario((string)($rev['hora'] ?? ''), (int)($rev['duracion'] ?? Reuniones::duracionDefecto()));
+    if ((int)($rev['duracion'] ?? 0) > 0) $dur = (int)$rev['duracion'];
+    $inicio = $rev['fecha'] . ' ' . $hIni;
+    $topic = 'Revisión ' . $rev['equipo'] . ' · ' . date('d/m', strtotime($rev['fecha'])) . (($rev['titulo'] ?? '') !== '' ? ' · ' . mb_substr($rev['titulo'], 0, 120) : '');
+    $reuniones = new ReunionRepo();
+    $base = ['proyecto_id' => $pid, 'creador_id' => (int)(Auth::usuario()['id'] ?? 0), 'topic' => $topic, 'inicio' => $inicio,
+             'duracion' => $dur, 'invitados' => $invitados, 'recurrente' => false, 'dias' => [], 'hasta' => ''];
+    if ($plataforma === 'enlace') {
+        if (!filter_var($enlace, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $enlace)) return 'Pega el enlace de la reunión (tiene que empezar por https://).';
+        $reu = $reuniones->crear($base + ['plataforma' => 'enlace', 'join_url' => $enlace]);
+    } elseif ($plataforma === 'meet') {
+        $refresh = (string)(Auth::usuario()['gcal_refresh'] ?? '');
+        if ($refresh === '') return 'Para crear reuniones de Meet, primero conecta tu Google en Mi perfil → «Conectar mi calendario».';
+        $emails = [];
+        foreach ($invitados as $mid) { $m = $miembros->buscar($mid); if ($m && !empty($m['email'])) $emails[] = $m['email']; }
+        $creada = GoogleCalendar::crearMeet($refresh, ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'invitados' => $emails, 'dias' => [], 'hasta' => '']);
+        if (isset($creada['error'])) return $creada['error'] === 'sin_conexion' ? 'Conecta tu Google en Mi perfil para crear reuniones de Meet.' : (string)$creada['error'];
+        $reu = $reuniones->crear($base + ['plataforma' => 'meet', 'gcal_event' => (string)($creada['event'] ?? ''), 'join_url' => (string)($creada['meet'] ?? '')]);
+    } else {
+        if (!Zoom::listo()) return 'Zoom no está configurado (Ajustes → Zoom).';
+        $creada = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
+        if (isset($creada['error'])) return (string)$creada['error'];
+        $reu = $reuniones->crear($base + ['plataforma' => 'zoom', 'zoom_id' => (string)($creada['id'] ?? ''), 'join_url' => $creada['join_url'] ?? '',
+                                          'start_url' => $creada['start_url'] ?? '', 'password' => $creada['password'] ?? '']);
+    }
+    // Lo mismo que una reunión hecha a mano: calendarios, campana, WhatsApp o correo
+    try {
+        agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), $p, $miembros, $reuniones);
+        $volverR = 'releases.php?v=revision&id=' . (int)$rev['id'];
+        avisoPanel($invitados, 'reunion', 'Te invitaron a una revisión', $topic . ' · ' . $inicio, $volverR);
+        $paraCorreo = $invitados;
+        if (class_exists('Whatsapp') && Whatsapp::activo()) {
+            [, $sinTel] = Whatsapp::avisarReunion($reu, $invitados, $p, 'nueva', (int)(Auth::usuario()['id'] ?? 0));
+            $paraCorreo = array_map(fn($m) => (int)$m['id'], $sinTel);
+        }
+        if (Mailer::listo()) foreach ($paraCorreo as $mid) { $m = $miembros->buscar($mid); if ($m) Mailer::notificarReunion($reu, $m, $p); }
+    } catch (Throwable $e) { /* la reunión ya quedó creada */ }
+    return $reu + ['proyecto_id' => $pid];
+}
+
+/**
+ * Releases: el ítem del release de esa tarea queda al día con lo que marcó el
+ * equipo (avance y estado según sus tareas). Si el módulo no está, no hace nada.
+ */
+function relAlDia(array $tareaIds): void
+{
+    $tareaIds = array_values(array_filter(array_map('intval', $tareaIds)));
+    if (!$tareaIds || !is_file(__DIR__ . '/lib/Releases.php')) return;
+    try {
+        require_once __DIR__ . '/lib/Releases.php';
+        Releases::sincronizarTareas($tareaIds);
+    } catch (Throwable $e) {
+        // El tablero no se frena por Releases
+    }
 }
 
 /**
@@ -1299,6 +1373,7 @@ switch ($accion) {
             ['estado' => $estadoNuevo] + completadaEn($estadoNuevo, $t['estado'] ?? 'pendiente'));
         // Al darla por terminada, quien lleva el proyecto se entera al momento
         $avisoFin = avisarTareaTerminada($t, $t['estado'] ?? 'pendiente', $estadoNuevo, (int)(Auth::usuario()['id'] ?? 0));
+        relAlDia([(int)$t['id']]);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         // Contadores por estado del proyecto, para que el kanban, los tiles de
         // resumen y la barra de avance se actualicen sin recargar. El avance se
@@ -1356,6 +1431,7 @@ switch ($accion) {
         sincronizarCalendario($tActual, $proyectos, $miembros, $tareas);
         chequearEntrega((int)$t['proyecto_id'], $proyectos, $tareas);
         [$msg, $tipo] = avisoAdjuntos($rechazados, $msg, $tipo);
+        relAlDia([(int)$t['id']]);
         redirigir(volverAqui('proyecto.php?id=' . $t['proyecto_id']), 'Tarea actualizada.' . $msg, $tipo);
 
     case 'tareas_avisar':
@@ -3289,6 +3365,9 @@ switch ($accion) {
     case 'ia_acta':
     case 'ia_acta_hay':
     case 'ia_req_texto':
+    case 'rel_ia_revision':
+    case 'rel_ia_equipo':
+    case 'rel_ia_general':
     case 'ia_req_correo':
     case 'ia_responder_correo':
     case 'ia_tareas_correo':
@@ -3566,6 +3645,48 @@ switch ($accion) {
                     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $desdeIa)) $desdeIa = IAFunciones::desdeDaily();
                     $resIa = IAFunciones::daily($proyIa, $desdeIa);
                     break;
+
+                case 'rel_ia_revision':
+                case 'rel_ia_equipo':
+                case 'rel_ia_general':
+                    // Releases (lib/Releases.php): el resumen de una revisión, el cruce de
+                    // las tareas de un equipo con sus ítems y el estado general.
+                    require_once __DIR__ . '/lib/Releases.php';
+                    if (!Releases::puedeVer()) $iaFin(['ok' => false, 'error' => 'No tienes acceso a Releases.'], 403);
+                    $yoRl = (int)(Auth::usuario()['id'] ?? 0);
+                    $smRl = fn(string $eq) => Releases::puedeEditar() || ($yoRl > 0 && (int)(Releases::equipo($eq)['sm_id'] ?? 0) === $yoRl);
+                    if ($accion === 'rel_ia_revision') {
+                        $revRl = Releases::revision((int)($_POST['id'] ?? 0));
+                        if (!$revRl) throw new IAError('Esa revisión ya no existe.');
+                        if (!$smRl((string)$revRl['equipo'])) $iaFin(['ok' => false, 'error' => 'Solo los editores o el Scrum Master del equipo.'], 403);
+                        $mapaRl = $miembros->mapa();
+                        $nomRl = array_values(array_filter(array_map(fn($id) => (string)($mapaRl[(int)$id]['nombre'] ?? ''), (array)($revRl['asistentes'] ?? []))));
+                        $trRl = '';
+                        $reuRl = (int)($revRl['reunion_id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$revRl['reunion_id']) : null;
+                        if ($reuRl && ($reuRl['plataforma'] ?? 'zoom') === 'zoom' && !empty($reuRl['zoom_id']) && Zoom::listo()) {
+                            try { $t = Zoom::transcripcion((string)$reuRl['zoom_id']); if (($t['estado'] ?? '') === 'ok') $trRl = (string)$t['texto']; } catch (Throwable $e) { /* sin transcripción */ }
+                        }
+                        $datRl = IAFunciones::releaseRevision($revRl, $nomRl, $trRl);
+                        $datRl['con_transcripcion'] = $trRl !== '';
+                        Releases::guardarResumenRevision((int)$revRl['id'], $datRl);
+                        $resIa = ['resumen' => $datRl];
+                    } elseif ($accion === 'rel_ia_equipo') {
+                        $eqRl = Releases::equipo((string)($_POST['equipo'] ?? ''));
+                        if (!$eqRl) throw new IAError('Ese equipo no existe.');
+                        if (!$smRl((string)$eqRl['nombre'])) $iaFin(['ok' => false, 'error' => 'Solo los editores o el Scrum Master del equipo.'], 403);
+                        // La IA revisa las tareas del equipo y las asocia sola a sus ítems
+                        $asRl = Releases::asociarIA((string)$eqRl['nombre']);
+                        $anRl = $asRl['analisis'];
+                        $resIa = ['analisis' => ['id' => (int)$anRl['id'], 'fecha' => $anRl['fecha'], 'resultado' => $anRl['resultado']],
+                                  'vinculadas' => $asRl['vinculadas'], 'items' => $asRl['items'],
+                                  'mensaje' => $asRl['vinculadas'] ? 'La IA asoció ' . $asRl['vinculadas'] . ' tarea(s) a ' . $asRl['items'] . ' ítem(s).' : 'La IA revisó las tareas: no había nada nuevo que asociar.'];
+                    } else {
+                        $relRl = (string)($_POST['release'] ?? '');
+                        $eqGRl = (string)($_POST['equipo'] ?? '');
+                        $resIa = ['resumen' => IAFunciones::releaseGeneral(Releases::tablero(), Releases::items(array_filter(['release' => $relRl, 'equipo' => $eqGRl])),
+                            Releases::revisiones(['estado' => 'realizada']), $relRl, $eqGRl)];
+                    }
+                    break;
             }
             $iaFin(['ok' => true] + $resIa);
         } catch (IAError $e) {
@@ -3573,6 +3694,255 @@ switch ($accion) {
         }
 
 
+
+    /* ---------- Releases (lib/Releases.php · releases.php) ---------- */
+
+    case 'rel_importar':
+    case 'rel_sembrar':
+    case 'rel_reuniones_equipo':
+    case 'rel_item_guardar':
+    case 'rel_item_tareas':
+    case 'rel_item_borrar':
+    case 'rel_tarea_crear':
+    case 'rel_equipo_guardar':
+    case 'rel_release_guardar':
+    case 'rel_hito_guardar':
+    case 'rel_hito_borrar':
+    case 'rel_revision_guardar':
+    case 'rel_revision_borrar':
+    case 'rel_ia_aplicar':
+    case 'rel_conf_guardar':
+        require_once __DIR__ . '/lib/Releases.php';
+        $relAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
+        // Con fetch, JSON; con un formulario normal, de vuelta a la vista con el aviso
+        $relFin = function (bool $ok, string $msg = '', array $extra = []) use ($relAjax): never {
+            if ($relAjax) {
+                header('Content-Type: application/json; charset=utf-8');
+                header('Cache-Control: no-store');
+                if (!$ok) http_response_code(400);
+                echo json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg, 'mensaje' => $ok ? $msg : ''] + $extra, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+            $volver = (string)($_POST['volver'] ?? '');
+            if (!preg_match('#^releases\.php(\?[^\s<>"]*)?$#', $volver)) $volver = 'releases.php';
+            redirigir($volver, $msg !== '' ? $msg : ($ok ? 'Listo.' : 'No se pudo.'), $ok ? 'success' : 'error');
+        };
+        if (!Releases::puedeVer()) $relFin(false, 'No tienes acceso a Releases.');
+        $relYo = (int)(Auth::usuario()['id'] ?? 0);
+        $relEditor = Releases::puedeEditar();
+        $relSmDe = fn(string $eq) => $relEditor || ($relYo > 0 && (int)(Releases::equipo($eq)['sm_id'] ?? 0) === $relYo);
+        $relSoloEditor = function () use ($relEditor, $relFin) {
+            if (!$relEditor) $relFin(false, 'Esto lo cambian solo los editores de Releases (Ajustes del módulo).');
+        };
+        // Una tarea del panel, corta, para pintarla junto al ítem
+        $relTarea = function (array $t) use ($proyectos, $miembros): array {
+            static $mapaM = null, $mapaP = null, $est = null;
+            $mapaM ??= $miembros->mapa();
+            if ($mapaP === null) { $mapaP = []; foreach ($proyectos->todos() as $p) $mapaP[(int)$p['id']] = $p; }
+            $est ??= Catalogo::estadosTarea();
+            return ['id' => (int)$t['id'], 'titulo' => (string)$t['titulo'], 'estado' => (string)($t['estado'] ?? ''),
+                    'estado_txt' => (string)($est[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? '')), 'final' => in_array($t['estado'] ?? '', Catalogo::estadosFinales(), true),
+                    'proyecto_id' => (int)$t['proyecto_id'], 'proyecto' => (string)($mapaP[(int)$t['proyecto_id']]['nombre'] ?? ''),
+                    'fecha_inicio' => (string)($t['fecha_inicio'] ?? ''), 'fecha_limite' => (string)($t['fecha_limite'] ?? ''),
+                    'asignados' => array_values(array_filter(array_map(fn($id) => (string)($mapaM[(int)$id]['nombre'] ?? ''), TareaRepo::asignadosDe($t))))];
+        };
+        try {
+            switch ($accion) {
+                case 'rel_importar':
+                    $relSoloEditor();
+                    $rutasRl = [];
+                    foreach (['cronograma', 'revisiones'] as $campoRl) {
+                        $fRl = $_FILES[$campoRl] ?? null;
+                        if (!$fRl || ($fRl['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) { $rutasRl[$campoRl] = null; continue; }
+                        if (($fRl['error'] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file((string)$fRl['tmp_name'])) throw new RuntimeException('No llegó bien el archivo de ' . $campoRl . '. Prueba de nuevo.');
+                        if (strtolower(pathinfo((string)$fRl['name'], PATHINFO_EXTENSION)) !== 'xlsx') throw new RuntimeException('Sube el Excel en formato .xlsx (' . $campoRl . ').');
+                        $rutasRl[$campoRl] = (string)$fRl['tmp_name'];
+                    }
+                    if (!$rutasRl['cronograma'] && !$rutasRl['revisiones']) throw new RuntimeException('Elige al menos uno de los dos Excel.');
+                    $modoRl = ($_POST['modo'] ?? '') === 'actualizar' ? 'actualizar' : 'agregar';
+                    $secoRl = !empty($_POST['seco']);
+                    $resRl = Releases::importar($rutasRl['cronograma'], $rutasRl['revisiones'], $modoRl, $secoRl);
+                    $relFin(true, $secoRl
+                        ? 'Así quedaría: ' . $resRl['items_nuevos'] . ' ítems nuevos, ' . $resRl['items_actualizados'] . ' que ya estaban y ' . $resRl['revisiones'] . ' revisiones.'
+                        : 'Importado: ' . $resRl['items_nuevos'] . ' ítems nuevos, ' . $resRl['items_actualizados'] . ' actualizados, ' . $resRl['revisiones'] . ' revisiones y ' . $resRl['hitos'] . ' hitos.',
+                        ['resultado' => $resRl]);
+
+                case 'rel_sembrar':
+                    // El plan que viene en el repo (admin/semillas/releases-*.json), sin subir los Excel
+                    $relSoloEditor();
+                    $modoRl = ($_POST['modo'] ?? '') === 'actualizar' ? 'actualizar' : 'agregar';
+                    $secoRl = !empty($_POST['seco']);
+                    $resRl = Releases::sembrar(null, $modoRl, $secoRl);
+                    $relFin(true, ($secoRl ? 'Así quedaría: ' : 'Plan cargado: ') . $resRl['items_nuevos'] . ' ítems nuevos, '
+                        . $resRl['items_actualizados'] . ($secoRl ? ' que ya estaban' : ' actualizados') . ', ' . $resRl['revisiones'] . ' revisiones y ' . $resRl['hitos'] . ' hitos.',
+                        ['resultado' => $resRl, 'semilla' => basename((string)Releases::semilla())]);
+
+                case 'rel_item_guardar':
+                    $idRl = (int)($_POST['id'] ?? 0);
+                    $datosRl = array_intersect_key($_POST, array_flip(['codigo', 'titulo', 'release', 'equipo', 'inicio', 'fin', 'estado', 'avance',
+                        'microservicio', 'sprints', 'alcance', 'demostrar', 'nota', 'motivo', 'proceso', 'actividades', 'criterio', 'entregable', 'responsable']));
+                    if (!$relEditor) {
+                        // El Scrum Master del equipo marca cómo va lo suyo (estado, %, nota); fechas y equipo, los editores
+                        $antesRl = $idRl ? Releases::item($idRl) : null;
+                        if (!$antesRl || !$relSmDe((string)$antesRl['equipo'])) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                        // El avance y el estado salen de las tareas que marca el equipo (la IA las asocia):
+                        // el Scrum Master solo bloquea o desbloquea y deja notas
+                        $datosRl = array_intersect_key($datosRl, array_flip(['estado', 'nota', 'motivo']));
+                        if (isset($datosRl['estado'])) {
+                            if ($datosRl['estado'] === 'bloqueado') { /* bloquear, sí */ }
+                            elseif ($antesRl['estado'] === 'bloqueado') $datosRl['estado'] = 'empezado';   // al desbloquear, las tareas mandan
+                            else unset($datosRl['estado']);
+                        }
+                    }
+                    $itRl = Releases::guardarItem($idRl, $datosRl);
+                    $relFin(true, $idRl ? 'Ítem actualizado.' : 'Ítem creado.', ['item' => $itRl]);
+
+                case 'rel_item_tareas':
+                    $itRl = Releases::item((int)($_POST['id'] ?? 0));
+                    if (!$itRl) throw new RuntimeException('Ese ítem ya no existe.');
+                    if (!$relSmDe((string)$itRl['equipo'])) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    $itRl = Releases::vincularTareas((int)$itRl['id'], (array)($_POST['tareas'] ?? []), $relYo, !empty($_POST['sumar']));
+                    $relFin(true, 'Tareas del ítem actualizadas.', ['item' => $itRl, 'tareas' => array_map($relTarea, Releases::tareasDe($itRl))]);
+
+                case 'rel_item_borrar':
+                    $relSoloEditor();
+                    Releases::borrarItem((int)($_POST['id'] ?? 0));
+                    $relFin(true, 'Ítem borrado.');
+
+                case 'rel_tarea_crear':
+                    // Una tarea nueva para cumplir un ítem. Las fechas del release NO la
+                    // limitan (el plan tuvo reajustes): se crea con las que pongan.
+                    $itRl = Releases::item((int)($_POST['item_id'] ?? 0));
+                    if (!$itRl) throw new RuntimeException('Ese ítem ya no existe.');
+                    if (!$relSmDe((string)$itRl['equipo'])) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    $pidRl = (int)($_POST['proyecto_id'] ?? 0);
+                    if (!$proyectos->buscar($pidRl)) throw new RuntimeException('Elige el proyecto donde va la tarea.');
+                    if (!puedeGestionarTareas($pidRl)) $relFin(false, 'En ese proyecto solo crean tareas su PO, su Scrum Master o el administrador.');
+                    $titRl = trim((string)($_POST['titulo'] ?? ''));
+                    if ($titRl === '') throw new RuntimeException('Escribe el título de la tarea.');
+                    $fiRl = Releases::fecha($_POST['fecha_inicio'] ?? '');
+                    $flRl = Releases::fecha($_POST['fecha_limite'] ?? '');
+                    if ($fiRl !== '' && $flRl !== '' && $flRl < $fiRl) $flRl = $fiRl;
+                    $prioRl = (string)($_POST['prioridad'] ?? 'media');
+                    if (!isset(Catalogo::prioridades()[$prioRl])) $prioRl = 'media';
+                    $tRl = $tareas->crear(['proyecto_id' => $pidRl, 'titulo' => mb_substr($titRl, 0, 250),
+                        'descripcion' => HtmlRico::limpiar(nl2br(e(trim((string)($_POST['descripcion'] ?? ''))))),
+                        'prioridad' => $prioRl, 'fecha_inicio' => $fiRl, 'fecha_limite' => $flRl,
+                        'asignados' => (array)($_POST['asignados'] ?? []), 'origen' => '']);
+                    $msgRl = '';
+                    try {
+                        [$msgRl] = notificarSiAsignada($tRl, TareaRepo::asignadosDe($tRl), [], $proyectos, $miembros);
+                        sincronizarCalendario($tareas->buscar((int)$tRl['id']), $proyectos, $miembros, $tareas);
+                        chequearEntrega($pidRl, $proyectos, $tareas);
+                    } catch (Throwable $e) { /* la tarea ya quedó creada */ }
+                    $itRl = Releases::vincularTareas((int)$itRl['id'], [(int)$tRl['id']], $relYo, true);
+                    $relFin(true, 'Tarea #' . (int)$tRl['id'] . ' creada y vinculada a ' . $itRl['codigo'] . '.' . $msgRl,
+                        ['tarea' => $relTarea($tareas->buscar((int)$tRl['id'])), 'item' => $itRl]);
+
+                case 'rel_equipo_guardar':
+                    $relSoloEditor();
+                    $eqRl = Releases::guardarEquipo((int)($_POST['id'] ?? 0), array_intersect_key($_POST, array_flip(['nombre', 'color', 'sm_id', 'po_id',
+                        'sm_nombre', 'po_nombre', 'dominio', 'dia_revision', 'hora_revision', 'proyectos', 'miembros', 'orden'])));
+                    $relFin(true, 'Equipo guardado.', ['equipo' => $eqRl]);
+
+                case 'rel_release_guardar':
+                    $relSoloEditor();
+                    $rlRl = Releases::guardarRelease((int)($_POST['id'] ?? 0), array_intersect_key($_POST, array_flip(['codigo', 'nombre', 'inicio', 'fin', 'estado', 'color', 'descripcion', 'sprints', 'modulos'])));
+                    $relFin(true, 'Release guardado.', ['release' => $rlRl]);
+
+                case 'rel_hito_guardar':
+                    $relSoloEditor();
+                    $hiRl = Releases::guardarHito((int)($_POST['id'] ?? 0), array_intersect_key($_POST, array_flip(['titulo', 'fecha', 'release', 'descripcion', 'sprint', 'hecho'])));
+                    $relFin(true, 'Hito guardado.', ['hito' => $hiRl]);
+
+                case 'rel_hito_borrar':
+                    $relSoloEditor();
+                    (new JsonStore('rel_hitos'))->delete((int)($_POST['id'] ?? 0));
+                    $relFin(true, 'Hito borrado.');
+
+                case 'rel_revision_guardar':
+                    $idRl = (int)($_POST['id'] ?? 0);
+                    $revRl = $idRl ? Releases::revision($idRl) : null;
+                    if ($idRl && !$revRl) throw new RuntimeException('Esa revisión ya no existe.');
+                    $eqRevRl = (string)($revRl['equipo'] ?? ($_POST['equipo'] ?? ''));
+                    if (!$relSmDe($eqRevRl)) $relFin(false, 'Las revisiones las registran los editores o el Scrum Master del equipo.');
+                    $revRl = Releases::guardarRevision($idRl, array_intersect_key($_POST, array_flip(['fecha', 'hora', 'equipo', 'titulo', 'responsable',
+                        'acuerdos', 'asistentes', 'filas', 'agregar', 'quitar', 'realizada', 'estado', 'sprint', 'lugar', 'modalidad', 'duracion'])));
+                    // Virtual: se enlaza a una reunión que ya existe o se crea la de Zoom en el proyecto del equipo
+                    $msgReuRl = '';
+                    if (($revRl['modalidad'] ?? '') === 'virtual') {
+                        $existeRl = (int)($_POST['reunion_existente'] ?? 0);
+                        if ($existeRl > 0) {
+                            $reuRl = (new ReunionRepo())->buscar($existeRl);
+                            if (!$reuRl || !in_array((int)$reuRl['proyecto_id'], Releases::proyectosEquipo((string)$revRl['equipo']), true)) throw new RuntimeException('Esa reunión no es de los proyectos del equipo.');
+                            $revRl = Releases::enlazarReunion((int)$revRl['id'], $reuRl);
+                            $msgReuRl = ' Enlazada a la reunión «' . $reuRl['topic'] . '».';
+                        } elseif (!empty($_POST['crear_reunion']) && empty($revRl['reunion_id'])) {
+                            $pidReuRl = (int)($_POST['proyecto_id'] ?? 0) ?: (int)(Releases::proyectosEquipo((string)$revRl['equipo'])[0] ?? 0);
+                            $invRl = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['invitados'] ?? Releases::invitadosSugeridos((string)$revRl['equipo']))))));
+                            $reuRl = relCrearReunion($revRl, $pidReuRl, $invRl, (string)($_POST['plataforma'] ?? ''), trim((string)($_POST['join_url'] ?? '')), $proyectos, $miembros);
+                            if (is_string($reuRl)) {
+                                $relFin(false, 'La revisión quedó guardada, pero no se pudo crear la reunión: ' . $reuRl, ['revision' => $revRl]);
+                            }
+                            $revRl = Releases::enlazarReunion((int)$revRl['id'], $reuRl);
+                            $msgReuRl = ' Reunión ' . ['zoom' => 'de Zoom', 'meet' => 'de Meet', 'enlace' => 'con tu enlace'][$reuRl['plataforma']] . ' creada y enviada a ' . count($invRl) . ' invitado(s).';
+                        }
+                    }
+                    $relFin(true, (!empty($_POST['realizada']) ? 'Revisión registrada: los ítems quedaron al día y se avisó al equipo.' : 'Revisión guardada.') . $msgReuRl, ['revision' => $revRl]);
+
+                case 'rel_reuniones_equipo':
+                    // Para el formulario: las reuniones del equipo ese día, la plataforma y a quién invitar
+                    $eqRl = (string)($_POST['equipo'] ?? '');
+                    if (!Releases::equipo($eqRl)) throw new RuntimeException('Ese equipo no existe.');
+                    $mapaRl = $miembros->mapa();
+                    $pidsRl = Releases::proyectosEquipo($eqRl);
+                    $relFin(true, '', [
+                        'reuniones' => Releases::reunionesEquipo($eqRl, Releases::fecha($_POST['fecha'] ?? '')),
+                        'proyectos' => array_values(array_filter(array_map(fn($pid) => ($pr = $proyectos->buscar($pid)) ? ['id' => $pid, 'nombre' => $pr['nombre'], 'puede' => puedeReunionesDelProyecto($pid)] : null, $pidsRl))),
+                        'plataforma' => $pidsRl ? Reuniones::resolverPlataforma('', $proyectos->buscar($pidsRl[0])) : '',
+                        'zoom_listo' => Zoom::listo(),
+                        'invitados' => array_values(array_filter(array_map(fn($id) => isset($mapaRl[$id]) ? ['id' => $id, 'nombre' => (string)$mapaRl[$id]['nombre']] : null, Releases::invitadosSugeridos($eqRl)))),
+                    ]);
+
+                case 'rel_revision_borrar':
+                    $relSoloEditor();
+                    Releases::borrarRevision((int)($_POST['id'] ?? 0));
+                    $relFin(true, 'Revisión borrada.');
+
+                case 'rel_ia_aplicar':
+                    $codRl = (string)($_POST['codigo'] ?? '');
+                    $itRl = Releases::itemPorCodigo($codRl);
+                    if (!$itRl) throw new RuntimeException('Ese ítem ya no existe.');
+                    if (!$relSmDe((string)$itRl['equipo'])) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    $itRl = Releases::vincularTareas((int)$itRl['id'], (array)($_POST['tareas'] ?? []), $relYo, true);
+                    if ((int)($_POST['analisis_id'] ?? 0) > 0) Releases::marcarAplicada((int)$_POST['analisis_id'], 'items:' . $codRl);
+                    $relFin(true, 'Tareas vinculadas a ' . $itRl['codigo'] . '.', ['item' => $itRl, 'tareas' => array_map($relTarea, Releases::tareasDe($itRl))]);
+
+                case 'rel_conf_guardar':
+                    $relSoloEditor();
+                    $avRl = (array)($_POST['avisos'] ?? []);
+                    $avisosRl = [];
+                    foreach (['panel', 'correo', 'cambio_fechas', 'cambio_estado', 'cambio_equipo', 'revision', 'revision_hoy', 'vence_pronto',
+                              'atrasados', 'resumen_semanal', 'al_sm', 'al_equipo'] as $kRl) $avisosRl[$kRl] = !empty($avRl[$kRl]);
+                    $avisosRl['vence_dias'] = (int)($avRl['vence_dias'] ?? 3);
+                    $cambiosRl = ['avisos' => $avisosRl, 'ven_sm' => !empty($_POST['ven_sm']), 'ven_todos' => !empty($_POST['ven_todos'])];
+                    // La IA asocia sola cada día las tareas nuevas de cada equipo (casilla con un hidden ia_auto=0 antes)
+                    if (isset($_POST['ia_auto'])) $cambiosRl['ia_auto'] = (string)$_POST['ia_auto'] === '1';
+                    if (isset($_POST['programa'])) $cambiosRl['programa'] = mb_substr(trim((string)$_POST['programa']), 0, 60);
+                    if (isset($_POST['go_live'])) $cambiosRl['go_live'] = Releases::fecha($_POST['go_live']);
+                    // Solo el administrador decide quién edita (un editor no se nombra a sí mismo)
+                    if (Auth::esAdmin() && (isset($_POST['editores']) || isset($_POST['editores_enviado']))) {
+                        $cambiosRl['editores'] = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['editores'] ?? [])))));
+                    }
+                    if (isset($_POST['destinatarios']) || isset($_POST['destinatarios_enviado'])) {
+                        $cambiosRl['destinatarios'] = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['destinatarios'] ?? [])))));
+                    }
+                    Releases::guardarConf($cambiosRl);
+                    $relFin(true, 'Ajustes de Releases guardados.');
+            }
+        } catch (RuntimeException $e) {
+            $relFin(false, $e->getMessage());
+        }
 
     /* ---------- Respaldo de la configuracion ---------- */
 

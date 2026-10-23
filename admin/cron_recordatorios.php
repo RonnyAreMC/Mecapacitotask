@@ -9,6 +9,7 @@
  * Sin duplicados: cada tarea recuerda el día en que ya avisó.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
+cronCallado('recordatorios');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_recordatorios.log
 
 if (!Mailer::listo()) { echo "Correo no configurado.\n"; exit; }
 $conf = Mailer::config();

@@ -100,6 +100,7 @@ function actualizarPanel(array $opc): void
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php',
+        'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
         'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
@@ -113,21 +114,26 @@ function actualizarPanel(array $opc): void
              'banco-vacio', 'sin-ordenes', 'error-amable', 'construccion', 'despliegue', 'universidad-agraria', 'ingles',
              'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual',
              'app-movil', 'emprendimiento', 'entrada-colaborativo', 'entrada-equipo', 'entrada-reunion', 'entrada-crm',
-             'entrada-avance', 'correo-sincronizar'];
+             'entrada-avance', 'correo-sincronizar', 'releases-tablero', 'releases-release', 'releases-equipos', 'releases-revisiones',
+             'releases-hitos', 'releases-importar'];
     $faltanIlus = array_values(array_filter($ilus, fn($n) => !is_file($dir . '/iconos/ilustraciones/' . $n . '.svg')));
     $faltanIlus ? nota('error', 'Faltan ilustraciones en iconos/ilustraciones: ' . implode(', ', $faltanIlus) . '.') : nota('ok', count($ilus) . ' ilustraciones (portadas y estados vacíos)');
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando'],
-        'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'"],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php'],
+        'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
-        'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso'],
+        'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso'],
+        'cron_zoom_drive.php' => ['cronCallado'],
+        'cron_whatsapp.php' => ['cronCallado'],
+        'cron_deploys.php' => ['cronCallado'],
+        'cron_recordatorios.php' => ['cronCallado'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor'],
         'lib/ImportadorTareas.php' => ['$origen'],
-        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen'],
+        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/'],
         'planificar.php'    => ['dlg-ia-plan'],
@@ -139,10 +145,12 @@ function actualizarPanel(array $opc): void
         'tutoriales.php'    => ['tutorial_avisar'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando'],
         'lib/ReqCorreo.php' => ['crudoCopia'],
+        'lib/Releases.php'  => ['function importar', 'function tablero', 'function paso', 'function sembrar', 'dependencias'],
+        'releases.php'      => ['Releases::'],
         'lib/CorreoCopias.php' => ['function crudoDe'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta'],
-        'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo'],
-        'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo', 'responder_correo'],
+        'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas'],
+        'lib/IA.php'        => ['req_desde_correo', 'tareas_desde_correo', 'responder_correo', 'release_tareas'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar', 'ent-nexo'],
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
@@ -153,13 +161,13 @@ function actualizarPanel(array $opc): void
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado'],
         'lib/deploy_tira.php' => ['dep-prox', 'dep-tira-url'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
-        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor'],
+        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users'],
         'lib/ZoomDrive.php' => ['function errorDrive', 'function faltanPermisos'],
         'lib/GoogleLogin.php' => ["'scope'", 'function flujo'],
-        'lib/Mailer.php'    => ['codigoRecuperacion', '/auth/gmail.send'],
+        'lib/Mailer.php'    => ['codigoRecuperacion', '/auth/gmail.send', 'avisoRelease'],
         'oauth_google.php'  => ['oauth_drive', '/auth/drive'],
     ];
     $viejos = [];
@@ -443,6 +451,30 @@ function actualizarPanel(array $opc): void
             ($haceZ !== null && $haceZ < 900)
                 ? nota('ok', 'Cron de grabaciones corriendo (última vuelta hace ' . max(1, (int)round($haceZ / 60)) . ' min)')
                 : nota('aviso', 'Para que las grabaciones pasen solas a Drive, en cPanel → Cron Jobs, cada 5 minutos: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_zoom_drive.php');
+        }
+    }
+
+    /* Releases: la planificación estratégica. Si el módulo está vacío y el repo trae
+       la semilla (admin/semillas/releases-*.json, sacada de los Excel), se carga sola. */
+    if (is_file($dir . '/lib/Releases.php')) {
+        require_once $dir . '/lib/Releases.php';
+        paso('Releases');
+        try {
+            $nRel = count((new JsonStore('rel_items'))->all());
+            $semRel = Releases::semilla();
+            if ($nRel === 0 && $semRel) {
+                $rRel = Releases::sembrar($semRel, 'agregar', $seco);
+                nota('ok', ($seco ? 'Cargaría' : 'Cargada') . ' la semilla ' . basename($semRel) . ': ' . $rRel['items_nuevos'] . ' ítems, '
+                    . $rRel['revisiones'] . ' revisiones y ' . $rRel['hitos'] . ' hitos. Los equipos se vinculan solos a los proyectos «Equipo Alpha», «Equipo Beta»…');
+            } elseif ($nRel === 0) {
+                nota('info', 'Sin datos todavía: en el panel, Releases → Ajustes → Importar los dos Excel del cronograma.');
+            } else {
+                $tRel = Releases::tablero();
+                nota('ok', $nRel . ' ítems · avance general ' . $tRel['total']['pct'] . ' % (esperado ' . $tRel['total']['esperado'] . ' %) · '
+                    . $tRel['total']['atrasados'] . ' atrasados' . ($semRel ? ' · para volver a cargar la semilla: php admin/seed_releases.php' : ''));
+            }
+        } catch (Throwable $e) {
+            nota('error', 'Releases: ' . $e->getMessage());
         }
     }
 

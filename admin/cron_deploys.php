@@ -14,6 +14,7 @@ if (PHP_SAPI !== 'cli') {
     exit('Solo desde el cron.');
 }
 require_once __DIR__ . '/lib/bootstrap.php';
+cronCallado('deploys');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_deploys.log
 require_once __DIR__ . '/lib/Cronograma.php';
 if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/Notificaciones.php';
 @set_time_limit(55);

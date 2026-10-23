@@ -101,6 +101,30 @@ date_default_timezone_set(Zoom::zona() ?: 'America/Guayaquil');
 
 /* ---------- Helpers ---------- */
 
+/**
+ * Crons callados: cPanel manda un correo («Cron Daemon») con todo lo que un cron
+ * escribe. Cuando corre solo (sin terminal), lo que iba a escribir, errores
+ * incluidos, se guarda en data/cron_<nombre>.log (las últimas 300 líneas) y no
+ * sale nada. A mano en la Terminal, o con --ver, se ve como siempre.
+ */
+function cronCallado(string $nombre): void
+{
+    if (PHP_SAPI !== 'cli' || in_array('--ver', (array)($_SERVER['argv'] ?? []), true)) return;
+    if (defined('STDOUT') && function_exists('stream_isatty') && @stream_isatty(STDOUT)) return;
+    @ini_set('display_errors', 'stdout');   // los errores también van al registro, no al correo
+    if ((string)ini_get('error_log') === '') @ini_set('log_errors', '0');   // si no, PHP los repite por la salida de errores
+    $log = __DIR__ . '/../data/cron_' . preg_replace('/[^a-z0-9_]/', '', strtolower($nombre)) . '.log';
+    ob_start(function (string $salida) use ($log): string {
+        $nuevas = array_filter(array_map('trim', preg_split('/\R/', $salida) ?: []), fn($l) => $l !== '');
+        if ($nuevas) {
+            $lineas = @file($log, FILE_IGNORE_NEW_LINES) ?: [];
+            foreach ($nuevas as $l) $lineas[] = preg_match('/^\d{4}-\d\d-\d\d /', $l) ? $l : date('Y-m-d H:i:s') . ' · ' . $l;
+            @file_put_contents($log, implode("\n", array_slice($lineas, -300)) . "\n", LOCK_EX);
+        }
+        return '';
+    });
+}
+
 /** Escapa HTML. */
 function e(?string $s): string
 {

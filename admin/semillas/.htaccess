@@ -1,0 +1,9 @@
+# Bloquea el acceso web a las semillas: traen el plan completo (equipos, personas y fechas).
+# Las lee solo el panel por dentro (actualizar.php y seed_releases.php).
+<IfModule mod_authz_core.c>
+  Require all denied
+</IfModule>
+<IfModule !mod_authz_core.c>
+  Order allow,deny
+  Deny from all
+</IfModule>

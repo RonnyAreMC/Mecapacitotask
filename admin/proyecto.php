@@ -382,6 +382,21 @@ $cargaExtra = function (array $t) use ($miembros, $cargaPorMiembro): array {
 // atributo data-ver-tarea en cada tarjeta/fila/nodo.
 $estadosCat = Catalogo::estadosTarea();
 $prioCat    = Catalogo::prioridades();
+// Trazabilidad con Releases: el ítem del release (R2-B04…) de cada tarea, para quien ve el módulo
+$relDeTarea = [];
+if (is_file(__DIR__ . '/lib/Releases.php')) {
+    require_once __DIR__ . '/lib/Releases.php';
+    if (Releases::puedeVer()) $relDeTarea = Releases::vinculosDetalle();
+}
+$relChips = function (array $t) use ($relDeTarea): string {
+    $out = '';
+    foreach ($relDeTarea[(int)$t['id']] ?? [] as $ri) {
+        $out .= '<a class="dep-tag rel-tag" href="releases.php?v=item&amp;id=' . (int)$ri['id'] . '" title="Ítem del release: ' . e($ri['codigo'] . ' · ' . $ri['titulo']) . '">'
+            . '<i class="fa-solid fa-route" aria-hidden="true"></i> ' . e($ri['codigo']) . '</a>';
+    }
+    return $out;
+};
+
 $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep, $cargaExtra): string {
     $nombres = [];
     foreach (TareaRepo::asignadosDe($t) as $mid) {
@@ -881,6 +896,7 @@ foreach ($tareas as $t) {
                 </small>
                 <?php endif; ?>
               <?php endif; ?>
+              <?= $relChips($t) ?>
               <?php $ag = TareaRepo::agregadaPor($t, $miembros); if ($ag['miembro'] || $ag['corto'] !== ''): ?>
               <small class="tarea-autor" title="<?= e(($ag['miembro'] ? 'La agregó ' . $ag['miembro']['nombre'] . ' el ' : 'Agregada el ') . $ag['largo'] . ($ag['origen'] ? ' · ' . $ag['origen'] : '')) ?>">
                 <?php if ($ag['miembro']): ?>
@@ -1320,6 +1336,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
           <i class="fa-solid fa-comment-dots"></i> <?= $pmObs ?>
         </span>
         <?php endif; ?>
+        <?= $relChips($t) ?>
         <span class="pm-gente">
           <?= UI::avatarsAsignados($t, $miembros, 22) ?>
           <span class="pm-gente__nom"><?= e($pmNombre) ?></span>
