@@ -551,7 +551,11 @@ final class CorreoMime
             }
             return mb_check_encoding($b, 'UTF-8') && mb_strlen($b, 'UTF-8') === 1 ? $b : $m[0];
         }, $s);
-        return is_string($r) ? $r : $s;
+        $r = is_string($r) ? $r : $s;
+        // La «í» rota es «Ã» más un guion invisible (U+00AD) que muchos programas se comen:
+        // queda «dÃas», «tÃtulos», «aquÃ». Una «Ã» sola pegada a minúsculas solo puede ser «í»
+        $r2 = preg_replace('/(?<=\p{Ll})\x{00C3}(?=\p{Ll}|[^\p{L}]|$)/u', 'í', $r);
+        return is_string($r2) ? $r2 : $r;
     }
 
     /** "text/plain; charset=utf-8; name=…" → ['valor' => 'text/plain', 'charset' => …] (RFC 2231 incluido). */
@@ -838,6 +842,11 @@ final class CorreoHtml
         $doc->loadHTML('<?xml encoding="utf-8" ?>' . $html, LIBXML_NONET | LIBXML_NOERROR | LIBXML_NOWARNING | LIBXML_HTML_NODEFDTD);
         libxml_clear_errors();
         libxml_use_internal_errors($antes);
+        // Tildes rotas que vienen como entidades («Acad&Atilde;&copy;mico»): ya decodificadas en el
+        // árbol, se arreglan en cada texto (y al guardarse vuelven a escaparse solas)
+        foreach ((new DOMXPath($doc))->query('//text()') ?: [] as $tn) {
+            if (preg_match('/[\x{00C2}-\x{00F4}]/u', (string)$tn->nodeValue)) $tn->nodeValue = CorreoMime::sinMojibake((string)$tn->nodeValue);
+        }
 
         foreach (self::FUERA as $tag) {
             $lista = $doc->getElementsByTagName($tag);
@@ -925,7 +934,7 @@ final class CorreoHtml
         $t = (string)preg_replace('~<br\s*/?>~i', "\n", $t);
         $t = (string)preg_replace('~</(p|div|li|tr|h[1-6]|blockquote|table)\s*>~i', "\n", $t);
         $t = (string)preg_replace('~<li\b[^>]*>~i', '- ', $t);
-        $t = html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8');
+        $t = CorreoMime::sinMojibake(html_entity_decode(strip_tags($t), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
         $t = (string)preg_replace('~[ \t\x{00A0}]+~u', ' ', $t);
         $t = (string)preg_replace('~ *\n *~', "\n", $t);
         return trim((string)preg_replace('~\n{3,}~', "\n\n", $t));
@@ -934,7 +943,7 @@ final class CorreoHtml
     /** Texto plano a HTML seguro (con enlaces). */
     public static function texto(string $t): string
     {
-        $h = htmlspecialchars($t, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        $h = htmlspecialchars(CorreoMime::sinMojibake($t), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
         return (string)preg_replace('~\bhttps?://[^\s<>"\']+~i', '<a href="$0" target="_blank" rel="noopener noreferrer">$0</a>', $h);
     }
 }
