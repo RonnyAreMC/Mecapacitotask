@@ -94,6 +94,11 @@ final class Releases
                 'al_equipo'      => $si('al_equipo', false),
             ],
             'feriados'     => array_values(array_filter(array_map([self::class, 'fecha'], (array)($c['feriados'] ?? [])))),
+            // Reuniones diarias: desde cuándo se miden y qué parte del equipo tiene que conectarse
+            'dailies'      => [
+                'desde'  => self::fecha($c['dailies']['desde'] ?? '') ?: '2026-10-23',
+                'umbral' => min(100, max(10, (int)($c['dailies']['umbral'] ?? 60))),
+            ],
             'guia'         => (array)($c['guia'] ?? []),
             'importado'    => (array)($c['importado'] ?? []),
         ];
@@ -734,6 +739,7 @@ final class Releases
         if (time() - (int)($m['t'] ?? 0) < 300) return 0;
         $m['t'] = time();
         @file_put_contents($marca, json_encode($m));
+        try { self::dailiesDelCron(); } catch (Throwable $e) { /* Zoom no respondió: se mide en la próxima vuelta */ }
         return self::repo('rel_items')->all() ? self::sincronizar() : 0;
     }
 
@@ -780,7 +786,8 @@ final class Releases
             if (array_key_exists($k, $d)) $c[$k] = mb_substr(trim((string)$d[$k]), 0, $max);
         }
         if (array_key_exists('color', $d) && preg_match('/^#[0-9a-fA-F]{6}$/', (string)$d['color'])) $c['color'] = (string)$d['color'];
-        foreach (['sm_id', 'po_id', 'orden'] as $k) if (array_key_exists($k, $d)) $c[$k] = max(0, (int)$d[$k]);
+        // daily_reunion: la reunión del panel que es su daily (0 = la que se llame «Daily…»)
+        foreach (['sm_id', 'po_id', 'orden', 'daily_reunion'] as $k) if (array_key_exists($k, $d)) $c[$k] = max(0, (int)$d[$k]);
         foreach (['proyectos', 'miembros'] as $k) if (array_key_exists($k, $d)) $c[$k] = array_values(array_unique(array_filter(array_map('intval', (array)$d[$k]))));
         if ($id > 0) {
             $antes = $repo->find($id);
@@ -1005,6 +1012,324 @@ final class Releases
         $repo->update($analisisId, ['aplicadas' => array_values(array_unique($ap))]);
     }
 
+    /* ============================== Reuniones diarias ============================== */
+
+    /**
+     * Cada día hábil, desde la fecha de Ajustes, cada equipo tiene que tener su
+     * daily registrada en el panel (una reunión de sus proyectos con «Daily» en
+     * el nombre, o la que se eligió para el equipo) y su gente tiene que
+     * conectarse. Zoom dice si la reunión ocurrió y quién entró; el SM puede
+     * registrarla a mano (presencial, por Meet) o justificar un día.
+     * Una fila por equipo y día en rel_dailies.
+     */
+    public const DAILY = [
+        'cumplida'      => ['Cumplida',         'azul'],
+        'incompleta'    => ['Faltó gente',      'cian'],
+        'no_hecha'      => ['No se conectaron', 'rojo'],
+        'sin_zoom'      => ['Sin verificar',    'gris'],
+        'sin_registrar' => ['Sin registrar',    'gris'],
+        'no_aplica'     => ['No aplica',        'gris'],
+        'pendiente'     => ['Por medir',        'gris'],
+    ];
+    /** Los que cuentan para el cumplimiento (pendiente y no aplica, no). */
+    private const DAILY_CUENTAN = ['cumplida', 'incompleta', 'no_hecha', 'sin_zoom', 'sin_registrar'];
+    private const DAILY_RE = '/\b(dail(y|ies)|diari[ao]s?|stand ?-?up)\b/iu';
+
+    public static function esHabil(string $fecha): bool
+    {
+        static $feriados = null;
+        $feriados ??= array_flip(self::conf()['feriados']);
+        return $fecha !== '' && (int)date('N', strtotime($fecha)) <= 5 && !isset($feriados[$fecha]);
+    }
+
+    /** Las reuniones del panel que son la daily del equipo: la elegida o las que se llaman «Daily…». */
+    public static function dailyReuniones(string $equipo): array
+    {
+        $elegida = (int)(self::equipo($equipo)['daily_reunion'] ?? 0);
+        $todas = [];
+        $repo = new ReunionRepo();
+        foreach (self::proyectosEquipo($equipo) as $pid) foreach ($repo->delProyecto($pid) as $r) $todas[] = $r + ['proyecto_id' => $pid];
+        $suya = array_values(array_filter($todas, fn($r) => (int)$r['id'] === $elegida));
+        return $suya ?: array_values(array_filter($todas, fn($r) => preg_match(self::DAILY_RE, (string)($r['topic'] ?? ''))));
+    }
+
+    /** Para elegir cuál es la daily: las reuniones de los proyectos del equipo, primero las que se repiten. */
+    public static function dailyCandidatas(string $equipo): array
+    {
+        $out = [];
+        $repo = new ReunionRepo();
+        foreach (self::proyectosEquipo($equipo) as $pid) foreach ($repo->delProyecto($pid) as $r) {
+            if (empty($r['recurrente']) && substr((string)($r['inicio'] ?? ''), 0, 10) < date('Y-m-d', strtotime('-7 days'))) continue;
+            $out[] = ['id' => (int)$r['id'], 'topic' => (string)($r['topic'] ?? ''), 'recurrente' => !empty($r['recurrente']),
+                      'texto' => (string)($r['topic'] ?? '') . ' · ' . (!empty($r['recurrente']) ? Reuniones::resumen($r) : date('d/m H:i', strtotime((string)$r['inicio'])))];
+        }
+        usort($out, fn($a, $b) => [!$a['recurrente'], $a['topic']] <=> [!$b['recurrente'], $b['topic']]);
+        return array_slice($out, 0, 40);
+    }
+
+    /** La reunión que cae ese día (la repetida que lo incluye o la suelta de esa fecha). */
+    public static function dailyDelDia(array $reuniones, string $fecha): ?array
+    {
+        $n = (int)date('N', strtotime($fecha));
+        foreach ($reuniones as $r) {
+            $dia = substr((string)($r['inicio'] ?? ''), 0, 10);
+            if (!empty($r['recurrente'])) {
+                $dias = array_map('intval', (array)($r['dias'] ?? [])) ?: [1, 2, 3, 4, 5];
+                if ($dia <= $fecha && ((string)($r['hasta'] ?? '') === '' || $r['hasta'] >= $fecha) && in_array($n, $dias, true)) return $r;
+            } elseif ($dia === $fecha) {
+                return $r;
+            }
+        }
+        return null;
+    }
+
+    /** Quiénes tienen que estar: los miembros del equipo y su SM (o, sin miembros, la gente de sus proyectos). */
+    public static function dailyEsperados(string $equipo): array
+    {
+        $e = self::equipo($equipo);
+        if (!$e) return [];
+        $ids = (array)($e['miembros'] ?? []);
+        if (!$ids) foreach (self::proyectosEquipo($equipo) as $pid) {
+            $p = (new ProyectoRepo())->buscar($pid);
+            if ($p) $ids = array_merge($ids, ProyectoRepo::miembrosDe($p) ?? [], [(int)($p['scrum'] ?? 0)]);
+        }
+        $ids[] = (int)($e['sm_id'] ?? 0);
+        $mapa = (new MiembroRepo())->mapa();
+        return array_values(array_unique(array_filter(array_map('intval', $ids), fn($id) => isset($mapa[$id]))));
+    }
+
+    /**
+     * Junta a los que entraron en Zoom con la gente del panel: por correo (el del
+     * panel o los de GitHub) y, si no, por nombre y apellido. Lo que no cuadra
+     * queda como invitado. Devuelve [ids => minutos, nombres de invitados].
+     */
+    private static function emparejar(array $zoom, array $esperados, array $mapa): array
+    {
+        $plano = function (string $s): string {
+            $s = mb_strtolower(class_exists('Normalizer') ? (string)Normalizer::normalize($s, Normalizer::FORM_C) : $s);
+            $s = strtr($s, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n', 'à' => 'a', 'è' => 'e', 'ì' => 'i', 'ò' => 'o', 'ù' => 'u',
+                            'â' => 'a', 'ê' => 'e', 'î' => 'i', 'ô' => 'o', 'û' => 'u', 'ä' => 'a', 'ë' => 'e', 'ï' => 'i', 'ö' => 'o', 'ç' => 'c']);
+            return trim(preg_replace('/[^a-z0-9 ]+/', ' ', $s));
+        };
+        $palabras = fn(string $s) => array_values(array_filter(explode(' ', $plano($s)), fn($w) => strlen($w) >= 3));
+        $porCorreo = [];
+        foreach ($mapa as $id => $m) {
+            foreach (array_merge([(string)($m['email'] ?? '')], preg_split('/[\s,;]+/', (string)($m['git_emails'] ?? '')) ?: []) as $c) {
+                if (($c = strtolower(trim($c))) !== '') $porCorreo[$c] = (int)$id;
+            }
+        }
+        // Primero la gente del equipo, luego el resto del panel
+        $orden = array_values(array_unique(array_merge($esperados, array_map('intval', array_keys($mapa)))));
+        $ids = [];
+        $invitados = [];
+        foreach ($zoom as $z) {
+            $id = $porCorreo[(string)($z['email'] ?? '')] ?? 0;
+            if (!$id) {
+                $pz = $palabras((string)($z['nombre'] ?? ''));
+                $candidatos = [];
+                foreach ($orden as $mid) {
+                    $pm = $palabras((string)($mapa[$mid]['nombre'] ?? ''));
+                    if (!$pm || !$pz) continue;
+                    $comunes = count(array_intersect($pz, $pm));
+                    // Nombre y apellido; o solo el nombre, si es el único que se llama así
+                    if ($comunes >= 2 || ($comunes === 1 && count($pz) === 1 && $pz[0] === $pm[0])) $candidatos[$mid] = $comunes;
+                }
+                arsort($candidatos);
+                $top = array_keys($candidatos);
+                if ($top && ($candidatos[$top[0]] >= 2 || count($top) === 1)) $id = (int)$top[0];
+            }
+            if ($id) $ids[$id] = ($ids[$id] ?? 0) + (int)($z['minutos'] ?? 0);
+            elseif (trim((string)($z['nombre'] ?? '')) !== '') $invitados[] = trim((string)$z['nombre']);
+        }
+        return [$ids, array_values(array_unique($invitados))];
+    }
+
+    /** Lo medido de un día: cuántos del equipo estuvieron y si llega al mínimo de Ajustes. */
+    private static function dailyEstado(array $presentes, array $esperados): array
+    {
+        $esp = array_values(array_map('intval', $esperados));
+        $van = array_values(array_intersect(array_map('intval', $presentes), $esp));
+        $pct = $esp ? (int)round(count($van) * 100 / count($esp)) : null;
+        $estado = $pct === null ? ($presentes ? 'cumplida' : 'incompleta') : ($pct >= self::conf()['dailies']['umbral'] ? 'cumplida' : 'incompleta');
+        return ['estado' => $estado, 'asistencia' => $pct, 'presentes' => $van];
+    }
+
+    /**
+     * Mira en Zoom las dailies que ya terminaron (las de los últimos $dias días
+     * hábiles desde la fecha de Ajustes) y deja anotado cada día. Lo que el SM
+     * registró a mano no se toca. Devuelve ['dias' => n, 'error' => texto].
+     */
+    public static function sincronizarDailies(?string $soloEquipo = null, int $dias = 10): array
+    {
+        $c = self::conf()['dailies'];
+        $hoy = date('Y-m-d');
+        $desde = max($c['desde'], date('Y-m-d', strtotime('-' . max(1, $dias) . ' days')));
+        if ($desde > $hoy) return ['dias' => 0, 'error' => ''];
+        $zoomOk = Zoom::listo();
+        $repo = self::repo('rel_dailies');
+        $filas = [];
+        foreach ($repo->all() as $f) $filas[$f['equipo'] . '|' . $f['fecha']] = $f;
+        $mapa = (new MiembroRepo())->mapa();
+        $inst = [];
+        $n = 0;
+        $error = '';
+        foreach (self::equipos() as $nom => $e) {
+            if ($soloEquipo !== null && $nom !== $soloEquipo) continue;
+            $reus = self::dailyReuniones($nom);
+            if (!$reus) continue;
+            $esperados = self::dailyEsperados($nom);
+            for ($d = $desde; $d <= $hoy; $d = date('Y-m-d', strtotime($d . ' +1 day'))) {
+                if (!self::esHabil($d)) continue;
+                $ya = $filas[$nom . '|' . $d] ?? null;
+                if ($ya && (($ya['fuente'] ?? '') === 'manual' || !empty($ya['final']))) continue;
+                $r = self::dailyDelDia($reus, $d);
+                if (!$r) continue;
+                [$hIni, $dur] = self::horario(substr((string)$r['inicio'], 11, 5), (int)($r['duracion'] ?? 30));
+                $termina = strtotime($d . ' ' . $hIni) + max(15, (int)($r['duracion'] ?? $dur)) * 60;
+                if ($termina + 600 > time()) continue;        // todavía no termina
+                $fila = ['equipo' => $nom, 'fecha' => $d, 'fuente' => 'zoom', 'reunion_id' => (int)$r['id'], 'reunion' => (string)($r['topic'] ?? ''),
+                         'hora' => $hIni, 'esperados' => $esperados, 'presentes' => [], 'minutos' => [], 'invitados' => [], 'asistencia' => null,
+                         'nota' => '', 'por' => 0, 'actualizado' => date('Y-m-d H:i'), 'msg' => '',
+                         // Pasadas dos horas del final, lo que diga Zoom ya no cambia
+                         'final' => time() > $termina + 7200];
+                if (($r['plataforma'] ?? 'zoom') !== 'zoom' || empty($r['zoom_id']) || !$zoomOk) {
+                    $fila['estado'] = 'sin_zoom';
+                    $fila['msg'] = ($r['plataforma'] ?? 'zoom') !== 'zoom' ? 'La daily es de ' . Reuniones::etiquetaPlataforma((string)$r['plataforma']) . ': el SM la registra a mano.' : 'Zoom no está conectado en Ajustes.';
+                } else {
+                    $zid = (string)$r['zoom_id'];
+                    $inst[$zid] ??= Zoom::instancias($zid);
+                    if (($inst[$zid]['estado'] ?? '') === 'error') {
+                        // Un fallo de Zoom no se le cobra al equipo: queda por medir
+                        $error = (string)$inst[$zid]['msg'];
+                        $fila['estado'] = 'pendiente';
+                        $fila['msg'] = $error;
+                        $fila['final'] = false;
+                    } else {
+                        $uuids = array_values(array_map(fn($i) => (string)$i['uuid'], array_filter((array)($inst[$zid]['items'] ?? []), fn($i) => ($i['fecha'] ?? '') === $d)));
+                        if (!$uuids) {
+                            $fila['estado'] = 'no_hecha';
+                        } else {
+                            $gente = [];
+                            foreach ($uuids as $u) {
+                                $p = Zoom::participantes($u);
+                                if ($p['estado'] !== 'ok') { $fila['msg'] = (string)$p['msg']; $error = $fila['msg']; continue; }
+                                $gente = array_merge($gente, $p['items']);
+                            }
+                            [$ids, $fila['invitados']] = self::emparejar($gente, $esperados, $mapa);
+                            $fila['minutos'] = array_map('intval', $ids);
+                            if ($fila['msg'] !== '' && !$gente) {
+                                // Se hizo, pero Zoom no deja ver quién entró
+                                $fila['estado'] = 'cumplida';
+                                $fila['final'] = false;
+                            } else {
+                                $fila = array_replace($fila, self::dailyEstado(array_keys($ids), $esperados));
+                            }
+                        }
+                    }
+                }
+                if ($ya) $repo->update((int)$ya['id'], $fila);
+                else $repo->insert($fila);
+                $n++;
+            }
+        }
+        return ['dias' => $n, 'error' => $error];
+    }
+
+    /** Desde el cron: cada media hora, si hay Zoom. */
+    private static function dailiesDelCron(): void
+    {
+        if (!Zoom::listo() || self::conf()['dailies']['desde'] > date('Y-m-d')) return;
+        $marca = __DIR__ . '/../data/releases_dailies.json';
+        $m = json_decode((string)@file_get_contents($marca), true) ?: [];
+        if (time() - (int)($m['t'] ?? 0) < 1800) return;
+        @file_put_contents($marca, json_encode(['t' => time()]));
+        self::sincronizarDailies();
+    }
+
+    /**
+     * El SM registra el día a mano: se hizo (con quiénes estuvieron), no se hizo,
+     * no aplica (con el motivo) o «auto» (borra lo suyo y vuelve a mandar Zoom).
+     */
+    public static function registrarDaily(string $equipo, string $fecha, array $d, int $quien): ?array
+    {
+        $fecha = self::fecha($fecha);
+        if (!self::equipo($equipo)) throw new RuntimeException('Ese equipo no existe.');
+        if ($fecha === '' || $fecha > date('Y-m-d')) throw new RuntimeException('Elige un día que ya pasó (u hoy).');
+        $repo = self::repo('rel_dailies');
+        $ya = null;
+        foreach ($repo->where('equipo', $equipo) as $f) if ($f['fecha'] === $fecha) { $ya = $f; break; }
+        $que = (string)($d['estado'] ?? '');
+        if ($que === 'auto') {
+            if ($ya) $repo->delete((int)$ya['id']);
+            self::sincronizarDailies($equipo, (int)ceil((time() - strtotime($fecha)) / 86400) + 1);
+            return null;
+        }
+        if (!in_array($que, ['hecha', 'no_hecha', 'no_aplica'], true)) throw new RuntimeException('Elige cómo fue la daily.');
+        $nota = mb_substr(trim((string)($d['nota'] ?? '')), 0, 600);
+        if ($que === 'no_aplica' && $nota === '') throw new RuntimeException('Escribe por qué ese día no aplica (feriado, revisión del release…).');
+        $esperados = self::dailyEsperados($equipo);
+        $presentes = array_values(array_unique(array_filter(array_map('intval', (array)($d['presentes'] ?? [])))));
+        $fila = ['equipo' => $equipo, 'fecha' => $fecha, 'fuente' => 'manual', 'esperados' => $esperados, 'nota' => $nota,
+                 'modalidad' => ($d['modalidad'] ?? '') === 'virtual' ? 'virtual' : 'presencial', 'por' => $quien, 'actualizado' => date('Y-m-d H:i'),
+                 'final' => true, 'presentes' => [], 'asistencia' => null, 'msg' => ''];
+        if ($que === 'hecha') $fila = array_replace($fila, self::dailyEstado($presentes, $esperados));
+        else $fila['estado'] = $que;
+        // Lo que ya trajo Zoom (minutos, invitados) se queda como referencia
+        if ($ya) { $repo->update((int)$ya['id'], $fila); return $repo->find((int)$ya['id']); }
+        return $repo->insert($fila + ['minutos' => [], 'invitados' => []]);
+    }
+
+    /**
+     * El cumplimiento de un equipo desde la fecha de Ajustes: cada día hábil con
+     * su estado, el % de días cumplidos, la asistencia media y la de cada persona.
+     */
+    public static function resumenDailies(string $equipo, ?string $hasta = null): array
+    {
+        $c = self::conf()['dailies'];
+        $hoy = date('Y-m-d');
+        $hasta = min($hasta ?? $hoy, $hoy);
+        $filas = [];
+        foreach (self::repo('rel_dailies')->where('equipo', $equipo) as $f) $filas[$f['fecha']] = $f;
+        $reus = self::dailyReuniones($equipo);
+        $esperados = self::dailyEsperados($equipo);
+        $dias = [];
+        $cuenta = array_fill_keys(array_keys(self::DAILY), 0);
+        // Un equipo sin gente ni proyectos (el «Todos» de los ítems transversales) no tiene daily que medir
+        $aplica = $esperados || self::proyectosEquipo($equipo);
+        if (!$aplica) $hasta = '';
+        $asis = [];
+        $persona = array_fill_keys($esperados, ['va' => 0, 'de' => 0]);
+        for ($d = $c['desde']; $d !== '' && $d <= $hasta; $d = date('Y-m-d', strtotime($d . ' +1 day'))) {
+            if (!self::esHabil($d)) continue;
+            $f = $filas[$d] ?? null;
+            $r = self::dailyDelDia($reus, $d);
+            if (!$f) {
+                // Sin fila: sin reunión registrada ese día cuenta como no cumplida. Con reunión,
+                // falta medirla en Zoom; si no es de Zoom (o no hay Zoom), la tiene que registrar el SM
+                $zoomR = $r && ($r['plataforma'] ?? 'zoom') === 'zoom' && !empty($r['zoom_id']) && Zoom::listo();
+                $estado = $d >= $hoy ? 'pendiente' : (!$r ? 'sin_registrar' : ($zoomR ? 'pendiente' : 'sin_zoom'));
+                $f = ['fecha' => $d, 'estado' => $estado, 'fuente' => '', 'hora' => $r ? substr((string)$r['inicio'], 11, 5) : '', 'reunion' => (string)($r['topic'] ?? '')];
+            }
+            $dias[$d] = $f;
+            $cuenta[$f['estado']] = ($cuenta[$f['estado']] ?? 0) + 1;
+            if (in_array($f['estado'], ['cumplida', 'incompleta'], true) && ($f['asistencia'] ?? null) !== null) {
+                $asis[] = (int)$f['asistencia'];
+                foreach ((array)($f['esperados'] ?? []) as $mid) {
+                    if (!isset($persona[(int)$mid])) continue;
+                    $persona[(int)$mid]['de']++;
+                    if (in_array((int)$mid, array_map('intval', (array)($f['presentes'] ?? [])), true)) $persona[(int)$mid]['va']++;
+                }
+            }
+        }
+        $cuentan = array_sum(array_intersect_key($cuenta, array_flip(self::DAILY_CUENTAN)));
+        return [
+            'aplica' => (bool)$aplica, 'desde' => $c['desde'], 'dias' => $dias, 'cuenta' => $cuenta, 'cuentan' => $cuentan,
+            'pct' => $cuentan ? (int)round($cuenta['cumplida'] * 100 / $cuentan) : null,
+            'asistencia' => $asis ? (int)round(array_sum($asis) / count($asis)) : null,
+            'personas' => $persona, 'reuniones' => $reus, 'esperados' => $esperados,
+        ];
+    }
+
     /* ============================== Avisos ============================== */
 
     /** A quiénes se avisa de algo de un equipo: los destinatarios, los editores, su SM y (si se eligió) su gente. */
@@ -1124,7 +1449,12 @@ final class Releases
         if ($c['resumen_semanal'] && (int)date('N', strtotime($hoy)) === 1) {
             $tab = self::tablero($hoy);
             $lineas = [];
-            foreach ($tab['equipos'] as $nom => $e) if ($e['total']) $lineas[] = sprintf('• %s: %d %% (esperado %d %%) · %d atrasado(s)', $nom, $e['pct'], $e['esperado'], $e['atrasados']);
+            foreach ($tab['equipos'] as $nom => $e) {
+                if (!$e['total']) continue;
+                $dl = self::resumenDailies($nom);
+                $lineas[] = sprintf('• %s: %d %% (esperado %d %%) · %d atrasado(s)', $nom, $e['pct'], $e['esperado'], $e['atrasados'])
+                    . ($dl['pct'] !== null ? ' · dailies ' . $dl['pct'] . ' % (' . $dl['cuenta']['cumplida'] . ' de ' . $dl['cuentan'] . ' días)' : '');
+            }
             $n += self::avisar(self::destinatarios(), 'Releases: resumen de la semana', 'Avance general ' . $tab['total']['pct'] . ' % · esperado ' . $tab['total']['esperado'] . ' %',
                 'releases.php', ['Avance' => $tab['total']['pct'] . ' %', 'Atrasados' => (string)$tab['total']['atrasados']], 0, implode("\n", $lineas));
         }

@@ -76,6 +76,7 @@ $accionesDeCualquiera = [
     'rel_importar', 'rel_item_guardar', 'rel_item_tareas', 'rel_item_borrar', 'rel_tarea_crear', 'rel_equipo_guardar',
     'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar',
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
+    'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -151,6 +152,47 @@ function relCrearReunion(array $rev, int $pid, array $invitados, string $pedida,
         if (Mailer::listo()) foreach ($paraCorreo as $mid) { $m = $miembros->buscar($mid); if ($m) Mailer::notificarReunion($reu, $m, $p); }
     } catch (Throwable $e) { /* la reunión ya quedó creada */ }
     return $reu + ['proyecto_id' => $pid];
+}
+
+/**
+ * La revisión cambió de día u hora: si tiene una reunión suelta del panel (la
+ * que se creó para ella), se mueve en Zoom o Meet, en los calendarios y se avisa
+ * a los invitados. Una reunión que se repite no se toca. Devuelve la coletilla.
+ */
+function relMoverReunion(array $antes, array $rev, ProyectoRepo $proyectos, MiembroRepo $miembros): string
+{
+    if (($antes['fecha'] ?? '') === ($rev['fecha'] ?? '') && ($antes['hora'] ?? '') === ($rev['hora'] ?? '')
+        && (int)($antes['duracion'] ?? 0) === (int)($rev['duracion'] ?? 0)) return '';
+    $repo = new ReunionRepo();
+    $reu = (int)($rev['reunion_id'] ?? 0) > 0 ? $repo->buscar((int)$rev['reunion_id']) : null;
+    if (!$reu) return '';
+    if (!empty($reu['recurrente'])) return ' La reunión enlazada se repite cada semana: esa no se movió.';
+    [$hIni, $dur] = Releases::horario((string)($rev['hora'] ?? ''), (int)($reu['duracion'] ?? 60));
+    if ((int)($rev['duracion'] ?? 0) > 0) $dur = (int)$rev['duracion'];
+    $inicio = $rev['fecha'] . ' ' . $hIni;
+    if ($inicio === (string)($reu['inicio'] ?? '') && $dur === (int)($reu['duracion'] ?? 0)) return '';
+    $topic = (string)($reu['topic'] ?? '');
+    // El «· dd/mm» del tema de la revisión sigue a la fecha nueva
+    if (($antes['fecha'] ?? '') !== '') $topic = str_replace('· ' . date('d/m', strtotime($antes['fecha'])), '· ' . date('d/m', strtotime($rev['fecha'])), $topic);
+    if (($reu['plataforma'] ?? 'zoom') === 'meet' && !empty($reu['gcal_event'])) {
+        $creador = $miembros->buscar((int)($reu['creador_id'] ?? 0));
+        $emails = [];
+        foreach ((array)($reu['invitados'] ?? []) as $mid) { $m = $miembros->buscar((int)$mid); if ($m && !empty($m['email'])) $emails[] = $m['email']; }
+        $ok = GoogleCalendar::actualizarMeet((string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? '')), (string)$reu['gcal_event'],
+            ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '', 'invitados' => $emails]);
+        if ($ok !== true) return ' La revisión se movió, pero la reunión de Meet no: ' . $ok;
+    } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
+        $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
+        if ($ok !== true) return ' La revisión se movió, pero la reunión de Zoom no: ' . $ok;
+    }
+    $repo->actualizar((int)$reu['id'], ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur]);
+    try {
+        $p = $proyectos->buscar((int)$reu['proyecto_id']);
+        agendarReunionEnCalendarios($repo->buscar((int)$reu['id']), (array)$p, $miembros, $repo);
+        avisoPanel(array_map('intval', (array)($reu['invitados'] ?? [])), 'reunion', 'Cambió la revisión ' . $rev['equipo'],
+            $topic . ' · ' . $inicio, 'releases.php?v=revision&id=' . (int)$rev['id']);
+    } catch (Throwable $e) { /* la reunión ya quedó movida */ }
+    return ' La reunión también se movió al ' . date('d/m H:i', strtotime($inicio)) . '.';
 }
 
 /**
@@ -3713,6 +3755,9 @@ switch ($accion) {
     case 'rel_revision_borrar':
     case 'rel_ia_aplicar':
     case 'rel_conf_guardar':
+    case 'rel_daily_registrar':
+    case 'rel_daily_zoom':
+    case 'rel_daily_reunion':
         require_once __DIR__ . '/lib/Releases.php';
         $relAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
         // Con fetch, JSON; con un formulario normal, de vuelta a la vista con el aviso
@@ -3867,10 +3912,13 @@ switch ($accion) {
                     if ($idRl && !$revRl) throw new RuntimeException('Esa revisión ya no existe.');
                     $eqRevRl = (string)($revRl['equipo'] ?? ($_POST['equipo'] ?? ''));
                     if (!$relSmDe($eqRevRl)) $relFin(false, 'Las revisiones las registran los editores o el Scrum Master del equipo.');
+                    if ($revRl && isset($_POST['equipo']) && $_POST['equipo'] !== $eqRevRl && !$relSmDe((string)$_POST['equipo'])) $relFin(false, 'No puedes pasar la revisión a un equipo que no llevas.');
+                    $antesRl = $revRl;
                     $revRl = Releases::guardarRevision($idRl, array_intersect_key($_POST, array_flip(['fecha', 'hora', 'equipo', 'titulo', 'responsable',
                         'acuerdos', 'asistentes', 'filas', 'agregar', 'quitar', 'realizada', 'estado', 'sprint', 'lugar', 'modalidad', 'duracion'])));
+                    // Se movió de día u hora (arrastrando en la agenda o al editarla): su reunión se mueve con ella
+                    $msgReuRl = $antesRl ? relMoverReunion($antesRl, $revRl, $proyectos, $miembros) : '';
                     // Virtual: se enlaza a una reunión que ya existe o se crea la de Zoom en el proyecto del equipo
-                    $msgReuRl = '';
                     if (($revRl['modalidad'] ?? '') === 'virtual') {
                         $existeRl = (int)($_POST['reunion_existente'] ?? 0);
                         if ($existeRl > 0) {
@@ -3906,6 +3954,32 @@ switch ($accion) {
                         'invitados' => array_values(array_filter(array_map(fn($id) => isset($mapaRl[$id]) ? ['id' => $id, 'nombre' => (string)$mapaRl[$id]['nombre']] : null, Releases::invitadosSugeridos($eqRl)))),
                     ]);
 
+                case 'rel_daily_registrar':
+                    $eqDl = (string)($_POST['equipo'] ?? '');
+                    if (!$relSmDe($eqDl)) $relFin(false, 'Las dailies las registran los editores o el Scrum Master del equipo.');
+                    Releases::registrarDaily($eqDl, (string)($_POST['fecha'] ?? ''), $_POST, $relYo);
+                    $relFin(true, ($_POST['estado'] ?? '') === 'auto' ? 'Listo: ese día vuelve a medirse con Zoom.' : 'Daily registrada.');
+
+                case 'rel_daily_zoom':
+                    $eqDl = (string)($_POST['equipo'] ?? '');
+                    if (!Releases::equipo($eqDl)) throw new RuntimeException('Ese equipo no existe.');
+                    if (!$relSmDe($eqDl)) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    if (!Zoom::listo()) $relFin(false, 'Zoom no está conectado (Ajustes → Zoom). Mientras tanto, registra las dailies a mano.');
+                    $rDl = Releases::sincronizarDailies($eqDl, 31);
+                    if ($rDl['error'] !== '' && !$rDl['dias']) $relFin(false, $rDl['error']);
+                    $relFin(true, ($rDl['dias'] ? 'Zoom revisado: ' . $rDl['dias'] . ' día(s) al día.' : 'Zoom revisado: no había días nuevos que medir.')
+                        . ($rDl['error'] !== '' ? ' Ojo: ' . $rDl['error'] : ''));
+
+                case 'rel_daily_reunion':
+                    $eqDl = (string)($_POST['equipo'] ?? '');
+                    $EDl = Releases::equipo($eqDl);
+                    if (!$EDl) throw new RuntimeException('Ese equipo no existe.');
+                    if (!$relSmDe($eqDl)) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    $ridDl = (int)($_POST['reunion_id'] ?? 0);
+                    if ($ridDl > 0 && !in_array($ridDl, array_column(Releases::dailyCandidatas($eqDl), 'id'), true)) throw new RuntimeException('Esa reunión no es de los proyectos del equipo.');
+                    Releases::guardarEquipo((int)$EDl['id'], ['daily_reunion' => $ridDl]);
+                    $relFin(true, $ridDl ? 'Listo: esa es la daily del equipo.' : 'Listo: se toma la reunión que se llame «Daily…».');
+
                 case 'rel_revision_borrar':
                     $relSoloEditor();
                     Releases::borrarRevision((int)($_POST['id'] ?? 0));
@@ -3932,6 +4006,10 @@ switch ($accion) {
                     if (isset($_POST['ia_auto'])) $cambiosRl['ia_auto'] = (string)$_POST['ia_auto'] === '1';
                     if (isset($_POST['programa'])) $cambiosRl['programa'] = mb_substr(trim((string)$_POST['programa']), 0, 60);
                     if (isset($_POST['go_live'])) $cambiosRl['go_live'] = Releases::fecha($_POST['go_live']);
+                    if (isset($_POST['dailies_desde']) || isset($_POST['dailies_umbral'])) {
+                        $cambiosRl['dailies'] = ['desde' => Releases::fecha($_POST['dailies_desde'] ?? '') ?: Releases::conf()['dailies']['desde'],
+                                                 'umbral' => min(100, max(10, (int)($_POST['dailies_umbral'] ?? 60)))];
+                    }
                     // Solo el administrador decide quién edita (un editor no se nombra a sí mismo)
                     if (Auth::esAdmin() && (isset($_POST['editores']) || isset($_POST['editores_enviado']))) {
                         $cambiosRl['editores'] = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['editores'] ?? [])))));

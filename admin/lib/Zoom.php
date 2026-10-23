@@ -321,6 +321,48 @@ class Zoom
         return ['estado' => 'ok', 'texto' => self::vttATexto((string)$vtt), 'msg' => ''];
     }
 
+    /**
+     * Quién se conectó a una ocurrencia ya terminada (por su UUID). Una persona
+     * que entró y salió varias veces sale una sola vez, con sus minutos sumados.
+     * Prueba la lista de la reunión pasada y, si a la app le falta ese permiso,
+     * el reporte de la cuenta.
+     * ['estado'=>'ok'|'error', 'items'=>[['nombre','email','minutos','entro'=>'H:i']], 'msg'=>string]
+     */
+    public static function participantes(string $uuid): array
+    {
+        $enc = (str_starts_with($uuid, '/') || str_contains($uuid, '//')) ? rawurlencode(rawurlencode($uuid)) : rawurlencode($uuid);
+        $msg = '';
+        foreach (['/past_meetings/', '/report/meetings/'] as $base) {
+            $filas = [];
+            $token = '';
+            do {
+                [$codigo, $json] = self::api('GET', $base . $enc . '/participants?page_size=300' . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
+                if ($codigo !== 200) break;
+                foreach ((array)($json['participants'] ?? []) as $p) $filas[] = $p;
+                $token = (string)($json['next_page_token'] ?? '');
+            } while ($token !== '');
+            if ($codigo === 200) {
+                $zona = new DateTimeZone(Reuniones::zona());
+                $porPersona = [];
+                foreach ($filas as $p) {
+                    $email = strtolower(trim((string)($p['user_email'] ?? ($p['email'] ?? ''))));
+                    $nombre = trim((string)($p['name'] ?? ($p['user_name'] ?? '')));
+                    $k = $email !== '' ? $email : mb_strtolower($nombre);
+                    if ($k === '') continue;
+                    $entro = '';
+                    try { if (!empty($p['join_time'])) $entro = (new DateTime((string)$p['join_time']))->setTimezone($zona)->format('H:i'); } catch (Exception $e) { /* sin hora */ }
+                    $porPersona[$k] ??= ['nombre' => $nombre, 'email' => $email, 'minutos' => 0, 'entro' => $entro];
+                    $porPersona[$k]['minutos'] += (int)round((int)($p['duration'] ?? 0) / 60);
+                    if ($entro !== '' && ($porPersona[$k]['entro'] === '' || $entro < $porPersona[$k]['entro'])) $porPersona[$k]['entro'] = $entro;
+                }
+                return ['estado' => 'ok', 'items' => array_values($porPersona), 'msg' => ''];
+            }
+            $msg = (string)($json['error']['message'] ?? ($json['message'] ?? ('HTTP ' . $codigo)));
+        }
+        return ['estado' => 'error', 'items' => [],
+            'msg' => 'Zoom no deja ver quién se conectó (' . $msg . '). En la app Server-to-Server añade el permiso «meeting:read:list_past_participants:admin» o «report:read:list_meeting_participants:admin».'];
+    }
+
     /** Convierte un VTT (con tiempos y numeración) en texto plano legible. */
     private static function vttATexto(string $vtt): string
     {

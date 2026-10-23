@@ -834,9 +834,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <table class="rl-matriz">
           <thead><tr><th scope="col">Equipo</th>
             <?php foreach ($rels as $cod => $r): ?><th scope="col"><?= rlCode($cod, $r['color']) ?></th><?php endforeach; ?>
-            <th scope="col" class="rl-matriz__tot">Total</th></tr></thead>
+            <th scope="col" class="rl-matriz__tot">Total</th><th scope="col" class="rl-matriz__dl" data-ds-tip="Días con la daily hecha y su gente conectada, desde el <?= e(rlF($conf['dailies']['desde'], true)) ?>">Dailies</th></tr></thead>
           <tbody>
-          <?php foreach ($tab['equipos'] as $nom => $x): if (!$x['total']) continue; $sm = $miembros[(int)($x['equipo']['sm_id'] ?? 0)] ?? null; ?>
+          <?php foreach ($tab['equipos'] as $nom => $x): if (!$x['total']) continue; $sm = $miembros[(int)($x['equipo']['sm_id'] ?? 0)] ?? null; $dlx = Releases::resumenDailies($nom); ?>
             <tr>
               <th scope="row"><a class="rl-matriz__eq" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom])) ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>">
                 <span class="rl-matriz__dot"></span><span><b><?= e($nom) ?></b><small><?= e($sm['nombre'] ?? ($x['equipo']['sm_nombre'] ?? '')) ?></small></span></a></th>
@@ -850,6 +850,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               <?php $s = rlSaludGrupo($x, $hoy); ?>
               <td class="rl-matriz__tot"><a class="rl-celda rl-celda--tot rl-s--<?= e($s) ?>" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom])) ?>">
                 <b class="mc-num"><?= (int)$x['pct'] ?>%</b><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><small><?= (int)$x['cerrados'] ?>/<?= (int)$x['total'] ?></small></a></td>
+              <td class="rl-matriz__dl"><?php if ($dlx['pct'] !== null): ?>
+                <a class="rl-celda rl-celda--dl" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom])) ?>#dailies" data-ds-tip="<?= (int)$dlx['cuenta']['cumplida'] ?> de <?= (int)$dlx['cuentan'] ?> día(s) cumplidos<?= $dlx['asistencia'] !== null ? ' · asistencia ' . (int)$dlx['asistencia'] . ' %' : '' ?>">
+                  <b class="mc-num"><?= (int)$dlx['pct'] ?>%</b><span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)$dlx['pct'] ?>%"></i></span>
+                  <?php if ($dlx['cuenta']['sin_registrar'] === $dlx['cuentan']): ?><small class="is-mal">Sin daily en el panel</small><?php else: ?><small><?= (int)$dlx['cuenta']['cumplida'] ?>/<?= (int)$dlx['cuentan'] ?> días</small><?php endif; ?></a>
+              <?php else: ?><span class="rl-celda rl-celda--vacia" data-ds-tip="<?= !$dlx['aplica'] ? 'Sin gente ni proyectos: no tiene daily' : ($conf['dailies']['desde'] > $hoy ? 'Se mide desde el ' . e(rlF($conf['dailies']['desde'], true)) : 'Aún no hay días medidos') ?>">—</span><?php endif; ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
@@ -858,6 +863,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             <td><?php if ($x['total']): ?><a class="rl-celda rl-celda--tot rl-s--<?= e($s) ?>" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod])) ?>"><b class="mc-num"><?= (int)$x['pct'] ?>%</b><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><small><?= (int)$x['cerrados'] ?>/<?= (int)$x['total'] ?></small></a><?php else: ?><span class="rl-celda rl-celda--vacia">—</span><?php endif; ?></td>
             <?php endforeach; ?>
             <td class="rl-matriz__tot"><span class="rl-celda rl-celda--tot rl-s--<?= e($saludT) ?>"><b class="mc-num"><?= (int)$T['pct'] ?>%</b><?= rlBarra((int)$T['pct'], (int)$T['esperado'], $saludT) ?><small><?= (int)$T['cerrados'] ?>/<?= (int)$T['total'] ?></small></span></td>
+            <td class="rl-matriz__dl"></td>
           </tr></tfoot>
         </table>
       </div>
@@ -1274,6 +1280,136 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <?php endforeach; ?>
   </section>
 
+  <?php
+    // Reuniones diarias: lo medido desde la fecha de Ajustes (Zoom o lo que registró el SM)
+    $dl = Releases::resumenDailies($en);
+    $puedeDl = $smDe($en);
+    $diasDl = array_slice($dl['dias'], -20, null, true);
+    $reuDl = $dl['reuniones'];
+    $hoyDl = Releases::dailyDelDia($reuDl, $hoy);
+    $candDl = $puedeDl ? Releases::dailyCandidatas($en) : [];
+    $nomDl = fn(int $id) => (string)($miembros[$id]['nombre'] ?? 'Alguien');
+    $jsDl = ['equipo' => $en, 'desde' => $dl['desde'], 'hoy' => $hoy, 'dias' => [], 'esperados' => array_map(fn($id) => ['id' => $id, 'nombre' => $nomDl($id)], $dl['esperados'])];
+    foreach ($dl['dias'] as $f => $x) $jsDl['dias'][$f] = ['estado' => $x['estado'], 'fuente' => (string)($x['fuente'] ?? ''), 'presentes' => array_map('intval', (array)($x['presentes'] ?? [])),
+        'nota' => (string)($x['nota'] ?? ''), 'modalidad' => (string)($x['modalidad'] ?? ''), 'zoom' => !empty($x['minutos']) || ($x['fuente'] ?? '') === 'zoom'];
+  ?>
+  <?php if ($dl['aplica']): ?>
+  <section class="mc-card rl-card rl-dailies" id="dailies" data-rl-dailies>
+    <header class="rl-card__cab">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('video', 20) ?></span>
+      <div><h2 class="rl-card__tit">Reuniones diarias</h2>
+        <p class="rl-card__sub">Desde el <?= e(rlFL($dl['desde'], false)) ?>: cada día hábil, la daily registrada en el panel y quién se conectó (Zoom lo dice solo). Cuenta como cumplida con el <?= (int)$conf['dailies']['umbral'] ?> % del equipo conectado.</p></div>
+      <?php if ($puedeDl): ?>
+      <div class="rl-card__acc">
+        <?php if ($reuDl && Zoom::listo()): ?><button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-zoom="<?= e($en) ?>"><?= rlIco('reintentar', 16) ?><span class="mc-btn__label">Traer de Zoom</span></button><?php endif; ?>
+        <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-daily-reg="<?= e(min($hoy, max($dl['desde'], $hoy))) ?>"<?= $dl['desde'] > $hoy ? ' disabled' : '' ?>><?= rlIco('check', 16) ?><span class="mc-btn__label">Registrar daily</span></button>
+      </div>
+      <?php endif; ?>
+    </header>
+
+    <div class="rl-dailies__reu">
+      <?php if ($reuDl): $r0 = $hoyDl ?? $reuDl[0]; ?>
+      <span class="rl-dailies__reu-ico"><?= rlIco('agenda', 16) ?></span>
+      <span><b><?= e((string)$r0['topic']) ?></b> · <?= e(!empty($r0['recurrente']) ? Reuniones::resumen($r0) : rlFL(substr((string)$r0['inicio'], 0, 10), false) . ' ' . substr((string)$r0['inicio'], 11, 5)) ?>
+        · <?= e(Reuniones::etiquetaPlataforma((string)($r0['plataforma'] ?? 'zoom'))) ?><?= count($reuDl) > 1 ? ' <small>(y ' . (count($reuDl) - 1) . ' más)</small>' : '' ?></span>
+      <?php else: ?>
+      <span class="rl-dailies__reu-ico is-falta"><?= rlIco('alerta', 16) ?></span>
+      <span><b>El equipo no tiene su daily registrada en el panel.</b> Créala en <?= $pids && isset($proyMapa[$pids[0]]) ? '<a href="proyecto.php?id=' . (int)$pids[0] . '#vista-reuniones">' . e($proyMapa[$pids[0]]['nombre']) . ' → Reuniones</a>' : 'el proyecto del equipo → Reuniones' ?>, repetida de lunes a viernes y con «Daily» en el nombre<?= $candDl ? ', o elige cuál es' : '' ?>. Mientras tanto, cada día cuenta como «Sin registrar».</span>
+      <?php endif; ?>
+      <?php if ($candDl): ?>
+      <label class="rl-dailies__elegir"><span class="sr-only">Cuál es la daily del equipo</span>
+        <?= UI::selectDS('reunion_id', ['0' => 'La que se llame «Daily…»'] + array_column(array_map(fn($c) => ['id' => (string)$c['id'], 't' => $c['texto']], $candDl), 't', 'id'), (string)(int)($E['daily_reunion'] ?? 0), ['aria' => 'Cuál es la daily del equipo']) ?>
+      </label>
+      <?php endif; ?>
+    </div>
+
+    <?php if ($dl['desde'] > $hoy): ?>
+    <p class="rl-vacio-txt"><?= rlIco('reloj', 16) ?> Se empieza a medir el <?= e(rlFL($dl['desde'])) ?>.</p>
+    <?php else: ?>
+    <div class="rl-dailies__cuerpo">
+      <dl class="rl-dailies__nums">
+        <div class="rl-dnum"><dt>Cumplimiento</dt><dd class="mc-num"><?= $dl['pct'] === null ? '—' : (int)$dl['pct'] . '<small>%</small>' ?></dd>
+          <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['pct'] ?? 0) ?>%"></i></span>
+          <small><?= $dl['cuentan'] ? (int)$dl['cuenta']['cumplida'] . ' de ' . (int)$dl['cuentan'] . ' día(s) hábiles' : 'Aún no hay días medidos' ?></small></div>
+        <div class="rl-dnum"><dt>Asistencia</dt><dd class="mc-num"><?= $dl['asistencia'] === null ? '—' : (int)$dl['asistencia'] . '<small>%</small>' ?></dd>
+          <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['asistencia'] ?? 0) ?>%"></i></span>
+          <small>Promedio del equipo conectado</small></div>
+        <div class="rl-dnum<?= ($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ? ' is-mal' : '' ?>"><dt>Sin daily</dt><dd class="mc-num"><?= (int)($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ?></dd>
+          <small><?= (int)$dl['cuenta']['sin_registrar'] ?> sin registrar · <?= (int)$dl['cuenta']['no_hecha'] ?> sin conectarse</small></div>
+      </dl>
+
+      <div class="rl-dailies__dias">
+        <p class="rl-dlg__rot">Día por día<?= count($dl['dias']) > count($diasDl) ? ' <small>(los últimos ' . count($diasDl) . ')</small>' : '' ?></p>
+        <ol class="rl-ddias">
+          <?php foreach ($diasDl as $f => $x): [$lbl] = Releases::DAILY[$x['estado']] ?? Releases::DAILY['pendiente'];
+            $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · ' . (int)$x['asistencia'] . ' % conectado' : '') . (($x['fuente'] ?? '') === 'manual' ? ' · registrada por el SM' : (($x['fuente'] ?? '') === 'zoom' ? ' · según Zoom' : ''))
+              . (($x['nota'] ?? '') !== '' ? ' · ' . $x['nota'] : '') . (($x['msg'] ?? '') !== '' ? ' · ' . $x['msg'] : '');
+            $tag = $puedeDl ? 'button type="button" data-rl-daily-reg="' . e($f) . '"' : 'span tabindex="0"'; ?>
+          <li><<?= $tag ?> class="rl-ddia rl-d--<?= e($x['estado']) ?><?= $f === $hoy ? ' is-hoy' : '' ?>" data-ds-tip="<?= e(rlFL($f, true) . ': ' . $det) ?>" aria-label="<?= e(rlFL($f, true) . ': ' . $det) ?>">
+            <small><?= e(mb_substr(RL_DIA[(int)date('w', strtotime($f))], 0, 3)) ?></small><b class="mc-num"><?= (int)date('j', strtotime($f)) ?></b>
+            <i class="mc-num"><?= ($x['asistencia'] ?? null) !== null ? (int)$x['asistencia'] . '%' : match ($x['estado']) { 'no_aplica' => 'N/A', 'pendiente' => '·', 'no_hecha', 'sin_registrar' => '✕', default => '—' } ?></i>
+          </<?= $puedeDl ? 'button' : 'span' ?>></li>
+          <?php endforeach; ?>
+          <?php if (!$diasDl): ?><li class="rl-vacio-txt">Todavía no hay días hábiles.</li><?php endif; ?>
+        </ol>
+        <ul class="rl-leyenda rl-leyenda--pie">
+          <?php foreach (['cumplida', 'incompleta', 'no_hecha', 'sin_registrar', 'sin_zoom', 'no_aplica'] as $k): ?>
+          <li><i class="rl-ley rl-d--<?= $k ?>"></i><?= e(Releases::DAILY[$k][0]) ?></li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+
+      <?php $conDatos = array_filter($dl['personas'], fn($p) => $p['de'] > 0); ?>
+      <div class="rl-dailies__gente">
+        <p class="rl-dlg__rot">Quién se conecta</p>
+        <?php if ($conDatos): uasort($conDatos, fn($a, $b) => [$a['va'] / $a['de'], 0] <=> [$b['va'] / $b['de'], 0]); ?>
+        <ul class="rl-dgente">
+          <?php foreach ($conDatos as $mid => $p): $m = $miembros[$mid] ?? null; $pc = (int)round($p['va'] * 100 / $p['de']); ?>
+          <li><?= $m ? UI::avatar($m, 28) : '' ?><span class="rl-dgente__n"><?= e($nomDl((int)$mid)) ?></span>
+            <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= $pc ?>%"></i></span><b class="mc-num"><?= (int)$p['va'] ?>/<?= (int)$p['de'] ?></b></li>
+          <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <p class="rl-vacio-txt"><?= rlIco('info', 16) ?> <?= $dl['esperados'] ? 'Aquí sale cada persona cuando haya dailies medidas.' : 'Elige los miembros del equipo en Ajustes → Equipos para medir a cada persona.' ?></p>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php endif; ?>
+    <script type="application/json" data-rl-dailies-datos><?= json_encode($jsDl, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
+  </section>
+  <?php endif; ?>
+
+  <?php if ($puedeDl && $dl['aplica'] && $dl['desde'] <= $hoy):
+    $opsDl = [];
+    foreach ($dl['esperados'] as $mid) $opsDl[$mid] = [$nomDl($mid), (int)$mid === (int)($E['sm_id'] ?? 0) ? 'Scrum Master' : (string)($miembros[$mid]['rol'] ?? '')]; ?>
+  <dialog id="rl-dlg-daily" class="dlg-meca rl-dlg">
+    <form class="dlg-form" method="post" action="actions.php" data-rl-form="rel_daily_registrar" data-rl-tras="recargar">
+      <input type="hidden" name="accion" value="rel_daily_registrar"><input type="hidden" name="equipo" value="<?= e($en) ?>">
+      <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'equipo', 'e' => $en])) ?>">
+      <header><h3 class="font-display"><i class="fa-solid fa-mug-hot"></i> Registrar la daily<small>Equipo <?= e($en) ?></small></h3><button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
+      <?= rlCampo('Día', '<input class="input-meca" type="date" name="fecha" min="' . e($dl['desde']) . '" max="' . e($hoy) . '" value="' . e($hoy) . '" required data-rl-dl-fecha>') ?>
+      <p class="rl-dlg__nota" data-rl-dl-zoom hidden><?= rlIco('info', 15) ?> <span>Zoom ya midió este día. Lo que guardes aquí manda sobre lo de Zoom.</span></p>
+      <div class="mc-field"><span class="mc-field__label">¿Cómo fue?</span>
+        <div class="rl-seg" role="radiogroup" aria-label="Cómo fue la daily">
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="estado" value="hecha" checked><span><?= rlIco('check', 15) ?>Se hizo</span></label>
+          <label class="rl-seg__op rl-t--rojo"><input type="radio" name="estado" value="no_hecha"><span><?= rlIco('cerrar', 15) ?>No se hizo</span></label>
+          <label class="rl-seg__op rl-t--gris"><input type="radio" name="estado" value="no_aplica"><span><?= rlIco('pausa', 15) ?>No aplica</span></label>
+          <label class="rl-seg__op rl-t--gris" data-rl-dl-auto hidden><input type="radio" name="estado" value="auto"><span><?= rlIco('reintentar', 15) ?>Que lo diga Zoom</span></label>
+        </div>
+      </div>
+      <div class="rl-dl-hecha" data-rl-dl-hecha>
+        <div class="rl-seg rl-seg--modo" role="radiogroup" aria-label="Modalidad">
+          <label class="rl-seg__op rl-t--petroleo"><input type="radio" name="modalidad" value="presencial" checked><span><i class="fa-solid fa-location-dot" aria-hidden="true"></i>Presencial</span></label>
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="modalidad" value="virtual"><span><?= rlIco('video', 15) ?>Virtual</span></label>
+        </div>
+        <?= rlCampo('Quiénes estuvieron', rlMulti('presentes[]', $opsDl, $dl['esperados'], 'Buscar persona…')) ?>
+      </div>
+      <?= rlCampo('Nota', '<textarea class="input-meca" name="nota" rows="2" maxlength="600" placeholder="Bloqueos, quién avisó que no venía… Si no aplica, el motivo."></textarea>') ?>
+      <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button></footer>
+    </form>
+  </dialog>
+  <?php endif; ?>
+
   <div class="rl-ia-slot" data-rl-ia-slot hidden></div>
 
   <section class="mc-card rl-card rl-iaeq" data-rl-iaeq data-equipo="<?= e($en) ?>">
@@ -1413,28 +1549,35 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     </div>
   </section>
 
-  <section class="rl-agenda<?= !$semana ? ' is-vacia' : '' ?>" aria-label="Revisiones de la semana">
+  <?php $hayMovibles = (bool)array_filter($semana, fn($r) => $smDe($r['equipo'])); ?>
+  <?php if ($hayMovibles): ?><p class="rl-agenda__ayuda"><?= rlIco('info', 15) ?> Arrastra una revisión a otro día de la semana para moverla, o pulsa <?= rlIco('editar', 14) ?> para cambiarle la fecha, la hora o el foco. Si tiene su reunión de Zoom, se mueve con ella.</p><?php endif; ?>
+  <section class="rl-agenda<?= !$semana ? ' is-vacia' : '' ?>" aria-label="Revisiones de la semana"<?= $hayMovibles ? ' data-rl-agenda' : '' ?>>
     <?php for ($i = 0; $i < 5; $i++): $d = date('Y-m-d', strtotime($lunes . " +$i days")); $lista = $porDia[$d] ?? []; ?>
-    <div class="rl-dia<?= $d === $hoy ? ' is-hoy' : '' ?><?= $d < $hoy ? ' is-pasado' : '' ?>">
+    <div class="rl-dia<?= $d === $hoy ? ' is-hoy' : '' ?><?= $d < $hoy ? ' is-pasado' : '' ?>" data-rl-dia="<?= e($d) ?>">
       <header class="rl-dia__cab"><small><?= e(RL_DIA[(int)date('w', strtotime($d))]) ?></small><b class="mc-num"><?= (int)date('j', strtotime($d)) ?></b><?= $d === $hoy ? '<span class="rl-dia__hoy">Hoy</span>' : '' ?></header>
       <div class="rl-dia__lista">
-        <?php foreach ($lista as $r): $hecha = ($r['estado'] ?? '') === 'realizada'; $cu = $r['cumplimiento']; ?>
-        <a class="rl-ses<?= $hecha ? ' is-hecha' : '' ?>" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" style="--ec:<?= e(rlColorEq($eqs, $r['equipo'])) ?>">
-          <span class="rl-ses__top"><b><?= e($r['equipo']) ?></b><span class="rl-ses__hora mc-num"><?= e((string)$r['hora']) ?></span></span>
+        <?php foreach ($lista as $r): $hecha = ($r['estado'] ?? '') === 'realizada'; $cancelada = ($r['estado'] ?? '') === 'cancelada'; $cu = $r['cumplimiento']; $mueve = $smDe($r['equipo']); ?>
+        <div class="rl-ses<?= $hecha ? ' is-hecha' : '' ?><?= $cancelada ? ' is-cancelada' : '' ?><?= $mueve ? ' is-movible' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $r['equipo'])) ?>"<?= $mueve ? ' draggable="true" data-rl-ses="' . (int)$r['id'] . '" data-fecha="' . e($r['fecha']) . '"' : '' ?>>
+          <span class="rl-ses__top"><b><a class="rl-ses__ir" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" draggable="false"><?= e($r['equipo']) ?></a></b><span class="rl-ses__hora mc-num"><?= e((string)$r['hora']) ?></span></span>
           <?php if (($r['titulo'] ?? '') !== ''): ?><span class="rl-ses__foco"><?= e($r['titulo']) ?></span><?php endif; ?>
           <span class="rl-ses__pie">
-            <?= $hecha ? rlChip('Realizada', 'verde') : rlChip($d < $hoy ? 'Sin registrar' : 'Programada', $d < $hoy ? 'amarillo' : 'gris') ?>
+            <?= $hecha ? rlChip('Realizada', 'verde') : ($cancelada ? rlChip('Cancelada', 'gris') : rlChip($r['fecha'] < $hoy ? 'Sin registrar' : 'Programada', $r['fecha'] < $hoy ? 'amarillo' : 'gris')) ?>
             <span class="rl-ses__n"><?= rlIco('notas', 14) ?> <?= count($r['filas']) ?></span>
             <?php if (($r['modalidad'] ?? '') === 'virtual'): ?><span class="rl-ses__modo" title="Virtual<?= !empty($r['join_url']) ? ' · con reunión' : '' ?>"><?= rlIco('video', 14) ?></span>
             <?php else: ?><span class="rl-ses__modo" title="Presencial<?= ($r['lugar'] ?? '') !== '' ? ' · ' . e($r['lugar']) : '' ?>"><i class="fa-solid fa-location-dot" aria-hidden="true"></i></span><?php endif; ?>
             <?php if ($cu['pct'] !== null): ?><span class="rl-ses__pct mc-num"><?= (int)$cu['pct'] ?> %</span><?php endif; ?>
+            <?php if ($mueve): ?>
+            <button type="button" class="rl-ses__editar" aria-label="Editar la revisión de <?= e($r['equipo']) ?>" data-ds-tip="Editar"
+              data-rl-editar-rev="<?= e(json_encode(['id' => (int)$r['id'], 'equipo' => $r['equipo'], 'fecha' => $r['fecha'], 'hora' => (string)($r['hora'] ?? ''), 'titulo' => (string)($r['titulo'] ?? ''),
+                'responsable' => (string)($r['responsable'] ?? ''), 'estado' => (string)($r['estado'] ?? 'programada'), 'reunion' => !empty($r['reunion_id'])], JSON_UNESCAPED_UNICODE)) ?>"><?= rlIco('editar', 15) ?></button>
+            <?php endif; ?>
           </span>
           <?php if ($cu['revisados']): ?>
           <span class="rl-pila" aria-hidden="true">
             <?php foreach (['cumplido', 'parcial', 'no_cumplido', 'reprogramado', 'no_aplica', 'pendiente'] as $k): if (!$cu[$k]) continue; ?><i class="rl-r--<?= $k ?>" style="flex:<?= (int)$cu[$k] ?>"></i><?php endforeach; ?>
           </span>
           <?php endif; ?>
-        </a>
+        </div>
         <?php endforeach; ?>
         <?php if (!$lista): ?><span class="rl-dia__nada">—</span><?php endif; ?>
       </div>
@@ -1889,6 +2032,14 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         </div>
       </section>
       <section class="mc-card rl-card">
+        <header class="rl-card__cab"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('video', 20) ?></span><div><h2 class="rl-card__tit">Reuniones diarias</h2>
+          <p class="rl-card__sub">Cada día hábil, cada equipo tiene su daily registrada en el panel (una reunión de sus proyectos con «Daily» en el nombre) y su gente se conecta. Zoom dice quién entró.</p></div></header>
+        <div class="rl-form-grid rl-form-grid--2">
+          <?= rlCampo('Se miden desde', '<input class="input-meca" type="date" name="dailies_desde" value="' . e($conf['dailies']['desde']) . '">') ?>
+          <?= rlCampo('Cuenta como cumplida con', UI::selectDS('dailies_umbral', ['50' => 'La mitad del equipo', '60' => 'El 60 % del equipo', '75' => 'El 75 % del equipo', '80' => 'El 80 % del equipo', '100' => 'Todo el equipo'], (string)$conf['dailies']['umbral'])) ?>
+        </div>
+      </section>
+      <section class="mc-card rl-card">
         <header class="rl-card__cab"><span class="mc-tile mc-tile--sm mc-tile--cian"><?= rlIco('notificaciones', 20) ?></span><div><h2 class="rl-card__tit">Por dónde avisar</h2></div></header>
         <div class="rl-switches">
           <?= rlSwitch('avisos[panel]', $av['panel'], 'En el panel', 'La campana de notificaciones.') ?>
@@ -2031,6 +2182,25 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       </div>
     </div>
     <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca btn-agregar" type="submit"><i class="fa-solid fa-plus"></i> Crear revisión</button></footer>
+  </form>
+</dialog>
+<dialog id="rl-dlg-editar-rev" class="dlg-meca rl-dlg">
+  <form class="dlg-form" method="post" action="actions.php" data-rl-form="rel_revision_guardar" data-rl-tras="recargar">
+    <input type="hidden" name="accion" value="rel_revision_guardar"><input type="hidden" name="id" value="0">
+    <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'revisiones'])) ?>">
+    <header><h3 class="font-display"><i class="fa-solid fa-pen"></i> Editar revisión<small data-rl-er-eq></small></h3><button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
+    <div class="rl-form-grid rl-form-grid--2">
+      <?= rlCampo('Fecha', '<input class="input-meca" type="date" name="fecha" required>') ?>
+      <?= rlCampo('Hora', rlInput('name="hora" maxlength="20" placeholder="09:00–10:00"')) ?>
+      <?= rlCampo('Responsable', rlInput('name="responsable" maxlength="200" placeholder="Quién la dirige"')) ?>
+      <?= rlCampo('Estado', UI::selectDS('estado', ['programada' => 'Programada', 'cancelada' => 'Cancelada'], 'programada'), '', 'rl-er-estado') ?>
+    </div>
+    <?= rlCampo('Foco de la sesión', rlInput('name="titulo" maxlength="300" placeholder="Cierre de R2-04 · avance de R2-05…"')) ?>
+    <p class="campo-ayuda" data-rl-er-reu hidden><?= rlIco('video', 14) ?> Tiene su reunión: si cambias el día o la hora, se mueve también y se avisa a los invitados.</p>
+    <footer>
+      <a class="btn-ghost btn-meca rl-dlg__borrar" data-rl-er-abrir href="#"><i class="fa-solid fa-arrow-up-right-from-square"></i> Abrir la revisión</a>
+      <button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button>
+    </footer>
   </form>
 </dialog>
 <?php endif; endif; ?>

@@ -1224,4 +1224,166 @@
       if (!seco) toast(j.mensaje || 'Plan cargado.');
     } catch (err) { toast(err.message, 'error'); }
   });
+
+  /* =========================================================
+     Agenda de revisiones: arrastrar a otro día de la semana o editarla
+     ========================================================= */
+  const agenda = document.querySelector('[data-rl-agenda]');
+  if (agenda) {
+    let arrastrada = null;
+    agenda.addEventListener('dragstart', (e) => {
+      const c = e.target.closest && e.target.closest('[data-rl-ses]');
+      if (!c) return;
+      arrastrada = c;
+      c.classList.add('is-arrastrando');
+      agenda.classList.add('is-arrastrando');
+      e.dataTransfer.effectAllowed = 'move';
+      try { e.dataTransfer.setData('text/plain', c.dataset.rlSes); } catch (err) { /* algunos navegadores no dejan */ }
+    });
+    const limpiar = () => {
+      agenda.classList.remove('is-arrastrando');
+      agenda.querySelectorAll('.is-sobre').forEach((d) => d.classList.remove('is-sobre'));
+      if (arrastrada) arrastrada.classList.remove('is-arrastrando');
+    };
+    agenda.addEventListener('dragend', () => { limpiar(); arrastrada = null; });
+    agenda.addEventListener('dragover', (e) => {
+      const dia = arrastrada && e.target.closest('[data-rl-dia]');
+      if (!dia) return;
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      agenda.querySelectorAll('.is-sobre').forEach((d) => { if (d !== dia) d.classList.remove('is-sobre'); });
+      dia.classList.add('is-sobre');
+    });
+    agenda.addEventListener('dragleave', (e) => {
+      const dia = e.target.closest('[data-rl-dia]');
+      if (dia && !dia.contains(e.relatedTarget)) dia.classList.remove('is-sobre');
+    });
+    agenda.addEventListener('drop', async (e) => {
+      const dia = arrastrada && e.target.closest('[data-rl-dia]');
+      if (!dia) return;
+      e.preventDefault();
+      const c = arrastrada;
+      limpiar();
+      arrastrada = null;
+      const fecha = dia.dataset.rlDia;
+      if (fecha === c.dataset.fecha) return;
+      const origen = c.parentElement;
+      const lista = dia.querySelector('.rl-dia__lista');
+      // Se ve en su día nuevo enseguida; si el panel dice que no, vuelve a donde estaba
+      const nada = lista.querySelector('.rl-dia__nada');
+      if (nada) nada.hidden = true;
+      lista.appendChild(c);
+      c.classList.add('is-guardando');
+      try {
+        const j = await post('rel_revision_guardar', { id: c.dataset.rlSes, fecha });
+        toast((j.mensaje || 'Revisión movida.').replace(/^Revisión guardada\./, 'Revisión movida al ' + fLarga(fecha) + '.'));
+        setTimeout(() => location.reload(), 900);
+      } catch (err) {
+        origen.appendChild(c);
+        if (nada) nada.hidden = false;
+        c.classList.remove('is-guardando');
+        toast(err.message, 'error');
+      }
+    });
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rl-editar-rev]');
+    if (!b) return;
+    e.preventDefault();
+    const r = leerJSON({ textContent: b.dataset.rlEditarRev }) || {};
+    const dlg = document.getElementById('rl-dlg-editar-rev');
+    if (!dlg) return;
+    const f = dlg.querySelector('form');
+    mejorar(dlg);
+    // md-sync: la fecha la pinta MecaDate, que se entera así del valor nuevo
+    const pon = (n, v) => { const el = f.querySelector('[name="' + n + '"]'); if (el) { el.value = v == null ? '' : v; el.dispatchEvent(new Event('change', { bubbles: true })); el.dispatchEvent(new Event('md-sync')); } };
+    pon('id', r.id);
+    pon('fecha', r.fecha);
+    pon('hora', r.hora);
+    pon('titulo', r.titulo);
+    pon('responsable', r.responsable);
+    const est = f.querySelector('.rl-er-estado');
+    const sel = f.querySelector('[name="estado"]');
+    // Una realizada se queda realizada: aquí no se le cambia el estado
+    if (est) est.hidden = r.estado === 'realizada';
+    if (sel) { sel.disabled = r.estado === 'realizada'; if (r.estado !== 'realizada') pon('estado', r.estado === 'cancelada' ? 'cancelada' : 'programada'); }
+    dlg.querySelector('[data-rl-er-eq]').textContent = 'Equipo ' + (r.equipo || '');
+    dlg.querySelector('[data-rl-er-reu]').hidden = !r.reunion;
+    dlg.querySelector('[data-rl-er-abrir]').href = 'releases.php?v=revision&id=' + r.id;
+    dlg.showModal();
+  });
+
+  /* =========================================================
+     Reuniones diarias del equipo: registrarla a mano, traer de Zoom y elegir cuál es
+     ========================================================= */
+  const cajaDl = document.querySelector('[data-rl-dailies]');
+  const DL = leerJSON(cajaDl && cajaDl.querySelector('[data-rl-dailies-datos]')) || {};
+  const dlgDl = document.getElementById('rl-dlg-daily');
+  function llenarDaily(fecha) {
+    if (!dlgDl) return;
+    const f = dlgDl.querySelector('form');
+    const x = (DL.dias || {})[fecha] || {};
+    const manual = x.fuente === 'manual';
+    const marca = (v) => { const r = f.querySelector('[name="estado"][value="' + v + '"]'); if (r) r.checked = true; };
+    marca(!manual ? 'hecha' : ({ cumplida: 'hecha', incompleta: 'hecha', no_hecha: 'no_hecha', no_aplica: 'no_aplica' }[x.estado] || 'hecha'));
+    dlgDl.querySelector('[data-rl-dl-auto]').hidden = !manual;
+    dlgDl.querySelector('[data-rl-dl-zoom]').hidden = !(x.zoom && !manual);
+    const mod = f.querySelector('[name="modalidad"][value="' + (x.modalidad === 'virtual' || (!manual && x.zoom) ? 'virtual' : 'presencial') + '"]');
+    if (mod) mod.checked = true;
+    // Quiénes estuvieron: lo registrado, lo que vio Zoom o, si no hay nada, todo el equipo
+    const hay = Array.isArray(x.presentes) && (manual || x.zoom);
+    const presentes = new Set((hay ? x.presentes : (DL.esperados || []).map((m) => m.id)).map(Number));
+    f.querySelectorAll('[name="presentes[]"]').forEach((c) => { c.checked = presentes.has(Number(c.value)); c.dispatchEvent(new Event('change', { bubbles: true })); });
+    const n = f.querySelector('[data-rl-multi-n]');
+    if (n) n.textContent = presentes.size + ' elegido(s)';
+    f.querySelector('[name="nota"]').value = manual ? (x.nota || '') : '';
+    verHecha();
+  }
+  function verHecha() {
+    if (!dlgDl) return;
+    const v = (dlgDl.querySelector('[name="estado"]:checked') || {}).value;
+    dlgDl.querySelector('[data-rl-dl-hecha]').hidden = v !== 'hecha';
+    const nota = dlgDl.querySelector('[name="nota"]');
+    nota.required = v === 'no_aplica';
+    nota.closest('.mc-field').hidden = v === 'auto';
+  }
+  if (dlgDl) {
+    dlgDl.addEventListener('change', (e) => {
+      if (e.target.matches('[name="estado"]')) verHecha();
+      if (e.target.matches('[data-rl-dl-fecha]')) llenarDaily(e.target.value);
+    });
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rl-daily-reg]');
+    if (!b || !dlgDl) return;
+    const fecha = b.dataset.rlDailyReg || DL.hoy;
+    if (fecha > DL.hoy) { toast('Ese día todavía no llega: se registra cuando pase.', 'info'); return; }
+    mejorar(dlgDl);
+    const inp = dlgDl.querySelector('[data-rl-dl-fecha]');
+    inp.value = fecha;
+    inp.dispatchEvent(new Event('md-sync'));
+    llenarDaily(fecha);
+    dlgDl.showModal();
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rl-daily-zoom]');
+    if (!b) return;
+    try {
+      const j = await ocupado(b, () => post('rel_daily_zoom', { equipo: b.dataset.rlDailyZoom }));
+      if (!j) return;
+      toast(j.mensaje || 'Zoom revisado.');
+      setTimeout(() => location.reload(), 900);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+  if (cajaDl) {
+    cajaDl.addEventListener('change', async (e) => {
+      const sel = e.target.closest('.rl-dailies__elegir select');
+      if (!sel) return;
+      try {
+        const j = await post('rel_daily_reunion', { equipo: DL.equipo, reunion_id: sel.value });
+        toast(j.mensaje || 'Listo.');
+        setTimeout(() => location.reload(), 700);
+      } catch (err) { toast(err.message, 'error'); }
+    });
+  }
 })();
