@@ -30,6 +30,9 @@ $v = (string)($_GET['v'] ?? 'tablero');
 if (!in_array($v, $VISTAS, true)) $v = 'tablero';
 $editor = Releases::puedeEditar();
 if ($v === 'ajustes' && !$editor) redirigir('releases.php', 'Los ajustes de Releases los cambian solo sus editores.', 'error');
+// Quien solo mira (no es editor ni SM de un equipo) ve el release y los hitos, nada más
+$veTodo = Releases::veTodo();
+if (!$veTodo && !in_array($v, Releases::VISTAS_LECTOR, true)) $v = 'release';
 
 $hoy      = date('Y-m-d');
 $yo       = Auth::usuario();
@@ -623,7 +626,8 @@ if ($v === 'item' && isset($_GET['parcial'])) {
 
 /* ============================== Cabecera y pestañas ============================== */
 
-$botonIA = fn(string $texto, array $data) => '<button type="button" class="mc-btn mc-btn--secondary rl-btn-ia"' . implode('', array_map(fn($k, $x) => ' data-' . $k . '="' . e((string)$x) . '"', array_keys($data), $data)) . '>'
+// Los resúmenes con IA son para quien gestiona (editores y SM); quien solo mira no los ve
+$botonIA = fn(string $texto, array $data) => !$veTodo ? '' : '<button type="button" class="mc-btn mc-btn--secondary rl-btn-ia"' . implode('', array_map(fn($k, $x) => ' data-' . $k . '="' . e((string)$x) . '"', array_keys($data), $data)) . '>'
     . rlIco('ia', 18) . '<span class="mc-btn__label">' . e($texto) . '</span></button>';
 $acciones = '';
 $sub = 'La planificación estratégica en un solo lugar: avance por release y por equipo, revisiones semanales y alertas de fechas.';
@@ -653,6 +657,7 @@ $tabs = ['tablero' => ['Tablero', 'dashboard', rlUrl([])],
          'revisiones' => ['Revisiones', 'agenda', rlUrl(['v' => 'revisiones'])],
          'hitos' => ['Hitos', 'bandera', rlUrl(['v' => 'hitos'])]];
 if ($editor) $tabs['ajustes'] = ['Ajustes', 'configuracion', rlUrl(['v' => 'ajustes'])];
+if (!$veTodo) $tabs = array_intersect_key($tabs, array_flip(Releases::VISTAS_LECTOR));
 $tabActiva = ['item' => 'release', 'revision' => 'revisiones'][$v] ?? $v;
 
 UI::inicio('Releases', 'releases');
@@ -1545,37 +1550,111 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <input type="hidden" name="id" value="<?= (int)$rev['id'] ?>">
       <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$rev['id']])) ?>">
       <div class="rl-rev__filas">
-      <?php foreach ((array)$rev['filas'] as $i => $f):
+      <?php
+        // Acordeón: abre la primera fila sin revisar (o la primera); las demás, plegadas
+        $abiertaRl = 0;
+        foreach ((array)$rev['filas'] as $iA => $fA) { if (($fA['estado'] ?? 'pendiente') === 'pendiente') { $abiertaRl = $iA; break; } }
+        foreach ((array)$rev['filas'] as $i => $f):
           $it = ($f['item_id'] ?? 0) ? ($porId[(int)$f['item_id']] ?? null) : ($porCodigo[$f['codigo']] ?? null);
           $tipoCorto = preg_replace('/\s*\(.*$/', '', (string)$f['tipo']) ?: 'Revisión'; ?>
-        <article class="rl-rfila rl-r--<?= e($f['estado'] ?? 'pendiente') ?>" data-rl-rfila>
-          <header class="rl-rfila__cab">
+        <?php
+          // Lo que hay que mirar de este ítem y lo que ya se sabe de él (lo esperado, cómo va, sus tareas)
+          $estadoF  = isset(Releases::RESULTADOS[$f['estado'] ?? '']) ? $f['estado'] : 'pendiente';
+          $esperado = $f['esperado'] ?? ($it['esperado'] ?? null);
+          $segunTar = ($it && $it['avance_tareas'] !== null) ? (int)$it['avance_tareas'] : null;
+          $resTar   = $it['tareas_resumen'] ?? ['total' => 0, 'hechas' => 0];
+          $esCierre = stripos((string)$f['tipo'], 'cierre') !== false;
+          $integra  = array_values(array_filter(array_map('trim', preg_split('/\s*·\s*/u', (string)($f['integraciones'] ?? '')) ?: [])));
+          $revisar  = array_filter([
+              ['documento', 'Debe estar entregado', (string)($f['entregado'] ?? '')],
+              ['bandera', 'Foco de la semana', (string)($f['foco'] ?? '')],
+              ['check', 'Evidencia', (string)($f['evidencia'] ?? '')],
+          ], fn($x) => trim($x[2]) !== '');
+          $pctF = $f['pct'] === null ? '' : (int)$f['pct'];
+        ?>
+        <article class="rl-rfila rl-r--<?= e($estadoF) ?><?= $i === $abiertaRl ? ' is-abierta' : '' ?>" data-rl-rfila data-esperado="<?= $esperado === null ? '' : (int)$esperado ?>"<?= $esCierre ? ' data-cierre' : '' ?>>
+          <header class="rl-rfila__cab" data-rl-acordeon>
             <?= rlCode((string)$f['codigo'], rlColorRel($rels, (string)$f['codigo'])) ?>
             <div class="rl-rfila__tit">
               <?php if ($it): ?><a href="<?= e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) ?>" data-rl-item="<?= (int)$it['id'] ?>"><?= e($f['titulo'] ?: $it['titulo']) ?></a><?php else: ?><b><?= e($f['titulo'] ?: $f['codigo']) ?></b><?php endif; ?>
-              <span class="rl-rfila__meta"><span class="rl-tipo rl-tipo--<?= e(strtolower(preg_replace('/[^a-z]/i', '', Releases::normal($tipoCorto)))) ?>"><?= e((string)$f['tipo']) ?></span>
-                <?php if ($f['esperado'] !== null): ?><span>Esperado <b class="mc-num"><?= (int)$f['esperado'] ?> %</b></span><?php endif; ?>
-                <?php if ($it): ?><span>Hoy va en <b class="mc-num"><?= (int)$it['avance'] ?> %</b></span><?php endif; ?></span>
+              <span class="rl-rfila__meta">
+                <span class="rl-tipo rl-tipo--<?= e(strtolower(preg_replace('/[^a-z]/i', '', Releases::normal($tipoCorto)))) ?>"><?= e((string)$f['tipo']) ?></span>
+                <?php if ($esperado !== null): ?><span class="rl-rfila__dato">Esperado <b class="mc-num"><?= (int)$esperado ?> %</b></span><?php endif; ?>
+                <?php if ($it): ?><span class="rl-rfila__dato">Hoy va en <b class="mc-num"><?= (int)$it['avance'] ?> %</b></span><?php endif; ?>
+                <?php if ($resTar['total']): ?><span class="rl-rfila__dato"><?= rlIco('completar', 14) ?> <b class="mc-num"><?= (int)$resTar['hechas'] ?>/<?= (int)$resTar['total'] ?></b> tareas</span><?php endif; ?>
+              </span>
             </div>
-            <?php if ($puedeReg): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-quitar="<?= (int)$i ?>" aria-label="Quitar de la sesión" data-ds-tip="Quitar de la sesión"><?= rlIco('cerrar', 16) ?></button><?php endif; ?>
+            <span class="rl-rfila__resumen" data-rl-resumen-fila>
+              <span class="rl-rfila__res"><i aria-hidden="true"></i><b data-rl-res-txt><?= e(Releases::RESULTADOS[$estadoF][0]) ?></b></span>
+              <b class="mc-num rl-rfila__respct" data-rl-res-pct><?= $pctF === '' ? '' : $pctF . ' %' ?></b>
+            </span>
+            <span class="rl-rfila__acc">
+              <?php if ($puedeReg): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-quitar="<?= (int)$i ?>" aria-label="Quitar de la sesión" data-ds-tip="Quitar de la sesión"><?= rlIco('eliminar', 15) ?></button><?php endif; ?>
+              <button type="button" class="mc-iconbtn mc-iconbtn--sm rl-rfila__abrir" data-rl-abrir-fila aria-expanded="<?= $i === $abiertaRl ? 'true' : 'false' ?>" aria-controls="rl-rf-<?= (int)$i ?>" aria-label="Abrir o cerrar <?= e((string)$f['codigo']) ?>"><?= rlIco('chevron-abajo', 18) ?></button>
+            </span>
           </header>
-          <?php $info = array_filter(['Qué debe estar entregado' => $f['entregado'] ?? '', 'Foco' => $f['foco'] ?? '', 'Evidencia' => $f['evidencia'] ?? '', 'Integraciones a verificar' => $f['integraciones'] ?? ''], fn($x) => trim((string)$x) !== ''); ?>
-          <?php if ($info): ?>
-          <dl class="rl-rfila__info"><?php foreach ($info as $lbl => $txt): ?><div><dt><?= e($lbl) ?></dt><dd><?= e((string)$txt) ?></dd></div><?php endforeach; ?></dl>
-          <?php endif; ?>
-          <div class="rl-rfila__reg">
-            <div class="rl-seg rl-seg--res" role="radiogroup" aria-label="Resultado de <?= e((string)$f['codigo']) ?>">
-              <?php foreach (Releases::RESULTADOS as $k => [$lbl, $tono]): ?>
-              <label class="rl-seg__op rl-r--<?= e($k) ?>"><input type="radio" name="filas[<?= (int)$i ?>][estado]" value="<?= e($k) ?>"<?= ($f['estado'] ?? 'pendiente') === $k ? ' checked' : '' ?><?= $puedeReg ? '' : ' disabled' ?>><span><i aria-hidden="true"></i><?= e($lbl) ?></span></label>
-              <?php endforeach; ?>
+          <div class="rl-rfila__cuerpo" id="rl-rf-<?= (int)$i ?>">
+            <?php if ($revisar || $integra): ?>
+            <div class="rl-rfila__revisar">
+              <p class="rl-rfila__rot">Qué revisar</p>
+              <ul class="rl-rfila__lista">
+                <?php foreach ($revisar as [$ico, $lbl, $txt]): ?>
+                <li><span class="rl-rfila__ico" aria-hidden="true"><?= rlIco($ico, 14) ?></span>
+                  <div><span class="rl-rfila__lbl"><?= e($lbl) ?></span><p class="rl-rfila__txt" data-rl-recorte><?= e($txt) ?></p></div></li>
+                <?php endforeach; ?>
+                <?php if ($integra): ?>
+                <li><span class="rl-rfila__ico" aria-hidden="true"><?= rlIco('relacionar', 14) ?></span>
+                  <div><span class="rl-rfila__lbl">Integraciones a verificar</span>
+                    <span class="rl-rfila__chips"><?php foreach ($integra as $x): ?><span class="rl-chipi"><?= e($x) ?></span><?php endforeach; ?></span></div></li>
+                <?php endif; ?>
+              </ul>
             </div>
-            <div class="rl-rfila__pct">
-              <label class="mc-field__label" for="rl-pct-<?= (int)$i ?>">% real</label>
-              <div class="mc-input mc-input--sm"><input class="mc-input__control mc-num" id="rl-pct-<?= (int)$i ?>" type="number" min="0" max="100" step="1" inputmode="numeric" name="filas[<?= (int)$i ?>][pct]" value="<?= $f['pct'] === null ? '' : (int)$f['pct'] ?>" placeholder="<?= $f['esperado'] !== null ? (int)$f['esperado'] : '' ?>"<?= $puedeReg ? '' : ' disabled' ?>><span class="mc-input__affix">%</span></div>
-            </div>
-            <div class="rl-rfila__obs">
-              <label class="mc-field__label" for="rl-obs-<?= (int)$i ?>">Observaciones</label>
-              <div class="mc-input mc-input--multiline mc-input--sm"><textarea class="mc-input__control rl-textarea" id="rl-obs-<?= (int)$i ?>" name="filas[<?= (int)$i ?>][obs]" rows="2" placeholder="Qué se vio, qué falta, nueva fecha si se reprograma…"<?= $puedeReg ? '' : ' disabled' ?>><?= e((string)($f['obs'] ?? '')) ?></textarea></div>
+            <?php endif; ?>
+            <div class="rl-rfila__resultado">
+              <p class="rl-rfila__rot">Resultado</p>
+              <div class="rl-res" role="radiogroup" aria-label="Resultado de <?= e((string)$f['codigo']) ?>">
+                <div class="rl-res__main">
+                  <?php foreach (['cumplido' => 'check', 'parcial' => 'menos', 'no_cumplido' => 'cerrar'] as $k => $ico): ?>
+                  <label class="rl-res__op rl-r--<?= $k ?>"><input type="radio" name="filas[<?= (int)$i ?>][estado]" value="<?= $k ?>"<?= $estadoF === $k ? ' checked' : '' ?><?= $puedeReg ? '' : ' disabled' ?>>
+                    <span><span class="rl-res__ico" aria-hidden="true"><?= rlIco($ico, 16) ?></span><?= e(Releases::RESULTADOS[$k][0]) ?></span></label>
+                  <?php endforeach; ?>
+                </div>
+                <div class="rl-res__mas">
+                  <?php foreach (['reprogramado', 'no_aplica', 'pendiente'] as $k): ?>
+                  <label class="rl-res__op rl-r--<?= $k ?>"><input type="radio" name="filas[<?= (int)$i ?>][estado]" value="<?= $k ?>"<?= $estadoF === $k ? ' checked' : '' ?><?= $puedeReg ? '' : ' disabled' ?>>
+                    <span><i aria-hidden="true"></i><?= e(Releases::RESULTADOS[$k][0]) ?></span></label>
+                  <?php endforeach; ?>
+                </div>
+              </div>
+              <div class="rl-rfila__pct">
+                <div class="rl-rfila__pctcab">
+                  <label class="rl-rfila__lbl" for="rl-pct-<?= (int)$i ?>">% real</label>
+                  <?php if ($puedeReg && ($esperado !== null || $segunTar !== null)): ?>
+                  <span class="rl-atajos">
+                    <?php if ($esperado !== null): ?><button type="button" class="rl-atajo" data-rl-pct="<?= (int)$esperado ?>">= esperado <?= (int)$esperado ?> %</button><?php endif; ?>
+                    <?php if ($segunTar !== null): ?><button type="button" class="rl-atajo" data-rl-pct="<?= $segunTar ?>">según tareas <?= $segunTar ?> %</button><?php endif; ?>
+                  </span>
+                  <?php endif; ?>
+                </div>
+                <div class="rl-rango"<?= $pctF === '' ? ' data-vacio' : '' ?> style="--espn:<?= $esperado === null ? '-1' : round((int)$esperado / 100, 2) ?>">
+                  <span class="rl-rango__pista">
+                    <input type="range" min="0" max="100" step="5" value="<?= $pctF === '' ? 0 : $pctF ?>" data-rl-rango aria-label="% real de <?= e((string)$f['codigo']) ?>"<?= $puedeReg ? '' : ' disabled' ?>>
+                    <?php if ($esperado !== null): ?><i class="rl-rango__esp" aria-hidden="true" data-ds-tip="Esperado <?= (int)$esperado ?> %"></i><?php endif; ?>
+                  </span>
+                  <div class="mc-input mc-input--sm rl-rango__num"><input class="mc-input__control mc-num" id="rl-pct-<?= (int)$i ?>" type="number" min="0" max="100" step="1" inputmode="numeric" name="filas[<?= (int)$i ?>][pct]" value="<?= $pctF ?>" placeholder="—"<?= $puedeReg ? '' : ' disabled' ?>><span class="mc-input__affix">%</span></div>
+                </div>
+              </div>
+              <div class="rl-rfila__obs">
+                <label class="rl-rfila__lbl" for="rl-obs-<?= (int)$i ?>">Observaciones</label>
+                <div class="mc-input mc-input--multiline mc-input--sm"><textarea class="mc-input__control rl-textarea" id="rl-obs-<?= (int)$i ?>" name="filas[<?= (int)$i ?>][obs]" rows="2" data-rl-crece placeholder="• Qué se vio y qué falta…"<?= $puedeReg ? '' : ' disabled' ?>><?= e((string)($f['obs'] ?? '')) ?></textarea></div>
+                <?php if ($puedeReg): ?>
+                <div class="rl-frases" aria-label="Frases rápidas">
+                  <?php foreach (['Falta evidencia', 'Falta de requerimientos', 'Falta integrar', 'Bloqueado por UBE'] as $fr): ?>
+                  <button type="button" class="rl-frase" data-rl-frase="<?= e($fr) ?>"><?= rlIco('mas', 12) ?> <?= e($fr) ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+              </div>
             </div>
           </div>
         </article>
@@ -1929,20 +2008,28 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 <?php endif; ?>
 
 <?php if ($v === 'revisiones'): $misEq = $editor ? array_keys($eqs) : array_values(array_filter(array_keys($eqs), $smDe)); if ($misEq): ?>
-<dialog id="rl-dlg-revision" class="dlg-meca rl-dlg">
+<dialog id="rl-dlg-revision" class="dlg-meca rl-dlg rl-dlg--ancho">
   <form class="dlg-form" method="post" action="actions.php" data-rl-form="rel_revision_guardar" data-rl-tras="ir-revision">
     <input type="hidden" name="accion" value="rel_revision_guardar"><input type="hidden" name="id" value="0">
     <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'revisiones'])) ?>">
     <header><h3 class="font-display"><i class="fa-solid fa-calendar-plus"></i> Nueva revisión</h3><button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
-    <div class="rl-form-grid rl-form-grid--2">
-      <?= rlCampo('Equipo', UI::selectDS('equipo', array_combine($misEq, $misEq), $misEq[0])) ?>
-      <?= rlCampo('Fecha', '<input class="input-meca" type="date" name="fecha" value="' . e($hoy) . '" required>') ?>
-      <?= rlCampo('Hora', rlInput('name="hora" maxlength="20" placeholder="09:00–10:00"')) ?>
-      <?= rlCampo('Responsable', rlInput('name="responsable" maxlength="200" placeholder="Quién la dirige"')) ?>
+    <div class="rl-dlg__dos">
+      <div class="rl-dlg__col">
+        <p class="rl-dlg__rot">La sesión</p>
+        <div class="rl-form-grid rl-form-grid--2">
+          <?= rlCampo('Equipo', UI::selectDS('equipo', array_combine($misEq, $misEq), $misEq[0])) ?>
+          <?= rlCampo('Fecha', '<input class="input-meca" type="date" name="fecha" value="' . e($hoy) . '" required>') ?>
+          <?= rlCampo('Hora', rlInput('name="hora" maxlength="20" placeholder="09:00–10:00"')) ?>
+          <?= rlCampo('Responsable', rlInput('name="responsable" maxlength="200" placeholder="Quién la dirige"')) ?>
+        </div>
+        <?= rlCampo('Foco de la sesión', rlInput('name="titulo" maxlength="300" placeholder="Cierre de R2-04 · avance de R2-05…"')) ?>
+        <p class="campo-ayuda">Al crearla se abre para agregarle los ítems y registrar lo revisado.</p>
+      </div>
+      <div class="rl-dlg__col">
+        <p class="rl-dlg__rot">Dónde se hace</p>
+        <?= rlModalidad() ?>
+      </div>
     </div>
-    <?= rlCampo('Foco de la sesión', rlInput('name="titulo" maxlength="300" placeholder="Cierre de R2-04 · avance de R2-05…"')) ?>
-    <?= rlModalidad() ?>
-    <p class="campo-ayuda">Al crearla se abre para agregarle los ítems y registrar lo revisado.</p>
     <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca btn-agregar" type="submit"><i class="fa-solid fa-plus"></i> Crear revisión</button></footer>
   </form>
 </dialog>

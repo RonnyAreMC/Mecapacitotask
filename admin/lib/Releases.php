@@ -114,13 +114,19 @@ final class Releases
         return Auth::esAdmin() || in_array((int)$u['id'], self::conf()['editores'], true);
     }
 
+    /** Todos con sesión ven Releases (en solo lectura); cambiar es de los editores y del SM de cada equipo. */
     public static function puedeVer(): bool
     {
-        if (self::puedeEditar()) return true;
-        $c = self::conf();
-        if (!Auth::usuario()) return false;
-        if ($c['ven_todos']) return true;
-        return $c['ven_sm'] && (Auth::esGestor() || self::equipoDeSm((int)(Auth::usuario()['id'] ?? 0)) !== null);
+        return (bool)Auth::usuario();
+    }
+
+    /** Lo que ve quien solo mira (no es editor ni SM de un equipo): el release y los hitos. */
+    public const VISTAS_LECTOR = ['release', 'item', 'hitos'];
+
+    /** ¿Ve todo el módulo (tablero, equipos, revisiones)? Los editores y el SM de algún equipo. */
+    public static function veTodo(): bool
+    {
+        return self::puedeEditar() || self::equipoDeSm((int)(Auth::usuario()['id'] ?? 0)) !== null;
     }
 
     /** El equipo del que esta persona es Scrum Master (o null). */

@@ -728,9 +728,106 @@
         const fila = r.closest('[data-rl-rfila]');
         fila.className = fila.className.replace(/rl-r--[a-z_]+/, 'rl-r--' + r.value);
         const pct = fila.querySelector('input[type="number"]');
-        if (r.value === 'cumplido' && pct && pct.value === '' && pct.placeholder !== '') pct.value = pct.placeholder;
+        // Cumplido sin % anotado: lo esperado (o 100 si es un cierre)
+        if (r.value === 'cumplido' && pct && pct.value === '') {
+          const v = fila.hasAttribute('data-cierre') ? '100' : (fila.dataset.esperado || '');
+          if (v !== '') { pct.value = v; pct.dispatchEvent(new Event('input', { bubbles: true })); }
+        }
+        // No cumplido o reprogramado: lo que importa es la observación
+        if ((r.value === 'no_cumplido' || r.value === 'reprogramado') && fila.querySelector('textarea')) fila.querySelector('textarea').focus();
         pintarCumple();
       }
+    });
+    // Acordeón: una fila abierta a la vez (abrir otra cierra la anterior)
+    const filasRev = [...revForm.querySelectorAll('[data-rl-rfila]')];
+    const alternar = (fila) => {
+      const abrir = !fila.classList.contains('is-abierta');
+      filasRev.forEach((f) => {
+        const si = abrir && f === fila;
+        f.classList.toggle('is-abierta', si);
+        const b = f.querySelector('[data-rl-abrir-fila]');
+        if (b) b.setAttribute('aria-expanded', si ? 'true' : 'false');
+      });
+      if (abrir) requestAnimationFrame(() => fila.scrollIntoView({ behavior: 'smooth', block: 'nearest' }));
+    };
+    filasRev.forEach((fila) => {
+      const cab = fila.querySelector('[data-rl-acordeon]');
+      if (!cab) return;
+      cab.addEventListener('click', (e) => {
+        if (e.target.closest('a, [data-rl-quitar]')) return;
+        alternar(fila);
+      });
+    });
+    // Cada fila: deslizador ↔ número, atajos de %, frases rápidas, «Ver más» y observaciones que crecen
+    revForm.querySelectorAll('[data-rl-rfila]').forEach((fila) => {
+      const num = fila.querySelector('input[type="number"]');
+      const rango = fila.querySelector('[data-rl-rango]');
+      const caja = fila.querySelector('.rl-rango');
+      const obs = fila.querySelector('textarea');
+      const crecer = () => { if (!obs) return; obs.style.height = 'auto'; obs.style.height = Math.min(obs.scrollHeight + 2, 260) + 'px'; };
+      // La pista se llena en azul hasta el % (--v)
+      const llenar = () => { if (rango) rango.style.setProperty('--v', (caja.hasAttribute('data-vacio') ? 0 : rango.value) + '%'); };
+      if (rango && num) {
+        rango.addEventListener('input', () => { num.value = rango.value; caja.removeAttribute('data-vacio'); llenar(); });
+        num.addEventListener('input', () => {
+          if (num.value === '') { caja.setAttribute('data-vacio', ''); llenar(); return; }
+          rango.value = String(Math.max(0, Math.min(100, +num.value)));
+          caja.removeAttribute('data-vacio');
+          llenar();
+        });
+        llenar();
+      }
+      fila.querySelectorAll('[data-rl-pct]').forEach((b) => b.addEventListener('click', () => {
+        if (!num) return;
+        num.value = b.dataset.rlPct;
+        num.dispatchEvent(new Event('input', { bubbles: true }));
+      }));
+      // Frases rápidas: cada una entra como viñeta en una línea nueva
+      fila.querySelectorAll('[data-rl-frase]').forEach((b) => b.addEventListener('click', () => {
+        if (!obs) return;
+        const lineas = obs.value.replace(/\s+$/, '').split('\n').filter((l, i, a) => l.trim() !== '' || i < a.length - 1);
+        if (lineas.length && lineas[lineas.length - 1].trim() === '•') lineas.pop();
+        lineas.push('• ' + b.dataset.rlFrase);
+        obs.value = lineas.join('\n');
+        obs.dispatchEvent(new Event('input', { bubbles: true }));
+        crecer();
+        obs.focus();
+        obs.setSelectionRange(obs.value.length, obs.value.length);
+      }));
+      // En una lista con viñetas, Enter sigue la lista (y en una viñeta vacía, la corta)
+      if (obs) obs.addEventListener('keydown', (e) => {
+        if (e.key !== 'Enter' || e.shiftKey) return;
+        const ini = obs.selectionStart;
+        const antes = obs.value.slice(0, ini);
+        const linea = antes.slice(antes.lastIndexOf('\n') + 1);
+        if (!/^\s*•/.test(linea)) return;
+        e.preventDefault();
+        if (linea.trim() === '•') {
+          obs.value = antes.slice(0, antes.length - linea.length) + obs.value.slice(ini);
+          obs.setSelectionRange(ini - linea.length, ini - linea.length);
+        } else {
+          obs.value = antes + '\n• ' + obs.value.slice(ini);
+          obs.setSelectionRange(ini + 3, ini + 3);
+        }
+        obs.dispatchEvent(new Event('input', { bubbles: true }));
+      });
+      // El resumen de la fila plegada (resultado y %) al día
+      const resTxt = fila.querySelector('[data-rl-res-txt]');
+      const resPct = fila.querySelector('[data-rl-res-pct]');
+      fila.addEventListener('change', (e) => {
+        if (e.target.type === 'radio' && resTxt) resTxt.textContent = (e.target.closest('label') || {}).textContent.trim();
+      });
+      if (num && resPct) num.addEventListener('input', () => { resPct.textContent = num.value === '' ? '' : num.value + ' %'; });
+      if (obs) { obs.addEventListener('input', crecer); crecer(); }
+      fila.querySelectorAll('[data-rl-recorte]').forEach((p) => {
+        if (p.scrollHeight <= p.clientHeight + 2) return;
+        const b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'rl-vermas';
+        b.textContent = 'Ver más';
+        b.addEventListener('click', () => { const abierto = p.classList.toggle('is-abierto'); b.textContent = abierto ? 'Ver menos' : 'Ver más'; });
+        p.after(b);
+      });
     });
     addEventListener('beforeunload', (e) => { if (hayCambios) { e.preventDefault(); e.returnValue = ''; } });
     function pintarCumple() {
@@ -903,6 +1000,8 @@
       if (plat === 'zoom' && !j.zoom_listo) aviso('warning', 'Zoom no está configurado en Ajustes → Zoom. Puedes guardar la revisión como virtual y crear la reunión después.');
       else if (!plat) aviso('warning', 'No hay ninguna plataforma de reuniones configurada (Ajustes → Reuniones).');
       else if (!(j.proyectos || []).length) aviso('warning', 'El equipo no tiene proyectos del panel donde crear la reunión: elígelos en Releases → Ajustes → Equipos.');
+      // Sin Zoom ni Meet conectados, el panel cae al enlace propio (como en «Nueva reunión»)
+      else if (plat === 'enlace' && !j.zoom_listo) aviso('info', 'Este panel no tiene Zoom conectado, por eso pide un enlace. Con Zoom conectado (Ajustes → Zoom), la reunión se crea sola en Zoom, igual que las demás reuniones del panel.');
       else aviso('', '');
       const sp = q('[data-rl-reu-proy]');
       sp.innerHTML = (j.proyectos || []).map((p) => '<option value="' + p.id + '"' + (p.puede ? '' : ' disabled') + '>' + esc(p.nombre) + (p.puede ? '' : ' (sin permiso)') + '</option>').join('') || '<option value="">Sin proyectos</option>';

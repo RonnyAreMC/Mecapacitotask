@@ -3894,6 +3894,7 @@ switch ($accion) {
                     // Para el formulario: las reuniones del equipo ese día, la plataforma y a quién invitar
                     $eqRl = (string)($_POST['equipo'] ?? '');
                     if (!Releases::equipo($eqRl)) throw new RuntimeException('Ese equipo no existe.');
+                    if (!$relSmDe($eqRl)) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
                     $mapaRl = $miembros->mapa();
                     $pidsRl = Releases::proyectosEquipo($eqRl);
                     $relFin(true, '', [

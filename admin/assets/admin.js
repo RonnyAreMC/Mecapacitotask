@@ -997,6 +997,37 @@ document.querySelectorAll('.nav-grupo').forEach((grupo) => {
   addEventListener('resize', cerrar);
 });
 
+// Con la barra desplegada, cada grupo (Proyectos, Equipos, PM…) se pliega tocando su
+// título. Se recuerda en el navegador; el grupo de la página abierta siempre se ve.
+(function () {
+  const CLAVE = 'meca-nav-plegados';
+  const leer = () => { try { return JSON.parse(localStorage.getItem(CLAVE) || '{}') || {}; } catch (e) { return {}; } };
+  const guardados = leer();
+  document.querySelectorAll('.sidebar .nav-grupo:not(.cuenta-menu)').forEach((g) => {
+    const tit = g.querySelector(':scope > .sidebar-label');
+    if (!tit) return;
+    const nombre = (tit.firstChild && tit.firstChild.textContent || tit.textContent).trim();
+    const plegado = g.classList.contains('con-activo') ? false : (nombre in guardados ? !!guardados[nombre] : g.dataset.plegado === '1');
+    g.classList.toggle('plegado', plegado);
+    tit.setAttribute('role', 'button');
+    tit.tabIndex = 0;
+    tit.setAttribute('aria-expanded', String(!plegado));
+    const alternar = () => {
+      const p = g.classList.toggle('plegado');
+      tit.setAttribute('aria-expanded', String(!p));
+      const m = leer();
+      m[nombre] = p;
+      try { localStorage.setItem(CLAVE, JSON.stringify(m)); } catch (e) { /* sin almacenamiento, solo por ahora */ }
+    };
+    tit.addEventListener('click', (e) => {
+      if (document.documentElement.classList.contains('sb-collapsed')) return;
+      if (e.target.closest('.nav-badge')) return;
+      alternar();
+    });
+    tit.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); alternar(); } });
+  });
+})();
+
 // Colapsar / expandir la barra lateral (persistido en localStorage)
 const sidebarToggle = document.getElementById('sidebar-toggle');
 if (sidebarToggle) {
