@@ -1230,7 +1230,7 @@ function proyectoEnCelular() {
 /* En el celular, una vista que ahí no existe (un enlace a #vista-calendario,
    lo último que se eligió, el Calendario de entrada…) cae en Tareas. */
 function proyectoVistaCelular(v) {
-  return proyectoEnCelular() && !['tareas', 'observaciones', 'reuniones'].includes(v) ? 'tareas' : v;
+  return proyectoEnCelular() && !['tareas', 'observaciones', 'reuniones', 'release'].includes(v) ? 'tareas' : v;
 }
 /* Al girar el teléfono o cambiar el ancho de la ventana se cruza el corte de
    900 px: avisa para volver a pintar la vista (tarjetas ↔ tabla o Kanban). */
@@ -4385,4 +4385,143 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
   };
   pintar();
   setInterval(pintar, 1000);
+})();
+
+/* =========================================================
+   Menú circular de acciones rápidas (UI::menuRadial): el botón abre las
+   opciones alrededor de un centro, cada una con su nombre por fuera. Se cierra
+   con Esc, con el centro o tocando fuera; las flechas pasan de una a otra.
+   El menú se mueve a <body> al abrirse para que nada lo recorte.
+   ========================================================= */
+(() => {
+  const RADIO = 76;
+  let abierto = null;
+  const partes = (rad) => ({ btn: rad.querySelector('[data-rad-btn]'), menu: rad._menu || rad.querySelector('[data-rad-menu]'), fondo: rad._fondo || rad.querySelector('[data-rad-fondo]') });
+
+  function abrir(rad) {
+    const { btn, menu, fondo } = partes(rad);
+    if (!rad._menu) { rad._menu = menu; rad._fondo = fondo; menu._rad = rad; fondo._rad = rad; document.body.append(fondo, menu); }
+    const ops = [...menu.querySelectorAll('.rad-op')];
+    const r = btn.getBoundingClientRect();
+    // Cada opción en su ángulo, con su nombre hacia afuera
+    ops.forEach((o, i) => {
+      const ang = -Math.PI / 2 + (i * 2 * Math.PI) / ops.length;
+      const x = Math.cos(ang) * RADIO;
+      const y = Math.sin(ang) * RADIO;
+      o.style.setProperty('--x', x.toFixed(1) + 'px');
+      o.style.setProperty('--y', y.toFixed(1) + 'px');
+      o.style.transitionDelay = (i * 30) + 'ms';
+      o.classList.toggle('is-der', x > 12);
+      o.classList.toggle('is-izq', x < -12);
+      o.classList.toggle('is-arriba', Math.abs(x) <= 12 && y < 0);
+      o.classList.toggle('is-abajo', Math.abs(x) <= 12 && y > 0);
+    });
+    // Se mide lo que ocupan los nombres de cada lado para que ninguno se salga de la pantalla
+    menu.style.visibility = 'hidden';
+    menu.hidden = false;
+    const ancho = (lado) => Math.max(0, ...ops.filter((o) => o.classList.contains(lado)).map((o) => o.querySelector('.rad-txt').offsetWidth));
+    const izq = Math.max(120, RADIO + 27 + ancho('is-izq') + 12);
+    const der = Math.max(120, RADIO + 27 + ancho('is-der') + 12);
+    const margenY = RADIO + 50;
+    const cx = innerWidth < izq + der ? innerWidth / 2 : Math.min(Math.max(r.left + r.width / 2, izq), innerWidth - der);
+    const cy = Math.min(Math.max(r.bottom + RADIO + 16, margenY), innerHeight - margenY);
+    menu.style.left = cx + 'px';
+    menu.style.top = cy + 'px';
+    menu.style.visibility = '';
+    fondo.hidden = false;
+    requestAnimationFrame(() => menu.classList.add('is-abierto'));
+    btn.setAttribute('aria-expanded', 'true');
+    abierto = rad;
+    setTimeout(() => (ops[0] || menu.querySelector('[data-rad-cerrar]')).focus(), 60);
+  }
+
+  function cerrar(devolverFoco = true) {
+    if (!abierto) return;
+    const rad = abierto;
+    const { btn, menu, fondo } = partes(rad);
+    abierto = null;
+    menu.classList.remove('is-abierto');
+    fondo.hidden = true;
+    setTimeout(() => { if (!menu.classList.contains('is-abierto')) menu.hidden = true; }, 220);
+    btn.setAttribute('aria-expanded', 'false');
+    if (devolverFoco) btn.focus();
+  }
+
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rad-btn]');
+    if (b) {
+      const rad = b.closest('[data-rad]');
+      if (abierto === rad) cerrar(); else { cerrar(false); abrir(rad); }
+      return;
+    }
+    if (!abierto) return;
+    if (e.target.closest('[data-rad-fondo], [data-rad-cerrar]')) { cerrar(); return; }
+    const op = e.target.closest('.rad-op');
+    if (!op) return;
+    // Abre su ventana o su pestaña; los enlaces y las descargas siguen su camino
+    const dlg = op.dataset.radDlg ? document.getElementById(op.dataset.radDlg) : null;
+    const vista = op.dataset.radVista ? document.querySelector('[data-vista="' + op.dataset.radVista + '"]') : null;
+    cerrar(false);
+    if (dlg && dlg.showModal) { e.preventDefault(); dlg.showModal(); }
+    if (vista) { e.preventDefault(); vista.click(); window.scrollTo({ top: vista.closest('.vista-fila').getBoundingClientRect().top + scrollY - 80, behavior: 'smooth' }); }
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (!abierto) return;
+    const { menu } = partes(abierto);
+    if (e.key === 'Escape') { e.preventDefault(); cerrar(); return; }
+    const ops = [...menu.querySelectorAll('.rad-op')];
+    const i = ops.indexOf(document.activeElement);
+    if (['ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); ops[(i + 1) % ops.length].focus(); }
+    if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); ops[(i - 1 + ops.length) % ops.length].focus(); }
+    if (e.key === 'Tab') {
+      // El foco se queda dentro del menú mientras está abierto
+      const todos = [...menu.querySelectorAll('.rad-op, [data-rad-cerrar]')];
+      const j = todos.indexOf(document.activeElement);
+      e.preventDefault();
+      todos[(j + (e.shiftKey ? -1 : 1) + todos.length) % todos.length].focus();
+    }
+  });
+  addEventListener('resize', () => cerrar(false));
+})();
+
+/* =========================================================
+   Pestaña «Release» (proyecto.php): las pestañas de cada release, el ítem que
+   se abre al pulsarlo (con sus tareas) y «Agregar tarea aquí», que abre la
+   tarea nueva ya amarrada a ese ítem.
+   ========================================================= */
+(() => {
+  const caja = document.getElementById('rel-vista');
+  if (!caja) return;
+  const abrirItem = (li) => {
+    const abierto = li.getAttribute('aria-expanded') !== 'true';
+    li.setAttribute('aria-expanded', abierto ? 'true' : 'false');
+    li.classList.toggle('is-abierto', abierto);
+    li.querySelector('.rel-detalle').hidden = !abierto;
+  };
+  caja.addEventListener('click', (e) => {
+    const t = e.target.closest('[data-rel-tab]');
+    if (t) {
+      caja.querySelectorAll('[data-rel-tab]').forEach((x) => { const on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      caja.querySelectorAll('[data-rel-panel]').forEach((p) => { p.hidden = p.dataset.relPanel !== t.dataset.relTab; });
+      return;
+    }
+    const b = e.target.closest('[data-rel-tarea]');
+    if (b) {
+      const nueva = document.getElementById('dlg-nueva-tarea');
+      if (!nueva) return;
+      const sel = nueva.querySelector('select[name="rel_item"]');
+      if (sel) setSelect(sel, b.dataset.relTarea);
+      nueva.showModal();
+      const titulo = nueva.querySelector('input[name="titulo"]');
+      if (titulo) setTimeout(() => titulo.focus(), 50);
+      return;
+    }
+    const li = e.target.closest('[data-rel-item]');
+    if (li && !e.target.closest('.rel-detalle')) abrirItem(li);
+  });
+  caja.addEventListener('keydown', (e) => {
+    const li = e.target.closest('[data-rel-item]');
+    if (li && e.target === li && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirItem(li); }
+  });
 })();

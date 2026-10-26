@@ -404,6 +404,22 @@ if (class_exists('Releases')) {
             . (count($relEqs) > 1 ? ' · ' . $ri['equipo'] : '') . ($est === 'cerrado' ? ' (terminado)' : '');
     }
 }
+// El release del equipo, para verlo desde Tareas y agregarle tareas a cada ítem
+$relPanel = null;
+if ($relOpciones) {
+    $idsRel = array_flip(array_map('intval', array_keys($relOpciones)));
+    $itemsRel = array_values(array_filter(Releases::items(), fn($it) => isset($idsRel[(int)$it['id']])));
+    $relsRel = Releases::releases();
+    $porRel = [];
+    foreach ($itemsRel as $it) $porRel[(string)$it['release']][] = $it;
+    $hoyRel = date('Y-m-d');
+    // Se abre en el release de hoy (o el próximo que empieza); si no, el último
+    $actualRel = '';
+    foreach ($relsRel as $cod => $r) if (isset($porRel[$cod]) && ($r['fin'] ?? '') >= $hoyRel) { $actualRel = (string)$cod; break; }
+    if ($actualRel === '' && $porRel) $actualRel = (string)array_key_last($porRel);
+    $relPanel = ['releases' => array_intersect_key($relsRel, $porRel), 'items' => $porRel, 'actual' => $actualRel,
+                 'equipos' => array_values(array_unique(array_column($itemsRel, 'equipo')))];
+}
 $relCampo = function (string $clase = '') use ($relOpciones): string {
     if (!$relOpciones) return '';
     return '<label class="campo"><span>Ítem del release</span>'
@@ -744,7 +760,11 @@ foreach ($tareas as $t) {
     <button type="button" class="tab-btn" data-vista="observaciones" data-tip="Observaciones"><i class="fa-solid fa-comment-dots"></i> <span class="tab-txt">Observaciones</span>
       <?php if ($obsPendientes > 0): ?><span class="tab-badge"><?= $obsPendientes ?></span><?php endif; ?>
     </button>
-    <button type="button" class="tab-btn" data-vista="intercambios" data-tip="Intercambios"><i class="fa-solid fa-right-left"></i> <span class="tab-txt">Intercambios</span>
+    <?php if ($relPanel): ?>
+    <button type="button" class="tab-btn" data-vista="release" data-tip="Release del equipo"><i class="fa-solid fa-route"></i> <span class="tab-txt">Release</span></button>
+    <?php endif; ?>
+    <?php /* Intercambios: la pestaña solo sale cuando hay solicitudes por responder; si no, se llega desde «Acciones» */ ?>
+    <button type="button" class="tab-btn" data-vista="intercambios" data-tip="Intercambios"<?= $interPendientes > 0 ? '' : ' hidden' ?>><i class="fa-solid fa-right-left"></i> <span class="tab-txt">Intercambios</span>
       <?php if ($interPendientes > 0): ?><span class="tab-badge"><?= $interPendientes ?></span><?php endif; ?>
     </button>
     <button type="button" class="tab-btn" data-vista="reuniones" data-tip="Reuniones"><i class="fa-solid fa-video"></i> <span class="tab-txt">Reuniones</span>
@@ -797,34 +817,28 @@ foreach ($tareas as $t) {
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
       <?php endif; ?>
-      <?php if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)): ?>
-        <?php if ($verArchivadas): ?>
-        <a href="?id=<?= $id ?>" class="btn-outline btn-meca btn-sm btn-neutro btn-icono"><i class="fa-solid fa-eye-slash"></i> <span class="tab-txt">Ocultar archivadas</span></a>
-        <?php else: ?>
-        <a href="?id=<?= $id ?>&arch=1" class="btn-outline btn-meca btn-sm btn-neutro btn-icono" title="Completadas hace más de una semana (siguen guardadas)"><i class="fa-solid fa-box-archive"></i> <span class="tab-txt">Ver archivadas (<?= $nArchivadas ?>)</span></a>
-        <?php endif; ?>
-      <?php endif; ?>
-      <form method="post" action="actions.php" class="inline-form" data-descarga>
+      <?php
+        // Lo que antes eran cuatro botones va en un solo menú circular (UI::menuRadial):
+        // el release del equipo, las archivadas, las descargas para Claude y avisar
+        $accRapidas = [];
+        if ($puedeIntercambiar) $accRapidas[] = ['texto' => 'Proponer intercambio', 'icono' => 'fa-right-left', 'attrs' => 'data-rad-dlg="dlg-intercambio"'];
+        $accRapidas[] = ['texto' => 'Intercambios' . ($intercambios ? ' (' . count($intercambios) . ')' : ''), 'icono' => 'fa-clock-rotate-left', 'attrs' => 'data-rad-vista="intercambios"'];
+        if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)) {
+            $accRapidas[] = $verArchivadas
+                ? ['texto' => 'Ocultar archivadas', 'icono' => 'fa-eye-slash', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '"']
+                : ['texto' => 'Ver archivadas (' . $nArchivadas . ')', 'icono' => 'fa-box-archive', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '&amp;arch=1"'];
+        }
+        $accRapidas[] = ['texto' => 'Mis tareas para Claude', 'icono' => '<img src="assets/claude.svg" alt="" width="20" height="20">', 'tipo' => 'submit',
+                         'attrs' => 'form="form-tareas-json" name="alcance" value="mias" title="Tus tareas de este proyecto, con sus #id y dependencias, en JSON"'];
+        if ($puedeGestionar) $accRapidas[] = ['texto' => 'Tareas del equipo (JSON)', 'icono' => 'fa-users', 'tipo' => 'submit',
+                         'attrs' => 'form="form-tareas-json" name="alcance" value="equipo" title="Las tareas de todo el equipo en este proyecto, en JSON"'];
+        if ($avisoPersonas && Auth::esAdmin()) $accRapidas[] = ['texto' => 'Avisar al equipo', 'icono' => 'fa-paper-plane', 'attrs' => 'data-rad-dlg="dlg-avisar"'];
+      ?>
+      <form method="post" action="actions.php" class="inline-form" id="form-tareas-json" data-descarga hidden>
         <input type="hidden" name="accion" value="proyecto_tareas_json">
         <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="mias"
-                data-tip="Descarga TUS tareas de este proyecto (con sus #id y sus dependencias) en JSON, para pasárselas a Claude">
-          <img src="assets/claude.svg" alt="" width="16" height="16"> <span class="tab-txt">Mis tareas</span>
-        </button>
-        <?php if ($puedeGestionar): /* admin o Scrum: también las de todo el equipo */ ?>
-        <button class="btn-outline btn-meca btn-sm btn-azul btn-icono accion-claude" name="alcance" value="equipo"
-                data-tip="Descarga las tareas de TODO el equipo en este proyecto, en el mismo formato JSON">
-          <i class="fa-solid fa-users"></i> <span class="tab-txt">Tareas del equipo</span>
-        </button>
-        <?php endif; ?>
       </form>
-      <?php if ($avisoPersonas): ?>
-      <!-- Un correo por persona con las tareas que el admin elija en el modal -->
-      <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-icono solo-admin" onclick="document.getElementById('dlg-avisar').showModal()"
-              data-tip="Elige a quién avisar y con qué tareas; se manda un correo por persona">
-        <i class="fa-solid fa-paper-plane"></i> <span class="tab-txt">Avisar al equipo</span>
-      </button>
-      <?php endif; ?>
+      <?= UI::menuRadial('Acciones rápidas', $accRapidas) ?>
       <?php if ($puedeTareas): ?>
       <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
@@ -1474,6 +1488,76 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
     </div>
   </section>
 </div>
+
+<?php if ($relPanel):
+    $estRel = Releases::ESTADOS;
+    $estT = Catalogo::estadosTarea();
+    $tareasRelId = [];
+    foreach ($tareas as $tRel) $tareasRelId[(int)$tRel['id']] = $tRel;
+    $mesC = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    $fC = fn(string $f) => $f !== '' ? (int)substr($f, 8, 2) . ' ' . $mesC[(int)substr($f, 5, 2) - 1] : '—';
+?>
+<!-- Vista Release: lo que el plan espera del equipo, por release. Se pulsa un ítem
+     para ver sus tareas y «Agregar tarea aquí» abre la tarea nueva ya amarrada a él. -->
+<div data-vista-panel="release" hidden>
+  <section class="card-base tabla-card rel-vista" id="rel-vista" style="--pc:<?= $color ?>">
+    <div class="tabla-toolbar">
+      <h2 class="font-display"><i class="fa-solid fa-route text-secondary"></i> Release del equipo <?= e(implode(', ', $relPanel['equipos'])) ?></h2>
+      <?php if (Releases::veTodo()): ?><a class="btn-outline btn-meca btn-sm btn-azul btn-icono" href="releases.php?v=equipo&amp;e=<?= e(rawurlencode((string)($relPanel['equipos'][0] ?? ''))) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span class="tab-txt">Ver en Releases</span></a><?php endif; ?>
+    </div>
+    <div class="rel-vista__in">
+    <p class="ajuste-ayuda rel-intro"><i class="fa-solid fa-circle-info"></i> Pulsa un ítem para ver sus tareas<?= $puedeTareas ? ' y agrégale una ahí mismo' : '' ?>: su avance sale de lo que el equipo marca en ellas.</p>
+    <nav class="rel-tabs" role="tablist" aria-label="Releases">
+      <?php foreach ($relPanel['releases'] as $cod => $r): $n = count($relPanel['items'][$cod] ?? []); ?>
+      <button type="button" role="tab" class="rel-tab<?= $cod === $relPanel['actual'] ? ' is-on' : '' ?>" aria-selected="<?= $cod === $relPanel['actual'] ? 'true' : 'false' ?>"
+              data-rel-tab="<?= e((string)$cod) ?>" style="--rc:<?= e((string)($r['color'] ?? '#2970EB')) ?>">
+        <b><?= e((string)$cod) ?></b><small><?= $n ?> ítem<?= $n === 1 ? '' : 's' ?></small></button>
+      <?php endforeach; ?>
+    </nav>
+    <div class="rel-cuerpo">
+      <?php foreach ($relPanel['releases'] as $cod => $r): ?>
+      <section class="rel-panel" data-rel-panel="<?= e((string)$cod) ?>"<?= $cod === $relPanel['actual'] ? '' : ' hidden' ?>>
+        <p class="rel-panel__info"><b><?= e((string)($r['nombre'] ?? '')) ?></b> · <?= e($fC((string)($r['inicio'] ?? ''))) ?> → <?= e($fC((string)($r['fin'] ?? ''))) ?></p>
+        <ul class="rel-items">
+          <?php foreach ($relPanel['items'][$cod] as $it):
+              [$etqE, $tonoE] = $estRel[$it['estado']] ?? $estRel['por_iniciar'];
+              $suyas = array_values(array_filter(array_map(fn($tid) => $tareasRelId[(int)$tid] ?? null, (array)$it['tareas'])));
+              $otras = count((array)$it['tareas']) - count($suyas); ?>
+          <li class="rel-item" data-rel-item tabindex="0" aria-expanded="false" data-buscar="<?= e(mb_strtolower($it['codigo'] . ' ' . $it['titulo'])) ?>">
+            <div class="rel-item__top">
+              <span class="rel-cod" style="--rc:<?= e((string)($r['color'] ?? '#2970EB')) ?>"><?= e($it['codigo']) ?></span>
+              <b><?= e($it['titulo']) ?></b>
+            </div>
+            <div class="rel-item__meta">
+              <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?= e($fC((string)$it['inicio'])) ?> → <?= e($fC((string)$it['fin'])) ?></span>
+              <span class="rel-estado rel-t--<?= e($tonoE) ?>"><?= e($etqE) ?></span>
+              <span class="rel-pct mc-num"><?= (int)$it['avance'] ?> %</span>
+            </div>
+            <span class="rel-barra" aria-hidden="true"><i style="--p:<?= (int)$it['avance'] ?>%"></i></span>
+            <div class="rel-item__pie">
+              <span class="rel-cuenta"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <?= count($suyas) ?> tarea<?= count($suyas) === 1 ? '' : 's' ?> aquí<?= $otras > 0 ? ' · ' . $otras . ' en otros proyectos' : '' ?></span>
+              <i class="fa-solid fa-chevron-down rel-flecha" aria-hidden="true"></i>
+            </div>
+            <div class="rel-detalle" hidden>
+              <?php if ($suyas): ?>
+              <ul class="rel-tareas"><?php foreach ($suyas as $tS): ?><li><span>#<?= (int)$tS['id'] ?> <?= e($tS['titulo']) ?></span><small><?= e((string)($estT[$tS['estado'] ?? ''][0] ?? '')) ?></small></li><?php endforeach; ?></ul>
+              <?php else: ?>
+              <p class="rel-sin">Todavía no tiene tareas en este proyecto.</p>
+              <?php endif; ?>
+              <?php if ($puedeTareas): ?>
+              <button type="button" class="btn-primary btn-meca btn-agregar btn-sm" data-rel-tarea="<?= (int)$it['id'] ?>"><i class="fa-solid fa-plus"></i> Agregar tarea aquí</button>
+              <?php endif; ?>
+            </div>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </section>
+      <?php endforeach; ?>
+    </div>
+    </div>
+  </section>
+</div>
+<?php endif; ?>
 
 <!-- Vista Intercambios de tareas -->
 <div data-vista-panel="intercambios" hidden>
