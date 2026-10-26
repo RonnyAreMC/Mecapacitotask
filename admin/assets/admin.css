@@ -1789,9 +1789,11 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 /* Las pestañas no son pastillas sueltas flotando sobre el contenido: son una
    sola barra que ocupa el ancho y se reparte entre todas. Cada una crece por
-   igual, así no queda hueco a la derecha. */
+   igual, así no queda hueco a la derecha. La barra va sola en su fila: el
+   «Ver como» de Tareas baja a la siguiente, así al cambiar de pestaña la
+   barra no se encoge ni se estira y las pestañas no se corren de lado. */
 .vista-toggle {
-  flex: 1 1 420px;
+  flex: 1 1 100%;
   display: flex; gap: 4px;
   padding: 5px; border-radius: 16px;
   background: var(--n-bg); box-shadow: var(--sh-inset-mini);
@@ -1813,19 +1815,21 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 .vista-toggle .tab-btn.active,
 .vista-toggle .tab-btn.active:hover { background: var(--c-tab-activo); color: #fff; }
 /* Un color por pestaña en el icono: se distinguen de un vistazo sin tener
-   que leer. Seis tonos separados, y en oscuro los mismos aclarados para que
+   que leer. Siete tonos separados, y en oscuro los mismos aclarados para que
    no se apaguen sobre el marino. */
 .vista-toggle .tab-btn i, .vista-toggle .tab-btn .ico { color: var(--tc); transition: color .2s ease; }
 .vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #6D28D9; }
 .vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #0D7340; }
 .vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #C2410C; }
 .vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #1F63D6; }
+.vista-toggle .tab-btn[data-vista="release"]      { --tc: #4F46E5; }
 .vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #B4232F; }
 .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #0E7490; }
 html.dark .vista-toggle .tab-btn[data-vista="calendario"]   { --tc: #B497FF; }
 html.dark .vista-toggle .tab-btn[data-vista="tareas"]       { --tc: #35C078; }
 html.dark .vista-toggle .tab-btn[data-vista="observaciones"]{ --tc: #FFB35C; }
 html.dark .vista-toggle .tab-btn[data-vista="intercambios"] { --tc: #66B2FF; }
+html.dark .vista-toggle .tab-btn[data-vista="release"]      { --tc: #A5B4FC; }
 html.dark .vista-toggle .tab-btn[data-vista="reuniones"]    { --tc: #F98A92; }
 html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
 /* Sobre la pastilla rellena el icono va en blanco: cualquier color se
@@ -1839,6 +1843,10 @@ html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
   background: var(--n-bg); box-shadow: var(--sh-inset-mini);
 }
 .subvista-toggle[hidden] { display: none; }
+.vista-fila > .subvista-toggle { margin-left: auto; }
+/* Pestañas largas y cortas: la barra de desplazamiento aparece y se va. Con su
+   hueco siempre reservado, la página no se corre unos píxeles al cambiar. */
+html:has(.vista-toggle) { scrollbar-gutter: stable; }
 .subvista-tit {
   padding: 0 8px 0 6px;
   font-size: .72rem; font-weight: 700; color: var(--c-text-soft);
@@ -8301,60 +8309,9 @@ html.dark .rad-menu::before { background: linear-gradient(145deg, rgba(60, 72, 1
 html.dark .rad-centro, html.dark .rad-txt { background: rgba(42, 52, 82, .6); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }
 @media (prefers-reduced-motion: reduce) { .rad-op, .rad-menu::before, .rad-centro { transition: none !important; } }
 
-/* =========================================================
-   Pestaña «Release» (proyecto.php): los ítems del equipo por release; al
-   pulsar uno se ven sus tareas y «Agregar tarea aquí».
-   ========================================================= */
-.rel-vista__in { padding: 18px 24px 24px; }
-.rel-vista .rel-intro { display: flex; align-items: flex-start; gap: 8px; margin: 0 0 14px; }
-/* Una pestaña escondida (Intercambios sin solicitudes) no ocupa lugar */
+/* La pestaña «Release» del proyecto es la vista de Releases (ds.css .rl): aquí solo
+   lo de la pestaña escondida de Intercambios y el botón de acciones */
 .vista-toggle .tab-btn[hidden] { display: none; }
 .rad-btn__txt { margin-left: 6px; }
 @media (max-width: 600px) { .rad-btn__txt { display: none; } }
-.rel-tabs { display: flex; gap: 8px; overflow-x: auto; padding-bottom: 2px; margin-bottom: 12px; }
-.rel-tab {
-  display: flex; flex-direction: column; align-items: flex-start; gap: 1px; min-width: 86px; padding: 8px 14px; border: 1.5px solid var(--c-border-soft, rgba(15, 23, 42, .1));
-  border-radius: 12px; background: transparent; color: var(--c-text); font: inherit; cursor: pointer;
-}
-.rel-tab b { color: var(--rc); font-size: .98rem; }
-.rel-tab small { color: var(--c-text-soft); font-size: .72rem; }
-.rel-tab.is-on { border-color: var(--rc); background: color-mix(in srgb, var(--rc) 10%, transparent); }
-.rel-tab:focus-visible { outline: 2px solid #2970eb; outline-offset: 2px; }
-.rel-panel[hidden] { display: none; }
-.rel-panel__info { margin: 0 0 12px; color: var(--c-text-soft); font-size: .84rem; }
-.rel-panel__info b { color: var(--c-text); }
-.rel-items { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 12px; margin: 0; padding: 0; list-style: none; align-items: start; }
-.rel-item {
-  display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 16px; cursor: pointer;
-  background: color-mix(in srgb, #fff 55%, var(--n-bg)); box-shadow: var(--sh-mini); transition: box-shadow .15s, transform .15s;
-}
-.rel-item:hover { box-shadow: 0 6px 18px rgba(15, 23, 42, .1); transform: translateY(-1px); }
-.rel-item:focus-visible { outline: 2px solid #2970eb; outline-offset: 2px; }
-.rel-item.is-abierto { box-shadow: 0 0 0 1.5px #2970eb, 0 6px 18px rgba(41, 112, 235, .12); cursor: default; transform: none; }
-html.dark .rel-item { background: color-mix(in srgb, #000 12%, var(--n-bg)); }
-.rel-item__top { display: flex; align-items: baseline; gap: 8px; }
-.rel-item__top b { font-size: .92rem; line-height: 1.35; }
-.rel-cod { flex: none; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--rc) 14%, transparent); color: var(--rc); font: 700 .72rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
-.rel-item__meta { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 12px; color: var(--c-text-soft); font-size: .76rem; }
-.rel-estado { padding: 1px 8px; border-radius: 999px; background: rgba(100, 116, 139, .14); color: #475569; font-weight: 700; }
-.rel-t--azul { background: rgba(41, 112, 235, .12); color: #1d4ed8; }
-.rel-t--cian { background: rgba(14, 165, 198, .14); color: #0e7490; }
-.rel-t--petroleo { background: rgba(71, 85, 105, .14); color: #334155; }
-.rel-t--verde { background: rgba(22, 163, 74, .14); color: #15803d; }
-.rel-t--rojo { background: rgba(220, 38, 38, .12); color: #b91c1c; }
-.rel-pct { margin-left: auto; color: var(--c-text); font-weight: 700; }
-.rel-barra { position: relative; display: block; height: 6px; overflow: hidden; border-radius: 999px; background: rgba(15, 23, 42, .08); }
-.rel-barra > i { position: absolute; inset: 0 auto 0 0; width: var(--p, 0%); border-radius: inherit; background: #2970eb; }
-.rel-item__pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; color: var(--c-text-soft); font-size: .78rem; }
-.rel-cuenta i { margin-right: 4px; }
-.rel-flecha { transition: transform .15s; }
-.rel-item.is-abierto .rel-flecha { transform: rotate(180deg); }
-.rel-detalle { display: flex; flex-direction: column; gap: 10px; padding-top: 10px; border-top: 1px solid var(--c-border-soft, rgba(15, 23, 42, .08)); }
-.rel-detalle[hidden] { display: none; }
-.rel-detalle .btn-meca { align-self: stretch; justify-content: center; }
-.rel-sin { margin: 0; color: var(--c-text-soft); font-size: .8rem; }
-.rel-tareas { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: .82rem; }
-.rel-tareas li { display: flex; justify-content: space-between; gap: 8px; }
-.rel-tareas li span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.rel-tareas li small { flex: none; color: var(--c-text-soft); }
-@media (max-width: 600px) { .rel-items { grid-template-columns: minmax(0, 1fr); } }
+.rl--incrustado { display: flex; flex-direction: column; gap: var(--space-4, 16px); }

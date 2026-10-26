@@ -1270,17 +1270,22 @@ document.querySelectorAll('[data-pm-buscar]').forEach((input) => {
 
 // Vistas de la pagina de proyecto.
 // "Tareas" es un combo: agrupa Tabla / Kanban / Flujo bajo un subselector.
-// Al entrar se muestra el Calendario; las subvistas recuerdan su eleccion.
+// Al entrar se muestra el Calendario, o lo último elegido en ESE proyecto;
+// las subvistas recuerdan su eleccion.
 // En el celular, Tareas son las tarjetas (bloque «Proyecto en el celular», arriba).
 const vistaToggle = document.querySelector('.vista-toggle');
 if (vistaToggle) {
   const subToggle = document.querySelector('.subvista-toggle');
   const SUBVISTAS = ['tabla', 'kanban', 'flujo'];
-  const claveVista = 'vista-' + location.pathname;
+  const claveVista = 'vista-' + location.pathname + '-' + (new URLSearchParams(location.search).get('id') || '');
   const claveSub   = 'subvista-' + location.pathname;
 
   let subActual = sessionStorage.getItem(claveSub) || 'tabla';
   if (!SUBVISTAS.includes(subActual)) subActual = 'tabla';
+  // La pestaña que eligió la persona. En el celular puede verse otra (Tareas en
+  // vez del Calendario), pero esa no se guarda: al volver a la pantalla ancha
+  // (zoom, ventana a media pantalla, girar la tableta) regresa a la elegida.
+  let elegida = 'calendario';
 
   const panelActivo = (v) => (v === 'tareas' ? (proyectoEnCelular() ? 'tarjetas' : subActual) : v);
 
@@ -1295,14 +1300,16 @@ if (vistaToggle) {
     if (panel === 'flujo') dibujarFlujo();
   };
 
+  const boton = (v) => vistaToggle.querySelector('[data-vista="' + v + '"]');
+
   // Elegir una vista principal (calendario, tareas, observaciones, ...)
-  const activarVista = (v) => {
+  const activarVista = (v, guardar = true) => {
     // Una subvista suelta (por hash o guardada) equivale a Tareas + esa subvista
     if (SUBVISTAS.includes(v)) { subActual = v; sessionStorage.setItem(claveSub, v); v = 'tareas'; }
-    v = proyectoVistaCelular(v);   // en el celular solo hay Tareas, Observaciones y Reuniones
-    if (!vistaToggle.querySelector('[data-vista="' + v + '"]')) return;
-    sessionStorage.setItem(claveVista, v);
-    pintar(v);
+    if (!boton(v)) return;
+    elegida = v;
+    if (guardar) sessionStorage.setItem(claveVista, v);
+    pintar(proyectoVistaCelular(v));   // en el celular solo hay Tareas, Observaciones, Release y Reuniones
   };
 
   vistaToggle.querySelectorAll('[data-vista]').forEach((btn) =>
@@ -1317,13 +1324,16 @@ if (vistaToggle) {
       }));
   }
 
-  // Al entrar: hash (#vista-X), luego lo ultimo elegido, si no el Calendario
+  // Al entrar: hash (#vista-X), luego lo ultimo elegido, si no el Calendario.
+  // Lo guardado puede ser una pestaña que ya no se ve (Intercambios sin
+  // solicitudes): entonces también el Calendario, nunca una barra sin pestaña.
   const porHash = location.hash.startsWith('#vista-') ? location.hash.slice(7) : null;
-  activarVista(porHash || sessionStorage.getItem(claveVista) || 'calendario');
+  const guardada = sessionStorage.getItem(claveVista);
+  if (porHash && (SUBVISTAS.includes(porHash) || boton(porHash))) activarVista(porHash);
+  else activarVista(guardada && boton(guardada) && !boton(guardada).hidden ? guardada : 'calendario', false);
 
-  // Cruzar los 900 px (girar el teléfono): repintar la pestaña que está abierta
-  proyectoAlCambiarAncho(() =>
-    activarVista(vistaToggle.querySelector('[data-vista].active')?.dataset.vista || 'tareas'));
+  // Cruzar los 900 px (girar el teléfono, zoom): repintar la pestaña elegida
+  proyectoAlCambiarAncho(() => pintar(proyectoVistaCelular(elegida)));
 }
 
 // Compositor de observaciones: pegar (Ctrl+V), arrastrar, adjuntar y enviar por AJAX.
@@ -4483,45 +4493,4 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     }
   });
   addEventListener('resize', () => cerrar(false));
-})();
-
-/* =========================================================
-   Pestaña «Release» (proyecto.php): las pestañas de cada release, el ítem que
-   se abre al pulsarlo (con sus tareas) y «Agregar tarea aquí», que abre la
-   tarea nueva ya amarrada a ese ítem.
-   ========================================================= */
-(() => {
-  const caja = document.getElementById('rel-vista');
-  if (!caja) return;
-  const abrirItem = (li) => {
-    const abierto = li.getAttribute('aria-expanded') !== 'true';
-    li.setAttribute('aria-expanded', abierto ? 'true' : 'false');
-    li.classList.toggle('is-abierto', abierto);
-    li.querySelector('.rel-detalle').hidden = !abierto;
-  };
-  caja.addEventListener('click', (e) => {
-    const t = e.target.closest('[data-rel-tab]');
-    if (t) {
-      caja.querySelectorAll('[data-rel-tab]').forEach((x) => { const on = x === t; x.classList.toggle('is-on', on); x.setAttribute('aria-selected', on ? 'true' : 'false'); });
-      caja.querySelectorAll('[data-rel-panel]').forEach((p) => { p.hidden = p.dataset.relPanel !== t.dataset.relTab; });
-      return;
-    }
-    const b = e.target.closest('[data-rel-tarea]');
-    if (b) {
-      const nueva = document.getElementById('dlg-nueva-tarea');
-      if (!nueva) return;
-      const sel = nueva.querySelector('select[name="rel_item"]');
-      if (sel) setSelect(sel, b.dataset.relTarea);
-      nueva.showModal();
-      const titulo = nueva.querySelector('input[name="titulo"]');
-      if (titulo) setTimeout(() => titulo.focus(), 50);
-      return;
-    }
-    const li = e.target.closest('[data-rel-item]');
-    if (li && !e.target.closest('.rel-detalle')) abrirItem(li);
-  });
-  caja.addEventListener('keydown', (e) => {
-    const li = e.target.closest('[data-rel-item]');
-    if (li && e.target === li && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); abrirItem(li); }
-  });
 })();

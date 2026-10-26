@@ -1490,75 +1490,32 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 </div>
 
 <?php if ($relPanel):
-    $estRel = Releases::ESTADOS;
-    $estT = Catalogo::estadosTarea();
-    $tareasRelId = [];
-    foreach ($tareas as $tRel) $tareasRelId[(int)$tRel['id']] = $tRel;
-    $mesC = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
-    $fC = fn(string $f) => $f !== '' ? (int)substr($f, 8, 2) . ' ' . $mesC[(int)substr($f, 5, 2) - 1] : '—';
+    // La pestaña «Release» es la vista de Releases (lib/releases_ui.php), fija en el
+    // equipo de este proyecto. Los filtros van con prefijo rl_ (aquí «estado» ya filtra tareas).
+    require_once __DIR__ . '/lib/releases_ui.php';
+    $eqRel = (string)($relPanel['equipos'][0] ?? '');
+    $relsRel = Releases::releases();
+    $rcRel = (string)($_GET['rl_r'] ?? $relPanel['actual']);
+    if (!isset($relPanel['releases'][$rcRel])) $rcRel = $relPanel['actual'];
+    $urlRel = fn(array $p) => 'proyecto.php?' . http_build_query(array_filter(['id' => $id, 'rl_r' => $p['r'] ?? '', 'rl_estado' => $p['estado'] ?? '',
+        'rl_salud' => $p['salud'] ?? '', 'rl_q' => $p['q'] ?? ''], fn($x) => $x !== '' && $x !== null)) . '#vista-release';
 ?>
-<!-- Vista Release: lo que el plan espera del equipo, por release. Se pulsa un ítem
-     para ver sus tareas y «Agregar tarea aquí» abre la tarea nueva ya amarrada a él. -->
+<!-- Vista Release: la de Releases, fija en el equipo de este proyecto. Al pulsar un
+     ítem se abre su panel (assets/releases.js), donde el SM le agrega tareas. -->
 <div data-vista-panel="release" hidden>
-  <section class="card-base tabla-card rel-vista" id="rel-vista" style="--pc:<?= $color ?>">
-    <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-route text-secondary"></i> Release del equipo <?= e(implode(', ', $relPanel['equipos'])) ?></h2>
-      <?php if (Releases::veTodo()): ?><a class="btn-outline btn-meca btn-sm btn-azul btn-icono" href="releases.php?v=equipo&amp;e=<?= e(rawurlencode((string)($relPanel['equipos'][0] ?? ''))) ?>"><i class="fa-solid fa-arrow-up-right-from-square"></i> <span class="tab-txt">Ver en Releases</span></a><?php endif; ?>
-    </div>
-    <div class="rel-vista__in">
-    <p class="ajuste-ayuda rel-intro"><i class="fa-solid fa-circle-info"></i> Pulsa un ítem para ver sus tareas<?= $puedeTareas ? ' y agrégale una ahí mismo' : '' ?>: su avance sale de lo que el equipo marca en ellas.</p>
-    <nav class="rel-tabs" role="tablist" aria-label="Releases">
-      <?php foreach ($relPanel['releases'] as $cod => $r): $n = count($relPanel['items'][$cod] ?? []); ?>
-      <button type="button" role="tab" class="rel-tab<?= $cod === $relPanel['actual'] ? ' is-on' : '' ?>" aria-selected="<?= $cod === $relPanel['actual'] ? 'true' : 'false' ?>"
-              data-rel-tab="<?= e((string)$cod) ?>" style="--rc:<?= e((string)($r['color'] ?? '#2970EB')) ?>">
-        <b><?= e((string)$cod) ?></b><small><?= $n ?> ítem<?= $n === 1 ? '' : 's' ?></small></button>
-      <?php endforeach; ?>
-    </nav>
-    <div class="rel-cuerpo">
-      <?php foreach ($relPanel['releases'] as $cod => $r): ?>
-      <section class="rel-panel" data-rel-panel="<?= e((string)$cod) ?>"<?= $cod === $relPanel['actual'] ? '' : ' hidden' ?>>
-        <p class="rel-panel__info"><b><?= e((string)($r['nombre'] ?? '')) ?></b> · <?= e($fC((string)($r['inicio'] ?? ''))) ?> → <?= e($fC((string)($r['fin'] ?? ''))) ?></p>
-        <ul class="rel-items">
-          <?php foreach ($relPanel['items'][$cod] as $it):
-              [$etqE, $tonoE] = $estRel[$it['estado']] ?? $estRel['por_iniciar'];
-              $suyas = array_values(array_filter(array_map(fn($tid) => $tareasRelId[(int)$tid] ?? null, (array)$it['tareas'])));
-              $otras = count((array)$it['tareas']) - count($suyas); ?>
-          <li class="rel-item" data-rel-item tabindex="0" aria-expanded="false" data-buscar="<?= e(mb_strtolower($it['codigo'] . ' ' . $it['titulo'])) ?>">
-            <div class="rel-item__top">
-              <span class="rel-cod" style="--rc:<?= e((string)($r['color'] ?? '#2970EB')) ?>"><?= e($it['codigo']) ?></span>
-              <b><?= e($it['titulo']) ?></b>
-            </div>
-            <div class="rel-item__meta">
-              <span><i class="fa-regular fa-calendar" aria-hidden="true"></i> <?= e($fC((string)$it['inicio'])) ?> → <?= e($fC((string)$it['fin'])) ?></span>
-              <span class="rel-estado rel-t--<?= e($tonoE) ?>"><?= e($etqE) ?></span>
-              <span class="rel-pct mc-num"><?= (int)$it['avance'] ?> %</span>
-            </div>
-            <span class="rel-barra" aria-hidden="true"><i style="--p:<?= (int)$it['avance'] ?>%"></i></span>
-            <div class="rel-item__pie">
-              <span class="rel-cuenta"><i class="fa-solid fa-list-check" aria-hidden="true"></i> <?= count($suyas) ?> tarea<?= count($suyas) === 1 ? '' : 's' ?> aquí<?= $otras > 0 ? ' · ' . $otras . ' en otros proyectos' : '' ?></span>
-              <i class="fa-solid fa-chevron-down rel-flecha" aria-hidden="true"></i>
-            </div>
-            <div class="rel-detalle" hidden>
-              <?php if ($suyas): ?>
-              <ul class="rel-tareas"><?php foreach ($suyas as $tS): ?><li><span>#<?= (int)$tS['id'] ?> <?= e($tS['titulo']) ?></span><small><?= e((string)($estT[$tS['estado'] ?? ''][0] ?? '')) ?></small></li><?php endforeach; ?></ul>
-              <?php else: ?>
-              <p class="rel-sin">Todavía no tiene tareas en este proyecto.</p>
-              <?php endif; ?>
-              <?php if ($puedeTareas): ?>
-              <button type="button" class="btn-primary btn-meca btn-agregar btn-sm" data-rel-tarea="<?= (int)$it['id'] ?>"><i class="fa-solid fa-plus"></i> Agregar tarea aquí</button>
-              <?php endif; ?>
-            </div>
-          </li>
-          <?php endforeach; ?>
-        </ul>
-      </section>
-      <?php endforeach; ?>
-    </div>
-    </div>
-  </section>
+  <div class="ds rl rl--incrustado" data-rl data-vista="release">
+    <?php rlVistaRelease([
+        'rels' => $relsRel, 'eqs' => Releases::equipos(), 'todos' => Releases::items(), 'miembros' => $miembros, 'hoy' => date('Y-m-d'), 'rc' => $rcRel,
+        'equipo' => $eqRel, 'fijo' => true, 'clicable' => Releases::veTodo(),
+        'estado' => isset(Releases::ESTADOS[$_GET['rl_estado'] ?? '']) ? (string)$_GET['rl_estado'] : '',
+        'salud' => isset(Releases::SALUD[$_GET['rl_salud'] ?? '']) ? (string)$_GET['rl_salud'] : '',
+        'q' => trim((string)($_GET['rl_q'] ?? '')),
+        'url' => $urlRel,
+        'buscar' => ['proyecto.php', fn(array $b) => ['id' => $id, 'rl_r' => $b['r'], 'rl_estado' => $b['estado'], 'rl_salud' => $b['salud']], 'rl_q'],
+    ]); ?>
+  </div>
 </div>
 <?php endif; ?>
-
 <!-- Vista Intercambios de tareas -->
 <div data-vista-panel="intercambios" hidden>
   <section class="card-base tabla-card" style="--pc:<?= $color ?>">
@@ -2850,4 +2807,5 @@ function depPicker(): void { ?>
   </form>
 </dialog>
 
+<?php if ($relPanel) echo rlRecursosJs('release', Releases::puedeEditar(), $miembros); /* el panel del ítem y el Gantt (assets/releases.js) */ ?>
 <?php UI::fin(); ?>
