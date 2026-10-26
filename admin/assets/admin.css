@@ -8311,6 +8311,14 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, .45), 0 0 0 3px rgba(255, 255, 255, .9), 0 0 0 7px rgba(16, 185, 129, .3), 0 8px 18px rgba(5, 150, 105, .38);
 }
 .rad-op.is-sel .rad-txt { background: rgba(236, 253, 245, .92); border-color: rgba(16, 185, 129, .55); color: #065f46; }
+/* Con ratón solo se lee el nombre de la marcada (la que tiene el ratón encima o
+   la que eligió la rueda): todos a la vez se amontonaban. En pantallas táctiles
+   no hay «encima», así que ahí siguen todos. */
+@media (hover: hover) and (pointer: fine) {
+  .rad-txt { opacity: 0; transition: opacity .15s; }
+  .rad-op.is-sel { z-index: 3; }
+  .rad-op.is-sel .rad-txt { opacity: 1; }
+}
 .rad-aguja {
   position: absolute; left: 0; top: 0; z-index: 1; width: 34px; height: 4px; margin-top: -2px; border-radius: 2px;
   background: linear-gradient(90deg, rgba(16, 185, 129, 0), #10b981); pointer-events: none;

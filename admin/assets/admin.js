@@ -4404,8 +4404,9 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
    opciones alrededor de un centro, cada una con su nombre por fuera.
    Como una rueda: la rueda del ratón (o las flechas) pasa de una opción a
    otra y la marcada se pinta de verde, con la aguja del centro apuntándola;
-   el clic derecho abre la marcada y el clic izquierdo fuera de una opción
-   cierra (sobre una opción la abre: así funciona también en el celular).
+   el clic derecho abre la marcada y el clic izquierdo cierra, también encima
+   de una opción. Sin ratón sigue igual: tocar una opción en el celular o
+   Enter con el teclado la abren.
    Esc también cierra. El menú se mueve a <body> al abrirse para que nada lo recorte.
    ========================================================= */
 (() => {
@@ -4516,6 +4517,19 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       todos[(j + (e.shiftKey ? -1 : 1) + todos.length) % todos.length].focus();
     }
   });
+  // Clic izquierdo con ratón sobre una opción: cierra sin abrirla. Va en captura
+  // para que ni el enlace, ni el formulario, ni la vista ([data-subvista]) se
+  // enteren. El clic del teclado y el que dispara el clic derecho (op.click())
+  // llegan con detail 0 y sí abren.
+  let tipoPuntero = '';
+  document.addEventListener('pointerdown', (e) => { tipoPuntero = e.pointerType; }, true);
+  document.addEventListener('click', (e) => {
+    if (!abierto || e.detail === 0 || tipoPuntero !== 'mouse' || !e.target.closest('.rad-op')) return;
+    e.preventDefault();
+    e.stopImmediatePropagation();
+    cerrar();
+  }, true);
+
   // La rueda del ratón pasa a la opción siguiente o a la anterior (y la página
   // no se mueve). Se juntan los toques cortos del trackpad para no saltar varias.
   let acum = 0, ultimoGiro = 0, ultimoPaso = 0;
