@@ -106,6 +106,45 @@ if ($crono):
   </div>
   <?php endif; ?>
 
+  <?php
+    // La semana: los días de subida (lunes y jueves) y si ya hubo deploy en cada uno
+    $semanaD = Cronograma::semana($historial);
+    $diasSemana = [1 => 'Lunes', 2 => 'Martes', 3 => 'Miércoles', 4 => 'Jueves', 5 => 'Viernes', 6 => 'Sábado', 7 => 'Domingo'];
+    $mesesC = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+    $fechaC = fn(int $t) => (int)date('j', $t) . ' ' . $mesesC[(int)date('n', $t) - 1];
+    $lunesS = strtotime('monday this week', strtotime(date('Y-m-d')));
+    $estadosD = ['hecho' => 'Hecho', 'hoy' => 'Hoy', 'proximo' => 'Próximo', 'esperando' => 'Esperando el deploy', 'sin_deploy' => 'Sin deploy'];
+  ?>
+  <?php if ($semanaD): ?>
+  <div class="dep-semana">
+    <p class="dep-semana__tit">Esta semana <span>· del <?= e($fechaC($lunesS)) ?> al <?= e($fechaC(strtotime('+6 day', $lunesS))) ?> · cuenta el deploy de ese día</span></p>
+    <ol class="dep-semana__dias">
+      <?php foreach ($semanaD as $sD): $dD = $sD['deploy'];
+          $quienD = $dD ? (($dD['origen'] ?? '') === 'gitlab' ? 'GitLab' : explode(' ', trim((string)($miembros[(int)($dD['autor_id'] ?? 0)]['nombre'] ?? 'alguien')))[0]) : ''; ?>
+      <li class="dep-dia dep-dia--<?= e($sD['estado']) ?>">
+        <span class="dep-dia__fecha"><b><?= e($diasSemana[$sD['n']]) ?></b> <small><?= e($fechaC($sD['limite'])) ?> · <?= e(Cronograma::horaTexto(date('H:i', $sD['limite']))) ?></small></span>
+        <span class="dep-dia__estado"><?= $sD['estado'] === 'hecho' ? UI::icono('ds-check') : ($sD['estado'] === 'sin_deploy' ? UI::icono('ds-cerrar') : UI::icono('Clock')) ?> <?= e($estadosD[$sD['estado']]) ?></span>
+        <span class="dep-dia__det">
+          <?php if ($dD): ?>
+            Subido <?= e(Cronograma::cuandoFue((string)$dD['fecha'])) ?> · por <?= e($quienD) ?><?= time() < $sD['limite'] ? ' · aún se puede subir hasta las ' . e(Cronograma::horaTexto(date('H:i', $sD['limite']))) : '' ?>
+          <?php elseif (in_array($sD['estado'], ['hoy', 'proximo'], true)): ?>
+            Falta <b data-cuenta-regresiva data-corto data-hasta="<?= (int)$sD['limite'] ?>" data-ahora="<?= time() ?>">&nbsp;</b> para la hora límite
+          <?php elseif ($sD['estado'] === 'esperando'): ?>
+            Pasó la hora límite: falta que se registre el deploy de esta noche
+          <?php else: ?>
+            No se registró ningún deploy ese día
+          <?php endif; ?>
+        </span>
+      </li>
+      <?php endforeach; ?>
+    </ol>
+    <?php if (count($agenda) === 1): /* todos a la misma hora: basta con nombrarlos */ ?>
+    <p class="dep-semana__proys"><?php foreach ($agenda[0]['proyectos'] as $x): ?><span class="dep-crono-proy" style="--pc:<?= e(ProyectoRepo::colorBase($x['p'])) ?>" title="<?= e($x['nombre']) ?>"><?= e($nombreP($x)) ?></span><?php endforeach; ?></p>
+    <?php endif; ?>
+  </div>
+  <?php endif; ?>
+
+  <?php if (count($agenda) > 1 || !$semanaD): /* con horas distintas por proyecto, la lista de cada hora */ ?>
   <ul class="dep-crono-lista">
     <?php foreach ($agenda as $fA): ?>
     <li class="dep-crono-fila">
@@ -120,6 +159,7 @@ if ($crono):
     </li>
     <?php endforeach; ?>
   </ul>
+  <?php endif; ?>
 
   <?php if (!Cronograma::conGitLab()): ?>
   <p class="dep-crono-nota"><?= UI::iconoDS('info', 16) ?> Los deploys de GitLab todavía no se registran solos:

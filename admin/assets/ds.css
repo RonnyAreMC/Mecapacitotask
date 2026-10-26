@@ -3428,6 +3428,28 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
 .dep-cuenta.is-cerca { border-color: var(--warning-line); background: var(--warning-soft); }
 .dep-cuenta.is-cerca small { color: var(--warning-ink); }
 .dep-cuenta.is-ya { border-color: var(--success-line, var(--primary-line)); background: var(--success-soft, var(--primary-soft)); }
+/* La semana de subidas: una tarjeta por día (lunes y jueves) con si ya hubo deploy */
+.dep-semana { display: flex; flex-direction: column; gap: var(--space-3); }
+.dep-semana__tit { margin: 0; color: var(--ink); font-size: .9rem; font-weight: 700; }
+.dep-semana__tit span { color: var(--ink-muted); font-weight: 500; }
+.dep-semana__dias { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: var(--space-3); margin: 0; padding: 0; list-style: none; }
+.dep-dia { display: flex; flex-direction: column; gap: 6px; padding: var(--space-3) var(--space-4); border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
+.dep-dia__fecha b { color: var(--ink); font-size: 1rem; font-weight: 800; }
+.dep-dia__fecha small { color: var(--ink-muted); font-size: .8rem; font-weight: 600; }
+.dep-dia__estado { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; padding: 3px 10px; border-radius: 999px;
+  background: var(--surface-hover); color: var(--ink-muted); font-size: .76rem; font-weight: 800; }
+.dep-dia__estado .ico, .dep-dia__estado svg { width: 14px; height: 14px; }
+.dep-dia__det { color: var(--ink-muted); font-size: .8rem; line-height: 1.45; }
+.dep-dia__det b { color: var(--ink); font-variant-numeric: tabular-nums; }
+.dep-dia--hecho { border-color: var(--success-line); background: var(--success-soft); }
+.dep-dia--hecho .dep-dia__estado { background: color-mix(in srgb, var(--success) 14%, transparent); color: var(--success-ink); }
+.dep-dia--hoy { border-color: var(--primary-line); background: var(--primary-soft); }
+.dep-dia--hoy .dep-dia__estado { background: color-mix(in srgb, var(--primary) 14%, transparent); color: var(--primary-ink); }
+.dep-dia--esperando { border-color: var(--warning-line); background: var(--warning-soft); }
+.dep-dia--esperando .dep-dia__estado { background: color-mix(in srgb, var(--warning, #B45309) 16%, transparent); color: var(--warning-ink); }
+.dep-dia--sin_deploy .dep-dia__estado { background: color-mix(in srgb, var(--danger, #B91C1C) 12%, transparent); color: var(--danger-ink); }
+.dep-semana__proys { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; }
+.dep-semana__proys .dep-crono-proy { border-color: var(--line); background: var(--surface-hover); }
 .dep-crono-lista { display: flex; flex-direction: column; margin: 0; padding: 0; list-style: none; border: 1px solid var(--line); border-radius: var(--radius-lg); }
 .dep-crono-fila { display: grid; grid-template-columns: 96px minmax(0, 1fr) auto; align-items: center; gap: var(--space-3); padding: var(--space-3) var(--space-4); border-top: 1px solid var(--line); }
 .dep-crono-fila:first-child { border-top: 0; }

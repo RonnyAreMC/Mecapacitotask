@@ -140,6 +140,43 @@ final class Cronograma
         return self::siguiente($ahora ?? time(), $pid);
     }
 
+    /**
+     * Los días de subida de ESTA semana (de lunes a domingo; cada semana empieza de
+     * nuevo), cada uno con su estado:
+     *  'hecho'      hubo un deploy ese día (hasta las 6 am del siguiente, por los de madrugada);
+     *  'hoy' / 'proximo'  todavía no llega la hora límite;
+     *  'esperando'  ya pasó la hora límite y es esa misma noche;
+     *  'sin_deploy' el día pasó sin ninguno.
+     * $deploys: los registros que cuentan (los de los proyectos de quien mira).
+     * [['n' => 1..7, 'limite' => timestamp, 'estado', 'deploy' => el último de ese día|null]]
+     */
+    public static function semana(array $deploys, ?int $ahora = null): array
+    {
+        $ahora ??= time();
+        $lunes = strtotime('monday this week', strtotime(date('Y-m-d', $ahora)));
+        [$h, $m] = array_map('intval', explode(':', self::horaDe(0)));
+        $out = [];
+        foreach (self::conf()['dias'] as $n) {
+            $dia = strtotime('+' . ($n - 1) . ' day', $lunes);
+            $limite = mktime($h, $m, 0, (int)date('n', $dia), (int)date('j', $dia), (int)date('Y', $dia));
+            $hasta = strtotime('+1 day 06:00', $dia);
+            $hecho = null;
+            foreach ($deploys as $d) {
+                $t = strtotime((string)($d['fecha'] ?? ''));
+                if ($t === false || $t < $dia || $t >= $hasta) continue;
+                if ($hecho === null || $t > strtotime((string)$hecho['fecha'])) $hecho = $d;
+            }
+            $estado = match (true) {
+                $hecho !== null                                => 'hecho',
+                $ahora < $limite                               => date('Y-m-d', $ahora) === date('Y-m-d', $limite) ? 'hoy' : 'proximo',
+                $ahora < $hasta                                => 'esperando',
+                default                                        => 'sin_deploy',
+            };
+            $out[] = ['n' => (int)$n, 'limite' => $limite, 'estado' => $estado, 'deploy' => $hecho];
+        }
+        return $out;
+    }
+
     /** «hoy a las 10:00 am», «mañana miércoles 22 a las 10:00 am», «el lunes 26 a las 3:00 pm». */
     public static function texto(int $v, ?int $ahora = null): string
     {
