@@ -4482,7 +4482,7 @@ html body .btn-cargando.btn-cargando {
 
 .wz-paso.activo { background: var(--n-bg); box-shadow: var(--sh-mini); color: var(--c-text); }
 .wz-paso.activo .wz-num { background: var(--c-secondary); color: #fff; box-shadow: none; }
-.wz-paso.hecho .wz-num { background: var(--c-verde-esmeralda); color: #fff; box-shadow: none; }
+.wz-paso.hecho .wz-num { background: var(--c-verde-esmeralda, #0D7340); color: #fff; box-shadow: none; }
 .wz-paso.hecho b { color: var(--c-text); }
 
 /* ----- Cuerpo ----- */
@@ -5841,7 +5841,7 @@ html.sb-collapsed .nav-badge { display: none; }
   font-size: .78rem; font-weight: 700;
 }
 .dt-restante[hidden] { display: none; }
-.dt-restante.urgente { background: color-mix(in srgb, var(--c-terracota) 14%, transparent); color: var(--c-terracota); }
+.dt-restante.urgente { background: color-mix(in srgb, var(--c-terracota, #C2410C) 14%, transparent); color: var(--c-terracota, #C2410C); }
 /* El adjunto que no se previsualiza se marca como descarga */
 .dt-adjuntos .adj-chip.adj-bajar .adj-chip-acc { color: var(--c-text-soft); }
 /* Con dos columnas, la × de la cabecera izquierda quedaba en mitad del modal:
@@ -5991,6 +5991,74 @@ html.sb-collapsed .nav-badge { display: none; }
 .dt-dep-tag.ok   { color: var(--c-success); }
 .dt-dep-tag.bloq { color: var(--c-warning); }
 .dt-foot { margin-top: 22px; display: flex; justify-content: flex-end; }
+
+/* ---------- La ficha de la tarea, por pasos (detalle + trazabilidad) ---------- */
+.dlg-detalle-wz { width: min(1000px, calc(100vw - 40px)); height: min(calc(100dvh - 64px), 720px); }
+/* Con documentos, más ancha: el primero se ve ya a la derecha del detalle */
+.dlg-detalle-wz.dt-con-docs { width: min(1240px, 96vw); height: min(calc(100dvh - 64px), 880px); }
+.dlg-detalle-wz .wz-cuerpo > header .dt-titulo { font-size: 1.32rem; line-height: 1.25; }
+.dlg-detalle-wz .wz-cuerpo > header { margin-bottom: 14px; }
+.dlg-detalle-wz .dt-head .dlg-close { position: static; }
+.dlg-detalle-wz .wz-cuerpo > header .wz-ayuda-paso { margin-top: 6px; }
+.dlg-detalle-wz .dt-panel-detalle .dt-cols { min-height: 0; }
+.dt-con-docs .dt-panel-detalle.activo { overflow: hidden; }
+.dt-con-docs .dt-panel-detalle .dt-cols { flex: 1; }
+.dlg-detalle-wz .dt-chips { margin-top: 0; }
+/* En el riel: cuántos impedimentos siguen abiertos y cuántos commits hay */
+.wz-paso .dt-cuenta { display: inline-grid; place-items: center; min-width: 18px; height: 18px; margin-left: 4px; padding: 0 5px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); font-size: .68rem; font-style: normal; font-weight: 800; }
+.wz-paso .dt-cuenta.is-alerta { background: color-mix(in srgb, var(--c-terracota, #C2410C) 16%, transparent); color: var(--c-terracota, #C2410C); }
+
+.dt-traza { display: flex; flex-direction: column; gap: 14px; }
+.dt-traza-vacio { margin: 0; padding: 22px; border-radius: 16px; background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-size: .86rem; line-height: 1.5; }
+.dt-traza-vacio code { font-size: .8rem; }
+/* Plazos: lo planificado y lo que pasó de verdad */
+.dt-plazos { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; }
+.dt-plazos > div { display: flex; flex-direction: column; gap: 4px; padding: 12px 14px; border-radius: 14px; background: var(--n-bg); box-shadow: var(--sh-mini); }
+.dt-plazos span { color: var(--c-text-soft); font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; }
+.dt-plazos b { color: var(--c-text); font-size: .88rem; font-weight: 700; }
+.dt-plazos i { color: var(--c-text-soft); font-weight: 500; }
+/* Línea de tiempo */
+.dt-linea { position: relative; display: flex; flex-direction: column; gap: 14px; margin: 4px 0 0; padding: 0; list-style: none; }
+.dt-linea::before { content: ''; position: absolute; left: 15px; top: 8px; bottom: 8px; width: 2px; border-radius: 2px; background: var(--c-border-soft); }
+.dt-ev { position: relative; display: flex; align-items: flex-start; gap: 12px; }
+.dt-ev__ico { flex: none; z-index: 1; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%;
+  background: var(--n-bg); box-shadow: var(--sh-mini); color: var(--c-secondary); font-size: .78rem; }
+.dt-ev--creada .dt-ev__ico { background: var(--c-secondary); color: #fff; }
+.dt-ev--intercambio .dt-ev__ico, .dt-ev--asignados .dt-ev__ico { color: var(--c-terracota, #C2410C); }
+.dt-ev > div { display: flex; flex-direction: column; gap: 2px; min-width: 0; padding-top: 5px; }
+.dt-ev b { color: var(--c-text); font-size: .88rem; font-weight: 600; line-height: 1.4; }
+.dt-ev small { color: var(--c-text-soft); font-size: .76rem; }
+/* Impedimentos (observaciones) */
+.dt-imp { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.dt-imp__item { display: flex; flex-direction: column; gap: 6px; padding: 14px 16px; border-radius: 14px; background: var(--n-bg); box-shadow: var(--sh-mini); }
+.dt-imp__estado { align-self: flex-start; display: inline-flex; align-items: center; gap: 6px; padding: 3px 10px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-terracota, #C2410C) 14%, transparent); color: var(--c-terracota, #C2410C); font-size: .72rem; font-weight: 800; }
+.dt-imp__item.is-resuelta .dt-imp__estado { background: color-mix(in srgb, var(--c-verde-esmeralda, #0D7340) 14%, transparent); color: var(--c-verde-esmeralda, #0D7340); }
+.dt-imp__item p { margin: 0; color: var(--c-text); font-size: .87rem; line-height: 1.5; white-space: pre-line; }
+.dt-imp__item small { color: var(--c-text-soft); font-size: .76rem; }
+/* Ítem del release */
+.dt-rel { display: flex; flex-direction: column; gap: 10px; padding: 16px 18px; border-radius: 16px; background: var(--n-bg); box-shadow: var(--sh-mini); }
+.dt-rel__cab { display: flex; align-items: baseline; gap: 10px; }
+.dt-rel__cod { flex: none; padding: 2px 8px; border-radius: 6px; background: color-mix(in srgb, var(--c-secondary) 12%, transparent); color: var(--c-secondary);
+  font: 700 .76rem/1.4 ui-monospace, SFMono-Regular, Menlo, monospace; }
+.dt-rel__cab b { color: var(--c-text); font-size: .95rem; line-height: 1.35; }
+.dt-rel__meta { margin: 0; color: var(--c-text-soft); font-size: .8rem; }
+.dt-rel__av { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.dt-rel__barra { flex: 1 1 160px; height: 8px; border-radius: 999px; overflow: hidden; background: var(--c-border-soft); }
+.dt-rel__barra i { display: block; height: 100%; border-radius: inherit; background: var(--primary, #2970EB); }
+.dt-rel__av b { color: var(--c-text); font-size: .86rem; }
+.dt-rel__av small { color: var(--c-text-soft); font-size: .76rem; }
+.dt-rel .btn-meca { align-self: flex-start; }
+/* Commits */
+.dt-commits { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.dt-commit { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 4px 12px; padding: 11px 14px; border-radius: 12px;
+  background: var(--n-bg); box-shadow: var(--sh-mini); color: inherit; text-decoration: none; }
+.dt-commit:hover { box-shadow: var(--sh-mini), 0 0 0 1.5px rgba(var(--c-secondary-rgb), .35); }
+.dt-commit code { grid-row: span 2; padding: 3px 8px; border-radius: 6px; background: color-mix(in srgb, var(--c-secondary) 10%, transparent); color: var(--c-secondary); font-size: .76rem; }
+.dt-commit__msg { overflow: hidden; color: var(--c-text); font-size: .86rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
+.dt-commit small { color: var(--c-text-soft); font-size: .74rem; }
+@media (max-width: 700px) { .dt-plazos { grid-template-columns: 1fr; } }
 /* Señal de que las tarjetas son clicables */
 .fila-tarea, .kb-card, .flujo-nodo { cursor: pointer; }
 @media (max-width: 480px) { .dt-datos > div { grid-template-columns: 1fr; gap: 2px; } }

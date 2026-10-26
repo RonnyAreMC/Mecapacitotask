@@ -1942,7 +1942,101 @@ function abrirDetalleTarea(t) {
     dlg.querySelector('.dt-previa-cuerpo').innerHTML = '';
     if (verIdx >= 0) dtVerDoc(verIdx);
   }
+  // Los pasos de la trazabilidad (historia, impedimentos, release, commits) se llenan al llegar
+  const marca = dlg.querySelector('.wz-marca h3');
+  if (marca) marca.textContent = 'Tarea #' + t.id;
+  dtTraza(dlg, t.id);
   dlg.showModal();
+}
+
+/* ---------- Trazabilidad de la ficha (pasos 2 a 5): la trae tarea_traza.php ---------- */
+let dtTrazaPedido = 0;
+const DT_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+// «21 oct 2026, 4:34 pm»: las fechas con zona (los commits) se pasan a la hora local
+function dtFecha(s) {
+  if (!s) return '';
+  let d = null;
+  if (/(Z|[+-]\d\d:?\d\d)$/.test(s)) d = new Date(s);
+  else {
+    const m = /^(\d{4})-(\d{2})-(\d{2})(?:[ T](\d{2}):(\d{2}))?/.exec(s);
+    if (!m) return s;
+    d = new Date(+m[1], +m[2] - 1, +m[3], m[4] ? +m[4] : 0, m[5] ? +m[5] : 0);
+    if (!m[4]) return d.getDate() + ' ' + DT_MESES[d.getMonth()] + ' ' + d.getFullYear();
+  }
+  if (isNaN(d)) return s;
+  const h = d.getHours() % 12 || 12;
+  return d.getDate() + ' ' + DT_MESES[d.getMonth()] + ' ' + d.getFullYear() + ', ' + h + ':' + String(d.getMinutes()).padStart(2, '0') + ' ' + (d.getHours() >= 12 ? 'pm' : 'am');
+}
+
+function dtTraza(dlg, id) {
+  const cajas = {};
+  dlg.querySelectorAll('[data-dt-traza]').forEach((c) => {
+    cajas[c.dataset.dtTraza] = c;
+    c.innerHTML = '<p class="dt-traza-vacio"><i class="fa-solid fa-spinner fa-spin"></i> Cargando…</p>';
+  });
+  dlg.querySelectorAll('.wz-paso .dt-cuenta').forEach((x) => x.remove());
+  const pedido = ++dtTrazaPedido;
+  fetch('tarea_traza.php?id=' + encodeURIComponent(id), { credentials: 'same-origin' })
+    .then((r) => r.json())
+    .then((d) => { if (pedido === dtTrazaPedido) dtPintarTraza(dlg, cajas, d, id); })
+    .catch(() => {
+      if (pedido !== dtTrazaPedido) return;
+      Object.values(cajas).forEach((c) => { c.innerHTML = '<p class="dt-traza-vacio">No se pudo cargar. Cierra la tarea y vuelve a abrirla.</p>'; });
+    });
+}
+
+function dtPintarTraza(dlg, cajas, d, id) {
+  if (d.error) { Object.values(cajas).forEach((c) => { c.innerHTML = '<p class="dt-traza-vacio">' + esc(d.error) + '</p>'; }); return; }
+  const vacio = (txt) => '<p class="dt-traza-vacio">' + txt + '</p>';
+  // Un número junto al nombre del paso, en el riel
+  const cuenta = (i, n, alerta) => {
+    const b = dlg.querySelectorAll('.wz-paso')[i]?.querySelector('b');
+    if (b && n) b.insertAdjacentHTML('beforeend', ' <em class="dt-cuenta' + (alerta ? ' is-alerta' : '') + '">' + n + '</em>');
+  };
+
+  // 2. Historia: plazos (lo planificado y lo real) y la línea de tiempo
+  const plazo = (rot, val, nota) => '<div><span>' + rot + '</span><b>' + (val ? esc(val) : '<i>' + nota + '</i>') + '</b></div>';
+  const plan = d.inicio_plan || d.fin_plan ? (d.inicio_plan ? dtFecha(d.inicio_plan) : '—') + ' → ' + (d.fin_plan ? dtFecha(d.fin_plan) : '—') : '';
+  const motivo = (m) => m === 'intercambio' ? 'por un intercambio' : m.startsWith('commit ') ? 'por el ' + m : m;
+  const ICONOS = { creada: 'fa-plus', estado: 'fa-arrow-right', asignados: 'fa-user-group', intercambio: 'fa-right-left',
+                   fechas: 'fa-calendar', prioridad: 'fa-flag', titulo: 'fa-pen' };
+  cajas.historia.innerHTML = '<div class="dt-plazos">' + plazo('Planificada', plan, 'sin fechas') + plazo('Empezó', dtFecha(d.inicio_real), 'todavía no')
+    + plazo('Terminó', dtFecha(d.fin_real), 'todavía no') + '</div>'
+    + '<ol class="dt-linea">' + (d.historia || []).map((h) =>
+      '<li class="dt-ev dt-ev--' + esc(h.tipo) + '"><span class="dt-ev__ico"><i class="fa-solid ' + (ICONOS[h.tipo] || 'fa-circle') + '"></i></span>'
+      + '<div><b>' + esc(h.texto) + '</b><small>' + [dtFecha(h.t), h.por ? 'por ' + esc(h.por) : '', h.motivo ? motivo(esc(h.motivo)) : ''].filter(Boolean).join(' · ') + '</small></div></li>'
+    ).join('') + '</ol>';
+
+  // 3. Impedimentos: las observaciones de la tarea
+  const imp = d.impedimentos || [];
+  const pend = imp.filter((o) => !o.resuelta).length;
+  cuenta(2, pend, true);
+  cajas.impedimentos.innerHTML = imp.length ? '<ul class="dt-imp">' + imp.map((o) =>
+    '<li class="dt-imp__item' + (o.resuelta ? ' is-resuelta' : '') + '">'
+    + '<span class="dt-imp__estado">' + (o.resuelta ? '<i class="fa-solid fa-check"></i> Resuelta' : '<i class="fa-solid fa-triangle-exclamation"></i> Pendiente') + '</span>'
+    + '<p>' + esc(o.texto) + '</p>'
+    + '<small>' + [o.por ? 'De ' + esc(o.por) : '', o.para && o.para !== 'nadie' ? 'para ' + esc(o.para) : '', dtFecha(o.creado),
+        o.resuelta && o.resuelto_en ? 'resuelta el ' + dtFecha(o.resuelto_en) : '', o.respuestas ? o.respuestas + ' respuesta' + (o.respuestas === 1 ? '' : 's') : ''].filter(Boolean).join(' · ') + '</small></li>'
+  ).join('') + '</ul>' : vacio('Sin observaciones: nadie le puso impedimentos.');
+
+  // 4. Release: el ítem al que suma
+  const rel = d.release || [];
+  cajas.release.innerHTML = rel.length ? rel.map((r) =>
+    '<article class="dt-rel">'
+    + '<div class="dt-rel__cab"><span class="dt-rel__cod">' + esc(r.codigo) + '</span><b>' + esc(r.titulo) + '</b></div>'
+    + '<p class="dt-rel__meta">' + esc(r.release) + ' · equipo ' + esc(r.equipo) + (r.inicio || r.fin ? ' · ' + dtFecha(r.inicio) + ' → ' + dtFecha(r.fin) : '') + '</p>'
+    + '<div class="dt-rel__av"><span class="dt-rel__barra"><i style="width:' + (+r.avance) + '%"></i></span><b>' + (+r.avance) + ' %</b><small>' + esc(r.estado) + (r.salud ? ' · ' + esc(r.salud) : '') + '</small></div>'
+    + (r.url ? '<a class="btn-outline btn-meca btn-sm btn-azul" href="' + esc(r.url) + '"><i class="fa-solid fa-route"></i> Abrir en Releases</a>' : '')
+    + '</article>'
+  ).join('') : vacio('No está amarrada a ningún ítem del release. Se amarra al editarla, en «Ítem del release».');
+
+  // 5. Commits con su #id
+  const cm = d.commits || [];
+  cuenta(4, cm.length, false);
+  cajas.commits.innerHTML = cm.length ? '<ul class="dt-commits">' + cm.map((c) =>
+    '<li><a class="dt-commit" href="' + esc(c.url) + '" target="_blank" rel="noopener"><code>' + esc(c.sha) + '</code>'
+    + '<span class="dt-commit__msg">' + esc(c.msg) + '</span><small>' + [esc(c.autor), esc(c.repo), dtFecha(c.fecha)].filter(Boolean).join(' · ') + '</small></a></li>'
+  ).join('') + '</ul>' : vacio('Ningún commit menciona #' + id + ' en los últimos seis meses. Para enlazarlos, el mensaje del commit termina con <code>#' + id + '</code>.');
 }
 // Escapa para texto Y para atributos. Ojo con las comillas: sin ellas, un
 // nombre de archivo o un mensaje de commit que las lleve rompe el atributo

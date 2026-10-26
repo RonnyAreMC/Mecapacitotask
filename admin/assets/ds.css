@@ -2147,6 +2147,15 @@ html td.celda-acceso > .inline-form { display: inline-block; }
 .correo-fila.is-nuevo .correo-fecha { color: var(--primary-ink); font-weight: 600; }
 .correo-clip .ico, .correo-clip svg { width: 15px; height: 15px; }
 .correo-punto { width: 8px; height: 8px; border-radius: 50%; background: var(--primary); }
+/* Leído ↔ no leído desde la lista: el botón sale al pasar el ratón, en lugar de la fecha */
+.correo-lista li { position: relative; }
+.correo-fila__marcar { position: absolute; top: 50%; right: 12px; margin: 0; transform: translateY(-50%); opacity: 0; pointer-events: none; transition: opacity var(--mc-dur-1, .12s) ease; }
+.correo-lista li:hover .correo-fila__marcar, .correo-lista li:focus-within .correo-fila__marcar { opacity: 1; pointer-events: auto; }
+.correo-lista li:hover .correo-fecha, .correo-lista li:focus-within .correo-fecha { visibility: hidden; }
+.correo-fila__marcar .mc-iconbtn { background: var(--surface); box-shadow: 0 1px 4px rgba(15, 23, 42, .12); }
+.correo-todos-leidos { margin-right: 8px; }
+@media (hover: none) { .correo-fila__marcar { display: none; } }
+@media (max-width: 640px) { .correo-todos-leidos .mc-btn__label { display: none; } }
 
 /* Leer */
 .correo-barra--msg { flex-wrap: wrap; }

@@ -1517,9 +1517,49 @@ class TareaRepo
         return $ini ? max(0, (int)$hoy->diff($ini)->format('%r%a')) : 0;
     }
 
+    /**
+     * De dónde viene el cambio cuando no lo hace una persona a mano: 'commit
+     * a1b2c3d' (AutoEstado), 'intercambio'… Lo pone quien llama y lo deja vacío al terminar.
+     */
+    public static string $motivo = '';
+
+    /**
+     * Cada cambio de estado, responsables, fechas, prioridad o título queda en
+     * 'historial' (quién y cuándo): es la trazabilidad de la ficha de la tarea.
+     */
     public function actualizar(int $id, array $datos): bool
     {
+        $antes = $this->store->find($id);
+        if ($antes && ($cambios = self::cambiosHistoria($antes, $datos))) {
+            $quien = class_exists('Auth') ? (int)(Auth::usuario()['id'] ?? 0) : 0;
+            $h = is_array($antes['historial'] ?? null) ? $antes['historial'] : [];
+            foreach ($cambios as $c) $h[] = $c + ['t' => date('Y-m-d H:i'), 'por' => $quien, 'motivo' => self::$motivo];
+            $datos['historial'] = array_slice($h, -150);
+        }
         return $this->store->update($id, $datos);
+    }
+
+    /** Lo que cambió de verdad entre la tarea y lo que se va a guardar */
+    private static function cambiosHistoria(array $antes, array $datos): array
+    {
+        $out = [];
+        foreach (['estado', 'prioridad', 'titulo'] as $k) {
+            if (array_key_exists($k, $datos) && (string)$datos[$k] !== (string)($antes[$k] ?? '')) {
+                $out[] = ['tipo' => $k, 'de' => (string)($antes[$k] ?? ''), 'a' => (string)$datos[$k]];
+            }
+        }
+        if (array_key_exists('asignados', $datos)) {
+            $de = self::asignadosDe($antes);
+            $a = array_values(array_filter(array_map('intval', (array)$datos['asignados'])));
+            $x = $de; sort($x);
+            $y = $a; sort($y);
+            if ($x !== $y) $out[] = ['tipo' => 'asignados', 'de' => $de, 'a' => $a];
+        }
+        $fechasAntes = [(string)($antes['fecha_inicio'] ?? ''), (string)($antes['fecha_limite'] ?? '')];
+        $fechas = [array_key_exists('fecha_inicio', $datos) ? (string)$datos['fecha_inicio'] : $fechasAntes[0],
+                   array_key_exists('fecha_limite', $datos) ? (string)$datos['fecha_limite'] : $fechasAntes[1]];
+        if ($fechas !== $fechasAntes) $out[] = ['tipo' => 'fechas', 'de' => $fechasAntes, 'a' => $fechas];
+        return $out;
     }
 
     public function eliminar(int $id): bool

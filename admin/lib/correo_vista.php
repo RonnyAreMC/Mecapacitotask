@@ -259,7 +259,7 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     <?php
     if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas, (array)($d['hilo'] ?? []));
     elseif ($modo === 'redactar') correoRedactar($yo, $cuenta, $carpeta, $base, $carpetas);
-    else correoLista($lista, $carpeta);
+    else correoLista($lista, $carpeta, (int)$noLeidos);
     ?>
   </section>
 </div>
@@ -290,12 +290,14 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     if ($esAdmin) correoAjustes();
 }
 
-function correoLista(array $lista, array $carpeta): void
+function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
 {
     $q = trim((string)($_GET['q'] ?? ''));
     $desde = $lista['total'] ? ($lista['pagina'] - 1) * $lista['por'] + 1 : 0;
     $hasta = min($lista['total'], $lista['pagina'] * $lista['por']);
     $enviados = in_array($carpeta['tipo'], ['sent', 'drafts'], true);
+    // «Marcar todos como leídos»: si en Recibidos queda algo sin leer, o en esta página
+    $haySinLeer = !$enviados && (($carpeta['tipo'] === 'inbox' && $noLeidos > 0) || in_array(false, array_column($lista['items'], 'leido'), true));
     ?>
   <div class="correo-barra">
     <form method="get" action="<?= correoPagina() ?>" class="correo-buscar" role="search">
@@ -304,6 +306,12 @@ function correoLista(array $lista, array $carpeta): void
         <input class="mc-input__control" name="q" value="<?= e($q) ?>" maxlength="100" placeholder="Buscar en <?= e($carpeta['etiqueta']) ?>" aria-label="Buscar correos"></div>
     </form>
     <div class="correo-pag">
+      <?php if ($haySinLeer): ?>
+      <form method="post" action="actions.php" class="correo-inline correo-todos-leidos">
+        <input type="hidden" name="accion" value="correo_leidos"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
+        <button class="mc-btn mc-btn--ghost mc-btn--sm" data-ds-tip="Marca como leído todo <?= e($carpeta['etiqueta']) ?>, no solo esta página"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todos como leídos</span></button>
+      </form>
+      <?php endif; ?>
       <span><?= $lista['total'] ? $desde . '–' . $hasta . ' de ' . $lista['total'] : '0' ?></span>
       <a class="mc-iconbtn mc-iconbtn--sm<?= $lista['pagina'] <= 1 ? ' is-off' : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'q' => $q, 'p' => $lista['pagina'] - 1])) ?>" aria-label="Más nuevos" data-ds-tip="Más nuevos"><?= UI::iconoDS('chevron-izq', 18) ?></a>
       <a class="mc-iconbtn mc-iconbtn--sm<?= $lista['pagina'] >= $lista['paginas'] ? ' is-off' : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'q' => $q, 'p' => $lista['pagina'] + 1])) ?>" aria-label="Más antiguos" data-ds-tip="Más antiguos"><?= UI::iconoDS('chevron-der', 18) ?></a>
@@ -344,6 +352,14 @@ function correoLista(array $lista, array $carpeta): void
           <?php if (!$it['leido']): ?><span class="correo-punto" aria-label="Sin leer"></span><?php endif; ?>
         </span>
       </a>
+      <?php if (!$enviados): /* al pasar el ratón, en lugar de la fecha: leído ↔ no leído */ ?>
+      <form method="post" action="actions.php" class="correo-fila__marcar">
+        <input type="hidden" name="accion" value="correo_marcar"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
+        <input type="hidden" name="uid" value="<?= (int)$it['uid'] ?>"><input type="hidden" name="leido" value="<?= $it['leido'] ? '0' : '1' ?>">
+        <input type="hidden" name="p" value="<?= (int)$lista['pagina'] ?>"><input type="hidden" name="q" value="<?= e($q) ?>">
+        <button class="mc-iconbtn mc-iconbtn--sm" aria-label="<?= $it['leido'] ? 'Marcar como no leído' : 'Marcar como leído' ?>" data-ds-tip="<?= $it['leido'] ? 'Marcar como no leído' : 'Marcar como leído' ?>"><?= UI::iconoDS($it['leido'] ? 'correo' : 'check', 18) ?></button>
+      </form>
+      <?php endif; ?>
     </li>
     <?php endforeach; ?>
   </ul>

@@ -82,7 +82,9 @@ class AutoEstado
                 if ($esFinal && !$eraFinal) $extra['completada_en'] = date('Y-m-d');
                 if (!$esFinal && $eraFinal) $extra['completada_en'] = '';
 
+                TareaRepo::$motivo = 'commit ' . substr($sha, 0, 7);   // en la historia de la tarea
                 $tareas->actualizar($tid, ['estado' => $destino] + $extra);
+                TareaRepo::$motivo = '';
                 // Si el commit la dio por terminada, avisa a quien lleva el
                 // proyecto igual que si la hubieran cerrado a mano. Sin id de
                 // persona: aqui no hay sesion detras, la cerro un commit.

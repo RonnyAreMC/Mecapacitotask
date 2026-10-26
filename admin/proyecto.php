@@ -1498,8 +1498,8 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
     require_once __DIR__ . '/lib/releases_ui.php';
     $eqRel = (string)($relPanel['equipos'][0] ?? '');
     $relsRel = Releases::releases();
-    $rcRel = (string)($_GET['rl_r'] ?? $relPanel['actual']);
-    if (!isset($relPanel['releases'][$rcRel])) $rcRel = $relPanel['actual'];
+    // rl_r puede traer varios releases, separados por comas
+    $rcRel = array_values(array_filter(explode(',', (string)($_GET['rl_r'] ?? '')), fn($x) => isset($relPanel['releases'][$x]))) ?: [$relPanel['actual']];
     $urlRel = fn(array $p) => 'proyecto.php?' . http_build_query(array_filter(['id' => $id, 'rl_r' => $p['r'] ?? '', 'rl_estado' => $p['estado'] ?? '',
         'rl_salud' => $p['salud'] ?? '', 'rl_q' => $p['q'] ?? ''], fn($x) => $x !== '' && $x !== null)) . '#vista-release';
 ?>
@@ -2640,18 +2640,24 @@ function depPicker(): void { ?>
 </dialog>
 <?php endif; ?>
 
-<!-- Modal: detalle de tarea (solo lectura, lo abre cualquiera) -->
-<dialog id="dlg-detalle-tarea" class="dlg-meca dlg-detalle">
-  <div class="dlg-form dt-body">
+<!-- Modal: detalle de tarea (solo lectura, lo abre cualquiera), por pasos: el detalle y su
+     trazabilidad (historia, impedimentos, release y commits; los trae tarea_traza.php al abrirla) -->
+<dialog id="dlg-detalle-tarea" class="dlg-meca dlg-wizard dlg-detalle-wz">
+  <form class="dlg-form wz" onsubmit="return false">
+    <?= UI::wizardRiel('fa-list-check', 'Detalle de la tarea', 'Todo lo que pasó con ella', UI::PASOS_DETALLE_TAREA) ?>
+    <div class="wz-cuerpo">
+      <header class="dt-head">
+        <div class="dt-head-txt">
+          <span class="dt-proyecto"></span>
+          <h3 class="dt-titulo font-display"></h3>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel dt-panel-detalle">
    <div class="dt-cols">
     <div class="dt-info">
-    <header class="dt-head">
-      <div class="dt-head-txt">
-        <span class="dt-proyecto"></span>
-        <h3 class="dt-titulo font-display"></h3>
-      </div>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
     <div class="dt-chips"></div>
     <span class="dt-restante" hidden></span>
     <div class="dt-carga" hidden></div>
@@ -2664,9 +2670,6 @@ function depPicker(): void { ?>
       <div class="dt-fila-creada" hidden><dt><i class="fa-solid fa-user-pen"></i> Agregada por</dt><dd class="dt-creada"></dd></div>
       <div class="dt-fila-adj" hidden><dt><i class="fa-solid fa-paperclip"></i> Documentos</dt><dd class="dt-adjuntos"></dd></div>
     </dl>
-    <footer class="dt-foot">
-      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
-    </footer>
     </div>
 
     <!-- Con documentos, el primero ya se ve aqui al abrir la tarea -->
@@ -2677,7 +2680,22 @@ function depPicker(): void { ?>
       <div class="dt-previa-cuerpo"></div>
     </aside>
    </div>
-  </div>
+      </section>
+      <section class="wz-panel"><div class="dt-traza" data-dt-traza="historia"></div></section>
+      <section class="wz-panel"><div class="dt-traza" data-dt-traza="impedimentos"></div></section>
+      <section class="wz-panel"><div class="dt-traza" data-dt-traza="release"></div></section>
+      <section class="wz-panel"><div class="dt-traza" data-dt-traza="commits"></div></section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-guardar" onclick="this.closest('dialog').close()">Cerrar</button>
+        </div>
+      </div>
+    </div>
+  </form>
 </dialog>
 
 <!-- Modal: recordar una dependencia de otro equipo (lo abre el detalle de tarea) -->

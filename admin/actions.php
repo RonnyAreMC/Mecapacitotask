@@ -71,7 +71,7 @@ $accionesDeCualquiera = [
     'tutorial_visto',
     // Correo InnoTech: cada persona maneja SOLO su buzón (dentro se usa la
     // sesión de quien entró). correo_conf queda para el administrador.
-    'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_eliminar',
+    'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_leidos', 'correo_eliminar',
     // Notificaciones nativas: cada persona anota y quita SUS dispositivos
     'push_suscribir', 'push_quitar', 'push_prefs', 'push_prueba',
     // Releases: los ven los editores y los Scrum Master; cada acción comprueba
@@ -1156,6 +1156,7 @@ switch ($accion) {
     case 'correo_desconectar':
     case 'correo_enviar':
     case 'correo_marcar':
+    case 'correo_leidos':
     case 'correo_eliminar':
     case 'correo_conf':
         if (!class_exists('Correo')) redirigir('notificaciones.php', 'El correo dentro del panel no está instalado.', 'error');
@@ -1199,6 +1200,18 @@ switch ($accion) {
         }
         if (!Correo::conectado($midC)) redirigir($urlC(), 'Primero sincroniza tu correo.', 'error');
         try {
+            // «Marcar todos como leídos»: lo no leído de la carpeta, en el servidor y en lo guardado del panel
+            if ($accion === 'correo_leidos') {
+                $imapC  = Correo::abrir($midC);
+                $carpC  = Correo::carpetaValida(Correo::carpetas($imapC, $midC), $cC);
+                $imapC->abrir($carpC['nombre'], true);
+                $sinLeerC = $imapC->buscar('', true);
+                $imapC->marcarVarios($sinLeerC, '\\Seen');
+                $nC = count($sinLeerC) + (class_exists('CorreoCopias') ? CorreoCopias::marcarCarpeta($midC, $carpC['nombre']) : 0);
+                if ($carpC['tipo'] === 'inbox') Correo::anotarNoLeidos($midC, 0);
+                $imapC->cerrar();
+                redirigir($urlC(['c' => $carpC['nombre']]), $nC ? 'Listo: todo ' . $carpC['etiqueta'] . ' está leído.' : 'No había correos sin leer.', $nC ? 'success' : 'info');
+            }
             if ($accion === 'correo_marcar' || $accion === 'correo_eliminar') {
                 $uidC   = (int)($_POST['uid'] ?? 0);
                 $imapC  = Correo::abrir($midC);
@@ -1211,7 +1224,8 @@ switch ($accion) {
                     $imapC->marcar($uidC, '\\Seen', $leidoC);
                     if ($copiasC) CorreoCopias::marcar($midC, $carpC['nombre'], $uidC, $leidoC);
                     $imapC->cerrar();
-                    redirigir($urlC(['c' => $carpC['nombre']]), $leidoC ? 'Marcado como leído.' : 'Lo marcamos como no leído.');
+                    redirigir($urlC(['c' => $carpC['nombre'], 'p' => max(0, (int)($_POST['p'] ?? 0)), 'q' => mb_substr(trim((string)($_POST['q'] ?? '')), 0, 100)]),
+                        $leidoC ? 'Marcado como leído.' : 'Lo marcamos como no leído.');
                 }
                 // Lo que se borra en el panel se va también de lo guardado (si no, volvería a salir en Recibidos)
                 $quitadoC = $copiasC && CorreoCopias::quitar($midC, $carpC['nombre'], $uidC);
@@ -2004,8 +2018,10 @@ switch ($accion) {
                 redirigir($volver, 'Una de las tareas ya no existe: la propuesta se canceló.', 'error');
             }
             // Cruzar responsables sin pisar a los demás co-responsables
+            TareaRepo::$motivo = 'intercambio';   // en la historia de las dos tareas
             $tareas->reemplazarAsignado((int)$tA['id'], (int)$x['de_id'], (int)$x['para_id']);
             $tareas->reemplazarAsignado((int)$tB['id'], (int)$x['para_id'], (int)$x['de_id']);
+            TareaRepo::$motivo = '';
         }
 
         $inter->actualizar((int)$x['id'], [

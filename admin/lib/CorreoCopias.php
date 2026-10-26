@@ -277,6 +277,19 @@ final class CorreoCopias
         }
     }
 
+    /** «Marcar todos como leídos»: lo guardado de esa carpeta. Devuelve cuántos cambió. */
+    public static function marcarCarpeta(int $mid, string $carpeta): int
+    {
+        $n = 0;
+        foreach (self::enCarpeta($mid, $carpeta) as $f) {
+            if (!empty($f['leido'])) continue;
+            self::repo()->update((int)$f['id'], ['leido' => true]);
+            $n++;
+        }
+        if ($n) self::$cache = null;
+        return $n;
+    }
+
     /** Lo que la persona borra en el panel se va también de lo guardado (si no, volvería a salir). */
     public static function quitar(int $mid, string $carpeta, int $uid): bool
     {

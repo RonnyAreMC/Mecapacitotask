@@ -250,20 +250,31 @@ function rlTexto(string $name, string $valor, int $filas = 3, string $ph = ''): 
 function rlVistaRelease(array $c): void
 {
 
-    ['rels' => $rels, 'eqs' => $eqs, 'todos' => $todos, 'miembros' => $miembros, 'hoy' => $hoy, 'rc' => $rc, 'url' => $url] = $c;
-    $fEq = (string)($c['equipo'] ?? '');
+    ['rels' => $rels, 'eqs' => $eqs, 'todos' => $todos, 'miembros' => $miembros, 'hoy' => $hoy, 'url' => $url] = $c;
+    // Se pueden ver varios releases y varios equipos a la vez ('rc' y 'equipo': uno o una lista)
+    $rcs = array_values(array_intersect(array_keys($rels), array_map('strval', (array)$c['rc'])));
+    if (!$rcs) $rcs = [(string)array_key_first($rels)];
+    $rc = $rcs[0];
+    $fEqs = array_values(array_unique(array_filter(array_map('strval', (array)($c['equipo'] ?? [])))));
     $fEst = (string)($c['estado'] ?? '');
     $fSal = (string)($c['salud'] ?? '');
     $q = (string)($c['q'] ?? '');
     $fijo = !empty($c['fijo']);          // dentro del proyecto: solo su equipo, sin elegir otro
     $clicable = $c['clicable'] ?? true;  // al pulsar un ítem se abre su panel
-    if ($fijo) $todos = array_values(array_filter($todos, fn($it) => $it['equipo'] === $fEq));
+    if ($fijo) $todos = array_values(array_filter($todos, fn($it) => in_array($it['equipo'], $fEqs, true)));
     $R = $rels[$rc];
-    $delRel = array_values(array_filter($todos, fn($it) => $it['release'] === $rc));
+    $varios = count($rcs) > 1;
+    $colorDe = fn(string $cod) => (string)($rels[$cod]['color'] ?? '#2970EB');
+    $delRel = array_values(array_filter($todos, fn($it) => in_array($it['release'], $rcs, true)));
     $res = Releases::resumen($delRel);
     $salR = rlSaludGrupo($res, $hoy);
-    $lista = Releases::items(array_filter(['release' => $rc, 'equipo' => $fEq, 'estado' => $fEst, 'salud' => $fSal, 'q' => $q]));
-    $base = ['r' => $rc, 'e' => $fEq, 'estado' => $fEst, 'salud' => $fSal, 'q' => $q];
+    $lista = array_values(array_filter(Releases::items(array_filter(['estado' => $fEst, 'salud' => $fSal, 'q' => $q])),
+        fn($it) => in_array($it['release'], $rcs, true) && (!$fEqs || in_array($it['equipo'], $fEqs, true))));
+    $base = ['r' => implode(',', $rcs), 'e' => $fijo ? '' : implode(',', $fEqs), 'estado' => $fEst, 'salud' => $fSal, 'q' => $q];
+    // Prender o apagar uno de la lista (el último release no se apaga: siempre queda uno)
+    $alternar = fn(array $l, string $x) => in_array($x, $l, true) ? array_values(array_diff($l, [$x])) : array_merge($l, [$x]);
+    $urlRel = fn(array $l) => $url(array_replace($base, ['r' => implode(',', array_values(array_intersect(array_keys($rels), $l)) ?: $rcs)]));
+    $urlEq = fn(array $l) => $url(array_replace($base, ['e' => implode(',', $l)]));
     $eqsRel = [];
     foreach ($delRel as $it) $eqsRel[$it['equipo']][] = $it;
     uksort($eqsRel, fn($a, $b) => ((int)($eqs[$a]['orden'] ?? 99)) <=> ((int)($eqs[$b]['orden'] ?? 99)));
@@ -274,12 +285,19 @@ function rlVistaRelease(array $c): void
         if ($fijo && !$deCod) continue;
         $tabRel[$cod] = Releases::resumen($deCod);
     }
-    $ant = ($R['fin_anterior'] ?? '') !== '' && $R['fin_anterior'] !== $R['fin'];
-    $hayFiltro = (!$fijo && $fEq !== '') || $fEst !== '' || $fSal !== '' || $q !== '';
+    $ant = !$varios && ($R['fin_anterior'] ?? '') !== '' && $R['fin_anterior'] !== $R['fin'];
+    $hayFiltro = (!$fijo && $fEqs) || $fEst !== '' || $fSal !== '' || $q !== '';
+    // Con varios releases, la cabecera va de la primera fecha a la última
+    $iniV = min(array_filter(array_map(fn($x) => (string)($rels[$x]['inicio'] ?? ''), $rcs)) ?: ['']);
+    $finV = max(array_map(fn($x) => (string)($rels[$x]['fin'] ?? ''), $rcs));
 ?>
-  <nav class="rl-relnav" aria-label="Elegir el release">
-    <?php foreach ($rels as $cod => $r): if (!isset($tabRel[$cod])) continue; $x = $tabRel[$cod]; ?>
-    <a class="rl-relpill<?= $cod === $rc ? ' is-active' : '' ?>" href="<?= e($url(['r' => $cod, 'e' => $fEq])) ?>" style="--rc:<?= e($r['color']) ?>;--p:<?= (int)$x['pct'] ?>%"<?= $cod === $rc ? ' aria-current="page"' : '' ?>>
+  <nav class="rl-relnav" aria-label="Elegir los releases (se pueden ver varios a la vez)">
+    <?php if (count($tabRel) > 1): $todosRel = !array_diff(array_keys($tabRel), $rcs); ?>
+    <a class="rl-relpill rl-relpill--todos<?= $todosRel ? ' is-active' : '' ?>" href="<?= e($urlRel(array_keys($tabRel))) ?>" data-ds-tip="Ver todos los releases juntos"><b>Todos</b></a>
+    <?php endif; ?>
+    <?php foreach ($rels as $cod => $r): if (!isset($tabRel[$cod])) continue; $x = $tabRel[$cod]; $on = in_array($cod, $rcs, true); ?>
+    <a class="rl-relpill<?= $on ? ' is-active' : '' ?>" href="<?= e($urlRel($alternar($rcs, $cod))) ?>" style="--rc:<?= e($r['color']) ?>;--p:<?= (int)$x['pct'] ?>%" aria-pressed="<?= $on ? 'true' : 'false' ?>"
+       data-ds-tip="<?= $on ? ($varios ? 'Quitar ' . e($cod) . ' de la vista' : 'Pulsa otro release para verlos juntos') : 'Sumar ' . e($cod) . ' a la vista' ?>">
       <b><?= e($cod) ?></b><small class="mc-num"><?= (int)$x['pct'] ?> %</small><i aria-hidden="true"></i>
     </a>
     <?php endforeach; ?>
@@ -287,6 +305,17 @@ function rlVistaRelease(array $c): void
 
   <section class="mc-card rl-hero" style="--rc:<?= e($R['color']) ?>">
     <div class="rl-hero__main">
+      <?php if ($varios): ?>
+      <div class="rl-hero__fila">
+        <?php foreach ($rcs as $x) echo rlCode($x, $colorDe($x), 'rl-code--lg'); ?>
+        <?php if ($res['total']) echo rlSalud($salR === 'vacio' ? 'futuro' : $salR); ?>
+      </div>
+      <h2 class="rl-hero__tit font-display"><?= count($rcs) ?> releases juntos</h2>
+      <p class="rl-hero__meta">
+        <span><?= rlIco('agenda', 16) ?> <?= e(rlF($iniV, true)) ?> → <?= e(rlF($finV, true)) ?></span>
+      </p>
+      <p class="rl-hero__desc"><?= e(implode(' · ', array_map(fn($x) => $x . ': ' . (string)($rels[$x]['nombre'] ?? ''), $rcs))) ?></p>
+      <?php else: ?>
       <div class="rl-hero__fila">
         <?= rlCode($rc, $R['color'], 'rl-code--lg') ?>
         <?= rlChip(['por_iniciar' => 'Por iniciar', 'en_curso' => 'En curso', 'cerrado' => 'Cerrado'][$R['estado'] ?? 'por_iniciar'] ?? 'Por iniciar',
@@ -302,10 +331,11 @@ function rlVistaRelease(array $c): void
       <?php if (($R['modulos'] ?? '') !== '' || ($R['descripcion'] ?? '') !== ''): ?>
       <p class="rl-hero__desc"><?= e(($R['descripcion'] ?? '') !== '' ? $R['descripcion'] : $R['modulos']) ?></p>
       <?php endif; ?>
+      <?php endif; ?>
       <?php if (!$fijo): ?>
-      <div class="rl-hero__eqs" aria-label="Equipos del release">
-        <?php foreach ($eqsRel as $nom => $l): $rq = Releases::resumen($l); $s = rlSaludGrupo($rq, $hoy); ?>
-        <a class="rl-eqpill rl-s--<?= e($s) ?><?= $fEq === $nom ? ' is-active' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($url(array_replace($base, ['e' => $fEq === $nom ? '' : $nom]))) ?>">
+      <div class="rl-hero__eqs" aria-label="Equipos (se pueden elegir varios)">
+        <?php foreach ($eqsRel as $nom => $l): $rq = Releases::resumen($l); $s = rlSaludGrupo($rq, $hoy); $onE = in_array($nom, $fEqs, true); ?>
+        <a class="rl-eqpill rl-s--<?= e($s) ?><?= $onE ? ' is-active' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($urlEq($alternar($fEqs, $nom))) ?>" aria-pressed="<?= $onE ? 'true' : 'false' ?>">
           <span class="rl-eqpill__dot"></span><b><?= e($nom) ?></b><span class="mc-num"><?= (int)$rq['pct'] ?> %</span><small><?= count($l) ?> ítems</small>
         </a>
         <?php endforeach; ?>
@@ -331,9 +361,9 @@ function rlVistaRelease(array $c): void
     <div class="rl-filtros__fila">
       <span class="rl-filtros__rot">Equipo</span>
       <div class="rl-chips">
-        <a class="rl-chip<?= $fEq === '' ? ' is-on' : '' ?>" href="<?= e($url(array_replace($base, ['e' => '']))) ?>">Todos</a>
-        <?php foreach ($eqsRel as $nom => $l): ?>
-        <a class="rl-chip<?= $fEq === $nom ? ' is-on' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($url(array_replace($base, ['e' => $fEq === $nom ? '' : $nom]))) ?>"><i class="rl-chip__dot"></i><?= e($nom) ?></a>
+        <a class="rl-chip<?= !$fEqs ? ' is-on' : '' ?>" href="<?= e($urlEq([])) ?>">Todos</a>
+        <?php foreach ($eqsRel as $nom => $l): $onE = in_array($nom, $fEqs, true); ?>
+        <a class="rl-chip<?= $onE ? ' is-on' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($urlEq($alternar($fEqs, $nom))) ?>" aria-pressed="<?= $onE ? 'true' : 'false' ?>"><i class="rl-chip__dot"></i><?= e($nom) ?></a>
         <?php endforeach; ?>
       </div>
     </div>
@@ -361,7 +391,7 @@ function rlVistaRelease(array $c): void
         <div class="mc-input mc-input--sm"><?= UI::iconoDS('buscar', 16, 'mc-input__icon') ?>
           <input class="mc-input__control" type="search" name="<?= e($fCampo) ?>" value="<?= e($q) ?>" placeholder="Buscar por código, título o microservicio…" aria-label="Buscar ítems"></div>
       </form>
-      <?php if ($hayFiltro): ?><a class="mc-btn mc-btn--ghost mc-btn--sm" href="<?= e($url(['r' => $rc, 'e' => $fijo ? $fEq : ''])) ?>"><?= rlIco('cerrar', 16) ?><span class="mc-btn__label">Quitar filtros</span></a><?php endif; ?>
+      <?php if ($hayFiltro): ?><a class="mc-btn mc-btn--ghost mc-btn--sm" href="<?= e($url(['r' => $base['r'], 'e' => ''])) ?>"><?= rlIco('cerrar', 16) ?><span class="mc-btn__label">Quitar filtros</span></a><?php endif; ?>
       <span class="rl-filtros__n"><?= count($lista) ?> de <?= count($delRel) ?> ítems</span>
       <div class="mc-tabs mc-tabs--segmented mc-tabs--sm rl-modo" role="tablist" aria-label="Cómo verlos">
         <button type="button" class="mc-tab is-active" role="tab" aria-selected="true" data-rl-modo="gantt"><?= rlIco('ruta', 16) ?><span>Gantt</span></button>
@@ -373,10 +403,10 @@ function rlVistaRelease(array $c): void
 <?php
     if (!$lista):
         echo UI::vacioDS('nexo:pensando', 'Ningún ítem con esos filtros', 'Prueba con otro equipo, estado o búsqueda.',
-            '<a class="mc-btn mc-btn--secondary" href="' . e($url(['r' => $rc, 'e' => $fijo ? $fEq : ''])) . '"><span class="mc-btn__label">Quitar filtros</span></a>');
+            '<a class="mc-btn mc-btn--secondary" href="' . e($url(['r' => $base['r'], 'e' => ''])) . '"><span class="mc-btn__label">Quitar filtros</span></a>');
     else:
-        // Ventana del Gantt: la del release y la de todos sus ítems, con un respiro
-        $gi = $R['inicio'] ?? ''; $gf = $R['fin'] ?? '';
+        // Ventana del Gantt: la de los releases elegidos y la de todos sus ítems, con un respiro
+        $gi = $iniV; $gf = $finV;
         foreach ($delRel as $it) {
             if (($it['inicio'] ?? '') !== '' && ($gi === '' || $it['inicio'] < $gi)) $gi = $it['inicio'];
             if (($it['fin'] ?? '') !== '' && $it['fin'] > $gf) $gf = $it['fin'];
@@ -410,8 +440,10 @@ function rlVistaRelease(array $c): void
         <div class="rl-gantt__cuerpo">
           <div class="rl-gantt__grid" aria-hidden="true">
             <?php foreach ($semanas as $t): ?><span style="left:<?= $gpos(date('Y-m-d', $t)) ?>%"></span><?php endforeach; ?>
-            <?php if (($R['inicio'] ?? '') !== ''): ?><span class="is-rel" style="left:<?= $gpos($R['inicio']) ?>%"></span><?php endif; ?>
-            <?php if (($R['fin'] ?? '') !== ''): ?><span class="is-rel" style="left:<?= $gpos(date('Y-m-d', strtotime($R['fin'] . ' +1 day'))) ?>%"></span><?php endif; ?>
+            <?php foreach ($rcs as $x): $Rx = $rels[$x]; /* dónde empieza y termina cada release elegido */ ?>
+            <?php if (($Rx['inicio'] ?? '') !== ''): ?><span class="is-rel" style="left:<?= $gpos($Rx['inicio']) ?>%"></span><?php endif; ?>
+            <?php if (($Rx['fin'] ?? '') !== ''): ?><span class="is-rel" style="left:<?= $gpos(date('Y-m-d', strtotime($Rx['fin'] . ' +1 day'))) ?>%"></span><?php endif; ?>
+            <?php endforeach; ?>
             <?php $xh = $gpos($hoy); if ($xh >= 0 && $xh <= 100): ?><i class="rl-hoy" style="left:<?= $xh ?>%"><b>Hoy</b></i><?php endif; ?>
           </div>
           <?php foreach ($porEq as $nom => $l): $rq = Releases::resumen($eqsRel[$nom] ?? $l); $s = rlSaludGrupo($rq, $hoy); $sm = $miembros[(int)($eqs[$nom]['sm_id'] ?? 0)] ?? null; ?>
@@ -422,14 +454,15 @@ function rlVistaRelease(array $c): void
             <span class="rl-gantt__pista rl-gantt__eqres"><span class="mc-num"><?= (int)$rq['pct'] ?> %</span><?= rlBarra((int)$rq['pct'], (int)$rq['esperado'], $s) ?><small><?= (int)$rq['cerrados'] ?> de <?= (int)$rq['total'] ?> terminados</small></span>
           </div>
             <?php foreach ($l as $it):
-                $x0 = $gpos($it['inicio'] ?: ($R['inicio'] ?? $gi));
-                $x1 = $gpos(date('Y-m-d', strtotime(($it['fin'] ?: ($R['fin'] ?? $gf)) . ' +1 day')));
+                $Ri = $rels[$it['release']] ?? $R;
+                $x0 = $gpos($it['inicio'] ?: ($Ri['inicio'] ?? $gi));
+                $x1 = $gpos(date('Y-m-d', strtotime(($it['fin'] ?: ($Ri['fin'] ?? $gf)) . ' +1 day')));
                 $w = max(1.4, $x1 - $x0);
                 $orig = ($it['inicio_original'] ?? '') !== '' && (($it['inicio_original'] ?? '') !== $it['inicio'] || ($it['fin_original'] ?? '') !== $it['fin']);
                 $o0 = $orig ? $gpos($it['inicio_original']) : 0;
                 $ow = $orig ? max(1.4, $gpos(date('Y-m-d', strtotime(($it['fin_original'] ?: $it['fin']) . ' +1 day'))) - $o0) : 0; ?>
           <<?= $clicable ? 'a href="' . e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) . '" data-rl-item="' . (int)$it['id'] . '"' : 'div' ?> class="rl-gfila<?= $clicable ? '' : ' is-fija' ?>"<?= rlTipItem($it) ?>>
-            <span class="rl-gantt__lbl rl-gfila__lbl"><?= rlCode($it['codigo'], $R['color']) ?><span class="rl-gfila__tit"><?= e($it['titulo']) ?></span></span>
+            <span class="rl-gantt__lbl rl-gfila__lbl"><?= rlCode($it['codigo'], $colorDe($it['release'])) ?><span class="rl-gfila__tit"><?= e($it['titulo']) ?></span></span>
             <span class="rl-gantt__pista">
               <?php if ($orig): ?><span class="rl-gbar__orig" style="left:<?= $o0 ?>%;width:<?= $ow ?>%"></span><?php endif; ?>
               <span class="rl-gbar rl-s--<?= e($it['salud']) ?>" style="left:<?= $x0 ?>%;width:<?= $w ?>%">
@@ -461,7 +494,7 @@ function rlVistaRelease(array $c): void
         <tbody>
         <?php foreach ($lista as $i => $it): ?>
           <tr class="mc-table__row-in<?= $clicable ? ' is-clickable' : '' ?>" style="--i:<?= min($i, 12) ?>"<?= $clicable ? ' data-rl-item="' . (int)$it['id'] . '" tabindex="0"' : '' ?>>
-            <td class="is-primary" data-label="Ítem"><div class="mc-table__cell rl-tabla__item"><?= rlCode($it['codigo'], $R['color']) ?>
+            <td class="is-primary" data-label="Ítem"><div class="mc-table__cell rl-tabla__item"><?= rlCode($it['codigo'], $colorDe($it['release'])) ?>
               <?php if ($clicable): ?><a href="<?= e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) ?>"><?= e($it['titulo']) ?></a><?php else: ?><span><?= e($it['titulo']) ?></span><?php endif; ?></div></td>
             <td data-label="Equipo"><div class="mc-table__cell"><?= rlEqChip($eqs, $it['equipo']) ?></div></td>
             <td data-label="Fechas"><div class="mc-table__cell rl-tabla__fechas"><span class="mc-num"><?= e(rlF($it['inicio'])) ?> → <?= e(rlF($it['fin'])) ?></span><small><?= e(rlDias($it['dias_restantes'], $it['estado'])) ?></small></div></td>

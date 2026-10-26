@@ -250,6 +250,14 @@ final class CorreoImap
         $this->cmd('UID STORE ' . $uid . ' ' . ($poner ? '+' : '-') . 'FLAGS.SILENT (' . $flag . ')');
     }
 
+    /** La misma marca a muchos de una vez (de a 400 por comando) */
+    public function marcarVarios(array $uids, string $flag, bool $poner = true): void
+    {
+        foreach (array_chunk(array_values(array_filter(array_map('intval', $uids))), 400) as $grupo) {
+            $this->cmd('UID STORE ' . implode(',', $grupo) . ' ' . ($poner ? '+' : '-') . 'FLAGS.SILENT (' . $flag . ')');
+        }
+    }
+
     public function mover(int $uid, string $destino): void
     {
         if ($this->tiene('MOVE')) {

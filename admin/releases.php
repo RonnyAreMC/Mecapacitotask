@@ -747,12 +747,12 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 /* =========================================================================
    RELEASE (lib/releases_ui.php · rlVistaRelease)
    ========================================================================= */
-    $rcV = (string)($_GET['r'] ?? $relActual);
-    if (!isset($rels[$rcV])) $rcV = $relActual;
-    $fEqV = (string)($_GET['e'] ?? '');
+    // r y e pueden traer varios, separados por comas (R2,R3 · Alpha,Beta)
+    $rcV = array_values(array_filter(explode(',', (string)($_GET['r'] ?? '')), fn($x) => isset($rels[$x]))) ?: [$relActual];
+    $fEqV = array_values(array_filter(explode(',', (string)($_GET['e'] ?? '')), fn($x) => isset($eqs[$x])));
     rlVistaRelease([
         'rels' => $rels, 'eqs' => $eqs, 'todos' => $todos, 'miembros' => $miembros, 'hoy' => $hoy, 'rc' => $rcV,
-        'equipo' => isset($eqs[$fEqV]) ? $fEqV : '',
+        'equipo' => $fEqV,
         'estado' => isset(Releases::ESTADOS[$_GET['estado'] ?? '']) ? (string)$_GET['estado'] : '',
         'salud' => isset(Releases::SALUD[$_GET['salud'] ?? '']) ? (string)$_GET['salud'] : '',
         'q' => trim((string)($_GET['q'] ?? '')),

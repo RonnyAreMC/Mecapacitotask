@@ -1177,6 +1177,15 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         ['Revisión',   'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
     ];
 
+    /** La ficha de una tarea (solo lectura): el detalle y su trazabilidad */
+    public const PASOS_DETALLE_TAREA = [
+        ['Detalle',      'Qué hay que hacer',         'Responsables, fechas, dependencias y documentos.'],
+        ['Historia',     'Por dónde pasó',            'Quién la agregó, a quién se pasó, cuándo empezó y terminó.'],
+        ['Impedimentos', 'Lo que la frenó',           'Las observaciones que le pusieron y si ya se resolvieron.'],
+        ['Release',      'A qué suma',                'El ítem del release al que está amarrada.'],
+        ['Commits',      'El código que la menciona', 'Los commits que llevan su #id.'],
+    ];
+
     public const PASOS_INTERCAMBIO = [
         ['Tareas',   'Qué se intercambia',      'La tuya que sueltas y la que tomarías a cambio.'],
         ['Motivo',   'Por qué lo pides',        'Va en el correo, así la otra persona entiende el contexto.'],
