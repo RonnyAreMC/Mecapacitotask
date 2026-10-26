@@ -448,6 +448,9 @@
     const w = tip.offsetWidth, h = tip.offsetHeight;
     let l = x + 14, t = y + 16;
     if (l + w > innerWidth - 8) l = Math.max(8, x - w - 14);
+    // En el Gantt nunca encima de la columna de nombres
+    const lbl = tipEl && tipEl.matches('.rl-gfila') && tipEl.querySelector('.rl-gfila__lbl');
+    if (lbl) l = Math.min(Math.max(l, lbl.getBoundingClientRect().right + 8), Math.max(8, innerWidth - w - 8));
     if (t + h > innerHeight - 8) t = Math.max(8, y - h - 12);
     tip.style.left = l + 'px';
     tip.style.top = t + 'px';
@@ -456,6 +459,8 @@
   document.addEventListener('pointerover', (e) => {
     if (e.pointerType && e.pointerType !== 'mouse') return;
     const el = e.target.closest && e.target.closest('[data-rl-tip]');
+    // En el Gantt el nombre del ítem se lee sin que el globo lo tape: sale solo sobre la barra
+    if (el && e.target.closest('.rl-gfila__lbl')) { quitarTip(); return; }
     if (el === tipEl) return;
     if (!el) { quitarTip(); return; }
     ponerTip(el, e.clientX, e.clientY);

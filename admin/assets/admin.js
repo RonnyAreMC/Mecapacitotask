@@ -4399,9 +4399,12 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
 
 /* =========================================================
    Menú circular de acciones rápidas (UI::menuRadial): el botón abre las
-   opciones alrededor de un centro, cada una con su nombre por fuera. Se cierra
-   con Esc, con el centro o tocando fuera; las flechas pasan de una a otra.
-   El menú se mueve a <body> al abrirse para que nada lo recorte.
+   opciones alrededor de un centro, cada una con su nombre por fuera.
+   Como una rueda: la rueda del ratón (o las flechas) pasa de una opción a
+   otra y la marcada se pinta de verde, con la aguja del centro apuntándola;
+   el clic derecho abre la marcada y el clic izquierdo fuera de una opción
+   cierra (sobre una opción la abre: así funciona también en el celular).
+   Esc también cierra. El menú se mueve a <body> al abrirse para que nada lo recorte.
    ========================================================= */
 (() => {
   const RADIO = 76;
@@ -4430,11 +4433,12 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     menu.style.visibility = 'hidden';
     menu.hidden = false;
     const ancho = (lado) => Math.max(0, ...ops.filter((o) => o.classList.contains(lado)).map((o) => o.querySelector('.rad-txt').offsetWidth));
-    const izq = Math.max(120, RADIO + 27 + ancho('is-izq') + 12);
-    const der = Math.max(120, RADIO + 27 + ancho('is-der') + 12);
+    const izq = Math.max(160, RADIO + 27 + ancho('is-izq') + 12);
+    const der = Math.max(160, RADIO + 27 + ancho('is-der') + 12);
     const margenY = RADIO + 50;
+    const margenAbajo = RADIO + 96;   // debajo del disco va la ayuda (rueda / clic derecho / clic)
     const cx = innerWidth < izq + der ? innerWidth / 2 : Math.min(Math.max(r.left + r.width / 2, izq), innerWidth - der);
-    const cy = Math.min(Math.max(r.bottom + RADIO + 16, margenY), innerHeight - margenY);
+    const cy = Math.min(Math.max(r.bottom + RADIO + 16, margenY), innerHeight - margenAbajo);
     menu.style.left = cx + 'px';
     menu.style.top = cy + 'px';
     menu.style.visibility = '';
@@ -4442,8 +4446,28 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     requestAnimationFrame(() => menu.classList.add('is-abierto'));
     btn.setAttribute('aria-expanded', 'true');
     abierto = rad;
+    menu._ang = null;
+    marcar(0, false);
     setTimeout(() => (ops[0] || menu.querySelector('[data-rad-cerrar]')).focus(), 60);
   }
+
+  // Marca la opción i (la que abre el clic derecho): verde, con la aguja girando
+  // por el camino corto hacia ella
+  function marcar(i, enfocar = true) {
+    if (!abierto) return;
+    const { menu } = partes(abierto);
+    const ops = [...menu.querySelectorAll('.rad-op')];
+    if (!ops.length) return;
+    const k = ((i % ops.length) + ops.length) % ops.length;
+    ops.forEach((o, j) => o.classList.toggle('is-sel', j === k));
+    const destino = -90 + (k * 360) / ops.length;
+    const antes = menu._ang == null ? destino : menu._ang;
+    menu._ang = antes + ((((destino - antes) % 360) + 540) % 360 - 180);
+    menu.style.setProperty('--ang', menu._ang + 'deg');
+    menu._sel = k;
+    if (enfocar) ops[k].focus({ preventScroll: true });
+  }
+  const indice = (op) => [...partes(abierto).menu.querySelectorAll('.rad-op')].indexOf(op);
 
   function cerrar(devolverFoco = true) {
     if (!abierto) return;
@@ -4465,9 +4489,9 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       return;
     }
     if (!abierto) return;
-    if (e.target.closest('[data-rad-fondo], [data-rad-cerrar]')) { cerrar(); return; }
     const op = e.target.closest('.rad-op');
-    if (!op) return;
+    // Clic izquierdo fuera de una opción (fondo, disco, centro): se cierra
+    if (!op) { cerrar(); return; }
     // Abre su ventana o su pestaña; los enlaces y las descargas siguen su camino
     const dlg = op.dataset.radDlg ? document.getElementById(op.dataset.radDlg) : null;
     const vista = op.dataset.radVista ? document.querySelector('[data-vista="' + op.dataset.radVista + '"]') : null;
@@ -4480,10 +4504,8 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     if (!abierto) return;
     const { menu } = partes(abierto);
     if (e.key === 'Escape') { e.preventDefault(); cerrar(); return; }
-    const ops = [...menu.querySelectorAll('.rad-op')];
-    const i = ops.indexOf(document.activeElement);
-    if (['ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); ops[(i + 1) % ops.length].focus(); }
-    if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); ops[(i - 1 + ops.length) % ops.length].focus(); }
+    if (['ArrowRight', 'ArrowDown'].includes(e.key)) { e.preventDefault(); marcar((menu._sel || 0) + 1); }
+    if (['ArrowLeft', 'ArrowUp'].includes(e.key)) { e.preventDefault(); marcar((menu._sel || 0) - 1); }
     if (e.key === 'Tab') {
       // El foco se queda dentro del menú mientras está abierto
       const todos = [...menu.querySelectorAll('.rad-op, [data-rad-cerrar]')];
@@ -4492,5 +4514,41 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       todos[(j + (e.shiftKey ? -1 : 1) + todos.length) % todos.length].focus();
     }
   });
+  // La rueda del ratón pasa a la opción siguiente o a la anterior (y la página
+  // no se mueve). Se juntan los toques cortos del trackpad para no saltar varias.
+  let acum = 0, ultimoGiro = 0, ultimoPaso = 0;
+  addEventListener('wheel', (e) => {
+    if (!abierto) return;
+    e.preventDefault();
+    const d = (Math.abs(e.deltaY) >= Math.abs(e.deltaX) ? e.deltaY : e.deltaX) * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);
+    const ahora = performance.now();
+    if (ahora - ultimoGiro > 250) acum = 0;
+    ultimoGiro = ahora;
+    acum += d;
+    if (Math.abs(acum) < 40 || ahora - ultimoPaso < 110) return;
+    ultimoPaso = ahora;
+    marcar((partes(abierto).menu._sel || 0) + Math.sign(acum));
+    acum = 0;
+  }, { passive: false });
+
+  // Clic derecho: abre la opción marcada (como pulsarla)
+  document.addEventListener('contextmenu', (e) => {
+    if (!abierto) return;
+    e.preventDefault();
+    const { menu } = partes(abierto);
+    const op = menu.querySelectorAll('.rad-op')[menu._sel || 0];
+    if (op) op.click();
+  });
+
+  // Pasar el ratón por una opción o llegar a ella con Tab también la marca
+  document.addEventListener('pointerover', (e) => {
+    const op = abierto && e.pointerType === 'mouse' && e.target.closest('.rad-op');
+    if (op && indice(op) >= 0) marcar(indice(op), false);
+  });
+  document.addEventListener('focusin', (e) => {
+    const op = abierto && e.target.closest && e.target.closest('.rad-op');
+    if (op && indice(op) >= 0 && !op.classList.contains('is-sel')) marcar(indice(op), false);
+  });
+
   addEventListener('resize', () => cerrar(false));
 })();

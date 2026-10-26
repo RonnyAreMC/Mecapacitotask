@@ -3942,7 +3942,8 @@ html.dark .rl-relpill b { color: color-mix(in srgb, var(--rc) 45%, #fff); }
 
 /* ---------- Gantt ---------- */
 .rl-gantt-scroll { overflow-x: auto; scrollbar-width: thin; }
-.rl-gantt { --lbl: 320px; position: relative; min-width: 940px; }
+/* La columna del nombre crece con la pantalla: el texto del ítem se lee antes que la barra */
+.rl-gantt { --lbl: clamp(320px, 34%, 460px); position: relative; min-width: 940px; }
 .rl-gantt__eje { position: sticky; top: 0; z-index: 4; display: grid; grid-template-columns: var(--lbl) minmax(0, 1fr); height: 48px; background: var(--table-head); border-bottom: 1px solid var(--celeste-line); }
 .rl-gantt__lbl { display: flex; align-items: center; gap: 10px; min-width: 0; padding: 0 14px 0 20px; }
 .rl-gantt__lbl--eje { color: var(--table-head-fg); font: 700 .68rem/1 var(--font-sans); letter-spacing: .08em; text-transform: uppercase; }
@@ -3969,10 +3970,11 @@ html.dark .rl-relpill b { color: color-mix(in srgb, var(--rc) 45%, #fff); }
   border-bottom: 1px solid color-mix(in srgb, var(--line) 60%, transparent); transition: background-color var(--mc-dur-1) var(--mc-ease); }
 .rl-gfila:hover { background: color-mix(in srgb, var(--primary) 5%, transparent); }
 .rl-gfila:focus-visible { outline: none; box-shadow: inset 0 0 0 2px var(--focus); }
-.rl-gfila__lbl { position: sticky; left: 0; z-index: 2; height: 100%; background: var(--surface); }
+.rl-gfila__lbl { position: sticky; left: 0; z-index: 2; height: 100%; padding-top: 7px; padding-bottom: 7px; background: var(--surface); }
 .rl-gfila:hover .rl-gfila__lbl { background: color-mix(in srgb, var(--primary) 5%, var(--surface)); }
-.rl-gfila__tit { overflow: hidden; color: var(--ink); font-size: .82rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
-.rl-gfila .rl-gantt__pista { height: 42px; }
+/* El nombre entero, en hasta dos líneas, en vez de cortarlo con «…» */
+.rl-gfila__tit { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow: hidden; color: var(--ink); font-size: .86rem; font-weight: 500; line-height: 1.3; }
+.rl-gfila .rl-gantt__pista { align-self: stretch; min-height: 42px; }
 .rl-gbar { position: absolute; top: 50%; height: 20px; transform: translateY(-50%); border-radius: 6px; background: color-mix(in srgb, var(--primary) 13%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 32%, transparent);
   transition: box-shadow var(--mc-dur-1) var(--mc-ease); }
 .rl-gbar__fill { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: var(--primary); transform-origin: left; animation: mc-data-fill .9s var(--mc-ease-out) .1s backwards; }
