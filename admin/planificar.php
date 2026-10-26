@@ -40,6 +40,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Solo si la fila sigue siendo la misma que se validó
                 if (trim((string)($lista[$i]['titulo'] ?? '')) !== trim((string)($_POST['item_titulo'][$n] ?? ''))) continue;
                 $cod = strtoupper(trim((string)$cod));
+                // Solo si se cambió a mano: el selector que quedó de la validación anterior no
+                // pisa el item_release que trae el JSON nuevo (pasaba al pegar otro JSON y validar)
+                if ($cod === strtoupper(trim((string)($_POST['item_json'][$n] ?? '')))) continue;
                 unset($lista[$i]['items_release'], $lista[$i]['release_item'], $lista[$i]['item']);
                 if ($cod === '') unset($lista[$i]['item_release']); else $lista[$i]['item_release'] = $cod;
             }
@@ -249,6 +252,7 @@ UI::cabecera(
           <?php if ($conSelect): ?>
           <label class="plan-item"><i class="fa-solid fa-route" aria-hidden="true"></i><span class="mc-sr-only">Ítem del release</span>
             <input type="hidden" name="item_titulo[<?= (int)$f['n'] ?>]" value="<?= e($f['titulo']) ?>" form="plan-form">
+            <input type="hidden" name="item_json[<?= (int)$f['n'] ?>]" value="<?= e((string)($f['items'][0] ?? '')) ?>" form="plan-form">
             <select name="item[<?= (int)$f['n'] ?>]" form="plan-form" class="select-meca" aria-label="Ítem del release de «<?= e($f['titulo']) ?>»">
               <?= $opcionesItem((int)($f['proyecto_id'] ?? 0), (string)($f['items'][0] ?? '')) ?>
             </select>
