@@ -1378,7 +1378,7 @@
     try {
       const j = await ocupado(b, () => post('rel_daily_zoom', { equipo: b.dataset.rlDailyZoom }));
       if (!j) return;
-      toast(j.mensaje || 'Zoom revisado.');
+      toast(j.mensaje || 'Medido de nuevo.');
       setTimeout(() => location.reload(), 900);
     } catch (err) { toast(err.message, 'error'); }
   });

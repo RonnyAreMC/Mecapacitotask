@@ -42,12 +42,20 @@ $historia[] = [
     'texto' => 'Se agregó la tarea' . ($ag['origen'] !== '' ? ' (' . $ag['origen'] . ')' : '') . ' para ' . $nombres($alCrear),
 ];
 // Lo que dejó actualizar() desde que se guarda el historial
+$colabs = TareaRepo::colaboradoresDe($t);
 $inicioReal = '';
 $finReal = '';
 foreach ((array)($t['historial'] ?? []) as $h) {
     if (!is_array($h)) continue;
     $motivo = (string)($h['motivo'] ?? '');
     if ($motivo === 'intercambio') continue;   // lo cuenta mejor el propio intercambio, con su motivo (abajo)
+    if ($motivo === 'colaborador' && ($h['tipo'] ?? '') === 'asignados') {
+        $nuevos = array_diff(array_map('intval', (array)$h['a']), array_map('intval', (array)$h['de']));
+        $paraQue = trim((string)($colabs[(int)(array_values($nuevos)[0] ?? 0)]['nota'] ?? ''));
+        $historia[] = ['t' => (string)($h['t'] ?? ''), 'tipo' => 'colaborador', 'por' => $nombre((int)($h['por'] ?? 0)), 'motivo' => '',
+                       'texto' => 'Sumó a ' . $nombres($nuevos) . ' para que le ayude' . ($paraQue !== '' ? ': «' . mb_substr($paraQue, 0, 200) . '»' : '')];
+        continue;
+    }
     $texto = match ($h['tipo'] ?? '') {
         'estado'    => 'Pasó de «' . $etiqueta((string)$h['de']) . '» a «' . $etiqueta((string)$h['a']) . '»',
         'asignados' => (function () use ($h, $nombres) {

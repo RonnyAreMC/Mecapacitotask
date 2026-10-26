@@ -310,6 +310,22 @@ final class Config
         return __DIR__ . '/../data/config.json';
     }
 
+    /**
+     * Lo guardado sobre los defaults, también por dentro. Una lista guardada manda
+     * entera: array_replace_recursive las mezclaba posición por posición (los días
+     * [1, 4] sobre los de fábrica [1, 2, 3, 4, 5] daban lunes, miércoles, jueves y viernes).
+     * Un bloque con nombres se sigue mezclando, y un {} guardado no borra los de fábrica.
+     */
+    private static function mezclar(array $def, array $guardado): array
+    {
+        foreach ($guardado as $k => $v) {
+            $d = $def[$k] ?? null;
+            $esLista = is_array($v) && array_is_list($v) && ($v !== [] || (is_array($d) && array_is_list($d)));
+            $def[$k] = is_array($v) && is_array($d) && !$esLista ? self::mezclar($d, $v) : $v;
+        }
+        return $def;
+    }
+
     /** Config completa: lo guardado se mezcla sobre los defaults. */
     public static function all(): array
     {
@@ -319,7 +335,7 @@ final class Config
         if (file_exists(self::archivo())) {
             $guardado = json_decode((string)file_get_contents(self::archivo()), true) ?: [];
         }
-        $mezcla = array_replace_recursive($def, $guardado);
+        $mezcla = self::mezclar($def, $guardado);
         // Las listas y catalogos se reemplazan completos: replace_recursive los
         // mezclaria con los defaults y "reviviria" entradas eliminadas.
         foreach (['iconos', 'roles'] as $k) {
@@ -1537,6 +1553,32 @@ class TareaRepo
             $datos['historial'] = array_slice($h, -150);
         }
         return $this->store->update($id, $datos);
+    }
+
+    /** Quienes se sumaron para ayudar: id => ['por' => quién lo sumó, 'en' => cuándo, 'nota' => para qué] */
+    public static function colaboradoresDe(array $t): array
+    {
+        $out = [];
+        foreach ((array)($t['colaboradores'] ?? []) as $mid => $c) {
+            $out[(int)$mid] = ['por' => (int)($c['por'] ?? 0), 'en' => (string)($c['en'] ?? ''), 'nota' => (string)($c['nota'] ?? '')];
+        }
+        return $out;
+    }
+
+    /**
+     * Quien tiene la tarea suma a alguien que le ayuda (o que ya le ayudó): queda
+     * como responsable más y marcado como colaborador, con para qué. Nada más.
+     */
+    public function agregarColaborador(int $id, int $mid, int $quien, string $nota = ''): bool
+    {
+        $t = $this->buscar($id);
+        if (!$t || $mid <= 0 || self::tieneAsignado($t, $mid)) return false;
+        $col = (array)($t['colaboradores'] ?? []);
+        $col[(string)$mid] = ['por' => $quien, 'en' => date('Y-m-d H:i'), 'nota' => mb_substr(trim($nota), 0, 500)];
+        self::$motivo = 'colaborador';   // en la historia: «X sumó a Y como colaborador»
+        $ok = $this->actualizar($id, self::camposAsignado(['asignados' => array_merge(self::asignadosDe($t), [$mid])]) + ['colaboradores' => $col]);
+        self::$motivo = '';
+        return $ok;
     }
 
     /** Lo que cambió de verdad entre la tarea y lo que se va a guardar */

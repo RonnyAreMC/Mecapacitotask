@@ -99,7 +99,7 @@ function actualizarPanel(array $opc): void
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
-        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php',
+        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
         'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php',
     ];
@@ -128,13 +128,14 @@ function actualizarPanel(array $opc): void
         'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso', 'ReqSeguimiento::paso'],
         'cron_zoom_drive.php' => ['cronCallado'],
         'tarea_traza.php'   => ['impedimentos', 'inicio_real'],
+        'reunion_entrar.php' => ['reunion_ingresos'],
         'cron_whatsapp.php' => ['cronCallado'],
         'cron_deploys.php' => ['cronCallado'],
         'cron_recordatorios.php' => ['cronCallado'],
-        'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria'],
+        'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def'],
         'lib/ImportadorTareas.php' => ['$origen', 'item_release'],
-        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado'],
-        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos'],
+        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00'],
+        'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos', 'tarea_colaborador'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
         'planificar.php'    => ['dlg-ia-plan', 'item_release', 'plan-item'],
@@ -147,12 +148,12 @@ function actualizarPanel(array $opc): void
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando', 'correoTextoAHtml', 'correo-fila__marcar'],
         'lib/ReqCorreo.php' => ['crudoCopia', 'function plazoDe', 'function gente'],
         'lib/ReqSeguimiento.php' => ['function avisarTerminado'],
-        'lib/Releases.php'  => ['function importar', 'function tablero', 'function paso', 'function sembrar', 'dependencias', 'function veTodo', 'function resumenDailies', 'function itemsDeProyecto', 'function mismoNombre', 'function dailiesDelDia', '$diasPasados'],
-        'releases.php'      => ['Releases::', 'rl-rfila__cuerpo', 'VISTAS_LECTOR', 'rl-dlg--ancho', 'rl-dlg-daily', 'data-rl-editar-rev', '$pasadosDl', 'separados por comas'],
+        'lib/Releases.php'  => ['function importar', 'function tablero', 'function paso', 'function sembrar', 'dependencias', 'function veTodo', 'function resumenDailies', 'function itemsDeProyecto', 'function mismoNombre', 'function dailiesDelDia', '$diasPasados', 'function ingresosDelDia'],
+        'releases.php'      => ['Releases::', 'rl-rfila__cuerpo', 'VISTAS_LECTOR', 'rl-dlg--ancho', 'rl-dlg-daily', 'data-rl-editar-rev', '$pasadosDl', 'separados por comas', 'según el panel'],
         'lib/releases_ui.php' => ['function rlVistaRelease', 'function rlRecursosJs', 'releases juntos'],
         'assets/releases.js' => ['data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg', 'rl-gfila__lbl', 'DL.pasados'],
         'lib/Zoom.php'      => ['function participantes'],
-        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz'],
+        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz', '.dt-colab-btn'],
         'lib/CorreoCopias.php' => ['function crudoDe', 'function marcarCarpeta'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg', 'panelObservacion'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel'],
@@ -161,13 +162,13 @@ function actualizarPanel(array $opc): void
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza'],
+        'assets/admin.js'   => ['.req-fila, .req-tr', 'mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada'],
         'index.php'         => ['nexo:saludando', 'portadaDe', 'dep-tira-crono'],
         'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards', 'ultimoDeGitLab'],
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado'],
         'lib/deploy_tira.php' => ['dep-prox', 'dep-tira-url'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
-        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease', 'radVistas', 'grab-espera', 'dlg-detalle-wz'],
+        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease', 'radVistas', 'grab-espera', 'dlg-detalle-wz', 'reunion_entrar.php?id=', 'tarea-abrir'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users', 'auto_estado', 'traspaso_paso'],
@@ -458,6 +459,23 @@ function actualizarPanel(array $opc): void
                 ? nota('ok', 'Cron de grabaciones corriendo (última vuelta hace ' . max(1, (int)round($haceZ / 60)) . ' min)')
                 : nota('aviso', 'Para que las grabaciones pasen solas a Drive, en cPanel → Cron Jobs, cada 5 minutos: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_zoom_drive.php');
         }
+    }
+
+    /* Horario de subidas: lunes y jueves a las 22:00, todos los proyectos a la misma
+       hora (se quitan las horas propias). Se aplica UNA vez (semillas.deploys_lun_jue_22):
+       si luego alguien lo cambia en Ajustes → Despliegues, no vuelve. */
+    paso('Horario de subidas');
+    $crudoH   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+    $semillaH = (array)($crudoH['semillas'] ?? []);
+    if (!empty($semillaH['deploys_lun_jue_22'])) {
+        nota('ok', 'Ya está el horario de lunes y jueves (desde el ' . $semillaH['deploys_lun_jue_22'] . '); lo que se cambie en Ajustes → Despliegues se respeta');
+    } elseif (!method_exists('Config', 'respaldos')) {
+        nota('error', 'No se cambió el horario: lib/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
+    } else {
+        $depH = (array)($crudoH['deploys'] ?? []);
+        $depH['cronograma'] = array_replace((array)($depH['cronograma'] ?? []), ['dias' => [1, 4], 'hora' => '22:00', 'horas' => []]);
+        if (!$seco) Config::guardar(['deploys' => $depH, 'semillas' => ['deploys_lun_jue_22' => date('Y-m-d')] + $semillaH]);
+        nota('ok', 'Horario de subidas ' . ($seco ? 'quedaría' : 'quedó') . ' en lunes y jueves a las 10:00 pm, igual para todos los proyectos. El contador muestra la más cercana; se cambia en Ajustes → Despliegues');
     }
 
     /* Releases: la planificación estratégica. Si el módulo está vacío y el repo trae

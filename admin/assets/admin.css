@@ -6059,6 +6059,20 @@ html.sb-collapsed .nav-badge { display: none; }
 .dt-commit__msg { overflow: hidden; color: var(--c-text); font-size: .86rem; font-weight: 600; text-overflow: ellipsis; white-space: nowrap; }
 .dt-commit small { color: var(--c-text-soft); font-size: .74rem; }
 @media (max-width: 700px) { .dt-plazos { grid-template-columns: 1fr; } }
+/* Pedir ayuda: el mismo botón punteado que en requerimientos; quien se sumó lleva «ayuda» */
+.dt-colab-btn {
+  display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%;
+  padding: 9px 12px; border: 1.5px dashed rgba(41, 112, 235, .45); border-radius: 12px;
+  background: transparent; color: var(--primary, #2970EB); font: inherit; font-size: .84rem; font-weight: 700; cursor: pointer;
+}
+.dt-colab-btn:hover { background: rgba(41, 112, 235, .06); border-color: var(--primary, #2970EB); }
+.dt-colab-btn:focus-visible { outline: 2px solid var(--primary, #2970EB); outline-offset: 2px; }
+.dt-colab-caja { display: flex; flex-direction: column; gap: 10px; padding: 12px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-mini); }
+.dt-colab-caja .campo { margin: 0; }
+.dt-colab-pie { display: flex; justify-content: flex-end; gap: 8px; }
+.dt-colab-btn[hidden], .dt-colab-caja[hidden], .dt-fila-colab[hidden] { display: none; }
+.dt-colabora { display: inline-block; margin-left: 2px; padding: 1px 7px; border-radius: 999px; vertical-align: 1px;
+  background: rgba(41, 112, 235, .1); color: var(--primary, #2970EB); font-size: .7rem; font-weight: 700; }
 /* Señal de que las tarjetas son clicables */
 .fila-tarea, .kb-card, .flujo-nodo { cursor: pointer; }
 @media (max-width: 480px) { .dt-datos > div { grid-template-columns: 1fr; gap: 2px; } }

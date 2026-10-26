@@ -870,10 +870,10 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <header class="rl-card__cab">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('video', 20) ?></span>
       <div><h2 class="rl-card__tit">Reuniones diarias</h2>
-        <p class="rl-card__sub">Desde el <?= e(rlFL($dl['desde'], false)) ?>: cada día hábil, la daily registrada en el panel y quién se conectó (Zoom lo dice solo). Cuenta como cumplida con el <?= (int)$conf['dailies']['umbral'] ?> % del equipo conectado.</p></div>
+        <p class="rl-card__sub">Desde el <?= e(rlFL($dl['desde'], false)) ?>: cada día hábil cuenta si hubo al menos una reunión del equipo, y quién entró: lo dice Zoom y el botón «Entrar» del panel pulsado en la hora de la reunión. Se cumple con el <?= (int)$conf['dailies']['umbral'] ?> % del equipo.</p></div>
       <?php if ($puedeDl): ?>
       <div class="rl-card__acc">
-        <?php if ($reuDl && Zoom::listo()): ?><button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-zoom="<?= e($en) ?>"><?= rlIco('reintentar', 16) ?><span class="mc-btn__label">Traer de Zoom</span></button><?php endif; ?>
+        <?php if ($reuDl): ?><button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-zoom="<?= e($en) ?>" data-ds-tip="Vuelve a mirar Zoom y quién entró desde el panel"><?= rlIco('reintentar', 16) ?><span class="mc-btn__label">Volver a medir</span></button><?php endif; ?>
         <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-daily-reg="<?= e(min($hoy, max($dl['desde'], $hoy))) ?>"<?= $dl['desde'] > $hoy ? ' disabled' : '' ?>><?= rlIco('check', 16) ?><span class="mc-btn__label">Registrar daily</span></button>
       </div>
       <?php endif; ?>
@@ -886,11 +886,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         · <?= e(Reuniones::etiquetaPlataforma((string)($r0['plataforma'] ?? 'zoom'))) ?><?= count($reuDl) > 1 ? ' <small>(y ' . (count($reuDl) - 1) . ' más)</small>' : '' ?></span>
       <?php else: ?>
       <span class="rl-dailies__reu-ico is-falta"><?= rlIco('alerta', 16) ?></span>
-      <span><b>El equipo no tiene su daily registrada en el panel.</b> Créala en <?= $pids && isset($proyMapa[$pids[0]]) ? '<a href="proyecto.php?id=' . (int)$pids[0] . '#vista-reuniones">' . e($proyMapa[$pids[0]]['nombre']) . ' → Reuniones</a>' : 'el proyecto del equipo → Reuniones' ?>, repetida de lunes a viernes y con «Daily» en el nombre<?= $candDl ? ', o elige cuál es' : '' ?>. Mientras tanto, cada día cuenta como «Sin registrar».</span>
+      <span><b>El equipo no tiene reuniones en el panel.</b> Crea su daily en <?= $pids && isset($proyMapa[$pids[0]]) ? '<a href="proyecto.php?id=' . (int)$pids[0] . '#vista-reuniones">' . e($proyMapa[$pids[0]]['nombre']) . ' → Reuniones</a>' : 'el proyecto del equipo → Reuniones' ?>, repetida de lunes a viernes y con «Daily» en el nombre<?= $candDl ? ', o elige cuál es' : '' ?>. Mientras tanto, cada día cuenta como «Sin registrar».</span>
       <?php endif; ?>
       <?php if ($candDl): ?>
       <label class="rl-dailies__elegir"><span class="sr-only">Cuál es la daily del equipo</span>
-        <?= UI::selectDS('reunion_id', ['0' => 'La que se llame «Daily…»'] + array_column(array_map(fn($c) => ['id' => (string)$c['id'], 't' => $c['texto']], $candDl), 't', 'id'), (string)(int)($E['daily_reunion'] ?? 0), ['aria' => 'Cuál es la daily del equipo']) ?>
+        <?= UI::selectDS('reunion_id', ['0' => 'Cualquier reunión del equipo'] + array_column(array_map(fn($c) => ['id' => (string)$c['id'], 't' => $c['texto']], $candDl), 't', 'id'), (string)(int)($E['daily_reunion'] ?? 0), ['aria' => 'Cuál es la daily del equipo']) ?>
       </label>
       <?php endif; ?>
     </div>
@@ -914,7 +914,10 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <p class="rl-dlg__rot">Día por día<?= count($dl['dias']) > count($diasDl) ? ' <small>(los últimos ' . count($diasDl) . ')</small>' : '' ?></p>
         <ol class="rl-ddias">
           <?php foreach ($diasDl as $f => $x): [$lbl] = Releases::DAILY[$x['estado']] ?? Releases::DAILY['pendiente'];
-            $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · ' . (int)$x['asistencia'] . ' % conectado' : '') . (($x['fuente'] ?? '') === 'manual' ? ' · registrada por el SM' : (($x['fuente'] ?? '') === 'zoom' ? ' · según Zoom' : ''))
+            $entraron = array_filter(array_map(fn($mid) => explode(' ', trim($nomDl((int)$mid)))[0] . ' ' . $x['ingresos'][$mid], array_keys((array)($x['ingresos'] ?? []))));
+            $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · ' . (int)$x['asistencia'] . ' % conectado' : '')
+              . match ($x['fuente'] ?? '') { 'manual' => ' · registrada por el SM', 'zoom' => ' · según Zoom', 'panel' => ' · según el panel', default => '' }
+              . ($entraron ? ' · entraron desde el panel: ' . implode(', ', $entraron) : '')
               . (($x['nota'] ?? '') !== '' ? ' · ' . $x['nota'] : '') . (($x['msg'] ?? '') !== '' ? ' · ' . $x['msg'] : '');
             $tag = $puedeDl ? 'button type="button" data-rl-daily-reg="' . e($f) . '"' : 'span tabindex="0"'; ?>
           <li><<?= $tag ?> class="rl-ddia rl-d--<?= e($x['estado']) ?><?= $f === $hoy ? ' is-hoy' : '' ?>" data-ds-tip="<?= e(rlFL($f, true) . ': ' . $det) ?>" aria-label="<?= e(rlFL($f, true) . ': ' . $det) ?>">

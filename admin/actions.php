@@ -47,6 +47,8 @@ $accionesDeCualquiera = [
     // Quien tiene un requerimiento suma a un colaborador (solo eso: no cambia
     // fechas ni quita a nadie). Dentro se comprueba que lo tenga asignado.
     'req_colaborador',
+    // Lo mismo en una tarea: quien la tiene suma a quien le ayuda (dentro se comprueba)
+    'tarea_colaborador',
     // Quien sube los cambios al servidor de pruebas suele ser un colaborador
     // sin permisos de gestion: el encargado se comprueba con puedeDesplegar().
     'deploy_registrar',
@@ -2576,6 +2578,47 @@ switch ($accion) {
             'Sumaron un colaborador', '«' . $req['titulo'] . '» · ' . $yoNomCol . ' sumó a ' . $colab['nombre'], 'requerimientos.php?ver=' . (int)$req['id']);
         redirigir($volverCol, $colab['nombre'] . ' ya está contigo en «' . $req['titulo'] . '».' . ($correoCol ? ' Le avisamos por correo.' : ''));
 
+    case 'tarea_colaborador':
+        // Quien tiene la tarea suma a alguien que le ayuda (o que ya le ayudó). Nada
+        // más: fechas, prioridad y quitar gente siguen siendo de quien gestiona el proyecto.
+        $tCol = $tareas->buscar((int)($_POST['id'] ?? 0));
+        $volverTc = $tCol ? 'proyecto.php?id=' . (int)$tCol['proyecto_id'] . '&tarea=' . (int)$tCol['id'] : 'index.php';
+        $finTc = function (bool $ok, string $msg, array $extra = []) use ($volverTc): never {
+            if (!empty($_POST['ajax'])) {
+                header('Content-Type: application/json; charset=utf-8');
+                exit(json_encode(['ok' => $ok, 'mensaje' => $msg] + $extra, JSON_UNESCAPED_UNICODE));
+            }
+            redirigir($volverTc, $msg, $ok ? 'success' : 'error');
+        };
+        if (!$tCol || !puedeVerProyecto((int)$tCol['proyecto_id'])) $finTc(false, 'Esa tarea ya no está disponible.');
+        $yoTc = (int)(Auth::usuario()['id'] ?? 0);
+        if (Auth::esSupervisor() || (!TareaRepo::tieneAsignado($tCol, $yoTc) && !puedeGestionar((int)$tCol['proyecto_id']))) {
+            $finTc(false, 'Solo quien tiene la tarea (o quien gestiona el proyecto) puede sumar a alguien.');
+        }
+        $colTc = $miembros->buscar((int)($_POST['colaborador'] ?? 0));
+        if (!$colTc) $finTc(false, 'Elige a la persona.');
+        $pTc = $proyectos->buscar((int)$tCol['proyecto_id']) ?? [];
+        // Solo gente del proyecto (si el proyecto no tiene lista, cualquiera del equipo)
+        $genteTc = ProyectoRepo::miembrosDe($pTc);
+        if ($genteTc !== null && !in_array((int)$colTc['id'], array_merge($genteTc, [(int)($pTc['scrum'] ?? 0)]), true)) {
+            $finTc(false, $colTc['nombre'] . ' no está en este proyecto.');
+        }
+        if (TareaRepo::tieneAsignado($tCol, (int)$colTc['id'])) $finTc(false, $colTc['nombre'] . ' ya está en esta tarea.');
+        $notaTc = mb_substr(trim((string)($_POST['nota'] ?? '')), 0, 500);
+        $tareas->agregarColaborador((int)$tCol['id'], (int)$colTc['id'], $yoTc, $notaTc);
+        $tNuevaTc = $tareas->buscar((int)$tCol['id']) ?? $tCol;
+        $yoNomTc = (string)(Auth::usuario()['nombre'] ?? 'Alguien');
+        // A quien se suma le llega como cualquier tarea asignada, y en la campana con quién y para qué
+        avisoPanel([(int)$colTc['id']], 'tarea', 'Te sumaron a una tarea', '#' . (int)$tCol['id'] . ' «' . $tCol['titulo'] . '» · te sumó ' . $yoNomTc
+            . ($notaTc !== '' ? ': ' . mb_substr($notaTc, 0, 140) : ''), $volverTc);
+        $correoTc = $pTc && Mailer::notificarAsignacion($tNuevaTc, $colTc, $pTc) === true;
+        $nombresTc = fn(array $ids) => array_values(array_filter(array_map(fn($i) => (string)($miembros->buscar((int)$i)['nombre'] ?? ''), $ids)));
+        $finTc(true, $colTc['nombre'] . ' ya está contigo en la tarea #' . (int)$tCol['id'] . '.' . ($correoTc ? ' Le avisamos por correo.' : ''), [
+            'asignados'     => $nombresTc(TareaRepo::asignadosDe($tNuevaTc)),
+            'asignados_ids' => TareaRepo::asignadosDe($tNuevaTc),
+            'colaboradores' => array_keys(TareaRepo::colaboradoresDe($tNuevaTc)),
+        ]);
+
     case 'req_seguimiento_conf':
         if (!class_exists('ReqSeguimiento')) redirigir('requerimientos.php', 'Falta lib/ReqSeguimiento.php en el servidor.', 'error');
         ReqSeguimiento::guardar($_POST);
@@ -4094,10 +4137,10 @@ switch ($accion) {
                     $eqDl = (string)($_POST['equipo'] ?? '');
                     if (!Releases::equipo($eqDl)) throw new RuntimeException('Ese equipo no existe.');
                     if (!$relSmDe($eqDl)) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
-                    if (!Zoom::listo()) $relFin(false, 'Zoom no está conectado (Ajustes → Zoom). Mientras tanto, registra las dailies a mano.');
+                    // Con Zoom y con quienes entraron desde el panel (sin Zoom, solo lo segundo)
                     $rDl = Releases::sincronizarDailies($eqDl, 31);
                     if ($rDl['error'] !== '' && !$rDl['dias']) $relFin(false, $rDl['error']);
-                    $relFin(true, ($rDl['dias'] ? 'Zoom revisado: ' . $rDl['dias'] . ' día(s) al día.' : 'Zoom revisado: no había días nuevos que medir.')
+                    $relFin(true, ($rDl['dias'] ? 'Medido de nuevo: ' . $rDl['dias'] . ' día(s) al día.' : 'No había días nuevos que medir.')
                         . ($rDl['error'] !== '' ? ' Ojo: ' . $rDl['error'] : ''));
 
                 case 'rel_daily_reunion':

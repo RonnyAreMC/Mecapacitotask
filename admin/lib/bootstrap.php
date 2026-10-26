@@ -613,7 +613,8 @@ function cronogramaDeploys($c): array
 {
     $c = (array)$c;
     $hora = (string)($c['hora'] ?? '');
-    $dias = array_values(array_unique(array_filter(array_map('intval', (array)($c['dias'] ?? [1, 2, 3, 4, 5])), fn($n) => $n >= 1 && $n <= 7)));
+    // De fábrica: lunes y jueves a las 22:00 (las subidas son de noche)
+    $dias = array_values(array_unique(array_filter(array_map('intval', (array)($c['dias'] ?? [1, 4])), fn($n) => $n >= 1 && $n <= 7)));
     sort($dias);
     // Hora propia de algún proyecto (p. ej. la Agraria sube a las 15:00); los demás, la general
     $horas = [];
@@ -622,8 +623,8 @@ function cronogramaDeploys($c): array
     }
     return [
         'activo' => !isset($c['activo']) || !empty($c['activo']),
-        'hora'   => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) ? $hora : '10:00',
-        'dias'   => $dias ?: [1, 2, 3, 4, 5],
+        'hora'   => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) ? $hora : '22:00',
+        'dias'   => $dias ?: [1, 4],
         'horas'  => $horas,
         'gitlab' => !isset($c['gitlab']) || !empty($c['gitlab']),
         'aviso'  => in_array((int)($c['aviso'] ?? 30), [0, 15, 30, 60], true) ? (int)($c['aviso'] ?? 30) : 30,

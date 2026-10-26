@@ -435,10 +435,16 @@ $relChips = function (array $t) use ($relDeTarea): string {
     return $out;
 };
 
-$verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep, $cargaExtra): string {
+// Quien tiene la tarea (o quien gestiona el proyecto) puede sumar a alguien que le ayuda
+$yoFicha = (int)(Auth::usuario()['id'] ?? 0);
+$verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $estadosCat, $prioCat, $proyecto, $infoDep, $cargaExtra, $yoFicha, $puedeGestionar, $esSupervisor): string {
     $nombres = [];
+    $responsables = [];
+    $colabs = TareaRepo::colaboradoresDe($t);
     foreach (TareaRepo::asignadosDe($t) as $mid) {
-        if (isset($miembros[$mid])) $nombres[] = $miembros[$mid]['nombre'];
+        if (!isset($miembros[$mid])) continue;
+        $nombres[] = $miembros[$mid]['nombre'];
+        $responsables[] = ['nombre' => $miembros[$mid]['nombre'], 'colabora' => isset($colabs[$mid])];
     }
     // Dependencias resueltas con equipo/color/urgencia (propias y de otros equipos).
     $deps = array_values(array_filter(array_map($infoDep, TareaRepo::dependenciasDe($t))));
@@ -451,6 +457,10 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
         'estado_badge' => UI::badgeEstadoTarea($t['estado'] ?? ''),
         'prio_badge'   => UI::badgePrioridad($t['prioridad'] ?? ''),
         'asignados'    => $nombres,
+        'responsables' => $responsables,
+        'asignados_ids'=> TareaRepo::asignadosDe($t),
+        'puede_colab'  => !$esSupervisor && (TareaRepo::tieneAsignado($t, $yoFicha) || $puedeGestionar),
+        'final'        => in_array($t['estado'] ?? '', $finales, true),   // terminada: sin «venció hace…»
         'fecha_inicio' => $t['fecha_inicio'] ?? '',
         'fecha_limite' => $t['fecha_limite'] ?? '',
         'deps'         => $deps,
@@ -1789,7 +1799,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
         </div>
         <div class="reu-acciones">
           <?php if (!$pasada): ?>
-          <a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button>
+          <a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button>
           <?php if (!empty($r['start_url'])): ?>
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
@@ -1865,12 +1875,12 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
           <li class="reu-dia reu-dia-hoy">
             <span class="reu-dia-fecha"><i class="fa-solid fa-circle-dot"></i> <?= e($fechaDia($enCurso)) ?></span>
             <span class="reu-dia-tag t-hoy">En curso</span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
           </li>
           <?php elseif ($proximas): ?>
           <li class="reu-dia reu-dia-prox">
             <span class="reu-dia-fecha"><i class="fa-regular fa-calendar"></i> Próxima: <?= e($fechaDia($proximas[0])) ?></span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="<?= e($r['join_url']) ?>" target="_blank" rel="noopener"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
+            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
           </li>
           <?php endif; ?>
 
@@ -2664,6 +2674,18 @@ function depPicker(): void { ?>
     <div class="dt-desc rt-render"></div>
     <dl class="dt-datos">
       <div><dt><i class="fa-solid fa-user"></i> Responsables</dt><dd class="dt-asignados"></dd></div>
+      <div class="dt-fila-colab" hidden><dt><i class="fa-solid fa-user-plus"></i> Ayuda</dt><dd>
+        <?php /* Sin <form>: la ficha ya es un formulario (el asistente). Lo envía admin.js */ ?>
+        <button type="button" class="dt-colab-btn" data-dt-colab-abrir><i class="fa-solid fa-user-plus"></i> Pedir ayuda o sumar a quien te ayudó</button>
+        <div class="dt-colab-caja" data-dt-colab hidden>
+          <label class="campo"><span>¿A quién?</span><select class="input-meca" data-dt-colab-quien></select></label>
+          <label class="campo"><span>Para qué (opcional)</span><textarea class="input-meca" rows="2" maxlength="500" data-dt-colab-nota placeholder="Ej. me ayudó con las pruebas del formulario"></textarea></label>
+          <div class="dt-colab-pie">
+            <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" data-dt-colab-cerrar>Cancelar</button>
+            <button type="button" class="btn-primary btn-meca btn-sm" data-dt-colab-sumar><i class="fa-solid fa-user-plus"></i> Sumar</button>
+          </div>
+        </div>
+      </dd></div>
       <div><dt><i class="fa-regular fa-calendar"></i> Fechas</dt><dd class="dt-fechas"></dd></div>
       <div class="dt-fila-dep" hidden><dt><i class="fa-solid fa-link"></i> Depende de</dt><dd class="dt-dep"></dd></div>
       <div class="dt-fila-obs" hidden><dt><i class="fa-solid fa-comment-dots"></i> Observaciones</dt><dd class="dt-obs"></dd></div>
@@ -2697,6 +2719,22 @@ function depPicker(): void { ?>
     </div>
   </form>
 </dialog>
+
+<?php
+// Para «Pedir ayuda»: la gente del proyecto (si no tiene lista, todo el equipo)
+$genteFicha = [];
+foreach (array_unique(array_merge(ProyectoRepo::miembrosDe($proyecto) ?? array_keys($miembros), [(int)($proyecto['scrum'] ?? 0)])) as $midF) {
+    if (isset($miembros[$midF])) $genteFicha[] = ['id' => (int)$midF, 'nombre' => (string)$miembros[$midF]['nombre']];
+}
+usort($genteFicha, fn($a, $b) => strcmp($a['nombre'], $b['nombre']));
+// Enlace directo a una tarea (proyecto.php?id=…&tarea=…, p. ej. desde Releases): se abre su
+// ficha al entrar, aunque esté archivada y no salga en el tablero
+$tAbrir = (int)($_GET['tarea'] ?? 0) > 0 ? (new TareaRepo())->buscar((int)$_GET['tarea']) : null;
+?>
+<script type="application/json" id="dt-gente"><?= json_encode($genteFicha, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+<?php if ($tAbrir && (int)$tAbrir['proyecto_id'] === $id): ?>
+<div hidden id="tarea-abrir" data-ver-tarea="<?= $verTareaAttr($tAbrir) ?>"></div>
+<?php endif; ?>
 
 <!-- Modal: recordar una dependencia de otro equipo (lo abre el detalle de tarea) -->
 <dialog id="dlg-dep-recordar" class="dlg-meca dlg-recordar">

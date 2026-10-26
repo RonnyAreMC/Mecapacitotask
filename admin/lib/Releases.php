@@ -1080,7 +1080,11 @@ final class Releases
         return $fecha !== '' && (int)date('N', strtotime($fecha)) <= 5 && !isset($feriados[$fecha]);
     }
 
-    /** Las reuniones del panel que son la daily del equipo: la elegida o las que se llaman «Daily…». */
+    /**
+     * Las reuniones que cuentan como daily del equipo: la que se eligió o, si no,
+     * cualquier reunión de sus proyectos (basta con una en el día). Primero las
+     * que se llaman «Daily…», que son las que se muestran.
+     */
     public static function dailyReuniones(string $equipo): array
     {
         $elegida = (int)(self::equipo($equipo)['daily_reunion'] ?? 0);
@@ -1088,7 +1092,38 @@ final class Releases
         $repo = new ReunionRepo();
         foreach (self::proyectosEquipo($equipo) as $pid) foreach ($repo->delProyecto($pid) as $r) $todas[] = $r + ['proyecto_id' => $pid];
         $suya = array_values(array_filter($todas, fn($r) => (int)$r['id'] === $elegida));
-        return $suya ?: array_values(array_filter($todas, fn($r) => preg_match(self::DAILY_RE, (string)($r['topic'] ?? ''))));
+        if ($suya) return $suya;
+        usort($todas, fn($a, $b) => (int)!preg_match(self::DAILY_RE, (string)($a['topic'] ?? '')) <=> (int)!preg_match(self::DAILY_RE, (string)($b['topic'] ?? '')));
+        return $todas;
+    }
+
+    /**
+     * Quiénes pulsaron «Entrar» en el panel (reunion_entrar.php) durante alguna de
+     * esas reuniones ese día: desde 15 minutos antes hasta 15 después del final.
+     * [id de la persona => 'H:i' de su primer ingreso]
+     */
+    private static function ingresosDelDia(array $reuniones, string $fecha): array
+    {
+        static $porDia = null;
+        if ($porDia === null) {
+            $porDia = [];
+            foreach ((new JsonStore('reunion_ingresos'))->all() as $x) $porDia[substr((string)($x['t'] ?? ''), 0, 10)][] = $x;
+        }
+        $deEsas = [];
+        foreach ($reuniones as $r) $deEsas[(int)$r['id']] = $r;
+        $out = [];
+        foreach ($porDia[$fecha] ?? [] as $x) {
+            $r = $deEsas[(int)($x['reunion_id'] ?? 0)] ?? null;
+            if (!$r) continue;
+            [$hIni, $dur] = self::horario(substr((string)$r['inicio'], 11, 5), (int)($r['duracion'] ?? 30));
+            $ini = strtotime($fecha . ' ' . $hIni);
+            $fin = $ini + max(15, (int)($r['duracion'] ?? $dur)) * 60;
+            $t = strtotime((string)$x['t']);
+            if ($t < $ini - 900 || $t > $fin + 900) continue;
+            $mid = (int)($x['miembro_id'] ?? 0);
+            if ($mid > 0 && !isset($out[$mid])) $out[$mid] = date('H:i', $t);
+        }
+        return $out;
     }
 
     /** Para elegir cuál es la daily: las reuniones de los proyectos del equipo, primero las que se repiten. */
@@ -1242,12 +1277,21 @@ final class Releases
                          'nota' => '', 'por' => 0, 'actualizado' => date('Y-m-d H:i'), 'msg' => '',
                          // Pasadas dos horas del final, lo que diga Zoom ya no cambia
                          'final' => time() > $termina + 7200];
+                // Quiénes pulsaron «Entrar» en el panel durante alguna de esas reuniones
+                $porClic = self::ingresosDelDia($rs, $d);
+                $fila['ingresos'] = $porClic;
+                $conClics = fn(array $f) => array_replace($f, ['fuente' => $f['fuente'] === 'zoom' && $f['minutos'] ? 'zoom' : 'panel'],
+                    self::dailyEstado(array_values(array_unique(array_merge(array_map('intval', array_keys($f['minutos'])), array_keys($porClic)))), $esperados));
                 $deZoom = array_values(array_filter($rs, fn($x) => ($x['plataforma'] ?? 'zoom') === 'zoom' && !empty($x['zoom_id'])));
                 if (!$deZoom || !$zoomOk) {
-                    $fila['estado'] = 'sin_zoom';
-                    $fila['msg'] = !$deZoom ? 'La daily es de ' . Reuniones::etiquetaPlataforma((string)($r['plataforma'] ?? '')) . ': el SM la registra a mano.' : 'Zoom no está conectado en Ajustes.';
+                    if ($porClic) {
+                        $fila = $conClics($fila);
+                    } else {
+                        $fila['estado'] = 'sin_zoom';
+                        $fila['msg'] = !$deZoom ? 'Nadie entró desde el panel y la reunión es de ' . Reuniones::etiquetaPlataforma((string)($r['plataforma'] ?? '')) . ': el SM la registra a mano.' : 'Zoom no está conectado en Ajustes y nadie entró desde el panel.';
+                    }
                 } else {
-                    // Las sesiones que de verdad hubo ese día, en cualquiera de las dailies
+                    // Las sesiones que de verdad hubo ese día, en cualquiera de las reuniones
                     $uuids = [];
                     $fallo = '';
                     foreach ($deZoom as $x) {
@@ -1261,14 +1305,18 @@ final class Releases
                             $fila['reunion'] = (string)($x['topic'] ?? '');
                         }
                     }
-                    if (!$uuids && $fallo !== '') {
+                    if (!$uuids && $porClic) {
+                        // Zoom no la vio (o no respondió), pero la gente entró desde el panel en su hora
+                        $fila = $conClics($fila);
+                        if ($fallo !== '') $fila['final'] = false;
+                    } elseif (!$uuids && $fallo !== '') {
                         // Un fallo de Zoom no se le cobra al equipo: queda por medir
                         $error = $fallo;
                         $fila['estado'] = 'pendiente';
                         $fila['msg'] = $error;
                         $fila['final'] = false;
                     } elseif (!$uuids) {
-                        // Ninguna daily de Zoom se abrió ese día; si además había una de otra plataforma, la registra el SM
+                        // Ninguna reunión de Zoom se abrió ese día; si además había una de otra plataforma, la registra el SM
                         $fila['estado'] = count($deZoom) < count($rs) ? 'sin_zoom' : 'no_hecha';
                     } else {
                         $gente = [];
@@ -1279,12 +1327,14 @@ final class Releases
                         }
                         [$ids, $fila['invitados']] = self::emparejar($gente, $esperados, $mapa);
                         $fila['minutos'] = array_map('intval', $ids);
-                        if ($fila['msg'] !== '' && !$gente) {
-                            // Se hizo, pero Zoom no deja ver quién entró
+                        if ($fila['msg'] !== '' && !$gente && !$porClic) {
+                            // Se hizo, pero Zoom no deja ver quién entró y nadie entró desde el panel
                             $fila['estado'] = 'cumplida';
                             $fila['final'] = false;
                         } else {
-                            $fila = array_replace($fila, self::dailyEstado(array_keys($ids), $esperados));
+                            // Lo que dice Zoom más quienes entraron desde el panel
+                            $fila = $conClics($fila);
+                            if ($fila['msg'] !== '' && !$gente) $fila['final'] = false;
                         }
                     }
                 }
@@ -1299,7 +1349,8 @@ final class Releases
     /** Desde el cron: cada media hora, si hay Zoom. */
     private static function dailiesDelCron(): void
     {
-        if (!Zoom::listo() || self::conf()['dailies']['desde'] > date('Y-m-d')) return;
+        // Sin Zoom también se mide: con quienes entraron desde el panel
+        if (self::conf()['dailies']['desde'] > date('Y-m-d')) return;
         $marca = __DIR__ . '/../data/releases_dailies.json';
         $m = json_decode((string)@file_get_contents($marca), true) ?: [];
         if (time() - (int)($m['t'] ?? 0) < 1800) return;

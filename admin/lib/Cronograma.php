@@ -2,8 +2,8 @@
 /**
  * Horario de subidas y deploys de GitLab.
  *
- * Cada proyecto tiene su HORA LÍMITE (por defecto las 10:00 de lunes a viernes;
- * la Agraria, p. ej., a las 15:00): hasta esa hora el equipo tiene que dejar
+ * Cada proyecto tiene su HORA LÍMITE (de fábrica, lunes y jueves a las 22:00;
+ * un proyecto puede tener la suya): hasta esa hora el equipo tiene que dejar
  * subidos sus cambios. Despliegues la muestra con su cuenta regresiva y, unos
  * minutos antes, se le recuerda al equipo.
  *

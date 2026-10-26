@@ -1834,8 +1834,8 @@ function abrirDetalleTarea(t) {
     chips.innerHTML = (t.estado_badge || '') + (t.prio_badge || '');
   }
 
-  const asig = t.asignados && t.asignados.length ? t.asignados.join(', ') : 'Sin asignar';
-  set('.dt-asignados', asig);
+  dtPintarResponsables(dlg, t.responsables || (t.asignados || []).map((n) => ({ nombre: n, colabora: false })));
+  dtPrepararColab(dlg, t);
 
   let fechas = '';
   if (t.fecha_inicio && t.fecha_limite) {
@@ -1864,7 +1864,7 @@ function abrirDetalleTarea(t) {
   // Cuánto queda (o cuánto lleva vencida): es lo primero que uno mira
   const restante = dlg.querySelector('.dt-restante');
   if (restante) {
-    const lim = t.fecha_limite ? new Date(t.fecha_limite + 'T12:00') : null;
+    const lim = t.fecha_limite && !t.final ? new Date(t.fecha_limite + 'T12:00') : null;
     const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
     const dd = lim ? Math.round((lim - hoy) / 86400000) : null;
     restante.hidden = dd === null;
@@ -1949,6 +1949,70 @@ function abrirDetalleTarea(t) {
   dlg.showModal();
 }
 
+/* ---------- Responsables y «Pedir ayuda» en la ficha de la tarea ---------- */
+function dtPintarResponsables(dlg, lista) {
+  const dd = dlg.querySelector('.dt-asignados');
+  if (!dd) return;
+  dd.innerHTML = lista.length
+    ? lista.map((r) => esc(r.nombre) + (r.colabora ? ' <span class="dt-colabora" title="Se sumó para ayudar">ayuda</span>' : '')).join(', ')
+    : 'Sin asignar';
+}
+
+// Quien tiene la tarea (o gestiona el proyecto) suma a alguien de la gente del proyecto
+function dtPrepararColab(dlg, t) {
+  const fila = dlg.querySelector('.dt-fila-colab');
+  if (!fila) return;
+  let gente = [];
+  try { gente = JSON.parse(document.getElementById('dt-gente')?.textContent || '[]'); } catch (_) { gente = []; }
+  const ya = new Set((t.asignados_ids || []).map(Number));
+  const libres = gente.filter((g) => !ya.has(+g.id));
+  fila.hidden = !t.puede_colab || !libres.length;
+  fila.dataset.tarea = t.id;
+  fila.querySelector('[data-dt-colab]').hidden = true;
+  fila.querySelector('[data-dt-colab-abrir]').hidden = false;
+  fila.querySelector('[data-dt-colab-quien]').innerHTML = '<option value="">Elige a la persona…</option>'
+    + libres.map((g) => '<option value="' + (+g.id) + '">' + esc(g.nombre) + '</option>').join('');
+  fila.querySelector('[data-dt-colab-nota]').value = '';
+}
+
+document.addEventListener('click', async (e) => {
+  const fila = e.target.closest('.dt-fila-colab');
+  if (!fila) return;
+  const caja = fila.querySelector('[data-dt-colab]');
+  const abrir = fila.querySelector('[data-dt-colab-abrir]');
+  if (e.target.closest('[data-dt-colab-abrir]')) {
+    caja.hidden = false; abrir.hidden = true;
+    fila.querySelector('[data-dt-colab-quien]').focus();
+    return;
+  }
+  if (e.target.closest('[data-dt-colab-cerrar]')) { caja.hidden = true; abrir.hidden = false; return; }
+  const btn = e.target.closest('[data-dt-colab-sumar]');
+  if (!btn) return;
+  const quien = fila.querySelector('[data-dt-colab-quien]');
+  if (!quien.value) { quien.focus(); if (window.MC && MC.toast) MC.toast('Elige a la persona.', 'warning'); return; }
+  const fd = new FormData();
+  fd.set('accion', 'tarea_colaborador');
+  fd.set('ajax', '1');
+  fd.set('id', fila.dataset.tarea);
+  fd.set('colaborador', quien.value);
+  fd.set('nota', fila.querySelector('[data-dt-colab-nota]').value);
+  btn.disabled = true;
+  let j = null;
+  try { j = await (await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin' })).json(); } catch (_) { j = null; }
+  btn.disabled = false;
+  if (!j || !j.ok) { if (window.MC && MC.toast) MC.toast(j ? j.mensaje : 'No se pudo: revisa tu conexión.', 'error'); return; }
+  if (window.MC && MC.toast) MC.toast(j.mensaje, 'success');
+  const dlg = fila.closest('dialog');
+  const colabs = new Set((j.colaboradores || []).map(Number));
+  dtPintarResponsables(dlg, (j.asignados || []).map((n, i) => ({ nombre: n, colabora: colabs.has(+(j.asignados_ids || [])[i]) })));
+  dtPrepararColab(dlg, { id: fila.dataset.tarea, asignados_ids: j.asignados_ids || [], puede_colab: true });
+  dtTraza(dlg, fila.dataset.tarea);
+  dlg.dataset.recargar = '1';   // al cerrar, el tablero se pone al día
+});
+document.getElementById('dlg-detalle-tarea')?.addEventListener('close', (e) => {
+  if (e.target.dataset.recargar === '1') location.reload();
+});
+
 /* ---------- Trazabilidad de la ficha (pasos 2 a 5): la trae tarea_traza.php ---------- */
 let dtTrazaPedido = 0;
 const DT_MESES = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
@@ -1998,7 +2062,7 @@ function dtPintarTraza(dlg, cajas, d, id) {
   const plazo = (rot, val, nota) => '<div><span>' + rot + '</span><b>' + (val ? esc(val) : '<i>' + nota + '</i>') + '</b></div>';
   const plan = d.inicio_plan || d.fin_plan ? (d.inicio_plan ? dtFecha(d.inicio_plan) : '—') + ' → ' + (d.fin_plan ? dtFecha(d.fin_plan) : '—') : '';
   const motivo = (m) => m === 'intercambio' ? 'por un intercambio' : m.startsWith('commit ') ? 'por el ' + m : m;
-  const ICONOS = { creada: 'fa-plus', estado: 'fa-arrow-right', asignados: 'fa-user-group', intercambio: 'fa-right-left',
+  const ICONOS = { creada: 'fa-plus', estado: 'fa-arrow-right', asignados: 'fa-user-group', intercambio: 'fa-right-left', colaborador: 'fa-user-plus',
                    fechas: 'fa-calendar', prioridad: 'fa-flag', titulo: 'fa-pen' };
   cajas.historia.innerHTML = '<div class="dt-plazos">' + plazo('Planificada', plan, 'sin fechas') + plazo('Empezó', dtFecha(d.inicio_real), 'todavía no')
     + plazo('Terminó', dtFecha(d.fin_real), 'todavía no') + '</div>'
@@ -2038,6 +2102,20 @@ function dtPintarTraza(dlg, cajas, d, id) {
     + '<span class="dt-commit__msg">' + esc(c.msg) + '</span><small>' + [esc(c.autor), esc(c.repo), dtFecha(c.fecha)].filter(Boolean).join(' · ') + '</small></a></li>'
   ).join('') + '</ul>' : vacio('Ningún commit menciona #' + id + ' en los últimos seis meses. Para enlazarlos, el mensaje del commit termina con <code>#' + id + '</code>.');
 }
+// Enlace directo a una tarea (proyecto.php?id=…&tarea=…, p. ej. desde Releases): se abre su ficha
+// y el número sale de la dirección, así recargar no la vuelve a abrir. Espera a que
+// cargue todo el archivo: la ficha usa cosas que se declaran más abajo.
+function abrirTareaEnlazada() {
+  const el = document.getElementById('tarea-abrir');
+  if (!el) return;
+  try { abrirDetalleTarea(JSON.parse(el.dataset.verTarea)); } catch (_) { return; }
+  const u = new URL(location.href);
+  u.searchParams.delete('tarea');
+  history.replaceState(null, '', u.pathname + u.search + u.hash);
+}
+if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', abrirTareaEnlazada);
+else setTimeout(abrirTareaEnlazada, 0);
+
 // Escapa para texto Y para atributos. Ojo con las comillas: sin ellas, un
 // nombre de archivo o un mensaje de commit que las lleve rompe el atributo
 // donde se interpola (que es como se perdían los datos de los adjuntos).
