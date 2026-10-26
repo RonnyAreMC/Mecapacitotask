@@ -29,6 +29,13 @@ if (isset($_GET['conectar'])) {
     exit;
 }
 
+// Quien subió videos a mano entra con su Google para autorizar que pasen a la cuenta de grabaciones
+if (isset($_GET['conectar_dueno'])) {
+    if (!GoogleLogin::listo()) redirigir('zoom_drive.php', 'Primero configura el acceso con Google en Ajustes → Acceso y respaldo (Client ID y Client Secret).', 'error');
+    header('Location: ' . ZoomDrive::urlConectar('drive_dueno'));
+    exit;
+}
+
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
     // Solo desde esta misma página
     $origen = (string)($_SERVER['HTTP_ORIGIN'] ?? '');
@@ -97,6 +104,26 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
 
         case 'paso':
             zdJson(ZoomDrive::paso(25) + ['ok' => true]);
+
+        // Videos que ocupan el espacio de quien los subió a mano
+        case 'traspaso_carpeta':
+            $carpetaTr = ZoomDrive::idCarpeta((string)($_POST['carpeta_traspaso'] ?? ''));
+            if ($carpetaTr === '') redirigir('zoom_drive.php#traspaso', 'Pega el enlace de la carpeta de Drive con los videos (drive.google.com/drive/folders/…).', 'error');
+            if (!ZoomDrive::driveListo()) redirigir('zoom_drive.php#traspaso', 'Primero conecta la cuenta de grabaciones (arriba, «Conectar Google Drive»).', 'error');
+            ZoomDrive::traspasoEmpezar($carpetaTr);
+            if (!ZoomDrive::duenoListo()) redirigir('zoom_drive.php?conectar_dueno=1');
+            redirigir('zoom_drive.php?traspaso=1#traspaso', 'Empieza a pasar los videos.');
+
+        case 'traspaso_paso':
+            zdJson(ZoomDrive::traspasoPaso(20) + ['ok' => true]);
+
+        case 'traspaso_reintentar':
+            $n = ZoomDrive::traspasoReintentar();
+            redirigir('zoom_drive.php?traspaso=1#traspaso', $n . ' archivo(s) se vuelven a intentar.', $n ? 'success' : 'info');
+
+        case 'traspaso_olvidar':
+            ZoomDrive::olvidarDueno();
+            redirigir('zoom_drive.php#traspaso', 'Listo: el panel ya no guarda el permiso de esa cuenta.');
     }
     redirigir('zoom_drive.php', 'Acción desconocida.', 'error');
 }
@@ -212,9 +239,63 @@ UI::cabecera(
     </p>
   </section>
 
+  <!-- Videos que ocupan el espacio de quien los subió a mano -->
+  <?php
+    $tr = ZoomDrive::resumenTraspaso();
+    $duenoMail = (string)($conf['dueno']['email'] ?? '');
+    $carpetaTr = $tr['carpeta'] !== '' ? $tr['carpeta'] : $conf['carpeta'];
+    $textoTr = fn(array $r) => (!$r['listado'] ? 'Revisando la carpeta… ' : '') . $r['pendiente'] . ' por pasar (' . $b($r['pendiente_bytes']) . ') · '
+        . ($r['pasado'] + $r['copiado']) . ' ya pasados · ' . $b($r['liberado_bytes']) . ' liberados de tu espacio' . ($r['error'] ? ' · ' . $r['error'] . ' con error' : '');
+  ?>
+  <section class="mc-card zd-card zd-traspaso" id="traspaso" data-zd-traspaso data-seguir="<?= isset($_GET['traspaso']) && $duenoMail !== '' ? '1' : '' ?>">
+    <h2 class="zd-t"><?= UI::iconoDS('carpeta', 20) ?> Videos que ocupan tu espacio</h2>
+    <p class="zd-ayuda">Los videos que subiste a mano con tu cuenta ocupan <b>tu</b> espacio. Aquí pasan a la cuenta de grabaciones<?= $conf['email'] !== '' ? ' (' . e($conf['email']) . ')' : '' ?>:
+      si Google deja, cambia el dueño; si no, esa cuenta hace su copia en la misma carpeta y, cuando tiene el mismo tamaño, se borra la tuya. Entras una vez con tu Google para autorizarlo.</p>
+    <form method="post" class="zd-form">
+      <input type="hidden" name="accion" value="traspaso_carpeta">
+      <div class="zd-form__campos">
+        <div class="mc-field">
+          <label class="mc-field__label" for="zd-tr-carpeta">Carpeta con los videos</label>
+          <div class="mc-input mc-input--md"><?= UI::iconoDS('carpeta', 18, 'mc-input__icon') ?>
+            <input class="mc-input__control" id="zd-tr-carpeta" name="carpeta_traspaso" value="https://drive.google.com/drive/folders/<?= e($carpetaTr) ?>" placeholder="https://drive.google.com/drive/folders/…"></div>
+          <div class="mc-field__foot"><span class="mc-field__hint">También revisa sus subcarpetas. Solo se mueven los archivos de la cuenta con la que entres; los de Google Docs no se tocan.</span></div>
+        </div>
+      </div>
+      <div class="zd-form__botones">
+        <button class="mc-btn mc-btn--primary mc-btn--md"<?= $driveOk && $googleOk ? '' : ' disabled' ?>><?= UI::iconoDS('publicar', 18) ?><span class="mc-btn__label"><?= $duenoMail !== '' ? 'Pasar todos a la cuenta de grabaciones' : 'Entrar con mi Google y pasarlos' ?></span></button>
+      </div>
+    </form>
+    <?php if ($duenoMail !== ''): ?>
+    <div class="zd-con__fila">
+      <span class="zd-punto zd-punto--ok"></span>
+      <div class="zd-con__txt"><b>Autorizó <?= e($duenoMail) ?></b><small>El panel guarda su permiso solo para esto: quítalo cuando termine.</small></div>
+      <form method="post"><input type="hidden" name="accion" value="traspaso_olvidar"><button class="mc-btn mc-btn--ghost mc-btn--sm"><span class="mc-btn__label">Quitar permiso</span></button></form>
+    </div>
+    <?php endif; ?>
+    <?php if ($tr['carpeta'] !== ''): ?>
+    <p class="zd-ayuda" data-zd-tr-estado><?= e($textoTr($tr)) ?></p>
+    <div class="zd-form__botones">
+      <?php if (!$tr['terminado'] && $duenoMail !== ''): ?>
+      <button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" data-zd-tr-seguir><span class="mc-btn__label">Seguir</span></button>
+      <?php endif; ?>
+      <?php if ($tr['error']): ?>
+      <form method="post"><input type="hidden" name="accion" value="traspaso_reintentar"><button class="mc-btn mc-btn--ghost mc-btn--sm"><span class="mc-btn__label">Reintentar los que fallaron</span></button></form>
+      <?php endif; ?>
+    </div>
+    <?php if ($tr['errores']): ?>
+    <ul class="zd-tr-errores">
+      <?php foreach ($tr['errores'] as $x): ?><li><b><?= e($x['nombre']) ?></b> · <?= e($x['error']) ?></li><?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+    <?php endif; ?>
+  </section>
+
   <!-- 4. Buscar en Zoom -->
   <section class="mc-card zd-card">
     <h2 class="zd-t"><?= UI::iconoDS('buscar', 20) ?> Buscar grabaciones en Zoom</h2>
+    <?php $autoZ = (array)$conf['auto_estado']; ?>
+    <p class="zd-ayuda">Ya no hace falta buscarlas: cada hora se buscan solas las de los últimos días y pasan a Drive,
+      igual que las de reuniones del panel que estaban en la lista.<?= !empty($autoZ['t']) ? ' Última búsqueda automática: ' . e(date('Y-m-d H:i', (int)$autoZ['t'])) . ' · ' . (int)($autoZ['nuevas'] ?? 0) . ' a la cola.' : '' ?></p>
     <div class="zd-buscar">
       <div class="mc-field"><label class="mc-field__label" for="zd-desde">Desde</label>
         <input type="date" id="zd-desde" value="<?= e($conf['desde']) ?>" max="<?= date('Y-m-d') ?>"></div><?php /* el calendario del panel (MecaDate) arma su propio campo */ ?>
@@ -402,6 +483,34 @@ UI::cabecera(
   if (bSeguir) bSeguir.addEventListener('click', seguir);
   if (bPausar) bPausar.addEventListener('click', () => { andando = false; });
   if (caja && !caja.hidden && raiz.dataset.seguir === '1') seguir();
+
+  /* ---------- Pasar los videos de quien los subió a mano, mientras la página está abierta ---------- */
+  const tr = raiz.querySelector('[data-zd-traspaso]');
+  if (tr) {
+    const bTr = tr.querySelector('[data-zd-tr-seguir]');
+    const txtTr = tr.querySelector('[data-zd-tr-estado]');
+    const textoTr = (d) => (d.listado ? '' : 'Revisando la carpeta… ') + d.pendiente + ' por pasar (' + tam(d.pendiente_bytes) + ') · '
+      + (d.pasado + d.copiado) + ' ya pasados · ' + tam(d.liberado_bytes) + ' liberados de tu espacio' + (d.error ? ' · ' + d.error + ' con error' : '');
+    let trAndando = false;
+    const seguirTr = async () => {
+      if (trAndando) return;
+      trAndando = true;
+      if (bTr) bTr.disabled = true;
+      for (;;) {
+        let d = null;
+        try { d = await post({ accion: 'traspaso_paso' }); } catch (e) { d = null; }
+        if (!d) { aviso('Se cortó la conexión con el panel', 'error', { desc: 'Pulsa «Seguir»: sigue donde iba.' }); break; }
+        if (txtTr) txtTr.textContent = textoTr(d);
+        if (d.error) { aviso('No se puede seguir', 'error', { desc: d.error }); break; }
+        if (d.ocupado) { await new Promise((r) => setTimeout(r, 5000)); continue; }
+        if (d.terminado) { aviso('¡Listo! Esos videos ya no ocupan tu espacio', 'success', { desc: tam(d.liberado_bytes) + ' liberados.' }); setTimeout(() => location.reload(), 1500); break; }
+      }
+      trAndando = false;
+      if (bTr) bTr.disabled = false;
+    };
+    if (bTr) bTr.addEventListener('click', seguirTr);
+    if (tr.dataset.seguir === '1') seguirTr();
+  }
 })();
 </script>
 <?php UI::fin(); ?>

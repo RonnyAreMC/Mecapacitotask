@@ -1731,6 +1731,26 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
                . ' ' . $mesCorto[(int)date('n', $ts)] . ' · ' . date('H:i', $ts);
       };
     ?>
+    <?php
+      // Grabaciones: se abren desde Drive (lib/ZoomDrive.php las pasa solas cada hora).
+      // Mientras no llegan, «Esperando, aún no se ha guardado un respaldo» y nada más;
+      // sin rastro y de hace días, «Sin grabación».
+      if (!class_exists('ZoomDrive') && is_file(__DIR__ . '/lib/ZoomDrive.php')) require_once __DIR__ . '/lib/ZoomDrive.php';
+      $grabDrive = class_exists('ZoomDrive') ? ZoomDrive::deReuniones(array_column($reuniones, 'zoom_id')) : [];
+      $buscandoGrab = class_exists('ZoomDrive') && ZoomDrive::buscandoTodo();
+      $grabacion = function (array $r, string $dia, int $termino) use ($grabDrive, $buscandoGrab): string {
+          $porDia = $grabDrive[(string)($r['zoom_id'] ?? '')] ?? [];
+          // Sin día (reunión suelta): la del último día que tenga
+          $g = $dia !== '' ? ($porDia[$dia] ?? null) : ($porDia ? $porDia[max(array_keys($porDia))] : null);
+          if ($g && $g['ver'] !== '') {
+              return '<a class="accion-btn accion-grab" href="' . e($g['ver']) . '" target="_blank" rel="noopener" title="Ver la grabación en Drive">' . UI::iconoVideo() . ' Grabación</a>';
+          }
+          if (($g && $g['pendiente']) || time() - $termino < 2 * 86400 || $buscandoGrab) {
+              return '<span class="grab-espera"><i class="fa-regular fa-hourglass-half"></i> Esperando, aún no se ha guardado un respaldo</span>';
+          }
+          return '<span class="grab-sin">Sin grabación</span>';
+      };
+    ?>
     <div class="reu-lista">
       <?php foreach ($reuniones as $r):
           $repite = Reuniones::esRecurrente($r);
@@ -1774,26 +1794,10 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
           <?php endif; ?>
-          <?php if (!$esMeet && !$repite): /* grabación/transcripción de Zoom; en las recurrentes van por día, más abajo */ ?>
-          <?php if (!empty($r['grabaciones'])): ?>
-            <?php foreach ($r['grabaciones'] as $g): if (!empty($g['play'])): ?>
-            <a class="accion-btn accion-grab" href="<?= e($g['play']) ?>" target="_blank" rel="noopener" title="Ver grabación (<?= e($g['tipo']) ?>)"><?= UI::iconoVideo() ?> Grabación</a>
-            <?php break; endif; endforeach; ?>
-            <?php if (!empty($r['grab_password'])): ?>
-            <span class="chip-copiar grab-codigo" title="Código de la grabación (por si Zoom lo pide)">
-              <code><i class="fa-solid fa-key"></i> <?= e($r['grab_password']) ?></code>
-              <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($r['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
-            </span>
-            <?php endif; ?>
-          <?php elseif ($pasada): ?>
-          <form method="post" action="actions.php" class="inline-form">
-            <input type="hidden" name="accion" value="reunion_grabaciones">
-            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-            <button class="accion-btn" title="Buscar grabación en Zoom"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
-          </form>
-          <?php endif; ?>
+          <?php if ($platReu === 'zoom' && !$repite): /* grabación y transcripción (de Drive); en las recurrentes van por día, más abajo */ ?>
+          <?php if ($pasada): ?><?= $grabacion($r, '', $fin) ?><?php endif; ?>
           <?php if ($pasada): ?>
-          <!-- Transcripción para Claude: la acción la busca en vivo en Zoom -->
+          <!-- Transcripción para Claude: la acción la lee de Drive -->
           <form method="post" action="actions.php" class="inline-form" data-descarga>
             <input type="hidden" name="accion" value="reunion_transcripcion">
             <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
@@ -1802,7 +1806,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
             </button>
           </form>
           <?php endif; ?>
-          <?php endif; /* !$esMeet */ ?>
+          <?php endif; /* zoom */ ?>
           <?php if ($pasada && UI::ia('acta_reunion') && puedeGestionar($id)): ?>
           <?= UI::botonIA('Acta', ['ia-acta' => 1, 'reunion' => (int)$r['id'], 'zoom' => $esMeet ? '0' : '1',
                                    'titulo' => (string)($r['topic'] ?? '')], 'Acta de la reunión con IA: resumen, acuerdos y tareas') ?>
@@ -1839,7 +1843,6 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
         $ocs   = Reuniones::fechasOcurrencias((string)$r['inicio'], (array)$r['dias'], (string)$r['hasta']);
         $ahora = time();
         $dSeg  = (int)$r['duracion'] * 60;
-        $grabOc = is_array($r['grab_ocurrencias'] ?? null) ? $r['grab_ocurrencias'] : [];
         $pasadas = []; $proximas = []; $enCurso = null;
         foreach ($ocs as $oc) {
             $iniOc = strtotime($oc); $finOc = $iniOc + $dSeg;
@@ -1875,31 +1878,16 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
           <li class="reu-dia reu-dia-vacio">Todavía no ha ocurrido ningún día de esta reunión.</li>
           <?php endif; ?>
 
-          <?php foreach ($pasadasDesc as $oc): $fechaOc = substr($oc, 0, 10); $gd = $grabOc[$fechaOc] ?? null; ?>
+          <?php foreach ($pasadasDesc as $oc): $fechaOc = substr($oc, 0, 10); ?>
           <li class="reu-dia reu-dia-pasada">
             <span class="reu-dia-fecha"><i class="fa-solid fa-check reu-dia-ok"></i> <?= e($fechaDia($oc)) ?></span>
             <span class="reu-dia-acc">
-              <?php if ($esMeet): ?>
+              <?php if ($platReu !== 'zoom'): ?>
                 <span class="reu-dia-nota">Reunión realizada</span>
-              <?php elseif ($gd && !empty($gd['archivos'])): ?>
-                <?php foreach ($gd['archivos'] as $gf): if (!empty($gf['play'])): ?>
-                <a class="accion-btn accion-grab" href="<?= e($gf['play']) ?>" target="_blank" rel="noopener" title="Ver grabación del <?= e($fechaOc) ?>"><?= UI::iconoVideo() ?> Grabación</a>
-                <?php break; endif; endforeach; ?>
-                <?php if (!empty($gd['grab_password'])): ?>
-                <span class="chip-copiar grab-codigo" title="Código de la grabación">
-                  <code><i class="fa-solid fa-key"></i> <?= e($gd['grab_password']) ?></code>
-                  <button type="button" class="accion-btn btn-copiar" data-copiar="<?= e($gd['grab_password']) ?>" title="Copiar código"><i class="fa-regular fa-copy"></i></button>
-                </span>
-                <?php endif; ?>
               <?php else: ?>
-                <form method="post" action="actions.php" class="inline-form">
-                  <input type="hidden" name="accion" value="reunion_grabaciones">
-                  <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                  <input type="hidden" name="ocurrencia" value="<?= e($fechaOc) ?>">
-                  <button class="accion-btn" title="Buscar en Zoom la grabación de este día"><i class="fa-solid fa-cloud-arrow-down"></i> Grabación</button>
-                </form>
+                <?= $grabacion($r, $fechaOc, strtotime($oc) + $dSeg) ?>
               <?php endif; ?>
-              <?php if (!$esMeet): ?>
+              <?php if ($platReu === 'zoom'): ?>
               <form method="post" action="actions.php" class="inline-form" data-descarga>
                 <input type="hidden" name="accion" value="reunion_transcripcion">
                 <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
@@ -2224,7 +2212,7 @@ $comData = json_encode([
     </label>
     <div class="campo-doble">
       <label class="campo"><span>Fecha y hora *</span>
-        <input class="input-meca" type="datetime-local" name="inicio" required value="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>">
+        <input class="input-meca" type="datetime-local" name="inicio" required value="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>" min="<?= date('Y-m-d\TH:i', strtotime('-10 minutes')) ?>">
       </label>
       <label class="campo"><span>Duración (min)</span>
         <?= UI::select('duracion', $durOpciones, (string)$durDefecto) ?>

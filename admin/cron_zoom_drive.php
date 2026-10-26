@@ -6,7 +6,9 @@
  *   /usr/local/bin/php /home/…/admin/cron_zoom_drive.php >/dev/null 2>&1
  *
  * Trabaja hasta 4 minutos y medio por vuelta; con un candado, nunca corren dos a
- * la vez (ni con la página). Si no hay nada en cola, termina al instante.
+ * la vez (ni con la página). Una vez por hora, además, busca solo las grabaciones
+ * nuevas y las pone en cola (ZoomDrive::automatico): nadie tiene que entrar a pulsar
+ * nada. Si no hay nada que hacer, termina al instante.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);

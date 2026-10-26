@@ -1363,6 +1363,8 @@
     if (!b || !dlgDl) return;
     const fecha = b.dataset.rlDailyReg || DL.hoy;
     if (fecha > DL.hoy) { toast('Ese día todavía no llega: se registra cuando pase.', 'info'); return; }
+    // Hoy no se registra la daily de ayer: los días pasados los mide Zoom (o los corrige un editor)
+    if (fecha < DL.hoy && !DL.pasados) { toast('Solo se registra la daily de hoy. Los días que ya pasaron los mide Zoom.', 'info'); return; }
     mejorar(dlgDl);
     const inp = dlgDl.querySelector('[data-rl-dl-fecha]');
     inp.value = fecha;

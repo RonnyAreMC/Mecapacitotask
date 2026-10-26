@@ -17,6 +17,10 @@
  * - Cada archivo de Zoom es una fila de la tabla zoom_drive:
  *     nuevo → en_cola → subiendo → en_drive (mismo tamaño en Drive) → borrado (en la papelera de Zoom)
  * Lo mueve cron_zoom_drive.php (cada 5 minutos) o la página mientras está abierta.
+ * Solo, sin que nadie pulse nada (automatico(), cada hora): busca las grabaciones
+ * de los últimos días y las pone en cola; las de reuniones del panel que ya
+ * estaban en la lista, también. La página de Reuniones las abre desde Drive
+ * (deReuniones, transcripcion): mientras no llegan, dice «espera».
  *
  * No va en bootstrap: lo cargan zoom_drive.php, cron_zoom_drive.php y oauth_google.php.
  */
@@ -41,6 +45,11 @@ final class ZoomDrive
         'error'    => 'Con error',
     ];
     private const TIPOS_CARPETA = ['video' => 'Videos', 'audio' => 'Audios', 'texto' => 'Textos'];
+    /** Cada cuánto busca sola las grabaciones nuevas (segundos) y cuántos días hacia atrás mira */
+    private const CADA = 3600;
+    private const DIAS_AUTO = 3;
+    /** Ya está en Drive (y quizá liberada de Zoom) */
+    private const LISTOS = ['en_drive', 'borrado'];
 
     /** Lo último que salió mal (para mostrarlo) */
     public static string $ultimoError = '';
@@ -57,6 +66,11 @@ final class ZoomDrive
             'desde'   => date('Y-m-d', strtotime('-2 years')),
             'grupos'  => [],            // id de reunión de Zoom => carpeta (lo que eligió el administrador)
             'escaneo' => [],
+            'auto'    => true,          // cada hora busca y pone en cola las grabaciones nuevas
+            'auto_estado'   => [],      // ['t' => última búsqueda automática, 'nuevas' => n]
+            'usuarios_zoom' => [],      // ['t' => cuándo, 'lista' => usuarios activos] (se renueva cada día)
+            'dueno'    => ['refresh' => '', 'email' => ''],   // la cuenta que subió videos a mano (para pasarlos)
+            'traspaso' => [],           // ['carpeta', 'por_listar' => [ids], 'listado' => bool, 'compartida' => bool]
         ], (array)Config::get('zoom_drive'));
     }
 
@@ -105,9 +119,10 @@ final class ZoomDrive
         return 'p:' . $plano;
     }
 
-    private static function refresh(): string
+    /** El permiso guardado: el de la cuenta de grabaciones o, con 'dueno', el de quien subió videos a mano */
+    private static function refresh(string $quien = ''): string
     {
-        $r = (string)self::conf()['refresh'];
+        $r = (string)($quien === 'dueno' ? (self::conf()['dueno']['refresh'] ?? '') : self::conf()['refresh']);
         if (str_starts_with($r, 's:')) {
             if (!class_exists('Correo') && is_file(__DIR__ . '/Correo.php')) require_once __DIR__ . '/Correo.php';
             return class_exists('Correo') ? Correo::desellar((string)base64_decode(substr($r, 2))) : '';
@@ -133,12 +148,12 @@ final class ZoomDrive
 
     /* ======================= Google: conectar Drive ======================= */
 
-    /** Pide a Google el permiso de Drive (lo devuelve a oauth_google.php) */
-    public static function urlConectar(): string
+    /** Pide a Google el permiso de Drive (lo devuelve a oauth_google.php). 'drive_dueno': el de quien subió videos a mano. */
+    public static function urlConectar(string $flujo = 'drive'): string
     {
         $c = GoogleLogin::conf();
         $_SESSION['oauth_state'] = bin2hex(random_bytes(16));
-        GoogleLogin::flujo('drive');
+        GoogleLogin::flujo($flujo === 'drive_dueno' ? 'drive_dueno' : 'drive');
         return 'https://accounts.google.com/o/oauth2/v2/auth?' . http_build_query([
             'client_id'     => $c['client_id'],
             'redirect_uri'  => GoogleLogin::redirectUri(),
@@ -231,16 +246,16 @@ final class ZoomDrive
         return $j['access_token'];
     }
 
-    private static function tokenDrive(bool $forzar = false): string
+    private static function tokenDrive(bool $forzar = false, string $quien = ''): string
     {
-        $f = self::cache('drive');
+        $f = self::cache($quien === 'dueno' ? 'drive_dueno' : 'drive');
         $c = json_decode((string)@file_get_contents($f), true) ?: [];
         if (!$forzar && !empty($c['t']) && ($c['exp'] ?? 0) > time() + 60) return $c['t'];
         $g = GoogleLogin::conf();
         [$codigo, $cuerpo] = self::http('POST', self::url('g_token'), [
             'cabeceras' => ['Content-Type: application/x-www-form-urlencoded'],
             'cuerpo' => http_build_query(['client_id' => $g['client_id'], 'client_secret' => $g['client_secret'],
-                'refresh_token' => self::refresh(), 'grant_type' => 'refresh_token']),
+                'refresh_token' => self::refresh($quien), 'grant_type' => 'refresh_token']),
             'timeout' => 30,
         ]);
         $j = json_decode($cuerpo, true) ?: [];
@@ -274,14 +289,14 @@ final class ZoomDrive
         return [$codigo, $j];
     }
 
-    /** Llamada a la API de Drive (JSON) → [código, json, cabeceras] */
-    private static function drive(string $metodo, string $url, ?array $json = null, array $mas = []): array
+    /** Llamada a la API de Drive (JSON) → [código, json, cabeceras]. $quien 'dueno': con la cuenta que subió videos a mano. */
+    private static function drive(string $metodo, string $url, ?array $json = null, array $mas = [], string $quien = '', int $timeout = 60): array
     {
         foreach ([false, true] as $forzar) {
-            $t = self::tokenDrive($forzar);
+            $t = self::tokenDrive($forzar, $quien);
             if ($t === '') return [0, [], []];
             $cab = array_merge(['Authorization: Bearer ' . $t], $mas);
-            $op = ['cabeceras' => $cab, 'timeout' => 60];
+            $op = ['cabeceras' => $cab, 'timeout' => $timeout];
             if ($json !== null) { $op['cuerpo'] = json_encode($json, JSON_UNESCAPED_UNICODE); $op['cabeceras'][] = 'Content-Type: application/json; charset=UTF-8'; }
             elseif ($metodo === 'POST') $op['cuerpo'] = '';
             [$codigo, $cuerpo, $cabR] = self::http($metodo, $url, $op);
@@ -443,7 +458,7 @@ final class ZoomDrive
     }
 
     /** Guarda los archivos de una reunión grabada (sin repetir). Devuelve cuántos son nuevos. */
-    private static function anotarReunion(array $m, string $host, array &$existentes, array $proyectos, array $reuniones): int
+    private static function anotarReunion(array $m, string $host, array &$existentes, array $proyectos, array $reuniones, string $estadoNuevo = 'nuevo'): int
     {
         $archivos = array_values(array_filter((array)($m['recording_files'] ?? []),
             fn($f) => ($f['status'] ?? 'completed') === 'completed' && !empty($f['id']) && !empty($f['download_url'])));
@@ -489,7 +504,7 @@ final class ZoomDrive
                 }
                 continue;
             }
-            $fila += ['grupo' => $grupo, 'estado' => 'nuevo', 'sesion' => '', 'subido' => 0, 'drive_id' => '', 'error' => '', 'intentos' => 0,
+            $fila += ['grupo' => $grupo, 'estado' => $estadoNuevo, 'sesion' => '', 'subido' => 0, 'drive_id' => '', 'error' => '', 'intentos' => 0,
                       'encontrado' => date('Y-m-d H:i'), 'actualizado' => date('Y-m-d H:i')];
             $existentes[$id] = self::tabla()->insert($fila);
             $nuevas++;
@@ -744,6 +759,8 @@ final class ZoomDrive
         try {
             if (!self::listo()) return ['error' => 'Falta conectar Zoom o Google Drive.'] + self::resumen();
             @set_time_limit($segundos + 120);
+            // Sin que nadie lo pida: las grabaciones nuevas entran solas a la cola
+            self::automatico(max(5, intdiv($segundos, 4)));
             $fin = microtime(true) + $segundos;
             while (microtime(true) < $fin) {
                 $f = self::siguiente();
@@ -900,6 +917,331 @@ final class ZoomDrive
             $out[] = $l;
         }
         return implode("\n", $out) . "\n";
+    }
+
+    /* ======================= Solo, cada hora ======================= */
+
+    /**
+     * Cada hora (lo llama paso(), con el candado puesto): busca las grabaciones de
+     * los últimos días de todos los usuarios de Zoom y las deja en cola, sin que
+     * nadie entre a la página. Las de reuniones del panel que ya estaban en la
+     * lista sin subir, también. Si la búsqueda completa (desde la fecha de la
+     * página) nunca terminó, la sigue de a poco en cada vuelta.
+     */
+    private static function automatico(int $segundos): void
+    {
+        $conf = self::conf();
+        if (empty($conf['auto'])) return;
+        $inicio = time();
+        if (time() - (int)($conf['auto_estado']['t'] ?? 0) >= self::CADA) {
+            $usuarios = self::usuariosZoom();
+            if ($usuarios === null) return;   // Zoom no respondió: se reintenta en la próxima vuelta
+            $proyectos = self::proyectos();
+            $reuniones = self::reunionesPanel();
+            $existentes = [];
+            foreach (self::tabla()->all() as $f) $existentes[(string)$f['zoom_file']] = $f;
+            $desde = date('Y-m-d', strtotime('-' . self::DIAS_AUTO . ' days'));
+            $nuevas = 0;
+            foreach ($usuarios as $u) {
+                $token = '';
+                do {
+                    [$codigo, $j] = self::zoom('GET', '/users/' . rawurlencode($u['id']) . '/recordings?page_size=300&from=' . $desde . '&to=' . date('Y-m-d')
+                        . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
+                    if ($codigo !== 200) return;
+                    foreach ((array)($j['meetings'] ?? []) as $m) {
+                        $nuevas += self::anotarReunion($m, $u['email'], $existentes, $proyectos, $reuniones, 'en_cola');
+                    }
+                    $token = (string)($j['next_page_token'] ?? '');
+                } while ($token !== '');
+            }
+            // Las de reuniones del panel que la búsqueda completa dejó en la lista
+            foreach (self::tabla()->all() as $f) {
+                if (($f['estado'] ?? '') !== 'nuevo' || empty($f['del_panel'])) continue;
+                self::tabla()->update((int)$f['id'], ['estado' => 'en_cola', 'error' => '', 'intentos' => 0, 'actualizado' => date('Y-m-d H:i')]);
+                $nuevas++;
+            }
+            self::guardar(['auto_estado' => ['t' => time(), 'nuevas' => $nuevas]]);
+        }
+        if (empty(self::conf()['escaneo']['terminado'])) {
+            $resto = $segundos - (time() - $inicio);
+            if ($resto > 3) self::buscar($resto);
+        }
+    }
+
+    /** Los usuarios activos de la cuenta de Zoom (se piden una vez al día). null si Zoom no respondió. */
+    private static function usuariosZoom(): ?array
+    {
+        $c = (array)self::conf()['usuarios_zoom'];
+        if (!empty($c['lista']) && time() - (int)($c['t'] ?? 0) < 86400) return (array)$c['lista'];
+        $lista = [];
+        $token = '';
+        do {
+            [$codigo, $j] = self::zoom('GET', '/users?page_size=300&status=active' . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
+            if ($codigo !== 200) return !empty($c['lista']) ? (array)$c['lista'] : null;
+            foreach ((array)($j['users'] ?? []) as $u) $lista[] = ['id' => (string)$u['id'], 'email' => (string)($u['email'] ?? '')];
+            $token = (string)($j['next_page_token'] ?? '');
+        } while ($token !== '');
+        self::guardar(['usuarios_zoom' => ['t' => time(), 'lista' => $lista]]);
+        return $lista;
+    }
+
+    /** ¿La búsqueda completa (desde la fecha de la página) sigue en curso? Mientras, lo viejo también «espera». */
+    public static function buscandoTodo(): bool
+    {
+        return !empty(self::conf()['auto']) && empty(self::conf()['escaneo']['terminado']);
+    }
+
+    /* ======================= Videos que ocupan el espacio de otra cuenta ======================= */
+
+    /*
+     * Videos que alguien subió a mano con su cuenta ocupan SU espacio. Con su permiso
+     * (entra una vez con su Google), pasan a la cuenta de grabaciones, de a uno:
+     *  1. cambiando el dueño (si las dos cuentas son de la misma organización);
+     *  2. si Google pide que el nuevo dueño acepte (cuentas personales), se le ofrece y
+     *     la cuenta de grabaciones acepta;
+     *  3. si tampoco (organizaciones distintas), la cuenta de grabaciones hace su copia
+     *     en la misma carpeta y, cuando tiene el mismo tamaño (y huella), se borra la otra.
+     * Un archivo por fila en zoom_drive_traspaso: pendiente → pasado | copiado | error.
+     */
+
+    private static function tablaTraspaso(): JsonStore { return new JsonStore('zoom_drive_traspaso'); }
+
+    public static function guardarDueno(string $refresh, string $email): void
+    {
+        self::guardar(['dueno' => ['refresh' => self::sellar($refresh), 'email' => $email]]);
+        @unlink(self::cache('drive_dueno'));
+    }
+
+    /** Se borra el permiso de quien subió los videos (lo hecho no se toca) */
+    public static function olvidarDueno(): void
+    {
+        self::guardar(['dueno' => ['refresh' => '', 'email' => '']]);
+        @unlink(self::cache('drive_dueno'));
+    }
+
+    public static function duenoListo(): bool
+    {
+        return self::refresh('dueno') !== '';
+    }
+
+    /** Elige la carpeta: se recorre entera (con sus subcarpetas) en la próxima vuelta */
+    public static function traspasoEmpezar(string $carpeta): void
+    {
+        foreach (self::tablaTraspaso()->all() as $f) {
+            if (in_array($f['estado'], ['pendiente', 'error'], true)) self::tablaTraspaso()->delete((int)$f['id']);
+        }
+        self::guardar(['traspaso' => ['carpeta' => $carpeta, 'por_listar' => [$carpeta], 'listado' => false, 'compartida' => false, 'empezo' => date('Y-m-d H:i')]]);
+    }
+
+    /** Los que fallaron vuelven a intentarse */
+    public static function traspasoReintentar(): int
+    {
+        $n = 0;
+        foreach (self::tablaTraspaso()->where('estado', 'error') as $f) {
+            if ((string)($f['copia_id'] ?? '') !== '') continue;   // ya copiado: solo falta borrar el original a mano
+            self::tablaTraspaso()->update((int)$f['id'], ['estado' => 'pendiente', 'error' => '']);
+            $n++;
+        }
+        return $n;
+    }
+
+    /** Avanza durante $segundos: primero recorre la carpeta, luego pasa los archivos de a uno */
+    public static function traspasoPaso(int $segundos): array
+    {
+        $candado = @fopen(__DIR__ . '/../data/zoom_drive_traspaso.lock', 'c');
+        if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) return ['ocupado' => true] + self::resumenTraspaso();
+        try {
+            self::$ultimoError = '';
+            @set_time_limit($segundos + 120);
+            $fin = time() + $segundos;
+            $conf = self::conf();
+            $t = (array)$conf['traspaso'];
+            $destino = (string)$conf['email'];
+            if (empty($t['carpeta'])) return ['error' => 'Elige la carpeta.'] + self::resumenTraspaso();
+            if (!self::driveListo()) return ['error' => 'Falta conectar la cuenta de grabaciones (arriba, «Conectar Google Drive»).'] + self::resumenTraspaso();
+            if (!self::duenoListo()) return ['error' => 'Falta que entres con tu Google para autorizar el cambio.'] + self::resumenTraspaso();
+            if (strcasecmp($destino, (string)$conf['dueno']['email']) === 0) {
+                return ['error' => 'Entraste con la misma cuenta de grabaciones (' . $destino . '): entra con la cuenta que subió los videos.'] + self::resumenTraspaso();
+            }
+            // La cuenta de grabaciones necesita ver la carpeta para poder copiar
+            if (empty($t['compartida'])) {
+                self::drive('POST', self::url('drive') . '/files/' . rawurlencode((string)$t['carpeta']) . '/permissions?sendNotificationEmail=false&supportsAllDrives=true',
+                    ['role' => 'writer', 'type' => 'user', 'emailAddress' => $destino], [], 'dueno');
+                $t['compartida'] = true;
+                self::guardar(['traspaso' => $t]);
+            }
+            // 1. Recorrer: los archivos de quien subió, con tamaño (los de Google Docs no se tocan)
+            $ya = array_flip(array_column(self::tablaTraspaso()->all(), 'drive_id'));
+            while (empty($t['listado']) && time() < $fin) {
+                $id = array_shift($t['por_listar']);
+                if ($id === null) { $t['listado'] = true; break; }
+                $pagina = '';
+                do {
+                    $q = "'" . self::comillas((string)$id) . "' in parents and trashed = false";
+                    [$codigo, $j] = self::drive('GET', self::url('drive') . '/files?q=' . rawurlencode($q) . '&pageSize=1000&supportsAllDrives=true&includeItemsFromAllDrives=true&fields='
+                        . rawurlencode('nextPageToken,files(id,name,mimeType,size,md5Checksum,ownedByMe)') . ($pagina !== '' ? '&pageToken=' . rawurlencode($pagina) : ''), null, [], 'dueno');
+                    if ($codigo !== 200) {
+                        array_unshift($t['por_listar'], $id);
+                        self::guardar(['traspaso' => $t]);
+                        return ['error' => self::$ultimoError ?: 'Drive no dejó leer la carpeta.'] + self::resumenTraspaso();
+                    }
+                    foreach ((array)($j['files'] ?? []) as $f) {
+                        $mime = (string)($f['mimeType'] ?? '');
+                        if ($mime === 'application/vnd.google-apps.folder') { $t['por_listar'][] = (string)$f['id']; continue; }
+                        if (empty($f['ownedByMe']) || (int)($f['size'] ?? 0) <= 0 || str_starts_with($mime, 'application/vnd.google-apps') || isset($ya[$f['id']])) continue;
+                        self::tablaTraspaso()->insert(['drive_id' => (string)$f['id'], 'nombre' => (string)$f['name'], 'tamano' => (int)$f['size'], 'md5' => (string)($f['md5Checksum'] ?? ''),
+                            'padre' => (string)$id, 'estado' => 'pendiente', 'via' => '', 'copia_id' => '', 'error' => '', 'actualizado' => date('Y-m-d H:i')]);
+                        $ya[$f['id']] = true;
+                    }
+                    $pagina = (string)($j['nextPageToken'] ?? '');
+                } while ($pagina !== '');
+                if (!$t['por_listar']) $t['listado'] = true;
+                self::guardar(['traspaso' => $t]);
+            }
+            self::guardar(['traspaso' => $t]);
+            // 2. Pasar, de a uno
+            while (!empty($t['listado']) && time() < $fin) {
+                $f = self::tablaTraspaso()->where('estado', 'pendiente')[0] ?? null;
+                if (!$f) break;
+                self::pasarUno($f, $destino);
+            }
+        } finally {
+            flock($candado, LOCK_UN);
+            fclose($candado);
+        }
+        return self::resumenTraspaso();
+    }
+
+    /** Un archivo: dueño nuevo si Google deja; si no, copia entera y se borra el original */
+    private static function pasarUno(array $f, string $destino): void
+    {
+        $base = self::url('drive') . '/files/' . rawurlencode((string)$f['drive_id']);
+        $marcar = fn(array $c) => self::tablaTraspaso()->update((int)$f['id'], $c + ['actualizado' => date('Y-m-d H:i')]);
+        // 1. Misma organización: el dueño cambia de una vez
+        [$codigo] = self::drive('POST', $base . '/permissions?transferOwnership=true&supportsAllDrives=true',
+            ['role' => 'owner', 'type' => 'user', 'emailAddress' => $destino], [], 'dueno');
+        if ($codigo === 200) { $marcar(['estado' => 'pasado', 'via' => 'dueño', 'error' => '']); return; }
+        // 2. Cuentas personales: se le ofrece y la cuenta de grabaciones acepta
+        [$codigo, $p] = self::drive('POST', $base . '/permissions?supportsAllDrives=true',
+            ['role' => 'writer', 'type' => 'user', 'emailAddress' => $destino, 'pendingOwner' => true], [], 'dueno');
+        if ($codigo === 200 && !empty($p['id'])) {
+            [$codigo] = self::drive('PATCH', $base . '/permissions/' . rawurlencode((string)$p['id']) . '?transferOwnership=true&supportsAllDrives=true', ['role' => 'owner']);
+            if ($codigo === 200) { $marcar(['estado' => 'pasado', 'via' => 'dueño', 'error' => '']); return; }
+        }
+        // 3. Organizaciones distintas: la copia es de la cuenta de grabaciones; entera, se borra la otra.
+        //    Si una vuelta anterior ya la dejó (se cortó esperando a Drive), se usa esa: nada de copias repetidas.
+        self::$ultimoError = '';
+        $q = "name = '" . self::comillas((string)$f['nombre']) . "' and '" . self::comillas((string)$f['padre']) . "' in parents and 'me' in owners and trashed = false";
+        [$codigo, $j] = self::drive('GET', self::url('drive') . '/files?q=' . rawurlencode($q) . '&fields=files(id,size,md5Checksum)&supportsAllDrives=true&includeItemsFromAllDrives=true');
+        $c = $codigo === 200 ? (array)(array_values(array_filter((array)($j['files'] ?? []), fn($x) => (int)($x['size'] ?? -1) === (int)$f['tamano']))[0] ?? []) : [];
+        if (!$c) {
+            // Drive copia del lado de Google; un video grande puede tardar
+            [$codigo, $c] = self::drive('POST', $base . '/copy?fields=id,size,md5Checksum&supportsAllDrives=true', ['name' => (string)$f['nombre'], 'parents' => [(string)$f['padre']]], [], '', 600);
+        }
+        if (empty($c['id'])) {
+            $marcar(['estado' => 'error', 'error' => 'No se pudo copiar: ' . (self::$ultimoError ?: 'HTTP ' . $codigo)]);
+            return;
+        }
+        $mismaHuella = (string)$f['md5'] === '' || (string)($c['md5Checksum'] ?? '') === '' || $c['md5Checksum'] === $f['md5'];
+        if ((int)($c['size'] ?? -1) !== (int)$f['tamano'] || !$mismaHuella) {
+            self::drive('DELETE', self::url('drive') . '/files/' . rawurlencode((string)$c['id']) . '?supportsAllDrives=true');
+            $marcar(['estado' => 'error', 'error' => 'La copia no quedó igual al original: se dejó el tuyo como estaba.']);
+            return;
+        }
+        [$codigo] = self::drive('DELETE', $base . '?supportsAllDrives=true', null, [], 'dueno');
+        if ($codigo !== 204 && $codigo !== 200) {
+            $marcar(['estado' => 'error', 'via' => 'copia', 'copia_id' => (string)$c['id'], 'error' => 'Ya está la copia, pero no se pudo borrar el tuyo: bórralo a mano en Drive.']);
+            return;
+        }
+        $marcar(['estado' => 'copiado', 'via' => 'copia', 'copia_id' => (string)$c['id'], 'error' => '']);
+    }
+
+    public static function resumenTraspaso(): array
+    {
+        $t = (array)self::conf()['traspaso'];
+        $r = ['carpeta' => (string)($t['carpeta'] ?? ''), 'listado' => !empty($t['listado']), 'pendiente' => 0, 'pasado' => 0, 'copiado' => 0, 'error' => 0,
+              'liberado_bytes' => 0, 'pendiente_bytes' => 0, 'errores' => []];
+        foreach (self::tablaTraspaso()->all() as $f) {
+            $e = (string)$f['estado'];
+            $r[$e] = ($r[$e] ?? 0) + 1;
+            if (in_array($e, ['pasado', 'copiado'], true)) $r['liberado_bytes'] += (int)$f['tamano'];
+            if ($e === 'pendiente') $r['pendiente_bytes'] += (int)$f['tamano'];
+            if ($e === 'error' && count($r['errores']) < 15) $r['errores'][] = ['nombre' => (string)$f['nombre'], 'error' => (string)$f['error']];
+        }
+        $r['terminado'] = $r['carpeta'] !== '' && $r['listado'] && $r['pendiente'] === 0;
+        return $r;
+    }
+
+    /* ======================= Para la página de Reuniones ======================= */
+
+    /** Qué vista de video se abre primero (la de pantalla y orador) */
+    private const VISTAS_VIDEO = ['shared_screen_with_speaker_view', 'shared_screen_with_speaker_view(CC)', 'speaker_view', 'active_speaker',
+                                  'shared_screen_with_gallery_view', 'gallery_view', 'shared_screen'];
+
+    /**
+     * Lo que hay en Drive de cada reunión: id de Zoom => fecha (AAAA-MM-DD) =>
+     * ['ver' => enlace de Drive del video (o del audio si no hay video), 'pendiente' => ¿falta algo por llegar?].
+     */
+    public static function deReuniones(array $zoomIds): array
+    {
+        $ids = array_flip(array_filter(array_map('strval', $zoomIds)));
+        $out = [];
+        $mejor = [];
+        foreach (self::tabla()->all() as $f) {
+            $zid = (string)($f['reunion'] ?? '');
+            if (!isset($ids[$zid])) continue;
+            $dia = substr((string)$f['inicio'], 0, 10);
+            $out[$zid][$dia] ??= ['ver' => '', 'pendiente' => false];
+            if (!in_array($f['estado'] ?? '', self::LISTOS, true) || (string)($f['drive_id'] ?? '') === '') {
+                if (in_array($f['tipo'], ['video', 'audio'], true)) $out[$zid][$dia]['pendiente'] = true;
+                continue;
+            }
+            // El video con la vista más completa; si no hay video, el audio
+            if ($f['tipo'] === 'video') {
+                $pos = array_search((string)$f['rec_type'], self::VISTAS_VIDEO, true);
+                if ($pos === false) $pos = 50;
+            } elseif ($f['tipo'] === 'audio') {
+                $pos = 100;
+            } else {
+                continue;
+            }
+            if (isset($mejor[$zid][$dia]) && $mejor[$zid][$dia] <= $pos) continue;
+            $mejor[$zid][$dia] = $pos;
+            $out[$zid][$dia]['ver'] = 'https://drive.google.com/file/d/' . rawurlencode((string)$f['drive_id']) . '/view';
+        }
+        return $out;
+    }
+
+    /**
+     * La transcripción de una reunión, leída de Drive: la de ese día, o la del
+     * último día que tenga. ['estado' => 'ok'|'espera'|'vacio'|'error', 'texto', 'msg'].
+     * «espera»: todavía no llega a Drive. $termino: cuándo acabó la reunión (si no
+     * hay rastro de ella y fue hace poco, también es «espera»).
+     */
+    public static function transcripcion(string $zoomId, string $fecha = '', int $termino = 0): array
+    {
+        $filas = array_values(array_filter(self::tabla()->where('reunion', $zoomId),
+            fn($f) => ($f['file_type'] ?? '') === 'TRANSCRIPT' && ($fecha === '' || substr((string)$f['inicio'], 0, 10) === $fecha)));
+        if (!$filas) {
+            $reciente = $termino > 0 && time() - $termino < 2 * 86400;
+            return ['estado' => $reciente || self::buscandoTodo() ? 'espera' : 'vacio', 'texto' => '', 'msg' => ''];
+        }
+        if ($fecha === '') {
+            $ultimo = max(array_map(fn($f) => substr((string)$f['inicio'], 0, 10), $filas));
+            $filas = array_values(array_filter($filas, fn($f) => substr((string)$f['inicio'], 0, 10) === $ultimo));
+        }
+        usort($filas, fn($a, $b) => strcmp((string)$a['inicio'], (string)$b['inicio']));
+        $texto = '';
+        foreach ($filas as $f) {
+            if (!in_array($f['estado'] ?? '', self::LISTOS, true) || (string)($f['drive_id'] ?? '') === '') return ['estado' => 'espera', 'texto' => '', 'msg' => ''];
+            $t = self::tokenDrive();
+            if ($t === '') return ['estado' => 'error', 'texto' => '', 'msg' => self::$ultimoError];
+            [$codigo, $vtt] = self::http('GET', self::url('drive') . '/files/' . rawurlencode((string)$f['drive_id']) . '?alt=media&supportsAllDrives=true',
+                ['cabeceras' => ['Authorization: Bearer ' . $t], 'timeout' => 60, 'seguir' => true, 'max' => 20 * 1024 * 1024]);
+            if ($codigo !== 200) return ['estado' => 'error', 'texto' => '', 'msg' => 'Drive no entregó la transcripción (HTTP ' . $codigo . ').'];
+            $texto .= self::vttATexto($vtt) . "\n";
+        }
+        return ['estado' => trim($texto) !== '' ? 'ok' : 'vacio', 'texto' => trim($texto), 'msg' => ''];
     }
 
     /* ======================= Para la página ======================= */

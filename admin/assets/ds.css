@@ -3043,6 +3043,11 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 .zd-t { display: flex; align-items: center; gap: 8px; margin: 0 0 var(--space-4); font: 700 1.0625rem/1.3 var(--font-display); color: var(--ink); }
 .zd-con { display: flex; flex-direction: column; gap: var(--space-3); margin-bottom: var(--space-4); }
 .zd-con__fila { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; }
+/* Videos que ocupan el espacio de quien los subió a mano: lo que no se pudo pasar */
+.zd-traspaso .zd-con__fila { margin-top: var(--space-3); }
+.zd-tr-errores { display: grid; gap: 4px; margin: var(--space-2) 0 0; padding: var(--space-3); border-radius: var(--radius-md, 10px);
+  background: color-mix(in srgb, var(--danger, #c0392b) 7%, var(--surface)); color: var(--ink-muted); font-size: .8rem; list-style: none; }
+.zd-tr-errores b { color: var(--ink); font-weight: 600; }
 .zd-con__txt { display: flex; flex: 1; flex-direction: column; min-width: 220px; }
 .zd-con__txt b { font-weight: 600; color: var(--ink); }
 .zd-con__txt small { color: var(--ink-muted); font-size: var(--mc-fs-sm); }

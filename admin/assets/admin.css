@@ -2419,6 +2419,14 @@ a:has(> .ico-svg) .ico-svg, button:has(> .ico-svg) .ico-svg { vertical-align: 0;
 .accion-btn.accion-grab i, .accion-btn.accion-grab .ico-svg { color: #fff !important; }
 .accion-btn.accion-grab:hover { color: #fff !important; transform: translateY(-1px); filter: brightness(1.07); }
 .accion-btn.accion-grab:active { transform: translateY(0); box-shadow: var(--sh-inset-mini); }
+/* La grabación todavía no llega a Drive: un aviso quieto, no un botón */
+.grab-espera {
+  display: inline-flex; align-items: center; gap: 7px; padding: 7px 12px; border-radius: 999px;
+  background: color-mix(in srgb, var(--c-text-soft) 10%, var(--n-bg)); color: var(--c-text-muted);
+  font-size: .78rem; font-weight: 600;
+}
+.grab-espera i { color: var(--c-text-soft); }
+.grab-sin { color: var(--c-text-soft); font-size: .78rem; font-weight: 600; }
 
 /* "Transcripción" para Claude: píldora con tinte cálido y el logo chico */
 .accion-btn.accion-claude {

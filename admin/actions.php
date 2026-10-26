@@ -36,7 +36,7 @@ $accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar', 
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
-    'reunion_grabaciones', 'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
+    'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
     'dep_recordar',
@@ -372,50 +372,27 @@ function reqObsGuardar(RequerimientoRepo $repo, int $reqId, string $html, Miembr
 }
 
 /**
- * UUID de la ocurrencia de $fecha (Y-m-d) de una reunión recurrente, leyendo
- * las instancias pasadas en Zoom. Devuelve '' y llena $error con un diagnóstico
- * útil (qué días SÍ tiene Zoom, o el error de la API) cuando no la encuentra.
- * Tolera ±1 día de desfase por zona horaria.
+ * La transcripción de una reunión de Zoom, leída de Drive (las grabaciones ya no
+ * se piden a Zoom: lib/ZoomDrive.php las pasa solas). Con $fecha, la de ese día
+ * de una reunión que se repite. ['estado' => 'ok'|'espera'|'vacio'|'error', 'texto', 'msg']:
+ * mientras no llega a Drive, «Esperando, aún no se ha guardado un respaldo» y nada más.
  */
-function resolverUuidOcurrencia(array $reu, string $fecha, string &$error): string
+function transcripcionReunion(array $reu, string $fecha = ''): array
 {
-    $error = '';
-    $inst  = Zoom::instancias((string)($reu['zoom_id'] ?? ''));
-    if (($inst['estado'] ?? '') !== 'ok') {
-        $error = ($inst['msg'] ?? 'No se pudieron leer las ocurrencias en Zoom.')
-               . ' — En la app Server-to-Server de Zoom añade el permiso «meeting:read:list_past_instances» (y «cloud_recording:read»); es el que deja ver los días anteriores de una reunión repetida.';
-        return '';
+    if (($reu['plataforma'] ?? 'zoom') !== 'zoom' || empty($reu['zoom_id'])) {
+        return ['estado' => 'vacio', 'texto' => '', 'msg' => 'Esta reunión no trae transcripción automática.'];
     }
-    $items = $inst['items'] ?? [];
-    // Coincidencia exacta por fecha; si no, la instancia más cercana (±1 día).
-    $mejor = null; $mejorDif = 2.0;
-    foreach ($items as $it) {
-        if (($it['fecha'] ?? '') === $fecha) return (string)$it['uuid'];
-        $dif = abs((strtotime((string)($it['fecha'] ?? '')) - strtotime($fecha)) / 86400);
-        if ($dif < $mejorDif) { $mejorDif = $dif; $mejor = $it; }
-    }
-    if ($mejor && $mejorDif <= 1.0) return (string)$mejor['uuid'];
-
-    $dias = array_values(array_filter(array_map(fn($i) => (string)($i['fecha'] ?? ''), $items)));
-    $error = $dias
-        ? 'Zoom no tiene una grabación del ' . $fecha . '. Días con grabación en Zoom: ' . implode(', ', $dias) . '.'
-        : 'Zoom todavía no reporta ninguna ocurrencia grabada de esta reunión (aparecen cuando termina de procesarlas, y solo si se grabó en la nube).';
-    return '';
-}
-
-/**
- * ¿$fecha (Y-m-d) es el ÚLTIMO día ya pasado de la serie? Para ese, Zoom
- * devuelve la grabación en el endpoint normal de la reunión (sin UUID), así que
- * se puede recuperar aunque no haya permiso para listar instancias.
- */
-function esUltimaOcurrencia(array $reu, string $fecha): bool
-{
-    $ocs = Reuniones::fechasOcurrencias((string)($reu['inicio'] ?? ''), (array)($reu['dias'] ?? []), (string)($reu['hasta'] ?? ''));
-    $ultima = '';
-    foreach ($ocs as $oc) {
-        if (strtotime($oc) <= time()) $ultima = substr($oc, 0, 10);
-    }
-    return $ultima !== '' && $ultima === $fecha;
+    if (!class_exists('ZoomDrive') && is_file(__DIR__ . '/lib/ZoomDrive.php')) require_once __DIR__ . '/lib/ZoomDrive.php';
+    if (!class_exists('ZoomDrive')) return ['estado' => 'error', 'texto' => '', 'msg' => 'Falta lib/ZoomDrive.php.'];
+    $hora = substr((string)($reu['inicio'] ?? ''), 11, 5);
+    $empieza = $fecha !== '' ? strtotime($fecha . ' ' . $hora) : (Reuniones::esRecurrente($reu) ? time() : strtotime((string)($reu['inicio'] ?? '')));
+    $t = ZoomDrive::transcripcion((string)$reu['zoom_id'], $fecha, (int)$empieza + (int)($reu['duracion'] ?? 60) * 60);
+    $t['msg'] = match ($t['estado']) {
+        'espera' => 'Esperando, aún no se ha guardado un respaldo de la transcripción.',
+        'vacio'  => 'Esta reunión no tiene transcripción.',
+        default  => (string)($t['msg'] ?? ''),
+    };
+    return $t;
 }
 
 /**
@@ -661,6 +638,18 @@ function repeticionReunion(array $post, string $inicio, string $plataforma, stri
             . '. Acorta el rango de fechas o crea la reunión con Google Meet.', 'error');
     }
     return [true, $dias, $hasta, $inicio];
+}
+
+/**
+ * Una reunión no se crea (ni se mueve) a una hora que ya pasó: así no se puede
+ * registrar hoy la daily de ayer. Diez minutos de gracia por si se crea al empezar.
+ */
+function reunionNoPasada(string $inicio, string $volver): void
+{
+    $ts = strtotime($inicio);
+    if ($ts !== false && $ts < time() - 600) {
+        redirigir($volver, 'La reunión no puede empezar en una fecha u hora que ya pasó (' . date('d/m/Y H:i', $ts) . '). Elige desde ahora en adelante.', 'error');
+    }
 }
 
 /**
@@ -3600,27 +3589,14 @@ switch ($accion) {
             return $out;
         };
 
-        // ¿Zoom ya tiene la transcripción de esta reunión? (el acta solo ofrece
+        // ¿Ya está en Drive la transcripción de esta reunión? (el acta solo ofrece
         // «Generar desde la transcripción» si la hay)
         if ($accion === 'ia_acta_hay') {
             $reuH = (new ReunionRepo())->buscar((int)($_POST['reunion_id'] ?? 0));
             if (!$reuH || !puedeGestionar((int)$reuH['proyecto_id'])) $iaFin(['ok' => false, 'error' => 'No gestionas ese proyecto.'], 403);
-            $hayH = false;
-            if (($reuH['plataforma'] ?? 'zoom') !== 'meet' && !empty($reuH['zoom_id'])) {
-                $ocH = trim((string)($_POST['ocurrencia'] ?? ''));
-                $uuidH = '';
-                $buscarH = true;
-                if ($ocH !== '' && Reuniones::esRecurrente($reuH)) {
-                    $errH = '';
-                    $uuidH = resolverUuidOcurrencia($reuH, $ocH, $errH);
-                    if ($uuidH === '' && !esUltimaOcurrencia($reuH, $ocH)) $buscarH = false;
-                }
-                if ($buscarH) {
-                    $trH = Zoom::transcripcion((string)$reuH['zoom_id'], $uuidH);
-                    $hayH = ($trH['estado'] ?? '') === 'ok' && trim((string)($trH['texto'] ?? '')) !== '';
-                }
-            }
-            $iaFin(['ok' => true, 'hay' => $hayH]);
+            $ocH = Reuniones::esRecurrente($reuH) ? trim((string)($_POST['ocurrencia'] ?? '')) : '';
+            $trH = transcripcionReunion($reuH, $ocH);
+            $iaFin(['ok' => true, 'hay' => $trH['estado'] === 'ok' && trim((string)$trH['texto']) !== '']);
         }
 
         try {
@@ -3641,20 +3617,9 @@ switch ($accion) {
                     $ocIa    = trim((string)($_POST['ocurrencia'] ?? ''));
                     $textoIa = trim((string)($_POST['texto'] ?? ''));
                     if ($textoIa === '') {
-                        // La misma búsqueda que «Transcripción»: en vivo en Zoom.
-                        if (($reuIa['plataforma'] ?? 'zoom') === 'meet' || empty($reuIa['zoom_id'])) {
-                            throw new IAError('Esta reunión no trae transcripción automática: pega el texto de la reunión.');
-                        }
-                        $uuidIa = '';
-                        if ($ocIa !== '' && Reuniones::esRecurrente($reuIa)) {
-                            $errIa  = '';
-                            $uuidIa = resolverUuidOcurrencia($reuIa, $ocIa, $errIa);
-                            if ($uuidIa === '' && !esUltimaOcurrencia($reuIa, $ocIa)) throw new IAError($errIa ?: 'No se encontró ese día en Zoom.');
-                        }
-                        $trIa = Zoom::transcripcion((string)$reuIa['zoom_id'], $uuidIa);
-                        if (($trIa['estado'] ?? '') !== 'ok') {
-                            throw new IAError(($trIa['msg'] ?? 'Zoom no tiene la transcripción.') . ' También puedes pegar el texto de la reunión.');
-                        }
+                        // La misma que «Transcripción»: la que ya está en Drive
+                        $trIa = transcripcionReunion($reuIa, Reuniones::esRecurrente($reuIa) ? $ocIa : '');
+                        if ($trIa['estado'] !== 'ok') throw new IAError($trIa['msg'] . ' También puedes pegar el texto de la reunión.');
                         $textoIa = (string)$trIa['texto'];
                     }
                     $partIa = [];
@@ -3855,8 +3820,8 @@ switch ($accion) {
                         $nomRl = array_values(array_filter(array_map(fn($id) => (string)($mapaRl[(int)$id]['nombre'] ?? ''), (array)($revRl['asistentes'] ?? []))));
                         $trRl = '';
                         $reuRl = (int)($revRl['reunion_id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$revRl['reunion_id']) : null;
-                        if ($reuRl && ($reuRl['plataforma'] ?? 'zoom') === 'zoom' && !empty($reuRl['zoom_id']) && Zoom::listo()) {
-                            try { $t = Zoom::transcripcion((string)$reuRl['zoom_id']); if (($t['estado'] ?? '') === 'ok') $trRl = (string)$t['texto']; } catch (Throwable $e) { /* sin transcripción */ }
+                        if ($reuRl) {
+                            try { $t = transcripcionReunion($reuRl); if ($t['estado'] === 'ok') $trRl = (string)$t['texto']; } catch (Throwable $e) { /* sin transcripción */ }
                         }
                         $datRl = IAFunciones::releaseRevision($revRl, $nomRl, $trRl);
                         $datRl['con_transcripcion'] = $trRl !== '';
@@ -4106,7 +4071,7 @@ switch ($accion) {
                 case 'rel_daily_registrar':
                     $eqDl = (string)($_POST['equipo'] ?? '');
                     if (!$relSmDe($eqDl)) $relFin(false, 'Las dailies las registran los editores o el Scrum Master del equipo.');
-                    Releases::registrarDaily($eqDl, (string)($_POST['fecha'] ?? ''), $_POST, $relYo);
+                    Releases::registrarDaily($eqDl, (string)($_POST['fecha'] ?? ''), $_POST, $relYo, $relEditor);
                     $relFin(true, ($_POST['estado'] ?? '') === 'auto' ? 'Listo: ese día vuelve a medirse con Zoom.' : 'Daily registrada.');
 
                 case 'rel_daily_zoom':
@@ -4264,6 +4229,7 @@ switch ($accion) {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
         [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $plataforma, $volver);
+        reunionNoPasada($inicio, $volver);
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
         $p = $proyectos->buscar($pid);
 
@@ -4405,6 +4371,8 @@ switch ($accion) {
         }
         $esMeet = ($reu['plataforma'] ?? 'zoom') === 'meet';
         [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $esMeet ? 'meet' : 'zoom', $volver);
+        // Cambiar el tema o los invitados de una que ya empezó, sí; moverla a una hora que ya pasó, no
+        if (substr($inicio, 0, 16) !== substr((string)($reu['inicio'] ?? ''), 0, 16)) reunionNoPasada($inicio, $volver);
         $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
 
@@ -4480,69 +4448,6 @@ switch ($accion) {
             . ($porWa ? ' ' . $porWa . ' aviso(s) por WhatsApp en camino.' : '')
             . ($avisados ? ' ' . $avisados . ' invitado(s) nuevo(s) notificado(s) por correo.' : ''));
 
-    case 'reunion_grabaciones':
-        $reuniones = new ReunionRepo();
-        $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
-        if (!$reu) {
-            redirigir('index.php', 'Reunión no encontrada.', 'error');
-        }
-        // Cualquier participante del proyecto puede traer/ver las grabaciones,
-        // no solo un administrador (pero no gente ajena al proyecto).
-        if (!puedeVerProyecto((int)$reu['proyecto_id'])) {
-            redirigir('index.php', 'No participas en ese proyecto.', 'error');
-        }
-        $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
-
-        // Grabación de UN día concreto (ocurrencia de una reunión recurrente):
-        // se localiza la instancia de Zoom de ese día para leer SU grabación,
-        // no la de toda la serie.
-        $ocurrencia = trim((string)($_POST['ocurrencia'] ?? ''));
-        $uuidOc = '';
-        if ($ocurrencia !== '' && Reuniones::esRecurrente($reu)) {
-            $errOc  = '';
-            $uuidOc = resolverUuidOcurrencia($reu, $ocurrencia, $errOc);
-            if ($uuidOc === '' && !esUltimaOcurrencia($reu, $ocurrencia)) {
-                // No es el último día y no se pudo resolver su UUID: sin el UUID
-                // no se puede pedir la grabación de un día anterior.
-                redirigir($volver, $errOc, 'info');
-            }
-            // Si es el último día ya pasado, seguimos con $uuidOc='' y se lee el
-            // endpoint normal de la reunión (Zoom devuelve ahí la última).
-        }
-
-        $g = Zoom::grabaciones($reu['zoom_id'], (string)($reu['password'] ?? ''), $uuidOc);
-        if ($g['estado'] === 'ok') {
-            if ($ocurrencia !== '') {
-                // Se guarda en un mapa por día; la lista de reuniones lo lee para
-                // pintar el "▶ Grabación" de ESE día.
-                $mapaOc = is_array($reu['grab_ocurrencias'] ?? null) ? $reu['grab_ocurrencias'] : [];
-                $mapaOc[$ocurrencia] = [
-                    'archivos'      => $g['archivos'],
-                    'share_url'     => $g['share_url'] ?? '',
-                    'grab_password' => $g['password'] ?? '',
-                ];
-                $reuniones->actualizar((int)$reu['id'], ['grab_ocurrencias' => $mapaOc]);
-            } else {
-                $reuniones->actualizar((int)$reu['id'], [
-                    'grabaciones'   => $g['archivos'],
-                    'share_url'     => $g['share_url'] ?? '',
-                    'grab_password' => $g['password'] ?? '',
-                ]);
-            }
-            $msg = count($g['archivos']) . ' archivo(s) de grabación disponibles.';
-            if (!empty($g['abierto'])) {
-                $msg .= ' Abre sin pedir código.';
-            } else {
-                // No se pudo quitar el código por API: mostramos el motivo real
-                // (para saber si es scope o política de la cuenta) y el código.
-                $msg .= ' No se pudo quitar el código automáticamente';
-                $msg .= !empty($g['abrir_error']) ? ' (' . $g['abrir_error'] . ').' : '.';
-                if (!empty($g['password'])) $msg .= ' Usa el código del botón de al lado, o desactívalo en Zoom → Configuración → Grabación.';
-            }
-            redirigir($volver, $msg, !empty($g['abierto']) ? 'success' : 'info');
-        }
-        redirigir($volver, $g['msg'] ?? 'Sin grabación disponible.', $g['estado'] === 'vacio' ? 'info' : 'error');
-
     case 'reunion_transcripcion':
         // Descarga la transcripción de la reunión como .md con contexto, para
         // pasársela a Claude (resúmenes, tareas, decisiones).
@@ -4556,21 +4461,11 @@ switch ($accion) {
         }
         $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
 
-        // Transcripción de UN día (ocurrencia de una serie): se resuelve su UUID.
-        $ocurrenciaT = trim((string)($_POST['ocurrencia'] ?? ''));
-        $uuidT = '';
-        if ($ocurrenciaT !== '' && Reuniones::esRecurrente($reu)) {
-            $errT  = '';
-            $uuidT = resolverUuidOcurrencia($reu, $ocurrenciaT, $errT);
-            if ($uuidT === '' && !esUltimaOcurrencia($reu, $ocurrenciaT)) {
-                redirigir($volver, $errT, 'info');
-            }
-            // Último día pasado: se lee el endpoint normal (Zoom da ahí la última).
-        }
-
-        $tr = Zoom::transcripcion((string)$reu['zoom_id'], $uuidT);
+        // Transcripción de UN día (ocurrencia de una serie) o de la reunión; de Drive
+        $ocurrenciaT = Reuniones::esRecurrente($reu) ? trim((string)($_POST['ocurrencia'] ?? '')) : '';
+        $tr = transcripcionReunion($reu, $ocurrenciaT);
         if ($tr['estado'] !== 'ok') {
-            redirigir($volver, $tr['msg'] ?? 'Sin transcripción.', $tr['estado'] === 'vacio' ? 'info' : 'error');
+            redirigir($volver, $tr['msg'], $tr['estado'] === 'error' ? 'error' : 'info');
         }
         $p = $proyectos->buscar((int)$reu['proyecto_id']);
         $nombres = [];

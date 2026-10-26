@@ -860,7 +860,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     $hoyDl = Releases::dailyDelDia($reuDl, $hoy);
     $candDl = $puedeDl ? Releases::dailyCandidatas($en) : [];
     $nomDl = fn(int $id) => (string)($miembros[$id]['nombre'] ?? 'Alguien');
-    $jsDl = ['equipo' => $en, 'desde' => $dl['desde'], 'hoy' => $hoy, 'dias' => [], 'esperados' => array_map(fn($id) => ['id' => $id, 'nombre' => $nomDl($id)], $dl['esperados'])];
+    $pasadosDl = Releases::puedeEditar();   // el SM registra solo la de hoy; un día pasado, un editor
+    $jsDl = ['equipo' => $en, 'desde' => $dl['desde'], 'hoy' => $hoy, 'pasados' => $pasadosDl, 'dias' => [], 'esperados' => array_map(fn($id) => ['id' => $id, 'nombre' => $nomDl($id)], $dl['esperados'])];
     foreach ($dl['dias'] as $f => $x) $jsDl['dias'][$f] = ['estado' => $x['estado'], 'fuente' => (string)($x['fuente'] ?? ''), 'presentes' => array_map('intval', (array)($x['presentes'] ?? [])),
         'nota' => (string)($x['nota'] ?? ''), 'modalidad' => (string)($x['modalidad'] ?? ''), 'zoom' => !empty($x['minutos']) || ($x['fuente'] ?? '') === 'zoom'];
   ?>
@@ -958,7 +959,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <input type="hidden" name="accion" value="rel_daily_registrar"><input type="hidden" name="equipo" value="<?= e($en) ?>">
       <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'equipo', 'e' => $en])) ?>">
       <header><h3 class="font-display"><i class="fa-solid fa-mug-hot"></i> Registrar la daily<small>Equipo <?= e($en) ?></small></h3><button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
-      <?= rlCampo('Día', '<input class="input-meca" type="date" name="fecha" min="' . e($dl['desde']) . '" max="' . e($hoy) . '" value="' . e($hoy) . '" required data-rl-dl-fecha>') ?>
+      <?= rlCampo('Día', '<input class="input-meca" type="date" name="fecha" min="' . e($pasadosDl ? $dl['desde'] : $hoy) . '" max="' . e($hoy) . '" value="' . e($hoy) . '" required data-rl-dl-fecha>') ?>
       <p class="rl-dlg__nota" data-rl-dl-zoom hidden><?= rlIco('info', 15) ?> <span>Zoom ya midió este día. Lo que guardes aquí manda sobre lo de Zoom.</span></p>
       <div class="mc-field"><span class="mc-field__label">¿Cómo fue?</span>
         <div class="rl-seg" role="radiogroup" aria-label="Cómo fue la daily">

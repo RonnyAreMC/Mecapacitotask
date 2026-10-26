@@ -1108,17 +1108,24 @@ final class Releases
     /** La reunión que cae ese día (la repetida que lo incluye o la suelta de esa fecha). */
     public static function dailyDelDia(array $reuniones, string $fecha): ?array
     {
+        return self::dailiesDelDia($reuniones, $fecha)[0] ?? null;
+    }
+
+    /** Todas las dailies que caen ese día: basta con que una se haya hecho. */
+    public static function dailiesDelDia(array $reuniones, string $fecha): array
+    {
         $n = (int)date('N', strtotime($fecha));
+        $out = [];
         foreach ($reuniones as $r) {
             $dia = substr((string)($r['inicio'] ?? ''), 0, 10);
             if (!empty($r['recurrente'])) {
                 $dias = array_map('intval', (array)($r['dias'] ?? [])) ?: [1, 2, 3, 4, 5];
-                if ($dia <= $fecha && ((string)($r['hasta'] ?? '') === '' || $r['hasta'] >= $fecha) && in_array($n, $dias, true)) return $r;
+                if ($dia <= $fecha && ((string)($r['hasta'] ?? '') === '' || $r['hasta'] >= $fecha) && in_array($n, $dias, true)) $out[] = $r;
             } elseif ($dia === $fecha) {
-                return $r;
+                $out[] = $r;
             }
         }
-        return null;
+        return $out;
     }
 
     /** Quiénes tienen que estar: los miembros del equipo y su SM (o, sin miembros, la gente de sus proyectos). */
@@ -1220,48 +1227,64 @@ final class Releases
                 if (!self::esHabil($d)) continue;
                 $ya = $filas[$nom . '|' . $d] ?? null;
                 if ($ya && (($ya['fuente'] ?? '') === 'manual' || !empty($ya['final']))) continue;
-                $r = self::dailyDelDia($reus, $d);
-                if (!$r) continue;
-                [$hIni, $dur] = self::horario(substr((string)$r['inicio'], 11, 5), (int)($r['duracion'] ?? 30));
-                $termina = strtotime($d . ' ' . $hIni) + max(15, (int)($r['duracion'] ?? $dur)) * 60;
+                $rs = self::dailiesDelDia($reus, $d);
+                if (!$rs) continue;
+                $finDe = function (array $x) use ($d): int {
+                    [$hI, $du] = self::horario(substr((string)$x['inicio'], 11, 5), (int)($x['duracion'] ?? 30));
+                    return (int)strtotime($d . ' ' . $hI) + max(15, (int)($x['duracion'] ?? $du)) * 60;
+                };
+                $termina = max(array_map($finDe, $rs));
                 if ($termina + 600 > time()) continue;        // todavía no termina
+                $r = $rs[0];
+                [$hIni] = self::horario(substr((string)$r['inicio'], 11, 5), (int)($r['duracion'] ?? 30));
                 $fila = ['equipo' => $nom, 'fecha' => $d, 'fuente' => 'zoom', 'reunion_id' => (int)$r['id'], 'reunion' => (string)($r['topic'] ?? ''),
                          'hora' => $hIni, 'esperados' => $esperados, 'presentes' => [], 'minutos' => [], 'invitados' => [], 'asistencia' => null,
                          'nota' => '', 'por' => 0, 'actualizado' => date('Y-m-d H:i'), 'msg' => '',
                          // Pasadas dos horas del final, lo que diga Zoom ya no cambia
                          'final' => time() > $termina + 7200];
-                if (($r['plataforma'] ?? 'zoom') !== 'zoom' || empty($r['zoom_id']) || !$zoomOk) {
+                $deZoom = array_values(array_filter($rs, fn($x) => ($x['plataforma'] ?? 'zoom') === 'zoom' && !empty($x['zoom_id'])));
+                if (!$deZoom || !$zoomOk) {
                     $fila['estado'] = 'sin_zoom';
-                    $fila['msg'] = ($r['plataforma'] ?? 'zoom') !== 'zoom' ? 'La daily es de ' . Reuniones::etiquetaPlataforma((string)$r['plataforma']) . ': el SM la registra a mano.' : 'Zoom no está conectado en Ajustes.';
+                    $fila['msg'] = !$deZoom ? 'La daily es de ' . Reuniones::etiquetaPlataforma((string)($r['plataforma'] ?? '')) . ': el SM la registra a mano.' : 'Zoom no está conectado en Ajustes.';
                 } else {
-                    $zid = (string)$r['zoom_id'];
-                    $inst[$zid] ??= Zoom::instancias($zid);
-                    if (($inst[$zid]['estado'] ?? '') === 'error') {
+                    // Las sesiones que de verdad hubo ese día, en cualquiera de las dailies
+                    $uuids = [];
+                    $fallo = '';
+                    foreach ($deZoom as $x) {
+                        $zid = (string)$x['zoom_id'];
+                        $inst[$zid] ??= Zoom::instancias($zid);
+                        if (($inst[$zid]['estado'] ?? '') === 'error') { $fallo = (string)$inst[$zid]['msg']; continue; }
+                        foreach ((array)($inst[$zid]['items'] ?? []) as $it) {
+                            if (($it['fecha'] ?? '') !== $d) continue;
+                            $uuids[] = (string)$it['uuid'];
+                            $fila['reunion_id'] = (int)$x['id'];
+                            $fila['reunion'] = (string)($x['topic'] ?? '');
+                        }
+                    }
+                    if (!$uuids && $fallo !== '') {
                         // Un fallo de Zoom no se le cobra al equipo: queda por medir
-                        $error = (string)$inst[$zid]['msg'];
+                        $error = $fallo;
                         $fila['estado'] = 'pendiente';
                         $fila['msg'] = $error;
                         $fila['final'] = false;
+                    } elseif (!$uuids) {
+                        // Ninguna daily de Zoom se abrió ese día; si además había una de otra plataforma, la registra el SM
+                        $fila['estado'] = count($deZoom) < count($rs) ? 'sin_zoom' : 'no_hecha';
                     } else {
-                        $uuids = array_values(array_map(fn($i) => (string)$i['uuid'], array_filter((array)($inst[$zid]['items'] ?? []), fn($i) => ($i['fecha'] ?? '') === $d)));
-                        if (!$uuids) {
-                            $fila['estado'] = 'no_hecha';
+                        $gente = [];
+                        foreach ($uuids as $u) {
+                            $p = Zoom::participantes($u);
+                            if ($p['estado'] !== 'ok') { $fila['msg'] = (string)$p['msg']; $error = $fila['msg']; continue; }
+                            $gente = array_merge($gente, $p['items']);
+                        }
+                        [$ids, $fila['invitados']] = self::emparejar($gente, $esperados, $mapa);
+                        $fila['minutos'] = array_map('intval', $ids);
+                        if ($fila['msg'] !== '' && !$gente) {
+                            // Se hizo, pero Zoom no deja ver quién entró
+                            $fila['estado'] = 'cumplida';
+                            $fila['final'] = false;
                         } else {
-                            $gente = [];
-                            foreach ($uuids as $u) {
-                                $p = Zoom::participantes($u);
-                                if ($p['estado'] !== 'ok') { $fila['msg'] = (string)$p['msg']; $error = $fila['msg']; continue; }
-                                $gente = array_merge($gente, $p['items']);
-                            }
-                            [$ids, $fila['invitados']] = self::emparejar($gente, $esperados, $mapa);
-                            $fila['minutos'] = array_map('intval', $ids);
-                            if ($fila['msg'] !== '' && !$gente) {
-                                // Se hizo, pero Zoom no deja ver quién entró
-                                $fila['estado'] = 'cumplida';
-                                $fila['final'] = false;
-                            } else {
-                                $fila = array_replace($fila, self::dailyEstado(array_keys($ids), $esperados));
-                            }
+                            $fila = array_replace($fila, self::dailyEstado(array_keys($ids), $esperados));
                         }
                     }
                 }
@@ -1287,16 +1310,21 @@ final class Releases
     /**
      * El SM registra el día a mano: se hizo (con quiénes estuvieron), no se hizo,
      * no aplica (con el motivo) o «auto» (borra lo suyo y vuelve a mandar Zoom).
+     * Solo el de hoy: registrar hoy la daily de ayer no vale. Un día que ya pasó
+     * lo corrige un editor de Releases ($diasPasados).
      */
-    public static function registrarDaily(string $equipo, string $fecha, array $d, int $quien): ?array
+    public static function registrarDaily(string $equipo, string $fecha, array $d, int $quien, bool $diasPasados = false): ?array
     {
         $fecha = self::fecha($fecha);
         if (!self::equipo($equipo)) throw new RuntimeException('Ese equipo no existe.');
         if ($fecha === '' || $fecha > date('Y-m-d')) throw new RuntimeException('Elige un día que ya pasó (u hoy).');
+        $que = (string)($d['estado'] ?? '');
+        if ($fecha < date('Y-m-d') && !$diasPasados && $que !== 'auto') {
+            throw new RuntimeException('Solo se registra la daily de hoy. Los días que ya pasaron los mide Zoom; si hay que corregir uno, pídeselo a un administrador.');
+        }
         $repo = self::repo('rel_dailies');
         $ya = null;
         foreach ($repo->where('equipo', $equipo) as $f) if ($f['fecha'] === $fecha) { $ya = $f; break; }
-        $que = (string)($d['estado'] ?? '');
         if ($que === 'auto') {
             if ($ya) $repo->delete((int)$ya['id']);
             self::sincronizarDailies($equipo, (int)ceil((time() - strtotime($fecha)) / 86400) + 1);

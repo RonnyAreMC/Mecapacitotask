@@ -19,9 +19,10 @@ $esCalendario = !empty($_SESSION['oauth_calendario']);
 $esCorreo     = !empty($_SESSION['oauth_correo']);
 $esRegistro   = !empty($_SESSION['oauth_registro']);
 $esDrive      = !empty($_SESSION['oauth_drive']);      // grabaciones de Zoom → Drive (zoom_drive.php)
-unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive']);
+$esDueno      = !empty($_SESSION['oauth_drive_dueno']); // quien subió videos a mano autoriza pasarlos (zoom_drive.php)
+unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive'], $_SESSION['oauth_drive_dueno']);
 $volver = match (true) {
-    $esDrive      => 'zoom_drive.php',
+    $esDrive, $esDueno => 'zoom_drive.php',
     $esCalendario => 'perfil.php',
     $esCorreo     => 'ajustes.php#tab-correo',
     $esRegistro   => 'registro.php',
@@ -43,7 +44,7 @@ if ($esCorreo) {
 }
 
 if (!empty($_GET['error'])) {
-    redirigir($volver, $esDrive ? 'No concediste el permiso de Google Drive.' : ($esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.'), 'info');
+    redirigir($volver, $esDrive || $esDueno ? 'No concediste el permiso de Google Drive.' : ($esCalendario ? 'No concediste el permiso de calendario.' : 'Cancelaste el acceso con Google.'), 'info');
 }
 
 $r = GoogleLogin::procesar($_GET['code'] ?? '', $_GET['state'] ?? '');
@@ -65,6 +66,23 @@ if ($esDrive && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
     ZoomDrive::guardarConexion($r['refresh_token'], $r['email']);
     $prueba = ZoomDrive::probarCarpeta();
     redirigir('zoom_drive.php', 'Google Drive conectado (' . $r['email'] . '). ' . $prueba['msg'], $prueba['ok'] ? 'success' : 'warning');
+}
+
+// --- Quien subió videos a mano con su cuenta autoriza pasarlos a la de grabaciones (zoom_drive.php) ---
+if ($esDueno && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
+    Auth::requiereAdmin();
+    require_once __DIR__ . '/lib/ZoomDrive.php';
+    if (empty($r['refresh_token'])) {
+        redirigir('zoom_drive.php', 'Google no devolvió el permiso esta vez. Entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a intentarlo.', 'error');
+    }
+    if ($r['scope'] !== '' && !str_contains($r['scope'], '/auth/drive')) {
+        redirigir('zoom_drive.php', 'Entraste con ' . $r['email'] . ' pero sin el permiso de Google Drive. Vuelve a intentarlo y, en la pantalla de Google, marca la casilla de Drive.', 'error');
+    }
+    if (strcasecmp($r['email'], (string)ZoomDrive::conf()['email']) === 0) {
+        redirigir('zoom_drive.php', 'Esa es la cuenta de grabaciones. Entra con la cuenta que subió los videos (la que se está quedando sin espacio).', 'error');
+    }
+    ZoomDrive::guardarDueno($r['refresh_token'], $r['email']);
+    redirigir('zoom_drive.php?traspaso=1#traspaso', 'Listo: ' . $r['email'] . ' autorizó el cambio. Empieza a pasar los videos.');
 }
 
 // --- Conectar calendario: el usuario ya está dentro, solo guardamos su token ---

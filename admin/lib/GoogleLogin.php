@@ -118,7 +118,7 @@ class GoogleLogin
      */
     public static function flujo(string $cual): void
     {
-        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive']);
+        unset($_SESSION['oauth_calendario'], $_SESSION['oauth_correo'], $_SESSION['oauth_registro'], $_SESSION['oauth_drive'], $_SESSION['oauth_drive_dueno']);
         if ($cual !== '') $_SESSION['oauth_' . $cual] = true;
     }
 
