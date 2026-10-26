@@ -306,10 +306,14 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
         <input class="mc-input__control" name="q" value="<?= e($q) ?>" maxlength="100" placeholder="Buscar en <?= e($carpeta['etiqueta']) ?>" aria-label="Buscar correos"></div>
     </form>
     <div class="correo-pag">
-      <?php if ($haySinLeer): ?>
+      <?php if (!$enviados): /* siempre a la vista; en gris si no queda nada sin leer */ ?>
       <form method="post" action="actions.php" class="correo-inline correo-todos-leidos">
         <input type="hidden" name="accion" value="correo_leidos"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
+        <?php if ($haySinLeer): ?>
         <button class="mc-btn mc-btn--ghost mc-btn--sm" data-ds-tip="Marca como leído todo <?= e($carpeta['etiqueta']) ?>, no solo esta página"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todos como leídos</span></button>
+        <?php else: ?>
+        <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm is-off" aria-disabled="true" data-ds-tip="No hay correos sin leer en <?= e($carpeta['etiqueta']) ?>"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todos como leídos</span></button>
+        <?php endif; ?>
       </form>
       <?php endif; ?>
       <span><?= $lista['total'] ? $desde . '–' . $hasta . ' de ' . $lista['total'] : '0' ?></span>
