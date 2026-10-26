@@ -2553,7 +2553,6 @@ html.correo-app .correo-app__menu, html.correo-app .correo-app__nav { display: n
   .vista-toggle .tab-btn[data-vista="calendario"],
   .vista-toggle .tab-btn[data-vista="intercambios"],
   .vista-toggle .tab-btn[data-vista="metricas"],
-  .vista-fila > .subvista-toggle,
   .sup-toggle,
   [data-vista-panel="calendario"], [data-vista-panel="intercambios"], [data-vista-panel="metricas"],
   [data-vista-panel="tabla"], [data-vista-panel="kanban"], [data-vista-panel="flujo"] { display: none !important; }

@@ -1789,9 +1789,9 @@ html.dark .sem-txt-amarillo { color: var(--c-amarillo); }
 }
 /* Las pestañas no son pastillas sueltas flotando sobre el contenido: son una
    sola barra que ocupa el ancho y se reparte entre todas. Cada una crece por
-   igual, así no queda hueco a la derecha. La barra va sola en su fila: el
-   «Ver como» de Tareas baja a la siguiente, así al cambiar de pestaña la
-   barra no se encoge ni se estira y las pestañas no se corren de lado. */
+   igual, así no queda hueco a la derecha. La barra va sola en su fila (Tabla,
+   Kanban o Flujo se eligen en «Visualización», dentro de cada vista): al
+   cambiar de pestaña no se encoge ni se estira y las pestañas no se corren. */
 .vista-toggle {
   flex: 1 1 100%;
   display: flex; gap: 4px;
@@ -1843,7 +1843,6 @@ html.dark .vista-toggle .tab-btn[data-vista="metricas"]     { --tc: #56C7DE; }
   background: var(--n-bg); box-shadow: var(--sh-inset-mini);
 }
 .subvista-toggle[hidden] { display: none; }
-.vista-fila > .subvista-toggle { margin-left: auto; }
 /* Pestañas largas y cortas: la barra de desplazamiento aparece y se va. Con su
    hueco siempre reservado, la página no se corre unos píxeles al cambiar. */
 html:has(.vista-toggle) { scrollbar-gutter: stable; }
@@ -8285,7 +8284,7 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 }
 .rad-menu.is-abierto .rad-op { transform: translate(-50%, -50%) translate(var(--x, 0), var(--y, 0)) scale(1); opacity: 1; }
 .rad-ico {
-  display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
+  position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 50%;
   background: linear-gradient(160deg, #3557c4, #1f3a93); color: #fff; font-size: .95rem;
   box-shadow: inset 0 1px 1px rgba(255, 255, 255, .35), 0 4px 12px rgba(31, 58, 147, .32);
   transition: transform .15s, filter .15s, box-shadow .2s;
@@ -8335,6 +8334,13 @@ html.dark .rad-menu::before { background: linear-gradient(145deg, rgba(60, 72, 1
 html.dark .rad-centro, html.dark .rad-txt, html.dark .rad-ayuda { background: rgba(42, 52, 82, .6); color: #e2e8f0; border-color: rgba(255, 255, 255, .14); }
 html.dark .rad-op.is-sel .rad-txt { background: rgba(6, 78, 59, .78); color: #d1fae5; border-color: rgba(52, 211, 153, .5); }
 html.dark .rad-ayuda b { color: #6ee7b7; }
+/* La opción que ya está puesta (p. ej. la vista actual en «Visualización»): un visto */
+.rad-op.is-actual .rad-ico::after {
+  content: '✓'; position: absolute; top: -3px; right: -3px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%;
+  background: #fff; color: #059669; font: 800 .62rem/1 var(--font-sans, sans-serif); box-shadow: 0 1px 4px rgba(15, 23, 42, .25);
+}
+/* Barra de Tareas sin título: el buscador ocupa la izquierda */
+.tabla-toolbar--tareas .tabla-buscar { max-width: 30rem; }
 @media (prefers-reduced-motion: reduce) { .rad-op, .rad-menu::before, .rad-centro, .rad-aguja, .rad-ayuda { transition: none !important; } }
 
 /* La pestaña «Release» del proyecto es la vista de Releases (ds.css .rl): aquí solo

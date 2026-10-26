@@ -750,6 +750,15 @@ foreach ($tareas as $t) {
     }
 }
 ?>
+<?php
+// «Visualización»: Tabla, Kanban o Flujo, en un menú circular que va en la barra
+// de cada una (admin.js marca la actual). El supervisor solo ve el Kanban.
+$radVistas = $esSupervisor ? '' : UI::menuRadial('Cómo ver las tareas', [
+    ['texto' => 'Tabla',  'icono' => 'fa-table-list',      'attrs' => 'data-subvista="tabla"'],
+    ['texto' => 'Kanban', 'icono' => 'fa-table-columns',   'attrs' => 'data-subvista="kanban"'],
+    ['texto' => 'Flujo',  'icono' => 'fa-diagram-project', 'attrs' => 'data-subvista="flujo"'],
+], 'Visualización', 'fa-layer-group');
+?>
 <?php if (!$esSupervisor): /* el supervisor solo ve el Kanban: sin pestañas ni tabla */ ?>
 <div class="vista-fila">
   <div class="vista-toggle">
@@ -772,23 +781,14 @@ foreach ($tareas as $t) {
     </button>
     <button type="button" class="tab-btn" data-vista="metricas" data-tip="Métricas"><i class="fa-solid fa-chart-simple"></i> <span class="tab-txt">Métricas</span></button>
   </div>
-
-  <!-- Subvistas de "Tareas": la misma lista vista como tabla, kanban o flujo -->
-  <div class="subvista-toggle" hidden>
-    <span class="subvista-tit">Ver como</span>
-    <button type="button" class="subvista-btn btn-icono active" data-subvista="tabla" data-tip="Tabla"><i class="fa-solid fa-table-list"></i> <span class="tab-txt">Tabla</span></button>
-    <button type="button" class="subvista-btn btn-icono" data-subvista="kanban" data-tip="Kanban"><i class="fa-solid fa-table-columns"></i> <span class="tab-txt">Kanban</span></button>
-    <button type="button" class="subvista-btn btn-icono" data-subvista="flujo" data-tip="Flujo"><i class="fa-solid fa-diagram-project"></i> <span class="tab-txt">Flujo</span></button>
-  </div>
 </div>
 
 <div data-vista-panel="tabla">
 <!-- Tabla de tareas -->
 <section class="card-base tabla-card">
-  <div class="tabla-toolbar">
-    <h2 class="font-display"><i class="fa-solid fa-list-check text-secondary"></i> Tareas
-      <span class="tabla-count" data-buscar-count><?= count($visibles) ?></span>
-    </h2>
+  <?php /* Sin título: «Tareas» y su número ya están en la pestaña. A la izquierda el
+           buscador; a la derecha el filtro, Acciones y Visualización */ ?>
+  <div class="tabla-toolbar tabla-toolbar--tareas">
     <label class="tabla-buscar">
       <i class="fa-solid fa-magnifying-glass"></i>
       <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off">
@@ -839,6 +839,7 @@ foreach ($tareas as $t) {
         <input type="hidden" name="id" value="<?= $id ?>">
       </form>
       <?= UI::menuRadial('Acciones rápidas', $accRapidas) ?>
+      <?= $radVistas ?>
       <?php if ($puedeTareas): ?>
       <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
         <i class="fa-solid fa-plus"></i> Nueva tarea
@@ -1053,6 +1054,7 @@ foreach ($tareas as $t) {
           <input class="input-meca input-dia" type="date" name="hasta" value="<?= e($dHasta) ?>" max="<?= e($dHoy) ?>" aria-label="Hasta">
           <button class="btn-outline btn-meca btn-sm btn-neutro" title="Ver ese rango"><i class="fa-solid fa-filter"></i></button>
         </form>
+        <?= $radVistas ?>
       </div>
     </div>
     <?php if ($kbFiltro): ?>
@@ -1167,6 +1169,7 @@ foreach ($tareas as $t) {
       <?php if (!$hayDependencias): ?>
       <span class="ajuste-ayuda">Asigna "Depende de" al crear o editar una tarea para encadenarlas aquí.</span>
       <?php endif; ?>
+      <?= $radVistas ?>
     </div>
     <?php if (empty($tareas)): ?>
       <?= UI::vacio('fa-diagram-project', 'Sin tareas', 'Crea tareas para ver su flujo.') ?>

@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja'],
+        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del'],
         'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -151,7 +151,7 @@ function actualizarPanel(array $opc): void
         'lib/releases_ui.php' => ['function rlVistaRelease', 'function rlRecursosJs'],
         'assets/releases.js' => ['data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg', 'rl-gfila__lbl'],
         'lib/Zoom.php'      => ['function participantes'],
-        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja'],
+        'assets/admin.css'  => ['nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas'],
         'lib/CorreoCopias.php' => ['function crudoDe'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg', 'panelObservacion'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel'],
@@ -166,7 +166,7 @@ function actualizarPanel(array $opc): void
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado'],
         'lib/deploy_tira.php' => ['dep-prox', 'dep-tira-url'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
-        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease'],
+        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease', 'radVistas'],
         'equipo.php'        => ['name="telefono"', 'Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users'],

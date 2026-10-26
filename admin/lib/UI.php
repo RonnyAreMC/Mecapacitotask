@@ -864,14 +864,15 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
      * opciones alrededor (para no llenar una barra de botones). Lo maneja
      * assets/admin.js ([data-rad]). Cada opción: ['texto', 'icono' (clase fa-…
      * o HTML de una imagen), 'tipo' (a|button|submit), 'attrs' (atributos ya
-     * escapados: href, form, data-rad-dlg="id del diálogo"…)].
+     * escapados: href, form, data-rad-dlg="id del diálogo"…)]. $icono: el del
+     * botón (clase fa-…).
      */
-    public static function menuRadial(string $titulo, array $ops, string $textoBoton = 'Acciones'): string
+    public static function menuRadial(string $titulo, array $ops, string $textoBoton = 'Acciones', string $icono = 'fa-bolt'): string
     {
         if (!$ops) return '';
         $h = '<div class="rad" data-rad>'
             . '<button type="button" class="btn-outline btn-meca btn-sm btn-azul rad-btn" aria-haspopup="menu" aria-expanded="false" data-rad-btn'
-            . ' title="' . e($titulo) . '"><i class="fa-solid fa-bolt" aria-hidden="true"></i> <span class="rad-btn__txt">' . e($textoBoton) . '</span></button>'
+            . ' title="' . e($titulo) . '"><i class="fa-solid ' . e($icono) . '" aria-hidden="true"></i> <span class="rad-btn__txt">' . e($textoBoton) . '</span></button>'
             . '<div class="rad-fondo" data-rad-fondo hidden></div>'
             . '<div class="rad-menu" role="menu" aria-label="' . e($titulo) . '" data-rad-menu hidden>'
             . '<button type="button" class="rad-centro" data-rad-cerrar aria-label="Cerrar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>'

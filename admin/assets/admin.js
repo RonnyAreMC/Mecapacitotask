@@ -1269,13 +1269,13 @@ document.querySelectorAll('[data-pm-buscar]').forEach((input) => {
 });
 
 // Vistas de la pagina de proyecto.
-// "Tareas" es un combo: agrupa Tabla / Kanban / Flujo bajo un subselector.
+// "Tareas" es un combo: agrupa Tabla / Kanban / Flujo. Se cambia con el menú
+// circular «Visualización» de la barra de cada una (opciones [data-subvista]).
 // Al entrar se muestra el Calendario, o lo último elegido en ESE proyecto;
 // las subvistas recuerdan su eleccion.
 // En el celular, Tareas son las tarjetas (bloque «Proyecto en el celular», arriba).
 const vistaToggle = document.querySelector('.vista-toggle');
 if (vistaToggle) {
-  const subToggle = document.querySelector('.subvista-toggle');
   const SUBVISTAS = ['tabla', 'kanban', 'flujo'];
   const claveVista = 'vista-' + location.pathname + '-' + (new URLSearchParams(location.search).get('id') || '');
   const claveSub   = 'subvista-' + location.pathname;
@@ -1293,10 +1293,12 @@ if (vistaToggle) {
     const panel = panelActivo(v);
     vistaToggle.querySelectorAll('[data-vista]').forEach((b) => b.classList.toggle('active', b.dataset.vista === v));
     document.querySelectorAll('[data-vista-panel]').forEach((p) => { p.hidden = p.dataset.vistaPanel !== panel; });
-    if (subToggle) {
-      subToggle.hidden = v !== 'tareas';
-      subToggle.querySelectorAll('[data-subvista]').forEach((b) => b.classList.toggle('active', b.dataset.subvista === subActual));
-    }
+    // En «Visualización» la actual lleva su marca (y el menú abre en ella)
+    document.querySelectorAll('[data-subvista]').forEach((b) => {
+      const es = b.dataset.subvista === subActual;
+      b.classList.toggle('is-actual', es);
+      if (es) b.setAttribute('aria-current', 'true'); else b.removeAttribute('aria-current');
+    });
     if (panel === 'flujo') dibujarFlujo();
   };
 
@@ -1315,14 +1317,14 @@ if (vistaToggle) {
   vistaToggle.querySelectorAll('[data-vista]').forEach((btn) =>
     btn.addEventListener('click', () => activarVista(btn.dataset.vista)));
 
-  if (subToggle) {
-    subToggle.querySelectorAll('[data-subvista]').forEach((btn) =>
-      btn.addEventListener('click', () => {
-        subActual = btn.dataset.subvista;
-        sessionStorage.setItem(claveSub, subActual);
-        pintar('tareas');
-      }));
-  }
+  // Tabla, Kanban o Flujo desde «Visualización» (también con su clic derecho)
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-subvista]');
+    if (!b || !SUBVISTAS.includes(b.dataset.subvista)) return;
+    subActual = b.dataset.subvista;
+    sessionStorage.setItem(claveSub, subActual);
+    activarVista('tareas');
+  });
 
   // Al entrar: hash (#vista-X), luego lo ultimo elegido, si no el Calendario.
   // Lo guardado puede ser una pestaña que ya no se ve (Intercambios sin
@@ -4447,8 +4449,8 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     btn.setAttribute('aria-expanded', 'true');
     abierto = rad;
     menu._ang = null;
-    marcar(0, false);
-    setTimeout(() => (ops[0] || menu.querySelector('[data-rad-cerrar]')).focus(), 60);
+    marcar(Math.max(0, ops.findIndex((o) => o.classList.contains('is-actual'))), false);
+    setTimeout(() => (ops[menu._sel || 0] || menu.querySelector('[data-rad-cerrar]')).focus(), 60);
   }
 
   // Marca la opción i (la que abre el clic derecho): verde, con la aguja girando
