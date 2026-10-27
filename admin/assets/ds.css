@@ -3498,8 +3498,11 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
   font-size: .72rem; font-weight: 700; }
 .dep-item-auto .ico { width: 13px; height: 13px; }
 /* En la tira del dashboard: cuándo sube lo de mis proyectos */
-.dep-prox { display: inline-flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink);
-  font-size: .8rem; font-weight: 600; text-decoration: none; }
+/* Como texto con su ícono, no como pastilla: la tira ya no compite en colores */
+.dep-prox { display: inline-flex; align-items: center; gap: 6px; color: var(--ink-muted);
+  font-size: .8125rem; font-weight: 500; text-decoration: none; }
+.dep-prox:hover { color: var(--primary-ink); }
+.dep-prox b { color: var(--ink); font-weight: 600; }
 .dep-prox .ico { width: 15px; height: 15px; }
 .dep-prox b { font-variant-numeric: tabular-nums; }
 /* Ajustes → Despliegues: el cronograma */
@@ -3619,7 +3622,7 @@ html.dark .dep-crono-proy { background: rgba(255, 255, 255, .07); }
 .dep-cuenta { position: relative; }
 .dep-cuenta .dep-cuenta__nexo { position: absolute; left: var(--space-5); bottom: 8px; width: auto; height: 112px; pointer-events: none; }
 @media (max-width: 760px) { .dep-cuenta .dep-cuenta__nexo { position: static; height: 76px; margin-bottom: 2px; } }
-.dep-tira-txt > .dep-tira-url { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: var(--primary-ink);
+.dep-tira-txt > .dep-tira-url { display: inline-flex; align-items: center; gap: 6px; width: fit-content; color: var(--ink-subtle);
   font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; text-decoration: none; }
 .dep-tira-url i { font-size: .62rem; }
 .dep-tira-url:hover, .dep-tira-url:focus-visible { text-decoration: underline; }

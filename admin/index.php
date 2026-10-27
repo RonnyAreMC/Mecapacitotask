@@ -150,14 +150,13 @@ if (puedeVerDeploys()) {
         if ($proxSub): ?>
 <section class="dep-tira card-base dep-tira-crono">
   <div class="dep-tira-main">
-    <span class="dep-pulso" aria-hidden="true"><?= UI::icono('Clock') ?></span>
-    <div class="dep-tira-txt">
-      <small>Hora límite para subir tus cambios</small>
-      <b class="font-display"><?= e(ucfirst(Cronograma::texto($proxSub))) ?></b>
-      <span class="dep-sub"><?= e(implode(', ', $quienesSub)) ?> · <?= e(Cronograma::dias()) ?>, hasta esa hora</span>
-    </div>
-    <div class="dep-tira-fin">
-      <span class="dep-prox"><?= UI::icono('Clock') ?> <b data-cuenta-regresiva data-corto data-hasta="<?= $proxSub ?>" data-ahora="<?= time() ?>">&nbsp;</b></span>
+    <div class="dep-dato dep-dato--prox">
+      <span class="dep-pulso dep-pulso--prox" aria-hidden="true"><?= UI::icono('Clock') ?></span>
+      <div class="dep-dato__txt">
+        <small>Hora límite para subir tus cambios</small>
+        <b class="dep-hora"><?= e(Cronograma::diaCorto($proxSub)) ?> · <?= e(Cronograma::hora($proxSub)) ?></b>
+        <span class="dep-sub"><b data-cuenta-regresiva data-corto data-hasta="<?= $proxSub ?>" data-ahora="<?= time() ?>">&nbsp;</b> · <?= e(implode(', ', $quienesSub)) ?></span>
+      </div>
     </div>
   </div>
 </section>
@@ -226,8 +225,9 @@ if (puedeVerDeploys()) {
           </a>
           <?php endforeach; ?>
           <?php endif; ?>
-          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="btn-outline btn-meca btn-azul btn-sm">
-            Ver tablero <i class="fa-solid fa-arrow-right"></i>
+          <?php /* Solo la flecha, con el mismo borde que los botones de los repos */ ?>
+          <a href="proyecto.php?id=<?= (int)$p['id'] ?>" class="pac-repo pac-ir" title="Ver tablero" aria-label="Ver el tablero de <?= e($p['nombre']) ?>">
+            <i class="fa-solid fa-arrow-right"></i>
           </a>
         </div>
       </div>

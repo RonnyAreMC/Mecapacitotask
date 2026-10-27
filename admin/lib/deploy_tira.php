@@ -2,10 +2,10 @@
 /**
  * Tira de despliegues: "¿ya están los cambios en el servidor de pruebas?".
  *
- * Lo que ve quien entra es una línea: a qué hora se subió, hace cuánto, quién
- * y cuántas tareas. Nada de a qué proyecto — la persona ya está en los suyos y
- * el listado de proyectos aquí solo llenaba la pantalla. El detalle (qué
- * proyectos tocó cada subida y con qué tareas) vive en el módulo.
+ * Lo que ve quien entra: a qué hora se subió el último cambio (en grande) y
+ * cuándo suben los demás, con la cuenta regresiva. Nada de a qué proyecto — la
+ * persona ya está en los suyos. El detalle (qué proyectos tocó cada subida y
+ * con qué tareas) vive en el módulo; aquí se llega con los botones de ícono.
  *
  * Quien sube los cambios ve además el botón: lo pulsa, marca a qué proyectos
  * afecta esa subida y listo. La fecha y la hora las pone el servidor.
@@ -45,76 +45,59 @@ foreach (resumenDeploys($dtAfectados) as $dtPid => $dtF) {
     $dtPendPorProy[(int)$dtPid] = count($dtF['pendientes']);
 }
 ?>
+<?php
+// Lo que importa, en grande: a qué hora subió el último cambio y cuándo suben
+// los demás (la próxima hora límite, con su cuenta regresiva). Lo demás son
+// botones de ícono con su ayuda al pasar el mouse.
+if (is_file(__DIR__ . '/Cronograma.php')) require_once __DIR__ . '/Cronograma.php';
+$dtTs = $dtUltimo ? (strtotime((string)$dtUltimo['fecha']) ?: 0) : 0;
+$dtHora = fn(int $t) => class_exists('Cronograma') ? Cronograma::hora($t) : date('g:i a', $t);
+$dtDia  = fn(int $t) => class_exists('Cronograma') ? Cronograma::diaCorto($t) : date('d/m', $t);
+// La próxima hora límite de los proyectos de quien mira (en Despliegues no: allí está el horario completo)
+$dtProx = 0;
+if ($dtVolver !== 'deploys' && class_exists('Cronograma') && Cronograma::activo()) {
+    foreach (array_keys($dtFilas) as $dtPid) {
+        $dtV = Cronograma::proxima((int)$dtPid);
+        if ($dtV > 0 && ($dtProx === 0 || $dtV < $dtProx)) $dtProx = $dtV;
+    }
+}
+?>
 <section class="dep-tira card-base<?= $dtUltimo ? '' : ' dep-tira-vacia' ?>">
   <div class="dep-tira-main">
-    <span class="dep-pulso<?= $dtHoy ? ' dep-pulso-hoy' : '' ?>" aria-hidden="true">
-      <?= UI::icono('Upload') ?>
-    </span>
-    <div class="dep-tira-txt">
-      <?php if ($dtCfg['url'] !== ''): ?>
-      <a class="dep-tira-url" href="<?= e($dtCfg['url']) ?>" target="_blank" rel="noopener" title="Abrir <?= e($dtCfg['entorno']) ?>"><?= e($dtCfg['entorno']) ?> <i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
-      <?php else: ?>
-      <small><?= e($dtCfg['entorno']) ?></small>
-      <?php endif; ?>
-      <?php if ($dtUltimo): ?>
-      <b class="font-display">Cambios subidos a las <?= e(substr($dtUltimo['fecha'], 11, 5)) ?></b>
-      <span class="dep-sub">
-        <span class="dep-hace"><?= e(DeployRepo::haceCuanto($dtUltimo['fecha'])) ?></span>
-        <?php if ($dtAutor): ?> · por <?= e(explode(' ', trim($dtAutor['nombre']))[0]) ?><?php endif; ?>
-        <?php $nT = count(DeployRepo::tareasDe($dtUltimo)); if ($nT): ?>
-        · <?= $nT ?> tarea<?= $nT === 1 ? '' : 's' ?>
+    <div class="dep-dato">
+      <span class="dep-pulso<?= $dtHoy ? ' dep-pulso-hoy' : '' ?>" aria-hidden="true"><?= UI::icono('Upload') ?></span>
+      <div class="dep-dato__txt">
+        <small>Último cambio en <?= e($dtCfg['entorno']) ?></small>
+        <?php if ($dtTs): ?>
+        <b class="dep-hora"><?= e($dtHora($dtTs)) ?></b>
+        <span class="dep-sub"><?= e(time() - $dtTs > 6 * 86400 ? date('d/m/Y', $dtTs) : $dtDia($dtTs)) ?><?php if ($dtAutor): ?> · <?= e(explode(' ', trim($dtAutor['nombre']))[0]) ?><?php endif; ?></span>
+        <?php else: ?>
+        <b class="dep-hora dep-hora--vacia">Sin cambios todavía</b>
+        <span class="dep-sub">La hora sale aquí cuando alguien suba</span>
         <?php endif; ?>
-        <?php if (trim((string)($dtUltimo['nota'] ?? '')) !== ''): ?>
-        · <?= e(mb_strimwidth(strtok(trim((string)$dtUltimo['nota']), "\n") ?: '', 0, 110, '…')) ?>
-        <?php endif; ?>
-      </span>
-      <?php endif; ?>
-      <?php if (!$dtUltimo): ?>
-      <b class="font-display">Todavía no se ha registrado ningún cambio</b>
-      <span class="dep-sub">Cuando alguien suba al servidor, la hora aparece aquí.</span>
-      <?php endif; ?>
+      </div>
     </div>
-    <div class="dep-tira-fin">
-      <?php
-        // La próxima hora límite de los proyectos de quien mira, con su cuenta regresiva (lib/Cronograma.php).
-        // En Despliegues no: allí está el horario completo.
-        $dtProx = 0;
-        if ($dtVolver !== 'deploys' && is_file(__DIR__ . '/Cronograma.php')) {
-            require_once __DIR__ . '/Cronograma.php';
-            if (Cronograma::activo()) {
-                foreach (array_keys($dtFilas) as $dtPid) {
-                    $dtV = Cronograma::proxima((int)$dtPid);
-                    if ($dtV > 0 && ($dtProx === 0 || $dtV < $dtProx)) $dtProx = $dtV;
-                }
-            }
-        }
-      ?>
-      <?php if ($dtProx): ?>
-      <a class="dep-prox" href="deploys.php" title="Hora límite para subir los cambios: <?= e(Cronograma::texto($dtProx)) ?>">
-        <?= UI::icono('Clock') ?> Límite <?= e(Cronograma::texto($dtProx)) ?> ·
-        <b data-cuenta-regresiva data-corto data-hasta="<?= $dtProx ?>" data-ahora="<?= time() ?>">&nbsp;</b>
-      </a>
-      <?php endif; ?>
-      <?php if ($dtPendTotal): ?>
-      <span class="dep-pend" title="Tareas completadas que ningún despliegue ha subido todavía">
-        <?= UI::icono('Clock') ?> <b><?= $dtPendTotal ?></b> sin subir
-      </span>
-      <?php else: ?>
-      <span class="dep-aldia" title="Todo lo completado ya está arriba">
-        <?= UI::icono('CircleCheck') ?> Todo subido
-      </span>
-      <?php endif; ?>
+    <?php if ($dtProx): ?>
+    <div class="dep-dato dep-dato--prox">
+      <span class="dep-pulso dep-pulso--prox" aria-hidden="true"><?= UI::icono('Clock') ?></span>
+      <div class="dep-dato__txt">
+        <small>Los demás cambios suben</small>
+        <b class="dep-hora"><?= e($dtDia($dtProx)) ?> · <?= e($dtHora($dtProx)) ?></b>
+        <span class="dep-sub"><b data-cuenta-regresiva data-corto data-hasta="<?= $dtProx ?>" data-ahora="<?= time() ?>">&nbsp;</b><?php if ($dtPendTotal): ?> · <?= $dtPendTotal ?> tarea<?= $dtPendTotal === 1 ? '' : 's' ?> por subir<?php endif; ?></span>
+      </div>
+    </div>
+    <?php endif; ?>
+    <div class="dep-acc">
       <?php if ($dtPuede): ?>
-      <button type="button" class="dep-btn" aria-haspopup="dialog"
-              onclick="document.getElementById('dlg-dep-registrar').showModal()"
-              title="Elige qué subiste y queda registrada la hora de ahora en <?= e($dtCfg['entorno']) ?>">
-        <?= UI::icono('Upload') ?> <span>Registrar deploy</span>
-      </button>
+      <button type="button" class="dep-ico dep-ico--subir" aria-haspopup="dialog" aria-label="Registrar deploy"
+              data-ds-tip="Registrar deploy: marca qué subiste a <?= e($dtCfg['entorno']) ?>"
+              onclick="document.getElementById('dlg-dep-registrar').showModal()"><?= UI::icono('Upload') ?></button>
       <?php endif; ?>
       <?php if ($dtVolver !== 'deploys'): ?>
-      <a class="btn-outline btn-meca btn-sm btn-neutro" href="deploys.php">
-        <?= UI::icono('Upload') ?> Despliegues
-      </a>
+      <a class="dep-ico" href="deploys.php" aria-label="Despliegues" data-ds-tip="Todos los despliegues y el horario"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></a>
+      <?php endif; ?>
+      <?php if ($dtCfg['url'] !== ''): ?>
+      <a class="dep-ico" href="<?= e($dtCfg['url']) ?>" target="_blank" rel="noopener" aria-label="Abrir <?= e($dtCfg['entorno']) ?>" data-ds-tip="Abrir <?= e($dtCfg['entorno']) ?>"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
       <?php endif; ?>
     </div>
   </div>

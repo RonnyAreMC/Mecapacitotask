@@ -191,6 +191,23 @@ final class Cronograma
         return 'el ' . $dia . ' a las ' . $hora;
     }
 
+    /** El día, corto, para la tira de despliegues: «hoy», «mañana», «ayer» o «jue 29». */
+    public static function diaCorto(int $v, ?int $ahora = null): string
+    {
+        $ahora ??= time();
+        $d = date('Y-m-d', $v);
+        if ($d === date('Y-m-d', $ahora)) return 'hoy';
+        if ($d === date('Y-m-d', strtotime('+1 day', $ahora))) return 'mañana';
+        if ($d === date('Y-m-d', strtotime('-1 day', $ahora))) return 'ayer';
+        return ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][(int)date('w', $v)] . ' ' . (int)date('j', $v);
+    }
+
+    /** «10:00 pm», como el resto del cronograma. */
+    public static function hora(int $v): string
+    {
+        return date('g:i', $v) . ' ' . date('a', $v);
+    }
+
     /** «hoy 9:42 am», «ayer 6:10 pm», «20/10 6:10 pm» de una fecha 'Y-m-d H:i'. */
     public static function cuandoFue(string $fecha): string
     {

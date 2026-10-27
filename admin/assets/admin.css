@@ -1335,9 +1335,12 @@ html.dark .pac-watermark { opacity: .13; }
 /* El contenido es estático y se pintaría DEBAJO de la marca, que sí está
    posicionada: hay que subirlo a su propia capa. */
 .pac-head, .pac-body { position: relative; z-index: 1; }
+/* El borde, un celeste tenue igual en todas: el color del proyecto ya va en su
+   ícono y en la barra de avance (teñido con él, cada card salía de otro tono) */
+.proyecto-admin-card { --card-c: #7DD3FC; }
 .proyecto-admin-card:hover {
   transform: translateY(-3px);
-  box-shadow: var(--sh-card), 0 0 0 1.5px color-mix(in srgb, var(--pc, var(--c-secondary)) 40%, transparent);
+  box-shadow: var(--sh-card), 0 0 0 1.5px color-mix(in srgb, #38BDF8 35%, transparent);
 }
 html.dark .proyecto-admin-card {
   background:
@@ -1454,6 +1457,8 @@ html.dark .proyecto-admin-card {
   transition: color .2s ease, transform .2s ease, box-shadow .2s ease;
 }
 .pac-repo:hover { color: var(--c-text); transform: translateY(-2px); }
+.pac-ir:hover { color: #2563EB; }
+html.dark .pac-ir:hover { color: #93C5FD; }
 .pac-repo:active { box-shadow: var(--sh-inset-mini); }
 
 /* =========================================================
@@ -8709,23 +8714,62 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
    dice cada tarjeta de proyecto. Lo que nadie sabía sin preguntar por chat era
    esto: a qué hora subió el encargado los últimos cambios.
    ========================================================= */
-.dep-tira { padding: 18px 22px; margin-bottom: 26px; --card-c: var(--c-secondary); }
-.dep-tira-main { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
+/* Lo importante en grande (la hora del último cambio y cuándo suben los
+   demás), colores suaves (celeste y menta) y un borde de vidrio líquido que
+   gira despacio. Las acciones son botones de ícono con su ayuda. */
+@property --dep-ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+.dep-tira {
+  position: relative; isolation: isolate;
+  padding: 16px 20px; margin-bottom: 26px;
+  border-color: transparent;
+  background: linear-gradient(115deg, #F0F9FF 0%, #FFFFFF 46%, #F0FDF9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 8px 24px -16px rgba(2, 132, 199, .35);
+}
+html .dep-tira { background: linear-gradient(115deg, #F0F9FF 0%, #FFFFFF 46%, #F0FDF9 100%); }
+html.dark .dep-tira { background: linear-gradient(115deg, #0F2A38 0%, var(--n-card, #2A3458) 48%, #0E2E2A 100%); box-shadow: none; }
+/* El borde: un degradado que da la vuelta, recortado a un aro de 1.5px */
+.dep-tira::before {
+  content: ''; position: absolute; inset: -1.5px; z-index: -1; padding: 1.5px;
+  border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--dep-ang), #7DD3FC, #67E8F9, #6EE7B7, #93C5FD, #7DD3FC);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: dep-borde 9s linear infinite;
+}
+@keyframes dep-borde { to { --dep-ang: 360deg; } }
+.dep-tira-main { display: flex; align-items: center; gap: 14px 28px; flex-wrap: wrap; }
 
-/* El icono late despacio cuando la subida es de hoy: se ve de reojo que hay
+.dep-dato { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.dep-dato + .dep-dato { padding-left: 28px; border-left: 1px solid color-mix(in srgb, #38BDF8 25%, transparent); }
+.dep-dato__txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.dep-dato__txt > small { font-size: .75rem; font-weight: 600; color: var(--c-text-soft); }
+.dep-hora {
+  font-family: var(--f-display, inherit); font-size: 1.5rem; font-weight: 800; line-height: 1.15;
+  letter-spacing: -.02em; color: var(--c-text); font-variant-numeric: tabular-nums; white-space: nowrap;
+}
+.dep-hora--vacia { font-size: 1.05rem; }
+.dep-sub { font-size: .8125rem; color: var(--c-text-soft); }
+.dep-sub b { color: #0369A1; font-weight: 700; font-variant-numeric: tabular-nums; }
+html.dark .dep-sub b { color: #7DD3FC; }
+
+/* El ícono late despacio cuando la subida es de hoy: se ve de reojo que hay
    algo fresco, sin un cartel que grite. */
 .dep-pulso {
   position: relative; flex: none;
   display: grid; place-items: center;
-  width: 48px; height: 48px; border-radius: 16px;
-  background: color-mix(in srgb, var(--c-secondary) 16%, transparent);
-  color: var(--c-secondary);
+  width: 44px; height: 44px; border-radius: 14px;
+  background: #E0F2FE; color: #0284C7;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
 }
-.dep-pulso .ico { width: 22px; height: 22px; }
+.dep-pulso--prox { background: #D1FAE5; color: #059669; }
+html.dark .dep-pulso { background: rgba(56, 189, 248, .16); color: #7DD3FC; box-shadow: none; }
+html.dark .dep-pulso--prox { background: rgba(52, 211, 153, .16); color: #6EE7B7; }
+.dep-pulso .ico { width: 20px; height: 20px; }
 .dep-pulso-hoy::after {
   content: ''; position: absolute; inset: 0;
   border-radius: inherit;
-  border: 2px solid var(--c-secondary);
+  border: 2px solid color-mix(in srgb, #0284C7 45%, transparent);
   animation: dep-latido 2.4s ease-out infinite;
 }
 @keyframes dep-latido {
@@ -8733,38 +8777,28 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
   70%  { opacity: 0;  transform: scale(1.35); }
   100% { opacity: 0;  transform: scale(1.35); }
 }
-
-.dep-tira-txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; flex: 1; }
-.dep-tira-txt > small {
-  font-size: .68rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase;
-  color: var(--c-text-soft);
-}
-.dep-tira-txt > b { font-size: 1.12rem; font-weight: 800; color: var(--c-text); }
-.dep-sub { font-size: .82rem; color: var(--c-text-muted); }
-.dep-hace { font-weight: 700; color: var(--c-secondary); }
 .dep-tira-vacia .dep-pulso { background: color-mix(in srgb, var(--c-text) 8%, transparent); color: var(--c-text-soft); }
 
-.dep-tira-fin { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-left: auto; }
-.dep-pend, .dep-aldia {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 13px; border-radius: 999px;
-  font-size: .8rem; font-weight: 700;
+/* Botones de ícono, de vidrio; el nombre sale al pasar el mouse (data-ds-tip) */
+.dep-acc { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+.dep-ico {
+  display: grid; place-items: center; width: 40px; height: 40px; border: 0; border-radius: 50%;
+  background: rgba(255, 255, 255, .72); color: var(--c-text-muted); text-decoration: none; cursor: pointer;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .9), 0 1px 3px rgba(15, 23, 42, .08);
+  -webkit-backdrop-filter: blur(8px) saturate(1.5); backdrop-filter: blur(8px) saturate(1.5);
+  transition: color .18s ease, background-color .18s ease;
 }
-.dep-pend  { color: #C66B2D; background: color-mix(in srgb, #C66B2D 14%, transparent); }
-.dep-aldia { color: var(--c-verde-esmeralda); background: color-mix(in srgb, var(--c-verde-esmeralda) 14%, transparent); }
-.dep-pend .ico, .dep-aldia .ico { width: 15px; height: 15px; }
+.dep-ico .ico { width: 18px; height: 18px; }
+.dep-ico i { font-size: .95rem; }
+.dep-ico:hover { background: #fff; color: #0284C7; }
+.dep-ico:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
+.dep-ico--subir {
+  color: #fff; background: linear-gradient(180deg, #22C55E, #16A34A);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 10px -4px rgba(22, 163, 74, .55);
+}
+.dep-ico--subir:hover { color: #fff; background: linear-gradient(180deg, #16A34A, #15803D); }
+html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); color: #C5CDDA; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
 
-/* El botón del encargado: abre el modal donde marca QUÉ subió. */
-.dep-btn {
-  display: inline-flex; align-items: center; gap: 7px;
-  padding: 7px 13px; border: 0; border-radius: 11px; cursor: pointer;
-  background: var(--c-secondary); color: #fff;
-  font-size: .78rem; font-weight: 800; font-family: inherit;
-  transition: transform .18s ease, filter .18s ease;
-}
-.dep-btn .ico { width: 14px; height: 14px; }
-.dep-btn:hover { transform: translateY(-1px); filter: brightness(1.08); }
-.dep-btn:active { transform: translateY(0) scale(.97); }
 /* Al pulsar, el icono sale volando: el registro es instantáneo y sin esa
    señal parecía que no había pasado nada. */
 .dep-enviando .ico { animation: dep-sube .5s ease-in infinite; }
@@ -8965,10 +8999,12 @@ html.dark .obs-destino { background: color-mix(in srgb, var(--btn-azul) 20%, tra
 @media (max-width: 720px) {
   .dep-tira { padding: 14px 16px; }
   .dep-tira-fin { margin-left: 0; width: 100%; }
+  .dep-dato + .dep-dato { padding-left: 0; border-left: 0; }
+  .dep-hora { font-size: 1.3rem; }
   .dep-lista, .dep-espera-grid { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .dep-pulso-hoy::after, .dep-enviando .ico { animation: none; }
+  .dep-pulso-hoy::after, .dep-enviando .ico, .dep-tira::before { animation: none; }
 }
 
 /* =========================================================
