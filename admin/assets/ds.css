@@ -2997,6 +2997,19 @@ dialog.ds-modal.tut-aviso .ds-tutorial__cab .ds-modal__title { white-space: norm
 .tut-aviso__cta { position: absolute; left: 50%; bottom: 22px; translate: -50% 0; padding: 6px 14px; border-radius: 999px;
   background: rgba(11, 27, 51, .78); color: #fff; font: 600 .875rem/1.2 var(--font-sans); }
 .tut-acciones { gap: 6px; }
+/* Acciones de cada tutorial: solo íconos, a la derecha */
+.tut-acciones form { display: contents; }
+/* Más grandes y con color: azul el enlace, naranja el aviso, rojo quitar (fondo tintado, sin franjas) */
+.tut-acciones { gap: 8px; }
+.tut-acciones .mc-iconbtn { width: 40px; height: 40px; border-radius: 12px; }
+.tut-acciones .mc-iconbtn svg { width: 20px; height: 20px; }
+.tut-acciones .tut-copiar { --_fg: var(--tone-azul-fg); --_fgh: var(--tone-azul-fg); background: var(--tone-azul-bg);
+  --_bgh: color-mix(in srgb, var(--tone-azul-fg) 18%, var(--tone-azul-bg)); }
+.tut-acciones .tut-avisar { --_fg: var(--tone-naranja-fg); --_fgh: var(--tone-naranja-fg); background: var(--tone-naranja-bg);
+  --_bgh: color-mix(in srgb, var(--tone-naranja-fg) 18%, var(--tone-naranja-bg)); }
+.tut-acciones .tut-avisar.is-on { --_fg: #fff; --_fgh: #fff; background: var(--tone-naranja-fg); --_bgh: color-mix(in srgb, var(--tone-naranja-fg) 88%, #000); }
+.tut-acciones .tut-quitar { --_fg: var(--danger-ink); --_fgh: var(--danger-ink); background: var(--danger-soft);
+  --_bgh: color-mix(in srgb, var(--danger-ink) 16%, var(--danger-soft)); }
 
 /* Aviso con un botón («Deshacer»): MC.toast(…, { accion: { texto, fn } }) */
 .mc-toast__accion { margin: 6px 0 0 -10px; }

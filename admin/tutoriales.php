@@ -42,19 +42,20 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
         <span class="tut-lugar"><?= UI::iconoDS('notificaciones', 14) ?> Avisando a todos<?= $esAdmin ? ' · lo vieron ' . (int)$al['vieron'] . ($al['cerraron'] ? ', lo cerraron ' . (int)$al['cerraron'] : '') : '' ?></span>
         <?php endif; ?>
       </div>
+      <?php /* Solo íconos: el nombre sale al pasar el mouse (y lo leen los lectores de pantalla) */ ?>
       <div class="tut-acciones">
-      <?php /* El enlace para compartir: abre solo este video, sin iniciar sesión (video.php) */ ?>
-      <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm btn-copiar" data-copiar="<?= e(Tutoriales::enlaceCompartir($t)) ?>"
-              data-ds-tip="Se abre sin iniciar sesión y muestra solo este video"><?= UI::iconoDS('enlace', 16) ?><span class="mc-btn__label">Copiar enlace</span></button>
-      <?php if ($esAdmin): ?>
+      <button type="button" class="mc-iconbtn tut-copiar btn-copiar" data-copiar="<?= e(Tutoriales::enlaceCompartir($t)) ?>"
+              aria-label="Copiar enlace para compartir" data-ds-tip="Copiar enlace: se abre sin iniciar sesión y muestra solo este video"><?= UI::iconoDS('enlace', 20) ?></button>
+      <?php if ($esAdmin): $avisando = !empty($t['avisar']); ?>
       <form method="post" action="actions.php">
         <input type="hidden" name="accion" value="tutorial_avisar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
-        <?php if (empty($t['avisar'])): ?><input type="hidden" name="avisar" value="1"><?php endif; ?>
-        <button class="mc-btn mc-btn--ghost mc-btn--sm"><?= UI::iconoDS('notificaciones', 16) ?><span class="mc-btn__label"><?= empty($t['avisar']) ? 'Avisar a todos' : 'Dejar de avisar' ?></span></button>
+        <?php if (!$avisando): ?><input type="hidden" name="avisar" value="1"><?php endif; ?>
+        <button class="mc-iconbtn tut-avisar<?= $avisando ? ' is-on' : '' ?>" aria-label="<?= $avisando ? 'Dejar de avisar' : 'Avisar a todos' ?>"
+                data-ds-tip="<?= $avisando ? 'Dejar de avisar a todos' : 'Avisar a todos: le sale al entrar al panel' ?>"><?= UI::iconoDS('notificaciones', 20) ?></button>
       </form>
-      <form method="post" action="actions.php" data-confirmar="Se quita del panel (el video sigue en YouTube o Drive)." data-confirmar-titulo="¿Quitar «<?= e($t['titulo']) ?>»?" data-confirmar-ok="Sí, quitar">
+      <form method="post" action="actions.php" data-confirmar="Se quita del panel (el video sigue en YouTube o Drive) y su enlace para compartir deja de servir." data-confirmar-titulo="¿Quitar «<?= e($t['titulo']) ?>»?" data-confirmar-ok="Sí, quitar">
         <input type="hidden" name="accion" value="tutorial_quitar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
-        <button class="mc-btn mc-btn--ghost mc-btn--sm ia-quitar"><?= UI::iconoDS('eliminar', 16) ?><span class="mc-btn__label">Quitar</span></button>
+        <button class="mc-iconbtn tut-quitar" aria-label="Quitar" data-ds-tip="Quitar del panel"><?= UI::iconoDS('eliminar', 20) ?></button>
       </form>
       <?php endif; ?>
       </div>
