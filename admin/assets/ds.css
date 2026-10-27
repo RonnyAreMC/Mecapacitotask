@@ -1531,6 +1531,23 @@ html .page-title, html.dark .page-title {
 html .page-title .text-secondary, html.dark .page-title .text-secondary { color: var(--primary-ink) !important; }
 .page-sub { margin-top: 4px; max-width: 72ch; color: var(--ink-muted); font: 400 var(--mc-fs-body, .875rem)/1.5 var(--font-sans); }
 .page-actions { display: flex; align-items: center; gap: var(--space-2); flex-wrap: wrap; }
+/* En la cabecera, el nombre de un botón de ícono sale flotando debajo en vez de
+   ensanchar el botón: al ensancharse empujaba el título, la cabecera cambiaba de
+   alto, el botón se iba de debajo del ratón y volvía (la pantalla temblaba). */
+.page-actions .btn-icono { position: relative; overflow: visible; }
+.page-actions .btn-icono .tab-txt,
+.page-actions .btn-icono:hover .tab-txt,
+.page-actions .btn-icono:focus-visible .tab-txt {
+  position: absolute; top: calc(100% + 6px); left: 50%; z-index: 30;
+  max-width: none; margin: 0; padding: 4px 9px; border-radius: 8px;
+  background: var(--ink, #0F172A); color: #fff; box-shadow: var(--shadow-sm, 0 2px 8px rgba(15, 23, 42, .18));
+  font-size: .74rem; font-weight: 600; line-height: 1.3; white-space: nowrap;
+  pointer-events: none; transition: opacity .14s ease, transform .14s ease;
+}
+.page-actions .btn-icono .tab-txt { opacity: 0; transform: translate(-50%, -3px); }
+.page-actions .btn-icono:hover .tab-txt,
+.page-actions .btn-icono:focus-visible .tab-txt { opacity: 1; transform: translate(-50%, 0); }
+html.dark .page-actions .btn-icono .tab-txt { background: #E2E8F0; color: #0F172A; }
 @media (max-width: 640px) {
   .page-actions { width: 100%; }
   .page-actions > * { flex: 1; justify-content: center; }
