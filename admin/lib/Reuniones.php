@@ -332,4 +332,72 @@ class Reuniones
         return self::etiqueta((array)$reunion['dias']) . ($hora ? ' · ' . $hora : '')
              . ' · hasta ' . (string)$reunion['hasta'];
     }
+
+    /* ---------- Choques en Zoom ---------- */
+
+    /**
+     * Zoom es UNA sola cuenta para todo el panel: dos reuniones a la misma hora
+     * se pisan (la gente entra y se encuentra con otra). Devuelve la primera
+     * reunión de Zoom que se cruza con la que se quiere crear o mover, en
+     * cualquier proyecto y con sus repeticiones, o null si la hora está libre.
+     * Pegadas (una acaba a las 10:00 y la otra empieza a las 10:00) no chocan.
+     *
+     * @return array{reunion: array, inicio: int, fin: int}|null
+     */
+    public static function choqueZoom(string $inicio, int $duracion, array $dias = [], string $hasta = '', int $excluirId = 0): ?array
+    {
+        $dur = max(1, $duracion) * 60;
+        $propias = self::inicios($inicio, $dias, $hasta);
+        if (!$propias) return null;
+        $min = min($propias);
+        $max = max($propias) + $dur;
+        foreach ((new ReunionRepo())->todas() as $r) {
+            if ((int)($r['id'] ?? 0) === $excluirId || ($r['plataforma'] ?? 'zoom') !== 'zoom') continue;
+            $durR = max(1, (int)($r['duracion'] ?? 60)) * 60;
+            $serie = !empty($r['recurrente']);
+            foreach (self::inicios((string)($r['inicio'] ?? ''), $serie ? (array)($r['dias'] ?? []) : [], $serie ? (string)($r['hasta'] ?? '') : '') as $t) {
+                if ($t + $durR <= $min || $t >= $max) continue;
+                foreach ($propias as $p) {
+                    if ($p < $t + $durR && $t < $p + $dur) return ['reunion' => $r, 'inicio' => $t, 'fin' => $t + $durR];
+                }
+            }
+        }
+        return null;
+    }
+
+    /** Los inicios (timestamps) de una reunión: el suyo, o el de cada día si se repite. */
+    private static function inicios(string $inicio, array $dias, string $hasta): array
+    {
+        if (trim($inicio) === '') return [];
+        $dias = self::diasValidos($dias);
+        $fechas = $dias && $hasta !== '' ? self::fechasOcurrencias($inicio, $dias, $hasta) : [substr($inicio, 0, 16)];
+        return array_values(array_filter(array_map(fn($f) => strtotime($f) ?: 0, $fechas)));
+    }
+
+    /**
+     * El aviso para quien la quería a esa hora: con qué choca y, si es una
+     * reunión suelta, desde qué hora está libre (con la misma duración).
+     */
+    public static function textoChoque(array $c, int $duracion, bool $serie = false): string
+    {
+        $r = $c['reunion'];
+        $p = (new ProyectoRepo())->buscar((int)($r['proyecto_id'] ?? 0));
+        $txt = 'Zoom ya está ocupado a esa hora: «' . ($r['topic'] ?? 'Reunión') . '»' . ($p ? ' (' . $p['nombre'] . ')' : '')
+            . ' el ' . date('d/m', $c['inicio']) . ' de ' . date('H:i', $c['inicio']) . ' a ' . date('H:i', $c['fin']) . '.';
+        if (!$serie && ($libre = self::libreDesde($c['fin'], $duracion))) {
+            $txt .= ' Está libre desde las ' . date('H:i', $libre) . (date('Y-m-d', $libre) !== date('Y-m-d', $c['inicio']) ? ' del ' . date('d/m', $libre) : '') . '.';
+        }
+        return $txt . ' Elige otra hora o usa un enlace propio.';
+    }
+
+    /** La primera hora, desde $ts, en que cabe una reunión de $duracion minutos sin chocar. */
+    private static function libreDesde(int $ts, int $duracion): int
+    {
+        for ($i = 0; $i < 12; $i++) {
+            $c = self::choqueZoom(date('Y-m-d H:i', $ts), $duracion);
+            if (!$c) return $ts;
+            $ts = $c['fin'];
+        }
+        return 0;
+    }
 }

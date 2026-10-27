@@ -56,7 +56,7 @@ $accionesDeCualquiera = [
     'deploy_registrar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
-    'reunion_crear', 'reunion_editar', 'reunion_eliminar',
+    'reunion_crear', 'reunion_editar', 'reunion_eliminar', 'reunion_choque',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
     // El horario de reuniones fijas lo escribe quien lleva cada proyecto (su
     // Scrum Master o su PO); dentro se comprueba con puedeHorarioDelProyecto().
@@ -141,6 +141,7 @@ function relCrearReunion(array $rev, int $pid, array $invitados, string $pedida,
         $reu = $reuniones->crear($base + ['plataforma' => 'meet', 'gcal_event' => (string)($creada['event'] ?? ''), 'join_url' => (string)($creada['meet'] ?? '')]);
     } else {
         if (!Zoom::listo()) return 'Zoom no está configurado (Ajustes → Zoom).';
+        if ($choque = Reuniones::choqueZoom($inicio, $dur)) return Reuniones::textoChoque($choque, $dur);
         $creada = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
         if (isset($creada['error'])) return (string)$creada['error'];
         $reu = $reuniones->crear($base + ['plataforma' => 'zoom', 'zoom_id' => (string)($creada['id'] ?? ''), 'join_url' => $creada['join_url'] ?? '',
@@ -189,6 +190,7 @@ function relMoverReunion(array $antes, array $rev, ProyectoRepo $proyectos, Miem
             ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '', 'invitados' => $emails]);
         if ($ok !== true) return ' La revisión se movió, pero la reunión de Meet no: ' . $ok;
     } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
+        if ($choque = Reuniones::choqueZoom($inicio, $dur, [], '', (int)$reu['id'])) return ' La revisión se movió, pero la reunión de Zoom no: ' . Reuniones::textoChoque($choque, $dur);
         $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
         if ($ok !== true) return ' La revisión se movió, pero la reunión de Zoom no: ' . $ok;
     }
@@ -4328,6 +4330,10 @@ switch ($accion) {
             if (!Zoom::listo()) {
                 redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom (o crea la reunión con Meet).', 'error');
             }
+            // Una sola cuenta de Zoom para todo el panel: a la hora de otra reunión, no
+            if ($choque = Reuniones::choqueZoom($inicio, $dur, $recurrente ? $dias : [], $recurrente ? $hasta : '')) {
+                redirigir($volver, Reuniones::textoChoque($choque, $dur, (bool)$recurrente), 'error');
+            }
             $creada = Zoom::crearReunion([
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur,
                 'dias'  => $dias,  'hasta'  => $hasta,
@@ -4383,6 +4389,27 @@ switch ($accion) {
             . ($avisados  ? ' ' . $avisados . ' invitado(s) notificado(s) por correo.' : '')
             . ($agendados ? ' Agendada en ' . $agendados . ' calendario(s).' : ''));
 
+    case 'reunion_choque':
+        // Para el formulario de reunión: ¿Zoom está libre a esa hora? Se pregunta al
+        // cambiar la fecha, la duración o la repetición, y si choca se bloquea «Crear».
+        header('Content-Type: application/json; charset=utf-8');
+        $reuC = (int)($_POST['id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$_POST['id']) : null;
+        $pidC = $reuC ? (int)$reuC['proyecto_id'] : (int)($_POST['proyecto_id'] ?? 0);
+        $platC = $reuC ? (string)($reuC['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pidC));
+        $inicioC = str_replace('T', ' ', trim((string)($_POST['inicio'] ?? '')));
+        $durC = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
+        $serieC = !empty($_POST['recurrente']);
+        $diasC = $serieC ? Reuniones::diasValidos($_POST['dias'] ?? []) : [];
+        $hastaC = $serieC ? trim((string)($_POST['hasta'] ?? '')) : '';
+        if ($serieC && $diasC) $inicioC = Reuniones::primerInicio($inicioC, $diasC);
+        // Editando sin tocar el horario: lo que ya estaba no se vuelve a juzgar
+        $mismoC = $reuC && $inicioC === (string)($reuC['inicio'] ?? '') && $durC === (int)($reuC['duracion'] ?? 0)
+            && $serieC === !empty($reuC['recurrente']) && $hastaC === (string)($reuC['hasta'] ?? '')
+            && $diasC === Reuniones::diasValidos($reuC['dias'] ?? []);
+        $choqueC = !$mismoC && $platC === 'zoom' && $pidC > 0 && puedeReunionesDelProyecto($pidC) && strtotime($inicioC)
+            ? Reuniones::choqueZoom($inicioC, $durC, $diasC, $hastaC, (int)($reuC['id'] ?? 0)) : null;
+        exit(json_encode($choqueC ? ['libre' => false, 'texto' => Reuniones::textoChoque($choqueC, $durC, $serieC)] : ['libre' => true], JSON_UNESCAPED_UNICODE));
+
     case 'reunion_editar':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
@@ -4406,6 +4433,14 @@ switch ($accion) {
         if (substr($inicio, 0, 16) !== substr((string)($reu['inicio'] ?? ''), 0, 16)) reunionNoPasada($inicio, $volver);
         $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
         $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
+        // En Zoom, moverla a la hora de otra reunión no (sumar invitados a una que ya estaba, sí)
+        $cambiaHorario = $inicio !== (string)($reu['inicio'] ?? '') || $duracion !== (int)($reu['duracion'] ?? 0)
+            || (bool)$recurrente !== !empty($reu['recurrente']) || (string)$hasta !== (string)($reu['hasta'] ?? '')
+            || Reuniones::diasValidos($dias) !== Reuniones::diasValidos($reu['dias'] ?? []);
+        if (!$esMeet && ($reu['plataforma'] ?? 'zoom') === 'zoom' && $cambiaHorario
+            && ($choque = Reuniones::choqueZoom($inicio, $duracion, $recurrente ? $dias : [], $recurrente ? $hasta : '', (int)$reu['id']))) {
+            redirigir($volver, Reuniones::textoChoque($choque, $duracion, (bool)$recurrente), 'error');
+        }
 
         // Actualiza en la plataforma correspondiente
         if ($esMeet && !empty($reu['gcal_event'])) {

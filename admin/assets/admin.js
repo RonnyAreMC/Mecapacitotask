@@ -3032,6 +3032,57 @@ document.querySelectorAll('.js-repetir').forEach((chk) => {
   pintar();
 });
 
+/* ---------- Reuniones: Zoom es una sola cuenta ----------
+   Al elegir la fecha, la duración o la repetición se pregunta si Zoom ya tiene
+   otra reunión a esa hora (en cualquier proyecto). Si choca, sale el aviso con
+   desde qué hora está libre y «Crear» / «Guardar» se bloquea: así no se pierde
+   lo escrito con un rechazo del servidor (que igual lo comprueba). */
+['dlg-nueva-reunion', 'dlg-editar-reunion'].forEach((idDlg) => {
+  const form = document.querySelector('#' + idDlg + ' form');
+  if (!form) return;
+  const enviar = form.querySelector('button[type="submit"]');
+  const aviso = document.createElement('p');
+  aviso.className = 'reu-choque';
+  aviso.setAttribute('role', 'alert');
+  aviso.hidden = true;
+  form.querySelector('.campo-doble')?.insertAdjacentElement('afterend', aviso);
+  let espera = 0;
+  let pedido = 0;
+  const marcar = (texto) => {
+    aviso.hidden = !texto;
+    aviso.innerHTML = texto ? '<i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i><span></span>' : '';
+    if (texto) aviso.querySelector('span').textContent = texto;
+    if (enviar) { enviar.disabled = !!texto; enviar.title = texto ? 'Zoom está ocupado a esa hora' : ''; }
+  };
+  const revisar = () => {
+    clearTimeout(espera);
+    espera = setTimeout(async () => {
+      // Meet o un enlace propio no comparten la cuenta de Zoom
+      const plat = form.querySelector('input[name="plataforma"]')?.value || '';
+      if (plat && plat !== 'zoom') { marcar(''); return; }
+      const datos = new FormData(form);
+      datos.set('accion', 'reunion_choque');
+      const n = ++pedido;
+      try {
+        const r = await fetch('actions.php', { method: 'POST', body: datos, credentials: 'same-origin' });
+        const j = await r.json();
+        if (n === pedido) marcar(j.libre ? '' : (j.texto || ''));
+      } catch (e) {
+        if (n === pedido) marcar('');
+      }
+    }, 250);
+  };
+  form.addEventListener('change', revisar);
+  form.addEventListener('input', (e) => { if (e.target.name === 'inicio') revisar(); });
+  form.querySelectorAll('[data-plat]').forEach((b) => b.addEventListener('click', () => setTimeout(revisar, 0)));
+  // Al abrir el modal (también al editar otra reunión: ya trae sus valores)
+  const dlg = form.closest('dialog');
+  if (dlg) {
+    new MutationObserver(() => { if (dlg.open) { marcar(''); revisar(); } })
+      .observe(dlg, { attributes: true, attributeFilter: ['open'] });
+  }
+});
+
 // Formularios de persona: vista previa en vivo (avatar, nombre, rol, git, color, foto)
 document.querySelectorAll('.form-persona').forEach((form) => {
   const campo = (n) => form.querySelector('[name="' + n + '"]');

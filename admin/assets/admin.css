@@ -2336,6 +2336,16 @@ html.dark .reu-plat.plat-meet { color: #7BAAF7; }
 /* Repetición semanal: todo en una línea bajo la casilla — fichas L M X J V S D
    y la fecha de fin. Sin caja ni títulos, para no alargar el modal. */
 .repetir-caja { gap: 10px; }
+/* Zoom ya tiene otra reunión a esa hora: el aviso bajo la fecha (admin.js) */
+.reu-choque {
+  display: flex; align-items: flex-start; gap: 8px; margin: -4px 0 0;
+  padding: 10px 12px; border-radius: 12px;
+  background: color-mix(in srgb, #DC2626 8%, var(--n-bg)); color: #B91C1C;
+  font-size: .82rem; font-weight: 600; line-height: 1.45;
+}
+.reu-choque[hidden] { display: none; }
+.reu-choque i { flex: none; margin-top: 2px; }
+html.dark .reu-choque { background: rgba(220, 38, 38, .14); color: #FCA5A5; }
 .repetir-detalle {
   display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px;
   margin-left: 41px;                     /* alineado con el texto de la casilla */

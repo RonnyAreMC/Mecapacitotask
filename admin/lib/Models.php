@@ -2085,6 +2085,12 @@ class ReunionRepo
         $this->store = new JsonStore('reuniones');
     }
 
+    /** Todas, de todos los proyectos (para ver si Zoom ya está ocupado a una hora) */
+    public function todas(): array
+    {
+        return $this->store->all();
+    }
+
     /** Reuniones de un proyecto, de la más reciente a la más antigua. */
     public function delProyecto(int $proyectoId): array
     {
