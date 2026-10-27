@@ -2232,9 +2232,9 @@ $comData = json_encode([
         <div class="campo" data-resumen="<?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?>"><span>Plataforma</span>
           <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
           <div class="subvista-toggle nr-plat">
-            <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
-            <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
-            <button type="button" class="subvista-btn <?= $platDefecto === 'enlace' ? 'active' : '' ?>" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
+            <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> <b>Zoom</b><small>Se graba y la grabación llega al panel</small></button>
+            <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> <b>Google Meet</b><small>Se crea en tu Google Calendar</small></button>
+            <button type="button" class="subvista-btn <?= $platDefecto === 'enlace' ? 'active' : '' ?>" data-plat="enlace"><i class="fa-solid fa-link"></i> <b>Enlace propio</b><small>Tu propio enlace; no se graba</small></button>
           </div>
           <small class="campo-ayuda nr-meet-hint" <?= $platDefecto === 'meet' ? '' : 'hidden' ?>>La reunión de Meet se crea en TU Google Calendar (necesitas tenerlo conectado en Mi perfil).</small>
         </div>
@@ -2260,8 +2260,8 @@ $comData = json_encode([
         <div class="campo" data-resumen="<?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?>"><span>Plataforma</span>
           <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
           <div class="subvista-toggle nr-plat">
-            <button type="button" class="subvista-btn active" data-plat="<?= e($platDefecto) ?>"><i class="fa-solid fa-video"></i> <?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></button>
-            <button type="button" class="subvista-btn" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
+            <button type="button" class="subvista-btn active" data-plat="<?= e($platDefecto) ?>"><i class="<?= $platDefecto === 'meet' ? 'fa-brands fa-google' : 'fa-solid fa-video' ?>"></i> <b><?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></b><small><?= $platDefecto === 'meet' ? 'Se crea en tu Google Calendar' : 'Se graba y la grabación llega al panel' ?></small></button>
+            <button type="button" class="subvista-btn" data-plat="enlace"><i class="fa-solid fa-link"></i> <b>Enlace propio</b><small>Tu propio enlace; no se graba</small></button>
           </div>
           <small class="campo-ayuda"><?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
         </div>

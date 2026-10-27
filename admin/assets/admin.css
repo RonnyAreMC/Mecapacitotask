@@ -2384,6 +2384,27 @@ html.dark .reu-choque { background: rgba(220, 38, 38, .14); color: #FCA5A5; }
 .hp-op.is-pasada, .hp-op.is-pasada:hover { opacity: .38; border-color: var(--c-border-soft); color: var(--c-text-soft); cursor: not-allowed; }
 .hp-pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin: 0; font-size: .82rem; color: var(--c-text-soft); }
 .hp-sel { font-weight: 700; color: var(--c-text); }
+.hp-vacio { grid-column: 1 / -1; margin: 0; padding: 18px; border-radius: 12px; background: color-mix(in srgb, var(--c-text) 4%, var(--n-bg));
+  text-align: center; font-size: .875rem; color: var(--c-text-soft); }
+/* En el asistente, la plataforma son tarjetas: ícono, nombre y qué implica */
+.dlg-wizard .nr-plat { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 10px; width: 100%; padding: 0; background: none; box-shadow: none; }
+.dlg-wizard .nr-plat .subvista-btn {
+  display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; align-items: center; column-gap: 10px; row-gap: 2px;
+  min-height: 0; padding: 14px; border: 1px solid var(--wz-linea); border-radius: 14px;
+  background: var(--wz-campo); box-shadow: none; text-align: left; white-space: normal;
+  color: var(--wz-tinta); font: inherit; cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.dlg-wizard .nr-plat .subvista-btn > i {
+  grid-row: 1 / 3; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px;
+  background: var(--wz-sec-h); color: var(--wz-tinta-3); font-size: 1rem;
+}
+.dlg-wizard .nr-plat .subvista-btn b { font-size: .9375rem; font-weight: 600; }
+.dlg-wizard .nr-plat .subvista-btn small { font-size: .78rem; line-height: 1.35; color: var(--wz-tinta-2); }
+.dlg-wizard .nr-plat .subvista-btn:hover { border-color: var(--wz-linea-h); }
+.dlg-wizard .nr-plat .subvista-btn.active { border-color: var(--wz-azul); background: var(--wz-azul-suave); box-shadow: 0 0 0 1px var(--wz-azul); }
+.dlg-wizard .nr-plat .subvista-btn.active > i { background: var(--wz-azul); color: #fff; }
+.dlg-wizard .nr-plat .subvista-btn:focus-visible { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
 .hp-sel.is-mal { color: #B91C1C; }
 .hp-ley { display: inline-flex; align-items: center; gap: 6px; }
 .hp-punto { display: inline-block; width: 11px; height: 11px; border-radius: 4px; border: 1px solid var(--c-border-soft); background: var(--n-bg); }
@@ -4711,11 +4732,13 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
   width: min(1000px, calc(100vw - 32px));
   height: min(calc(100dvh - 48px), 680px);
   overflow: hidden;
-  border: 1px solid rgba(15, 23, 42, .08);
+  /* Sin borde y con el fondo del riel por detrás: en las esquinas redondeadas
+     asomaba un filo blanco alrededor del azul. El contorno va como sombra. */
+  border: 0;
   border-radius: 22px;
-  background: var(--wz-sup);
+  background: linear-gradient(90deg, var(--wz-riel-b) 0 300px, var(--wz-sup) 300px 100%);
   color: var(--wz-tinta);
-  box-shadow: 0 24px 60px -24px rgba(15, 23, 42, .35);
+  box-shadow: 0 0 0 1px rgba(15, 23, 42, .08), 0 24px 60px -24px rgba(15, 23, 42, .35);
 }
 html.dark .dlg-wizard {
   --wz-azul-suave: rgba(59, 130, 246, .16);
@@ -4736,8 +4759,7 @@ html.dark .dlg-wizard {
   --wz-riel-b: #172554;
   --wz-anillo: 0 0 0 3px rgba(96, 165, 250, .32);
   --wz-anillo-mal: 0 0 0 3px rgba(248, 113, 113, .28);
-  border-color: rgba(255, 255, 255, .08);
-  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .6);
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .08), 0 24px 60px -24px rgba(0, 0, 0, .6);
 }
 /* La ficha de la tarea es ancha (documentos al lado): sin columna centrada */
 .dlg-detalle-wz { --wz-col: 100000px; }
@@ -5141,7 +5163,8 @@ html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gra
 
   /* El modal ocupa casi toda la pantalla y mide lo mismo en cada paso: sin
      saltos de alto. Arriba, una banda azul con los círculos. */
-  .dlg-meca.dlg-wizard { --wz-margen: 20px; width: calc(100vw - 24px); height: calc(100dvh - 24px); max-height: none; border-radius: 20px; }
+  .dlg-meca.dlg-wizard { --wz-margen: 20px; width: calc(100vw - 24px); height: calc(100dvh - 24px); max-height: none; border-radius: 20px;
+    background: linear-gradient(180deg, var(--wz-riel-a) 0 40px, var(--wz-sup) 40px 100%); }
   .dlg-wizard .wz { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
   .dlg-wizard .wz-riel { gap: 0; overflow: visible; padding: 16px 14px; background: linear-gradient(165deg, var(--wz-riel-a) 0%, var(--wz-riel-b) 100%); }
   .dlg-wizard .wz-pasos { width: 100%; gap: 0; }
@@ -7111,7 +7134,7 @@ html.dark .pf-card-tit > i, html.dark .pf-grid .pf-nota i { color: #93C5FD; }
 .pf-muestra { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--av-c1); box-shadow: 0 0 0 2px var(--n-bg), 0 0 0 3px var(--c-border-soft); }
 
 /* Modales de la ficha: la piel de los asistentes (.dlg-wizard) en un solo paso */
-.dlg-meca.dlg-wizard.pf-dlg { width: min(520px, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 48px); overflow-y: auto; }
+.dlg-meca.dlg-wizard.pf-dlg { width: min(520px, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 48px); overflow-y: auto; background: var(--wz-sup); }
 /* fit-content y no auto: el modal nativo va anclado arriba y abajo, y con
    auto se estiraba a toda la pantalla aunque tuviera dos campos */
 .pf-dlg-cab { display: flex; align-items: flex-start; gap: 14px; padding: 26px 22px 0 28px; }

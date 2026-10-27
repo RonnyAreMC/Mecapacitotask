@@ -2995,7 +2995,7 @@ document.querySelectorAll('.nr-plat').forEach((tg) => {
     const plat = b.dataset.plat;
     tg.querySelectorAll('[data-plat]').forEach((x) => x.classList.toggle('active', x === b));
     if (hidden) hidden.value = plat;
-    if (campo && campo.dataset.resumen !== undefined) campo.dataset.resumen = b.textContent.trim();
+    if (campo && campo.dataset.resumen !== undefined) campo.dataset.resumen = (b.querySelector('b') || b).textContent.trim();
     if (hint) hint.hidden = plat !== 'meet';
     if (enlace) enlace.hidden = plat !== 'enlace';
     // Obligatorio solo cuando es la opción elegida: si no, el navegador
@@ -3110,6 +3110,8 @@ const SelectorHora = {
         op.className = 'hp-op';
         op.setAttribute('role', 'option');
         op.dataset.min = s;
+        // Hoy, lo que ya pasó ni se muestra: arriba quedan las horas próximas
+        if (pasada(f, s)) continue;
         const c = choca(s);
         op.innerHTML = '<b>' + this.doce(s) + '</b>' + (c ? '<small>ocupado</small>' : '');
         // aria-disabled y no disabled: así la ayuda (con qué choca) sale al pasar el mouse
@@ -3117,14 +3119,11 @@ const SelectorHora = {
           op.classList.add('is-ocupado');
           op.setAttribute('aria-disabled', 'true');
           op.title = 'Ocupado: «' + c.tema + '»' + (c.proyecto ? ' (' + c.proyecto + ')' : '') + ', de ' + this.doce(c.ini) + ' a ' + this.doce(c.fin);
-        } else if (pasada(f, s)) {
-          op.classList.add('is-pasada');
-          op.setAttribute('aria-disabled', 'true');
-          op.title = 'Ya pasó';
         }
         if (v && v.f === f && v.min === s) { op.classList.add('is-sel'); op.setAttribute('aria-selected', 'true'); }
         grid.appendChild(op);
       }
+      if (!grid.children.length) grid.innerHTML = '<p class="hp-vacio">Esta parte del día ya pasó: elige la siguiente.</p>';
       // Lo elegido, en palabras (también es lo que dice la confirmación)
       const texto = v ? nombreDia(v.f) + ' · ' + this.doce(v.min) + ' – ' + this.doce(v.min + dur()) : '';
       if (selTxt) {
@@ -3132,6 +3131,22 @@ const SelectorHora = {
         selTxt.classList.toggle('is-mal', !!(v && v.f === f && choca(v.min)));
       }
       hp.dataset.resumen = texto;
+    };
+
+    // Lo elegido (o la primera hora libre) queda al centro de lo que se ve
+    const centrar = () => {
+      const op = grid.querySelector('.is-sel') || grid.querySelector('.hp-op:not([aria-disabled])');
+      if (op && op.offsetParent) op.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    };
+    // El turno que tiene horas por delante: si en el de lo elegido ya no queda nada, el siguiente
+    const turnoUtil = (pref) => {
+      const f = fecha.value;
+      const orden = ['m', 't', 'n'];
+      for (const k of orden.slice(orden.indexOf(pref)).concat(orden)) {
+        const [a, b] = this.TURNOS[k];
+        for (let s = a; s < b; s += 15) if (!pasada(f, s)) return k;
+      }
+      return pref;
     };
 
     const cargar = async () => {
@@ -3158,6 +3173,7 @@ const SelectorHora = {
       }
       grid.classList.remove('is-cargando');
       pintar();
+      centrar();
     };
 
     const elegir = (f, min) => {
@@ -3171,7 +3187,7 @@ const SelectorHora = {
       if (!op || op.getAttribute('aria-disabled') === 'true') return;
       elegir(fecha.value, +op.dataset.min);
     });
-    tabs.forEach((t) => t.addEventListener('click', () => { turno = t.dataset.turno; pintar(); }));
+    tabs.forEach((t) => t.addEventListener('click', () => { turno = t.dataset.turno; pintar(); centrar(); }));
     // Otro día: se queda la misma hora, en el día nuevo
     fecha.addEventListener('change', () => {
       const v = valor();
@@ -3187,11 +3203,15 @@ const SelectorHora = {
       const v = valor();
       fecha.value = v ? v.f : this.hoy().f;
       fecha.dispatchEvent(new Event('md-sync'));
-      turno = v ? this.turnoDe(v.min) : 'm';
+      turno = turnoUtil(v ? this.turnoDe(v.min) : 'm');
       cargar();
     };
     const dlg = form.closest('dialog');
     if (dlg) new MutationObserver(() => { if (dlg.open) abrir(); }).observe(dlg, { attributes: true, attributeFilter: ['open'] });
+    // En el asistente, el paso del día y la hora se ve después: al aparecer, se centra en lo próximo
+    const panel = hp.closest('.wz-panel');
+    if (panel) new MutationObserver(() => { if (panel.classList.contains('activo')) requestAnimationFrame(centrar); })
+      .observe(panel, { attributes: true, attributeFilter: ['class'] });
     abrir();
   },
 };
