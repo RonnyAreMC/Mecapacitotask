@@ -355,6 +355,9 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
 <form method="post" action="actions.php" id="f-json" class="inline-form" hidden data-descarga>
   <input type="hidden" name="accion" value="mis_tareas_json">
 </form>
+<form method="post" action="actions.php" id="f-contexto" class="inline-form" hidden data-descarga>
+  <input type="hidden" name="accion" value="contexto_tareas_json">
+</form>
 
 <!-- Asistente: conectar Claude Code, Codex, Copilot… (recién creado el token, se abre en el paso 2) -->
 <dialog id="dlg-asistente" class="dlg-meca dlg-wizard"<?= $tkNuevo !== '' ? ' data-abrir-al-cargar' : '' ?>>
@@ -416,6 +419,15 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
         <div class="pf-as-guia">
           <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-copiar" data-copiar="<?= e($guiaApi) ?>"><i class="fa-regular fa-copy"></i> Copiar</button>
           <pre><?= e($guiaApi) ?></pre>
+        </div>
+        <?php /* El formato de tareas con los releases e ítems de todos los equipos, en vivo */ ?>
+        <div class="pf-as-contexto">
+          <span class="pf-as-contexto-ic"><i class="fa-solid fa-diagram-project" aria-hidden="true"></i></span>
+          <div>
+            <b>Formato de tareas y releases</b>
+            <small>El formato para crear tareas, los releases y los ítems de todos los equipos: dáselo a tu asistente para que amarre cada tarea a su ítem.</small>
+          </div>
+          <button type="submit" form="f-contexto" class="btn-outline btn-meca btn-sm btn-azul"><i class="fa-solid fa-file-arrow-down"></i> Descargar</button>
         </div>
         <p class="pf-as-otro">¿Sin token? También puedes
           <button type="submit" form="f-json" class="pf-as-link"><i class="fa-solid fa-file-arrow-down"></i> descargar tus tareas en JSON</button>

@@ -7202,6 +7202,13 @@ html.dark .pf-as-estado.is-on { color: #4ADE80; }
   color: var(--wz-tinta); font-size: .76rem; line-height: 1.55; white-space: pre-wrap;
 }
 .pf-as-otro { margin: 0; font-size: .84rem; line-height: 1.6; color: var(--wz-tinta-2); }
+/* El formato de tareas y releases: una fila con su descarga */
+.pf-as-contexto { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border: 1px solid var(--wz-linea); border-radius: 12px; background: var(--wz-campo); }
+.pf-as-contexto > div { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.pf-as-contexto b { font-size: .875rem; font-weight: 600; color: var(--wz-tinta); }
+.pf-as-contexto small { font-size: .78rem; line-height: 1.4; color: var(--wz-tinta-2); }
+.pf-as-contexto-ic { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px; background: var(--wz-azul-suave); color: var(--wz-azul); }
+.pf-as-contexto .btn-meca { flex: none; }
 .pf-as-link {
   display: inline; padding: 0; border: 0; background: none; cursor: pointer;
   color: var(--wz-azul-txt); font: inherit; font-weight: 500; text-decoration: underline; text-underline-offset: 2px;

@@ -35,7 +35,7 @@ $accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar', 
 // Los intercambios los pide y responde la propia gente, no un administrador:
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
-    'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
+    'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json', 'contexto_tareas_json',
     // El token de la API para Claude Code: cada quien el suyo (Mi perfil)
     'api_token_crear', 'api_token_quitar',
     'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
@@ -2037,6 +2037,19 @@ switch ($accion) {
         // Se ve una sola vez: va por la sesión, no por la URL
         $_SESSION['api_token_nuevo'] = ApiToken::crear($yoTk);
         redirigir('perfil.php#claude-api', 'Token creado. Cópialo ahora: es la única vez que se ve.');
+
+    case 'contexto_tareas_json':
+        // El formato de tareas con los releases, los equipos y los ítems de todos
+        // (lib/ContextoTareas.php), para dárselo al asistente de código. Mi perfil.
+        if (!Auth::usuario()) {
+            redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        }
+        require_once __DIR__ . '/lib/ContextoTareas.php';
+        header('Content-Type: application/json; charset=utf-8');
+        header('Content-Disposition: attachment; filename="innotech-hub-tareas-y-releases.json"');
+        header('Cache-Control: no-store');
+        echo json_encode(ContextoTareas::generar(), JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+        exit;
 
     case 'mis_tareas_json':
         // Exporta MIS tareas como JSON, para pasárselo a Claude junto con el
