@@ -3379,6 +3379,25 @@ html.dark .chip-copiar code { background: var(--c-bg-soft); }
 }
 .adj-elegir:hover { background: rgba(var(--c-secondary-rgb), .08); }
 .adj-elegir input[type="file"] { display: none; }
+/* Documentos de una tarea: el aspecto del componente de subida (fx-zona),
+   en una sola fila y liviano. El input queda enfocable (Tab) aunque no se vea. */
+.adj-zona {
+  position: relative; align-self: stretch;
+  display: flex; align-items: center; gap: 12px;
+  padding: 12px 14px; border-radius: 12px;
+  border: 1px dashed color-mix(in srgb, var(--c-secondary) 35%, var(--c-border-soft));
+  background: color-mix(in srgb, var(--c-secondary) 3%, transparent);
+  color: var(--c-text);
+  transition: border-color .18s ease, background-color .18s ease;
+}
+.adj-zona:hover,
+.adj-zona.is-sobre { border-color: var(--c-secondary); background: color-mix(in srgb, var(--c-secondary) 7%, transparent); }
+.adj-zona.is-sobre { border-style: solid; }
+.adj-zona:focus-within { outline: 2px solid var(--c-secondary); outline-offset: 2px; }
+.adj-zona input[type="file"] { display: block; position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+.adj-zona .fx-up { flex: none; width: 36px; height: 36px; border-radius: 10px; font-size: .95rem; }
+.adj-zona .fx-zona-txt b { font-size: .875rem; font-weight: 600; }
+.adj-zona .fx-zona-txt small { font-size: .75rem; color: var(--c-text-soft); }
 /* Contenido de la previsualización (lo usa el panel del detalle) */
 .adj-visor-frame { width: 100%; height: 100%; border: 0; background: #fff; }
 /* La imagen se ve entera dentro del visor, sin recortarse ni deformarse; el
@@ -4405,20 +4424,9 @@ html body .btn-cargando.btn-cargando {
    Modal en formato apaisado con stepper (asistente por pasos).
    El riel de pasos va vertical a la izquierda; en pantallas
    estrechas se vuelve una tira horizontal arriba.
+   Lo de aquí es lo común con el asistente de Mi perfil
+   (.wz-inline); la piel de los modales va más abajo.
    ========================================================= */
-/* Alto fijo: al añadir archivos (o al cambiar de paso) el modal crecía y todo
-   bailaba. Ahora mide siempre lo mismo y lo que se pasa se recorre por dentro. */
-.dlg-wizard {
-  width: min(940px, calc(100vw - 40px));
-  height: min(calc(100dvh - 80px), 660px);
-}
-.dlg-wizard .wz { height: 100%; min-height: 0; }
-.dlg-wizard .wz-cuerpo { min-height: 0; }
-/* El paso activo es lo único que se desplaza; cabecera y pie se quedan fijos */
-.dlg-wizard .wz-panel.activo { overflow-y: auto; min-height: 0; padding-right: 4px; }
-.dlg-wizard .wz-cuerpo > header,
-.dlg-wizard .wz-pie { flex: none; }
-.dlg-wizard .wz,
 .wz-inline {
   display: grid;
   grid-template-columns: 274px 1fr;
@@ -4559,7 +4567,6 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
   padding: 10px 12px; border-radius: 10px; background: var(--c-bg-hundido);
 }
 
-/* ----- Estrecho: el riel pasa a tira horizontal arriba ----- */
 /* Version en linea (pagina Mi perfil): el asistente vive dentro de una card */
 .perfil-card { padding: 0; overflow: hidden; }
 .perfil-card:hover { transform: none; }
@@ -4574,13 +4581,485 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
 .persona-preview.pp-riel .pp-nombre { font-size: 1.05rem; }
 .perfil-aviso { color: var(--c-naranja); font-weight: 600; }
 
+/* =========================================================
+   Los asistentes en modal (.dlg-wizard), a la manera de un alta
+   de producto: riel azul con los pasos (círculo con ícono, nombre
+   y una línea de qué va), y a la derecha el formulario en una
+   columna centrada sobre un fondo claro que baja a azul muy suave.
+   Arriba «Paso 2/4», el título, la ayuda y una línea; abajo los
+   botones, siempre a la vista.
+   Los colores del panel se reasignan aquí dentro (--n-bg, --sh-*,
+   --c-*), así las piezas compartidas (selects, calendario,
+   dependencias, adjuntos...) se ven planas y con borde suave sin
+   repintar cada una. Vidrio solo en lo que flota: los botones del
+   pie, los desplegables y la lente al pasar el mouse.
+   ========================================================= */
+.dlg-wizard {
+  --wz-azul: #2563EB;
+  --wz-azul-h: #1D4ED8;
+  --wz-azul-suave: #EFF6FF;
+  --wz-azul-borde: #BFDBFE;
+  --wz-azul-txt: #1D4ED8;
+  --wz-verde: #16A34A;
+  --wz-rojo: #DC2626;
+  --wz-rojo-txt: #B91C1C;
+  --wz-sup: #FFFFFF;
+  --wz-fondo-fin: #F5F9FF;   /* abajo del degradado: el #64748B aún da 4.5:1 */
+  --wz-sec: #F8FAFC;
+  --wz-sec-h: #F1F5F9;
+  --wz-campo: #FFFFFF;
+  --wz-tinta: #172033;
+  --wz-tinta-2: #64748B;
+  --wz-tinta-3: #475569;
+  --wz-linea: #E2E8F0;
+  --wz-linea-h: #CBD5E1;
+  /* Riel: el azul baja a uno más hondo; el texto secundario en blanco al
+     80% da 4.8:1 arriba y casi 6:1 abajo */
+  --wz-riel-a: #1D4ED8;
+  --wz-riel-b: #1E40AF;
+  --wz-anillo: 0 0 0 3px rgba(37, 99, 235, .18);
+  --wz-anillo-mal: 0 0 0 3px rgba(220, 38, 38, .15);
+  --wz-pie-h: 84px;
+  --wz-col: 580px;
+  /* Margen a los lados para que la columna quede centrada (en % del cuerpo) */
+  --wz-margen: max(32px, calc((100% - var(--wz-col)) / 2));
+  --wz-curva: cubic-bezier(.2, .7, .2, 1);
+
+  --n-bg: var(--wz-sup);
+  --n-card: var(--wz-sup);
+  --c-bg: var(--wz-sup);
+  --c-bg-soft: var(--wz-campo);
+  --c-bg-hundido: var(--wz-sec);
+  --c-text: var(--wz-tinta);
+  --c-text-muted: var(--wz-tinta-3);
+  --c-text-soft: var(--wz-tinta-2);
+  --c-border: var(--wz-linea-h);
+  --c-border-soft: var(--wz-linea);
+  --c-secondary: var(--wz-azul);
+  --c-secondary-rgb: 37, 99, 235;
+  --sh-card: 0 0 0 1px var(--wz-linea);
+  --sh-soft: 0 0 0 1px var(--wz-linea);
+  --sh-mini: 0 0 0 1px var(--wz-linea);
+  --sh-inset: inset 0 0 0 1px var(--wz-linea);
+  --sh-inset-mini: inset 0 0 0 1px var(--wz-linea);
+  --clay-pop: none;
+
+  /* Alto fijo: al añadir archivos (o al cambiar de paso) el modal crecía y
+     todo bailaba. Mide siempre lo mismo y lo largo se recorre por dentro. */
+  width: min(1000px, calc(100vw - 32px));
+  height: min(calc(100dvh - 48px), 680px);
+  overflow: hidden;
+  border: 1px solid rgba(15, 23, 42, .08);
+  border-radius: 22px;
+  background: var(--wz-sup);
+  color: var(--wz-tinta);
+  box-shadow: 0 24px 60px -24px rgba(15, 23, 42, .35);
+}
+html.dark .dlg-wizard {
+  --wz-azul-suave: rgba(59, 130, 246, .16);
+  --wz-azul-borde: rgba(96, 165, 250, .42);
+  --wz-azul-txt: #93C5FD;
+  --wz-rojo-txt: #FCA5A5;
+  --wz-sup: #1F2740;
+  --wz-fondo-fin: #1B2338;
+  --wz-sec: #252E4A;
+  --wz-sec-h: #2B3555;
+  --wz-campo: #252E4A;
+  --wz-tinta: #E9EDF6;
+  --wz-tinta-2: #A3AEC2;
+  --wz-tinta-3: #C5CDDA;
+  --wz-linea: rgba(255, 255, 255, .10);
+  --wz-linea-h: rgba(255, 255, 255, .20);
+  --wz-riel-a: #1E3A8A;
+  --wz-riel-b: #172554;
+  --wz-anillo: 0 0 0 3px rgba(96, 165, 250, .32);
+  --wz-anillo-mal: 0 0 0 3px rgba(248, 113, 113, .28);
+  border-color: rgba(255, 255, 255, .08);
+  box-shadow: 0 24px 60px -24px rgba(0, 0, 0, .6);
+}
+/* La ficha de la tarea es ancha (documentos al lado): sin columna centrada */
+.dlg-detalle-wz { --wz-col: 100000px; }
+/* El asistente de IA (dlg-tcw) mide lo que su contenido: ahí el modal sí se desplaza */
+.dlg-meca.dlg-wizard.dlg-tcw { overflow-y: auto; }
+.dlg-wizard .wz {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  align-items: stretch;
+  gap: 0; padding: 0;
+  height: 100%; min-height: 0;
+}
+
+/* ----- Riel azul ----- */
+.dlg-wizard .wz-riel {
+  position: relative;
+  gap: 40px;
+  min-height: 0; overflow-y: auto;
+  padding: 32px 22px 64px;
+  border: 0; border-radius: 0;
+  color: #fff;
+  /* Arcos de línea fina abajo, como el plano de una fachada */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='250' viewBox='0 0 300 250' fill='none' stroke='white' stroke-opacity='.11'%3E%3Cpath d='M-20 250V130a62 62 0 0 1 124 0v120'/%3E%3Cpath d='M104 250V96a78 78 0 0 1 156 0v154'/%3E%3Cpath d='M260 250V150a52 52 0 0 1 104 0'/%3E%3Cpath d='M0 54h300M104 0v54'/%3E%3C/svg%3E") left bottom / 100% auto no-repeat,
+    linear-gradient(165deg, var(--wz-riel-a) 0%, var(--wz-riel-b) 100%);
+}
+.dlg-wizard .wz-marca { flex-direction: row; align-items: center; gap: 10px; padding: 0 6px; }
+.dlg-wizard .wz-marca .wz-icono {
+  flex: none; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255, 255, 255, .16); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28);
+  color: #fff; font-size: .95rem;
+}
+.dlg-wizard .wz-marca h3 {
+  font-family: inherit; font-size: 1.125rem; font-weight: 600;
+  letter-spacing: -.01em; line-height: 1.3; color: #fff;
+}
+/* El proyecto, al pie del riel */
+.dlg-wizard .wz-marca p {
+  position: absolute; left: 28px; right: 22px; bottom: 24px;
+  font-size: .8125rem; color: rgba(255, 255, 255, .8);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+
+.dlg-wizard .wz-pasos { gap: 18px; }
+.dlg-wizard .wz-paso {
+  align-items: flex-start; gap: 14px;
+  padding: 6px 8px;
+  border-radius: 14px;
+  color: #fff;
+  font-family: inherit;
+  transition: none;
+}
+.dlg-wizard .wz-paso:hover { background: transparent; }
+.dlg-wizard .wz-paso:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.dlg-wizard .wz-paso .wz-txt { gap: 3px; padding-top: 1px; }
+.dlg-wizard .wz-paso b { font-size: .90625rem; font-weight: 600; line-height: 1.3; color: rgba(255, 255, 255, .78); }
+.dlg-wizard .wz-paso small {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  font-size: .78125rem; font-weight: 400; line-height: 1.4; color: rgba(255, 255, 255, .8);
+}
+.dlg-wizard .wz-paso .wz-num {
+  width: 34px; height: 34px;
+  background: rgba(255, 255, 255, .14);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .26);
+  color: rgba(255, 255, 255, .92);
+  font-size: .8125rem; font-weight: 600; font-variant-numeric: tabular-nums;
+  transition: background-color .22s var(--wz-curva), color .22s var(--wz-curva), box-shadow .22s var(--wz-curva);
+}
+.dlg-wizard .wz-paso .wz-num i { font-size: .8125rem; }
+/* Conector: la pista tenue y encima el tramo blanco, que se llena al
+   completar el paso (es la barra de progreso del asistente) */
+.dlg-wizard .wz-paso::before,
+.dlg-wizard .wz-paso::after {
+  content: ''; position: absolute;
+  left: 24.5px; top: 46px; bottom: -18px; width: 1px;
+}
+.dlg-wizard .wz-paso::before { background: rgba(255, 255, 255, .28); }
+.dlg-wizard .wz-paso::after {
+  background: rgba(255, 255, 255, .95);
+  transform: scaleY(0); transform-origin: top;
+  transition: transform .25s var(--wz-curva);
+}
+.dlg-wizard .wz-paso.hecho::after { transform: scaleY(1); }
+.dlg-wizard .wz-paso:last-child::before,
+.dlg-wizard .wz-paso:last-child::after { display: none; }
+
+.dlg-wizard .wz-paso.activo { background: transparent; box-shadow: none; }
+.dlg-wizard .wz-paso.activo b,
+.dlg-wizard .wz-paso.hecho b { color: #fff; }
+.dlg-wizard .wz-paso.activo .wz-num { background: #fff; box-shadow: 0 4px 12px -4px rgba(15, 23, 42, .35); color: var(--wz-riel-a); }
+.dlg-wizard .wz-paso.hecho .wz-num { background: #fff; box-shadow: none; color: var(--wz-verde); }
+.dlg-wizard .wz-paso.hecho .wz-num i { font-size: .875rem; }
+.dlg-wizard .wz-paso.error b { color: #FECACA; }
+.dlg-wizard .wz-paso.error .wz-num { background: var(--wz-rojo); box-shadow: none; color: #fff; }
+
+/* ----- Cuerpo ----- */
+.dlg-wizard .wz-cuerpo {
+  position: relative; padding: 0; min-height: 0;
+  /* Arcos tenues en el canto derecho y el fondo que baja a azul muy suave */
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='90' height='560' viewBox='0 0 90 560' fill='none' stroke='rgb(37,99,235)' stroke-opacity='.09'%3E%3Cpath d='M90 16H64a64 64 0 0 0 0 128h26'/%3E%3Cpath d='M90 160H64a64 64 0 0 0 0 128h26'/%3E%3Cpath d='M90 304H64a64 64 0 0 0 0 128h26'/%3E%3Cpath d='M90 448H64a64 64 0 0 0 0 128'/%3E%3C/svg%3E") right top 40px / 52px auto no-repeat,
+    linear-gradient(180deg, var(--wz-sup) 0%, var(--wz-sup) 40%, var(--wz-fondo-fin) 100%);
+}
+html.dark .dlg-wizard .wz-cuerpo { background: linear-gradient(180deg, var(--wz-sup) 0%, var(--wz-fondo-fin) 100%); }
+.dlg-wizard .wz-cuerpo > header { flex: none; display: block; margin: 0; padding: 44px var(--wz-margen) 0; }
+.dlg-wizard .wz-cuerpo > header > div:first-child { padding-bottom: 22px; border-bottom: 1px solid var(--wz-linea); }
+.dlg-wizard .wz-ceja { display: block; margin-bottom: 8px; font-size: .8125rem; font-weight: 500; color: var(--wz-tinta-2); font-variant-numeric: tabular-nums; }
+.dlg-wizard .wz-titulo-paso {
+  font-size: 1.5rem; font-weight: 600; line-height: 1.25;
+  letter-spacing: -.02em; color: var(--wz-tinta);
+}
+.dlg-wizard .wz-ayuda-paso { margin: 8px 0 0; font-size: .9375rem; line-height: 1.5; color: var(--wz-tinta-2); }
+/* La X va en la esquina: no ocupa sitio en la cabecera */
+.dlg-wizard .wz-cuerpo > header .dlg-close {
+  position: absolute; z-index: 3; top: 16px; right: 16px;
+  width: 36px; height: 36px; margin: 0;
+  border-radius: 10px;
+  background: transparent; box-shadow: none;
+  color: var(--wz-tinta-2);
+  transition: background-color .18s ease, color .18s ease;
+}
+.dlg-wizard .wz-cuerpo > header .dlg-close:hover { background: var(--wz-sec-h); color: var(--wz-tinta); }
+.dlg-wizard .wz-cuerpo > header .dlg-close:focus-visible { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
+
+.dlg-wizard .wz-panel { gap: 20px; }
+.dlg-wizard .wz-panel.activo {
+  min-height: 0;
+  overflow-y: auto; overscroll-behavior: contain;
+  /* A los lados el margen de la columna (de sobra para el anillo de foco, que
+     va 3px por fuera del campo); abajo, lo que ocupa el pie */
+  padding: 22px var(--wz-margen) calc(var(--wz-pie-h) + 16px);
+  scrollbar-width: thin; scrollbar-color: var(--wz-linea-h) transparent;
+  animation: wz-entra .22s var(--wz-curva);
+}
+.dlg-wizard .wz[data-dir="atras"] .wz-panel.activo { animation-name: wz-entra-atras; }
+@keyframes wz-entra {
+  from { opacity: 0; transform: translateX(12px); }
+  to   { opacity: 1; transform: none; }
+}
+@keyframes wz-entra-atras {
+  from { opacity: 0; transform: translateX(-12px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* ----- Pie: los botones bajo la columna; lo que pasa por debajo se desvanece ----- */
+.dlg-wizard .wz-pie {
+  position: absolute; z-index: 2; left: 0; right: 0; bottom: 0;
+  isolation: isolate;
+  min-height: var(--wz-pie-h);
+  margin: 0; padding: 14px var(--wz-margen) 24px;
+  border: 0; background: transparent;
+}
+.dlg-wizard .wz-pie::before {
+  content: ''; position: absolute; inset: -20px 0 0; z-index: -1;
+  background: linear-gradient(to top, var(--wz-fondo-fin) 62%, color-mix(in srgb, var(--wz-fondo-fin) 0%, transparent));
+  -webkit-mask-image: linear-gradient(to top, #000 65%, transparent);
+  mask-image: linear-gradient(to top, #000 65%, transparent);
+  pointer-events: none;
+}
+.dlg-wizard .wz-contador { display: none; }
+.dlg-wizard .wz-pie .wz-acciones { flex: 1; margin-left: 0; gap: 10px; align-items: center; }
+/* Regresar a la izquierda; avanzar (y «Crear tarea») a la derecha */
+.dlg-wizard .wz-pie :is(.wz-siguiente, .wz-guardar) { margin-left: auto; }
+/* Botones en vidrio: avanzar es una flecha verde, regresar una gris y el
+   último paso conserva su texto («Crear tarea»). El botón del sistema
+   (ds.css) se pinta con sus variables --_bg/--_fg/--_bd y fija el borde, el
+   radio, la fuente y la sombra con !important: por eso van variables y, en la
+   sombra, !important con más especificidad. El brillo de arriba es un ::after. */
+.dlg-wizard .wz-pie .btn-meca {
+  --radius-md: 12px;
+  --mc-fs-body: .9375rem;
+  position: relative; isolation: isolate;
+  justify-content: center;
+  min-height: 46px; padding: 0 22px;
+  -webkit-backdrop-filter: blur(14px) saturate(1.6);
+  backdrop-filter: blur(14px) saturate(1.6);
+}
+.dlg-wizard .wz-pie .btn-meca::after {
+  content: ''; position: absolute; inset: 1px; z-index: -1;
+  border-radius: inherit; pointer-events: none;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, 0) 55%);
+}
+.dlg-meca.dlg-wizard .wz-pie .btn-meca:active { transform: none; }
+/* Avanzar y regresar: solo la flecha. El texto sigue en el botón (lo leen
+   los lectores de pantalla) con tamaño cero. */
+.dlg-wizard .wz-pie .btn-meca:is(.wz-siguiente, .wz-atras) { --mc-fs-body: 0px; width: 46px; padding: 0; gap: 0; }
+.dlg-wizard .wz-pie .btn-meca.wz-siguiente { width: 64px; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca:is(.wz-siguiente, .wz-atras) i { font-size: 1rem; }
+.dlg-wizard .wz-pie .btn-primary.btn-meca {
+  --_bg: color-mix(in srgb, var(--wz-verde) 90%, transparent);
+  --_bgh: color-mix(in srgb, #15803D 94%, transparent);
+  --_fg: #fff; --_bd: rgba(255, 255, 255, .28);
+}
+/* Con texto, un verde más hondo: el blanco sobre #16A34A queda en 3.3:1 */
+.dlg-wizard .wz-pie .btn-primary.btn-meca.wz-guardar {
+  --_bg: color-mix(in srgb, #15803D 92%, transparent);
+  --_bgh: color-mix(in srgb, #166534 94%, transparent);
+}
+.dlg-meca.dlg-wizard .wz-pie .btn-primary.btn-meca { box-shadow: inset 0 -1px 0 rgba(0, 0, 0, .08), 0 4px 10px -6px rgba(22, 163, 74, .45) !important; }
+.dlg-wizard .wz-pie .btn-meca.wz-atras {
+  --_bg: color-mix(in srgb, #E2E8F0 70%, transparent);
+  --_bgh: color-mix(in srgb, #CBD5E1 80%, transparent);
+  --_fg: var(--wz-tinta-3); --_bd: rgba(255, 255, 255, .6);
+}
+html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras {
+  --_bg: rgba(255, 255, 255, .08); --_bgh: rgba(255, 255, 255, .14); --_bd: rgba(255, 255, 255, .14);
+}
+.dlg-meca.dlg-wizard .wz-pie .btn-meca.wz-atras { box-shadow: 0 0 0 1px var(--wz-linea) !important; }
+html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, 0) 55%); }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca:focus-visible { box-shadow: 0 0 0 2px var(--wz-sup), 0 0 0 4px var(--wz-azul) !important; }
+
+/* ----- Campos ----- */
+.dlg-wizard .campo { gap: 8px; }
+.dlg-wizard .campo > span { font-size: .84375rem; font-weight: 500; color: var(--wz-tinta); }
+.dlg-wizard .campo-ayuda { font-size: .78125rem; line-height: 1.45; color: var(--wz-tinta-2); }
+.dlg-wizard .campo-doble { gap: 16px; }
+/* .dlg-meca.dlg-wizard: ds.css carga después y en oscuro pisaría con
+   html.dark .input-meca */
+.dlg-meca.dlg-wizard .input-meca,
+.dlg-meca.dlg-wizard .select-meca,
+.dlg-meca.dlg-wizard .ms-trigger,
+.dlg-meca.dlg-wizard .md-trigger {
+  min-height: 44px;
+  padding: 10px 14px;
+  border: 1px solid var(--wz-linea);
+  border-radius: 10px;
+  background-color: var(--wz-campo);
+  box-shadow: none;
+  color: var(--wz-tinta);
+  font-family: inherit; font-size: .9375rem; font-weight: 400;
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.dlg-meca.dlg-wizard .select-meca { padding-right: 38px; }
+.dlg-meca.dlg-wizard textarea.input-meca { min-height: 96px; line-height: 1.5; }
+.dlg-meca.dlg-wizard .input-meca::placeholder { color: var(--wz-tinta-2); }
+.dlg-meca.dlg-wizard :is(.input-meca, .select-meca, .ms-trigger, .md-trigger):hover:not(:focus) { border-color: var(--wz-linea-h); box-shadow: none; }
+.dlg-meca.dlg-wizard .input-meca:focus,
+.dlg-meca.dlg-wizard .select-meca:focus,
+.dlg-meca.dlg-wizard .ms-trigger:focus-visible,
+.dlg-meca.dlg-wizard .md-trigger:focus-visible,
+.dlg-meca.dlg-wizard .ms-open .ms-trigger,
+.dlg-meca.dlg-wizard .md-open .md-trigger {
+  outline: none;
+  border-color: var(--wz-azul);
+  box-shadow: var(--wz-anillo);
+}
+.dlg-wizard .ms-chip { background: var(--wz-sec-h); color: var(--wz-tinta); font-weight: 500; box-shadow: inset 0 0 0 1px var(--wz-linea); }
+
+/* Error de un campo: borde rojo y el motivo debajo (el JS lo escribe) */
+.dlg-meca.dlg-wizard .campo.wz-mal :is(.input-meca, .select-meca, .ms-trigger, .md-trigger, .rt) { border-color: var(--wz-rojo); }
+.dlg-meca.dlg-wizard .campo.wz-mal :is(.input-meca:focus, .ms-trigger:focus-visible, .md-trigger:focus-visible, .rt:focus-within) { box-shadow: var(--wz-anillo-mal); }
+.dlg-wizard .wz-error {
+  display: flex; align-items: flex-start; gap: 6px;
+  font-size: .8125rem; font-weight: 500; line-height: 1.4;
+  color: var(--wz-rojo-txt);
+  animation: wz-aviso .18s ease;
+}
+.dlg-wizard .wz-error i { margin-top: 2px; font-size: .8rem; }
+@keyframes wz-aviso { from { opacity: 0; } to { opacity: 1; } }
+
+/* Editor de la descripción: barra y texto en una sola caja */
+.dlg-wizard .rt {
+  gap: 0;
+  border: 1px solid var(--wz-linea); border-radius: 10px;
+  background: var(--wz-campo);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.dlg-wizard .rt:hover { border-color: var(--wz-linea-h); }
+.dlg-wizard .rt:focus-within { border-color: var(--wz-azul); box-shadow: var(--wz-anillo); }
+.dlg-wizard .rt-barra {
+  gap: 2px; padding: 6px;
+  border-bottom: 1px solid var(--wz-linea);
+  border-radius: 9px 9px 0 0;
+  background: var(--wz-sec);
+}
+.dlg-wizard .rt-b {
+  width: 32px; height: 32px; border-radius: 8px;
+  background: transparent; box-shadow: none;
+  color: var(--wz-tinta-2); font-size: .875rem;
+}
+.dlg-wizard .rt-b:hover { background: var(--wz-sec-h); color: var(--wz-tinta); }
+.dlg-wizard .rt-b:active { background: var(--wz-linea); box-shadow: none; }
+.dlg-wizard .rt-area {
+  min-height: 120px; max-height: 300px;
+  padding: 12px 14px;
+  border-radius: 0 0 9px 9px;
+  background: transparent; box-shadow: none;
+  font-size: .9375rem;
+}
+.dlg-wizard .rt-area:focus { box-shadow: none; }
+.dlg-wizard .rt.rt-vacio .rt-area::before { color: var(--wz-tinta-2); }
+
+/* Acciones con IA: secundarias, discretas */
+.dlg-wizard .ia-acciones { margin-top: 10px; gap: 8px; }
+.dlg-wizard .ia-btn {
+  min-height: 32px; padding: 0 12px; gap: 7px;
+  border: 1px solid var(--wz-linea); border-radius: 999px;
+  background: var(--wz-campo); color: var(--wz-tinta-3);
+  font-size: .8125rem; font-weight: 500;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.dlg-wizard .ia-btn i { color: var(--wz-azul); font-size: .78rem; }
+.dlg-wizard .ia-btn:hover { background: var(--wz-azul-suave); border-color: var(--wz-azul-borde); color: var(--wz-azul-txt); }
+.dlg-wizard .ia-btn:focus-visible { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
+
+/* Dependencias */
+.dlg-wizard .dp-toggle { align-items: center; }
+.dlg-wizard .dp-op {
+  flex: 1 1 0;
+  min-height: 40px; padding: 0 14px;
+  border: 1px solid var(--wz-linea); border-radius: 10px;
+  background: var(--wz-campo); box-shadow: none;
+  color: var(--wz-tinta-3); font-size: .875rem; font-weight: 500;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.dlg-wizard .dp-op:hover { border-color: var(--wz-linea-h); color: var(--wz-tinta); }
+.dlg-wizard .dp-op.active { background: var(--wz-azul-suave); border-color: var(--wz-azul-borde); color: var(--wz-azul-txt); box-shadow: none; }
+.dlg-wizard .dp-toggle .ia-btn { flex: none; min-height: 40px; border-radius: 10px; }
+.dlg-wizard .dp-opciones { border: 1px solid var(--wz-linea); box-shadow: none; }
+.dlg-wizard .dp-chip { border-left: 0; background: var(--wz-sec); }
+
+/* Adjuntos: la zona de subida es .adj-zona (con el azul del modal) */
+.dlg-wizard .adj-zona { background: var(--wz-campo); }
+.dlg-wizard .adj-zona:hover,
+.dlg-wizard .adj-zona.is-sobre { background: var(--wz-azul-suave); }
+
+/* Atajos de fecha */
+.dlg-wizard .wz-atajos-tit { margin-right: 4px; font-size: .8125rem; font-weight: 500; color: var(--wz-tinta-2); }
+.dlg-wizard .chip-atajo {
+  min-height: 34px; padding: 0 14px;
+  border: 1px solid var(--wz-linea);
+  background: var(--wz-campo); box-shadow: none;
+  color: var(--wz-tinta-3);
+  font-family: inherit; font-size: .8125rem; font-weight: 500;
+  transition: background-color .18s ease, border-color .18s ease, color .18s ease;
+}
+.dlg-wizard .chip-atajo:hover { border-color: var(--wz-linea-h); color: var(--wz-tinta); }
+.dlg-wizard .chip-atajo:active { box-shadow: none; }
+.dlg-wizard .chip-atajo.activo { background: var(--wz-azul-suave); border-color: var(--wz-azul-borde); color: var(--wz-azul-txt); box-shadow: none; }
+.dlg-wizard .chip-atajo-off:hover { color: var(--wz-rojo-txt); }
+.dlg-wizard .wz-duracion.duracion-mal { color: var(--wz-rojo-txt); font-weight: 600; }
+
+/* Desplegables y calendario: flotan sobre el modal, van en vidrio */
+.dlg-meca.dlg-wizard .ms-panel,
+.dlg-meca.dlg-wizard .md-pop {
+  border: 1px solid var(--wz-linea);
+  background: color-mix(in srgb, var(--wz-sup) 86%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.6);
+  backdrop-filter: blur(20px) saturate(1.6);
+  box-shadow: 0 16px 40px -12px rgba(15, 23, 42, .22);
+}
+.dlg-meca.dlg-wizard .ms-search input { border: 1px solid var(--wz-linea); box-shadow: none; background: var(--wz-campo); }
+.dlg-meca.dlg-wizard .ms-search input:focus { border-color: var(--wz-azul); box-shadow: var(--wz-anillo); }
+
+/* Revisión final: todo de un vistazo, sin desplazarse. Dos columnas (el
+   denso rellena el hueco que deja la descripción) y la descripción a lo
+   ancho, recortada a unas líneas: el texto entero ya se vio en el paso 1. */
+.dlg-wizard .wz-resumen {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); grid-auto-flow: row dense;
+  gap: 14px 28px;
+  padding: 16px 18px;
+  border: 1px solid var(--wz-linea); border-radius: 14px;
+  background: var(--wz-campo);
+}
+.dlg-wizard .wz-resumen div { flex-direction: column; align-items: stretch; gap: 3px; min-width: 0; padding: 0; border: 0; font-size: .875rem; }
+.dlg-wizard .wz-resumen div.wz-resumen-bloque { grid-column: 1 / -1; gap: 6px; }
+.dlg-wizard .wz-resumen dt { width: auto; font-size: .78125rem; font-weight: 500; color: var(--wz-tinta-2); }
+.dlg-wizard .wz-resumen dd {
+  min-width: 0; font-weight: 500; color: var(--wz-tinta); overflow-wrap: anywhere;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+}
+.dlg-wizard .wz-resumen dd.vacio { font-style: normal; font-weight: 400; color: var(--wz-tinta-2); }
+.dlg-wizard .wz-resumen dd.wz-rico {
+  display: block; max-height: 84px; overflow: hidden;
+  padding: 10px 12px;
+  border: 1px solid var(--wz-linea); border-radius: 10px;
+  background: var(--wz-sec); font-weight: 400; font-size: .84375rem;
+  /* El desvanecido en px: si el texto es corto (no llega al tope) no se toca */
+  -webkit-mask-image: linear-gradient(to bottom, #000 56px, transparent 84px);
+  mask-image: linear-gradient(to bottom, #000 56px, transparent 84px);
+}
+
+/* ----- Estrecho: el riel pasa a tira horizontal arriba ----- */
 @media (max-width: 820px) {
-  /* Apilado (riel arriba) el alto fijo aprieta demasiado: vuelve a crecer con
-     el contenido y es el diálogo entero el que se desplaza. */
-  .dlg-wizard { height: auto; max-height: calc(100dvh - 40px); }
-  .dlg-wizard .wz { height: auto; }
-  .dlg-wizard .wz-panel.activo { overflow: visible; }
-  .dlg-wizard .wz,
   .wz-inline { grid-template-columns: 1fr; min-height: 0; }
   .persona-preview.pp-riel { flex-direction: row; text-align: left; }
   .persona-preview.pp-riel .pp-info { align-items: flex-start; }
@@ -4597,10 +5076,98 @@ html.dark .wz-duracion.duracion-mal { color: #ff9d5c; }
   .wz-paso small { display: none; }
   .wz-paso::before { left: auto; right: -4px; top: 50%; bottom: auto; width: 8px; height: 2px; transform: translateY(-50%); }
   .wz-cuerpo { padding: 20px 20px 18px; }
+
+  /* El modal ocupa casi toda la pantalla y mide lo mismo en cada paso: sin
+     saltos de alto. Arriba, una banda azul con los círculos. */
+  .dlg-meca.dlg-wizard { --wz-margen: 20px; width: calc(100vw - 24px); height: calc(100dvh - 24px); max-height: none; border-radius: 20px; }
+  .dlg-wizard .wz { grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr); }
+  .dlg-wizard .wz-riel { gap: 0; overflow: visible; padding: 16px 14px; background: linear-gradient(165deg, var(--wz-riel-a) 0%, var(--wz-riel-b) 100%); }
+  .dlg-wizard .wz-pasos { width: 100%; gap: 0; }
+  .dlg-wizard .wz-paso { flex: 1 1 0; min-width: 0; justify-content: center; padding: 0; white-space: nowrap; }
+  .dlg-wizard .wz-paso .wz-txt { display: none; }
+  .dlg-wizard .wz-paso::before,
+  .dlg-wizard .wz-paso::after {
+    top: 17px; bottom: auto;
+    left: calc(50% + 23px); right: calc(-50% + 23px);
+    width: auto; height: 1px;
+    transform: none;
+  }
+  .dlg-wizard .wz-paso::after { transform: scaleX(0); transform-origin: left; }
+  .dlg-wizard .wz-paso.hecho::after { transform: scaleX(1); }
+  .dlg-wizard .wz-cuerpo { padding: 0; background: linear-gradient(180deg, var(--wz-sup) 0%, var(--wz-sup) 40%, var(--wz-fondo-fin) 100%); }
+  .dlg-wizard .wz-cuerpo > header { padding-top: 22px; }
+  .dlg-wizard .wz-cuerpo > header > div:first-child { padding-right: 36px; padding-bottom: 16px; }
+  .dlg-wizard .wz-cuerpo > header .dlg-close { top: 12px; right: 12px; }
+  .dlg-wizard .wz-titulo-paso { font-size: 1.3125rem; }
+  .dlg-wizard .wz-ayuda-paso { font-size: .875rem; }
+  .dlg-wizard .wz-panel.activo { padding-top: 18px; }
 }
 @media (max-width: 520px) {
   .wz-paso b { display: none; }
   .wz-paso { padding: 6px; }
+  .dlg-wizard .wz-paso { padding: 0; }
+  .dlg-wizard .wz-pie .wz-guardar { padding: 0 18px; }
+  .dlg-wizard .dp-op { flex: 1 1 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dlg-wizard .wz-panel.activo,
+  .dlg-wizard .wz-error { animation: none; }
+  .dlg-wizard .wz-paso::after,
+  .dlg-wizard .wz-paso .wz-num { transition: none; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .dlg-meca.dlg-wizard .ms-panel,
+  .dlg-meca.dlg-wizard .md-pop { background: var(--wz-sup); -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .dlg-wizard .wz-pie::before { -webkit-mask-image: none; mask-image: none; background: var(--wz-fondo-fin); }
+}
+
+/* El ícono del paso resalta bajo la gota (LenteVidrio) */
+.dlg-wizard .wz-paso .wz-num i { transition: transform .22s var(--wz-curva); }
+.dlg-wizard .wz-paso:hover .wz-num i { transform: scale(1.18); }
+@media (prefers-reduced-motion: reduce) { .dlg-wizard .wz-paso:hover .wz-num i { transform: none; } }
+
+/* ----- Lente de vidrio: la bolita de los pasos de los asistentes (admin.js, LenteVidrio) ----- */
+.lg-lente {
+  position: fixed; z-index: 40; left: 0; top: 0; width: 0; height: 0;
+  pointer-events: none;
+  border: 1px solid rgba(255, 255, 255, .7);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .34) 0%, rgba(255, 255, 255, .08) 48%, rgba(255, 255, 255, .16) 100%);
+  box-shadow:
+    inset 0 1px 1px rgba(255, 255, 255, .9),
+    inset 0 -1px 1px rgba(15, 23, 42, .08),
+    0 8px 20px -10px rgba(15, 23, 42, .35),
+    0 1px 2px rgba(15, 23, 42, .08);
+  /* Sin desenfoque: la opción se lee igual de nítida debajo del vidrio */
+  -webkit-backdrop-filter: saturate(1.8) brightness(1.06);
+  backdrop-filter: saturate(1.8) brightness(1.06);
+  opacity: 0; transform: scale(.94);
+  transition:
+    opacity .18s ease, transform .22s cubic-bezier(.2, .7, .2, 1),
+    left .26s cubic-bezier(.2, .7, .2, 1), top .26s cubic-bezier(.2, .7, .2, 1),
+    width .26s cubic-bezier(.2, .7, .2, 1), height .26s cubic-bezier(.2, .7, .2, 1);
+}
+/* Recién aparecida no se desliza desde donde estuvo la última vez */
+.lg-lente.lg-quieta { transition: opacity .18s ease, transform .22s cubic-bezier(.2, .7, .2, 1); }
+.lg-lente.is-on { opacity: 1; transform: none; }
+/* Canto irisado, como el borde de un vidrio de verdad */
+.lg-lente::after {
+  content: ''; position: absolute; inset: -1px; padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(115deg, rgba(56, 189, 248, .55), rgba(255, 255, 255, 0) 32%, rgba(255, 255, 255, 0) 68%, rgba(236, 72, 153, .45));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+html.dark .lg-lente {
+  border-color: rgba(255, 255, 255, .22);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 50%, rgba(255, 255, 255, .08) 100%);
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, .28), 0 8px 22px -10px rgba(0, 0, 0, .6);
+}
+@media (prefers-reduced-motion: reduce) {
+  .lg-lente { transform: none; transition: opacity .12s ease; }
+}
+@media (prefers-reduced-transparency: reduce) {
+  .lg-lente { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, .22); }
 }
 
 .campo { display: flex; flex-direction: column; gap: 7px; }
@@ -6132,23 +6699,6 @@ html.dark .sk::after {
   .sk::after { animation: none; }
 }
 
-/* Tarjeta "Conectar mi Google Calendar" en Mi perfil */
-.gcal-card {
-  display: flex; align-items: center; justify-content: space-between;
-  gap: 18px; flex-wrap: wrap; margin-top: 20px; padding: 20px 22px;
-}
-.gcal-info { display: flex; align-items: center; gap: 15px; min-width: 0; }
-.gcal-icono {
-  flex: none; width: 46px; height: 46px; border-radius: 13px;
-  display: grid; place-items: center; font-size: 1.25rem; color: #fff;
-  background: linear-gradient(135deg, #2BB673, #2B76F7);
-}
-.gcal-card h2 { margin: 0 0 3px; font-size: 1.05rem; font-weight: 800; color: var(--c-text); }
-.gcal-estado { margin: 0; font-size: .88rem; color: var(--c-text-muted); }
-.gcal-estado.ok { color: var(--c-success); }
-.gcal-estado i { margin-right: 5px; }
-.gcal-card .btn-meca { flex: none; }
-@media (max-width: 560px) { .gcal-card .btn-meca { width: 100%; justify-content: center; } }
 
 /* ================= Documentación (previsualizador de PDF) ================= */
 .docs-layout { display: grid; grid-template-columns: 320px 1fr; gap: 20px; align-items: start; }
@@ -6347,8 +6897,6 @@ img[src$="claude.svg"] {
 .pf-hero-stats b { font-size: 1.35rem; color: var(--c-text); font-family: var(--f-display, inherit); }
 
 /* Ícono del calendario (SVG) */
-.gcal-icono-svg { display: inline-flex; align-items: center; justify-content: center; }
-.gcal-icono-svg img { filter: drop-shadow(0 6px 14px rgba(60,144,255,.35)); }
 
 /* Grid de cards */
 /* Masonry con columnas CSS: las tarjetas tienen alturas muy distintas (Cuentas
@@ -6426,37 +6974,34 @@ img[src$="claude.svg"] {
   .pf-hero-stats span { flex: 1; }
 }
 
-/* Bloque "Trabaja con tu Claude" en el perfil */
-.pf-claude {
-  display: flex; align-items: center; justify-content: space-between; gap: 18px; flex-wrap: wrap;
-  padding: 18px 22px; margin-bottom: 24px;
-  border-color: color-mix(in srgb, #d97757 30%, var(--n-bg)) !important;
+/* =========================================================
+   Mi perfil
+   ========================================================= */
+/* Conexiones de arriba: Google Calendar y el asistente de código. En verde
+   cuando ya están hechas: todo el borde y un fondo apenas teñido, sin franja. */
+.pf-conexiones {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 400px), 1fr));
+  gap: 16px; margin-top: 20px;
 }
-.pf-claude-info { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.pf-claude-ic {
-  flex: 0 0 auto; width: 48px; height: 48px; border-radius: 14px;
-  display: flex; align-items: center; justify-content: center;
-  background: color-mix(in srgb, #d97757 12%, transparent);
+.pf-con { display: flex; align-items: center; gap: 16px; min-width: 0; padding: 18px 20px; }
+.pf-con-ic { flex: none; display: grid; place-items: center; width: 46px; height: 46px; }
+.pf-con-ic img { filter: drop-shadow(0 4px 10px rgba(60, 144, 255, .3)); }
+.pf-con-txt { flex: 1; min-width: 0; }
+.pf-con h2 { margin: 0 0 3px; font-size: 1rem; font-weight: 700; color: var(--c-text); }
+.pf-con-estado { margin: 0; font-size: .84rem; line-height: 1.45; color: var(--c-text-soft); }
+.pf-con-estado i { margin-right: 4px; }
+.pf-con > .btn-meca { flex: none; }
+.pf-con.is-on {
+  border-color: color-mix(in srgb, #16A34A 50%, var(--n-bg));
+  background: color-mix(in srgb, #16A34A 6%, var(--n-bg));
 }
-.pf-claude-ic img { animation: claude-bob 2.6s ease-in-out infinite; transform-origin: 50% 65%; }
-.pf-claude h2 { margin: 0 0 3px; font-size: 1.05rem; color: var(--c-text); }
-.pf-claude p { margin: 0; font-size: .84rem; color: var(--c-text-soft); line-height: 1.5; max-width: 56ch; }
-.pf-claude-acc { display: flex; gap: 10px; flex-wrap: wrap; }
-.pf-claude .btn-primary {
-  background: linear-gradient(135deg, #e8926a, #d97757); border: none;
-  box-shadow: none;
-}
-.pf-claude .btn-outline { border-color: color-mix(in srgb, #d97757 42%, transparent); color: #c8663f; }
-@media (max-width: 640px) { .pf-claude-acc { width: 100%; } .pf-claude-acc .btn-meca { flex: 1; justify-content: center; } }
-/* Conectar Claude Code (u otro asistente) al panel con su token: api.php */
-.pf-api { display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; margin-bottom: 24px; }
-.pf-api-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
-.pf-api h2 { margin: 0 0 4px; font-size: 1.05rem; color: var(--c-text); }
-.pf-api-intro { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1 1 420px; }
+.pf-con.is-on .pf-con-estado { color: #15803D; font-weight: 600; }
+html.dark .pf-con.is-on { background: color-mix(in srgb, #16A34A 12%, var(--n-card, var(--n-bg))); }
+html.dark .pf-con.is-on .pf-con-estado { color: #4ADE80; }
 /* Claude, Codex, Copilot y «+»: burbujas montadas que flotan una tras otra */
 .pf-api-ias { display: flex; align-items: center; flex: none; padding: 4px 0; }
 .pf-api-ia {
-  display: grid; place-items: center; width: 44px; height: 44px; margin-left: -9px; border-radius: 14px;
+  display: grid; place-items: center; width: 40px; height: 40px; margin-left: -9px; border-radius: 13px;
   background: var(--n-bg); box-shadow: var(--sh-mini), 0 0 0 2px var(--n-bg);
   animation: claude-bob 2.8s ease-in-out infinite; transform-origin: 50% 65%;
 }
@@ -6464,28 +7009,107 @@ img[src$="claude.svg"] {
 .pf-api-ia:nth-child(2) { animation-delay: .35s; }
 .pf-api-ia:nth-child(3) { animation-delay: .7s; }
 .pf-api-ia:nth-child(4) { animation-delay: 1.05s; }
-.pf-api-ia img, .pf-api-ia svg { width: 24px; height: 24px; }
+.pf-api-ia img, .pf-api-ia svg { width: 22px; height: 22px; }
 .pf-api-ia--marca { color: #18181B; }
-.pf-api-ia--mas { color: var(--c-text-soft); font: 800 1.1rem/1 var(--font-sans, sans-serif); }
+.pf-api-ia--mas { color: var(--c-text-soft); font: 800 1.05rem/1 var(--font-sans, sans-serif); }
 html.dark .pf-api-ia--marca { color: #F4F4F5; }
 @media (prefers-reduced-motion: reduce) { .pf-api-ia { animation: none; } }
-@media (max-width: 640px) { .pf-api-intro { flex-direction: column; align-items: flex-start; } }
-.pf-api-cab p { margin: 0; max-width: 70ch; color: var(--c-text-soft); font-size: .84rem; line-height: 1.5; }
-.pf-api-estado { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
-  background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-size: .78rem; font-weight: 700; white-space: nowrap; }
-.pf-api-estado.is-on { color: var(--c-verde-esmeralda, #0D7340); }
-.pf-api-nuevo { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 14px;
-  border: 1px solid color-mix(in srgb, var(--c-verde-esmeralda, #0D7340) 35%, transparent); background: color-mix(in srgb, var(--c-verde-esmeralda, #0D7340) 7%, var(--n-bg)); }
-.pf-api-nuevo b { color: var(--c-text); font-size: .88rem; }
-.pf-api-nuevo p { margin: 0; color: var(--c-text-soft); font-size: .8rem; }
+@media (max-width: 560px) {
+  .pf-con { flex-wrap: wrap; }
+  .pf-con > .btn-meca { width: 100%; justify-content: center; }
+}
+
+/* Ficha: solo se ve; el lápiz abre el modal del bloque. En neutro: bordes
+   grises y el azul del diseño en los íconos. El verde queda para lo que ya
+   está conectado (.pf-con.is-on), así significa algo. */
+.pf-hero, .pf-grid > .card-base, .pf-con:not(.is-on) { --card-c: #94A3B8; }
+.pf-grid .pf-ic { background: color-mix(in srgb, #2563EB 9%, transparent); color: #2563EB; }
+.pf-card-tit > i, .pf-grid .pf-nota i { color: #2563EB; }
+html.dark .pf-grid .pf-ic { background: rgba(96, 165, 250, .14); color: #93C5FD; }
+html.dark .pf-card-tit > i, html.dark .pf-grid .pf-nota i { color: #93C5FD; }
+.pf-card-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 0 0 10px; }
+.pf-card-cab .pf-card-tit { margin: 0; }
+.pf-editar { flex: none; }
+.pf-valor-lista { display: flex; flex-direction: column; gap: 2px; white-space: normal; }
+.pf-valor-lista span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pf-valor-color { display: inline-flex; align-items: center; gap: 8px; font-variant-numeric: tabular-nums; }
+.pf-muestra { flex: none; width: 18px; height: 18px; border-radius: 50%; background: var(--av-c1); box-shadow: 0 0 0 2px var(--n-bg), 0 0 0 3px var(--c-border-soft); }
+
+/* Modales de la ficha: la piel de los asistentes (.dlg-wizard) en un solo paso */
+.dlg-meca.dlg-wizard.pf-dlg { width: min(520px, calc(100vw - 32px)); height: fit-content; max-height: calc(100dvh - 48px); overflow-y: auto; }
+/* fit-content y no auto: el modal nativo va anclado arriba y abajo, y con
+   auto se estiraba a toda la pantalla aunque tuviera dos campos */
+.pf-dlg-cab { display: flex; align-items: flex-start; gap: 14px; padding: 26px 22px 0 28px; }
+.pf-dlg-ic {
+  flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  background: var(--wz-azul-suave); color: var(--wz-azul); font-size: 1rem;
+}
+.pf-dlg-cab > div { flex: 1; min-width: 0; }
+.pf-dlg-cab h3 { margin: 0; font-size: 1.25rem; font-weight: 600; letter-spacing: -.01em; line-height: 1.3; color: var(--wz-tinta); }
+.pf-dlg-cab p { margin: 4px 0 0; font-size: .875rem; color: var(--wz-tinta-2); }
+.dlg-wizard.pf-dlg .dlg-close { flex: none; margin: -6px 0 0; border-radius: 10px; background: transparent; box-shadow: none; color: var(--wz-tinta-2); }
+.dlg-wizard.pf-dlg .dlg-close:hover { background: var(--wz-sec-h); color: var(--wz-tinta); }
+.pf-dlg-cuerpo { display: flex; flex-direction: column; gap: 18px; padding: 22px 28px 6px; }
+.pf-dlg-cuerpo .pf-nota { margin: 0; }
+.pf-dlg-pie {
+  position: sticky; bottom: 0; z-index: 2;
+  display: flex; gap: 10px;
+  padding: 18px 28px 24px;
+  background: linear-gradient(to top, var(--wz-sup) 72%, color-mix(in srgb, var(--wz-sup) 0%, transparent));
+}
+.pf-dlg-pie .btn-meca { --radius-md: 12px; flex: 1 1 0; justify-content: center; min-height: 46px; }   /* los dos a lo ancho, mitad y mitad */
+/* El ícono va dentro del campo: el relleno de la piel lo tapaba */
+.dlg-meca.dlg-wizard .input-prefijo .input-meca { padding-left: 40px; }
+.pf-dlg-foto { display: flex; align-items: center; flex-wrap: wrap; gap: 12px 14px; }
+.pf-dlg-foto .campo-ayuda { flex-basis: 100%; }
+
+/* Asistente de código: el paso a paso para conectarlo */
+.pf-as-logos .pf-api-ias { padding: 2px 0 4px; }
+.pf-as-txt { margin: 0; font-size: .9375rem; line-height: 1.55; color: var(--wz-tinta-2); }
+.pf-as-txt code, .pf-as-otro code { padding: 1px 6px; border-radius: 6px; background: var(--wz-sec-h); color: var(--wz-tinta); font-size: .84em; }
+.pf-as-lista { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0; padding: 0; list-style: none; }
+.pf-as-lista li {
+  display: flex; align-items: flex-start; gap: 10px;
+  padding: 12px 14px; border: 1px solid var(--wz-linea); border-radius: 12px;
+  background: var(--wz-campo); color: var(--wz-tinta); font-size: .875rem; line-height: 1.45;
+}
+.pf-as-lista i { flex: none; margin-top: 3px; color: var(--wz-azul); font-size: .8125rem; }
+.pf-as-estado {
+  display: inline-flex; align-items: center; gap: 7px; align-self: flex-start;
+  margin: 0; padding: 7px 12px; border-radius: 999px;
+  background: var(--wz-sec-h); color: var(--wz-tinta-3); font-size: .8125rem; font-weight: 500;
+}
+.pf-as-estado.is-on { background: color-mix(in srgb, #16A34A 10%, var(--wz-sup)); color: #15803D; }
+html.dark .pf-as-estado.is-on { color: #4ADE80; }
+.pf-as-caja { display: flex; flex-direction: column; gap: 12px; }
+.pf-as-nuevo {
+  display: flex; flex-direction: column; gap: 10px; padding: 16px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, #16A34A 35%, transparent); background: color-mix(in srgb, #16A34A 6%, var(--wz-sup));
+}
+.pf-as-nuevo b { color: var(--wz-tinta); font-size: .9rem; font-weight: 600; }
+.pf-as-nuevo b i { margin-right: 4px; color: #15803D; }
+.pf-as-nuevo p { margin: 0; color: var(--wz-tinta-2); font-size: .84rem; }
 .pf-api-token { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pf-api-token code { flex: 1 1 260px; min-width: 0; padding: 8px 12px; border-radius: 10px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
-  color: var(--c-text); font-size: .8rem; overflow-wrap: anywhere; }
-.pf-api-acc { display: flex; gap: 10px; flex-wrap: wrap; }
-.pf-api-guia summary { cursor: pointer; color: var(--c-text); font-size: .88rem; font-weight: 700; }
-.pf-api-donde { margin: 10px 0 0; color: var(--c-text-soft); font-size: .8rem; }
-.pf-api-guia pre { max-height: 340px; overflow: auto; margin: 10px 0; padding: 14px 16px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
-  color: var(--c-text); font-size: .76rem; line-height: 1.55; white-space: pre-wrap; }
+.pf-api-token code {
+  flex: 1 1 260px; min-width: 0; padding: 9px 12px;
+  border: 1px solid var(--wz-linea, var(--c-border-soft)); border-radius: 10px;
+  background: var(--wz-campo, var(--n-bg)); color: var(--c-text); font-size: .8rem; overflow-wrap: anywhere;
+}
+.pf-as-acc { display: flex; flex-wrap: wrap; gap: 10px; }
+.pf-as-guia { display: flex; flex-direction: column; gap: 8px; }
+.pf-as-guia .btn-copiar { align-self: flex-end; }
+.pf-as-guia pre {
+  max-height: 180px; overflow: auto; margin: 0; padding: 14px 16px;
+  border: 1px solid var(--wz-linea); border-radius: 12px; background: var(--wz-sec);
+  color: var(--wz-tinta); font-size: .76rem; line-height: 1.55; white-space: pre-wrap;
+}
+.pf-as-otro { margin: 0; font-size: .84rem; line-height: 1.6; color: var(--wz-tinta-2); }
+.pf-as-link {
+  display: inline; padding: 0; border: 0; background: none; cursor: pointer;
+  color: var(--wz-azul-txt); font: inherit; font-weight: 500; text-decoration: underline; text-underline-offset: 2px;
+}
+.pf-as-link i { margin-right: 3px; font-size: .8em; }
+@media (max-width: 560px) { .pf-as-lista { grid-template-columns: 1fr; } }
 
 /* Tarjeta del kanban mientras guarda su nuevo estado (skeleton shimmer) */
 .kb-card.kb-guardando { pointer-events: none; }

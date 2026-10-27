@@ -590,7 +590,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
         </div>
         <?php endif; ?>
         <label class="campo">
-          <span>¿Qué piden? *</span>
+          <span>¿Qué piden?</span>
           <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado" value="<?= e((string)($pd['titulo'] ?? '')) ?>">
         </label>
         <div class="campo">
@@ -704,7 +704,7 @@ uasort($porInstitucion, fn($a, $b) => $b['total'] <=> $a['total']);
 
       <section class="wz-panel">
         <label class="campo">
-          <span>¿Qué piden? *</span>
+          <span>¿Qué piden?</span>
           <input class="input-meca" name="titulo" id="re-titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado">
         </label>
         <div class="campo">

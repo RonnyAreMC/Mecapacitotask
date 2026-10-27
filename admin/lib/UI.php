@@ -1168,28 +1168,36 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
 
     /**
      * Pasos de los modales. Cada fila es [etiqueta corta del riel,
-     * titulo del panel, texto de ayuda].
+     * titulo del panel, texto de ayuda, ícono del círculo (opcional)].
      */
     public const PASOS_TAREA = [
-        ['Detalle',    'Qué hay que hacer',       'Ponle un título claro y, si quieres, los criterios de aceptación.'],
-        ['Asignación', 'Quién la saca adelante',  'Elige a la persona responsable y si espera a otra tarea.'],
-        ['Fechas',     'Cuándo empieza y acaba',  'Puedes programarla para que arranque más adelante.'],
-        ['Revisión',   'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
+        ['Detalles',     'Detalles de la tarea', 'Define el objetivo y la prioridad', 'fa-pen-to-square'],
+        ['Asignación',   'Asignar responsables', 'Elige quién realizará la tarea', 'fa-user-group'],
+        ['Fechas',       'Programar fechas',     'Define el inicio y la fecha límite', 'fa-calendar-days'],
+        ['Confirmación', 'Revisar tarea',        'Comprueba los datos antes de crearla', 'fa-clipboard-check'],
+    ];
+
+    /** Los mismos pasos al editar: solo cambia lo que dice el último */
+    public const PASOS_EDITAR_TAREA = [
+        ['Detalles',     'Detalles de la tarea', 'Define el objetivo y la prioridad', 'fa-pen-to-square'],
+        ['Asignación',   'Asignar responsables', 'Elige quién realizará la tarea', 'fa-user-group'],
+        ['Fechas',       'Programar fechas',     'Define el inicio y la fecha límite', 'fa-calendar-days'],
+        ['Confirmación', 'Revisar cambios',      'Comprueba los datos antes de guardarlos', 'fa-clipboard-check'],
     ];
 
     /** La ficha de una tarea (solo lectura): el detalle y su trazabilidad */
     public const PASOS_DETALLE_TAREA = [
-        ['Detalle',      'Qué hay que hacer',         'Responsables, fechas, dependencias y documentos.'],
-        ['Historia',     'Por dónde pasó',            'Quién la agregó, a quién se pasó, cuándo empezó y terminó.'],
-        ['Impedimentos', 'Lo que la frenó',           'Las observaciones que le pusieron y si ya se resolvieron.'],
-        ['Release',      'A qué suma',                'El ítem del release al que está amarrada.'],
-        ['Commits',      'El código que la menciona', 'Los commits que llevan su #id.'],
+        ['Detalle',      'Qué hay que hacer',         'Responsables, fechas, dependencias y documentos.', 'fa-file-lines'],
+        ['Historia',     'Por dónde pasó',            'Quién la agregó, a quién se pasó, cuándo empezó y terminó.', 'fa-clock-rotate-left'],
+        ['Impedimentos', 'Lo que la frenó',           'Las observaciones que le pusieron y si ya se resolvieron.', 'fa-triangle-exclamation'],
+        ['Release',      'A qué suma',                'El ítem del release al que está amarrada.', 'fa-route'],
+        ['Commits',      'El código que la menciona', 'Los commits que llevan su #id.', 'fa-code-commit'],
     ];
 
     public const PASOS_INTERCAMBIO = [
-        ['Tareas',   'Qué se intercambia',      'La tuya que sueltas y la que tomarías a cambio.'],
-        ['Motivo',   'Por qué lo pides',        'Va en el correo, así la otra persona entiende el contexto.'],
-        ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.'],
+        ['Tareas',   'Qué se intercambia',      'La tuya que sueltas y la que tomarías a cambio.', 'fa-right-left'],
+        ['Motivo',   'Por qué lo pides',        'Va en el correo, así la otra persona entiende el contexto.', 'fa-comment-dots'],
+        ['Revisión', 'Revisa antes de enviar',  'Nada cambia hasta que la otra persona acepte.', 'fa-clipboard-check'],
     ];
 
     /**
@@ -1198,25 +1206,32 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
      * tenga que aprender dos flujos distintos.
      */
     public const PASOS_REQUERIMIENTO = [
-        ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.'],
-        ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.'],
-        ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.'],
-        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.'],
-        ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.'],
+        ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.', 'fa-inbox'],
+        ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.', 'fa-user-group'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.', 'fa-calendar-days'],
+        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.', 'fa-note-sticky'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.', 'fa-clipboard-check'],
     ];
 
     public const PASOS_ASIGNAR = [
-        ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.'],
-        ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.'],
-        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.'],
-        ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.'],
+        ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.', 'fa-user-group'],
+        ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.', 'fa-calendar-days'],
+        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.', 'fa-note-sticky'],
+        ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.', 'fa-clipboard-check'],
+    ];
+
+    /** Mi perfil: conectar Claude Code, Codex, Copilot… al panel con un token */
+    public const PASOS_ASISTENTE = [
+        ['Conectar',      'Conecta tu asistente',        'Qué hará por ti con tus tareas', 'fa-plug'],
+        ['Token',         'Tu token',                    'La llave con la que entra como tú', 'fa-key'],
+        ['Instrucciones', 'Pégale esto a tu asistente',  'Va en las instrucciones del repo', 'fa-terminal'],
     ];
 
     public const PASOS_PROYECTO = [
-        ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.'],
-        ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.'],
-        ['Repos',      'Código y estado',         'Enlaza los repositorios para ver la actividad de commits.'],
-        ['Aspecto',    'Ícono y color',           'Cómo se distingue el proyecto en el panel.'],
+        ['Identidad',  'De qué va el proyecto',   'Nombre, descripción y cuándo arranca.', 'fa-id-card'],
+        ['Equipo',     'Quién participa',         'Solo esta gente aparecerá al asignar tareas del proyecto.', 'fa-users'],
+        ['Repos',      'Código y estado',         'Enlaza los repositorios para ver la actividad de commits.', 'fa-code-branch'],
+        ['Aspecto',    'Ícono y color',           'Cómo se distingue el proyecto en el panel.', 'fa-palette'],
     ];
 
     /** Riel lateral con la marca del modal y la lista de pasos. */
@@ -1227,10 +1242,13 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
               . '<span class="wz-icono"><i class="fa-solid ' . e($icono) . '"></i></span>'
               . '<h3 class="font-display">' . e($titulo) . '</h3>'
               . '<p>' . e($sub) . '</p>'
-              . '</div><div class="wz-pasos">';
-        foreach ($pasos as $i => [$corto, $tituloPaso, $ayuda]) {
-            $html .= '<button type="button" class="wz-paso" data-titulo="' . e($tituloPaso) . '" data-ayuda="' . e($ayuda) . '">'
-                   . '<span class="wz-num">' . ($i + 1) . '</span>'
+              . '</div><div class="wz-pasos" role="group" aria-label="Pasos">';
+        foreach ($pasos as $i => $paso) {
+            [$corto, $tituloPaso, $ayuda] = $paso;
+            $icono = $paso[3] ?? '';
+            $html .= '<button type="button" class="wz-paso" data-titulo="' . e($tituloPaso) . '" data-ayuda="' . e($ayuda) . '"'
+                   . ($icono !== '' ? ' data-icono="' . e($icono) . '"' : '') . '>'
+                   . '<span class="wz-num">' . ($icono !== '' ? '<i class="fa-solid ' . e($icono) . '" aria-hidden="true"></i>' : ($i + 1)) . '</span>'
                    . '<span class="wz-txt"><b>' . e($corto) . '</b><small>' . e($ayuda) . '</small></span>'
                    . '</button>';
         }
@@ -1308,17 +1326,20 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
      */
     public static function adjuntosTarea(): string
     {
+        // Con el aspecto del componente de subida (fx-zona), pero su lógica es la
+        // de aquí: va sumando lo elegido y, al editar, deja quitar lo que ya tiene.
         return '<div class="campo campo-adjuntos" data-adjuntos-tarea>'
             . '<span>Documentos de respaldo</span>'
             . '<ul class="adj-lista" hidden></ul>'
-            . '<label class="adj-elegir">'
+            . '<label class="adj-elegir adj-zona">'
             . '<input type="file" name="adjuntos[]" multiple accept="' . e(self::ACEPTA_ADJUNTOS) . '">'
-            . '<i class="fa-solid fa-paperclip"></i><span>Añadir archivos…</span>'
+            . '<span class="fx-up"><i class="fa-solid fa-cloud-arrow-up" aria-hidden="true"></i></span>'
+            . '<span class="fx-zona-txt"><b>Arrastra archivos aquí o haz clic para elegirlos</b>'
+            . '<small>Imágenes, PDF, Word, Excel, PowerPoint, TXT o CSV</small></span>'
             . '</label>'
             . '<ul class="adj-nuevos" hidden></ul>'
             . '<small class="campo-ayuda">Puedes añadir varios, de golpe o de uno en uno. '
-            . 'Los verá quien tenga la tarea asignada, en el detalle de la tarea. '
-            . 'Imágenes, PDF, Word, Excel, PowerPoint, TXT o CSV.</small>'
+            . 'Los verá quien tenga la tarea asignada, en el detalle de la tarea.</small>'
             . '</div>';
     }
 

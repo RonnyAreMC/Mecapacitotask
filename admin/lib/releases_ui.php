@@ -328,12 +328,18 @@ function rlVistaRelease(array $c): void
         <?php if (($R['sprints'] ?? '') !== ''): ?><span><?= rlIco('racha', 16) ?> <?= e($R['sprints']) ?></span><?php endif; ?>
         <?php if ($ant): ?><span class="rl-hero__ant" data-ds-tip="Antes del reajuste terminaba el <?= e(rlF($R['fin_anterior'], true)) ?>"><?= rlIco('reloj', 16) ?> Reajustado (antes <?= e(rlF($R['fin_anterior'], true)) ?>)</span><?php endif; ?>
       </p>
-      <?php if (($R['modulos'] ?? '') !== '' || ($R['descripcion'] ?? '') !== ''): ?>
-      <p class="rl-hero__desc"><?= e(($R['descripcion'] ?? '') !== '' ? $R['descripcion'] : $R['modulos']) ?></p>
+      <?php if (($R['modulos'] ?? '') !== '' || ($R['descripcion'] ?? '') !== ''): $descR = ($R['descripcion'] ?? '') !== '' ? $R['descripcion'] : $R['modulos']; ?>
+      <p class="rl-hero__desc" title="<?= e($descR) ?>"><?= e($descR) ?></p>
       <?php endif; ?>
       <?php endif; ?>
       <?php if (!$fijo): ?>
+      <?php /* Los equipos filtran aquí mismo: «Todos» o los que se elijan */ ?>
       <div class="rl-hero__eqs" aria-label="Equipos (se pueden elegir varios)">
+        <?php if (count($eqsRel) > 1): ?>
+        <a class="rl-eqpill rl-eqpill--todos<?= !$fEqs ? ' is-active' : '' ?>" href="<?= e($urlEq([])) ?>" aria-pressed="<?= !$fEqs ? 'true' : 'false' ?>">
+          <b>Todos</b><span class="mc-num"><?= (int)$res['pct'] ?> %</span><small><?= count($delRel) ?> ítems</small>
+        </a>
+        <?php endif; ?>
         <?php foreach ($eqsRel as $nom => $l): $rq = Releases::resumen($l); $s = rlSaludGrupo($rq, $hoy); $onE = in_array($nom, $fEqs, true); ?>
         <a class="rl-eqpill rl-s--<?= e($s) ?><?= $onE ? ' is-active' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($urlEq($alternar($fEqs, $nom))) ?>" aria-pressed="<?= $onE ? 'true' : 'false' ?>">
           <span class="rl-eqpill__dot"></span><b><?= e($nom) ?></b><span class="mc-num"><?= (int)$rq['pct'] ?> %</span><small><?= count($l) ?> ítems</small>
@@ -356,47 +362,36 @@ function rlVistaRelease(array $c): void
 
   <div class="rl-ia-slot" data-rl-ia-slot hidden></div>
 
-  <section class="rl-filtros" aria-label="Filtros">
-    <?php if (!$fijo): ?>
-    <div class="rl-filtros__fila">
-      <span class="rl-filtros__rot">Equipo</span>
-      <div class="rl-chips">
-        <a class="rl-chip<?= !$fEqs ? ' is-on' : '' ?>" href="<?= e($urlEq([])) ?>">Todos</a>
-        <?php foreach ($eqsRel as $nom => $l): $onE = in_array($nom, $fEqs, true); ?>
-        <a class="rl-chip<?= $onE ? ' is-on' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" href="<?= e($urlEq($alternar($fEqs, $nom))) ?>" aria-pressed="<?= $onE ? 'true' : 'false' ?>"><i class="rl-chip__dot"></i><?= e($nom) ?></a>
-        <?php endforeach; ?>
-      </div>
-    </div>
-    <?php endif; ?>
-    <div class="rl-filtros__fila">
-      <span class="rl-filtros__rot">Estado</span>
-      <div class="rl-chips">
-        <?php foreach (Releases::ESTADOS as $k => [$lbl, $tono]): ?>
-        <a class="rl-chip rl-t--<?= e($tono) ?><?= $fEst === $k ? ' is-on' : '' ?>" href="<?= e($url(array_replace($base, ['estado' => $fEst === $k ? '' : $k]))) ?>"><i class="rl-chip__dot"></i><?= e($lbl) ?></a>
-        <?php endforeach; ?>
-      </div>
-    </div>
-    <div class="rl-filtros__fila">
-      <span class="rl-filtros__rot">Salud</span>
-      <div class="rl-chips">
-        <?php foreach (Releases::SALUD as $k => [$lbl, $tono]): ?>
-        <a class="rl-chip rl-t--<?= e($tono) ?><?= $fSal === $k ? ' is-on' : '' ?>" href="<?= e($url(array_replace($base, ['salud' => $fSal === $k ? '' : $k]))) ?>"><i class="rl-chip__dot"></i><?= e($lbl) ?></a>
-        <?php endforeach; ?>
-      </div>
-    </div>
-    <div class="rl-filtros__fila rl-filtros__fila--fin">
-      <?php [$fAccion, $fOcultos, $fCampo] = $c['buscar']; ?>
-      <form method="get" action="<?= e($fAccion) ?>" class="rl-buscar">
-        <?php foreach (array_filter($fOcultos($base)) as $k => $x): ?><input type="hidden" name="<?= e($k) ?>" value="<?= e($x) ?>"><?php endforeach; ?>
-        <div class="mc-input mc-input--sm"><?= UI::iconoDS('buscar', 16, 'mc-input__icon') ?>
-          <input class="mc-input__control" type="search" name="<?= e($fCampo) ?>" value="<?= e($q) ?>" placeholder="Buscar por código, título o microservicio…" aria-label="Buscar ítems"></div>
-      </form>
-      <?php if ($hayFiltro): ?><a class="mc-btn mc-btn--ghost mc-btn--sm" href="<?= e($url(['r' => $base['r'], 'e' => ''])) ?>"><?= rlIco('cerrar', 16) ?><span class="mc-btn__label">Quitar filtros</span></a><?php endif; ?>
-      <span class="rl-filtros__n"><?= count($lista) ?> de <?= count($delRel) ?> ítems</span>
-      <div class="mc-tabs mc-tabs--segmented mc-tabs--sm rl-modo" role="tablist" aria-label="Cómo verlos">
-        <button type="button" class="mc-tab is-active" role="tab" aria-selected="true" data-rl-modo="gantt"><?= rlIco('ruta', 16) ?><span>Gantt</span></button>
-        <button type="button" class="mc-tab" role="tab" aria-selected="false" data-rl-modo="lista"><?= rlIco('menu', 16) ?><span>Lista</span></button>
-      </div>
+  <?php
+    // Una sola fila: buscador y dos selects (estado y salud). El equipo se elige
+    // arriba, en el release. Los nombres de los campos son los de quien llama
+    // (aquí estado/salud; dentro del proyecto, rl_estado/rl_salud): se averiguan
+    // pasándole al armador de la URL unas marcas en su lugar.
+    [$fAccion, $fOcultos, $fCampo] = $c['buscar'];
+    $sonda = $fOcultos(['r' => '', 'e' => '', 'estado' => "\x01e", 'salud' => "\x01s", 'q' => '']);
+    $nEst = (string)(array_search("\x01e", $sonda, true) ?: 'estado');
+    $nSal = (string)(array_search("\x01s", $sonda, true) ?: 'salud');
+    $ocultos = array_diff_key(array_filter($fOcultos($base)), [$nEst => 1, $nSal => 1]);
+  ?>
+  <section class="rl-filtros rl-filtros--fila" aria-label="Filtros">
+    <form method="get" action="<?= e($fAccion) ?>" class="rl-buscar rl-buscar--fila">
+      <?php foreach ($ocultos as $k => $x): ?><input type="hidden" name="<?= e($k) ?>" value="<?= e($x) ?>"><?php endforeach; ?>
+      <div class="mc-input mc-input--sm rl-buscar__q"><?= UI::iconoDS('buscar', 16, 'mc-input__icon') ?>
+        <input class="mc-input__control" type="search" name="<?= e($fCampo) ?>" value="<?= e($q) ?>" placeholder="Buscar por código, título o microservicio…" aria-label="Buscar ítems"></div>
+      <select class="select-meca select-sm rl-buscar__sel" name="<?= e($nEst) ?>" aria-label="Estado" onchange="this.form.requestSubmit()">
+        <option value="">Estado: todos</option>
+        <?php foreach (Releases::ESTADOS as $k => [$lbl]): ?><option value="<?= e($k) ?>"<?= $fEst === $k ? ' selected' : '' ?>><?= e($lbl) ?></option><?php endforeach; ?>
+      </select>
+      <select class="select-meca select-sm rl-buscar__sel" name="<?= e($nSal) ?>" aria-label="Salud" onchange="this.form.requestSubmit()">
+        <option value="">Salud: todas</option>
+        <?php foreach (Releases::SALUD as $k => [$lbl]): ?><option value="<?= e($k) ?>"<?= $fSal === $k ? ' selected' : '' ?>><?= e($lbl) ?></option><?php endforeach; ?>
+      </select>
+    </form>
+    <?php if ($hayFiltro): ?><a class="mc-btn mc-btn--ghost mc-btn--sm" href="<?= e($url(['r' => $base['r'], 'e' => ''])) ?>"><?= rlIco('cerrar', 16) ?><span class="mc-btn__label">Quitar filtros</span></a><?php endif; ?>
+    <span class="rl-filtros__n"><?= count($lista) ?> de <?= count($delRel) ?> ítems</span>
+    <div class="mc-tabs mc-tabs--segmented mc-tabs--sm rl-modo" role="tablist" aria-label="Cómo verlos">
+      <button type="button" class="mc-tab is-active" role="tab" aria-selected="true" data-rl-modo="gantt"><?= rlIco('ruta', 16) ?><span>Gantt</span></button>
+      <button type="button" class="mc-tab" role="tab" aria-selected="false" data-rl-modo="lista"><?= rlIco('menu', 16) ?><span>Lista</span></button>
     </div>
   </section>
 

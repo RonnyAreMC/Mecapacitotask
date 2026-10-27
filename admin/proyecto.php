@@ -1654,12 +1654,12 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 
       <section class="wz-panel">
         <label class="campo">
-          <span>La tarea que sueltas *</span>
+          <span>La tarea que sueltas</span>
           <?= UI::select('tarea_de', $opcionesMisTareas, (string)array_key_first($opcionesMisTareas)) ?>
           <small class="campo-ayuda">Solo aparecen tus tareas de este proyecto.</small>
         </label>
         <label class="campo">
-          <span>La tarea que tomarías *</span>
+          <span>La tarea que tomarías</span>
           <?= UI::select('tarea_para', $opcionesOtrasTareas, (string)array_key_first($opcionesOtrasTareas)) ?>
           <small class="campo-ayuda">La propuesta le llegará a quien la tenga asignada.</small>
         </label>
@@ -1667,7 +1667,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 
       <section class="wz-panel">
         <label class="campo">
-          <span>Motivo *</span>
+          <span>Motivo</span>
           <?= UI::select('motivo', array_map(fn($v) => $v[0], Catalogo::MOTIVOS_INTERCAMBIO), 'carga') ?>
         </label>
         <label class="campo">
@@ -2415,8 +2415,8 @@ function depPicker(): void { ?>
 
       <section class="wz-panel">
         <label class="campo">
-          <span>Título *</span>
-          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google">
+          <span>Título</span>
+          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Implementar login con Google" data-error="Escribe un título para la tarea.">
         </label>
         <div class="campo">
           <span>Descripción</span>
@@ -2479,7 +2479,7 @@ function depPicker(): void { ?>
     <input type="hidden" name="accion" value="tarea_editar">
     <input type="hidden" name="id" id="et-id">
     <input type="hidden" name="volver" value="<?= e($urlConFiltros) ?>">
-    <?= UI::wizardRiel('fa-pen', 'Editar tarea', 'En ' . $proyecto['nombre'], UI::PASOS_TAREA) ?>
+    <?= UI::wizardRiel('fa-pen', 'Editar tarea', 'En ' . $proyecto['nombre'], UI::PASOS_EDITAR_TAREA) ?>
     <div class="wz-cuerpo">
       <header>
         <div>
@@ -2490,7 +2490,7 @@ function depPicker(): void { ?>
       </header>
 
       <section class="wz-panel">
-        <label class="campo"><span>Título *</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120"></label>
+        <label class="campo"><span>Título</span><input class="input-meca" name="titulo" id="et-titulo" required maxlength="120" data-error="Escribe un título para la tarea."></label>
         <div class="campo"><span>Descripción</span><?= UI::editorRico(['name' => 'descripcion', 'id' => 'et-descripcion', 'placeholder' => 'Detalles, criterios de aceptación… (puedes pegar tablas)']) ?>
           <?php if (UI::ia('tarea_descripcion') || UI::ia('tarea_desglose')): ?>
           <div class="ia-acciones">
@@ -2779,7 +2779,7 @@ $tAbrir = (int)($_GET['tarea'] ?? 0) > 0 ? (new TareaRepo())->buscar((int)$_GET[
       </header>
 
       <section class="wz-panel">
-        <label class="campo"><span>Nombre *</span><input class="input-meca" name="nombre" required value="<?= e($proyecto['nombre']) ?>"></label>
+        <label class="campo"><span>Nombre</span><input class="input-meca" name="nombre" required value="<?= e($proyecto['nombre']) ?>"></label>
         <label class="campo"><span>Descripción</span><textarea class="input-meca" name="descripcion" rows="3"><?= e($proyecto['descripcion']) ?></textarea></label>
         <label class="campo"><span>Fecha de inicio</span>
           <input class="input-meca" type="date" name="fecha_inicio" value="<?= e($proyecto['fecha_inicio'] ?? '') ?>">

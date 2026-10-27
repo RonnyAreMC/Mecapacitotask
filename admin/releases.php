@@ -439,9 +439,10 @@ $ilus = !$todos ? 'releases-importar' : (['tablero' => 'releases-tablero', 'rele
 UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) . '</span>', $sub, $acciones, $ilus);
 ?>
 <div class="ds rl" data-rl data-vista="<?= e($v) ?>">
-  <nav class="mc-tabs mc-tabs--line rl-tabs" aria-label="Secciones de Releases">
+  <?php /* Las secciones, como las pestañas de un proyecto (Calendario, Tareas…) */ ?>
+  <nav class="vista-toggle rl-tabs-bar" aria-label="Secciones de Releases">
     <?php foreach ($tabs as $k => [$lbl, $ico, $url]): ?>
-    <a class="mc-tab<?= $k === $tabActiva ? ' is-active' : '' ?>" href="<?= e($url) ?>"<?= $k === $tabActiva ? ' aria-current="page"' : '' ?>><?= rlIco($ico, 18) ?><span><?= e($lbl) ?></span></a>
+    <a class="tab-btn<?= $k === $tabActiva ? ' active' : '' ?>" data-rl-tab="<?= e($k) ?>" href="<?= e($url) ?>"<?= $k === $tabActiva ? ' aria-current="page"' : '' ?>><?= rlIco($ico, 18) ?><span class="tab-txt"><?= e($lbl) ?></span></a>
     <?php endforeach; ?>
   </nav>
 
@@ -480,15 +481,14 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <div class="mc-kpi__progress"><div class="mc-kpi__bar"><span class="mc-kpi__bar-fill" style="--p:<?= $T['total'] ? round($T['cerrados'] / $T['total'], 3) : 0 ?>"></span></div>
         <span class="mc-kpi__bar-text"><?= (int)$T['en_curso'] ?> en curso · <?= (int)$T['por_iniciar'] ?> por iniciar</span></div>
     </article>
-    <a class="mc-kpi mc-kpi--rojo mc-kpi--clickable" style="--i:2" href="#rl-alertas">
+    <?php /* Qué cuenta cada uno va en la ayuda al pasar el mouse: en la tarjeta, solo el número */ ?>
+    <a class="mc-kpi mc-kpi--rojo mc-kpi--clickable" style="--i:2" href="#rl-alertas" data-ds-tip="Vencidos, por debajo del 70 % de lo esperado o bloqueados">
       <div class="mc-kpi__head"><span class="mc-tile mc-tile--rojo mc-tile--sm"><?= rlIco('alerta', 20) ?></span><p class="mc-kpi__label">Atrasados</p></div>
       <p class="mc-kpi__value mc-num"><?= (int)$T['atrasados'] ?></p>
-      <span class="mc-kpi__hint">vencidos, por debajo del 70 % de lo esperado o bloqueados</span>
     </a>
-    <a class="mc-kpi mc-kpi--naranja mc-kpi--clickable" style="--i:3" href="#rl-alertas">
+    <a class="mc-kpi mc-kpi--naranja mc-kpi--clickable" style="--i:3" href="#rl-alertas" data-ds-tip="Un poco por debajo de lo que el plan espera hoy">
       <div class="mc-kpi__head"><span class="mc-tile mc-tile--naranja mc-tile--sm"><?= rlIco('reloj', 20) ?></span><p class="mc-kpi__label">En riesgo</p></div>
       <p class="mc-kpi__value mc-num"><?= (int)$T['riesgo'] ?></p>
-      <span class="mc-kpi__hint">un poco por debajo de lo que el plan espera hoy</span>
     </a>
     <article class="mc-kpi mc-kpi--featured rl-kpi-go" style="--i:4"<?= $hitoGo ? ' title="' . e($hitoGo['titulo']) . '"' : '' ?>>
       <?= UI::nexo($diasGo !== null && $diasGo <= 21 ? 'corriendo' : 'con-laptop', 'rl-kpi-go__nexo') ?>

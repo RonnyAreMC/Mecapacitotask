@@ -606,6 +606,7 @@ const MecaWizard = {
   /** Texto legible del valor de un control (para el resumen final). */
   valorDe(ctrl) {
     if (!ctrl) return '';
+    if (ctrl.type === 'file') return [...ctrl.files].map((f) => f.name).join(', ');
     if (ctrl.tagName === 'SELECT') {
       const elegidas = [...ctrl.selectedOptions].filter((o) => o.value !== '0' && o.value !== '');
       return elegidas.map((o) => o.textContent.trim()).join(', ');
@@ -668,27 +669,92 @@ const MecaWizard = {
     const ayudaEl  = form.querySelector('.wz-ayuda-paso');
     if (!paneles.length) return;
     let actual = 0;
+    // Avanzar y regresar se ven como chevrons: el nombre queda al pasar el mouse
+    [btnAtras, btnSig].forEach((b) => { if (b && !b.title) b.title = b.textContent.trim(); });
+    // En los modales, sobre el título va en qué paso estás («Paso 2/4»)
+    let ceja = null;
+    if (tituloEl && form.closest('.dlg-wizard')) {
+      ceja = document.createElement('span');
+      ceja.className = 'wz-ceja';
+      tituloEl.before(ceja);
+    }
 
     // Controles del panel que el navegador puede validar
     const controles = (i) => [...paneles[i].querySelectorAll('input, select, textarea')]
       .filter((c) => c.willValidate && !c.disabled);
     const valido  = (i) => controles(i).every((c) => c.checkValidity());
-    const avisar  = (i) => {
-      const malo = controles(i).find((c) => !c.checkValidity());
-      if (malo) malo.reportValidity();
+
+    // El error se escribe bajo el campo (no la burbuja del navegador, que no
+    // sale en los selects y calendarios del panel porque esconden el nativo).
+    const mensajeDe = (c) => {
+      if (c.dataset.error) return c.dataset.error;
+      if (c.validity.valueMissing) return c.tagName === 'SELECT' ? 'Elige una opción para continuar.' : 'Completa este campo para continuar.';
+      return c.validationMessage;
     };
+    const limpiarError = (c) => {
+      const campo = c.closest('.campo');
+      c.removeAttribute('aria-invalid');
+      if (!campo) return;
+      campo.classList.remove('wz-mal');
+      campo.querySelector('.wz-error')?.remove();
+    };
+    const marcarError = (c) => {
+      limpiarError(c);
+      const campo = c.closest('.campo');
+      c.setAttribute('aria-invalid', 'true');
+      if (!campo) return;
+      campo.classList.add('wz-mal');
+      const msg = document.createElement('small');
+      msg.className = 'wz-error';
+      msg.id = 'wz-err-' + (c.name || 'campo').replace(/\W+/g, '') + '-' + Math.random().toString(36).slice(2, 7);
+      msg.setAttribute('role', 'alert');
+      msg.innerHTML = '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>';
+      msg.append(' ' + mensajeDe(c));
+      c.setAttribute('aria-describedby', msg.id);
+      // Debajo del control visible: el select con buscador y el calendario
+      // esconden el nativo dentro de su envoltura.
+      (c.closest('.ms, .md, .rt') || c).insertAdjacentElement('afterend', msg);
+    };
+    const avisar = (i) => {
+      const malos = controles(i).filter((c) => !c.checkValidity());
+      malos.forEach(marcarError);
+      pasos[i]?.classList.add('error');
+      const malo = malos[0];
+      if (!malo) return;
+      const visible = malo.offsetParent ? malo : malo.closest('.campo')?.querySelector('.ms-trigger, .md-trigger, [contenteditable]');
+      (visible || malo).focus?.({ preventScroll: true });
+      (visible || malo).closest('.campo')?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    // Se va el aviso en cuanto el dato ya vale
+    const revisar = (e) => {
+      const c = e.target;
+      if (!c.matches?.('input, select, textarea') || !c.closest('.campo.wz-mal')) return;
+      if (!c.checkValidity()) return;
+      limpiarError(c);
+      const n = paneles.findIndex((p) => p.contains(c));
+      if (n !== -1 && !paneles[n].querySelector('.wz-mal')) pasos[n]?.classList.remove('error');
+    };
+    form.addEventListener('input', revisar);
+    form.addEventListener('change', revisar);
 
     const ir = (i) => {
-      actual = Math.max(0, Math.min(paneles.length - 1, i));
+      const destino = Math.max(0, Math.min(paneles.length - 1, i));
+      // Hacia dónde entra el panel: adelante desde la derecha, atrás desde la izquierda
+      form.dataset.dir = destino < actual ? 'atras' : 'adelante';
+      actual = destino;
       const ultimo = actual === paneles.length - 1;
       paneles.forEach((p, n) => p.classList.toggle('activo', n === actual));
       pasos.forEach((p, n) => {
         p.classList.toggle('activo', n === actual);
         p.classList.toggle('hecho', n < actual);
+        if (n < actual) p.classList.remove('error');
+        if (n === actual) p.setAttribute('aria-current', 'step'); else p.removeAttribute('aria-current');
         const num = p.querySelector('.wz-num');
-        if (num) num.innerHTML = n < actual ? '<i class="fa-solid fa-check"></i>' : String(n + 1);
+        const ico = p.dataset.icono ? '<i class="fa-solid ' + p.dataset.icono + '" aria-hidden="true"></i>' : String(n + 1);
+        if (num) num.innerHTML = n < actual ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : ico;
       });
       if (contador) contador.textContent = 'Paso ' + (actual + 1) + ' de ' + paneles.length;
+      if (ceja) ceja.textContent = 'Paso ' + (actual + 1) + '/' + paneles.length;
       const pasoAct = pasos[actual];
       if (tituloEl && pasoAct) tituloEl.textContent = pasoAct.dataset.titulo || '';
       if (ayudaEl && pasoAct) ayudaEl.textContent = pasoAct.dataset.ayuda || '';
@@ -727,16 +793,87 @@ const MecaWizard = {
       }
     });
 
-    // Cada vez que se abre el modal, vuelve al primer paso
+    // Cada vez que se abre el modal, vuelve al primer paso y sin avisos viejos
     const dlg = form.closest('dialog');
     if (dlg) {
-      new MutationObserver(() => { if (dlg.open) ir(0); })
-        .observe(dlg, { attributes: true, attributeFilter: ['open'] });
+      new MutationObserver(() => {
+        if (!dlg.open) return;
+        form.querySelectorAll('[aria-invalid]').forEach(limpiarError);
+        pasos.forEach((p) => p.classList.remove('error'));
+        // data-wz-ir="2" en el modal: se abre directo en ese paso (una sola vez)
+        const inicio = parseInt(dlg.dataset.wzIr || '0', 10) || 0;
+        delete dlg.dataset.wzIr;
+        actual = 0;
+        ir(inicio);
+      }).observe(dlg, { attributes: true, attributeFilter: ['open'] });
     }
     ir(0);
   },
 };
 MecaWizard.init();
+
+/* =========================================================
+   Lente de vidrio: al pasar el mouse por los pasos de un asistente,
+   una gota de vidrio líquido sale encima de su bolita (no de toda la
+   fila) y se desliza a la de al lado. Solo adorno: no recibe clics
+   ni mueve nada (va en position:fixed, fuera del flujo).
+   ========================================================= */
+const LenteVidrio = {
+  OPCIONES: '.wz-paso',
+  lentes: new Map(),   // una por capa: la página o cada modal abierto
+
+  init() {
+    if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    document.addEventListener('pointerover', (e) => this.sobre(e.target), { passive: true });
+    window.addEventListener('scroll', () => this.ocultarTodas(), { capture: true, passive: true });
+    window.addEventListener('resize', () => this.ocultarTodas(), { passive: true });
+  },
+
+  lente(capa) {
+    let l = this.lentes.get(capa);
+    if (!l || !l.isConnected) {
+      l = document.createElement('span');
+      l.className = 'lg-lente';
+      l.setAttribute('aria-hidden', 'true');
+      capa.appendChild(l);
+      this.lentes.set(capa, l);
+    }
+    return l;
+  },
+
+  sobre(el) {
+    if (!el?.closest) return;
+    const op = el.closest(this.OPCIONES);
+    const capa = el.closest('dialog[open]') || document.body;
+    if (!op || op.disabled) {
+      // En el hueco entre dos opciones del mismo grupo no se apaga: así se desliza
+      const l = this.lentes.get(capa);
+      if (l && !(l._grupo && l._grupo.contains(el))) this.ocultar(l);
+      return;
+    }
+    this.mostrar(op, this.lente(capa));
+  },
+
+  mostrar(op, l) {
+    const bolita = op.querySelector('.wz-num') || op;
+    const r = bolita.getBoundingClientRect();
+    if (!r.width) return;
+    const grupo = op.parentElement;
+    // Si ya estaba encendida en este grupo se desliza; si no, aparece en su sitio
+    l.classList.toggle('lg-quieta', !(l.classList.contains('is-on') && l._grupo === grupo));
+    l._grupo = grupo;
+    l.style.left = (r.left - 5) + 'px';
+    l.style.top = (r.top - 5) + 'px';
+    l.style.width = (r.width + 10) + 'px';
+    l.style.height = (r.height + 10) + 'px';
+    l.style.borderRadius = '50%';
+    l.classList.add('is-on');
+  },
+
+  ocultar(l) { l.classList.remove('is-on'); l._grupo = null; },
+  ocultarTodas() { this.lentes.forEach((l) => this.ocultar(l)); },
+};
+LenteVidrio.init();
 
 /* =========================================================
    Selector de dependencias (crear / editar tarea).
@@ -2307,15 +2444,31 @@ document.querySelectorAll('[data-adjuntos-tarea]').forEach((campo) => {
     pintarNuevos();
   };
 
-  input.addEventListener('change', () => {
-    [...input.files].forEach((f) => {
+  const sumar = (archivos) => {
+    archivos.forEach((f) => {
       // Mismo nombre y tamaño = el mismo archivo elegido dos veces
       const repetido = [...cola.files].some((x) => x.name === f.name && x.size === f.size);
       if (!repetido) cola.items.add(f);
     });
     input.files = cola.files;
     pintarNuevos();
-  });
+  };
+  input.addEventListener('change', () => sumar([...input.files]));
+
+  // Arrastrar y soltar sobre la zona: entra en la misma cola que lo elegido a
+  // mano. Solo los tipos que acepta el input (el servidor vuelve a mirarlo).
+  const zona = campo.querySelector('.adj-zona');
+  const tipos = (input.accept || '').split(',').map((t) => t.trim().toLowerCase()).filter(Boolean);
+  const sirve = (f) => !tipos.length || tipos.includes('.' + f.name.split('.').pop().toLowerCase());
+  if (zona) {
+    zona.addEventListener('dragover', (e) => { e.preventDefault(); zona.classList.add('is-sobre'); });
+    zona.addEventListener('dragleave', (e) => { if (!zona.contains(e.relatedTarget)) zona.classList.remove('is-sobre'); });
+    zona.addEventListener('drop', (e) => {
+      e.preventDefault();
+      zona.classList.remove('is-sobre');
+      sumar([...(e.dataTransfer?.files || [])].filter(sirve));
+    });
+  }
 
   nuevos.addEventListener('click', (e) => {
     const btn = e.target.closest('.adj-quitar');

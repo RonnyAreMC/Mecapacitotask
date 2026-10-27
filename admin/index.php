@@ -253,7 +253,7 @@ if (puedeVerDeploys()) {
 
       <section class="wz-panel">
         <label class="campo">
-          <span>Nombre del proyecto *</span>
+          <span>Nombre del proyecto</span>
           <input class="input-meca" name="nombre" required maxlength="80" placeholder="Ej. App de delivery">
         </label>
         <label class="campo">
