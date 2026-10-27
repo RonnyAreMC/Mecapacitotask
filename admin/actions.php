@@ -36,6 +36,8 @@ $accionesPublicas   = ['auth_login', 'auth_identificar', 'solicitud_registrar', 
 // cada accion comprueba por dentro que la tarea sea suya.
 $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json',
+    // El token de la API para Claude Code: cada quien el suyo (Mi perfil)
+    'api_token_crear', 'api_token_quitar',
     'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
@@ -232,21 +234,6 @@ function relAmarrar(int $tareaId, int $pid, array $post): string
     }
 }
 
-/**
- * Releases: el ítem del release de esa tarea queda al día con lo que marcó el
- * equipo (avance y estado según sus tareas). Si el módulo no está, no hace nada.
- */
-function relAlDia(array $tareaIds): void
-{
-    $tareaIds = array_values(array_filter(array_map('intval', $tareaIds)));
-    if (!$tareaIds || !is_file(__DIR__ . '/lib/Releases.php')) return;
-    try {
-        require_once __DIR__ . '/lib/Releases.php';
-        Releases::sincronizarTareas($tareaIds);
-    } catch (Throwable $e) {
-        // El tablero no se frena por Releases
-    }
-}
 
 /**
  * Teléfono: solo números y con forma de número real (MiembroRepo::telefonoValido:
@@ -492,21 +479,6 @@ function participantesProyecto(int $pid, ProyectoRepo $proyectos, TareaRepo $tar
     return array_keys($ids);
 }
 
-function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
-{
-    $p = $proyectos->buscar($proyectoId);
-    if (!$p) return;
-    $total = array_sum($tareas->resumen($proyectoId));
-    $completo = $total > 0 && $tareas->avance($proyectoId) === 100;
-    $yaAvisado = !empty($p['entrega_notificada']);
-
-    if ($completo && !$yaAvisado) {
-        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 1]);
-        Mailer::notificarProyectoCompleto($p, $total);
-    } elseif (!$completo && $yaAvisado) {
-        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 0]);
-    }
-}
 
 /**
  * Avisa por correo a quienes acaban de entrar al equipo del proyecto.
@@ -668,20 +640,6 @@ function fechasTarea(array $post, string $volver): array
     return [$inicio, $limite];
 }
 
-/**
- * Campos para registrar CUÁNDO se completó una tarea. Se guarda al entrar a un
- * estado final y se limpia al salir. Con esa fecha, las completadas se ocultan
- * del tablero una semana después (pero siguen guardadas).
- */
-function completadaEn(string $nuevo, string $antes): array
-{
-    $finales  = Catalogo::estadosFinales();
-    $esFinal  = in_array($nuevo, $finales, true);
-    $eraFinal = in_array($antes, $finales, true);
-    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d')];
-    if (!$esFinal && $eraFinal) return ['completada_en' => ''];
-    return [];
-}
 
 /**
  * Product Owner válido: el id solo cuenta si es un miembro del equipo de
@@ -2063,6 +2021,20 @@ switch ($accion) {
         redirigir($volver, 'Propuesta retirada.');
 
     /* ---------- Mi perfil (cada quien edita lo suyo) ---------- */
+
+    case 'api_token_crear':
+    case 'api_token_quitar':
+        // El token de la API (api.php) para Claude Code: siempre el de quien entró, nunca el del «ver como»
+        require_once __DIR__ . '/lib/ApiToken.php';
+        $yoTk = (int)(Auth::usuario()['id'] ?? 0);
+        if ($yoTk <= 0) redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
+        if ($accion === 'api_token_quitar') {
+            ApiToken::quitar($yoTk);
+            redirigir('perfil.php#claude-api', 'Listo: ese token ya no sirve. Claude Code dejará de entrar hasta que crees otro.');
+        }
+        // Se ve una sola vez: va por la sesión, no por la URL
+        $_SESSION['api_token_nuevo'] = ApiToken::crear($yoTk);
+        redirigir('perfil.php#claude-api', 'Token creado. Cópialo ahora: es la única vez que se ve.');
 
     case 'mis_tareas_json':
         // Exporta MIS tareas como JSON, para pasárselo a Claude junto con el

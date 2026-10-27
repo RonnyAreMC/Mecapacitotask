@@ -147,6 +147,14 @@ foreach ($proyecto ? ProyectoRepo::repos($proyecto) : [] as $rp) {
                       'fecha' => (string)($c['fecha'] ?? ''), 'url' => (string)($c['url'] ?? ''), 'repo' => (string)($rp['label'] ?? '')];
     }
 }
+// Los que asoció Claude Code por la API (api.php ?r=commit), aunque el repo no esté conectado
+$yaSha = array_flip(array_column($commits, 'sha'));
+foreach ((array)($t['commits_api'] ?? []) as $c) {
+    $sha7 = substr((string)($c['sha'] ?? ''), 0, 7);
+    if ($sha7 === '' || isset($yaSha[$sha7])) continue;
+    $commits[] = ['sha' => $sha7, 'msg' => (string)($c['mensaje'] ?? ''), 'autor' => (string)($c['autor'] ?? ''),
+                  'fecha' => (string)($c['fecha'] ?? ''), 'url' => (string)($c['url'] ?? ''), 'repo' => trim((string)($c['repo'] ?? '') . ' · Claude Code', ' ·')];
+}
 usort($commits, fn($a, $b) => strcmp($b['fecha'], $a['fecha']));
 $commits = array_slice($commits, 0, 60);
 // Sin historial de estados: empezó con su primer commit

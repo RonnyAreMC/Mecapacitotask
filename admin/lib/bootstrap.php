@@ -26,7 +26,7 @@ if (PHP_SAPI !== 'cli') {
 if (PHP_SAPI !== 'cli' && is_file(__DIR__ . '/../data/opcache_limpiar.json')
     && @unlink(__DIR__ . '/../data/opcache_limpiar.json') && function_exists('opcache_reset')) {
     @opcache_reset();
-    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !headers_sent()) {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !headers_sent() && !defined('MCH_API')) {   // la API no se redirige
         header('Location: ' . ($_SERVER['REQUEST_URI'] ?? 'index.php'), true, 302);
         exit;
     }
@@ -34,7 +34,9 @@ if (PHP_SAPI !== 'cli' && is_file(__DIR__ . '/../data/opcache_limpiar.json')
 
 // Sesión pensada para que dure HASTA QUE EL USUARIO CIERRE SESIÓN y no se
 // pierda en cada deploy.
-if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE) {
+// La API (api.php, para Claude Code) no usa sesión: entra con su token. Así una cookie
+// de sesión del navegador no sirve para llamarla, y no se crea un archivo por llamada.
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE && !defined('MCH_API')) {
     $vidaSesion = 60 * 60 * 24 * 30;   // 30 días
 
     // Las sesiones se guardan en el directorio PERSISTENTE de datos, no en el
@@ -417,7 +419,7 @@ function iconoAdjunto(string $ext): string
 // logo.php sirve la imagen de marca a los correos: los clientes la piden sin
 // sesión, así que no puede exigir login (no expone nada privado).
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
+if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
     Auth::requiereLogin();
 }
 
@@ -497,6 +499,55 @@ function puedeHorarioDelProyecto(int $proyectoId): bool
     // con estar puesto como tal: el rol ya se valida al guardar el proyecto.
     $id = (int)$yo['id'];
     return ProyectoRepo::scrumDe($p) === $id || esPOde($p, $id);
+}
+
+
+/* Cambiar el estado de una tarea: lo usan actions.php (tablero) y api.php (Claude Code). */
+/**
+ * Campos para registrar CUÁNDO se completó una tarea. Se guarda al entrar a un
+ * estado final y se limpia al salir. Con esa fecha, las completadas se ocultan
+ * del tablero una semana después (pero siguen guardadas).
+ */
+function completadaEn(string $nuevo, string $antes): array
+{
+    $finales  = Catalogo::estadosFinales();
+    $esFinal  = in_array($nuevo, $finales, true);
+    $eraFinal = in_array($antes, $finales, true);
+    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d')];
+    if (!$esFinal && $eraFinal) return ['completada_en' => ''];
+    return [];
+}
+
+/**
+ * Releases: el ítem del release de esa tarea queda al día con lo que marcó el
+ * equipo (avance y estado según sus tareas). Si el módulo no está, no hace nada.
+ */
+function relAlDia(array $tareaIds): void
+{
+    $tareaIds = array_values(array_filter(array_map('intval', $tareaIds)));
+    if (!$tareaIds || !is_file(__DIR__ . '/Releases.php')) return;
+    try {
+        require_once __DIR__ . '/Releases.php';
+        Releases::sincronizarTareas($tareaIds);
+    } catch (Throwable $e) {
+        // El tablero no se frena por Releases
+    }
+}
+
+function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
+{
+    $p = $proyectos->buscar($proyectoId);
+    if (!$p) return;
+    $total = array_sum($tareas->resumen($proyectoId));
+    $completo = $total > 0 && $tareas->avance($proyectoId) === 100;
+    $yaAvisado = !empty($p['entrega_notificada']);
+
+    if ($completo && !$yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 1]);
+        Mailer::notificarProyectoCompleto($p, $total);
+    } elseif (!$completo && $yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 0]);
+    }
 }
 
 /**

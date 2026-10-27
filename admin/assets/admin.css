@@ -6448,6 +6448,44 @@ img[src$="claude.svg"] {
 }
 .pf-claude .btn-outline { border-color: color-mix(in srgb, #d97757 42%, transparent); color: #c8663f; }
 @media (max-width: 640px) { .pf-claude-acc { width: 100%; } .pf-claude-acc .btn-meca { flex: 1; justify-content: center; } }
+/* Conectar Claude Code (u otro asistente) al panel con su token: api.php */
+.pf-api { display: flex; flex-direction: column; gap: 14px; padding: 18px 22px; margin-bottom: 24px; }
+.pf-api-cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 14px; flex-wrap: wrap; }
+.pf-api h2 { margin: 0 0 4px; font-size: 1.05rem; color: var(--c-text); }
+.pf-api-intro { display: flex; align-items: center; gap: 16px; min-width: 0; flex: 1 1 420px; }
+/* Claude, Codex, Copilot y «+»: burbujas montadas que flotan una tras otra */
+.pf-api-ias { display: flex; align-items: center; flex: none; padding: 4px 0; }
+.pf-api-ia {
+  display: grid; place-items: center; width: 44px; height: 44px; margin-left: -9px; border-radius: 14px;
+  background: var(--n-bg); box-shadow: var(--sh-mini), 0 0 0 2px var(--n-bg);
+  animation: claude-bob 2.8s ease-in-out infinite; transform-origin: 50% 65%;
+}
+.pf-api-ia:first-child { margin-left: 0; background: color-mix(in srgb, #d97757 12%, var(--n-bg)); }
+.pf-api-ia:nth-child(2) { animation-delay: .35s; }
+.pf-api-ia:nth-child(3) { animation-delay: .7s; }
+.pf-api-ia:nth-child(4) { animation-delay: 1.05s; }
+.pf-api-ia img, .pf-api-ia svg { width: 24px; height: 24px; }
+.pf-api-ia--marca { color: #18181B; }
+.pf-api-ia--mas { color: var(--c-text-soft); font: 800 1.1rem/1 var(--font-sans, sans-serif); }
+html.dark .pf-api-ia--marca { color: #F4F4F5; }
+@media (prefers-reduced-motion: reduce) { .pf-api-ia { animation: none; } }
+@media (max-width: 640px) { .pf-api-intro { flex-direction: column; align-items: flex-start; } }
+.pf-api-cab p { margin: 0; max-width: 70ch; color: var(--c-text-soft); font-size: .84rem; line-height: 1.5; }
+.pf-api-estado { display: inline-flex; align-items: center; gap: 6px; padding: 5px 12px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--c-text-soft); font-size: .78rem; font-weight: 700; white-space: nowrap; }
+.pf-api-estado.is-on { color: var(--c-verde-esmeralda, #0D7340); }
+.pf-api-nuevo { display: flex; flex-direction: column; gap: 8px; padding: 14px 16px; border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--c-verde-esmeralda, #0D7340) 35%, transparent); background: color-mix(in srgb, var(--c-verde-esmeralda, #0D7340) 7%, var(--n-bg)); }
+.pf-api-nuevo b { color: var(--c-text); font-size: .88rem; }
+.pf-api-nuevo p { margin: 0; color: var(--c-text-soft); font-size: .8rem; }
+.pf-api-token { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pf-api-token code { flex: 1 1 260px; min-width: 0; padding: 8px 12px; border-radius: 10px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text); font-size: .8rem; overflow-wrap: anywhere; }
+.pf-api-acc { display: flex; gap: 10px; flex-wrap: wrap; }
+.pf-api-guia summary { cursor: pointer; color: var(--c-text); font-size: .88rem; font-weight: 700; }
+.pf-api-donde { margin: 10px 0 0; color: var(--c-text-soft); font-size: .8rem; }
+.pf-api-guia pre { max-height: 340px; overflow: auto; margin: 10px 0; padding: 14px 16px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  color: var(--c-text); font-size: .76rem; line-height: 1.55; white-space: pre-wrap; }
 
 /* Tarjeta del kanban mientras guarda su nuevo estado (skeleton shimmer) */
 .kb-card.kb-guardando { pointer-events: none; }

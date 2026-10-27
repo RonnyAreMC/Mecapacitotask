@@ -305,7 +305,7 @@ final class ImportadorTareas
                 $id = (int)$t['id'];
                 $creadas++;
             }
-            $creadasIds[] = ['id' => $id, 'pid' => (int)$p['datos']['proyecto_id'], 'dep' => $p['dep']];
+            $creadasIds[] = ['id' => $id, 'pid' => (int)$p['datos']['proyecto_id'], 'dep' => $p['dep'], 'titulo' => (string)$p['datos']['titulo'], 'ref' => (string)$p['ref']];
             foreach ($p['items'] as $iid) $porItem[$iid][] = $id;
             if ($p['ref'] !== '') $porRef[self::norm($p['ref'])] = $id;
             $porTitulo[self::norm($p['datos']['titulo'])] = $id;
@@ -330,6 +330,8 @@ final class ImportadorTareas
         }
         $amarradas = count($amarradas);
 
-        return ['ok' => true, 'creadas' => $creadas, 'actualizadas' => $actualizadas, 'amarradas' => $amarradas, 'filas' => $filas, 'errores' => []];
+        // El #id de cada una (en el orden del lote), para usarlo en los commits (api.php lo devuelve)
+        $tareas = array_map(fn($c) => ['id' => $c['id'], 'titulo' => $c['titulo'], 'ref' => $c['ref']], $creadasIds);
+        return ['ok' => true, 'creadas' => $creadas, 'actualizadas' => $actualizadas, 'amarradas' => $amarradas, 'filas' => $filas, 'errores' => [], 'tareas' => $tareas];
     }
 }

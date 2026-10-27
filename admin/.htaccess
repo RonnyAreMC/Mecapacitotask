@@ -3,6 +3,12 @@
 # se salta sola. Si alguna vez el servidor respondiera "Error 500" después de
 # subir este archivo, basta con borrarlo: el panel funciona igual sin él.
 
+# La API (api.php, para Claude Code y otros asistentes) recibe el token en la
+# cabecera Authorization, y algunos servidores no se la pasan a PHP: así llega igual.
+<IfModule mod_setenvif.c>
+  SetEnvIf Authorization "(.+)" HTTP_AUTHORIZATION=$1
+</IfModule>
+
 <IfModule mod_mime.c>
   AddType font/woff2 .woff2
   AddType application/manifest+json .webmanifest

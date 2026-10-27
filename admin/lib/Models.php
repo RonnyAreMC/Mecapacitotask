@@ -1465,7 +1465,7 @@ class TareaRepo
     }
 
     /** Cómo llegó una tarea al tablero, cuando no la escribieron a mano. */
-    public const ORIGENES = ['' => '', 'plan' => 'importada', 'ia' => 'con la IA', 'correo' => 'desde un correo'];
+    public const ORIGENES = ['' => '', 'plan' => 'importada', 'ia' => 'con la IA', 'correo' => 'desde un correo', 'api' => 'desde Claude Code'];
 
     /**
      * Quién agregó la tarea y cuándo, listo para pintar. 'miembro' es null en

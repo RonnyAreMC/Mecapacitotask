@@ -95,6 +95,95 @@ UI::inicio('Mi perfil', 'perfil');
   </div>
 </section>
 
+<?php
+// Conectar Claude Code al panel (api.php): el token se ve una sola vez, recién creado
+require_once __DIR__ . '/lib/ApiToken.php';
+$tk = ApiToken::estado($yo);
+$tkNuevo = (string)($_SESSION['api_token_nuevo'] ?? '');
+unset($_SESSION['api_token_nuevo']);
+$apiUrl = ((!empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https') ? 'https' : 'http')
+    . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . urlPanel('api.php');
+$cuandoTk = fn(string $f) => $f !== '' ? date('d/m/Y H:i', strtotime($f)) : '';
+// Los logos van dentro de la página (no como <img>) para que tomen el color del tema
+$logoIa = fn(string $f) => is_file(__DIR__ . '/assets/' . $f) ? (string)preg_replace('#<title>.*?</title>#s', '', (string)file_get_contents(__DIR__ . '/assets/' . $f)) : '';
+$guiaApi = "## InnoTech Hub: mis tareas (API)\n\n"
+    . "Las tareas del panel se manejan con su API. El token está en la variable de entorno\n"
+    . "MCHUB_TOKEN: nunca lo escribas en el repo, en un archivo ni en un commit.\n\n"
+    . "API=\"$apiUrl\"\n"
+    . "AUTH=\"Authorization: Bearer \$MCHUB_TOKEN\"\n\n"
+    . "Consultar:\n"
+    . "- Mis tareas abiertas:  curl -s -H \"\$AUTH\" \"\$API?r=tareas\"\n"
+    . "- Buscar una:           curl -s -H \"\$AUTH\" \"\$API?r=tareas&q=pertinencia\"\n"
+    . "- Las de mis proyectos: curl -s -H \"\$AUTH\" \"\$API?r=tareas&todas=1\"\n"
+    . "- Una tarea en detalle: curl -s -H \"\$AUTH\" \"\$API?r=tarea&id=812\"\n"
+    . "- Ítems del release:    curl -s -H \"\$AUTH\" \"\$API?r=items&equipo=Beta\"\n\n"
+    . "Registrar y mover:\n"
+    . "- Crear tareas (el JSON de Planificar, con item_release). Primero con \"validar\": true; si no hay errores, sin él.\n"
+    . "  curl -s -X POST -H \"\$AUTH\" -H \"Content-Type: application/json\" -d @tareas.json \"\$API?r=tareas\"\n"
+    . "  La respuesta trae el #id de cada tarea creada.\n"
+    . "- Asociar un commit (y, si se quiere, cambiar el estado en la misma llamada):\n"
+    . "  curl -s -X POST -H \"\$AUTH\" -H \"Content-Type: application/json\" -d '{\"id\":812,\"sha\":\"<sha>\",\"mensaje\":\"<mensaje>\",\"repo\":\"<repo>\",\"estado\":\"revision\"}' \"\$API?r=commit\"\n"
+    . "- Cambiar el estado:\n"
+    . "  curl -s -X POST -H \"\$AUTH\" -H \"Content-Type: application/json\" -d '{\"id\":812,\"estado\":\"hecho\"}' \"\$API?r=estado\"\n"
+    . "  Estados: pendiente, progreso, revision, hecho.\n\n"
+    . "Cómo trabajar:\n"
+    . "1. Antes de empezar algo, busca si ya tiene tarea (?r=tareas&q=…). Si no, créala con su item_release.\n"
+    . "2. El mensaje de cada commit termina con su #id; después del commit, asócialo con ?r=commit.\n"
+    . "3. Hecho pero sin subir al servidor de pruebas: \"revision\". Tras el deploy (lunes y jueves, 22:00): \"hecho\".\n"
+    . "4. Si la API responde 401, avisa: el token se quitó o se cambió (Mi perfil → Claude Code).\n";
+?>
+<section class="card-base pf-api" id="claude-api">
+  <div class="pf-api-cab">
+    <div class="pf-api-intro">
+      <?php /* Los asistentes que pueden usarlo: flotan uno tras otro, y el «+» por los demás */ ?>
+      <span class="pf-api-ias" aria-hidden="true">
+        <span class="pf-api-ia" title="Claude Code"><img src="assets/claude.svg" alt="" width="24" height="24"></span>
+        <span class="pf-api-ia pf-api-ia--marca" title="Codex"><?= $logoIa('codex.svg') ?></span>
+        <span class="pf-api-ia pf-api-ia--marca" title="GitHub Copilot"><?= $logoIa('copilot.svg') ?></span>
+        <span class="pf-api-ia pf-api-ia--mas" title="Y cualquier asistente que pueda usar curl">+</span>
+      </span>
+      <div>
+        <h2 class="font-display">Conecta tu asistente al panel</h2>
+        <p>Con un token tuyo, Claude Code, Codex, Copilot o el que uses consulta tus tareas, crea las nuevas, les asocia cada commit y les cambia el estado, sin que descargues ni pegues el JSON. Actúa como tú, con tus mismos permisos.</p>
+      </div>
+    </div>
+    <span class="pf-api-estado<?= $tk['tiene'] ? ' is-on' : '' ?>">
+      <?= $tk['tiene'] ? '<i class="fa-solid fa-circle-check"></i> Conectado · token …' . e($tk['fin']) . ($tk['usado'] !== '' ? ' · último uso ' . e($cuandoTk($tk['usado'])) : ' · sin usar todavía') : '<i class="fa-regular fa-circle"></i> Sin token' ?>
+    </span>
+  </div>
+
+  <?php if ($tkNuevo !== ''): ?>
+  <div class="pf-api-nuevo">
+    <b><i class="fa-solid fa-key"></i> Tu token: cópialo ahora, no se vuelve a mostrar</b>
+    <div class="pf-api-token"><code><?= e($tkNuevo) ?></code>
+      <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-copiar" data-copiar="<?= e($tkNuevo) ?>"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+    <p>Guárdalo en tu computadora, no en el repo. En la terminal (y abre otra después):</p>
+    <div class="pf-api-token"><code>echo 'export MCHUB_TOKEN="<?= e($tkNuevo) ?>"' &gt;&gt; ~/.zshrc</code>
+      <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-copiar" data-copiar="<?= e("echo 'export MCHUB_TOKEN=\"" . $tkNuevo . "\"' >> ~/.zshrc") ?>"><i class="fa-regular fa-copy"></i> Copiar</button></div>
+  </div>
+  <?php endif; ?>
+
+  <div class="pf-api-acc">
+    <form method="post" action="actions.php" class="inline-form"<?= $tk['tiene'] ? ' data-confirmar="El token que tienes deja de servir y Claude Code tendrá que usar el nuevo." data-confirmar-titulo="¿Crear un token nuevo?" data-confirmar-ok="Sí, crear otro"' : '' ?>>
+      <input type="hidden" name="accion" value="api_token_crear">
+      <button class="btn-primary btn-meca"><i class="fa-solid fa-key"></i> <?= $tk['tiene'] ? 'Crear un token nuevo' : 'Crear mi token' ?></button>
+    </form>
+    <?php if ($tk['tiene']): ?>
+    <form method="post" action="actions.php" class="inline-form" data-confirmar="Claude Code ya no podrá entrar al panel con ese token." data-confirmar-titulo="¿Quitar el token?" data-confirmar-ok="Sí, quitar">
+      <input type="hidden" name="accion" value="api_token_quitar">
+      <button class="btn-outline btn-meca btn-neutro"><i class="fa-solid fa-ban"></i> Quitar el token</button>
+    </form>
+    <?php endif; ?>
+  </div>
+
+  <details class="pf-api-guia"<?= $tkNuevo !== '' ? ' open' : '' ?>>
+    <summary><i class="fa-solid fa-terminal"></i> Lo que le pegas a tu asistente (en las instrucciones del repo)</summary>
+    <p class="pf-api-donde">Va en <code>CLAUDE.md</code> para Claude Code, en <code>AGENTS.md</code> para Codex y en <code>.github/copilot-instructions.md</code> para Copilot: sirve para cualquiera que pueda usar <code>curl</code>.</p>
+    <pre><?= e($guiaApi) ?></pre>
+    <button type="button" class="btn-outline btn-meca btn-sm btn-azul btn-copiar" data-copiar="<?= e($guiaApi) ?>"><i class="fa-regular fa-copy"></i> Copiar las instrucciones</button>
+  </details>
+</section>
+
 <form method="post" action="actions.php" id="perfil-form" class="pf-form" enctype="multipart/form-data" novalidate>
   <input type="hidden" name="accion" value="perfil_guardar">
 
