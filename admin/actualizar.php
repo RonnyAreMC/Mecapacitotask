@@ -99,7 +99,7 @@ function actualizarPanel(array $opc): void
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
-        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'assets/codex.svg', 'assets/copilot.svg',
+        'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
         'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php',
     ];
@@ -136,7 +136,7 @@ function actualizarPanel(array $opc): void
         'cron_recordatorios.php' => ['cronCallado'],
         'lib/Models.php'    => ['function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code'],
         'lib/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
-        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega'],
+        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
         'actions.php'       => ['perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos', 'tarea_colaborador', 'api_token_crear', "'reunion_choque'", "'reunion_agenda'", 'contexto_tareas_json'],
         'assets/ds.js'      => ['soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
@@ -145,7 +145,7 @@ function actualizarPanel(array $opc): void
         'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url', '.eq-card', '.rl-res__main', '.rl-dailies', '.rl-ses__editar', '.bz-kpis', 'clamp(320px, 34%', '.zd-tr-errores', '.correo-fila__marcar', '.correo-todos-leidos .mc-btn.is-off', '.dep-dia--hecho', '.page-actions .btn-icono .tab-txt'],
         'notificaciones.php' => ['tab=correo', 'correoVista', 'pushDispositivos', 'dialogTelefonoHtml', 'data-push-aqui', 'pushInstalarApps', 'data-instalar-app', 'ReqCorreo.php', 'TareasCorreo.php', 'nexo:descansando'],
         'lib/Correo.php'    => ['revisarNuevos', 'anotarRecientes', 'function sellar', 'Disposition-Notification-To', 'function hilo', 'adjuntosDe', 'prioridadDe', 'fechaLista', 'function sinMojibake', 'HtmlRico::paraCorreo', 'guion invisible', 'function actualizarClave', 'function marcarVarios'],
-        'lib/Tutoriales.php' => ['function pendiente'],
+        'lib/Tutoriales.php' => ['function pendiente', 'function sembrarDelDeploy', 'function enlaceCompartir'],
         'tutoriales.php'    => ['tutorial_avisar'],
         'lib/correo_vista.php' => ['correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando', 'correoTextoAHtml', 'correo-fila__marcar', 'No hay correos sin leer en'],
         'lib/ReqCorreo.php' => ['crudoCopia', 'function plazoDe', 'function gente'],
@@ -502,6 +502,20 @@ function actualizarPanel(array $opc): void
             }
         } catch (Throwable $e) {
             nota('error', 'Releases: ' . $e->getMessage());
+        }
+    }
+
+    /* Tutoriales que vienen con el deploy (el video en Drive): se publican una vez */
+    if (is_file($dir . '/lib/Tutoriales.php')) {
+        require_once $dir . '/lib/Tutoriales.php';
+        paso('Tutoriales');
+        try {
+            $tutNuevos = Tutoriales::sembrarDelDeploy($seco);
+            nota('ok', $tutNuevos
+                ? ($seco ? 'Publicaría: ' : 'Publicado: ') . implode(' · ', $tutNuevos) . '. Cada uno tiene su «Copiar enlace» para compartirlo.'
+                : count(Tutoriales::todos()) . ' tutoriales en el panel; los del deploy ya estaban.');
+        } catch (Throwable $e) {
+            nota('error', 'Tutoriales: ' . $e->getMessage());
         }
     }
 

@@ -42,8 +42,11 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
         <span class="tut-lugar"><?= UI::iconoDS('notificaciones', 14) ?> Avisando a todos<?= $esAdmin ? ' · lo vieron ' . (int)$al['vieron'] . ($al['cerraron'] ? ', lo cerraron ' . (int)$al['cerraron'] : '') : '' ?></span>
         <?php endif; ?>
       </div>
-      <?php if ($esAdmin): ?>
       <div class="tut-acciones">
+      <?php /* El enlace para compartir: abre solo este video, sin iniciar sesión (video.php) */ ?>
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm btn-copiar" data-copiar="<?= e(Tutoriales::enlaceCompartir($t)) ?>"
+              data-ds-tip="Se abre sin iniciar sesión y muestra solo este video"><?= UI::iconoDS('enlace', 16) ?><span class="mc-btn__label">Copiar enlace</span></button>
+      <?php if ($esAdmin): ?>
       <form method="post" action="actions.php">
         <input type="hidden" name="accion" value="tutorial_avisar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
         <?php if (empty($t['avisar'])): ?><input type="hidden" name="avisar" value="1"><?php endif; ?>
@@ -53,8 +56,8 @@ UI::cabecera('Tutoriales', 'Videos cortos para aprender a usar el panel. Se ven 
         <input type="hidden" name="accion" value="tutorial_quitar"><input type="hidden" name="id" value="<?= (int)$t['id'] ?>">
         <button class="mc-btn mc-btn--ghost mc-btn--sm ia-quitar"><?= UI::iconoDS('eliminar', 16) ?><span class="mc-btn__label">Quitar</span></button>
       </form>
-      </div>
       <?php endif; ?>
+      </div>
     </article>
     <?php endforeach; ?>
   </div>

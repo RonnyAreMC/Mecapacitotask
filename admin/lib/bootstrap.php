@@ -417,9 +417,10 @@ function iconoAdjunto(string $ext): string
 // Todas las páginas exigen sesión, salvo el login y actions.php
 // (actions.php aplica su propia guarda por acción).
 // logo.php sirve la imagen de marca a los correos: los clientes la piden sin
-// sesión, así que no puede exigir login (no expone nada privado).
+// sesión, así que no puede exigir login (no expone nada privado). video.php es el
+// enlace para compartir un tutorial: solo muestra el video de esa clave.
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php'], true)) {
+if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php'], true)) {
     Auth::requiereLogin();
 }
 

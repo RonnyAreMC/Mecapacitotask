@@ -1,8 +1,10 @@
 <?php
 /**
  * Tutoriales en video del panel. Se publican pegando el enlace de YouTube o de
- * Google Drive y se ven en un reproductor dentro del panel (un modal), sin
- * salir de la pantalla. Con «Avisar a todos», a cada persona le sale el video
+ * Google Drive (o vienen con el deploy: DEL_DEPLOY, que actualizar.php publica
+ * solo) y se ven en un reproductor dentro del panel (un modal), sin salir de la
+ * pantalla. Cada uno tiene un enlace para compartir (video.php?v=…) que se abre
+ * sin iniciar sesión y muestra solo ese video. Con «Avisar a todos», a cada persona le sale el video
  * en una ventana al entrar al panel (con su nombre), una sola vez: lo ve o lo
  * cierra (tabla «tutoriales_vistos»).
  *
@@ -29,6 +31,19 @@ final class Tutoriales
         'pedidos'        => 'Pedidos entre equipos',
         'proyecto'       => 'Tablero del proyecto',
         'ia'             => 'Consola de IA',
+    ];
+
+    /**
+     * Los que vienen con el deploy (el video vive en Drive, en GRABACIONES/InnoTech Hub).
+     * actualizar.php publica los que falten; si alguien quita uno, no vuelve a salir.
+     */
+    public const DEL_DEPLOY = [
+        'innotech-hub-api-token' => [
+            'titulo'      => 'Conecta tu asistente de código al panel',
+            'descripcion' => 'Para programadores: cómo sacar tu token en Mi perfil, guardarlo, pegar las instrucciones en tu repo y descargar el formato de tareas y releases; qué hace tu asistente con él y cómo mueve tus tareas con cada commit.',
+            // GRABACIONES/InnoTech Hub/InnoTech Hub - Conecta tu asistente de código.mp4
+            'enlace'      => 'https://drive.google.com/file/d/1pJRm_p_4G9x1UDDrkkH-4pOvJZZE3YTY/view',
+        ],
     ];
 
     private static function repo(): JsonStore
@@ -99,6 +114,59 @@ final class Tutoriales
     {
         return 'data-tutorial-ver data-src="' . e(self::urlInsertar($t)) . '" data-abrir="' . e(self::urlAbrir($t)) . '"'
             . ' data-titulo="' . e((string)$t['titulo']) . '" data-proveedor="' . e((string)$t['proveedor']) . '"';
+    }
+
+    /* ---------------- Enlace para compartir ---------------- */
+
+    /** La clave del enlace público del tutorial (se crea la primera vez que hace falta). */
+    public static function token(array $t): string
+    {
+        $tk = (string)($t['compartir'] ?? '');
+        if ($tk === '' && !empty($t['id'])) {
+            $tk = bin2hex(random_bytes(9));
+            self::repo()->update((int)$t['id'], ['compartir' => $tk]);
+        }
+        return $tk;
+    }
+
+    /** El enlace completo para compartir: se abre sin iniciar sesión, solo con ese video. */
+    public static function enlaceCompartir(array $t): string
+    {
+        $https = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+        return ($https ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost')
+            . urlPanel('video.php?v=' . rawurlencode(self::token($t)));
+    }
+
+    public static function porToken(string $tk): ?array
+    {
+        if (!preg_match('/^[a-f0-9]{12,40}$/', $tk)) return null;
+        foreach (self::repo()->all() as $t) {
+            if (hash_equals((string)($t['compartir'] ?? ''), $tk)) return $t;
+        }
+        return null;
+    }
+
+    /* ---------------- Los que vienen con el deploy ---------------- */
+
+    /** Publica los de DEL_DEPLOY que tienen enlace y no se publicaron antes. Devuelve sus títulos. */
+    public static function sembrarDelDeploy(bool $seco = false): array
+    {
+        $hechos = [];
+        $yaEstan = [];
+        foreach (self::repo()->all() as $t) $yaEstan[($t['proveedor'] ?? '') . ':' . ($t['video_id'] ?? '')] = true;
+        $sembrados = (array)(Config::get('tutoriales_sembrados') ?? []);
+        foreach (self::DEL_DEPLOY as $clave => $d) {
+            if (in_array($clave, $sembrados, true) || trim((string)($d['enlace'] ?? '')) === '') continue;
+            $v = self::analizarEnlace((string)$d['enlace']);
+            if (isset($v['error'])) continue;
+            $ya = isset($yaEstan[$v['proveedor'] . ':' . $v['id']]);   // alguien ya lo publicó a mano
+            if (!$ya && !$seco && !is_array(self::crear($d, 0))) continue;
+            if (!$seco) $sembrados[] = $clave;
+            if (!$ya) $hechos[] = $d['titulo'];
+        }
+        // Se anota cuáles ya salieron: si alguien quita uno en el panel, no vuelve con el siguiente deploy
+        if ($hechos && !$seco) Config::guardar(['tutoriales_sembrados' => array_values(array_unique($sembrados))]);
+        return $hechos;
     }
 
     /** Todos, el más nuevo primero. */
@@ -178,6 +246,7 @@ final class Tutoriales
             'avisado'     => !empty($d['avisar']) ? date('Y-m-d H:i') : '',
             'autor'       => $autor,
             'creado'      => date('Y-m-d H:i'),
+            'compartir'   => bin2hex(random_bytes(9)),
         ]);
         return $t;
     }
