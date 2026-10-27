@@ -1220,6 +1220,21 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.', 'fa-clipboard-check'],
     ];
 
+    /** Nueva reunión: de qué es, cuándo (la hora en cuartos), quiénes van y revisar */
+    public const PASOS_REUNION = [
+        ['Reunión',      'De qué es la reunión', 'El tema y dónde se hace', 'fa-video'],
+        ['Día y hora',   'Cuándo es',            'Las horas en gris ya las tiene Zoom', 'fa-calendar-days'],
+        ['Invitados',    'Quiénes van',          'Les llega el enlace y queda en su calendario', 'fa-user-group'],
+        ['Confirmación', 'Revisar reunión',      'Comprueba los datos antes de crearla', 'fa-clipboard-check'],
+    ];
+
+    public const PASOS_EDITAR_REUNION = [
+        ['Reunión',      'De qué es la reunión', 'El tema que ven los invitados', 'fa-video'],
+        ['Día y hora',   'Cuándo es',            'Las horas en gris ya las tiene Zoom', 'fa-calendar-days'],
+        ['Invitados',    'Quiénes van',          'A los nuevos les llega el enlace', 'fa-user-group'],
+        ['Confirmación', 'Revisar cambios',      'Comprueba los datos antes de guardarlos', 'fa-clipboard-check'],
+    ];
+
     /** Mi perfil: conectar Claude Code, Codex, Copilot… al panel con un token */
     public const PASOS_ASISTENTE = [
         ['Conectar',      'Conecta tu asistente',        'Qué hará por ti con tus tareas', 'fa-plug'],
@@ -1233,6 +1248,34 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         ['Repos',      'Código y estado',         'Enlaza los repositorios para ver la actividad de commits.', 'fa-code-branch'],
         ['Aspecto',    'Ícono y color',           'Cómo se distingue el proyecto en el panel.', 'fa-palette'],
     ];
+
+    /**
+     * Día y hora de una reunión: el día con el calendario y la hora en cuartos
+     * (mañana, tarde y noche). Las horas en que Zoom ya tiene otra reunión salen
+     * en gris («ocupado») y no se eligen; las que ya pasaron, tampoco. Lo pinta
+     * admin.js (SelectorHora). Se envía el oculto «inicio» (Y-m-dTH:i), igual que
+     * el datetime-local de antes; $duracion es el select de la duración, que va
+     * al lado del día porque de él depende qué horas caben.
+     */
+    public static function selectorHora(string $valor, string $id = '', string $duracion = ''): string
+    {
+        return '<div class="campo hp" data-hora-picker data-resumen="">'
+            . '<span>Día y hora</span>'
+            . '<input type="hidden" name="inicio" value="' . e($valor) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>'
+            . '<div class="hp-cab">'
+            . '<label class="hp-dia"><small>Día</small><input class="input-meca hp-fecha" type="date" value="' . e(substr($valor, 0, 10)) . '" min="' . date('Y-m-d') . '" aria-label="Día de la reunión"></label>'
+            . ($duracion !== '' ? '<label class="hp-dur"><small>Duración</small>' . $duracion . '</label>' : '')
+            . '</div>'
+            . '<div class="hp-turnos" role="tablist" aria-label="Parte del día">'
+            . '<button type="button" role="tab" data-turno="m"><i class="fa-solid fa-sun" aria-hidden="true"></i> Mañana</button>'
+            . '<button type="button" role="tab" data-turno="t"><i class="fa-solid fa-cloud-sun" aria-hidden="true"></i> Tarde</button>'
+            . '<button type="button" role="tab" data-turno="n"><i class="fa-solid fa-moon" aria-hidden="true"></i> Noche</button>'
+            . '</div>'
+            . '<div class="hp-grid" role="listbox" aria-label="Hora de inicio"></div>'
+            . '<p class="hp-pie"><span class="hp-sel"></span>'
+            . '<span class="hp-ley"><i class="hp-punto"></i> libre <i class="hp-punto hp-punto--ocupado"></i> ocupado en Zoom</span></p>'
+            . '</div>';
+    }
 
     /** Riel lateral con la marca del modal y la lista de pasos. */
     public static function wizardRiel(string $icono, string $titulo, string $sub, array $pasos): string

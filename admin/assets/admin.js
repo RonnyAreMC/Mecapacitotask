@@ -621,6 +621,8 @@ const MecaWizard = {
     caja.innerHTML = '';
     form.querySelectorAll('.wz-panel .campo').forEach((campo) => {
       if (campo.hasAttribute('data-sin-resumen')) return;
+      // Lo que no se ve (el enlace propio con Zoom elegido, por ejemplo) no se resume
+      if (campo.closest('[hidden]')) return;
       const etiqueta = campo.querySelector(':scope > span');
       if (!etiqueta) return;
 
@@ -628,6 +630,15 @@ const MecaWizard = {
       dt.textContent = etiqueta.textContent.replace('*', '').trim();
       const dd = document.createElement('dd');
       const fila = document.createElement('div');
+
+      // Un campo compuesto (día y hora, plataforma, repetición) dice él mismo qué resumir
+      if (campo.dataset.resumen !== undefined) {
+        dd.textContent = campo.dataset.resumen || '— sin definir —';
+        if (!campo.dataset.resumen) dd.className = 'vacio';
+        fila.append(dt, dd);
+        caja.appendChild(fila);
+        return;
+      }
 
       // Editor de texto enriquecido: se muestra RENDERIZADO (con su tabla y
       // formato), no como HTML crudo. Es lo mismo que se va a guardar.
@@ -2984,6 +2995,7 @@ document.querySelectorAll('.nr-plat').forEach((tg) => {
     const plat = b.dataset.plat;
     tg.querySelectorAll('[data-plat]').forEach((x) => x.classList.toggle('active', x === b));
     if (hidden) hidden.value = plat;
+    if (campo && campo.dataset.resumen !== undefined) campo.dataset.resumen = b.textContent.trim();
     if (hint) hint.hidden = plat !== 'meet';
     if (enlace) enlace.hidden = plat !== 'enlace';
     // Obligatorio solo cuando es la opción elegida: si no, el navegador
@@ -3025,12 +3037,165 @@ document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
 
 // Bloque "Repetir todas las semanas": muestra u oculta días y fecha final
 document.querySelectorAll('.js-repetir').forEach((chk) => {
-  const detalle = chk.closest('.repetir-caja')?.querySelector('.repetir-detalle');
+  const caja = chk.closest('.repetir-caja');
+  const detalle = caja?.querySelector('.repetir-detalle');
   if (!detalle) return;
-  const pintar = () => { detalle.hidden = !chk.checked; };
+  const pintar = () => {
+    detalle.hidden = !chk.checked;
+    // En los asistentes, lo que dirá la confirmación
+    if (caja.dataset.resumen === undefined) return;
+    const dias = [...caja.querySelectorAll('.dia-chip input:checked')].map((c) => c.closest('.dia-chip').textContent.trim());
+    const hasta = caja.querySelector('input[name="hasta"]')?.value || '';
+    caja.dataset.resumen = chk.checked ? 'Cada ' + (dias.join(', ') || '—') + (hasta ? ' hasta el ' + hasta.split('-').reverse().join('/') : '') : 'No se repite';
+  };
   chk.addEventListener('change', pintar);
+  caja.addEventListener('change', pintar);
   pintar();
 });
+
+/* =========================================================
+   Selector de día y hora de las reuniones (UI::selectorHora): el día con
+   el calendario y la hora en cuartos (mañana, tarde y noche). Pregunta al
+   panel qué tiene Zoom ese día (reunion_agenda) y pinta en gris lo que no
+   cabe con la duración elegida; lo que ya pasó tampoco se elige. Lo que
+   se envía es el oculto «inicio» (Y-m-dTH:i).
+   ========================================================= */
+const SelectorHora = {
+  TURNOS: { m: [7 * 60, 12 * 60], t: [12 * 60, 18 * 60], n: [18 * 60, 22 * 60] },
+  DIAS: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
+  dos: (n) => String(n).padStart(2, '0'),
+  hhmm(min) { return this.dos(Math.floor(min / 60)) + ':' + this.dos(min % 60); },
+  doce(min) {
+    const h = Math.floor(min / 60) % 24;
+    return ((h % 12) || 12) + ':' + this.dos(min % 60) + ' ' + (h < 12 ? 'am' : 'pm');
+  },
+  turnoDe(min) { return min < 12 * 60 ? 'm' : (min < 18 * 60 ? 't' : 'n'); },
+  hoy() {
+    const d = new Date();
+    return { f: d.getFullYear() + '-' + this.dos(d.getMonth() + 1) + '-' + this.dos(d.getDate()), min: d.getHours() * 60 + d.getMinutes() };
+  },
+  init() { document.querySelectorAll('[data-hora-picker]').forEach((hp) => this.montar(hp)); },
+
+  montar(hp) {
+    const form = hp.closest('form');
+    const oculto = hp.querySelector('input[name="inicio"]');
+    const fecha = hp.querySelector('.hp-fecha');
+    const grid = hp.querySelector('.hp-grid');
+    const selTxt = hp.querySelector('.hp-sel');
+    const tabs = [...hp.querySelectorAll('[data-turno]')];
+    if (!form || !oculto || !fecha || !grid) return;
+    const cache = new Map();
+    let turno = 'm';
+    let ocupado = [];
+    let pedido = 0;
+
+    const dur = () => parseInt(form.querySelector('[name="duracion"]')?.value || '60', 10) || 60;
+    const valor = () => {
+      const m = (oculto.value || '').match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/);
+      return m ? { f: m[1], min: +m[2] * 60 + +m[3] } : null;
+    };
+    const choca = (s) => ocupado.find((o) => s < o.fin && o.ini < s + dur());
+    const pasada = (f, s) => { const h = this.hoy(); return f < h.f || (f === h.f && s < h.min - 10); };
+    const nombreDia = (f) => { const d = new Date(f + 'T12:00'); return this.DIAS[d.getDay()] + ' ' + d.getDate(); };
+
+    const pintar = () => {
+      const [a, b] = this.TURNOS[turno];
+      const v = valor();
+      const f = fecha.value;
+      tabs.forEach((t) => { const on = t.dataset.turno === turno; t.classList.toggle('active', on); t.setAttribute('aria-selected', on ? 'true' : 'false'); });
+      grid.innerHTML = '';
+      for (let s = a; s < b; s += 15) {
+        const op = document.createElement('button');
+        op.type = 'button';
+        op.className = 'hp-op';
+        op.setAttribute('role', 'option');
+        op.dataset.min = s;
+        const c = choca(s);
+        op.innerHTML = '<b>' + this.doce(s) + '</b>' + (c ? '<small>ocupado</small>' : '');
+        // aria-disabled y no disabled: así la ayuda (con qué choca) sale al pasar el mouse
+        if (c) {
+          op.classList.add('is-ocupado');
+          op.setAttribute('aria-disabled', 'true');
+          op.title = 'Ocupado: «' + c.tema + '»' + (c.proyecto ? ' (' + c.proyecto + ')' : '') + ', de ' + this.doce(c.ini) + ' a ' + this.doce(c.fin);
+        } else if (pasada(f, s)) {
+          op.classList.add('is-pasada');
+          op.setAttribute('aria-disabled', 'true');
+          op.title = 'Ya pasó';
+        }
+        if (v && v.f === f && v.min === s) { op.classList.add('is-sel'); op.setAttribute('aria-selected', 'true'); }
+        grid.appendChild(op);
+      }
+      // Lo elegido, en palabras (también es lo que dice la confirmación)
+      const texto = v ? nombreDia(v.f) + ' · ' + this.doce(v.min) + ' – ' + this.doce(v.min + dur()) : '';
+      if (selTxt) {
+        selTxt.textContent = v ? texto + (choca(v.min) && v.f === f ? ' · choca con otra reunión' : '') : 'Elige una hora';
+        selTxt.classList.toggle('is-mal', !!(v && v.f === f && choca(v.min)));
+      }
+      hp.dataset.resumen = texto;
+    };
+
+    const cargar = async () => {
+      const f = fecha.value;
+      if (!f) { ocupado = []; pintar(); return; }
+      const plat = form.querySelector('input[name="plataforma"]')?.value || '';
+      const clave = f + '|' + plat;
+      if (cache.has(clave)) { ocupado = cache.get(clave); pintar(); return; }
+      const n = ++pedido;
+      grid.classList.add('is-cargando');
+      const datos = new FormData();
+      datos.set('accion', 'reunion_agenda');
+      datos.set('fecha', f);
+      ['proyecto_id', 'id', 'plataforma'].forEach((k) => { const x = form.querySelector('[name="' + k + '"]'); if (x) datos.set(k, x.value); });
+      try {
+        const r = await fetch('actions.php', { method: 'POST', body: datos, credentials: 'same-origin' });
+        const j = await r.json();
+        if (n !== pedido) return;
+        ocupado = Array.isArray(j.ocupado) ? j.ocupado : [];
+        cache.set(clave, ocupado);
+      } catch (e) {
+        if (n !== pedido) return;
+        ocupado = [];
+      }
+      grid.classList.remove('is-cargando');
+      pintar();
+    };
+
+    const elegir = (f, min) => {
+      oculto.value = f + 'T' + this.hhmm(min);
+      oculto.dispatchEvent(new Event('change', { bubbles: true }));
+      pintar();
+    };
+
+    grid.addEventListener('click', (e) => {
+      const op = e.target.closest('.hp-op');
+      if (!op || op.getAttribute('aria-disabled') === 'true') return;
+      elegir(fecha.value, +op.dataset.min);
+    });
+    tabs.forEach((t) => t.addEventListener('click', () => { turno = t.dataset.turno; pintar(); }));
+    // Otro día: se queda la misma hora, en el día nuevo
+    fecha.addEventListener('change', () => {
+      const v = valor();
+      if (v && fecha.value) { oculto.value = fecha.value + 'T' + this.hhmm(v.min); oculto.dispatchEvent(new Event('change', { bubbles: true })); }
+      cargar();
+    });
+    form.addEventListener('change', (e) => { if (e.target.name === 'duracion') pintar(); });
+    form.querySelectorAll('[data-plat]').forEach((b) => b.addEventListener('click', () => setTimeout(cargar, 0)));
+
+    // Al abrir el modal (al editar, ya trae la hora de la reunión)
+    const abrir = () => {
+      cache.clear();
+      const v = valor();
+      fecha.value = v ? v.f : this.hoy().f;
+      fecha.dispatchEvent(new Event('md-sync'));
+      turno = v ? this.turnoDe(v.min) : 'm';
+      cargar();
+    };
+    const dlg = form.closest('dialog');
+    if (dlg) new MutationObserver(() => { if (dlg.open) abrir(); }).observe(dlg, { attributes: true, attributeFilter: ['open'] });
+    abrir();
+  },
+};
+SelectorHora.init();
 
 /* ---------- Reuniones: Zoom es una sola cuenta ----------
    Al elegir la fecha, la duración o la repetición se pregunta si Zoom ya tiene
@@ -3041,17 +3206,23 @@ document.querySelectorAll('.js-repetir').forEach((chk) => {
   const form = document.querySelector('#' + idDlg + ' form');
   if (!form) return;
   const enviar = form.querySelector('button[type="submit"]');
-  const aviso = document.createElement('p');
-  aviso.className = 'reu-choque';
-  aviso.setAttribute('role', 'alert');
-  aviso.hidden = true;
-  form.querySelector('.campo-doble')?.insertAdjacentElement('afterend', aviso);
+  // Bajo el día y la hora, y otra vez en la confirmación (donde está «Crear»)
+  const avisos = [form.querySelector('.hp, .campo-doble'), form.querySelector('.wz-resumen')].filter(Boolean).map((ancla) => {
+    const aviso = document.createElement('p');
+    aviso.className = 'reu-choque';
+    aviso.setAttribute('role', 'alert');
+    aviso.hidden = true;
+    ancla.insertAdjacentElement(ancla.matches('.wz-resumen') ? 'beforebegin' : 'afterend', aviso);
+    return aviso;
+  });
   let espera = 0;
   let pedido = 0;
   const marcar = (texto) => {
-    aviso.hidden = !texto;
-    aviso.innerHTML = texto ? '<i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i><span></span>' : '';
-    if (texto) aviso.querySelector('span').textContent = texto;
+    avisos.forEach((aviso) => {
+      aviso.hidden = !texto;
+      aviso.innerHTML = texto ? '<i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i><span></span>' : '';
+      if (texto) aviso.querySelector('span').textContent = texto;
+    });
     if (enviar) { enviar.disabled = !!texto; enviar.title = texto ? 'Zoom está ocupado a esa hora' : ''; }
   };
   const revisar = () => {

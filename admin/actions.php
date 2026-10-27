@@ -56,7 +56,7 @@ $accionesDeCualquiera = [
     'deploy_registrar',
     // El Scrum Master gestiona reuniones de SUS proyectos (cada acción verifica
     // puedeGestionar por dentro; un lector queda fuera igual).
-    'reunion_crear', 'reunion_editar', 'reunion_eliminar', 'reunion_choque',
+    'reunion_crear', 'reunion_editar', 'reunion_eliminar', 'reunion_choque', 'reunion_agenda',
     'intercambio_crear', 'intercambio_responder', 'intercambio_cancelar',
     // El horario de reuniones fijas lo escribe quien lleva cada proyecto (su
     // Scrum Master o su PO); dentro se comprueba con puedeHorarioDelProyecto().
@@ -4388,6 +4388,18 @@ switch ($accion) {
             . ($porWa     ? ' ' . $porWa . ' aviso(s) por WhatsApp en camino.' : '')
             . ($avisados  ? ' ' . $avisados . ' invitado(s) notificado(s) por correo.' : '')
             . ($agendados ? ' Agendada en ' . $agendados . ' calendario(s).' : ''));
+
+    case 'reunion_agenda':
+        // El selector de hora: lo que Zoom ya tiene ese día, para pintar en gris los cuartos ocupados
+        header('Content-Type: application/json; charset=utf-8');
+        $reuA = (int)($_POST['id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$_POST['id']) : null;
+        $pidA = $reuA ? (int)$reuA['proyecto_id'] : (int)($_POST['proyecto_id'] ?? 0);
+        $platA = $reuA ? (string)($reuA['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pidA));
+        $fechaA = (string)($_POST['fecha'] ?? '');
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaA) || $platA !== 'zoom' || $pidA <= 0 || !puedeReunionesDelProyecto($pidA)) {
+            exit('{"ocupado":[]}');
+        }
+        exit(json_encode(['ocupado' => Reuniones::ocupadoZoom($fechaA, (int)($reuA['id'] ?? 0))], JSON_UNESCAPED_UNICODE));
 
     case 'reunion_choque':
         // Para el formulario de reunión: ¿Zoom está libre a esa hora? Se pregunta al

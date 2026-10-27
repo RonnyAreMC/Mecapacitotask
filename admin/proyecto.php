@@ -2208,161 +2208,193 @@ $comData = json_encode([
 <?php endif; /* fin de las vistas ocultas al supervisor */ ?>
 
 <?php if ($reunionesOn): ?>
-<!-- Modal: nueva reunión (Zoom o Google Meet) -->
-<dialog id="dlg-nueva-reunion" class="dlg-meca">
-  <form method="post" action="actions.php" class="dlg-form">
+<!-- Modal: nueva reunión, por pasos (Zoom, Meet o enlace propio). La hora se
+     elige en cuartos y lo que Zoom ya tiene ocupado sale en gris. -->
+<dialog id="dlg-nueva-reunion" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="reunion_crear">
     <input type="hidden" name="proyecto_id" value="<?= $id ?>">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Nueva reunión</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <label class="campo"><span>Tema de la reunión *</span>
-      <input class="input-meca" name="topic" required maxlength="120" placeholder="Ej. Revisión de avances — <?= e($proyecto['nombre']) ?>">
-    </label>
-    <div class="campo-doble">
-      <label class="campo"><span>Fecha y hora *</span>
-        <input class="input-meca" type="datetime-local" name="inicio" required value="<?= date('Y-m-d\TH:i', strtotime('+1 hour')) ?>" min="<?= date('Y-m-d\TH:i', strtotime('-10 minutes')) ?>">
-      </label>
-      <label class="campo"><span>Duración (min)</span>
-        <?= UI::select('duracion', $durOpciones, (string)$durDefecto) ?>
-      </label>
-    </div>
-
-    <!-- Repeticion semanal: una sola reunion con un enlace fijo -->
-    <div class="campo repetir-caja">
-      <label class="chk-linea" title="Se crea una sola reunión con el mismo enlace para todos los días.<?= $zoomListo ? ' En Zoom, máximo 60 repeticiones por serie.' : '' ?>">
-        <input type="checkbox" name="recurrente" value="1" class="js-repetir">
-        <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-        Repetir todas las semanas
-      </label>
-      <div class="repetir-detalle" hidden>
-        <div class="dias-semana">
-          <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
-          <label class="dia-chip" title="<?= e($largo) ?>">
-            <input type="checkbox" name="dias[]" value="<?= $dn ?>" <?= $dn <= 5 ? 'checked' : '' ?>>
-            <span><?= e($corto) ?></span>
-          </label>
-          <?php endforeach; ?>
+    <?= UI::wizardRiel('fa-video', 'Nueva reunión', 'En ' . $proyecto['nombre'], UI::PASOS_REUNION) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
         </div>
-        <label class="repetir-hasta"><span>hasta</span>
-          <input class="input-meca" type="date" name="hasta" value="<?= date('Y-m-d', strtotime('+1 month')) ?>">
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo"><span>Tema</span>
+          <input class="input-meca" name="topic" required maxlength="120" placeholder="Ej. Revisión de avances — <?= e($proyecto['nombre']) ?>" data-error="Escribe el tema de la reunión.">
         </label>
-      </div>
-    </div>
+        <?php if ($platElegir): ?>
+        <div class="campo" data-resumen="<?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?>"><span>Plataforma</span>
+          <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
+          <div class="subvista-toggle nr-plat">
+            <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
+            <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
+            <button type="button" class="subvista-btn <?= $platDefecto === 'enlace' ? 'active' : '' ?>" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
+          </div>
+          <small class="campo-ayuda nr-meet-hint" <?= $platDefecto === 'meet' ? '' : 'hidden' ?>>La reunión de Meet se crea en TU Google Calendar (necesitas tenerlo conectado en Mi perfil).</small>
+        </div>
+        <!-- Enlace propio: para cuando la sala de Zoom está ocupada y hay que
+             hacer la revisión igual. El panel guarda el detalle y avisa a los
+             invitados, pero la reunión NO queda grabada. -->
+        <label class="campo nr-enlace" <?= $platDefecto === 'enlace' ? '' : 'hidden' ?>>
+          <span>Enlace de la reunión</span>
+          <input class="input-meca" type="url" name="join_url" inputmode="url"
+                 placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
+          <small class="campo-ayuda">
+            <i class="fa-solid fa-circle-info"></i>
+            Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
+            pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
+          </small>
+        </label>
+        <?php else:
+          // Sin selector conviene decir de dónde sale la plataforma, o parece impuesta sin motivo
+          $platOrigen = ProyectoRepo::plataformaEntrada($proyecto['plataforma'] ?? '') !== ''
+              ? 'la elegida para este proyecto'
+              : (count(Reuniones::disponibles()) < 2 ? 'la única configurada' : 'la del panel');
+        ?>
+        <div class="campo" data-resumen="<?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?>"><span>Plataforma</span>
+          <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
+          <div class="subvista-toggle nr-plat">
+            <button type="button" class="subvista-btn active" data-plat="<?= e($platDefecto) ?>"><i class="fa-solid fa-video"></i> <?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></button>
+            <button type="button" class="subvista-btn" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
+          </div>
+          <small class="campo-ayuda"><?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
+        </div>
+        <!-- El enlace propio se ofrece aunque el panel fuerce una plataforma: es la
+             salida cuando la sala está ocupada. -->
+        <label class="campo nr-enlace" hidden>
+          <span>Enlace de la reunión</span>
+          <input class="input-meca" type="url" name="join_url" inputmode="url"
+                 placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
+          <small class="campo-ayuda">
+            <i class="fa-solid fa-circle-info"></i>
+            Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
+            pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
+          </small>
+        </label>
+        <?php endif; ?>
+      </section>
 
-    <?php if ($platElegir): ?>
-    <div class="campo"><span>Plataforma</span>
-      <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
-      <div class="subvista-toggle nr-plat">
-        <button type="button" class="subvista-btn <?= $platDefecto === 'zoom' ? 'active' : '' ?>" data-plat="zoom"><i class="fa-solid fa-video"></i> Zoom</button>
-        <button type="button" class="subvista-btn <?= $platDefecto === 'meet' ? 'active' : '' ?>" data-plat="meet"><i class="fa-brands fa-google"></i> Google Meet</button>
-        <button type="button" class="subvista-btn <?= $platDefecto === 'enlace' ? 'active' : '' ?>" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
-      </div>
-      <small class="campo-ayuda nr-meet-hint" <?= $platDefecto === 'meet' ? '' : 'hidden' ?>>La reunión de Meet se crea en TU Google Calendar (necesitas tenerlo conectado en Mi perfil).</small>
-    </div>
-    <!-- Enlace propio: para cuando la sala de Zoom está ocupada y hay que
-         hacer la revisión igual. El panel guarda el detalle y avisa a los
-         invitados, pero la reunión NO queda grabada. -->
-    <label class="campo nr-enlace" <?= $platDefecto === 'enlace' ? '' : 'hidden' ?>>
-      <span>Enlace de la reunión</span>
-      <input class="input-meca" type="url" name="join_url" inputmode="url"
-             placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
-      <small class="campo-ayuda">
-        <i class="fa-solid fa-circle-info"></i>
-        Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
-        pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
-      </small>
-    </label>
-    <?php else:
-      // Sin selector conviene decir de dónde sale la plataforma, o parece impuesta sin motivo
-      $platOrigen = ProyectoRepo::plataformaEntrada($proyecto['plataforma'] ?? '') !== ''
-          ? 'la elegida para este proyecto'
-          : (count(Reuniones::disponibles()) < 2 ? 'la única configurada' : 'la del panel');
-    ?>
-    <div class="campo"><span>Plataforma</span>
-      <input type="hidden" name="plataforma" value="<?= e($platDefecto) ?>">
-      <div class="subvista-toggle nr-plat">
-        <button type="button" class="subvista-btn active" data-plat="<?= e($platDefecto) ?>"><i class="fa-solid fa-video"></i> <?= e(Reuniones::etiquetaPlataforma($platDefecto)) ?></button>
-        <button type="button" class="subvista-btn" data-plat="enlace"><i class="fa-solid fa-link"></i> Enlace propio</button>
-      </div>
-      <small class="campo-ayuda"><?= $platOrigen ?>. Se cambia en <?= $platOrigen === 'la elegida para este proyecto' ? 'Editar proyecto' : 'Ajustes → Reuniones' ?>.</small>
-    </div>
-    <!-- El enlace propio se ofrece aunque el panel fuerce una plataforma: es la
-         salida cuando la sala está ocupada. -->
-    <label class="campo nr-enlace" hidden>
-      <span>Enlace de la reunión</span>
-      <input class="input-meca" type="url" name="join_url" inputmode="url"
-             placeholder="https://us05web.zoom.us/j/… o el enlace que uses">
-      <small class="campo-ayuda">
-        <i class="fa-solid fa-circle-info"></i>
-        Con tu propio enlace el panel guarda el detalle, lo agenda y avisa a los invitados,
-        pero <b>la reunión no queda grabada</b>: la grabación solo llega desde Zoom.
-      </small>
-    </label>
-    <?php endif; ?>
+      <section class="wz-panel">
+        <?= UI::selectorHora(date('Y-m-d\TH:i', (int)(ceil((time() + 3600) / 900) * 900)), '', UI::select('duracion', $durOpciones, (string)$durDefecto)) ?>
+        <!-- Repetición semanal: una sola reunión con un enlace fijo -->
+        <div class="campo repetir-caja" data-resumen="No se repite">
+          <span hidden>Repetición</span>
+          <label class="chk-linea" title="Se crea una sola reunión con el mismo enlace para todos los días.<?= $zoomListo ? ' En Zoom, máximo 60 repeticiones por serie.' : '' ?>">
+            <input type="checkbox" name="recurrente" value="1" class="js-repetir">
+            <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+            Repetir todas las semanas
+          </label>
+          <div class="repetir-detalle" hidden>
+            <div class="dias-semana">
+              <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
+              <label class="dia-chip" title="<?= e($largo) ?>">
+                <input type="checkbox" name="dias[]" value="<?= $dn ?>" <?= $dn <= 5 ? 'checked' : '' ?>>
+                <span><?= e($corto) ?></span>
+              </label>
+              <?php endforeach; ?>
+            </div>
+            <label class="repetir-hasta"><span>hasta</span>
+              <input class="input-meca" type="date" name="hasta" value="<?= date('Y-m-d', strtotime('+1 month')) ?>">
+            </label>
+          </div>
+        </div>
+      </section>
 
-    <label class="campo"><span>Invitar (registra a las personas del equipo)</span>
-      <?= UI::select('invitados', $opcionesInvitados, [], false, '', true) ?>
-      <small class="campo-ayuda">Se les enviará el enlace por correo si tienen uno registrado<?= Reuniones::agendaEnCalendarios() ? ', y se les agenda en su Google Calendar' : '' ?>.</small>
-    </label>
-    <footer>
-      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-video"></i> Crear reunión</button>
-    </footer>
+      <section class="wz-panel">
+        <label class="campo"><span>Invitados</span>
+          <?= UI::select('invitados', $opcionesInvitados, [], false, '', true) ?>
+          <small class="campo-ayuda">Les llega el enlace por correo si tienen uno registrado<?= Reuniones::agendaEnCalendarios() ? ', y la reunión queda en su Google Calendar' : '' ?>.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-video"></i> Crear reunión</button>
+        </div>
+      </div>
+    </div>
   </form>
 </dialog>
 
-<!-- Modal: editar reunión / invitar a más gente -->
-<dialog id="dlg-editar-reunion" class="dlg-meca">
-  <form method="post" action="actions.php" class="dlg-form">
+<!-- Modal: editar reunión / invitar a más gente, por pasos -->
+<dialog id="dlg-editar-reunion" class="dlg-meca dlg-wizard">
+  <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="reunion_editar">
     <input type="hidden" name="id" id="er-id" value="">
-    <header>
-      <h3 class="font-display"><i class="fa-solid fa-pen text-secondary"></i> Editar reunión</h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-    </header>
-    <label class="campo"><span>Tema de la reunión *</span>
-      <input class="input-meca" name="topic" id="er-topic" required maxlength="120">
-    </label>
-    <div class="campo-doble">
-      <label class="campo"><span>Fecha y hora *</span>
-        <input class="input-meca" type="datetime-local" name="inicio" id="er-inicio" required>
-      </label>
-      <label class="campo"><span>Duración (min)</span>
-        <?= UI::select('duracion', $durOpciones, (string)$durDefecto, false, 'js-er-duracion') ?>
-      </label>
-    </div>
-
-    <div class="campo repetir-caja">
-      <label class="chk-linea" title="Al guardar se actualiza toda la serie, no un día suelto.">
-        <input type="checkbox" name="recurrente" value="1" class="js-repetir js-er-recurrente">
-        <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
-        Repetir todas las semanas
-      </label>
-      <div class="repetir-detalle" hidden>
-        <div class="dias-semana js-er-dias">
-          <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
-          <label class="dia-chip" title="<?= e($largo) ?>">
-            <input type="checkbox" name="dias[]" value="<?= $dn ?>">
-            <span><?= e($corto) ?></span>
-          </label>
-          <?php endforeach; ?>
+    <?= UI::wizardRiel('fa-pen', 'Editar reunión', 'En ' . $proyecto['nombre'], UI::PASOS_EDITAR_REUNION) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
         </div>
-        <label class="repetir-hasta"><span>hasta</span>
-          <input class="input-meca js-er-hasta" type="date" name="hasta">
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()" aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo"><span>Tema</span>
+          <input class="input-meca" name="topic" id="er-topic" required maxlength="120" data-error="Escribe el tema de la reunión.">
         </label>
+      </section>
+
+      <section class="wz-panel">
+        <?= UI::selectorHora('', 'er-inicio', UI::select('duracion', $durOpciones, (string)$durDefecto, false, 'js-er-duracion')) ?>
+        <div class="campo repetir-caja" data-resumen="No se repite">
+          <span hidden>Repetición</span>
+          <label class="chk-linea" title="Al guardar se actualiza toda la serie, no un día suelto.">
+            <input type="checkbox" name="recurrente" value="1" class="js-repetir js-er-recurrente">
+            <span class="chk-caja"><i class="fa-solid fa-check"></i></span>
+            Repetir todas las semanas
+          </label>
+          <div class="repetir-detalle" hidden>
+            <div class="dias-semana js-er-dias">
+              <?php foreach (Reuniones::DIAS as $dn => [$corto, $largo]): ?>
+              <label class="dia-chip" title="<?= e($largo) ?>">
+                <input type="checkbox" name="dias[]" value="<?= $dn ?>">
+                <span><?= e($corto) ?></span>
+              </label>
+              <?php endforeach; ?>
+            </div>
+            <label class="repetir-hasta"><span>hasta</span>
+              <input class="input-meca js-er-hasta" type="date" name="hasta">
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section class="wz-panel">
+        <label class="campo"><span>Invitados</span>
+          <?= UI::select('invitados', $opcionesInvitados, [], false, 'js-er-invitados', true) ?>
+          <small class="campo-ayuda">A los invitados nuevos les llega el enlace por correo.</small>
+        </label>
+      </section>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
+        </div>
       </div>
     </div>
-
-    <label class="campo"><span>Invitar (añade a más personas del equipo)</span>
-      <?= UI::select('invitados', $opcionesInvitados, [], false, 'js-er-invitados', true) ?>
-      <small class="campo-ayuda">A los invitados nuevos se les enviará el enlace por correo.</small>
-    </label>
-    <footer>
-      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
-    </footer>
   </form>
 </dialog>
 <?php endif; ?>

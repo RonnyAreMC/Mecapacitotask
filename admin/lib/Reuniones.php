@@ -365,6 +365,34 @@ class Reuniones
         return null;
     }
 
+    /**
+     * Lo que Zoom ya tiene un día (todas las reuniones de Zoom del panel, con sus
+     * repeticiones), en minutos desde la medianoche: [['ini','fin','tema','proyecto']].
+     * Es lo que el selector de hora pinta en gris.
+     */
+    public static function ocupadoZoom(string $fecha, int $excluirId = 0): array
+    {
+        $d0 = strtotime($fecha . ' 00:00');
+        if ($d0 === false) return [];
+        $d1 = $d0 + 86400;
+        $nombres = [];
+        $out = [];
+        foreach ((new ReunionRepo())->todas() as $r) {
+            if ((int)($r['id'] ?? 0) === $excluirId || ($r['plataforma'] ?? 'zoom') !== 'zoom') continue;
+            $dur = max(1, (int)($r['duracion'] ?? 60)) * 60;
+            $serie = !empty($r['recurrente']);
+            foreach (self::inicios((string)($r['inicio'] ?? ''), $serie ? (array)($r['dias'] ?? []) : [], $serie ? (string)($r['hasta'] ?? '') : '') as $t) {
+                if ($t + $dur <= $d0 || $t >= $d1) continue;
+                $pid = (int)($r['proyecto_id'] ?? 0);
+                $nombres[$pid] ??= (string)((new ProyectoRepo())->buscar($pid)['nombre'] ?? '');
+                $out[] = ['ini' => (int)((max($t, $d0) - $d0) / 60), 'fin' => (int)((min($t + $dur, $d1) - $d0) / 60),
+                          'tema' => (string)($r['topic'] ?? 'Reunión'), 'proyecto' => $nombres[$pid]];
+            }
+        }
+        usort($out, fn($a, $b) => $a['ini'] <=> $b['ini']);
+        return $out;
+    }
+
     /** Los inicios (timestamps) de una reunión: el suyo, o el de cada día si se repite. */
     private static function inicios(string $inicio, array $dias, string $hasta): array
     {
