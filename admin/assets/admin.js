@@ -862,10 +862,10 @@ const LenteVidrio = {
     // Si ya estaba encendida en este grupo se desliza; si no, aparece en su sitio
     l.classList.toggle('lg-quieta', !(l.classList.contains('is-on') && l._grupo === grupo));
     l._grupo = grupo;
-    l.style.left = (r.left - 5) + 'px';
-    l.style.top = (r.top - 5) + 'px';
-    l.style.width = (r.width + 10) + 'px';
-    l.style.height = (r.height + 10) + 'px';
+    l.style.left = (r.left - 7) + 'px';
+    l.style.top = (r.top - 7) + 'px';
+    l.style.width = (r.width + 14) + 'px';
+    l.style.height = (r.height + 14) + 'px';
     l.style.borderRadius = '50%';
     l.classList.add('is-on');
   },
