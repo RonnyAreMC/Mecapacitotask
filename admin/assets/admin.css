@@ -5126,7 +5126,7 @@ html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gra
 .dlg-wizard .wz-paso:hover .wz-num i { transform: scale(1.22); }
 @media (prefers-reduced-motion: reduce) { .dlg-wizard .wz-paso:hover .wz-num i { transform: none; } }
 
-/* ----- Lente de vidrio: la bolita de los pasos de los asistentes (admin.js, LenteVidrio) ----- */
+/* ----- Lente de vidrio: tabs y bolita de los pasos de los asistentes (admin.js, LenteVidrio) ----- */
 .lg-lente {
   position: fixed; z-index: 40; left: 0; top: 0; width: 0; height: 0;
   pointer-events: none;
@@ -5150,6 +5150,13 @@ html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gra
     left .26s cubic-bezier(.2, .7, .2, 1), top .26s cubic-bezier(.2, .7, .2, 1),
     width .26s cubic-bezier(.2, .7, .2, 1), height .26s cubic-bezier(.2, .7, .2, 1);
 }
+/* Sobre una pestaña, sin el brillo fuerte de la gota: no le lava el texto */
+.lg-lente.lg-pastilla {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .30) 0%, rgba(255, 255, 255, .06) 55%, rgba(255, 255, 255, .14) 100%);
+  -webkit-backdrop-filter: saturate(1.6) brightness(1.04);
+  backdrop-filter: saturate(1.6) brightness(1.04);
+}
+html.dark .lg-lente.lg-pastilla { background: linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 50%, rgba(255, 255, 255, .08) 100%); }
 /* Recién aparecida no se desliza desde donde estuvo la última vez */
 .lg-lente.lg-quieta { transition: opacity .18s ease, transform .22s cubic-bezier(.2, .7, .2, 1); }
 .lg-lente.is-on { opacity: 1; transform: none; }

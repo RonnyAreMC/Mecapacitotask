@@ -813,19 +813,28 @@ const MecaWizard = {
 MecaWizard.init();
 
 /* =========================================================
-   Lente de vidrio: al pasar el mouse por los pasos de un asistente,
-   una gota de vidrio líquido sale encima de su bolita (no de toda la
-   fila) y se desliza a la de al lado. Solo adorno: no recibe clics
-   ni mueve nada (va en position:fixed, fuera del flujo).
+   Lente de vidrio: al pasar el mouse por los tabs, por los pasos de
+   un asistente y por las opciones del menú radial (Tareas), sale
+   encima una pieza de vidrio líquido y se desliza a la de al lado.
+   En los tabs cubre la pestaña; en los pasos y el menú radial, solo
+   la bolita (una gota). Solo adorno: no recibe clics ni mueve nada
+   (va en position:fixed, fuera del flujo).
    ========================================================= */
 const LenteVidrio = {
-  OPCIONES: '.wz-paso',
-  lentes: new Map(),   // una por capa: la página o cada modal abierto
+  OPCIONES: '.tab-btn, .mc-tab, .sup-tab, .wz-paso, .rad-op',
+  // La bolita sobre la que va la gota, según la opción
+  BOLITAS: { 'wz-paso': '.wz-num', 'rad-op': '.rad-ico' },
+  lentes: new Map(),   // una por capa: la página, cada modal abierto o el menú radial
 
   init() {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
     document.addEventListener('pointerover', (e) => this.sobre(e.target), { passive: true });
-    window.addEventListener('scroll', () => this.ocultarTodas(), { capture: true, passive: true });
+    // Se apaga si se desplaza lo que la contiene (la página o la barra de pestañas),
+    // no por cualquier lista con scroll de la página
+    window.addEventListener('scroll', (e) => {
+      const t = e.target;
+      this.lentes.forEach((l) => { if (l._grupo && (t === document || t.contains?.(l._grupo))) this.ocultar(l); });
+    }, { capture: true, passive: true });
     window.addEventListener('resize', () => this.ocultarTodas(), { passive: true });
   },
 
@@ -843,30 +852,33 @@ const LenteVidrio = {
 
   sobre(el) {
     if (!el?.closest) return;
+    // Se apagan las de otros grupos; en el hueco entre dos opciones del mismo
+    // grupo no, así se desliza
+    this.lentes.forEach((l) => { if (l._grupo && !l._grupo.contains(el)) this.ocultar(l); });
     const op = el.closest(this.OPCIONES);
-    const capa = el.closest('dialog[open]') || document.body;
-    if (!op || op.disabled) {
-      // En el hueco entre dos opciones del mismo grupo no se apaga: así se desliza
-      const l = this.lentes.get(capa);
-      if (l && !(l._grupo && l._grupo.contains(el))) this.ocultar(l);
-      return;
-    }
+    if (!op || op.disabled) return;
+    // El menú radial va por encima de todo (z-index alto): la gota vive dentro
+    const capa = el.closest('dialog[open]') || el.closest('.rad-menu') || document.body;
     this.mostrar(op, this.lente(capa));
   },
 
   mostrar(op, l) {
-    const bolita = op.querySelector('.wz-num') || op;
-    const r = bolita.getBoundingClientRect();
+    const clase = Object.keys(this.BOLITAS).find((c) => op.classList.contains(c));
+    const bolita = clase ? op.querySelector(this.BOLITAS[clase]) : null;
+    const r = (bolita || op).getBoundingClientRect();
     if (!r.width) return;
     const grupo = op.parentElement;
     // Si ya estaba encendida en este grupo se desliza; si no, aparece en su sitio
     l.classList.toggle('lg-quieta', !(l.classList.contains('is-on') && l._grupo === grupo));
     l._grupo = grupo;
-    l.style.left = (r.left - 7) + 'px';
-    l.style.top = (r.top - 7) + 'px';
-    l.style.width = (r.width + 14) + 'px';
-    l.style.height = (r.height + 14) + 'px';
-    l.style.borderRadius = '50%';
+    // Gota sobre la bolita del paso; pastilla sobre la pestaña
+    const [dx, dy] = bolita ? [7, 7] : [3, 2];
+    l.style.left = (r.left - dx) + 'px';
+    l.style.top = (r.top - dy) + 'px';
+    l.style.width = (r.width + dx * 2) + 'px';
+    l.style.height = (r.height + dy * 2) + 'px';
+    l.style.borderRadius = bolita ? '50%' : Math.max((parseFloat(getComputedStyle(op).borderTopLeftRadius) || 0) + 2, 12) + 'px';
+    l.classList.toggle('lg-pastilla', !bolita);
     l.classList.add('is-on');
   },
 
