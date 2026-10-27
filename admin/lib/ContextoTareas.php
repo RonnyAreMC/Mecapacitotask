@@ -169,7 +169,8 @@ final class ContextoTareas
         foreach (array_merge([$tema], $partes) as $p) {
             $p = trim($p, " .\t\n");
             if (mb_strlen($p) < 4) continue;
-            $p = mb_strtolower(mb_substr($p, 0, 1)) . mb_substr($p, 1);
+            // En minúscula solo la primera de una palabra normal: las siglas («PEA», «API Gateway») se quedan
+            if (!preg_match('/^\p{Lu}{2}/u', $p)) $p = mb_strtolower(mb_substr($p, 0, 1)) . mb_substr($p, 1);
             if (!in_array($p, $out, true)) $out[] = $p;
         }
         return array_slice($out, 0, 8);
