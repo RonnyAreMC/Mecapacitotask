@@ -62,8 +62,8 @@ if ($dtVolver !== 'deploys' && class_exists('Cronograma') && Cronograma::activo(
     }
 }
 ?>
-<section class="dep-tira card-base<?= $dtUltimo ? '' : ' dep-tira-vacia' ?>">
-  <div class="dep-tira-main">
+<?php ob_start(); ?>
+  <div class="dep-tira-main<?= $dtUltimo ? '' : ' dep-tira-vacia' ?>">
     <div class="dep-dato">
       <span class="dep-pulso<?= $dtHoy ? ' dep-pulso-hoy' : '' ?>" aria-hidden="true"><?= UI::icono('Upload') ?></span>
       <div class="dep-dato__txt">
@@ -82,7 +82,7 @@ if ($dtVolver !== 'deploys' && class_exists('Cronograma') && Cronograma::activo(
       <span class="dep-pulso dep-pulso--prox" aria-hidden="true"><?= UI::icono('Clock') ?></span>
       <div class="dep-dato__txt">
         <small>Los demás cambios suben</small>
-        <b class="dep-hora"><?= e($dtDia($dtProx)) ?> · <?= e($dtHora($dtProx)) ?></b>
+        <b class="dep-hora"><?= e(class_exists('Cronograma') ? Cronograma::diaLargo($dtProx) : $dtDia($dtProx)) ?> · <?= e($dtHora($dtProx)) ?></b>
         <span class="dep-sub"><b data-cuenta-regresiva data-corto data-hasta="<?= $dtProx ?>" data-ahora="<?= time() ?>">&nbsp;</b><?php if ($dtPendTotal): ?> · <?= $dtPendTotal ?> tarea<?= $dtPendTotal === 1 ? '' : 's' ?> por subir<?php endif; ?></span>
       </div>
     </div>
@@ -101,7 +101,16 @@ if ($dtVolver !== 'deploys' && class_exists('Cronograma') && Cronograma::activo(
       <?php endif; ?>
     </div>
   </div>
-</section>
+<?php
+$dtMain = ob_get_clean();
+// En el dashboard es una diapositiva más del resumen (lib/resumen_tira.php);
+// en Despliegues va sola, como siempre.
+if (!empty($dtCarrusel)) {
+    $rtSlides[] = ['clave' => 'deploys', 'nombre' => 'Despliegues', 'main' => $dtMain];
+} else {
+    echo '<section class="dep-tira card-base">' . $dtMain . '</section>';
+}
+?>
 
 
 <?php if ($dtPuede): ?>

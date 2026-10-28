@@ -127,11 +127,15 @@ foreach ($proyectos as $p) $resumenes[(int)$p['id']] = $tareasRepo->resumen((int
 // Solo los proyectos en los que participo: aquí salían los ocho del panel, y
 // a quien no está en SIGE no le importa cuándo subió SIGE. El registro
 // completo sigue en el módulo.
+// Va como la primera diapositiva de «tu resumen» (lib/resumen_tira.php), que
+// suma tus tareas, lo que tienes por revisar, tu próxima reunión y lo pendiente.
+$rtSlides = [];
 if (puedeVerDeploys()) {
     $dtFilas = resumenDeploys(misProyectosDeploys($proyectos));
     if ($dtFilas) {
         $dtMiembros = $miembros;
         $dtVolver   = 'index';
+        $dtCarrusel = true;
         require __DIR__ . '/lib/deploy_tira.php';
     }
 } elseif (configDeploys()['activo'] && is_file(__DIR__ . '/lib/Cronograma.php')) {
@@ -147,22 +151,25 @@ if (puedeVerDeploys()) {
             if ($proxSub === 0 || $vSub < $proxSub) { $proxSub = $vSub; $quienesSub = []; }
             if ($vSub === $proxSub) $quienesSub[] = aliasDeploy((int)$pSub['id']) ?: $pSub['nombre'];
         }
-        if ($proxSub): ?>
-<section class="dep-tira card-base dep-tira-crono">
+        if ($proxSub) {
+            ob_start(); ?>
   <div class="dep-tira-main">
     <div class="dep-dato dep-dato--prox">
       <span class="dep-pulso dep-pulso--prox" aria-hidden="true"><?= UI::icono('Clock') ?></span>
       <div class="dep-dato__txt">
         <small>Hora límite para subir tus cambios</small>
-        <b class="dep-hora"><?= e(Cronograma::diaCorto($proxSub)) ?> · <?= e(Cronograma::hora($proxSub)) ?></b>
+        <b class="dep-hora"><?= e(Cronograma::diaLargo($proxSub)) ?> · <?= e(Cronograma::hora($proxSub)) ?></b>
         <span class="dep-sub"><b data-cuenta-regresiva data-corto data-hasta="<?= $proxSub ?>" data-ahora="<?= time() ?>">&nbsp;</b> · <?= e(implode(', ', $quienesSub)) ?></span>
       </div>
     </div>
   </div>
-</section>
-        <?php endif;
+            <?php $rtSlides[] = ['clave' => 'deploys', 'nombre' => 'Subida de cambios', 'main' => ob_get_clean()];
+        }
     }
 }
+$rtYo     = verComo() ?: Auth::usuario();
+$rtTareas = $todasTareas;
+require __DIR__ . '/lib/resumen_tira.php';
 ?>
 
 <?php if (empty($proyectos)): ?>

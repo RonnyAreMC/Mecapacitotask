@@ -393,6 +393,21 @@ class Reuniones
         return $out;
     }
 
+    /**
+     * Cuándo empieza la vez que toca de una reunión: la que está en curso
+     * ahora o la siguiente (timestamp). 0 si ya no queda ninguna.
+     */
+    public static function proximoInicio(array $reunion, ?int $ahora = null): int
+    {
+        $ahora ??= time();
+        $dur = max(1, (int)($reunion['duracion'] ?? 60)) * 60;
+        $dias = self::esRecurrente($reunion) ? (array)($reunion['dias'] ?? []) : [];
+        foreach (self::inicios((string)($reunion['inicio'] ?? ''), $dias, (string)($reunion['hasta'] ?? '')) as $t) {
+            if ($t + $dur > $ahora) return $t;
+        }
+        return 0;
+    }
+
     /** Los inicios (timestamps) de una reunión: el suyo, o el de cada día si se repite. */
     private static function inicios(string $inicio, array $dias, string $hasta): array
     {

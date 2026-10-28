@@ -4962,7 +4962,7 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       const reloj = el.querySelector('[data-cuenta-reloj]') || el;
       let txt;
       if (el.hasAttribute('data-corto')) {
-        txt = falta <= 0 ? 'subiendo…'
+        txt = falta <= 0 ? (el.dataset.ya || 'subiendo…')
           : falta < 60 ? 'en ' + s + ' s'
           : 'en ' + (d ? d + ' d ' : '') + (h ? h + ' h ' : '') + (d ? '' : m + ' min');
       } else {
@@ -4971,11 +4971,104 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       if (reloj.textContent !== txt) reloj.textContent = txt.trim();
       el.classList.toggle('is-ya', falta <= 0);
       el.classList.toggle('is-cerca', falta > 0 && falta <= 1800);
-      if (falta <= 0 && !window.__cuentaRecarga) window.__cuentaRecarga = setTimeout(() => location.reload(), 90000);
+      // Con data-ya (una reunión) no hay subida que esperar: no se recarga
+      if (falta <= 0 && !el.dataset.ya && !window.__cuentaRecarga) window.__cuentaRecarga = setTimeout(() => location.reload(), 90000);
     });
   };
   pintar();
   setInterval(pintar, 1000);
+})();
+
+/* =========================================================
+   Tu resumen (lib/resumen_tira.php): un carrusel en la tira del dashboard.
+   Las diapositivas están apiladas en la misma celda; la activa entra con
+   sus datos uno tras otro y los números cuentan desde cero. Pasa sola: la
+   barrita del punto activo se llena y, al llenarse (animationend), toca la
+   siguiente; así pausar es solo pausar la animación (mouse encima, foco
+   dentro, pestaña oculta). Con «menos movimiento» no pasa sola.
+   Puntos, flechas, ← → con el foco dentro y deslizar en el celular.
+   ========================================================= */
+(function () {
+  const rt = document.querySelector('[data-rt]');
+  if (!rt) return;
+  const slides = [...rt.querySelectorAll('[data-rt-slide]')];
+  const puntos = [...rt.querySelectorAll('[data-rt-ir]')];
+  const nombre = rt.querySelector('[data-rt-nombre]');
+  const pista = rt.querySelector('[data-rt-pista]');
+  const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let i = 0;
+
+  const contar = (slide) => {
+    slide.querySelectorAll('.rt-num').forEach((el) => {
+      const n = Number(el.dataset.n) || 0;
+      if (quieto || n < 2) { el.textContent = n; return; }
+      const t0 = performance.now();
+      const paso = (t) => {
+        const k = Math.min(1, (t - t0) / 700);
+        el.textContent = Math.round(n * (1 - Math.pow(1 - k, 3)));
+        if (k < 1) requestAnimationFrame(paso);
+      };
+      requestAnimationFrame(paso);
+    });
+  };
+
+  const ir = (j, manual) => {
+    if (slides.length < 2) return;
+    j = (j + slides.length) % slides.length;
+    if (j === i && !manual) return;
+    rt.dataset.dir = j > i || (i === slides.length - 1 && j === 0) ? 'sig' : 'ant';
+    slides[i].classList.remove('is-activa');
+    slides[i].inert = true;
+    i = j;
+    slides[i].inert = false;
+    slides[i].classList.add('is-activa');
+    puntos.forEach((p, k) => {
+      p.classList.toggle('is-activo', k === i);
+      if (k === i) p.setAttribute('aria-current', 'true'); else p.removeAttribute('aria-current');
+    });
+    // Reinicia la barrita del punto activo (la animación se vuelve a correr)
+    const barra = puntos[i] && puntos[i].firstElementChild;
+    if (barra) { barra.style.animation = 'none'; void barra.offsetWidth; barra.style.animation = ''; }
+    if (nombre) nombre.textContent = puntos[i] ? puntos[i].getAttribute('aria-label') : '';
+    // Tras tocarlo, quien usa lector de pantalla oye la diapositiva nueva
+    if (manual) pista.setAttribute('aria-live', 'polite');
+    contar(slides[i]);
+  };
+
+  rt.addEventListener('click', (e) => {
+    const p = e.target.closest('[data-rt-ir]');
+    const m = e.target.closest('[data-rt-mover]');
+    if (p) ir(Number(p.dataset.rtIr), true);
+    else if (m) ir(i + Number(m.dataset.rtMover), true);
+  });
+  rt.addEventListener('keydown', (e) => {
+    if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+      if (e.target.closest('input, textarea, select')) return;
+      e.preventDefault();
+      ir(i + (e.key === 'ArrowRight' ? 1 : -1), true);
+    }
+  });
+  rt.addEventListener('animationend', (e) => {
+    if (e.animationName === 'rt-llenar' && e.target.parentElement === puntos[i]) ir(i + 1);
+  });
+
+  // Deslizar en el celular: un gesto horizontal claro cambia de diapositiva
+  let x0 = null, y0 = 0;
+  pista.addEventListener('pointerdown', (e) => { if (e.pointerType !== 'mouse') { x0 = e.clientX; y0 = e.clientY; } });
+  pista.addEventListener('pointerup', (e) => {
+    if (x0 === null) return;
+    const dx = e.clientX - x0, dy = e.clientY - y0;
+    x0 = null;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.5) ir(i + (dx < 0 ? 1 : -1), true);
+  });
+  pista.addEventListener('pointercancel', () => { x0 = null; });
+
+  // Pausa: mouse encima, foco dentro o pestaña oculta
+  const pausa = () => rt.classList.toggle('is-pausa', rt.matches(':hover') || rt.contains(document.activeElement) || document.hidden);
+  ['pointerenter', 'pointerleave', 'focusin', 'focusout'].forEach((ev) => rt.addEventListener(ev, () => setTimeout(pausa)));
+  document.addEventListener('visibilitychange', pausa);
+
+  contar(slides[0]);
 })();
 
 /* =========================================================

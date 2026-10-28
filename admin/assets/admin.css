@@ -8920,6 +8920,106 @@ html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); 
   100% { transform: translateY(-9px); opacity: 0; }
 }
 
+/* ---------- Tu resumen: la tira hecha carrusel (lib/resumen_tira.php) ----------
+   Lo que importa va en grande y en mayúsculas («MAÑANA JUEVES · 10:00 PM»).
+   Las diapositivas se apilan en la misma celda (la tira toma la altura de la
+   más alta y no salta); la activa entra con sus datos uno tras otro, desde el
+   lado hacia el que se avanza, y el ícono rebota un poco. */
+.dep-hora { text-transform: uppercase; }
+.dep-hora--vacia { text-transform: none; }
+.dep-pulso > i { font-size: 1.05rem; }
+.rt { padding-bottom: 10px; }
+.rt-pista { display: grid; touch-action: pan-y; }
+.rt-slide {
+  grid-area: 1 / 1; display: flex; align-items: center; min-width: 0;
+  visibility: hidden; opacity: 0; transition: opacity .25s ease, visibility 0s linear .25s;
+}
+.rt-slide > .dep-tira-main { flex: 1; min-width: 0; }
+.rt-slide.is-activa { visibility: visible; opacity: 1; transition: opacity .3s ease; }
+.rt { --rt-dx: 22px; }
+.rt[data-dir="ant"] { --rt-dx: -22px; }
+.rt-slide .dep-dato:nth-child(2) { --k: 1; }
+.rt-slide .dep-dato:nth-child(3) { --k: 2; }
+.rt-slide .dep-acc { --k: 3; }
+.rt-slide.is-activa .dep-dato, .rt-slide.is-activa .dep-acc {
+  animation: rt-entra .55s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--k, 0) * 80ms);
+}
+.rt-slide.is-activa .dep-pulso { animation: rt-pop .6s cubic-bezier(.34, 1.56, .64, 1) both; animation-delay: calc(var(--k, 0) * 80ms + 90ms); }
+@keyframes rt-entra { from { opacity: 0; transform: translateX(var(--rt-dx)); } }
+@keyframes rt-pop { from { transform: scale(.6) rotate(-8deg); } }
+
+/* Tonos de los íconos (el celeste es el de siempre; menta el de «suben») */
+.rt-ic--menta { background: #D1FAE5; color: #059669; }
+.rt-ic--lila  { background: #EDE9FE; color: #7C3AED; }
+.rt-ic--rosa  { background: #FFE4E6; color: #E11D48; }
+.rt-ic--azul  { background: #DBEAFE; color: #2563EB; }
+html.dark .rt-ic--menta { background: rgba(52, 211, 153, .16); color: #6EE7B7; }
+html.dark .rt-ic--lila  { background: rgba(167, 139, 250, .18); color: #C4B5FD; }
+html.dark .rt-ic--rosa  { background: rgba(251, 113, 133, .16); color: #FDA4AF; }
+html.dark .rt-ic--azul  { background: rgba(96, 165, 250, .16); color: #93C5FD; }
+.rt-alerta .dep-hora { color: #BE123C; }
+html.dark .rt-alerta .dep-hora { color: #FDA4AF; }
+
+/* Reunión en curso o a punto de empezar: ondas que salen del ícono, un punto
+   rojo que late junto a «EN VIVO» y el botón de entrar que brilla */
+.rt-radar .dep-pulso::before, .rt-radar .dep-pulso::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 2px solid color-mix(in srgb, #8B5CF6 55%, transparent);
+  animation: rt-radar 2.2s ease-out infinite;
+}
+.rt-radar .dep-pulso::after { animation-delay: 1.1s; }
+@keyframes rt-radar { 0% { opacity: .9; transform: scale(1); } 100% { opacity: 0; transform: scale(1.7); } }
+.rt-vivo-txt { display: inline-flex; align-items: center; gap: 9px; color: #DC2626; }
+.rt-vivo-txt::before {
+  content: ''; width: 10px; height: 10px; border-radius: 50%; background: #EF4444;
+  box-shadow: 0 0 0 0 rgba(239, 68, 68, .55); animation: rt-vivo 1.6s ease-out infinite;
+}
+@keyframes rt-vivo { 70% { box-shadow: 0 0 0 9px rgba(239, 68, 68, 0); } 100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); } }
+html.dark .rt-vivo-txt { color: #FCA5A5; }
+.rt-entrar { animation: rt-brillo 2s ease-in-out infinite; }
+@keyframes rt-brillo { 50% { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 0 0 6px rgba(34, 197, 94, .18), 0 6px 16px -4px rgba(22, 163, 74, .6); } }
+
+/* Por revisar: un botón por proyecto con cuántas esperan */
+.rt-chips { flex-wrap: wrap; gap: 8px; }
+.rt-chip {
+  display: inline-flex; align-items: center; gap: 8px; max-width: 220px; padding: 6px 6px 6px 12px; border-radius: 999px;
+  background: rgba(255, 255, 255, .72); color: var(--c-text); font-size: .8125rem; font-weight: 600; text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .06);
+  transition: background-color .18s ease, color .18s ease;
+}
+.rt-chip b { flex: none; min-width: 24px; padding: 2px 8px; border-radius: 999px; background: #2563EB; color: #fff; font-size: .75rem; text-align: center; }
+.rt-chip:hover { background: #fff; color: #0284C7; }
+html.dark .rt-chip { background: rgba(255, 255, 255, .08); color: #E2E8F0; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+
+/* Abajo: flechas, puntos y el nombre de la diapositiva. El punto activo es
+   una barrita que se llena en azul; al llenarse pasa a la siguiente. */
+.rt-pie { display: flex; align-items: center; gap: 4px; margin-top: 10px; }
+.rt-flecha {
+  display: grid; place-items: center; width: 24px; height: 24px; padding: 0; border: 0; border-radius: 50%;
+  background: transparent; color: var(--c-text-soft); font-size: .68rem; cursor: pointer;
+  transition: background-color .18s ease, color .18s ease;
+}
+.rt-flecha:hover { background: rgba(255, 255, 255, .85); color: #0284C7; }
+html.dark .rt-flecha:hover { background: rgba(255, 255, 255, .1); color: #7DD3FC; }
+.rt-flecha:focus-visible, .rt-punto:focus-visible { outline: 2px solid #2563EB; outline-offset: 2px; }
+.rt-puntos { display: flex; align-items: center; }
+.rt-punto { display: grid; place-items: center; height: 22px; padding: 0 3px; border: 0; border-radius: 999px; background: none; cursor: pointer; }
+.rt-punto > span {
+  display: block; width: 7px; height: 7px; border-radius: 999px;
+  background: linear-gradient(#2563EB, #2563EB) no-repeat 0 0 / 0 100%, color-mix(in srgb, #0284C7 22%, transparent);
+  transition: width .35s cubic-bezier(.2, .8, .2, 1);
+}
+.rt-punto:hover > span { background-color: color-mix(in srgb, #0284C7 40%, transparent); }
+.rt-punto.is-activo > span { width: 30px; animation: rt-llenar 7s linear forwards; }
+.rt.is-pausa .rt-punto.is-activo > span { animation-play-state: paused; }
+@keyframes rt-llenar { to { background-size: 100% 100%; } }
+.rt-nombre { margin-left: 6px; color: var(--c-text-soft); font-size: .6875rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; }
+@media (prefers-reduced-motion: reduce) {
+  .rt-slide.is-activa .dep-dato, .rt-slide.is-activa .dep-acc, .rt-slide.is-activa .dep-pulso,
+  .rt-radar .dep-pulso::before, .rt-radar .dep-pulso::after, .rt-vivo-txt::before, .rt-entrar { animation: none; }
+  .rt-punto.is-activo > span { animation: none; background-size: 100% 100%; }
+}
+
 /* ---------- Historial ---------- */
 .dep-lista { display: flex; flex-direction: column; gap: 10px; padding: 18px 24px 22px; }
 .dep-dia {
@@ -9113,6 +9213,9 @@ html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); 
   .dep-tira-fin { margin-left: 0; width: 100%; }
   .dep-dato + .dep-dato { padding-left: 0; border-left: 0; }
   .dep-hora { font-size: 1.3rem; }
+  /* Apiladas, la más alta manda: el resto arranca arriba, como se lee */
+  .rt-slide { align-items: flex-start; }
+  .rt-pie { margin-top: 12px; }
   .dep-lista, .dep-espera-grid { padding-left: 16px; padding-right: 16px; }
 }
 @media (prefers-reduced-motion: reduce) {

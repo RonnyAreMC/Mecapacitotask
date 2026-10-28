@@ -202,6 +202,23 @@ final class Cronograma
         return ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'][(int)date('w', $v)] . ' ' . (int)date('j', $v);
     }
 
+    /**
+     * El día con su nombre, para leerlo de un vistazo en grande: «hoy»,
+     * «mañana jueves», «ayer», «viernes 30» esta semana y «jueves 5/11» más
+     * allá. La tira lo pone en mayúsculas.
+     */
+    public static function diaLargo(int $v, ?int $ahora = null): string
+    {
+        $ahora ??= time();
+        $nombre = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'][(int)date('w', $v)];
+        $d = date('Y-m-d', $v);
+        if ($d === date('Y-m-d', $ahora)) return 'hoy';
+        if ($d === date('Y-m-d', strtotime('+1 day', $ahora))) return 'mañana ' . $nombre;
+        if ($d === date('Y-m-d', strtotime('-1 day', $ahora))) return 'ayer';
+        $dias = (int)round((strtotime($d) - strtotime(date('Y-m-d', $ahora))) / 86400);
+        return $nombre . ' ' . ($dias > -7 && $dias < 7 ? (int)date('j', $v) : date('j/n', $v));
+    }
+
     /** «10:00 pm», como el resto del cronograma. */
     public static function hora(int $v): string
     {
