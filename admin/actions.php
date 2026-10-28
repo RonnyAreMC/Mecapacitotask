@@ -2242,6 +2242,22 @@ switch ($accion) {
             $cambios['telefono'] = $telNuevo;
         }
 
+        // A dónde le llegan los avisos: se sigue entrando con el correo de la
+        // cuenta, pero los avisos pueden ir a otro (o a los dos)
+        if (array_key_exists('avisos_a', $_POST)) {
+            $avisosA = (string)$_POST['avisos_a'];
+            if (!isset(MiembroRepo::AVISOS_A[$avisosA])) $avisosA = 'cuenta';
+            $correoAvisos = trim((string)($_POST['email_avisos'] ?? ''));
+            if ($correoAvisos !== '' && !filter_var($correoAvisos, FILTER_VALIDATE_EMAIL)) {
+                redirigir($volver, 'El otro correo para avisos no es válido.', 'error');
+            }
+            if ($avisosA !== 'cuenta' && $correoAvisos === '') {
+                redirigir($volver, 'Escribe el otro correo para tus avisos, o elige «Mi correo».', 'error');
+            }
+            $cambios['email_avisos'] = $correoAvisos;
+            $cambios['avisos_a'] = $avisosA;
+        }
+
         // Contrasena: solo si la piden, y comprobando siempre la actual
         $claveNueva = (string)($_POST['clave_nueva'] ?? '');
         if ($claveNueva !== '') {
@@ -3214,7 +3230,7 @@ switch ($accion) {
             redirigir('ajustes.php', 'Todavía no se puede enviar: ' . $falta . '.', 'error');
         }
         $marcaCorreo = Config::get('titulo');
-        $r = Mailer::enviar($para, 'Prueba de correo — ' . $marcaCorreo,
+        $r = Mailer::enviarDirecto($para, 'Prueba de correo — ' . $marcaCorreo,
             '<p style="font-family:Arial;font-size:15px;">¡Funciona! El panel ' . e($marcaCorreo) . ' ya puede enviar notificaciones por correo.</p>');
         if ($r === true) {
             redirigir('ajustes.php', 'Correo de prueba enviado a ' . $para . '. ¡Revisa la bandeja!');

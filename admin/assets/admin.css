@@ -7149,6 +7149,31 @@ html.dark .pf-card-tit > i, html.dark .pf-grid .pf-nota i { color: #93C5FD; }
 .dlg-wizard.pf-dlg .dlg-close:hover { background: var(--wz-sec-h); color: var(--wz-tinta); }
 .pf-dlg-cuerpo { display: flex; flex-direction: column; gap: 18px; padding: 22px 28px 6px; }
 .pf-dlg-cuerpo .pf-nota { margin: 0; }
+/* A dónde llegan los avisos: tres tarjetas; el otro correo solo se pide si hace falta */
+.pf-avisos { gap: 10px; }
+.pf-avisos-ops { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.pf-avisos-op {
+  position: relative; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; min-width: 0;
+  padding: 12px; border: 1px solid var(--wz-linea); border-radius: 14px; background: var(--wz-campo); cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease;
+}
+.pf-avisos-op input { position: absolute; opacity: 0; pointer-events: none; }
+.pf-avisos-op > i {
+  display: grid; place-items: center; width: 32px; height: 32px; margin-bottom: 6px; border-radius: 10px;
+  background: var(--wz-sec-h); color: var(--wz-tinta-3); font-size: .9rem;
+}
+.pf-avisos-op b { font-size: .875rem; font-weight: 600; color: var(--wz-tinta); }
+.pf-avisos-op small { font-size: .75rem; line-height: 1.35; color: var(--wz-tinta-2); }
+.pf-avisos-op:hover { border-color: var(--wz-linea-h); }
+.pf-avisos-op:has(input:checked) { border-color: var(--wz-azul); background: var(--wz-azul-suave); box-shadow: 0 0 0 1px var(--wz-azul); }
+.pf-avisos-op:has(input:checked) > i { background: var(--wz-azul); color: #fff; }
+.pf-avisos-op:has(input:focus-visible) { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
+.pf-avisos:has(input[value="cuenta"]:checked) .pf-avisos-otro { display: none; }
+@media (max-width: 480px) {
+  .pf-avisos-ops { grid-template-columns: 1fr; }
+  .pf-avisos-op { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; align-items: center; }
+  .pf-avisos-op > i { grid-row: 1 / 3; margin: 0; }
+}
 .pf-dlg-pie {
   position: sticky; bottom: 0; z-index: 2;
   display: flex; gap: 10px;

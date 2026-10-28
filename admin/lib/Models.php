@@ -706,6 +706,28 @@ class MiembroRepo
         return array_values($correos);
     }
 
+    /** A dónde puede mandar sus avisos cada persona (Mi perfil → Cuenta). */
+    public const AVISOS_A = ['cuenta' => 'Mi correo de la cuenta', 'otro' => 'Solo al otro correo', 'ambos' => 'A los dos'];
+
+    /**
+     * Correos donde le llegan los avisos a alguien. Se entra siempre con el de
+     * la cuenta; los avisos pueden ir a otro (el institucional, por ejemplo) o
+     * a los dos. Si el otro falta o no es válido, vuelve al de la cuenta.
+     */
+    public static function correosAvisos(array $m): array
+    {
+        $cuenta = trim((string)($m['email'] ?? ''));
+        $otro = trim((string)($m['email_avisos'] ?? ''));
+        $modo = (string)($m['avisos_a'] ?? 'cuenta');
+        if ($otro === '' || !filter_var($otro, FILTER_VALIDATE_EMAIL)) $modo = 'cuenta';
+        $lista = match ($modo) { 'otro' => [$otro], 'ambos' => [$cuenta, $otro], default => [$cuenta] };
+        $out = [];
+        foreach ($lista as $c) {
+            if ($c !== '') $out[strtolower($c)] ??= $c;
+        }
+        return array_values($out);
+    }
+
     public function buscar(int $id): ?array
     {
         return $this->store->find($id);

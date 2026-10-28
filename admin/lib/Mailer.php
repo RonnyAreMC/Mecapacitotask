@@ -153,8 +153,43 @@ class Mailer
     /**
      * Envia un correo HTML. Devuelve true si salio bien,
      * o un string con el motivo del fallo (para mostrarlo en un toast).
+     *
+     * Si $para es el correo de cuenta de alguien del equipo, el aviso va a
+     * donde esa persona eligió en Mi perfil (su correo, otro o los dos). Basta
+     * con que llegue a uno para darlo por enviado.
      */
     public static function enviar(string $para, string $asunto, string $html): true|string
+    {
+        $alguno = null;
+        foreach (self::destinosDe($para) as $correo) {
+            $r = self::enviarDirecto($correo, $asunto, $html);
+            if ($r === true) $alguno = true;
+            elseif ($alguno === null) $alguno = $r;
+        }
+        return $alguno ?? self::enviarDirecto($para, $asunto, $html);
+    }
+
+    /** Correos reales para $para: los de avisos de esa persona, o él mismo. */
+    private static function destinosDe(string $para): array
+    {
+        static $porCuenta = null;
+        if ($porCuenta === null) {
+            $porCuenta = [];
+            foreach ((new MiembroRepo())->todos() as $m) {
+                $c = strtolower(trim((string)($m['email'] ?? '')));
+                if ($c !== '') $porCuenta[$c] = $m;
+            }
+        }
+        $m = $porCuenta[strtolower(trim($para))] ?? null;
+        return $m ? MiembroRepo::correosAvisos($m) : [$para];
+    }
+
+    /**
+     * Envía a esa dirección tal cual, sin mirar la preferencia de avisos: para
+     * lo que tiene que llegar a la cuenta con la que se entra (el código para
+     * cambiar la contraseña) y para el correo de prueba de Ajustes.
+     */
+    public static function enviarDirecto(string $para, string $asunto, string $html): true|string
     {
         if (self::conf()['modo'] === 'gmail_api') {
             return self::enviarGmailApi($para, $asunto, $html);
@@ -1141,7 +1176,7 @@ class Mailer
             . 'margin:18px 0;color:#1d1d1f;">' . e($codigo) . '</div>'
             . '<div style="color:#86868b;font-size:13px;line-height:1.5;">Vence en ' . (int)$minutos . ' minutos. '
             . 'Si no lo pediste, ignora este correo: tu contraseña sigue igual.</div>';
-        return self::enviar($miembro['email'], $codigo . ' es tu código para cambiar la contraseña', self::plantilla($cuerpo));
+        return self::enviarDirecto($miembro['email'], $codigo . ' es tu código para cambiar la contraseña', self::plantilla($cuerpo));
     }
 
     public static function notificarReunion(array $reunion, array $miembro, array $proyecto): true|string|null

@@ -104,6 +104,9 @@ $guiaApi = "## InnoTech Hub: mis tareas (API)\n\n"
     . "4. Si la API responde 401, avisa: el token se quitó o se cambió (Mi perfil → Tu asistente de código).\n";
 
 $misGitMails = array_values(array_filter(array_map('trim', explode(',', (string)($yo['git_emails'] ?? '')))));
+// A dónde le llegan los avisos (puede ser otro correo que el de entrar)
+$avisosA = isset(MiembroRepo::AVISOS_A[$yo['avisos_a'] ?? '']) ? $yo['avisos_a'] : 'cuenta';
+$misAvisos = MiembroRepo::correosAvisos($yo);
 $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
 ?>
 
@@ -179,6 +182,14 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
       <div class="pf-fila">
         <div class="pf-ic"><i class="fa-solid fa-envelope"></i></div>
         <div class="pf-cuerpo"><span class="pf-label">Correo</span><span class="pf-valor"><?= !empty($yo['email']) ? e($yo['email']) : $sinDefinir ?></span></div>
+      </div>
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-bell"></i></div>
+        <div class="pf-cuerpo"><span class="pf-label">Los avisos te llegan a</span>
+          <?php if ($misAvisos): ?>
+          <span class="pf-valor pf-valor-lista"><?php foreach ($misAvisos as $ca): ?><span><?= e($ca) ?></span><?php endforeach; ?></span>
+          <?php else: ?><span class="pf-valor"><?= $sinDefinir ?></span><?php endif; ?>
+        </div>
       </div>
       <div class="pf-fila">
         <div class="pf-ic"><i class="fa-solid fa-phone"></i></div>
@@ -270,7 +281,7 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
   <dialog id="dlg-pf-cuenta" class="dlg-meca dlg-wizard pf-dlg" aria-labelledby="pf-dlg-cuenta-t">
     <div class="pf-dlg-cab">
       <span class="pf-dlg-ic"><i class="fa-solid fa-at"></i></span>
-      <div><h3 id="pf-dlg-cuenta-t">Cuenta</h3><p>Con qué entras al panel y con qué se cuentan tus commits</p></div>
+      <div><h3 id="pf-dlg-cuenta-t">Cuenta</h3><p>Con qué entras, con qué se cuentan tus commits y a dónde te llegan los avisos</p></div>
       <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button>
     </div>
     <div class="pf-dlg-cuerpo">
@@ -282,6 +293,26 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
       </div>
       <label class="campo"><span>Correo</span>
         <input class="input-meca" type="email" name="email" maxlength="80" value="<?= e($yo['email'] ?? '') ?>" placeholder="nombre@innotech-solutions.com.ec"></label>
+      <!-- Se entra siempre con el correo de arriba; los avisos pueden ir a otro
+           (el institucional, por ejemplo) o a los dos -->
+      <div class="campo pf-avisos" role="radiogroup" aria-labelledby="pf-avisos-t">
+        <span id="pf-avisos-t">¿A dónde te llegan los avisos?</span>
+        <div class="pf-avisos-ops">
+          <?php foreach ([
+              'cuenta' => ['fa-envelope', 'Mi correo', 'El de la cuenta'],
+              'otro'   => ['fa-building-columns', 'Otro correo', 'El institucional, por ejemplo'],
+              'ambos'  => ['fa-clone', 'A los dos', 'Te llega a ambos'],
+          ] as $clave => [$ic, $tit, $sub]): ?>
+          <label class="pf-avisos-op">
+            <input type="radio" name="avisos_a" value="<?= $clave ?>" <?= $avisosA === $clave ? 'checked' : '' ?>>
+            <i class="fa-solid <?= $ic ?>"></i><b><?= $tit ?></b><small><?= $sub ?></small>
+          </label>
+          <?php endforeach; ?>
+        </div>
+        <label class="campo pf-avisos-otro"><span>Otro correo para avisos</span>
+          <input class="input-meca" type="email" name="email_avisos" maxlength="80" value="<?= e($yo['email_avisos'] ?? '') ?>" placeholder="nombre@ube.edu.ec"></label>
+        <small class="campo-ayuda">Sigues entrando con tu correo de siempre. El código para cambiar la contraseña llega solo al de la cuenta.</small>
+      </div>
       <div class="campo">
         <span>Correos de Git (para contar tus commits)</span>
         <div class="git-emails" data-git-emails>
