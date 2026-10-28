@@ -1300,6 +1300,14 @@ final class Correo
                 }
                 usort($nuevos, fn($a, $b) => $a['uid'] <=> $b['uid']);
                 $cambios['ultimo_uid'] = $tope;
+                // Los últimos que llegaron (quién y qué), para «tu resumen» del dashboard
+                $llegaron = array_map(fn($n) => [
+                    'uid'    => (int)$n['uid'],
+                    'de'     => mb_substr($n['de']['nombre'] !== '' ? $n['de']['nombre'] : $n['de']['email'], 0, 80),
+                    'asunto' => mb_substr((string)$n['asunto'], 0, 140),
+                    't'      => time(),
+                ], array_reverse($nuevos));
+                $cambios['ultimos'] = array_slice(array_merge($llegaron, (array)($c['ultimos'] ?? [])), 0, 3);
             }
             if (class_exists('CorreoCopias')) $cambios['no_leidos'] = CorreoCopias::noLeidos($imap, $mid, 'INBOX');
             self::guardarCuenta($mid, $cambios);

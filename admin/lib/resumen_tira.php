@@ -161,19 +161,31 @@ if ($rtReu) {
     $rtSlides[] = ['clave' => 'reunion', 'nombre' => 'Próxima reunión', 'main' => $rtMain($rtDatos, $rtAcc), 'urgente' => $rtReuUrgente];
 }
 
-/* ---------- Lo que te espera: correo, requerimientos y pedidos ---------- */
+/* ---------- Tu correo InnoTech ---------- */
+// Su propia diapositiva mientras la cuenta esté conectada, aunque esté al día.
+// El número se pone al día solo: la campana pregunta cada 45 s y avisa con
+// «mc:correo» (assets/ds.js). Lo último que llegó lo anota cron_correo.php.
+if (!verComo() && is_file(__DIR__ . '/Correo.php')) {   // el correo de otro no se asoma
+    require_once __DIR__ . '/Correo.php';
+    if (Correo::activo() && Correo::conectado($rtMid)) {
+        $rtNC = (int)(Correo::noLeidos($rtMid) ?? 0);
+        $rtDatos = $rtDato($rtIc('EmailEnvelope'), 'azul', 'Correos sin leer',
+            '<span class="rt-num" data-rt-correo-n data-n="' . $rtNC . '">' . $rtNC . '</span>',
+            '<span data-rt-correo-sub>' . ($rtNC ? 'En tu bandeja InnoTech' : 'Tu bandeja está al día') . '</span>');
+        $rtUV = $rtNC ? ((array)(Correo::cuenta($rtMid)['ultimos'] ?? []))[0] ?? null : null;
+        // Lo justo: cuántos y de quién fue el último
+        if ($rtUV) {
+            $rtDatos .= $rtDato($rtIc('EmailEnvelopeOpen'), 'lila', 'El último es de', e(mb_strimwidth((string)$rtUV['de'], 0, 28, '…')));
+        }
+        $rtAcc = $rtBoton('notificaciones.php?tab=correo', $rtIc('EmailEnvelopeOpen'), 'Abrir el correo');
+        $rtSlides[] = ['clave' => 'correo', 'nombre' => 'Correo', 'main' => $rtMain($rtDatos, $rtAcc)];
+    }
+}
+
+/* ---------- Lo que te espera: requerimientos y pedidos ---------- */
 $rtDatos = '';
 $rtAcc = '';
 $rtHay = 0;
-if (!verComo() && is_file(__DIR__ . '/Correo.php')) {   // el correo de otro no se asoma
-    require_once __DIR__ . '/Correo.php';
-    $rtNC = Correo::activo() ? Correo::noLeidos($rtMid) : null;
-    if ($rtNC) {
-        $rtHay += $rtNC;
-        $rtDatos .= $rtDato($rtIc('EmailEnvelope'), 'azul', 'Correos sin leer', $rtNum($rtNC), 'En tu bandeja InnoTech');
-        $rtAcc .= $rtBoton('correo.php', $rtIc('EmailEnvelopeOpen'), 'Abrir el correo');
-    }
-}
 $rtNQ = (new RequerimientoRepo())->abiertosDe($rtMid);
 if ($rtNQ) {
     $rtHay += $rtNQ;

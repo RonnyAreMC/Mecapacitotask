@@ -1108,6 +1108,8 @@
       const correoContador = (n) => {
         if (!correoOn || typeof n !== 'number') return;
         document.querySelectorAll('[data-correo-n-menu]').forEach((b) => { b.hidden = !n; b.textContent = n > 999 ? '999+' : String(n); });
+        // Lo demás que muestra el número (la tira del dashboard) se entera por aquí
+        document.dispatchEvent(new CustomEvent('mc:correo', { detail: n }));
         if (n > correoAntes && !conSistema('correo') && window.MC && MC.toast) {
           const d = n - correoAntes;
           MC.toast(d === 1 ? 'Te llegó un correo nuevo' : d + ' correos nuevos', 'info', 6000, { desc: 'Míralos en Correo, en el menú de la izquierda.' });

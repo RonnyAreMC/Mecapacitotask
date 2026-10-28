@@ -5069,6 +5069,14 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
   ['pointerenter', 'pointerleave', 'focusin', 'focusout'].forEach((ev) => rt.addEventListener(ev, () => setTimeout(pausa)));
   document.addEventListener('visibilitychange', pausa);
 
+  // Correos sin leer: la campana avisa cuando cambia el número (ds.js)
+  document.addEventListener('mc:correo', (e) => {
+    const n = Number(e.detail);
+    if (!Number.isFinite(n)) return;
+    rt.querySelectorAll('[data-rt-correo-n]').forEach((el) => { el.dataset.n = n; el.textContent = n > 999 ? '999+' : n; });
+    rt.querySelectorAll('[data-rt-correo-sub]').forEach((el) => { el.textContent = n ? 'En tu bandeja InnoTech' : 'Tu bandeja está al día'; });
+  });
+
   contar(slides[0]);
 })();
 
