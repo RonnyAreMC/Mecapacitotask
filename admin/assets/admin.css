@@ -8921,7 +8921,7 @@ html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); 
 }
 
 /* ---------- Tu resumen: la tira hecha carrusel (lib/resumen_tira.php) ----------
-   Lo que importa va en grande y en mayúsculas («MAÑANA JUEVES · 10:00 PM»).
+   Lo que importa va en grande y en mayúsculas («MAÑANA · 10:00 PM»).
    Las diapositivas se apilan en la misma celda (la tira toma la altura de la
    más alta y no salta); la activa entra con sus datos uno tras otro, desde el
    lado hacia el que se avanza, y el ícono rebota un poco. */
@@ -9380,3 +9380,557 @@ html.dark .rad-ayuda b { color: #6ee7b7; }
 .rad-btn__txt { margin-left: 6px; }
 @media (max-width: 600px) { .rad-btn__txt { display: none; } }
 .rl--incrustado { display: flex; flex-direction: column; gap: var(--space-4, 16px); }
+
+/* =========================================================
+   Resumen del dashboard (resumen.php) y el control Proyectos | Resumen
+
+   El día de quien mira, al estilo del inicio de EDCON: secciones de vidrio
+   que se pliegan, tarjetas planas adentro, filas con su fecha o su hora y
+   cifras con su rótulo. De la misma familia que la tira de despliegues: el
+   borde de vidrio que gira, el celeste y la menta, los números en 800.
+   Los anillos y las barras de avance, en azul (nunca amarillo). El plegado,
+   los números que cuentan y la pieza que se desliza: admin.js («Resumen»).
+   ========================================================= */
+@property --rs-ang { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+@keyframes rs-borde { to { --rs-ang: 360deg; } }
+@keyframes rs-sube { from { opacity: 0; transform: translateY(10px); } }
+
+/* ----- El control Proyectos | Resumen: una barra de vidrio con dos íconos y
+   la pieza celeste que se desliza a la vista elegida, con su canto irisado
+   (como la lente de los tabs). Sin texto: el nombre sale en la ayuda de
+   vidrio (data-ds-tip). Dos mitades iguales: la pieza se ubica sin medir. ----- */
+.rs-vista {
+  --rs-tono: #1A85FF;
+  position: relative; isolation: isolate;
+  display: grid; grid-template-columns: 42px 42px; gap: 0;
+  padding: 4px; border-radius: 999px;
+  border: 1px solid rgba(26, 133, 255, .22);
+  background: linear-gradient(rgba(26, 133, 255, .08), rgba(26, 133, 255, .08)), color-mix(in srgb, var(--surface, #fff) 66%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(1.7); backdrop-filter: blur(16px) saturate(1.7);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .6), 0 8px 24px -14px rgba(26, 133, 255, .45);
+}
+.rs-vista__pieza {
+  position: absolute; z-index: -1; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px);
+  border-radius: 999px; pointer-events: none;
+  background: linear-gradient(180deg, #3A97FF 0%, var(--rs-tono) 60%, #0F74EC 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -2px 4px rgba(10, 60, 140, .25), 0 6px 16px -6px rgba(26, 133, 255, .7);
+  transition: transform .34s cubic-bezier(.16, 1, .3, 1);
+}
+.rs-vista[data-activa="resumen"] .rs-vista__pieza { transform: translateX(100%); }
+/* El canto: un aro de 1.5px con el degradado cian → blanco → rosa */
+.rs-vista__pieza::after {
+  content: ''; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit;
+  background: linear-gradient(115deg, rgba(125, 211, 252, .95), rgba(255, 255, 255, .15) 38%, rgba(255, 255, 255, 0) 60%, rgba(244, 114, 182, .85));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.rs-vista__op {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 34px; padding: 0; border-radius: 999px;
+  color: var(--ink-muted, #5A6B7E); font: 600 .84rem/1.2 var(--font-sans, 'Inter', sans-serif);
+  text-decoration: none; white-space: nowrap;
+  transition: color .2s ease;
+}
+.rs-vista__op:hover { color: var(--ink, #2D3E50); }
+.rs-vista__op:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-vista[data-activa="proyectos"] [data-vista-op="proyectos"],
+.rs-vista[data-activa="resumen"] [data-vista-op="resumen"] { color: #fff; }
+.rs-vista__op .ico { width: 19px; height: 19px; }
+html.dark .rs-vista {
+  border-color: rgba(26, 133, 255, .3);
+  background: linear-gradient(rgba(26, 133, 255, .14), rgba(26, 133, 255, .14)), color-mix(in srgb, var(--surface, #16212D) 58%, transparent);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .07), 0 8px 24px -14px rgba(0, 0, 0, .7);
+}
+
+/* ----- Botones de vidrio de la cabecera (Dailies, Nuevo proyecto y el de lo
+   más urgente del Resumen). Clases propias: las de .btn-meca llevan
+   !important en ds.css y le ganarían al vidrio. ----- */
+.rs-boton {
+  position: relative;
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 42px; padding: 0 18px; border: 0; border-radius: 999px; cursor: pointer;
+  color: var(--ink, #2D3E50); font: 600 .86rem/1.2 var(--font-sans, 'Inter', sans-serif); text-decoration: none; white-space: nowrap;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .86), rgba(255, 255, 255, .58));
+  -webkit-backdrop-filter: blur(14px) saturate(1.6); backdrop-filter: blur(14px) saturate(1.6);
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08), inset 0 1px 0 rgba(255, 255, 255, .9), 0 6px 18px -12px rgba(2, 132, 199, .55);
+  transition: transform .18s ease, background-color .18s ease, color .18s ease;
+}
+.rs-boton .ico { width: 18px; height: 18px; color: #0284C7; }
+.rs-boton:hover { transform: translateY(-1px); color: var(--ink, #2D3E50); }
+.rs-boton:active { transform: translateY(0); }
+.rs-boton:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+/* El principal (crear): vidrio verde, como el botón de subir de la tira */
+.rs-boton--primario { color: #fff; background: linear-gradient(180deg, #2BD06A, #16A34A); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), inset 0 -2px 4px rgba(6, 78, 59, .2), 0 6px 16px -8px rgba(22, 163, 74, .65); }
+.rs-boton--primario .ico, .rs-boton--primario:hover { color: #fff; }
+/* Solo el ícono, redondo; el número de lo pendiente va arriba (data-n) */
+.rs-boton--icono { width: 42px; padding: 0; }
+.rs-boton--icono .ico { width: 20px; height: 20px; }
+.rs-boton--icono[data-n]::after {
+  content: attr(data-n); position: absolute; top: -5px; right: -5px;
+  min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; box-sizing: border-box;
+  display: grid; place-items: center;
+  background: #2970EB; color: #fff; font: 800 .66rem/20px var(--font-sans, 'Inter', sans-serif); font-variant-numeric: tabular-nums;
+  box-shadow: 0 0 0 2px var(--surface, #fff);
+}
+.rs-boton--rosa .ico { color: #E11D48; }
+.rs-boton--rosa[data-n]::after { background: #E11D48; }
+.rs-boton--azul .ico { color: #2563EB; }
+.rs-boton--verde { color: #fff; background: linear-gradient(180deg, #2BD06A, #16A34A); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .4), 0 6px 16px -8px rgba(22, 163, 74, .65); }
+.rs-boton--verde .ico { color: #fff; }
+/* La que ya empieza: un halo que late despacio */
+.rs-boton--verde::before {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 2px solid rgba(34, 197, 94, .55); animation: rs-latido 2.4s ease-out infinite;
+}
+@keyframes rs-latido { 0% { opacity: .85; transform: scale(1); } 70%, 100% { opacity: 0; transform: scale(1.35); } }
+html.dark .rs-boton:not(.rs-boton--primario):not(.rs-boton--verde) {
+  color: var(--ink, #E6ECF2);
+  background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, .05));
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12), inset 0 1px 0 rgba(255, 255, 255, .08), 0 6px 18px -12px rgba(0, 0, 0, .7);
+}
+html.dark .rs-boton .ico { color: #7DD3FC; }
+html.dark .rs-boton--rosa .ico { color: #FDA4AF; }
+html.dark .rs-boton--azul .ico { color: #93C5FD; }
+html.dark .rs-boton--primario .ico, html.dark .rs-boton--verde .ico { color: #fff; }
+
+/* En la cabecera, arriba a la derecha y en la fila del título: el título
+   cede ancho (su subtítulo baja a otra línea) antes que los botones bajen.
+   El control va al final, así no se corre al cambiar de vista. En el
+   celular los botones bajan, siguen chicos y a la derecha. */
+.page-head:has(.rs-vista) > div:first-child { flex: 1 1 320px; min-width: 0; }
+.page-head:has(.rs-vista) > .page-actions { flex: 0 0 auto; flex-wrap: nowrap; align-items: center; }
+@media (max-width: 640px) {
+  .page-head:has(.rs-vista) > .page-actions { justify-content: flex-end; }
+  .page-actions > .rs-vista, .page-actions > .rs-boton--icono { flex: 0 0 auto; }
+}
+
+/* ----- La página ----- */
+.rs { container: rs / inline-size; display: flex; flex-direction: column; gap: 22px; min-width: 0; }
+.rs [id] { scroll-margin-top: 90px; }
+
+/* La baldosa de un ícono (las de la tira de despliegues) */
+.rs-ic {
+  flex: none; display: grid; place-items: center;
+  width: 36px; height: 36px; border-radius: 12px;
+  background: var(--_bg); color: var(--_fg);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .8);
+}
+.rs-ic .ico { width: 18px; height: 18px; }
+.rs-ic--grande { width: 46px; height: 46px; border-radius: 14px; }
+.rs-ic--grande .ico { width: 22px; height: 22px; }
+.rs-ic--chico { width: 22px; height: 22px; border-radius: 7px; box-shadow: none; }
+.rs-ic--chico .ico { width: 13px; height: 13px; }
+.rs-ic--celeste { --_bg: #E0F2FE; --_fg: #0284C7; }
+.rs-ic--menta   { --_bg: #D1FAE5; --_fg: #059669; }
+.rs-ic--rosa    { --_bg: #FFE4E6; --_fg: #E11D48; }
+.rs-ic--lila    { --_bg: #EDE9FE; --_fg: #7C3AED; }
+.rs-ic--azul    { --_bg: #DBEAFE; --_fg: #2563EB; }
+html.dark .rs-ic { box-shadow: none; }
+html.dark .rs-ic--celeste { --_bg: rgba(56, 189, 248, .16); --_fg: #7DD3FC; }
+html.dark .rs-ic--menta   { --_bg: rgba(52, 211, 153, .16); --_fg: #6EE7B7; }
+html.dark .rs-ic--rosa    { --_bg: rgba(251, 113, 133, .16); --_fg: #FDA4AF; }
+html.dark .rs-ic--lila    { --_bg: rgba(167, 139, 250, .18); --_fg: #C4B5FD; }
+html.dark .rs-ic--azul    { --_bg: rgba(96, 165, 250, .18); --_fg: #93C5FD; }
+
+/* ----- «Hoy»: la tira de vidrio, con el borde que gira ----- */
+.rs-hoy {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; gap: 12px;
+  padding: 14px 16px 16px; border-radius: 24px;
+  background: linear-gradient(115deg, #F0F9FF 0%, #FFFFFF 46%, #F0FDF9 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .9), 0 8px 24px -16px rgba(2, 132, 199, .35);
+  animation: rs-sube .45s cubic-bezier(.16, 1, .3, 1) both;
+}
+.rs-hoy::before, .rs-reu--vivo::before, .rs-reu--pronto::before {
+  content: ''; position: absolute; inset: -1.5px; z-index: -1; padding: 1.5px;
+  border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--rs-ang), #7DD3FC, #67E8F9, #6EE7B7, #93C5FD, #7DD3FC);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: rs-borde 9s linear infinite;
+}
+html.dark .rs-hoy { background: linear-gradient(115deg, #0F2A38 0%, var(--surface, #16212D) 48%, #0E2E2A 100%); box-shadow: none; }
+/* Arriba la fecha; debajo, los indicadores en una fila (a 1366 caben los seis) */
+.rs-hoy__cab { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 0 2px; }
+.rs-hoy__txt { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rs-hoy__txt small { color: var(--ink-muted, #5A6B7E); font: 700 .7rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase; }
+.rs-hoy__fecha {
+  color: var(--ink, #2D3E50); font: 800 1.12rem/1.2 var(--font-display, inherit); letter-spacing: -.01em;
+  text-transform: uppercase; white-space: nowrap;
+}
+.rs-kpis { flex: 1; display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.rs-kpi { flex: 1 1 138px; min-width: 0; animation: rs-sube .4s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(.06s + var(--i, 0) * 45ms); }
+.rs-kpi > a {
+  display: flex; flex-direction: column; gap: 3px; height: 100%; box-sizing: border-box;
+  padding: 9px 12px 10px; border-radius: 16px; color: inherit; text-decoration: none;
+  background: rgba(255, 255, 255, .6); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .06);
+  transition: background-color .18s ease, transform .18s ease;
+}
+.rs-kpi > a:hover { background: #fff; transform: translateY(-2px); }
+.rs-kpi > a:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+html.dark .rs-kpi > a { background: rgba(255, 255, 255, .04); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); }
+html.dark .rs-kpi > a:hover { background: rgba(255, 255, 255, .08); }
+.rs-kpi__eti {
+  display: flex; align-items: center; gap: 7px; min-width: 0;
+  color: var(--ink-muted, #5A6B7E); font: 600 .74rem/1.3 var(--font-sans, 'Inter', sans-serif);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.rs-kpi__v {
+  color: var(--ink, #2D3E50); font: 800 1.6rem/1.1 var(--font-display, inherit); letter-spacing: -.02em;
+  font-variant-numeric: tabular-nums;
+}
+.rs-kpi__sub { overflow: hidden; color: var(--ink-muted, #5A6B7E); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
+
+/* ----- Las secciones: una capa de vidrio con su título y el chevron que la pliega ----- */
+.rs-sec {
+  padding: 16px 18px 18px; border-radius: 26px;
+  border: 1px solid color-mix(in srgb, #38BDF8 16%, var(--line, #DFE9F0));
+  background: color-mix(in srgb, var(--surface, #fff) 58%, transparent);
+  -webkit-backdrop-filter: blur(20px) saturate(1.5); backdrop-filter: blur(20px) saturate(1.5);
+  box-shadow: 0 12px 32px -22px rgba(16, 32, 48, .3);
+  animation: rs-sube .5s cubic-bezier(.16, 1, .3, 1) .08s both;
+}
+.rs-sec + .rs-sec { animation-delay: .16s; }
+html.dark .rs-sec { border-color: rgba(255, 255, 255, .08); background: color-mix(in srgb, var(--surface, #16212D) 62%, transparent); box-shadow: 0 14px 34px -18px rgba(0, 0, 0, .6); }
+@media (prefers-reduced-transparency: reduce) {
+  .rs-sec, .rs-vista, .rs-boton { -webkit-backdrop-filter: none; backdrop-filter: none; }
+  .rs-sec { background: var(--surface-alt, #F5FAFD); }
+}
+.rs-sec__cab { display: flex; align-items: center; gap: 10px; min-width: 0; margin-bottom: 14px; }
+.rs-sec__t {
+  flex: 1; min-width: 0; margin: 0;
+  color: var(--ink, #2D3E50); font: 700 1.12rem/1.25 var(--font-display, inherit); letter-spacing: -.01em;
+}
+.rs-sec__n {
+  display: inline-block; margin-left: 6px; padding: 1px 10px; border-radius: 999px; vertical-align: 2px;
+  background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E);
+  font: 700 .74rem/1.35rem var(--font-sans, 'Inter', sans-serif); letter-spacing: 0; font-variant-numeric: tabular-nums;
+}
+.rs-sec__plegar {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; padding: 0;
+  border: 0; border-radius: 50%; background: none; color: var(--ink, #2D3E50); cursor: pointer;
+  transition: background-color .15s ease;
+}
+.rs-sec__plegar:hover { background: color-mix(in srgb, var(--ink, #2D3E50) 7%, transparent); }
+.rs-sec__plegar:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-sec__plegar .ico { width: 20px; height: 20px; transition: transform .25s cubic-bezier(.16, 1, .3, 1); }
+.rs-sec.is-plegada { padding-bottom: 16px; }
+.rs-sec.is-plegada .rs-sec__cab { margin-bottom: 0; }
+.rs-sec.is-plegada .rs-sec__cuerpo { display: none; }
+.rs-sec.is-plegada .rs-sec__plegar .ico { transform: rotate(180deg); }
+
+/* ----- Las grillas: 2 (la impar del final, a lo ancho) y 3 → 2 → 1 ----- */
+.rs-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; min-width: 0; }
+.rs-grid--3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.rs-grid--hoy > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+/* «Te espera» a lo ancho: sus filas, una al lado de la otra */
+.rs-grid--hoy > .rs-card--espera:last-child:nth-child(odd) .rs-datos { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 240px), 1fr)); }
+
+/* ----- Las tarjetas: planas, dentro del vidrio ----- */
+.rs-card {
+  display: flex; flex-direction: column; gap: 10px; min-width: 0;
+  padding: 16px 18px; border-radius: 20px;
+  border: 1px solid var(--line, #DFE9F0); background: var(--surface, #fff);
+}
+.rs-card__cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 26px; }
+.rs-card__t {
+  min-width: 0; margin: 0; overflow: hidden;
+  color: var(--ink, #2D3E50); font: 700 .98rem/1.3 var(--font-display, inherit);
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.rs-card__ver { flex: none; color: var(--primary-ink, #2565D4); font: 600 .8rem/1.2 var(--font-sans, 'Inter', sans-serif); text-decoration: none; }
+.rs-card__ver:hover { text-decoration: underline; }
+.rs-card__ver:focus-visible { outline: none; border-radius: 4px; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-card__extra {
+  flex: none; padding: 2px 9px; border-radius: 999px;
+  background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E);
+  font: 600 .72rem/1.4 var(--font-sans, 'Inter', sans-serif); font-variant-numeric: tabular-nums;
+}
+.rs-nota { margin: auto 0 0; color: var(--ink-muted, #5A6B7E); font-size: .8rem; line-height: 1.45; }
+.rs-nota b { color: var(--ink, #2D3E50); }
+.rs-grupo {
+  display: flex; align-items: center; gap: 6px; margin: 4px 0 -4px;
+  color: var(--ink-muted, #5A6B7E); font: 700 .68rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase;
+}
+.rs-grupo--rosa { color: #BE123C; }
+html.dark .rs-grupo--rosa { color: #FDA4AF; }
+
+/* Las filas (como «Recently due» de Classroom): la fecha o la hora en su
+   baldosa, el título con su detalle y, al final, cuándo */
+.rs-filas { display: flex; flex-direction: column; gap: 1px; min-width: 0; margin: 0; padding: 0; list-style: none; }
+.rs-fila {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  margin: 0 -8px; padding: 7px 8px; border-radius: 14px; color: inherit; text-decoration: none;
+  transition: background-color .15s ease;
+}
+a.rs-fila:hover { background: var(--surface-hover, #E8F5FC); }
+a.rs-fila:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-fila.is-paso { opacity: .55; }
+.rs-fila__txt { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.rs-fila__txt b, .rs-fila__txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-fila__txt b { color: var(--ink, #2D3E50); font: 600 .86rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+.rs-fila__txt small { color: var(--ink-muted, #5A6B7E); font-size: .75rem; line-height: 1.3; }
+.rs-alta { color: #C2410C; font-weight: 700; }
+html.dark .rs-alta { color: #FDBA74; }
+.rs-fila .avatar-stack .avatar { border-color: var(--surface, #fff); }
+.rs-dia {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: 42px; height: 42px; border-radius: 12px;
+  background: var(--_bg); color: var(--_fg);
+}
+.rs-dia b { font: 800 1rem/1 var(--font-display, inherit); font-variant-numeric: tabular-nums; }
+.rs-dia small { margin-top: 2px; font: 700 .56rem/1 var(--font-sans, 'Inter', sans-serif); letter-spacing: .06em; text-transform: uppercase; }
+.rs-dia--lila { width: 54px; }
+.rs-dia--lila b { font-size: .84rem; letter-spacing: -.01em; }
+.rs-dia--rosa, .rs-tag--rosa { --_bg: #FFE4E6; --_fg: #BE123C; }
+.rs-dia--azul, .rs-tag--azul { --_bg: #DBEAFE; --_fg: #1D4ED8; }
+.rs-dia--lila, .rs-tag--lila { --_bg: #EDE9FE; --_fg: #6D28D9; }
+.rs-dia--gris, .rs-tag--gris { --_bg: var(--surface-sunken, #EAF3F9); --_fg: var(--ink-muted, #5A6B7E); }
+html.dark .rs-dia--rosa, html.dark .rs-tag--rosa { --_bg: rgba(251, 113, 133, .16); --_fg: #FDA4AF; }
+html.dark .rs-dia--azul, html.dark .rs-tag--azul { --_bg: rgba(96, 165, 250, .18); --_fg: #93C5FD; }
+html.dark .rs-dia--lila, html.dark .rs-tag--lila { --_bg: rgba(167, 139, 250, .18); --_fg: #C4B5FD; }
+.rs-tag {
+  flex: none; padding: 3px 9px; border-radius: 999px;
+  background: var(--_bg); color: var(--_fg);
+  font: 700 .64rem/1.3 var(--font-sans, 'Inter', sans-serif); letter-spacing: .05em; text-transform: uppercase; white-space: nowrap;
+}
+
+/* ----- La reunión que sigue: grande, con su cuenta regresiva y «Entrar».
+   La que ya empieza o está en curso lleva el borde de vidrio que gira. ----- */
+.rs-reu {
+  position: relative; isolation: isolate;
+  display: flex; flex-direction: column; gap: 3px;
+  padding: 14px 16px; border-radius: 18px;
+  background: linear-gradient(115deg, #F5F3FF 0%, #FFFFFF 52%, #F0F9FF 100%);
+  box-shadow: inset 0 0 0 1px rgba(124, 58, 237, .12);
+}
+.rs-reu--vivo, .rs-reu--pronto { box-shadow: 0 8px 22px -16px rgba(5, 150, 105, .55); }
+html.dark .rs-reu { background: linear-gradient(115deg, #221E44 0%, var(--surface, #16212D) 52%, #0F2A38 100%); box-shadow: inset 0 0 0 1px rgba(167, 139, 250, .18); }
+html.dark .rs-reu--vivo, html.dark .rs-reu--pronto { box-shadow: none; }
+.rs-reu__top { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 10px; margin-bottom: 2px; }
+.rs-reu__eti {
+  display: inline-flex; align-items: center; gap: 7px;
+  color: #6D28D9; font: 700 .68rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase;
+}
+.rs-reu--vivo .rs-reu__eti { color: #047857; }
+html.dark .rs-reu__eti { color: #C4B5FD; }
+html.dark .rs-reu--vivo .rs-reu__eti { color: #6EE7B7; }
+.rs-punto-vivo { position: relative; width: 8px; height: 8px; border-radius: 50%; background: #10B981; }
+.rs-punto-vivo::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; background: #10B981;
+  animation: rs-latido 1.8s ease-out infinite;
+}
+.rs-cuenta {
+  display: inline-flex; align-items: center; gap: 5px; padding: 4px 10px; border-radius: 999px;
+  background: #E0F2FE; color: #0369A1; font-size: .74rem; white-space: nowrap;
+}
+.rs-cuenta b { font-weight: 700; font-variant-numeric: tabular-nums; }
+html.dark .rs-cuenta { background: rgba(56, 189, 248, .14); color: #7DD3FC; }
+.rs-reu__cuando {
+  color: var(--ink, #2D3E50); font: 800 1.35rem/1.15 var(--font-display, inherit); letter-spacing: -.02em;
+  text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.rs-reu__t { margin: 0; overflow: hidden; color: var(--ink, #2D3E50); font: 600 .92rem/1.35 var(--font-sans, 'Inter', sans-serif); text-overflow: ellipsis; white-space: nowrap; }
+.rs-reu__meta { margin: 0; color: var(--ink-muted, #5A6B7E); font-size: .78rem; }
+.rs-reu__pie { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 8px; }
+.rs-reu__pie .avatar-stack .avatar { border-color: #fff; }
+html.dark .rs-reu__pie .avatar-stack .avatar { border-color: var(--surface, #16212D); }
+.rs-entrar {
+  position: relative; flex: none;
+  display: inline-flex; align-items: center; gap: 8px; padding: 10px 18px; border-radius: 999px;
+  color: #fff; font: 700 .84rem/1 var(--font-sans, 'Inter', sans-serif); text-decoration: none;
+  background: linear-gradient(180deg, #22C55E, #16A34A);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 10px -4px rgba(22, 163, 74, .55);
+  transition: transform .18s ease;
+}
+.rs-entrar:hover { color: #fff; transform: translateY(-1px); background: linear-gradient(180deg, #16A34A, #15803D); }
+.rs-entrar .ico { width: 17px; height: 17px; }
+.rs-cuenta .ico { width: 14px; height: 14px; }
+.rs-grupo .ico { width: 13px; height: 13px; }
+.rs-entrar:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-entrar.is-ya::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 2px solid rgba(34, 197, 94, .55); animation: rs-latido 2.4s ease-out infinite;
+}
+.rs-entrar--suave { color: var(--primary-ink, #2565D4); background: rgba(255, 255, 255, .8); box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08); }
+.rs-entrar--suave:hover { color: var(--primary-ink, #2565D4); background: #fff; }
+html.dark .rs-entrar--suave { color: #93C5FD; background: rgba(255, 255, 255, .08); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+/* Botón de ícono de una fila, de vidrio (el de la tira) */
+.rs-ico-btn {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 50%;
+  background: rgba(255, 255, 255, .72); color: #15803D; text-decoration: none;
+  box-shadow: inset 0 0 0 1px rgba(15, 23, 42, .08), 0 1px 3px rgba(15, 23, 42, .08);
+  transition: background-color .18s ease, color .18s ease;
+}
+.rs-ico-btn:hover { background: #22C55E; color: #fff; }
+.rs-ico-btn .ico { width: 17px; height: 17px; }
+.rs-ico-btn:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+html.dark .rs-ico-btn { background: rgba(255, 255, 255, .08); color: #6EE7B7; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12); }
+
+/* ----- Te espera: los datos en fila teñida, con su círculo de color ----- */
+.rs-datos { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.rs-dato {
+  display: flex; align-items: center; gap: 12px; min-width: 0; height: 100%; box-sizing: border-box;
+  padding: 11px 14px; border-radius: 16px; color: inherit; text-decoration: none;
+  background: color-mix(in srgb, var(--_c) 8%, var(--surface, #fff));
+  transition: background-color .15s ease;
+}
+.rs-dato:hover { background: color-mix(in srgb, var(--_c) 14%, var(--surface, #fff)); }
+.rs-dato:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-dato p { flex: 1; min-width: 0; margin: 0; color: var(--ink, #2D3E50); font-size: .86rem; line-height: 1.35; }
+.rs-dato p b { font-weight: 800; }
+.rs-dato small { display: block; overflow: hidden; color: var(--ink-muted, #5A6B7E); font-size: .75rem; text-overflow: ellipsis; white-space: nowrap; }
+.ico.rs-dato__ir { flex: none; width: 15px; height: 15px; color: var(--ink-muted, #5A6B7E); }
+.rs-circulo { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: var(--_c); color: #fff; }
+.rs-circulo .ico { width: 18px; height: 18px; }
+.rs-dato--azul    { --_c: #2970EB; }
+.rs-dato--celeste { --_c: #0B8FBF; }
+.rs-dato--menta   { --_c: #1E9E62; }
+.rs-dato--rosa    { --_c: #E5534B; }
+html.dark .rs-dato { background: color-mix(in srgb, var(--_c) 14%, var(--surface, #16212D)); }
+html.dark .rs-dato:hover { background: color-mix(in srgb, var(--_c) 22%, var(--surface, #16212D)); }
+
+/* ----- Vacío: una línea con su ícono, sin el hueco de una ilustración ----- */
+.rs-vacio { display: flex; align-items: center; gap: 12px; margin: auto 0; padding: 6px 0; }
+.rs-vacio__ic {
+  flex: none; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px;
+  background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E);
+}
+.rs-vacio__ic .ico { width: 19px; height: 19px; }
+.rs-vacio p { display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; }
+.rs-vacio b { color: var(--ink, #2D3E50); font: 600 .88rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+.rs-vacio small { color: var(--ink-muted, #5A6B7E); font-size: .78rem; line-height: 1.4; }
+
+/* ----- Tus tareas: el anillo de las terminadas (azul) y el reparto por estado
+   en la rampa azul, de la más clara (por hacer) a la más honda (completada).
+   En oscuro, la rampa se invierte: lo más hecho es lo más claro. ----- */
+.rs-e1 { --_e: #7FAEF0; } .rs-e2 { --_e: #3D86EA; } .rs-e3 { --_e: #1F5FCC; } .rs-e4 { --_e: #173E85; }
+html.dark .rs-e1 { --_e: #2B4F8F; } html.dark .rs-e2 { --_e: #2F6FD8; } html.dark .rs-e3 { --_e: #5C9AF2; } html.dark .rs-e4 { --_e: #A3C6FA; }
+.rs-anillo-fila { display: flex; align-items: center; gap: 18px; min-width: 0; }
+.rs-anillo { position: relative; flex: none; width: 116px; height: 116px; }
+.rs-anillo svg { display: block; width: 100%; height: 100%; transform: rotate(-90deg); }
+.rs-anillo circle { fill: none; stroke-width: 12; }
+.rs-anillo__pista { stroke: #DCE8FB; }
+.rs-anillo__valor {
+  stroke: #2970EB; stroke-linecap: round;
+  stroke-dasharray: calc(var(--p, 0) * 1) 100;
+  animation: rs-anillo 1.1s cubic-bezier(.16, 1, .3, 1) .2s both;
+}
+.rs-anillo__valor[style="--p:0"] { stroke-linecap: butt; }
+@keyframes rs-anillo { from { stroke-dasharray: 0 100; } }
+html.dark .rs-anillo__pista { stroke: #1F3550; }
+html.dark .rs-anillo__valor { stroke: #5C9AF2; }
+.rs-anillo__centro { position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+.rs-anillo__centro b { color: var(--ink, #2D3E50); font: 800 1.55rem/1 var(--font-display, inherit); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.rs-anillo__centro small { margin-top: 3px; color: var(--ink-muted, #5A6B7E); font: 600 .66rem/1 var(--font-sans, 'Inter', sans-serif); }
+.rs-estados { display: flex; flex: 1; flex-direction: column; gap: 10px; min-width: 0; }
+/* Un segmento por estado, separados por 2px de la superficie */
+.rs-pila {
+  display: flex; gap: 2px; height: 10px; overflow: hidden; border-radius: 999px;
+  animation: rs-barrido .9s cubic-bezier(.16, 1, .3, 1) .25s both;
+}
+@keyframes rs-barrido { from { clip-path: inset(0 100% 0 0); } to { clip-path: inset(0 0 0 0); } }
+.rs-pila__seg { min-width: 4px; background: var(--_e); }
+.rs-pila__seg:hover { filter: brightness(1.12); }
+.rs-leyenda { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.rs-leyenda li { display: flex; align-items: center; gap: 8px; color: var(--ink-muted, #5A6B7E); font-size: .8rem; }
+.rs-leyenda span { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rs-leyenda b { color: var(--ink, #2D3E50); font-weight: 700; font-variant-numeric: tabular-nums; }
+.rs-sw { flex: none; width: 10px; height: 10px; border-radius: 3px; background: var(--_e); }
+
+/* ----- Tu semana: una columna por día (lo atrasado aparte, en rojo y con su
+   ícono). Una sola serie, en azul; el número va sobre la columna. ----- */
+.rs-cols { display: flex; align-items: stretch; gap: 4px; min-width: 0; margin: 2px 0 0; padding: 0; list-style: none; }
+.rs-col { position: relative; display: flex; flex: 1 1 0; flex-direction: column; align-items: center; gap: 6px; min-width: 0; padding: 6px 0; border-radius: 12px; }
+.rs-col.is-hoy { background: color-mix(in srgb, #2970EB 7%, transparent); }
+.rs-col:hover { background: var(--surface-hover, #E8F5FC); }
+.rs-col__area {
+  display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 4px;
+  width: 100%; height: 112px; border-bottom: 1px solid var(--line, #DFE9F0);
+}
+.rs-col__n { color: var(--ink, #2D3E50); font: 700 .78rem/1 var(--font-sans, 'Inter', sans-serif); font-variant-numeric: tabular-nums; }
+.rs-col__barra {
+  width: min(22px, 62%); height: calc(var(--h, 0) * .9px); border-radius: 4px 4px 0 0;
+  background: #3D86EA; transform-origin: bottom;
+  animation: rs-crece .7s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(.2s + var(--i, 0) * 50ms);
+}
+@keyframes rs-crece { from { transform: scaleY(0); } }
+.rs-col.is-cero .rs-col__barra { display: none; }
+.rs-col--atraso .rs-col__barra { background: #E5534B; }
+html.dark .rs-col__barra { background: #5C9AF2; }
+html.dark .rs-col--atraso .rs-col__barra { background: #EF6A62; }
+.rs-col__dia {
+  display: flex; flex-direction: column; align-items: center; gap: 1px;
+  color: var(--ink-muted, #5A6B7E); font: 700 .64rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .05em; text-transform: uppercase;
+}
+.rs-col__dia small { font: 600 .72rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: 0; text-transform: none; font-variant-numeric: tabular-nums; }
+.rs-col__dia .ico { width: 13px; height: 13px; }
+.rs-col.is-hoy .rs-col__dia { color: var(--primary-ink, #2565D4); }
+.rs-col--atraso .rs-col__dia { color: #BE123C; }
+html.dark .rs-col--atraso .rs-col__dia { color: #FDA4AF; }
+/* El blanco del mouse y del teclado: la columna entera, sin texto (su ayuda la pone ds.js) */
+.rs-col__hit { position: absolute; inset: 0; border-radius: inherit; }
+.rs-col__hit:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+
+/* ----- Tus proyectos: el avance de cada uno, en barra azul ----- */
+.rs-avances { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.rs-avance {
+  display: flex; align-items: center; gap: 12px; min-width: 0;
+  margin: 0 -8px; padding: 8px; border-radius: 14px; color: inherit; text-decoration: none;
+  transition: background-color .15s ease;
+}
+.rs-avance:hover { background: var(--surface-hover, #E8F5FC); }
+.rs-avance:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.rs-avance__ic {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 11px;
+  background: color-mix(in srgb, var(--pc, #2970EB) 14%, var(--surface, #fff)); color: var(--pc, #2970EB);
+}
+.rs-avance__ic .ico { width: 18px; height: 18px; }
+.rs-avance__txt { display: flex; flex: 1; flex-direction: column; gap: 5px; min-width: 0; }
+.rs-avance__txt b { overflow: hidden; color: var(--ink, #2D3E50); font: 600 .86rem/1.25 var(--font-sans, 'Inter', sans-serif); text-overflow: ellipsis; white-space: nowrap; }
+.rs-avance__txt small { overflow: hidden; color: var(--ink-muted, #5A6B7E); font-size: .74rem; text-overflow: ellipsis; white-space: nowrap; }
+.rs-avance__pista { display: block; height: 8px; overflow: hidden; border-radius: 999px; background: #DCE8FB; }
+.rs-avance__barra {
+  display: block; width: var(--p, 0%); height: 100%; border-radius: inherit; background: #3D86EA; transform-origin: left;
+  animation: rs-llena .9s cubic-bezier(.16, 1, .3, 1) both; animation-delay: calc(.25s + var(--i, 0) * 70ms);
+}
+@keyframes rs-llena { from { transform: scaleX(0); } }
+html.dark .rs-avance__pista { background: #1F3550; }
+html.dark .rs-avance__barra { background: #5C9AF2; }
+html.dark .rs-avance__ic { background: color-mix(in srgb, var(--pc, #2970EB) 22%, var(--surface, #16212D)); }
+.rs-avance__pct { flex: none; min-width: 46px; color: var(--ink, #2D3E50); font: 800 .9rem/1 var(--font-display, inherit); text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ----- Anchos: la página se mide por su propio ancho (con el menú abierto o no) ----- */
+@container rs (max-width: 1040px) {
+  .rs-grid--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .rs-grid--3 > :last-child:nth-child(odd) { grid-column: 1 / -1; }
+  /* «Tus proyectos» a lo ancho: dos columnas de barras */
+  .rs-grid--3 > .rs-card--proyectos:last-child:nth-child(odd) .rs-avances { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 24px; }
+}
+@container rs (max-width: 680px) {
+  .rs { gap: 16px; }
+  .rs-grid, .rs-grid--3 { grid-template-columns: minmax(0, 1fr); }
+  .rs-grid--3 > .rs-card--proyectos:last-child:nth-child(odd) .rs-avances { display: flex; }
+  .rs-sec { padding: 14px 12px 14px; border-radius: 22px; }
+  .rs-sec__cab { padding: 0 4px; margin-bottom: 12px; }
+  .rs-card { padding: 14px; border-radius: 18px; }
+  .rs-hoy { padding: 14px; border-radius: 22px; }
+  .rs-kpi { flex-basis: 130px; }
+  .rs-kpi__v { font-size: 1.4rem; }
+  .rs-reu__cuando { font-size: 1.2rem; }
+}
+@container rs (max-width: 400px) {
+  .rs-anillo-fila { gap: 14px; }
+  .rs-anillo { width: 96px; height: 96px; }
+  .rs-anillo__centro b { font-size: 1.3rem; }
+  .rs-cols { gap: 2px; }
+  .rs-col__dia { letter-spacing: 0; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .rs-vista__pieza, .rs-sec__plegar .ico, .rs-boton, .rs-kpi > a, .rs-entrar { transition: none; }
+  .rs-hoy, .rs-sec, .rs-kpi, .rs-anillo__valor, .rs-pila, .rs-col__barra, .rs-avance__barra { animation: none; }
+  .rs-hoy::before, .rs-reu--vivo::before, .rs-reu--pronto::before,
+  .rs-boton--verde::before, .rs-entrar.is-ya::after, .rs-punto-vivo::after { animation: none; }
+  .rs-kpi > a:hover, .rs-boton:hover, .rs-entrar:hover { transform: none; }
+}

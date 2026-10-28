@@ -55,13 +55,18 @@ UI::cabecera(
         : ($alcance !== null
             ? 'Estos son los proyectos en los que participas.'
             : 'Gestiona los proyectos del equipo de programación: tareas, estados y colaboradores.'),
-    '<button class="btn-outline btn-meca btn-azul" onclick="document.getElementById(\'dlg-dailies\').showModal()"
-             title="A qué hora se junta cada equipo">
-       <i class="fa-solid fa-mug-hot"></i> Dailies
-     </button>
-     <button class="btn-primary btn-meca btn-agregar solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()">
-       <i class="fa-solid fa-plus"></i> Nuevo proyecto
-     </button>',
+    // Botones de vidrio solo con ícono (el nombre, en la ayuda de vidrio) y, el
+    // último para que no se corra al cambiar, el control Proyectos | Resumen:
+    // el mismo que en resumen.php (estilos: admin.css, «Resumen del dashboard»)
+    '<button type="button" class="rs-boton rs-boton--icono" onclick="document.getElementById(\'dlg-dailies\').showModal()"
+             aria-label="Dailies" data-ds-tip="Dailies: a qué hora se junta cada equipo">' . UI::icono('ds-agenda') . '</button>
+     <button type="button" class="rs-boton rs-boton--icono rs-boton--primario solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()"
+             aria-label="Nuevo proyecto" data-ds-tip="Nuevo proyecto">' . UI::icono('ds-mas') . '</button>
+     <nav class="rs-vista" data-rs-vista data-activa="proyectos" aria-label="Vista del dashboard">
+       <span class="rs-vista__pieza" aria-hidden="true"></span>
+       <a class="rs-vista__op" href="index.php" data-vista-op="proyectos" aria-current="page" aria-label="Proyectos" data-ds-tip="Proyectos">' . UI::icono('ds-categoria') . '</a>
+       <a class="rs-vista__op" href="resumen.php" data-vista-op="resumen" aria-label="Resumen" data-ds-tip="Resumen: tu día en un panel">' . UI::icono('ds-reportes') . '</a>
+     </nav>',
     'nexo:saludando'   // en lugar de los indicadores: Nexo saluda, flotando suave
 );
 

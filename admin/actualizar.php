@@ -101,7 +101,7 @@ function actualizarPanel(array $opc): void
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
-        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'lib/resumen_tira.php',
+        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -155,7 +155,7 @@ function actualizarPanel(array $opc): void
         'lib/releases_ui.php' => ['function rlVistaRelease', 'function rlRecursosJs', 'releases juntos', 'rl-buscar--fila'],
         'assets/releases.js' => ['data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg', 'rl-gfila__lbl', 'DL.pasados'],
         'lib/Zoom.php'      => ['function participantes'],
-        'assets/admin.css'  => ['rt-llenar', 'pf-avisos-op','nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz', '.dt-colab-btn', '.pf-con.is-on', '.pf-api-ia--marca', '.pf-dlg-pie', '--wz-margen', '.lg-lente', '.dep-ico--subir', '.hp-op.is-ocupado'],
+        'assets/admin.css'  => ['rt-llenar', '.rs-vista__pieza', '@keyframes rs-borde', '.rs-col__hit', 'pf-avisos-op','nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz', '.dt-colab-btn', '.pf-con.is-on', '.pf-api-ia--marca', '.pf-dlg-pie', '--wz-margen', '.lg-lente', '.dep-ico--subir', '.hp-op.is-ocupado'],
         'lib/CorreoCopias.php' => ['function crudoDe', 'function marcarCarpeta'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg', 'panelObservacion'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel'],
@@ -164,10 +164,12 @@ function actualizarPanel(array $opc): void
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['data-rt-mover', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
-        'index.php'         => ['nexo:saludando', 'portadaDe', 'resumen_tira.php', 'pac-ir'],
+        'assets/admin.js'   => ['data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
+        'index.php'         => ['nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
         'lib/resumen_tira.php' => ['data-rt-pista', 'rt-radar', 'Por revisar como PO'],
         'lib/Reuniones.php' => ['function proximoInicio', 'function choqueZoom'],
+        'resumen.php'       => ['data-rs-sec="hoy"', 'rs-col__hit', 'ResumenPersona::datos'],
+        'lib/ResumenPersona.php' => ['final class ResumenPersona', 'function siguientePaso'],
         'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards', 'ultimoDeGitLab', 'dep-semana__dias'],
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado', 'public static function semana(', 'function diaCorto', 'function diaLargo'],
         'lib/deploy_tira.php' => ['dep-acc', 'dep-ico--subir', 'dep-dato__txt', 'dtCarrusel'],

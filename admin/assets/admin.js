@@ -832,7 +832,8 @@ MecaWizard.init();
    (va en position:fixed, fuera del flujo).
    ========================================================= */
 const LenteVidrio = {
-  OPCIONES: '.tab-btn, .mc-tab, .sup-tab, .wz-paso, .rad-op',
+  // .rs-vista__op y .rs-boton: el control Proyectos | Resumen y los botones de vidrio de su cabecera
+  OPCIONES: '.tab-btn, .mc-tab, .sup-tab, .wz-paso, .rad-op, .rs-vista__op, .rs-boton',
   // La bolita sobre la que va la gota, según la opción
   BOLITAS: { 'wz-paso': '.wz-num', 'rad-op': '.rad-ico' },
   lentes: new Map(),   // una por capa: la página, cada modal abierto o el menú radial
@@ -5239,4 +5240,91 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
   });
 
   addEventListener('resize', () => cerrar(false));
+})();
+
+/* =========================================================
+   Resumen del dashboard (resumen.php) y el control Proyectos | Resumen
+   (index.php y resumen.php; estilos: admin.css, «Resumen del dashboard»).
+   - Al elegir la otra vista, la pieza celeste se desliza hasta ella
+     mientras carga la página: las dos mitades son iguales y basta cambiar
+     data-activa (la transición es de CSS).
+   - Las secciones se pliegan con su chevron y se recuerda en este
+     dispositivo (resumen.php aplica lo recordado antes de pintar). Un
+     enlace a algo de una sección plegada la abre primero.
+   - Los números de la tira de «Hoy» y del anillo cuentan desde cero al
+     entrar. Con «menos movimiento», nada se mueve.
+   ========================================================= */
+(function () {
+  const quieto = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  document.querySelectorAll('[data-rs-vista]').forEach((nav) => {
+    nav.addEventListener('click', (e) => {
+      const op = e.target.closest('[data-vista-op]');
+      // Abrirla en otra pestaña no cambia esta
+      if (!op || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+      nav.dataset.activa = op.dataset.vistaOp;
+    });
+  });
+  // Al volver con «atrás», el navegador puede traer la página tal cual quedó: la pieza vuelve a su vista
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    document.querySelectorAll('[data-rs-vista]').forEach((nav) => {
+      const actual = nav.querySelector('[aria-current="page"]');
+      if (actual) nav.dataset.activa = actual.dataset.vistaOp;
+    });
+  });
+
+  const rs = document.querySelector('[data-rs]');
+  if (!rs) return;
+
+  const clave = (s) => 'mchub.rs.plegada.' + s.dataset.rsSec;
+  const pintar = (s) => {
+    const b = s.querySelector('[data-rs-plegar]');
+    if (!b) return;
+    const plegada = s.classList.contains('is-plegada');
+    const titulo = ((s.querySelector('.rs-sec__t') || {}).firstChild || {}).textContent || '';
+    b.setAttribute('aria-expanded', String(!plegada));
+    b.setAttribute('aria-label', (plegada ? 'Mostrar ' : 'Plegar ') + titulo.trim());
+    b.dataset.dsTip = plegada ? 'Mostrar' : 'Plegar';
+  };
+  const plegar = (s, si) => {
+    s.classList.toggle('is-plegada', si);
+    pintar(s);
+    try {
+      if (si) localStorage.setItem(clave(s), '1'); else localStorage.removeItem(clave(s));
+    } catch (e) { /* sin almacenamiento: no se recuerda */ }
+  };
+  const abrirDestino = (hash) => {
+    const el = hash && hash.length > 1 ? document.getElementById(decodeURIComponent(hash.slice(1))) : null;
+    const s = el && el.closest('[data-rs-sec].is-plegada');
+    if (s) plegar(s, false);
+  };
+  rs.querySelectorAll('[data-rs-sec]').forEach(pintar);
+  rs.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rs-plegar]');
+    if (b) {
+      const s = b.closest('[data-rs-sec]');
+      plegar(s, !s.classList.contains('is-plegada'));
+      return;
+    }
+    // La tira lleva a cada tarjeta: si su sección está plegada, se abre (y luego se baja hasta ella)
+    const a = e.target.closest('a[href^="#"]');
+    if (a) abrirDestino(a.getAttribute('href'));
+  });
+  abrirDestino(location.hash);
+
+  // Los números cuentan desde cero (los de una sección plegada, no: no se ven)
+  if (quieto) return;
+  rs.querySelectorAll('[data-rs-n]').forEach((el) => {
+    const n = Number(el.dataset.rsN) || 0;
+    if (n < 2 || el.closest('.is-plegada')) return;
+    const t0 = performance.now();
+    const paso = (t) => {
+      const k = Math.min(1, (t - t0) / 800);
+      el.textContent = Math.round(n * (1 - Math.pow(1 - k, 3)));
+      if (k < 1) requestAnimationFrame(paso);
+    };
+    el.textContent = '0';
+    requestAnimationFrame(paso);
+  });
 })();
