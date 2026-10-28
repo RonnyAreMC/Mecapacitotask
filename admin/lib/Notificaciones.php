@@ -23,6 +23,7 @@ final class Notif
         'tarea'         => ['Tarea', 'completar', 'azul'],
         'tarea_hecha'   => ['Tarea terminada', 'exito', 'verde'],
         'reunion'       => ['Reunión', 'agenda', 'cian'],
+        'reunion_pronto'=> ['Reunión por empezar', 'reloj', 'cian'],
         'pedido'        => ['Pedido entre equipos', 'usuarios', 'verde'],
         'requerimiento' => ['Requerimiento', 'documento', 'naranja'],
         'observacion'   => ['Observación', 'mensajes', 'amarillo'],

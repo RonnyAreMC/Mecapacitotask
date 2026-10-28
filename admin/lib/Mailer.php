@@ -1206,6 +1206,35 @@ class Mailer
     }
 
     /**
+     * «Tu reunión empieza en 10 minutos»: el recordatorio que sale solo antes
+     * de cada reunión (Reuniones::recordarProximas, desde cron_correo.php).
+     * $inicio es la vez que toca (en las que se repiten, la de hoy).
+     */
+    public static function recordatorioReunion(array $reunion, array $miembro, array $proyecto, int $inicio): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento  = Config::all()['color_secundario'] ?? '#2B76F7';
+        $faltan  = max(1, (int)ceil(($inicio - time()) / 60));
+        $filas = [
+            'Empieza'    => date('g:i a', $inicio) . ' (en ' . $faltan . ' min)',
+            'Proyecto'   => e($proyecto['nombre'] ?? ''),
+            'Plataforma' => e(Reuniones::etiquetaPlataforma((string)($reunion['plataforma'] ?? 'zoom'))),
+        ];
+        if (!empty($reunion['duracion'])) $filas['Duración'] = (int)$reunion['duracion'] . ' min';
+        if (!empty($reunion['password'])) $filas['Código'] = e($reunion['password']);
+        $cuerpo = self::encabezado($acento, '&#9200;', 'Tu reunión empieza en ' . $faltan . ' minutos',
+                    'Hola ' . e(explode(' ', trim((string)($miembro['nombre'] ?? '')))[0]) . ', ya casi es hora de «'
+                    . e($reunion['topic'] ?? 'la reunión') . '».')
+            . self::detalle($reunion['topic'] ?? 'Reunión', $filas);
+        $url = trim((string)($reunion['join_url'] ?? ''));
+        return self::enviar($miembro['email'], 'En ' . $faltan . ' min: ' . ($reunion['topic'] ?? 'tu reunión'),
+            self::plantilla($cuerpo, preg_match('#^https?://#i', $url) ? $url : self::urlProyecto((int)($proyecto['id'] ?? 0)),
+                preg_match('#^https?://#i', $url) ? 'Entrar a la reunión' : 'Ver la reunión'));
+    }
+
+    /**
      * Propuesta de intercambio de tareas (a quien la recibe).
      * $de y $para son miembros; $tareaDe es la del proponente.
      */

@@ -101,7 +101,7 @@ function actualizarPanel(array $opc): void
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
-        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php',
+        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -122,10 +122,10 @@ function actualizarPanel(array $opc): void
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
         'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
-        'lib/Notificaciones.php' => ['Push::avisar', 'function pendientes', "'deploy'", "'release'"],
+        'lib/Notificaciones.php' => ["'reunion_pronto'", 'Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
-        'cron_correo.php'   => ['Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso', 'ReqSeguimiento::paso'],
+        'cron_correo.php'   => ['recordarProximas', 'Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso', 'ReqSeguimiento::paso'],
         'cron_zoom_drive.php' => ['cronCallado'],
         'tarea_traza.php'   => ['impedimentos', 'inicio_real', 'commits_api'],
         'reunion_entrar.php' => ['reunion_ingresos'],
@@ -138,7 +138,7 @@ function actualizarPanel(array $opc): void
         'lib/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
         'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
         'actions.php'       => ['email_avisos', 'perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos', 'tarea_colaborador', 'api_token_crear', "'reunion_choque'", "'reunion_agenda'", 'contexto_tareas_json'],
-        'assets/ds.js'      => ['mc:correo', 'soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
+        'assets/ds.js'      => ['MCSonido', "tocar('reunion')", 'mc:correo', 'soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
         'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
         'planificar.php'    => ['dlg-ia-plan', 'item_release', 'plan-item', 'item_json'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols', 'fq-colab', 'fq-obs-editor', 'fq-colab-form'],
@@ -167,7 +167,7 @@ function actualizarPanel(array $opc): void
         'assets/admin.js'   => ['data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
         'index.php'         => ['nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
         'lib/resumen_tira.php' => ['data-rt-correo-n', 'data-rt-pista', 'rt-radar', 'Por revisar como PO'],
-        'lib/Reuniones.php' => ['function proximoInicio', 'function choqueZoom'],
+        'lib/Reuniones.php' => ['function recordarProximas', 'function proximoInicio', 'function choqueZoom'],
         'resumen.php'       => ['data-rs-sec="hoy"', 'rs-col__hit', 'ResumenPersona::datos'],
         'lib/ResumenPersona.php' => ['final class ResumenPersona', 'function siguientePaso'],
         'deploys.php'       => ['Horario de subidas', 'data-cuenta-regresiva', 'dep-cards', 'ultimoDeGitLab', 'dep-semana__dias'],
@@ -181,7 +181,7 @@ function actualizarPanel(array $opc): void
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users', 'auto_estado', 'traspaso_paso'],
         'lib/ZoomDrive.php' => ['function errorDrive', 'function faltanPermisos', 'function automatico', 'function deReuniones', 'function traspasoPaso'],
         'lib/GoogleLogin.php' => ["'scope'", 'function flujo', 'oauth_drive_dueno'],
-        'lib/Mailer.php'    => ['function enviarDirecto', 'codigoRecuperacion', '/auth/gmail.send', 'avisoRelease', 'seguimientoRequerimientos'],
+        'lib/Mailer.php'    => ['function recordatorioReunion', 'function enviarDirecto', 'codigoRecuperacion', '/auth/gmail.send', 'avisoRelease', 'seguimientoRequerimientos'],
         'oauth_google.php'  => ['oauth_drive', '/auth/drive', 'oauth_drive_dueno'],
     ];
     $viejos = [];

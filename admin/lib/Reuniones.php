@@ -408,6 +408,59 @@ class Reuniones
         return 0;
     }
 
+    /**
+     * «Tu reunión empieza en 10 minutos», a cada invitado y a quien la creó:
+     * en la campana, como notificación nativa en sus dispositivos (Notif::crear
+     * se encarga) y por correo. Lo llama cron_correo.php cada minuto.
+     * Una vez por cada vez que toca (las que se repiten avisan cada día); si
+     * el cron se atrasó, avisa igual mientras no haya empezado.
+     */
+    public static function recordarProximas(int $minutos = 10, ?int $ahora = null): int
+    {
+        $ahora ??= time();
+        if (is_file(__DIR__ . '/Notificaciones.php')) require_once __DIR__ . '/Notificaciones.php';
+        $hechos = new JsonStore('reunion_recordatorios');
+        $ya = [];
+        foreach ($hechos->all() as $h) {
+            if (strtotime((string)($h['t'] ?? '')) < $ahora - 3 * 86400) { $hechos->delete((int)$h['id']); continue; }   // poda
+            $ya[(string)$h['clave']] = true;
+        }
+        $proyectos = new ProyectoRepo();
+        $miembros  = (new MiembroRepo())->mapa();
+        $n = 0;
+        foreach ((new ReunionRepo())->todas() as $r) {
+            $dias = self::esRecurrente($r) ? (array)($r['dias'] ?? []) : [];
+            $t = 0;
+            foreach (self::inicios((string)($r['inicio'] ?? ''), $dias, (string)($r['hasta'] ?? '')) as $i) {
+                if ($i > $ahora) { $t = $i; break; }
+            }
+            if (!$t || $t - $ahora > $minutos * 60) continue;
+            $clave = (int)$r['id'] . '@' . date('Y-m-d H:i', $t);
+            if (isset($ya[$clave])) continue;
+            // Se anota antes de avisar: si algo falla a medias, no se repite cada minuto
+            $hechos->insert(['clave' => $clave, 'reunion_id' => (int)$r['id'], 't' => date('Y-m-d H:i:s', $ahora)]);
+
+            $para = array_map('intval', (array)($r['invitados'] ?? []));
+            $para[] = (int)($r['creador_id'] ?? 0);
+            $para = array_values(array_unique(array_filter($para, fn($m) => $m > 0 && isset($miembros[$m]))));
+            if (!$para) continue;
+            $p = $proyectos->buscar((int)$r['proyecto_id']) ?? ['id' => (int)$r['proyecto_id'], 'nombre' => ''];
+            $faltan = max(1, (int)ceil(($t - $ahora) / 60));
+            $entrar = preg_match('#^https?://#i', trim((string)($r['join_url'] ?? '')));
+            if (class_exists('Notif')) {
+                Notif::crear($para, 'reunion_pronto', 'En ' . $faltan . ' min: ' . ($r['topic'] ?? 'Reunión'),
+                    date('g:i a', $t) . ' · ' . self::etiquetaPlataforma((string)($r['plataforma'] ?? 'zoom'))
+                    . (($p['nombre'] ?? '') !== '' ? ' · ' . $p['nombre'] : ''),
+                    $entrar ? 'reunion_entrar.php?id=' . (int)$r['id'] : 'proyecto.php?id=' . (int)$r['proyecto_id'] . '#vista-reuniones', 0);
+            }
+            foreach ($para as $mid) {
+                try { Mailer::recordatorioReunion($r, $miembros[$mid], $p, $t); } catch (\Throwable $e) { error_log('Recordatorio de reunión: ' . $e->getMessage()); }
+            }
+            $n++;
+        }
+        return $n;
+    }
+
     /** Los inicios (timestamps) de una reunión: el suyo, o el de cada día si se repite. */
     private static function inicios(string $inicio, array $dias, string $hasta): array
     {

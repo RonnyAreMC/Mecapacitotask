@@ -72,6 +72,33 @@
 })();
 
 /* =========================================================
+   Sonidos tenues (assets/sonidos, Kenney «Interface Sounds», CC0):
+   MCSonido.tocar('correo') al llegar un correo y 'reunion' cuando una
+   reunión está por empezar. Bajitos y con el panel abierto; dos avisos
+   juntos suenan una sola vez. El navegador solo deja sonar después de
+   que la persona tocó algo en la página: si no, se calla sin error.
+   ========================================================= */
+window.MCSonido = (function () {
+  const src = document.currentScript && document.currentScript.src;
+  const base = src ? new URL('sonidos/', src).href : 'assets/sonidos/';
+  const audios = {};
+  let ultimo = 0;
+  return {
+    tocar(nombre) {
+      if (Date.now() - ultimo < 1500) return;
+      ultimo = Date.now();
+      try {
+        const a = audios[nombre] || (audios[nombre] = new Audio(base + nombre + '.mp3'));
+        a.volume = 0.35;
+        a.currentTime = 0;
+        const p = a.play();
+        if (p && p.catch) p.catch(() => {});
+      } catch (e) { /* sin audio en este navegador */ }
+    },
+  };
+})();
+
+/* =========================================================
    Componentes del design system (SIGE) que necesitan JS.
 
    - Lista desplegable: <div class="mc-select" data-ds-select> con su
@@ -1110,6 +1137,7 @@
         document.querySelectorAll('[data-correo-n-menu]').forEach((b) => { b.hidden = !n; b.textContent = n > 999 ? '999+' : String(n); });
         // Lo demás que muestra el número (la tira del dashboard) se entera por aquí
         document.dispatchEvent(new CustomEvent('mc:correo', { detail: n }));
+        if (n > correoAntes) MCSonido.tocar('correo');
         if (n > correoAntes && !conSistema('correo') && window.MC && MC.toast) {
           const d = n - correoAntes;
           MC.toast(d === 1 ? 'Te llegó un correo nuevo' : d + ' correos nuevos', 'info', 6000, { desc: 'Míralos en Correo, en el menú de la izquierda.' });
@@ -1165,6 +1193,8 @@
               ultimo = Math.max(ultimo, ...nuevas.map((n) => n.id));
               vacio.hidden = true;
               sonar();
+              // Una reunión por empezar (el aviso de los 10 minutos) suena distinto
+              if (nuevas.some((x) => x.tipo === 'reunion_pronto')) MCSonido.tocar('reunion');
               const n = nuevas[0];
               // Si este dispositivo recibe la notificación del sistema, esa basta: la campana suena y se marca
               if (!conSistema('avisos') && window.MC && MC.toast) {

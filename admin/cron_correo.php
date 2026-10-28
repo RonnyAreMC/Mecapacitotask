@@ -30,6 +30,16 @@ if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/N
 $candado = fopen(__DIR__ . '/data/cron_correo.lock', 'c');
 if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) exit("Ya hay una revisión en curso.\n");
 
+// 0) «Tu reunión empieza en 10 minutos» (lib/Reuniones.php): a los invitados, en la campana,
+// como notificación nativa y por correo. Va primero porque no puede llegar tarde, y no depende
+// de que el correo InnoTech esté encendido.
+try {
+    $nReu = Reuniones::recordarProximas(10);
+    if ($nReu) echo date('Y-m-d H:i:s') . ' · recordatorios de reunión: ' . $nReu . "\n";
+} catch (Throwable $e) {
+    echo 'Recordatorios de reunión: ' . $e->getMessage() . "\n";
+}
+
 // El horario de subidas (lib/Cronograma.php): toma los builds de GitLab y, a la hora de cada proyecto,
 // registra la subida y avisa a todos. Va al final de cada vuelta, y también si el correo está apagado.
 $cronograma = function (): string {
