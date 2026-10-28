@@ -8935,6 +8935,13 @@ html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); 
   visibility: hidden; opacity: 0; transition: opacity .25s ease, visibility 0s linear .25s;
 }
 .rt-slide > .dep-tira-main { flex: 1; min-width: 0; }
+/* Los datos se reparten el ancho: nada de un hueco entre ellos y los botones */
+.rt-slide .dep-tira-main > .dep-dato { flex: 1 0 auto; }
+.rt-flecha .ico { width: 14px; height: 14px; }
+/* Van contigo: los avatares de los demás invitados */
+.rt-avatares { display: flex; min-height: 32px; align-items: center; }
+.rt-avatares .avatar { box-shadow: 0 0 0 2px #fff; }
+html.dark .rt-avatares .avatar { box-shadow: 0 0 0 2px var(--n-card, #2A3458); }
 .rt-slide.is-activa { visibility: visible; opacity: 1; transition: opacity .3s ease; }
 .rt { --rt-dx: 22px; }
 .rt[data-dir="ant"] { --rt-dx: -22px; }

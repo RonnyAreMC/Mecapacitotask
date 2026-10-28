@@ -94,10 +94,10 @@ if ($dtVolver !== 'deploys' && class_exists('Cronograma') && Cronograma::activo(
               onclick="document.getElementById('dlg-dep-registrar').showModal()"><?= UI::icono('Upload') ?></button>
       <?php endif; ?>
       <?php if ($dtVolver !== 'deploys'): ?>
-      <a class="dep-ico" href="deploys.php" aria-label="Despliegues" data-ds-tip="Todos los despliegues y el horario"><i class="fa-solid fa-clock-rotate-left" aria-hidden="true"></i></a>
+      <a class="dep-ico" href="deploys.php" aria-label="Despliegues" data-ds-tip="Todos los despliegues y el horario"><?= UI::icono('RotateLeft') ?></a>
       <?php endif; ?>
       <?php if ($dtCfg['url'] !== ''): ?>
-      <a class="dep-ico" href="<?= e($dtCfg['url']) ?>" target="_blank" rel="noopener" aria-label="Abrir <?= e($dtCfg['entorno']) ?>" data-ds-tip="Abrir <?= e($dtCfg['entorno']) ?>"><i class="fa-solid fa-arrow-up-right-from-square" aria-hidden="true"></i></a>
+      <a class="dep-ico" href="<?= e($dtCfg['url']) ?>" target="_blank" rel="noopener" aria-label="Abrir <?= e($dtCfg['entorno']) ?>" data-ds-tip="Abrir <?= e($dtCfg['entorno']) ?>"><?= UI::icono('Export01') ?></a>
       <?php endif; ?>
     </div>
   </div>
@@ -128,7 +128,7 @@ if (!empty($dtCarrusel)) {
       <h3 class="font-display">
         <?= UI::icono('Upload') ?> ¿Qué subiste a <?= e($dtCfg['entorno']) ?>?
       </h3>
-      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      <button type="button" class="dlg-close" onclick="this.closest('dialog').close()" aria-label="Cerrar"><?= UI::icono('ds-cerrar') ?></button>
     </header>
     <div class="dlg-cuerpo">
       <?php if (!$dtAfectados): ?>

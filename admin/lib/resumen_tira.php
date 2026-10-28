@@ -36,7 +36,7 @@ $rtNum = fn(int $rtNV) => '<span class="rt-num" data-n="' . $rtNV . '">' . $rtNV
 $rtBoton = fn(string $rtHref, string $rtIco, string $rtTip, string $rtMas = '') =>
     '<a class="dep-ico' . $rtMas . '" href="' . e($rtHref) . '" aria-label="' . e($rtTip) . '" data-ds-tip="' . e($rtTip) . '">' . $rtIco . '</a>';
 $rtMain = fn(string $rtDatos, string $rtAcc) => '<div class="dep-tira-main">' . $rtDatos . ($rtAcc !== '' ? '<div class="dep-acc">' . $rtAcc . '</div>' : '') . '</div>';
-$rtFa = fn(string $rtCV) => '<i class="fa-solid ' . $rtCV . '"></i>';
+$rtIc = fn(string $rtCV) => UI::icono($rtCV);   // los SVG del panel (admin/iconos)
 $rtS = fn(int $rtNV, string $rtUno, string $rtVarios) => $rtNV === 1 ? $rtUno : $rtVarios;
 
 /* ---------- Mis tareas ---------- */
@@ -66,22 +66,22 @@ if ($rtMias) {
     foreach (['pendiente' => 'por hacer', 'progreso' => 'en curso', 'revision' => 'en revisión'] as $rtKV => $rtTxt) {
         if ($rtPor[$rtKV]) $rtPartes[] = '<b>' . $rtPor[$rtKV] . '</b> ' . $rtTxt;
     }
-    $rtDatos = $rtDato($rtFa('fa-list-check'), 'celeste', 'Tus tareas abiertas',
+    $rtDatos = $rtDato($rtIc('CheckSquare'), 'celeste', 'Tus tareas abiertas',
         $rtN ? $rtNum($rtN) : 'Al día',
         $rtN ? implode(' · ', $rtPartes) : 'No tienes nada pendiente');
     if ($rtVencidas) {
         $rtNV = count($rtVencidas);
-        $rtDatos .= $rtDato($rtFa('fa-triangle-exclamation'), 'rosa', 'Pasadas de fecha',
+        $rtDatos .= $rtDato($rtIc('ds-alerta'), 'rosa', 'Pasadas de fecha',
             $rtNum($rtNV) . ' ' . $rtS($rtNV, 'tarea', 'tareas'),
             e(mb_strimwidth((string)$rtVencidas[0]['titulo'], 0, 46, '…')), ' rt-alerta');
     }
     if ($rtProxima) {
         $rtTsP = strtotime($rtProxima['fecha_limite']) ?: $rtAhora;
-        $rtDatos .= $rtDato($rtFa('fa-calendar-day'), 'menta', 'Tu próxima entrega', e($rtDia($rtTsP)),
+        $rtDatos .= $rtDato($rtIc('CalendarCheck'), 'menta', 'Tu próxima entrega', e($rtDia($rtTsP)),
             e(mb_strimwidth((string)$rtProxima['titulo'], 0, 46, '…')) . ' · ' . e($rtNombreP((int)$rtProxima['proyecto_id'])));
     }
     $rtIr = $rtVencidas[0] ?? $rtProxima ?? $rtAbiertas[0] ?? null;
-    $rtAcc = $rtIr ? $rtBoton('proyecto.php?id=' . (int)$rtIr['proyecto_id'] . '#vista-kanban', $rtFa('fa-table-columns'),
+    $rtAcc = $rtIr ? $rtBoton('proyecto.php?id=' . (int)$rtIr['proyecto_id'] . '#vista-kanban', $rtIc('Dashboard'),
         'Ir al tablero de ' . $rtNombreP((int)$rtIr['proyecto_id'])) : '';
     $rtSlides[] = ['clave' => 'tareas', 'nombre' => 'Mis tareas', 'main' => $rtMain($rtDatos, $rtAcc)];
 }
@@ -97,7 +97,7 @@ if ($rtMisPo) {
     if ($rtRev) {
         arsort($rtRev);
         $rtNR = array_sum($rtRev);
-        $rtDatos = $rtDato($rtFa('fa-magnifying-glass'), 'lila', 'Por revisar como PO',
+        $rtDatos = $rtDato($rtIc('ds-buscar'), 'lila', 'Por revisar como PO',
             $rtNum($rtNR) . ' ' . $rtS($rtNR, 'tarea', 'tareas'),
             'Esperan tu visto bueno en ' . count($rtRev) . ' ' . $rtS(count($rtRev), 'proyecto', 'proyectos'));
         $rtChips = '';
@@ -107,7 +107,7 @@ if ($rtMisPo) {
         }
         $rtDatos .= '<div class="dep-dato rt-chips">' . $rtChips . '</div>';
         $rtPidR = (int)array_key_first($rtRev);
-        $rtAcc = $rtBoton('proyecto.php?id=' . $rtPidR . '#vista-kanban', $rtFa('fa-table-columns'), 'Revisar en ' . $rtNombreP($rtPidR));
+        $rtAcc = $rtBoton('proyecto.php?id=' . $rtPidR . '#vista-kanban', $rtIc('Dashboard'), 'Revisar en ' . $rtNombreP($rtPidR));
         $rtSlides[] = ['clave' => 'revisar', 'nombre' => 'Por revisar', 'main' => $rtMain($rtDatos, $rtAcc)];
     }
 }
@@ -131,20 +131,33 @@ if ($rtReu) {
     $rtReuUrgente = $rtEnVivo || $rtReuTs - $rtAhora <= 60 * 60;
     $rtPidM   = (int)$rtReu['proyecto_id'];
     $rtPlat   = Reuniones::etiquetaPlataforma((string)($rtReu['plataforma'] ?? 'zoom'));
-    $rtDatos = $rtDato($rtFa('fa-video'), 'lila', $rtEnVivo ? 'Tu reunión está en curso' : 'Tu próxima reunión',
+    $rtDatos = $rtDato($rtIc('ds-video'), 'lila', $rtEnVivo ? 'Tu reunión está en curso' : 'Tu próxima reunión',
         $rtEnVivo ? '<span class="rt-vivo-txt">En vivo</span>' : e($rtDia($rtReuTs)) . ' · ' . e($rtHora($rtReuTs)),
         e(mb_strimwidth((string)($rtReu['topic'] ?? 'Reunión'), 0, 46, '…')) . ' · ' . e($rtPlat),
         ($rtEnVivo || $rtPronto) ? ' rt-radar' : '');
-    $rtDatos .= $rtDato($rtFa('fa-hourglass-half'), 'menta', $rtEnVivo ? 'Termina' : 'Empieza',
+    $rtDatos .= $rtDato($rtIc('Clock'), 'menta', $rtEnVivo ? 'Termina' : 'Empieza',
         '<span data-cuenta-regresiva data-corto data-ya="' . ($rtEnVivo ? 'ya terminó' : 'ya empezó') . '" data-hasta="' . ($rtEnVivo ? $rtFin : $rtReuTs)
         . '" data-ahora="' . $rtAhora . '">&nbsp;</span>',
         e($rtNombreP($rtPidM)) . ' · ' . (int)($rtReu['duracion'] ?? 60) . ' min');
+    // Con quién: los demás invitados, en avatares
+    $rtMapa = (new MiembroRepo())->mapa();
+    $rtGente = [];
+    foreach (array_map('intval', (array)($rtReu['invitados'] ?? [])) as $rtGid) {
+        if ($rtGid !== $rtMid && isset($rtMapa[$rtGid])) $rtGente[] = $rtMapa[$rtGid];
+    }
+    if ($rtGente) {
+        $rtNombres = array_map(fn($rtMV) => explode(' ', trim((string)$rtMV['nombre']))[0], $rtGente);
+        $rtResto = count($rtNombres) - 2;
+        $rtDatos .= '<div class="dep-dato rt-gente"><div class="dep-dato__txt"><small>Van contigo</small>'
+            . '<span class="rt-avatares">' . UI::avatarStack($rtGente, 5, 30) . '</span>'
+            . '<span class="dep-sub">' . e(implode(', ', array_slice($rtNombres, 0, 2))) . ($rtResto > 0 ? ' y ' . $rtResto . ' más' : '') . '</span></div></div>';
+    }
     $rtAcc = '';
     if (preg_match('#^https?://#i', trim((string)($rtReu['join_url'] ?? '')))) {
-        $rtAcc .= $rtBoton('reunion_entrar.php?id=' . (int)$rtReu['id'], $rtFa('fa-right-to-bracket'), 'Entrar a la reunión',
+        $rtAcc .= $rtBoton('reunion_entrar.php?id=' . (int)$rtReu['id'], $rtIc('MonitorPlay'), 'Entrar a la reunión',
             ($rtEnVivo || $rtPronto) ? ' dep-ico--subir rt-entrar' : '');
     }
-    $rtAcc .= $rtBoton('proyecto.php?id=' . $rtPidM . '#vista-reuniones', $rtFa('fa-calendar-days'), 'Reuniones de ' . $rtNombreP($rtPidM));
+    $rtAcc .= $rtBoton('proyecto.php?id=' . $rtPidM . '#vista-reuniones', $rtIc('Calendar'), 'Reuniones de ' . $rtNombreP($rtPidM));
     $rtSlides[] = ['clave' => 'reunion', 'nombre' => 'Próxima reunión', 'main' => $rtMain($rtDatos, $rtAcc), 'urgente' => $rtReuUrgente];
 }
 
@@ -157,8 +170,8 @@ if (!verComo() && is_file(__DIR__ . '/Correo.php')) {   // el correo de otro no 
     $rtNC = Correo::activo() ? Correo::noLeidos($rtMid) : null;
     if ($rtNC) {
         $rtHay += $rtNC;
-        $rtDatos .= $rtDato($rtFa('fa-envelope'), 'azul', 'Correos sin leer', $rtNum($rtNC), 'En tu bandeja InnoTech');
-        $rtAcc .= $rtBoton('correo.php', $rtFa('fa-envelope-open-text'), 'Abrir el correo');
+        $rtDatos .= $rtDato($rtIc('EmailEnvelope'), 'azul', 'Correos sin leer', $rtNum($rtNC), 'En tu bandeja InnoTech');
+        $rtAcc .= $rtBoton('correo.php', $rtIc('EmailEnvelopeOpen'), 'Abrir el correo');
     }
 }
 $rtNQ = (new RequerimientoRepo())->abiertosDe($rtMid);
@@ -195,13 +208,13 @@ $rtVarias = count($rtSlides) > 1;
   </div>
   <?php if ($rtVarias): ?>
   <div class="rt-pie">
-    <button type="button" class="rt-flecha" data-rt-mover="-1" aria-label="Anterior"><i class="fa-solid fa-chevron-left"></i></button>
+    <button type="button" class="rt-flecha" data-rt-mover="-1" aria-label="Anterior"><?= UI::icono('ds-chevron-izq') ?></button>
     <div class="rt-puntos">
       <?php foreach ($rtSlides as $rtIV => $rtSl): ?>
       <button type="button" class="rt-punto<?= $rtIV === 0 ? ' is-activo' : '' ?>" data-rt-ir="<?= $rtIV ?>" aria-label="<?= e($rtSl['nombre']) ?>"<?= $rtIV === 0 ? ' aria-current="true"' : '' ?>><span></span></button>
       <?php endforeach; ?>
     </div>
-    <button type="button" class="rt-flecha" data-rt-mover="1" aria-label="Siguiente"><i class="fa-solid fa-chevron-right"></i></button>
+    <button type="button" class="rt-flecha" data-rt-mover="1" aria-label="Siguiente"><?= UI::icono('ds-chevron-der') ?></button>
     <span class="rt-nombre" data-rt-nombre><?= e($rtSlides[0]['nombre']) ?></span>
   </div>
   <?php endif; ?>
