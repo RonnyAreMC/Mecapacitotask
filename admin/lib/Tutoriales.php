@@ -44,6 +44,24 @@ final class Tutoriales
             // GRABACIONES/InnoTech Hub/InnoTech Hub - Conecta tu asistente de código.mp4
             'enlace'      => 'https://drive.google.com/file/d/1pJRm_p_4G9x1UDDrkkH-4pOvJZZE3YTY/view',
         ],
+        // Mi unidad/SIGE VIDEOS/InnoTech Hub - Mis notas.mp4
+        'innotech-hub-mis-notas' => [
+            'titulo'      => 'Mis notas: tus notas, recordatorios y pizarra',
+            'descripcion' => 'Cómo crear una nota que se guarda sola, darle color, fijarla y buscarla; ponerle un recordatorio; compartirla con un enlace de solo lectura y, si quieres, agregarle su pizarra.',
+            'enlace'      => 'https://drive.google.com/file/d/15cq_M4YpXMROX5atJ_bTtF-FlqW2xwZO/view',
+        ],
+        // Mi unidad/SIGE VIDEOS/InnoTech Hub - La pizarra de la reunión.mp4
+        'innotech-hub-pizarra' => [
+            'titulo'      => 'La pizarra de la reunión',
+            'descripcion' => 'Las herramientas de la pizarra, pegar con Ctrl+V imágenes, textos y enlaces, el Kanban con las tareas del proyecto, la calculadora, los recordatorios y cómo se ve cuando están varios a la vez.',
+            'enlace'      => 'https://drive.google.com/file/d/1Pc754rtIeMp2CKbHTWudwDAesqDEcSlx/view',
+        ],
+        // Mi unidad/SIGE VIDEOS/InnoTech Hub - Reuniones y Videos.mp4
+        'innotech-hub-reuniones' => [
+            'titulo'      => 'Reuniones y Videos',
+            'descripcion' => 'La suite de reuniones de cada proyecto (próximas e historial), el detalle con asistencia y lo que quedó, el aviso de 10 minutos antes y Videos, las grabaciones como en YouTube.',
+            'enlace'      => 'https://drive.google.com/file/d/1SE-HlOlrTujVWK4uo1j9UHVLJ-fT6jfx/view',
+        ],
     ];
 
     private static function repo(): JsonStore
