@@ -173,16 +173,6 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
-    <?php if (is_file(__DIR__ . '/../pizarra.php') && Auth::usuario()): /* la pizarra personal: notas, recordatorios y dibujos de cada quien */ ?>
-    <a href="pizarra.php?mia=1" class="sidebar-link <?= $activo === 'mis-notas' ? 'active' : '' ?>" title="Mis notas: tu pizarra, solo tú la ves">
-      <?= UI::icono(UI::hayIcono('pz-pizarra') ? 'pz-pizarra' : 'StickyNote') ?> <span class="truncate">Mis notas</span>
-    </a>
-    <?php endif; ?>
-    <?php if (is_file(__DIR__ . '/../reuniones.php') && Auth::usuario() && !Auth::esSupervisor()): /* la suite de reuniones: las próximas por día y el historial */ ?>
-    <a href="reuniones.php" class="sidebar-link <?= $activo === 'reuniones' ? 'active' : '' ?>" title="Reuniones: las próximas por día y el historial">
-      <?= UI::icono('ds-video') ?> <span class="truncate">Reuniones</span>
-    </a>
-    <?php endif; ?>
     <?php
     // Correo InnoTech con su propio lugar en el menú (antes solo se llegaba desde Notificaciones)
     $nCorreoMenu = null;
@@ -284,7 +274,7 @@ class UI
     $esAdminNav = Auth::esAdmin();
     $badge = fn(int $n, string $title, bool $fin = true) => $n ? '<span class="nav-badge' . ($fin ? ' nav-badge-fin' : '') . '" title="' . e($title) . '">' . $n . '</span>' : '';
 
-    /* ---- Equipos: cada equipo, los pedidos entre equipos y los despliegues ---- */
+    /* ---- Equipos: solo los equipos ---- */
     // Solicitudes de acceso sin resolver: no cuelgan de un equipo concreto (el
     // admin decide cuál al aprobar), así que el contador va en el título.
     $nSol = $esAdminNav ? (new SolicitudRepo())->cuantas() : 0;
@@ -292,29 +282,40 @@ class UI
     foreach (Catalogo::equipos() as $ek => [$eLabel, $eIcono]) {
         $itEq .= $navLink('equipo.php?e=' . $ek, 'equipo-' . $ek, UI::iconoEquipo($ek, $eIcono), $eLabel);
     }
-    $nPed = 0;
+    echo $navGrupo('Equipos', 'ds-usuarios', $itEq, str_starts_with($activo, 'equipo-'), $nSol,
+        $nSol ? ' <span class="nav-badge" title="' . $nSol . ' solicitud(es) de acceso por revisar">' . $nSol . '</span>' : '');
+
+    /* ---- Mi espacio: lo de cada quien, sus notas, los videos de las reuniones y los tutoriales ---- */
+    $paginaVideos = '';
+    foreach (['videoteca.php', 'videos.php'] as $pv) {
+        if (is_file(__DIR__ . '/../' . $pv)) { $paginaVideos = $pv; break; }
+    }
+    $itMio = (is_file(__DIR__ . '/../notas.php') ? $navLink('notas.php', 'mis-notas', UI::icono(UI::hayIcono('ds-notas') ? 'ds-notas' : 'StickyNote'), 'Mis notas', 'Mis notas: solo tú las ves') : '')
+        . ($paginaVideos !== '' && !Auth::esSupervisor() ? $navLink($paginaVideos, 'videos', UI::icono('MonitorPlay'), 'Videos', 'Las reuniones grabadas, como en YouTube') : '')
+        . (is_file(__DIR__ . '/Tutoriales.php') ? $navLink('tutoriales.php', 'tutoriales', UI::icono('ds-video'), 'Tutoriales', 'Tutoriales en video') : '');
+    echo $navGrupo('Mi espacio', 'ds-perfil', $itMio, in_array($activo, ['mis-notas', 'videos', 'tutoriales'], true));
+
+    /* ---- Abajo: los atajos de trabajo entre equipos, como botones de ícono con su contador ---- */
+    $atajo = fn(string $href, string $clave, string $icono, string $tip, int $n = 0, bool $fin = true) =>
+        '<a href="' . e($href) . '" class="sb-atajo' . ($activo === $clave ? ' active' : '') . '" aria-label="' . e($tip) . '" data-ds-tip="' . e($tip) . '">'
+        . UI::icono($icono) . ($n ? '<span class="sb-atajo__n' . ($fin ? ' is-fin' : '') . '">' . ($n > 99 ? '99+' : $n) . '</span>' : '') . '</a>';
+    $atajos = '';
     if (Auth::usuario() && is_file(__DIR__ . '/Pedidos.php')) {   // pedidos entre equipos
         require_once __DIR__ . '/Pedidos.php';
         $nPed = (new PedidoRepo())->pendientesPara(Auth::usuario());
-        $itEq .= $navLink('pedidos.php', 'pedidos', UI::icono('ds-transferencia'), 'Pedidos', 'Pedidos entre equipos', $badge($nPed, $nPed . ' pedido(s) abiertos para ti o tu equipo'));
+        $atajos .= $atajo('pedidos.php', 'pedidos', 'ds-transferencia', 'Pedidos entre equipos' . ($nPed ? ': ' . $nPed . ' abierto(s) para ti o tu equipo' : ''), $nPed);
     }
-    $nDep = 0;
     if (puedeVerDeploys()) {   // quien el admin haya dejado entrar
         // Contador: tareas completadas que todavía no ha subido nadie (lo que pregunta el PO)
         $depFilas = resumenDeploys(misProyectosDeploys((new ProyectoRepo())->todos()));
         $nDep = array_sum(array_map(fn($f) => count($f['pendientes']), $depFilas));
-        $itEq .= $navLink('deploys.php', 'deploys', UI::icono('ds-publicar'), 'Despliegues', 'Despliegues al servidor de pruebas', $badge($nDep, $nDep . ' tarea(s) completada(s) sin subir', false));
+        $atajos .= $atajo('deploys.php', 'deploys', 'ds-publicar', 'Despliegues al servidor de pruebas' . ($nDep ? ': ' . $nDep . ' tarea(s) sin subir' : ''), $nDep, false);
     }
     if (Auth::esGestor() && !$esAdminNav) {   // el Scrum Master planifica lo de sus equipos
-        $itEq .= $navLink('planificar.php', 'planificar', UI::icono('ds-agenda'), 'Planificar', 'Planificar tareas');
+        $atajos .= $atajo('planificar.php', 'planificar', 'ds-agenda', 'Planificar tareas');
     }
-    echo $navGrupo('Equipos', 'ds-usuarios', $itEq,
-        str_starts_with($activo, 'equipo-') || in_array($activo, ['pedidos', 'deploys'], true) || (!$esAdminNav && $activo === 'planificar'),
-        $nSol + $nPed + $nDep,
-        $nSol ? ' <span class="nav-badge" title="' . $nSol . ' solicitud(es) de acceso por revisar">' . $nSol . '</span>' : '');
 
-    $itDocs = $navLink('docs.php', 'docs', UI::icono('ds-documento'), 'Documentación', 'Estándares y guías del equipo')
-        . (is_file(__DIR__ . '/Tutoriales.php') ? $navLink('tutoriales.php', 'tutoriales', UI::icono('ds-video'), 'Tutoriales', 'Tutoriales en video') : '');
+    $itDocs = $navLink('docs.php', 'docs', UI::icono('ds-documento'), 'Documentación', 'Estándares y guías del equipo');
 
     if ($esAdminNav) {
         /* ---- PM (solo administradores): la gestión de los proyectos y el programa ---- */
@@ -324,7 +325,7 @@ class UI
             . $navLink('planificar.php', 'planificar', UI::icono('ds-agenda'), 'Planificar', 'Planificar tareas')
             . $navLink('reporteria.php', 'reporteria', UI::icono('Reporteria'), 'Reportería', 'Reporte ejecutivo en PowerPoint, Word o PDF')
             . $itDocs;
-        echo $navGrupo('PM', 'ds-progreso', $itPm, in_array($activo, ['releases', 'planificar', 'reporteria', 'docs', 'tutoriales'], true), 0, '', true);
+        echo $navGrupo('PM', 'ds-progreso', $itPm, in_array($activo, ['releases', 'planificar', 'reporteria', 'docs'], true), 0, '', true);
 
         /* ---- Configuración (solo administradores) ---- */
         $itConf = (is_file(__DIR__ . '/../ia.php') ? $navLink('ia.php', 'ia', UI::icono('ds-ia'), 'Consola de IA', 'Claves, modelos y consumo de la IA') : '')
@@ -336,8 +337,9 @@ class UI
         if (is_file(__DIR__ . '/Releases.php')) require_once __DIR__ . '/Releases.php';
         $itRel = class_exists('Releases') && Releases::puedeVer()
             ? $navLink('releases.php' . (Releases::veTodo() ? '' : '?v=release'), 'releases', UI::icono('ds-ruta'), 'Releases', 'El plan de releases y sus hitos') : '';
-        echo $navGrupo('Conocimiento', 'ds-curso', $itRel . $itDocs, in_array($activo, ['releases', 'docs', 'tutoriales'], true), 0, '', true);
+        echo $navGrupo('Conocimiento', 'ds-curso', $itRel . $itDocs, in_array($activo, ['releases', 'docs'], true), 0, '', true);
     }
+    if ($atajos !== '') echo '<div class="sb-atajos" role="group" aria-label="Atajos">' . $atajos . '</div>';
     ?>
   </nav>
 

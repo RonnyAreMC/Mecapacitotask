@@ -1219,7 +1219,7 @@ class Mailer
                     'Hola ' . e(explode(' ', trim((string)($miembro['nombre'] ?? '')))[0]) . ', te pediste que te avisáramos ahora.')
             . self::detalle($texto, ['Dónde' => e($donde), 'Hora' => date('g:i a')]);
         return self::enviar($miembro['email'], 'Recordatorio: ' . mb_strimwidth($texto, 0, 60, '…'),
-            self::plantilla($cuerpo, self::urlPagina($pagina), 'Abrir la pizarra'));
+            self::plantilla($cuerpo, self::urlPagina($pagina), str_starts_with($pagina, 'notas.php') ? 'Abrir la nota' : 'Abrir la pizarra'));
     }
 
     /**

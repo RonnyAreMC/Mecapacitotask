@@ -20,6 +20,10 @@
  * las mismas tablas con la clave en negativo (-id del miembro), así nunca
  * choca con la de una reunión. Solo la ve y la edita su dueño.
  *
+ * Una nota de notas.php puede llevar su pizarra (pizarra.php?nota=ID, clave
+ * ridNota: -(1000000 + id)): la edita solo el dueño de la nota; si la nota se
+ * comparte por enlace, quien lo tenga la mira sin sesión (nota_ver.php).
+ *
  * Una nota puede llevar un recordatorio (aviso: 'Y-m-d H:i', aviso_por): se
  * indexa en piz_avisos al guardar y cron_correo.php lo avisa a su hora.
  */
@@ -62,6 +66,32 @@ final class Pizarra
         return $mia ? -(int)(Auth::usuario()['id'] ?? 0) : $reunionId;
     }
 
+    /**
+     * La pizarra de una nota de «Mis notas» (pizarra.php?nota=ID): -(1000000 + id),
+     * lejos de las reuniones (positivas) y de la personal de cada quien (-id del miembro).
+     */
+    public static function ridNota(int $idNota): int
+    {
+        return -(1000000 + $idNota);
+    }
+
+    /** La nota, si es de quien tiene la sesión (solo su dueño ve y edita su pizarra; «ver como» no cuenta). */
+    public static function notaPropia(int $idNota): ?array
+    {
+        if (!is_file(__DIR__ . '/Notas.php')) return null;
+        require_once __DIR__ . '/Notas.php';
+        return Notas::propia($idNota, (int)(Auth::usuario()['id'] ?? 0));
+    }
+
+    /** La nota de un enlace compartido que tiene pizarra (nota_ver.php): se mira sin sesión, nunca se edita. */
+    public static function notaCompartida(string $token): ?array
+    {
+        if (!is_file(__DIR__ . '/Notas.php')) return null;
+        require_once __DIR__ . '/Notas.php';
+        $n = Notas::porToken($token);
+        return $n && !empty($n['pizarra']) ? $n : null;
+    }
+
 
     /** La ve quien ve el proyecto de la reunión. */
     public static function puedeVer(?array $r): bool
@@ -80,6 +110,23 @@ final class Pizarra
     }
 
     /* ---------- Leer ---------- */
+
+    /** Cuántas cosas vivas tiene (la nota con la pizarra vacía no carga la vista previa). */
+    public static function cuantos(int $reunion): int
+    {
+        $st = self::db()->prepare('SELECT COUNT(*) FROM piz_elementos WHERE reunion = ? AND borrado = 0');
+        $st->execute([$reunion]);
+        return (int)$st->fetchColumn();
+    }
+
+    /** Al borrar una nota se va su pizarra entera, con sus recordatorios. */
+    public static function borrarTodo(int $reunion): void
+    {
+        $db = self::db();
+        foreach (['piz_elementos', 'piz_meta', 'piz_presencia', 'piz_avisos'] as $t) {
+            $db->prepare("DELETE FROM $t WHERE reunion = ?")->execute([$reunion]);
+        }
+    }
 
     public static function version(int $reunion): int
     {
@@ -152,7 +199,7 @@ final class Pizarra
                 // El recordatorio de la nota: si cambia la hora, se vuelve a avisar
                 $cuando = DateTime::createFromFormat('!Y-m-d H:i', trim((string)($c['aviso'] ?? '')));
                 if ($cuando) {
-                    $para = (int)($c['aviso_por'] ?? 0) ?: ($reunion < 0 ? -$reunion : $por);
+                    $para = (int)($c['aviso_por'] ?? 0) ?: ($reunion < 0 && $reunion > -1000000 ? -$reunion : $por);
                     $texto = mb_substr(trim(preg_replace('/\s+/u', ' ', strip_tags((string)($c['texto'] ?? '')))), 0, 200);
                     $ponerAviso->execute([$reunion, $eid, $cuando->format('Y-m-d H:i'), $para, $texto]);
                 } else {
@@ -245,8 +292,9 @@ final class Pizarra
             $m = $miembros[(int)$f['para']] ?? null;
             if (!$m) continue;
             $rid = (int)$f['reunion'];
-            $donde = $rid < 0 ? 'Mis notas' : 'Pizarra de «' . (string)(($reuniones->buscar($rid) ?? [])['topic'] ?? 'la reunión') . '»';
-            $url = $rid < 0 ? 'pizarra.php?mia=1' : 'pizarra.php?reunion=' . $rid;
+            $idNota = $rid <= -1000000 ? -$rid - 1000000 : 0;   // la pizarra de una nota (ridNota)
+            $donde = $idNota ? 'Pizarra de tu nota' : ($rid < 0 ? 'Mis notas' : 'Pizarra de «' . (string)(($reuniones->buscar($rid) ?? [])['topic'] ?? 'la reunión') . '»');
+            $url = $idNota ? 'pizarra.php?nota=' . $idNota : ($rid < 0 ? 'pizarra.php?mia=1' : 'pizarra.php?reunion=' . $rid);
             $texto = (string)$f['texto'] !== '' ? (string)$f['texto'] : 'Tienes un recordatorio';
             if (class_exists('Notif')) Notif::crear([(int)$f['para']], 'recordatorio', $texto, $donde, $url, 0);
             try { Mailer::recordatorioNota($m, $texto, $donde, $url); } catch (\Throwable $e) { error_log('Recordatorio de nota: ' . $e->getMessage()); }

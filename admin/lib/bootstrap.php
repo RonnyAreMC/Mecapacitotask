@@ -420,9 +420,10 @@ function iconoAdjunto(string $ext): string
 // sesión, así que no puede exigir login (no expone nada privado). video.php es el
 // enlace para compartir un tutorial: solo muestra el video de esa clave.
 // pizarra_api.php contesta en JSON y comprueba la sesión ella misma (un 401, no
-// una redirección al login que luego devolvería a la persona a la API).
+// una redirección al login que luego devolvería a la persona a la API); igual notas_api.php.
+// nota_ver.php es el enlace para compartir una nota: solo muestra la nota de esa clave.
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php', 'pizarra_api.php'], true)) {
+if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php', 'nota_ver.php', 'pizarra_api.php', 'notas_api.php'], true)) {
     Auth::requiereLogin();
 }
 

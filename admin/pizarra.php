@@ -22,6 +22,10 @@
  * quien la creó, quien gestiona el proyecto y el administrador
  * (Pizarra::puedeEditar). Los demás, solo lectura: miran en vivo y se mueven
  * por el lienzo, pero no cambian nada.
+ *
+ * También es la pizarra de una nota (?nota=ID, solo su dueño) y, desde
+ * nota_ver.php, la de una nota compartida por enlace (solo lectura, sin
+ * sesión). Con &embed=1 es la vista previa que va dentro de la nota.
  */
 require_once __DIR__ . '/lib/bootstrap.php';
 require_once __DIR__ . '/lib/Pizarra.php';
@@ -32,7 +36,29 @@ $yo  = Auth::usuario();
 // permiso es solo tener sesión, y la API (Pizarra::rid(true)) la busca por
 // esa misma sesión.
 $mia = !empty($_GET['mia']);
-if ($mia) {
+// La pizarra de una nota de notas.php (?nota=ID): solo la de su dueño, como «Mis notas».
+// $pzPublica lo pone nota_ver.php: la de una nota compartida por enlace, para mirarla sin
+// sesión (pizarra.php sola sigue pidiendo login). &embed=1: la vista previa dentro de la
+// nota, solo el lienzo y para mirar (la página que la inserta la abre entera al tocarla).
+$idNota  = (int)($_GET['nota'] ?? 0);
+$publica = isset($pzPublica) && is_array($pzPublica);
+$embed   = !empty($_GET['embed']) && ($idNota > 0 || $publica);
+if ($publica || $idNota > 0) {
+    $nota = $publica ? $pzPublica : Pizarra::notaPropia($idNota);
+    if (!$nota) redirigir('notas.php', 'Esa nota ya no está disponible.', 'error');
+    $idNota   = (int)$nota['id'];
+    $mia      = true;                      // como «Mis notas»: sin presentes; el kanban trae mis tareas
+    $idReu    = Pizarra::ridNota($idNota);
+    $editar   = !$publica && !$embed;
+    $pid      = 0;
+    $proyecto = null;
+    $titulo   = class_exists('Notas') ? Notas::nombre($nota) : 'Nota';
+    $subtitulo = $publica ? 'Pizarra compartida · solo para mirar' : 'Pizarra de tu nota';
+    $tk       = rawurlencode((string)($nota['compartir'] ?? ''));
+    $volver   = $publica ? 'nota_ver.php?t=' . $tk : 'notas.php?id=' . $idNota;
+    $volverTip = $publica ? 'Volver a la nota' : 'Volver a tu nota';
+    $api      = $publica ? 'pizarra_api.php?t=' . $tk : 'pizarra_api.php?nota=' . $idNota;
+} elseif ($mia) {
     $idReu    = (int)Pizarra::rid(true);   // -id del miembro
     $editar   = true;
     $pid      = 0;
@@ -70,7 +96,7 @@ if ($mia) {
 // Lo que el JS necesita para arrancar (el resto lo trae de la API).
 // «reunion» es la clave de la pizarra en el navegador (vista y pendientes): en «Mis notas», el -id.
 $datos = [
-    'reunion'  => $idReu,
+    'reunion'  => $embed ? 'previa' . $idReu : $idReu,   // la vista previa no pisa la vista guardada de la pizarra entera
     'mia'      => $mia,
     'proyecto' => $pid,
     'editar'   => $editar,
@@ -121,17 +147,27 @@ if ($editar) {
   try {
     if (q === 'dark' || q === 'light') localStorage.setItem('meca-theme', q);
     if (localStorage.getItem('meca-theme') === 'dark') document.documentElement.classList.add('dark');
+<?php if ($publica): /* quien abre un enlace compartido no tiene el tema del panel: el de su equipo */ ?>
+    else if (!localStorage.getItem('meca-theme') && matchMedia('(prefers-color-scheme: dark)').matches) document.documentElement.classList.add('dark');
+<?php endif; ?>
   } catch (e) { /* sin almacenamiento: tema claro */ }
 })();
 </script>
+<?php if ($embed): ?>
+<style>
+  /* Vista previa (&embed=1): solo el lienzo, quieto. Tocarla la abre entera (lo hace la página que la inserta). */
+  .pz-body--embed :is(.pz-arriba, .pz-barra, .pz-sub, .pz-zoom, .pz-ctx, .pz-vacio, .pz-ayuda, .pz-pista, .pz-pop, .pz-calc, .pz-toast, .pz-tip) { display: none !important; }
+  .pz-body--embed .pz-lienzo { pointer-events: none; }
+</style>
+<?php endif; ?>
 <link rel="preload" href="<?= asset('assets/fonts/Inter-Variable.woff2') ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?= asset('assets/pizarra.css') ?>">
 </head>
-<body class="pz-body">
+<body class="pz-body<?= $embed ? ' pz-body--embed' : '' ?>">
 <div class="pz<?= $editar ? ' pz--editar' : ' pz--lector' ?>" id="pz">
 
   <!-- El lienzo: el «mundo» se mueve y se escala con un solo transform -->
-  <div class="pz-lienzo" id="pz-lienzo" tabindex="0" aria-label="<?= $mia ? 'Mis notas: tu pizarra personal' : 'Pizarra de la reunión ' . e($titulo) ?>">
+  <div class="pz-lienzo" id="pz-lienzo" tabindex="0" aria-label="<?= $idNota ? 'Pizarra de la nota ' . e($titulo) : ($mia ? 'Mis notas: tu pizarra personal' : 'Pizarra de la reunión ' . e($titulo)) ?>">
     <div class="pz-mundo" id="pz-mundo">
       <div class="pz-capa pz-capa--marcos" id="pz-marcos"></div>
       <div class="pz-capa pz-capa--els" id="pz-els"></div>
@@ -142,12 +178,12 @@ if ($editar) {
 
   <!-- Arriba: volver, la reunión, quién está y si ya se guardó -->
   <header class="pz-arriba pz-vidrio">
-    <a class="pz-boton pz-boton--icono" href="<?= e($volver) ?>" data-tip="<?= $mia ? 'Volver al panel' : 'Volver a las reuniones de ' . e((string)($proyecto['nombre'] ?? 'el proyecto')) ?>" aria-label="<?= $mia ? 'Volver al panel' : 'Volver al proyecto' ?>">
+    <a class="pz-boton pz-boton--icono" href="<?= e($volver) ?>" data-tip="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : 'Volver a las reuniones de ' . e((string)($proyecto['nombre'] ?? 'el proyecto'))) ?>" aria-label="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : 'Volver al proyecto') ?>">
       <?= UI::icono('ds-chevron-izq') ?>
     </a>
     <div class="pz-arriba__titulo">
       <b class="pz-trunca" title="<?= e($titulo) ?>"><?= e($titulo) ?></b>
-      <small class="pz-trunca"><?php if ($mia): ?><?= UI::icono('ds-candado') ?> <?php endif; ?><?= e($subtitulo) ?></small>
+      <small class="pz-trunca"><?php if ($mia): ?><?= UI::icono($publica ? 'ds-ver' : 'ds-candado') ?> <?php endif; ?><?= e($subtitulo) ?></small>
     </div>
     <?php if (!$mia): /* «Mis notas» es solo de quien la tiene: no hay a quién mostrar */ ?>
     <div class="pz-presentes" id="pz-presentes" aria-label="Quién está mirando">
@@ -205,7 +241,7 @@ if ($editar) {
   <!-- La pizarra vacía: una pista suave, sin estorbar -->
   <div class="pz-vacio" id="pz-vacio" hidden>
     <?= UI::icono('pz-pizarra') ?>
-    <?php if ($mia): ?>
+    <?php if ($mia && $editar): ?>
     <b>Tus notas, solo para ti</b>
     <span>Pega con <kbd data-mod>Ctrl</kbd>+<kbd>V</kbd> una imagen, un texto o un enlace, o elige abajo: <kbd>N</kbd> nota, <kbd>L</kbd> enlace, <kbd>K</kbd> tablero con tus tareas.</span>
     <?php elseif ($editar): ?>
@@ -324,5 +360,37 @@ if ($editar) {
   <script type="application/json" id="pz-datos"><?= json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </div>
 <script src="<?= asset('assets/pizarra.js') ?>" defer></script>
+<?php if ($embed): ?>
+<script>
+// Vista previa: en cuanto carga, encuadra todo con poco margen y deja de preguntar
+// (la página que la inserta la vuelve a cargar cuando hace falta).
+(function () {
+  function encuadrar() {
+    var P = window.__pizarra, v = P && P.vista, x1 = Infinity, y1 = Infinity, x2 = -Infinity, y2 = -Infinity;
+    if (!v) return;
+    document.querySelectorAll('#pz-els > *, #pz-svg > *').forEach(function (n) {
+      var r = n.getBoundingClientRect();
+      if (!r.width && !r.height) return;
+      x1 = Math.min(x1, r.left); y1 = Math.min(y1, r.top); x2 = Math.max(x2, r.right); y2 = Math.max(y2, r.bottom);
+    });
+    if (x1 === Infinity) return;
+    var a = { x: (x1 - v.x) / v.z, y: (y1 - v.y) / v.z }, b = { x: (x2 - v.x) / v.z, y: (y2 - v.y) / v.z };
+    var m = 16, z = Math.min((innerWidth - m * 2) / Math.max(1, b.x - a.x), (innerHeight - m * 2) / Math.max(1, b.y - a.y), 1);
+    z = Math.max(0.04, z);
+    P.fijarVista(innerWidth / 2 - (a.x + b.x) / 2 * z, innerHeight / 2 - (a.y + b.y) / 2 * z, z);
+  }
+  var vueltas = 0, reloj = setInterval(function () {
+    var P = window.__pizarra;
+    if (++vueltas > 150) { clearInterval(reloj); return; }
+    if (!P || !P.sync.cargada) return;
+    clearInterval(reloj);
+    P.sync.parado = true;
+    requestAnimationFrame(function () { requestAnimationFrame(encuadrar); });
+    if (document.fonts) document.fonts.ready.then(function () { setTimeout(encuadrar, 60); });
+  }, 100);
+  addEventListener('resize', function () { requestAnimationFrame(encuadrar); });
+})();
+</script>
+<?php endif; ?>
 </body>
 </html>

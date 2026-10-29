@@ -10,6 +10,9 @@
  *
  * Con ?mia=1 en vez de ?reunion=ID: «Mis notas», la pizarra personal de quien
  * tiene la sesión (y «tareas» trae sus tareas abiertas de todos sus proyectos).
+ * Con ?nota=ID: la pizarra de una nota de notas.php, solo de su dueño (igual que ?mia=1).
+ * Con ?t=TOKEN: la de una nota compartida por enlace (nota_ver.php). Es el único
+ * camino sin sesión y solo contesta «estado»: mirar, nunca cambiar.
  *
  * Sin sesión o sin permiso: 401/403 con {ok:false, error}. Las llamadas
  * deben venir del propio panel (cabecera X-Requested-With y mismo origen):
@@ -27,6 +30,20 @@ $responder = function (array $d, int $codigo = 200): never {
     exit;
 };
 
+// ?t=TOKEN: la pizarra de una nota compartida, para quien tenga el enlace (sin sesión).
+// Solo «estado»; sin los recordatorios ni quién hizo cada cosa. Si apagan el enlace, 403.
+if (isset($_GET['t'])) {
+    if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'fetch') $responder(['ok' => false, 'error' => 'Solo desde la página de la nota.'], 400);
+    $notaPub = Pizarra::notaCompartida(is_string($_GET['t']) ? $_GET['t'] : '');
+    if (!$notaPub) $responder(['ok' => false, 'error' => 'Este enlace ya no está disponible.'], 403);
+    if ((string)($_GET['accion'] ?? '') !== 'estado') $responder(['ok' => false, 'error' => 'Esta pizarra es solo para mirar.'], 403);
+    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+    $ridPub = Pizarra::ridNota((int)$notaPub['id']);
+    $elementos = array_map(function (array $el) { unset($el['aviso'], $el['aviso_por'], $el['por']); return $el; },
+        Pizarra::cambios($ridPub, max(0, (int)($_GET['desde'] ?? 0))));
+    $responder(['ok' => true, 'version' => Pizarra::version($ridPub), 'elementos' => $elementos, 'presentes' => [], 'editar' => false, 'yo' => 0]);
+}
+
 $yo = Auth::usuario();
 if (!$yo) $responder(['ok' => false, 'error' => 'Tu sesión expiró. Entra de nuevo.'], 401);
 if (($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') !== 'fetch') $responder(['ok' => false, 'error' => 'Solo desde el panel.'], 400);
@@ -40,7 +57,15 @@ if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 // ?mia=1: «Mis notas», la pizarra personal de quien tiene la sesión (solo la suya)
 $mia = !empty($_GET['mia']);
 $mid = (int)$yo['id'];
-if ($mia) {
+$idNota = (int)($_GET['nota'] ?? 0);
+if ($idNota > 0) {
+    // La pizarra de una nota: solo su dueño (como «Mis notas»: sin presentes y con sus tareas)
+    if (!Pizarra::notaPropia($idNota)) $responder(['ok' => false, 'error' => 'Esa pizarra no está disponible.'], 403);
+    $mia = true;
+    $rid = Pizarra::ridNota($idNota);
+    $reunion = null;
+    $editar = true;
+} elseif ($mia) {
     $rid = Pizarra::rid(true);
     $reunion = null;
     $editar = true;

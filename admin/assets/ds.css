@@ -5033,3 +5033,34 @@ html.es-apple :is(.ds-enc__fila, .mc-bottomnav) { -webkit-backdrop-filter: blur(
   html.es-apple .mc-bottomnav { background: var(--surface); }
   html.es-apple :is(.ds-enc__fila, .mc-bottomnav) { -webkit-backdrop-filter: none; backdrop-filter: none; }
 }
+
+/* =========================================================
+   Atajos del menú lateral (lib/UI.php): Pedidos, Despliegues y Planificar,
+   al final del menú como botones de ícono con su contador, fuera de
+   «Equipos» (que ahora solo lista los equipos). Lo elegido lleva el canto
+   de vidrio. Con el menú plegado se apilan.
+   ========================================================= */
+.sb-atajos { display: flex; flex-wrap: wrap; gap: 8px; margin: 14px 0 4px; padding: 12px 6px 0; border-top: 1px solid var(--line); }
+.sb-atajo {
+  position: relative; display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px;
+  color: var(--ink-muted); text-decoration: none; background: var(--surface-hover);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .6), inset 0 0 0 1px var(--line);
+  transition: color .15s ease, background-color .15s ease, transform .15s ease;
+}
+.sb-atajo .ico { width: 20px; height: 20px; }
+.sb-atajo:hover { color: var(--primary-ink); background: var(--primary-soft); transform: translateY(-1px); }
+.sb-atajo:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.sb-atajo.active {
+  color: var(--primary-ink); border: 1px solid transparent;
+  background: linear-gradient(var(--primary-soft), var(--primary-soft)) padding-box, var(--elegido-canto, linear-gradient(125deg, #40CFFF, #FFD700)) border-box;
+  box-shadow: var(--elegido-luz, none);
+}
+.sb-atajo__n {
+  position: absolute; top: -5px; right: -5px; min-width: 18px; height: 18px; padding: 0 5px;
+  display: grid; place-items: center; border-radius: 999px; box-shadow: 0 0 0 2px var(--sidebar-bg, var(--surface));
+  background: var(--primary); color: var(--on-primary); font: 700 .625rem/1 var(--font-sans);
+}
+.sb-atajo__n.is-fin { background: var(--danger); color: var(--on-danger); }
+html.dark .sb-atajo { box-shadow: inset 0 0 0 1px var(--line); }
+html.sb-collapsed .sb-atajos { flex-direction: column; align-items: center; padding: 10px 0 0; }
+@media (prefers-reduced-motion: reduce) { .sb-atajo { transition: none; } .sb-atajo:hover { transform: none; } }
