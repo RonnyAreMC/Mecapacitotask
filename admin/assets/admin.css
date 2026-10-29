@@ -5229,11 +5229,13 @@ html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gra
   /* Sin desenfoque: el ícono se ve igual de nítido debajo del vidrio */
   -webkit-backdrop-filter: saturate(1.9) brightness(1.12);
   backdrop-filter: saturate(1.9) brightness(1.12);
-  opacity: 0; transform: scale(.94);
+  /* Se mueve SOLO con transform (admin.js pone --lx/--ly): con left/top la
+     página se recalculaba en cada paso y se sentía pesada */
+  opacity: 0; transform: translate3d(var(--lx, 0), var(--ly, 0), 0) scale(var(--ls, .96));
+  will-change: transform;
   transition:
-    opacity .18s ease, transform .22s cubic-bezier(.2, .7, .2, 1),
-    left .26s cubic-bezier(.2, .7, .2, 1), top .26s cubic-bezier(.2, .7, .2, 1),
-    width .26s cubic-bezier(.2, .7, .2, 1), height .26s cubic-bezier(.2, .7, .2, 1);
+    opacity .12s ease, transform .16s cubic-bezier(.2, .7, .2, 1),
+    width .16s cubic-bezier(.2, .7, .2, 1), height .16s cubic-bezier(.2, .7, .2, 1);
 }
 /* Sobre una pestaña, sin el brillo fuerte de la gota: no le lava el texto */
 .lg-lente.lg-pastilla {
@@ -5243,13 +5245,13 @@ html.dark .dlg-wizard .wz-pie .btn-meca.wz-atras::after { background: linear-gra
 }
 html.dark .lg-lente.lg-pastilla { background: linear-gradient(180deg, rgba(255, 255, 255, .14) 0%, rgba(255, 255, 255, .04) 50%, rgba(255, 255, 255, .08) 100%); }
 /* Recién aparecida no se desliza desde donde estuvo la última vez */
-.lg-lente.lg-quieta { transition: opacity .18s ease, transform .22s cubic-bezier(.2, .7, .2, 1); }
-.lg-lente.is-on { opacity: 1; transform: none; }
-/* Canto irisado, como el borde de un vidrio de verdad */
+.lg-lente.lg-quieta { transition: opacity .12s ease; }
+.lg-lente.is-on { opacity: 1; --ls: 1; }
+/* Canto irisado, como el borde de un vidrio de verdad (el mismo de lo elegido) */
 .lg-lente::after {
   content: ''; position: absolute; inset: -1.5px; padding: 1.5px;
   border-radius: inherit;
-  background: linear-gradient(115deg, rgba(56, 189, 248, .9), rgba(255, 255, 255, 0) 34%, rgba(255, 255, 255, 0) 64%, rgba(236, 72, 153, .8));
+  background: var(--elegido-canto);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor;
   mask-composite: exclude;
@@ -5262,10 +5264,156 @@ html.dark .lg-lente {
   box-shadow: inset 0 1px 2px rgba(255, 255, 255, .5), 0 6px 18px -4px rgba(0, 0, 0, .6), 0 0 0 4px rgba(255, 255, 255, .06);
 }
 @media (prefers-reduced-motion: reduce) {
-  .lg-lente { transform: none; transition: opacity .12s ease; }
+  .lg-lente { --ls: 1; transition: opacity .12s ease; }
 }
 @media (prefers-reduced-transparency: reduce) {
   .lg-lente { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255, 255, 255, .22); }
+}
+
+/* =========================================================
+   Lo elegido: la opción activa (menú, pestañas, selectores, tarjetas
+   marcadas) lleva un canto fijo de vidrio, de cian a dorado, y una luz
+   arriba. No gira ni pesa: es solo un degradado.
+   - Lo que tiene borde propio: doble fondo (relleno en padding-box y el
+     canto en border-box), sin pseudo-elementos.
+   - Lo que tiene relleno de color y no tiene borde: un ::after enmascarado
+     de 1.5px, así se queda con su color.
+   ========================================================= */
+:root {
+  --elegido-canto: linear-gradient(125deg, rgb(64 207 255 / .95), rgb(64 207 255 / .3) 38%, rgb(255 255 255 / 0) 56%, rgb(255 215 0 / .85));
+  --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .9), 0 4px 12px -6px rgb(11 143 191 / .55);
+}
+html.dark { --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .1), 0 4px 14px -6px rgb(64 207 255 / .45); }
+
+.sidebar .sidebar-link.active, .tab-btn.active, .subvista-btn.active, .sup-tab.active { position: relative; }
+.sidebar .sidebar-link.active::after, .tab-btn.active::after, .subvista-btn.active::after, .sup-tab.active::after {
+  content: ''; position: absolute; inset: 0; padding: 1.5px;
+  border-radius: inherit; pointer-events: none;
+  background: var(--elegido-canto);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+}
+.tab-btn.active, .tab-btn.active:hover, html.dark .tab-btn.active, html.dark .tab-btn.active:hover { box-shadow: var(--elegido-luz); }
+
+/* Tarjetas que se eligen y ya tienen borde (plataforma de la reunión, a dónde llegan los avisos) */
+.dlg-wizard .nr-plat .subvista-btn.active::after { content: none; }
+.dlg-wizard .nr-plat .subvista-btn.active,
+.pf-avisos-op:has(input:checked) {
+  border-color: transparent;
+  background: linear-gradient(var(--wz-azul-suave), var(--wz-azul-suave)) padding-box, var(--elegido-canto) border-box;
+  box-shadow: var(--elegido-luz);
+}
+@media (prefers-contrast: more) {
+  .sidebar .sidebar-link.active::after, .tab-btn.active::after, .subvista-btn.active::after, .sup-tab.active::after { background: currentColor; }
+}
+
+/* Íconos SVG en los asistentes (UI::wizardRiel acepta los del panel además de fa-*) */
+.dlg-wizard .wz-icono .ico { width: 22px; height: 22px; }
+.dlg-wizard .wz-paso .wz-num .ico { width: 16px; height: 16px; transition: transform .22s var(--wz-curva, ease); }
+.dlg-wizard .wz-paso:hover .wz-num .ico { transform: scale(1.22); }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca .ico { width: 18px; height: 18px; flex: none; }
+.dlg-wizard .wz-error .ico { width: 14px; height: 14px; flex: none; margin-top: 2px; }
+.dlg-wizard .dlg-close .ico { width: 18px; height: 18px; }
+@media (prefers-reduced-motion: reduce) { .dlg-wizard .wz-paso:hover .wz-num .ico { transform: none; } }
+
+/* =========================================================
+   Observación nueva (proyecto.php): un asistente con tarjetas.
+   Las tareas se leen enteras (dos líneas) con su estado, quién la tiene y
+   la fecha; las personas con su avatar. Lo elegido lleva el canto de vidrio
+   y un check que entra con un rebote; las tarjetas llegan una tras otra.
+   ========================================================= */
+.dlg-obs-nueva .ob-cards {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px;
+  max-height: min(46vh, 420px); overflow-y: auto; overscroll-behavior: contain;
+  margin: -4px; padding: 4px;
+}
+.dlg-obs-nueva .ob-cards--gente { grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); max-height: min(34vh, 300px); }
+.ob-card {
+  position: relative; display: flex; align-items: flex-start; gap: 12px; min-width: 0;
+  padding: 12px 14px; border: 1px solid var(--wz-linea); border-radius: 14px; background: var(--wz-campo); cursor: pointer;
+  transition: border-color .18s ease, background-color .18s ease, box-shadow .18s ease, transform .18s cubic-bezier(.2, .7, .2, 1);
+}
+.ob-card:hover { border-color: var(--wz-linea-h); transform: translateY(-1px); }
+.ob-card input { position: absolute; opacity: 0; pointer-events: none; }
+.ob-card:has(input:checked) {
+  border-color: transparent;
+  background: linear-gradient(var(--wz-azul-suave), var(--wz-azul-suave)) padding-box, var(--elegido-canto) border-box;
+  box-shadow: var(--elegido-luz);
+}
+.ob-card:has(input:focus-visible) { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
+.ob-card::after {
+  content: ''; position: absolute; top: 10px; right: 10px; width: 20px; height: 20px; border-radius: 50%;
+  background: var(--wz-azul) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='white' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M5 12.5l4.5 4.5L19 7.5'/%3E%3C/svg%3E") center / 12px no-repeat;
+  transform: scale(0); transition: transform .26s cubic-bezier(.34, 1.56, .64, 1);
+}
+.ob-card:has(input:checked)::after { transform: scale(1); }
+.ob-card__ic {
+  flex: none; display: grid; place-items: center; width: 34px; height: 34px; border-radius: 11px;
+  background: var(--wz-sec-h); color: var(--wz-tinta-3); transition: background-color .18s ease, color .18s ease;
+}
+.ob-card__ic .ico { width: 18px; height: 18px; }
+.ob-card:has(input:checked) .ob-card__ic { background: var(--wz-azul); color: #fff; }
+.ob-card__txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; padding-right: 24px; }
+.ob-card__tit {
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+  color: var(--wz-tinta); font-size: .875rem; font-weight: 600; line-height: 1.35;
+}
+.ob-card__txt small { color: var(--wz-tinta-2); font-size: .75rem; }
+.ob-estado {
+  align-self: flex-start; padding: 2px 8px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ec) 13%, transparent); color: var(--ec); font-size: .6875rem; font-weight: 700;
+}
+html.dark .ob-estado { color: color-mix(in srgb, var(--ec) 55%, #fff); }
+.ob-card__pie { display: flex; align-items: center; gap: 8px; min-height: 22px; }
+.ob-card__pie small { display: inline-flex; align-items: center; gap: 4px; }
+.ob-card__pie .ico { width: 13px; height: 13px; }
+.ob-card--hecha { opacity: .7; }
+.ob-card[hidden] { display: none; }
+.ob-persona { align-items: center; }
+.ob-persona .avatar { flex: none; }
+.ob-buscar {
+  display: flex; align-items: center; gap: 8px; height: 40px; padding: 0 12px; margin-bottom: 4px;
+  border: 1px solid var(--wz-linea); border-radius: 12px; background: var(--wz-campo); color: var(--wz-tinta-2);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.ob-buscar .ico { width: 16px; height: 16px; flex: none; }
+.ob-buscar input { flex: 1; min-width: 0; border: 0; outline: 0; background: none; color: var(--wz-tinta); font: inherit; font-size: .875rem; }
+.ob-buscar:focus-within { border-color: var(--wz-azul); box-shadow: 0 0 0 3px color-mix(in srgb, var(--wz-azul) 18%, transparent); }
+/* Avisar a: fichas pequeñas, con el mismo canto al elegirlas */
+.ob-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ob-chip { position: relative; cursor: pointer; }
+.ob-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.ob-chip > span {
+  display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px 4px 5px;
+  border: 1px solid var(--wz-linea); border-radius: 999px; background: var(--wz-campo);
+  color: var(--wz-tinta); font-size: .8125rem; font-weight: 600;
+  transition: border-color .18s ease, background-color .18s ease, color .18s ease, box-shadow .18s ease;
+}
+.ob-chip > span > .ico { width: 16px; height: 16px; margin-left: 5px; }
+.ob-chip:hover > span { border-color: var(--wz-linea-h); }
+.ob-chip input:checked + span {
+  border-color: transparent; color: var(--wz-azul);
+  background: linear-gradient(var(--wz-azul-suave), var(--wz-azul-suave)) padding-box, var(--elegido-canto) border-box;
+  box-shadow: var(--elegido-luz);
+}
+.ob-chip input:focus-visible + span { outline: 2px solid var(--wz-azul); outline-offset: 2px; }
+/* Adjuntos como en el correo: el ícono del tipo o la miniatura de la imagen */
+.oc-adj > .ico { width: 18px; height: 18px; flex: none; }
+.oc-adj__mini { width: 28px; height: 28px; flex: none; border-radius: 7px; object-fit: cover; }
+.ob-ia { display: flex; flex-wrap: wrap; gap: 8px; }
+/* Las tarjetas llegan una tras otra al entrar al paso */
+.dlg-obs-nueva .wz-panel.activo .ob-card { animation: ob-entra .42s cubic-bezier(.2, .8, .2, 1) both; animation-delay: calc(var(--i, 0) * 28ms); }
+.ob-cards > :nth-child(2) { --i: 1; } .ob-cards > :nth-child(3) { --i: 2; } .ob-cards > :nth-child(4) { --i: 3; }
+.ob-cards > :nth-child(5) { --i: 4; } .ob-cards > :nth-child(6) { --i: 5; } .ob-cards > :nth-child(7) { --i: 6; }
+.ob-cards > :nth-child(8) { --i: 7; } .ob-cards > :nth-child(n+9) { --i: 8; }
+@keyframes ob-entra { from { opacity: 0; transform: translateY(8px) scale(.98); } }
+@media (max-width: 640px) {
+  .dlg-obs-nueva .ob-cards, .dlg-obs-nueva .ob-cards--gente { grid-template-columns: 1fr; max-height: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dlg-obs-nueva .wz-panel.activo .ob-card { animation: none; }
+  .ob-card, .ob-card::after { transition: none; }
 }
 
 .campo { display: flex; flex-direction: column; gap: 7px; }
@@ -6596,6 +6744,7 @@ html.sb-collapsed .nav-badge { display: none; }
 }
 .rt-b:hover { color: var(--c-secondary); }
 .rt-b:active { box-shadow: inset 0 2px 5px rgba(0, 0, 0, .16); }
+.rt-b .ico { width: 17px; height: 17px; }
 .rt-area {
   min-height: 132px; max-height: 360px; overflow-y: auto;
   padding: 12px 14px; border-radius: 14px;
@@ -9420,7 +9569,7 @@ html.dark .rad-ayuda b { color: #6ee7b7; }
 /* El canto: un aro de 1.5px con el degradado cian → blanco → rosa */
 .rs-vista__pieza::after {
   content: ''; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit;
-  background: linear-gradient(115deg, rgba(125, 211, 252, .95), rgba(255, 255, 255, .15) 38%, rgba(255, 255, 255, 0) 60%, rgba(244, 114, 182, .85));
+  background: var(--elegido-canto);   /* el mismo canto de todo lo elegido */
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
 }

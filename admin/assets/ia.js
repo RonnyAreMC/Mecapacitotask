@@ -800,7 +800,8 @@
     const fd = new FormData();
     fd.append('proyecto_id', form.querySelector('input[name="proyecto_id"]')?.value || '');
     fd.append('texto', ed ? ed.html() : '');
-    form.querySelectorAll('select[name="tarea_id[]"] option:checked').forEach((o) => fd.append('tareas[]', o.value));
+    // Las tareas se eligen en tarjetas (checkbox); el select queda por si acaso
+    form.querySelectorAll('select[name="tarea_id[]"] option:checked, input[name="tarea_id[]"]:checked').forEach((o) => fd.append('tareas[]', o.value));
     if (b.dataset.iaObs === 'adjunto') {
       const files = form.querySelector('.oc-file')?.files || [];
       const vistos = [...files].filter((f) => /^image\//.test(f.type) || f.type === 'application/pdf' || /\.docx$/i.test(f.name));

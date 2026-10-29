@@ -157,6 +157,10 @@ if ($rtReu) {
         $rtAcc .= $rtBoton('reunion_entrar.php?id=' . (int)$rtReu['id'], $rtIc('MonitorPlay'), 'Entrar a la reunión',
             ($rtEnVivo || $rtPronto) ? ' dep-ico--subir rt-entrar' : '');
     }
+    // La pizarra de esa reunión (pizarra.php), para tenerla a mano al entrar
+    if (is_file(__DIR__ . '/../pizarra.php')) {
+        $rtAcc .= $rtBoton('pizarra.php?reunion=' . (int)$rtReu['id'], $rtIc('StickyNote'), 'Pizarra de la reunión');
+    }
     $rtAcc .= $rtBoton('proyecto.php?id=' . $rtPidM . '#vista-reuniones', $rtIc('Calendar'), 'Reuniones de ' . $rtNombreP($rtPidM));
     $rtSlides[] = ['clave' => 'reunion', 'nombre' => 'Próxima reunión', 'main' => $rtMain($rtDatos, $rtAcc), 'urgente' => $rtReuUrgente];
 }

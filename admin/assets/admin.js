@@ -599,6 +599,7 @@ MecaDate.init();
    asi el navegador nunca intenta enfocar un campo escondido.
    ========================================================= */
 const MecaWizard = {
+  CHECK: '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>',
   init(scope) {
     (scope || document).querySelectorAll('form.wz:not([data-wz])').forEach((f) => this.montar(f));
   },
@@ -719,7 +720,7 @@ const MecaWizard = {
       msg.className = 'wz-error';
       msg.id = 'wz-err-' + (c.name || 'campo').replace(/\W+/g, '') + '-' + Math.random().toString(36).slice(2, 7);
       msg.setAttribute('role', 'alert');
-      msg.innerHTML = '<i class="fa-solid fa-circle-exclamation" aria-hidden="true"></i>';
+      msg.innerHTML = '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7.5v5.5M12 16.5v.01"/></svg>';
       msg.append(' ' + mensajeDe(c));
       c.setAttribute('aria-describedby', msg.id);
       // Debajo del control visible: el select con buscador y el calendario
@@ -761,8 +762,9 @@ const MecaWizard = {
         if (n < actual) p.classList.remove('error');
         if (n === actual) p.setAttribute('aria-current', 'step'); else p.removeAttribute('aria-current');
         const num = p.querySelector('.wz-num');
-        const ico = p.dataset.icono ? '<i class="fa-solid ' + p.dataset.icono + '" aria-hidden="true"></i>' : String(n + 1);
-        if (num) num.innerHTML = n < actual ? '<i class="fa-solid fa-check" aria-hidden="true"></i>' : ico;
+        // El ícono lo pinta UI::wizardRiel (SVG o fa-*): se guarda para volver a él
+        if (num && num._ico === undefined) num._ico = num.innerHTML;
+        if (num) num.innerHTML = n < actual ? MecaWizard.CHECK : num._ico;
       });
       if (contador) contador.textContent = 'Paso ' + (actual + 1) + ' de ' + paneles.length;
       if (ceja) ceja.textContent = 'Paso ' + (actual + 1) + '/' + paneles.length;
@@ -836,10 +838,14 @@ const LenteVidrio = {
   OPCIONES: '.tab-btn, .mc-tab, .sup-tab, .wz-paso, .rad-op, .rs-vista__op, .rs-boton',
   // La bolita sobre la que va la gota, según la opción
   BOLITAS: { 'wz-paso': '.wz-num', 'rad-op': '.rad-ico' },
+  // Lo que ya está elegido lleva su propio canto (admin.css, «Lo elegido»): ahí no va la lente
+  ACTIVAS: '.active, .is-active, .is-activa, .is-activo, [aria-current="page"], [aria-selected="true"]',
   lentes: new Map(),   // una por capa: la página, cada modal abierto o el menú radial
 
   init() {
     if (!window.matchMedia('(hover: hover) and (pointer: fine)').matches) return;
+    // Es un adorno: en equipos modestos no se enciende, para que no les cueste
+    if ((navigator.hardwareConcurrency || 8) <= 2 || (navigator.deviceMemory || 8) <= 2) return;
     document.addEventListener('pointerover', (e) => this.sobre(e.target), { passive: true });
     // Se apaga si se desplaza lo que la contiene (la página o la barra de pestañas),
     // no por cualquier lista con scroll de la página
@@ -871,6 +877,11 @@ const LenteVidrio = {
     if (!op || op.disabled) return;
     // El menú radial va por encima de todo (z-index alto): la gota vive dentro
     const capa = el.closest('dialog[open]') || el.closest('.rad-menu') || document.body;
+    if (op.matches(this.ACTIVAS)) {
+      const l = this.lentes.get(capa);
+      if (l && l._grupo === op.parentElement) this.ocultar(l);
+      return;
+    }
     this.mostrar(op, this.lente(capa));
   },
 
@@ -885,8 +896,9 @@ const LenteVidrio = {
     l._grupo = grupo;
     // Gota sobre la bolita del paso; pastilla sobre la pestaña
     const [dx, dy] = bolita ? [7, 7] : [3, 2];
-    l.style.left = (r.left - dx) + 'px';
-    l.style.top = (r.top - dy) + 'px';
+    // La posición va por transform (--lx/--ly en admin.css): no recalcula la página
+    l.style.setProperty('--lx', (r.left - dx) + 'px');
+    l.style.setProperty('--ly', (r.top - dy) + 'px');
     l.style.width = (r.width + dx * 2) + 'px';
     l.style.height = (r.height + dy * 2) + 'px';
     l.style.borderRadius = bolita ? '50%' : Math.max((parseFloat(getComputedStyle(op).borderTopLeftRadius) || 0) + 2, 12) + 'px';
@@ -1499,6 +1511,69 @@ if (vistaToggle) {
   proyectoAlCambiarAncho(() => pintar(proyectoVistaCelular(elegida)));
 }
 
+/* Observación nueva (el asistente de proyecto.php): las tarjetas de tareas y de personas.
+   - «General de la entrega» o una o varias tareas: marcar una apaga la otra.
+   - El buscador filtra las tareas por su título.
+   - «Todo el equipo» o personas sueltas, igual; y en «Avisar a» lo mismo.
+   - «Avisar a» copia para quién es mientras no lo toques a mano.
+   - Cada campo deja dicho qué poner en el resumen del último paso (data-resumen). */
+function obsTarjetas(form) {
+  const cajaT = form.querySelector('[data-ob-tareas]');
+  if (!cajaT) return;
+  const general = cajaT.querySelector('[data-ob-general]');
+  const cajaP = form.querySelector('[data-ob-para]');
+  const cajaA = form.querySelector('[data-ob-avisar]');
+  const tareas = () => [...cajaT.querySelectorAll('input[name="tarea_id[]"]')];
+  const para = () => [...(cajaP?.querySelectorAll('input[name="autor_id[]"]') || [])];
+  const avisar = () => [...(cajaA?.querySelectorAll('input[name="destinatarios[]"]') || [])];
+  const nombres = (ins, attr) => ins.filter((i) => i.checked).map((i) => i.dataset[attr]).filter(Boolean);
+  let avisarAMano = false;
+
+  const resumir = () => {
+    const ts = nombres(tareas(), 'obTitulo');
+    general.checked = !ts.length;
+    cajaT.dataset.resumen = ts.length ? ts.join(' · ') : 'General de la entrega';
+    if (cajaP) { const ps = nombres(para(), 'obNombre'); cajaP.dataset.resumen = ps.length ? ps.join(', ') : 'Nadie en concreto: es del proyecto'; }
+    if (cajaA) { const as = nombres(avisar(), 'obNombre'); cajaA.dataset.resumen = as.length ? as.join(', ') : 'Nadie: solo queda registrada'; }
+  };
+  // «Todos» apaga a los sueltos y un suelto apaga «todos»
+  const exclusivo = (ins, todos, cambiado) => {
+    if (!todos) return;
+    if (cambiado === todos && todos.checked) ins.forEach((i) => { if (i !== todos) i.checked = false; });
+    else if (cambiado !== todos && cambiado.checked) todos.checked = false;
+  };
+
+  form.addEventListener('change', (e) => {
+    const c = e.target;
+    if (c === general) {
+      if (general.checked) tareas().forEach((i) => { i.checked = false; });
+    } else if (c.name === 'autor_id[]') {
+      exclusivo(para(), cajaP.querySelector('[data-ob-todos]'), c);
+      if (!avisarAMano && cajaA) {
+        const elegidos = new Set(para().filter((i) => i.checked).map((i) => i.value));   // 'all' ↔ 'all'
+        avisar().forEach((i) => { i.checked = elegidos.has(i.value); });
+      }
+    } else if (c.name === 'destinatarios[]') {
+      avisarAMano = true;
+      exclusivo(avisar(), cajaA.querySelector('input[value="all"]'), c);
+    } else {
+      return;
+    }
+    resumir();
+  });
+  const buscar = cajaT.querySelector('[data-ob-buscar]');
+  buscar?.addEventListener('input', () => {
+    const q = buscar.value.trim().toLowerCase();
+    cajaT.querySelectorAll('.ob-card[data-ob-texto]').forEach((card) => { card.hidden = q !== '' && !card.dataset.obTexto.includes(q); });
+  });
+  form.addEventListener('ob:reiniciar', () => {
+    avisarAMano = false;
+    if (buscar) { buscar.value = ''; buscar.dispatchEvent(new Event('input')); }
+    resumir();
+  });
+  resumir();
+}
+
 // Compositor de observaciones: pegar (Ctrl+V), arrastrar, adjuntar y enviar por AJAX.
 // Soporta varios compositores en paralelo (botón "+ Otra nota").
 function initComposer(form) {
@@ -1520,22 +1595,49 @@ function initComposer(form) {
   };
   const bolsa = new DataTransfer();
 
+  // Los adjuntos se ven como en el correo: ícono del tipo (o la miniatura si es
+  // una imagen), el nombre, el peso y una × para quitarlo
+  const iconosAdj = form.querySelector('template.ob-iconos-adj')?.content;
+  const claseDe = (f) => f.type.startsWith('image/') ? 'imagen'
+    : /\.pdf$/i.test(f.name) ? 'pdf' : /\.docx?$/i.test(f.name) ? 'word'
+    : /\.(xlsx?|csv)$/i.test(f.name) ? 'excel' : /\.pptx?$/i.test(f.name) ? 'ppt' : 'otro';
+  const peso = (b) => (b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB');
   const pintar = () => {
     previews.innerHTML = '';
     [...bolsa.files].forEach((f, i) => {
-      const chip = document.createElement('div');
+      const li = document.createElement('li');
+      li.className = 'ds-adjuntos__item oc-adj';
       if (f.type.startsWith('image/')) {
-        const url = URL.createObjectURL(f);
-        chip.className = 'oc-prev oc-prev-img';
-        chip.innerHTML = '<img src="' + url + '" alt=""><button type="button" data-i="' + i + '" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        const img = document.createElement('img');
+        img.className = 'oc-adj__mini';
+        img.alt = '';
+        img.src = URL.createObjectURL(f);
+        li.appendChild(img);
       } else {
-        chip.className = 'oc-prev oc-prev-doc';
-        chip.innerHTML = '<i class="fa-solid fa-file-lines"></i><span>' + f.name + '</span>' +
-                         '<button type="button" data-i="' + i + '" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
+        const ico = iconosAdj?.querySelector('[data-clase="' + claseDe(f) + '"]');
+        if (ico) li.appendChild(ico.firstElementChild.cloneNode(true));
       }
-      previews.appendChild(chip);
+      const nombre = document.createElement('span');
+      nombre.className = 'ds-adjuntos__nombre';
+      nombre.textContent = f.name;
+      const tam = document.createElement('small');
+      tam.textContent = peso(f.size);
+      const quitar = document.createElement('button');
+      quitar.type = 'button';
+      quitar.className = 'mc-iconbtn mc-iconbtn--sm ds-adjuntos__quitar';
+      quitar.dataset.i = i;
+      quitar.setAttribute('aria-label', 'Quitar ' + f.name);
+      quitar.innerHTML = '<svg class="mc-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6.5 6.5l11 11M17.5 6.5l-11 11"/></svg>';
+      li.append(nombre, tam, quitar);
+      previews.appendChild(li);
     });
     fileInput.files = bolsa.files;
+    // Para el resumen del asistente
+    const campoAdj = form.querySelector('[data-ob-adjuntos]');
+    if (campoAdj) {
+      const n = bolsa.files.length;
+      campoAdj.dataset.resumen = n ? n + (n === 1 ? ' archivo: ' : ' archivos: ') + [...bolsa.files].map((f) => f.name).join(', ') : 'Ninguno';
+    }
   };
   const agregar = (files) => { [...files].forEach((f) => bolsa.items.add(f)); pintar(); };
 
@@ -1563,8 +1665,10 @@ function initComposer(form) {
     pintar();
   });
   area.addEventListener('keydown', (e) => {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(); }
+    // En el asistente, Ctrl+Enter guarda directo (si falta algo, el asistente lo dice)
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); form.requestSubmit(form.querySelector('.wz-guardar') || undefined); }
   });
+  obsTarjetas(form);
   // Botón × para quitar el compositor (deja al menos uno)
   form.querySelector('.oc-cerrar')?.addEventListener('click', () => {
     const cont = document.getElementById('obs-composers');
@@ -1572,6 +1676,8 @@ function initComposer(form) {
   });
 
   form.addEventListener('submit', async (e) => {
+    // El asistente lo frenó (Enter a medio camino o un paso sin completar): no se envía
+    if (e.defaultPrevented) return;
     e.preventDefault();
     if (!hayTexto() && !bolsa.files.length) {
       MC.sonidoError();
@@ -1596,6 +1702,8 @@ function initComposer(form) {
       limpiar();
       while (bolsa.items.length) bolsa.items.remove(0);
       pintar();
+      // El asistente vuelve a quedar como nuevo (tarjetas sin marcar, resumen limpio)
+      if (form.classList.contains('wz')) { form.reset(); form.dispatchEvent(new Event('ob:reiniciar')); }
       const total = document.querySelector('.obs-card .tabla-count');
       if (total) total.textContent = data.total;
       const chipPend = document.querySelector('#obs-filtros [data-filtro="pendiente"]');

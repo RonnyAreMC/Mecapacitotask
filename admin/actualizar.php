@@ -101,7 +101,7 @@ function actualizarPanel(array $opc): void
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
-        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php',
+        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php', 'lib/Pizarra.php', 'pizarra_api.php',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ['dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'fa-table', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
+        'lib/UI.php'        => ['PASOS_OBSERVACION', 'dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'stroke-width="1.9"', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
         'lib/Notificaciones.php' => ["'reunion_pronto'", 'Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -136,10 +136,10 @@ function actualizarPanel(array $opc): void
         'cron_recordatorios.php' => ['cronCallado'],
         'lib/Models.php'    => ['function correosAvisos', 'function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code'],
         'lib/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
-        'lib/bootstrap.php' => ['function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
+        'lib/bootstrap.php' => ["'pizarra_api.php'", 'function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
         'actions.php'       => ['email_avisos', 'perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos', 'tarea_colaborador', 'api_token_crear', "'reunion_choque'", "'reunion_agenda'", 'contexto_tareas_json'],
         'assets/ds.js'      => ['MCSonido', "tocar('reunion')", 'mc:correo', 'soloNumerosTel', 'data-correo-marco', 'data-adjuntos', 'MCPush', 'DSTutorial', 'data-destinatarios', 'j.telefono', 'pintarTotal', 'appAislada', 'MCInstalar', 'mcinstalar:cambio'],
-        'assets/ia.js'      => ['conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
+        'assets/ia.js'      => ['input[name="tarea_id[]"]:checked', 'conGiro', 'data-ia-correo', 'tcw-listo', 'data-ia-responder', 'mostrarCarga', 'iconos/nexo/', 'responsables: elegidos'],
         'planificar.php'    => ['dlg-ia-plan', 'item_release', 'plan-item', 'item_json'],
         'lib/req_ui.php'    => ['req-tr', 'data-req-id', 'fq-cols', 'fq-colab', 'fq-obs-editor', 'fq-colab-form'],
         'assets/ds.css'     => ['.ia-carga', '.ds-enc', '.pac-portada', '.req-tabla', '.ent-arte', '.correo-lado', '.ds-adjuntos', '.ds-push', '.ds-tutorial', '.ds-dest__chip', '.page-head__arte', '.celda-contacto', '.push-aqui', '.correo-app__enc', '.ins-boton', '.ins-pasos__lista', '.pm-tarea__abrir', '.req-propuestas', '.eqo-tablero', '.mc-toast__accion', '.ico-equipo', '.zd-tiles', '.tc-tarea', '.tcw-listo', '.dep-crono', '.tarea-autor', '.ent-nexo', '.page-head__nexo', '.dep-tira-url', '.eq-card', '.rl-res__main', '.rl-dailies', '.rl-ses__editar', '.bz-kpis', 'clamp(320px, 34%', '.zd-tr-errores', '.correo-fila__marcar', '.correo-todos-leidos .mc-btn.is-off', '.dep-dia--hecho', '.page-actions .btn-icono .tab-txt'],
@@ -155,7 +155,7 @@ function actualizarPanel(array $opc): void
         'lib/releases_ui.php' => ['function rlVistaRelease', 'function rlRecursosJs', 'releases juntos', 'rl-buscar--fila'],
         'assets/releases.js' => ['data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg', 'rl-gfila__lbl', 'DL.pasados'],
         'lib/Zoom.php'      => ['function participantes'],
-        'assets/admin.css'  => ['rt-llenar', '.rs-vista__pieza', '@keyframes rs-borde', '.rs-col__hit', 'pf-avisos-op','nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz', '.dt-colab-btn', '.pf-con.is-on', '.pf-api-ia--marca', '.pf-dlg-pie', '--wz-margen', '.lg-lente', '.dep-ico--subir', '.hp-op.is-ocupado'],
+        'assets/admin.css'  => ['.ob-card__tit', '.rt-b .ico', '--elegido-canto', 'rt-llenar', '.rs-vista__pieza', '@keyframes rs-borde', '.rs-col__hit', 'pf-avisos-op','nav-grupo.plegado', 'rt--correo', 'fq-hist', 'rt--obs', 'fq-colab-abrir', 'fq-terminar-acc', '.rad-menu', '.rad-aguja', 'tabla-toolbar--tareas', 'rad-op.is-sel { z-index: 3; }', '.grab-espera', '.dlg-detalle-wz', '.dt-colab-btn', '.pf-con.is-on', '.pf-api-ia--marca', '.pf-dlg-pie', '--wz-margen', '.lg-lente', '.dep-ico--subir', '.hp-op.is-ocupado'],
         'lib/CorreoCopias.php' => ['function crudoDe', 'function marcarCarpeta'],
         'requerimientos.php' => ['dlg-req-correo', 'propuesta', 'dlg-req-seg', 'panelObservacion'],
         'lib/IAFunciones.php' => ['requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel'],
@@ -164,9 +164,11 @@ function actualizarPanel(array $opc): void
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
+        'assets/admin.js'   => ['function obsTarjetas', 'MecaWizard.CHECK', 'ACTIVAS:', "setProperty('--lx'", 'data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
         'index.php'         => ['nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
         'lib/resumen_tira.php' => ['data-rt-correo-n', 'data-rt-pista', 'rt-radar', 'Por revisar como PO'],
+        'lib/Pizarra.php'   => ['final class Pizarra', 'piz_elementos', 'function subirImagen'],
+        'pizarra_api.php'   => ['accion=guardar', 'Pizarra::presentes'],
         'lib/Reuniones.php' => ['function recordarProximas', 'function proximoInicio', 'function choqueZoom'],
         'resumen.php'       => ['data-rs-sec="hoy"', 'rs-col__hit', 'ResumenPersona::datos'],
         'lib/ResumenPersona.php' => ['final class ResumenPersona', 'function siguientePaso'],
@@ -174,7 +176,7 @@ function actualizarPanel(array $opc): void
         'lib/Cronograma.php' => ['function deDeploy', 'deploysExitosos', 'no sale en ningún lado', 'public static function semana(', 'function diaCorto', 'function diaLargo'],
         'lib/deploy_tira.php' => ['dep-acc', 'dep-ico--subir', 'dep-dato__txt', 'dtCarrusel'],
         'lib/GitLab.php'    => ['deploysExitosos', 'GITLAB_PRUEBA'],
-        'proyecto.php'      => ['ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease', 'radVistas', 'grab-espera', 'dlg-detalle-wz', 'reunion_entrar.php?id=', 'tarea-abrir', 'Escribe un título para la tarea.', 'PASOS_REUNION'],
+        'proyecto.php'      => ['data-ob-tareas', 'ph-limpio', 'dlg-obs-nueva', 'po_relevo', 'pm-tarea__abrir', 'tarea-autor', 'relChips', 'relCampo', 'rlVistaRelease', 'radVistas', 'grab-espera', 'dlg-detalle-wz', 'reunion_entrar.php?id=', 'tarea-abrir', 'Escribe un título para la tarea.', 'PASOS_REUNION'],
         'perfil.php'        => ['pf-avisos', 'dlg-asistente', 'data-abrir-dlg', 'pf-conexiones', 'f-contexto'],
         'equipo.php'        => ['Copiar teléfono', 'eq-cards', 'equipos.php?desde='],
         'equipos.php'       => ['equipo_mover', 'data-eqo-mover'],

@@ -1228,6 +1228,13 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         ['Confirmación', 'Revisar reunión',      'Comprueba los datos antes de crearla', 'fa-clipboard-check'],
     ];
 
+    public const PASOS_OBSERVACION = [
+        ['Sobre qué',    '¿Sobre qué es?',          'Una o varias tareas, o la entrega en general', 'TaskSquare'],
+        ['Para quién',   '¿Para quién es?',         'A quién va dirigida y a quién avisar', 'Users'],
+        ['Observación',  'Escribe la observación',  'Pega capturas con Ctrl+V o arrastra archivos', 'ds-mensajes'],
+        ['Confirmación', 'Revisar y anotar',        'Comprueba antes de guardarla', 'CheckSquare'],
+    ];
+
     public const PASOS_EDITAR_REUNION = [
         ['Reunión',      'De qué es la reunión', 'El tema que ven los invitados', 'fa-video'],
         ['Día y hora',   'Cuándo es',            'Las horas en gris ya las tiene Zoom', 'fa-calendar-days'],
@@ -1280,9 +1287,11 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
     /** Riel lateral con la marca del modal y la lista de pasos. */
     public static function wizardRiel(string $icono, string $titulo, string $sub, array $pasos): string
     {
+        // Íconos SVG del panel (admin/iconos) o, los que aún no se pasaron, fa-*
+        $ico = fn(string $n) => str_starts_with($n, 'fa-') ? '<i class="fa-solid ' . e($n) . '" aria-hidden="true"></i>' : self::icono($n);
         $html = '<aside class="wz-riel">'
               . '<div class="wz-marca">'
-              . '<span class="wz-icono"><i class="fa-solid ' . e($icono) . '"></i></span>'
+              . '<span class="wz-icono">' . $ico($icono) . '</span>'
               . '<h3 class="font-display">' . e($titulo) . '</h3>'
               . '<p>' . e($sub) . '</p>'
               . '</div><div class="wz-pasos" role="group" aria-label="Pasos">';
@@ -1291,7 +1300,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
             $icono = $paso[3] ?? '';
             $html .= '<button type="button" class="wz-paso" data-titulo="' . e($tituloPaso) . '" data-ayuda="' . e($ayuda) . '"'
                    . ($icono !== '' ? ' data-icono="' . e($icono) . '"' : '') . '>'
-                   . '<span class="wz-num">' . ($icono !== '' ? '<i class="fa-solid ' . e($icono) . '" aria-hidden="true"></i>' : ($i + 1)) . '</span>'
+                   . '<span class="wz-num">' . ($icono !== '' ? $ico($icono) : ($i + 1)) . '</span>'
                    . '<span class="wz-txt"><b>' . e($corto) . '</b><small>' . e($ayuda) . '</small></span>'
                    . '</button>';
         }
@@ -1469,24 +1478,27 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         $id   = (string)($o['id'] ?? '');
         $ph   = (string)($o['placeholder'] ?? 'Escribe o pega aquí… (puedes pegar tablas)');
 
-        // Botones de la barra: [comando execCommand, valor, icono, título].
+        // Botones de la barra: [comando execCommand, valor, trazo del ícono, título].
+        // Íconos SVG en línea (mismo trazo que los del panel), sin Font Awesome.
         $botones = [
-            ['bold',        '',   'fa-bold',          'Negrita'],
-            ['italic',      '',   'fa-italic',        'Cursiva'],
-            ['underline',   '',   'fa-underline',     'Subrayado'],
-            ['formatBlock', 'h3', 'fa-heading',       'Título'],
-            ['insertUnorderedList', '', 'fa-list-ul',  'Lista'],
-            ['insertOrderedList',   '', 'fa-list-ol',  'Lista numerada'],
-            ['formatBlock', 'blockquote', 'fa-quote-right', 'Cita'],
-            ['createLink',  '',   'fa-link',          'Enlace'],
-            ['insertTable', '',   'fa-table',         'Tabla (Tab pasa a la siguiente celda)'],
-            ['removeFormat','',   'fa-eraser',        'Quitar formato'],
+            ['bold',        '',   '<path d="M7 5h6a3.5 3.5 0 0 1 0 7H7zM7 12h7a3.5 3.5 0 0 1 0 7H7z"/>', 'Negrita'],
+            ['italic',      '',   '<path d="M10 5h8M6 19h8M14 5l-4 14"/>', 'Cursiva'],
+            ['underline',   '',   '<path d="M7 4v7a5 5 0 0 0 10 0V4M5 20h14"/>', 'Subrayado'],
+            ['formatBlock', 'h3', '<path d="M6 5v14M18 5v14M6 12h12"/>', 'Título'],
+            ['insertUnorderedList', '', '<path d="M9.5 6h10.5M9.5 12h10.5M9.5 18h10.5"/><circle cx="4.75" cy="6" r="1.25" fill="currentColor"/><circle cx="4.75" cy="12" r="1.25" fill="currentColor"/><circle cx="4.75" cy="18" r="1.25" fill="currentColor"/>', 'Lista'],
+            ['insertOrderedList',   '', '<path d="M10 6h10M10 12h10M10 18h10M4 4.5l1.5-1V9M3.5 14.5a1.5 1.5 0 0 1 3 .4c0 1-3 2.4-3 3.6h3"/>', 'Lista numerada'],
+            ['formatBlock', 'blockquote', '<path d="M5 7h5v5c0 3-2 5-5 5M14 7h5v5c0 3-2 5-5 5"/>', 'Cita'],
+            ['createLink',  '',   '<path d="M10 14a4 4 0 0 0 5.66 0l3-3a4 4 0 0 0-5.66-5.66l-1 1M14 10a4 4 0 0 0-5.66 0l-3 3a4 4 0 0 0 5.66 5.66l1-1"/>', 'Enlace'],
+            ['insertTable', '',   '<rect x="3.5" y="5" width="17" height="14" rx="2"/><path d="M3.5 10h17M3.5 14.5h17M9.5 10v9M15 10v9"/>', 'Tabla (Tab pasa a la siguiente celda)'],
+            ['removeFormat','',   '<path d="M16 4l4 4-9.5 9.5H6.5L4 15zM9 21h11M12.5 7.5l4 4"/>', 'Quitar formato'],
         ];
         $barra = '';
-        foreach ($botones as [$cmd, $cval, $ico, $tit]) {
+        foreach ($botones as [$cmd, $cval, $trazo, $tit]) {
             $barra .= '<button type="button" class="rt-b" tabindex="-1" data-cmd="' . e($cmd) . '"'
                 . ($cval !== '' ? ' data-val="' . e($cval) . '"' : '')
-                . ' title="' . e($tit) . '"><i class="fa-solid ' . e($ico) . '"></i></button>';
+                . ' title="' . e($tit) . '" aria-label="' . e($tit) . '">'
+                . '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+                . $trazo . '</svg></button>';
         }
 
         $vacio = HtmlRico::vacio($val);

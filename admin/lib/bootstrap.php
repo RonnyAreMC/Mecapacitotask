@@ -419,8 +419,10 @@ function iconoAdjunto(string $ext): string
 // logo.php sirve la imagen de marca a los correos: los clientes la piden sin
 // sesión, así que no puede exigir login (no expone nada privado). video.php es el
 // enlace para compartir un tutorial: solo muestra el video de esa clave.
+// pizarra_api.php contesta en JSON y comprueba la sesión ella misma (un 401, no
+// una redirección al login que luego devolvería a la persona a la API).
 $scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
-if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php'], true)) {
+if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php', 'pizarra_api.php'], true)) {
     Auth::requiereLogin();
 }
 

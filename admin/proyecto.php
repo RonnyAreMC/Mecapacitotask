@@ -1927,7 +1927,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 <div data-vista-panel="observaciones" hidden>
   <section class="card-base tabla-card obs-card" style="--pc:<?= $color ?>">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-comment-dots text-secondary"></i> Observaciones
+      <h2 class="font-display"><?= UI::icono('ds-mensajes', 'text-secondary') ?> Observaciones
         <span class="tabla-count"><?= $obsResumen['total'] ?></span>
       </h2>
       <div class="tabla-filtros">
@@ -1938,85 +1938,138 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
         </div>
         <?php if (!$esSupervisor): ?>
         <button type="button" class="btn-primary btn-meca btn-agregar btn-sm" onclick="document.getElementById('dlg-obs-nueva').showModal()">
-          <i class="fa-solid fa-plus"></i> Nueva observación
+          <?= UI::icono('ds-mas') ?> Nueva observación
         </button>
         <?php endif; ?>
       </div>
     </div>
 
     <?php
-    /** Compositor rápido de observación (reutilizable: inicial + template). */
-    function composerObs(int $id, array $opcionesFiltro, int $fAsignado, array $opcionesDependencia, array $opcionesReunion, array $opcionesDestino): void { ?>
-    <form class="obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
-      <button type="button" class="oc-cerrar" title="Quitar esta nota"><i class="fa-solid fa-xmark"></i></button>
-      <input type="hidden" name="accion" value="obs_crear">
-      <input type="hidden" name="proyecto_id" value="<?= $id ?>">
-      <div class="oc-top">
-        <?php /* A quién va dirigida: uno o varios. Con varios se crea una
-                 observación por persona, igual que ya se hace por tarea. */ ?>
-        <select name="autor_id[]" class="select-meca oc-select" multiple data-ph="¿Para quién? — elige una o varias personas">
-          <?php /* 'all' se despliega en el servidor a todos los que participan
-                   en el proyecto: es la opción para no ir marcando uno a uno. */ ?>
-          <option value="all">Todo el equipo</option>
-          <?php foreach (array_slice($opcionesFiltro, 1, null, true) as $mid => $lbl): ?>
-          <option value="<?= (int)$mid ?>"><?= e($lbl) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <select name="tarea_id[]" class="select-meca oc-select" multiple data-ph="General de la entrega — o elige tareas">
-          <?php foreach (array_slice($opcionesDependencia, 1, null, true) as $tid => $lbl): ?>
-          <option value="<?= (int)$tid ?>"><?= e($lbl) ?></option>
-          <?php endforeach; ?>
-        </select>
-        <?php if ($opcionesReunion): ?>
-        <?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0', false, 'oc-select') ?>
-        <?php endif; ?>
-      </div>
-      <div class="oc-destino">
-        <label class="oc-destino-lbl"><i class="fa-solid fa-bell"></i> Avisar a</label>
-        <select name="destinatarios[]" class="select-meca oc-select" multiple data-ph="Nadie (solo se registra) — o elige a quién avisar">
-          <?php foreach ($opcionesDestino as $mid => $lbl): ?>
-          <option value="<?= e((string)$mid) ?>"><?= e($lbl) ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div class="oc-campo">
-        <?php /* Editor enriquecido, el mismo de las descripciones: permite pegar
-                 tablas y contenido con formato (p. ej. un correo). */ ?>
-        <?= UI::editorRico([
-              'name' => 'texto',
-              'placeholder' => 'Escribe una observación… pega capturas con Ctrl+V o arrástralas aquí.',
-            ]) ?>
-        <div class="oc-previews"></div>
-      </div>
-      <div class="oc-pie">
-        <label class="oc-adjuntar" title="Adjuntar imágenes, PDF o Word">
-          <input type="file" class="oc-file" name="adjuntos[]" multiple hidden
-                 accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx">
-          <i class="fa-solid fa-paperclip"></i> Adjuntar
-        </label>
-        <?php if (UI::ia('obs_redaccion')): ?><?= UI::botonIA('Mejorar redacción', ['ia-obs' => 'redaccion'], 'Reescribe el borrador de forma clara y profesional') ?><?php endif; ?>
-        <?php if (UI::ia('obs_adjunto')): ?><?= UI::botonIA('Describir adjunto', ['ia-obs' => 'adjunto'], 'Redacta la observación mirando la captura o el PDF adjunto') ?><?php endif; ?>
-        <span class="oc-hint"><i class="fa-regular fa-clipboard"></i> Ctrl+V pega imágenes · Ctrl+Enter guarda</span>
-        <button type="submit" class="btn-primary btn-meca btn-agregar btn-sm"><i class="fa-solid fa-comment-medical"></i> Anotar</button>
-      </div>
-    </form>
-    <?php } ?>
+    /* Observación nueva: un asistente de cuatro pasos (sobre qué, para quién, el texto y el
+       resumen). Las tareas y las personas son tarjetas: el título se lee entero y se elige con
+       un clic. Lo manda admin.js (initComposer) por AJAX a obs_crear, que no cambió. */
+    $opcionesReunion = $reunionesRepo->opciones($id);
+    if (!$esSupervisor):
+      $obEstados = (array)Config::get('estados_tarea');
+      $obFinales = Catalogo::estadosFinales();
+      // Las abiertas primero y, entre ellas, la que vence antes
+      $obTareas = array_values($tareas);
+      usort($obTareas, fn($a, $b) => [in_array($a['estado'] ?? '', $obFinales, true), ($a['fecha_limite'] ?? '') ?: '9999']
+                                 <=> [in_array($b['estado'] ?? '', $obFinales, true), ($b['fecha_limite'] ?? '') ?: '9999']);
+    ?>
+    <dialog id="dlg-obs-nueva" class="dlg-meca dlg-wizard dlg-obs-nueva">
+      <form class="dlg-form wz obs-composer" method="post" action="actions.php" enctype="multipart/form-data">
+        <input type="hidden" name="accion" value="obs_crear">
+        <input type="hidden" name="proyecto_id" value="<?= $id ?>">
+        <?= UI::wizardRiel('ds-mensajes', 'Nueva observación', 'En ' . $proyecto['nombre'], UI::PASOS_OBSERVACION) ?>
+        <div class="wz-cuerpo">
+          <header>
+            <div>
+              <h4 class="wz-titulo-paso"></h4>
+              <p class="wz-ayuda-paso"></p>
+            </div>
+            <button type="button" class="dlg-close" onclick="this.closest('dialog').close()" aria-label="Cerrar"><?= UI::icono('ds-cerrar') ?></button>
+          </header>
 
-    <!-- Observación nueva: en un modal (se abre con «Nueva observación») -->
-    <?php $opcionesReunion = $reunionesRepo->opciones($id); ?>
-    <?php if (!$esSupervisor): ?>
-    <dialog class="ds-modal dlg-obs-nueva" id="dlg-obs-nueva" aria-labelledby="dlg-obs-t">
-      <header class="ds-modal__head">
-        <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('mensajes', 18) ?></span>
-        <div><h2 class="ds-modal__title" id="dlg-obs-t">Nueva observación</h2>
-          <p class="ds-modal__sub">Para quién es, de qué tarea y a quién avisar. Puedes pegar capturas con Ctrl+V.</p></div>
-        <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
-      </header>
-      <div class="ds-modal__body">
-        <div class="obs-composers oc-solo" id="obs-composers" data-max="1">
-          <?php composerObs($id, $opcionesFiltro, (int)$fAsignado, $opcionesDependencia, $opcionesReunion, $opcionesDestino); ?>
+          <section class="wz-panel">
+            <div class="campo ob-campo" data-ob-tareas data-resumen="General de la entrega"><span>Sobre</span>
+              <?php if (count($obTareas) > 6): ?>
+              <label class="ob-buscar"><?= UI::icono('ds-buscar') ?><input type="search" placeholder="Buscar una tarea…" data-ob-buscar aria-label="Buscar una tarea"></label>
+              <?php endif; ?>
+              <div class="ob-cards">
+                <label class="ob-card ob-card--general">
+                  <input type="checkbox" data-ob-general checked>
+                  <span class="ob-card__ic"><?= UI::icono('ds-carpeta') ?></span>
+                  <span class="ob-card__txt"><b class="ob-card__tit">General de la entrega</b><small>No es de una tarea en concreto</small></span>
+                </label>
+                <?php foreach ($obTareas as $t): $ek = (string)($t['estado'] ?? 'pendiente'); ?>
+                <label class="ob-card<?= in_array($ek, $obFinales, true) ? ' ob-card--hecha' : '' ?>" data-ob-texto="<?= e(mb_strtolower((string)$t['titulo'])) ?>">
+                  <input type="checkbox" name="tarea_id[]" value="<?= (int)$t['id'] ?>" data-ob-titulo="<?= e($t['titulo']) ?>">
+                  <span class="ob-card__txt">
+                    <span class="ob-estado" style="--ec:<?= e($obEstados[$ek]['color'] ?? '#64748B') ?>"><?= e($obEstados[$ek]['label'] ?? ucfirst($ek)) ?></span>
+                    <b class="ob-card__tit"><?= e($t['titulo']) ?></b>
+                    <span class="ob-card__pie"><?= UI::avatarsAsignados($t, $miembros, 22, 3) ?><?php if (!empty($t['fecha_limite'])): ?><small><?= UI::icono('Calendar') ?> <?= e(date('d/m', strtotime((string)$t['fecha_limite']))) ?></small><?php endif; ?></span>
+                  </span>
+                </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+            <?php if ($opcionesReunion): ?>
+            <label class="campo"><span>De la reunión</span><?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0') ?></label>
+            <?php endif; ?>
+          </section>
+
+          <section class="wz-panel">
+            <div class="campo ob-campo" data-ob-para data-resumen="Nadie en concreto: es del proyecto"><span>Para</span>
+              <div class="ob-cards ob-cards--gente">
+                <label class="ob-card ob-persona">
+                  <input type="checkbox" name="autor_id[]" value="all" data-ob-todos data-ob-nombre="Todo el equipo">
+                  <span class="ob-card__ic"><?= UI::icono('Users') ?></span>
+                  <span class="ob-card__txt"><b class="ob-card__tit">Todo el equipo</b><small><?= count($delProyecto) ?> personas en el proyecto</small></span>
+                </label>
+                <?php foreach ($delProyecto as $m): ?>
+                <label class="ob-card ob-persona">
+                  <input type="checkbox" name="autor_id[]" value="<?= (int)$m['id'] ?>" data-ob-nombre="<?= e($m['nombre']) ?>">
+                  <?= UI::avatar($m, 34) ?>
+                  <span class="ob-card__txt"><b class="ob-card__tit"><?= e($m['nombre']) ?></b><small><?= e((string)($m['rol'] ?? '')) ?></small></span>
+                </label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+            <div class="campo ob-campo" data-ob-avisar data-resumen="Nadie: solo queda registrada"><span>Avisar a</span>
+              <small class="campo-ayuda">Les llega a la campana y por correo. Al elegir para quién es, se marca sola la misma persona.</small>
+              <div class="ob-chips">
+                <label class="ob-chip"><input type="checkbox" name="destinatarios[]" value="all" data-ob-nombre="Todo el proyecto"><span><?= UI::icono('Users') ?> Todo el proyecto</span></label>
+                <?php foreach ($delProyecto as $m): ?>
+                <label class="ob-chip"><input type="checkbox" name="destinatarios[]" value="<?= (int)$m['id'] ?>" data-ob-nombre="<?= e($m['nombre']) ?>"><span><?= UI::avatar($m, 20) ?> <?= e(explode(' ', trim((string)$m['nombre']))[0]) ?></span></label>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </section>
+
+          <section class="wz-panel">
+            <div class="campo ob-campo"><span>Observación</span>
+              <?= UI::editorRico([
+                    'name' => 'texto',
+                    'placeholder' => 'Escribe la observación… pega capturas con Ctrl+V o arrástralas aquí.',
+                  ]) ?>
+            </div>
+            <div class="campo ob-campo" data-ob-adjuntos data-resumen="Ninguno"><span>Adjuntos</span>
+              <?php /* La misma zona del correo (lib/correo_vista.php); los archivos los lleva
+                       initComposer, que también suma las capturas pegadas con Ctrl+V */ ?>
+              <div class="ds-adjuntos ob-adj">
+                <input class="mc-sr-only oc-file" id="ob-adj-<?= $id ?>" type="file" name="adjuntos[]" multiple
+                       accept="image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx">
+                <label class="ds-adjuntos__zona" for="ob-adj-<?= $id ?>">
+                  <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('importar', 18) ?></span>
+                  <span class="ds-adjuntos__txt"><b>Arrastra los archivos aquí o <u>elígelos</u></b><small>Imágenes, PDF o Word · también puedes pegar capturas con Ctrl+V</small></span>
+                </label>
+                <ul class="ds-adjuntos__lista oc-previews"></ul>
+              </div>
+            </div>
+            <?php if (UI::ia('obs_redaccion') || UI::ia('obs_adjunto')): ?>
+            <div class="ob-ia">
+              <?php if (UI::ia('obs_redaccion')): ?><?= UI::botonIA('Mejorar redacción', ['ia-obs' => 'redaccion'], 'Reescribe el borrador de forma clara y profesional') ?><?php endif; ?>
+              <?php if (UI::ia('obs_adjunto')): ?><?= UI::botonIA('Describir adjunto', ['ia-obs' => 'adjunto'], 'Redacta la observación mirando la captura o el PDF adjunto') ?><?php endif; ?>
+            </div>
+            <?php endif; ?>
+            <template class="ob-iconos-adj"><?php foreach (['pdf', 'word', 'excel', 'ppt', 'imagen', 'otro'] as $c) echo '<span data-clase="' . $c . '">' . UI::icono('adj-' . $c) . '</span>'; ?></template>
+          </section>
+
+          <section class="wz-panel">
+            <dl class="wz-resumen"></dl>
+          </section>
+
+          <div class="wz-pie">
+            <span class="wz-contador"></span>
+            <div class="wz-acciones">
+              <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><?= UI::icono('ds-chevron-izq') ?> Atrás</button>
+              <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <?= UI::icono('ds-chevron-der') ?></button>
+              <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><?= UI::icono('ds-mensajes') ?> Anotar</button>
+            </div>
+          </div>
         </div>
-      </div>
+      </form>
     </dialog>
     <?php endif; ?>
 

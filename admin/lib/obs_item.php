@@ -48,37 +48,37 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
         <div class="obs-autor">
           <b><?= e($paraNombres ? implode(', ', $paraNombres) : ($autor['nombre'] ?? 'Alguien')) ?></b>
           <span class="obs-meta">
-            <?php if ($esRecord): ?><span class="obs-tipo-record"><i class="fa-solid fa-bell"></i> Recordatorio</span> · <?php endif; ?>
+            <?php if ($esRecord): ?><span class="obs-tipo-record"><?= UI::icono('ds-notificaciones') ?> Recordatorio</span> · <?php endif; ?>
             <span class="obs-equipo"><?= UI::iconoEquipo((string)($o['equipo'] ?? ''), $eqIcono, 'ico-equipo--chip') ?> <?= e($eqLabel) ?></span>
             · <?= e($o['creado'] ?? '') ?>
             <?php if ($creador): ?>
             · <span class="obs-creador" title="Quién anotó esta observación">
-                <i class="fa-solid fa-pen"></i> la anotó <?= e($creador['nombre']) ?>
+                <?= UI::icono('ds-editar') ?> la anotó <?= e($creador['nombre']) ?>
               </span>
             <?php endif; ?>
           </span>
         </div>
         <span class="obs-destino">
           <?php if ($tRef): ?>
-            <i class="fa-regular fa-square-check"></i> <?= e(mb_strimwidth($tRef['titulo'], 0, 40, '…')) ?>
+            <?= UI::icono('CheckSquare') ?> <?= e(mb_strimwidth($tRef['titulo'], 0, 40, '…')) ?>
           <?php else: ?>
-            <i class="fa-solid fa-layer-group"></i> General de la entrega
+            <?= UI::icono('ds-categoria') ?> General de la entrega
           <?php endif; ?>
         </span>
         <span class="obs-estado <?= $pend ? 'e-pend' : 'e-res' ?>">
-          <i class="fa-solid <?= $pend ? 'fa-circle-dot' : 'fa-circle-check' ?>"></i>
+          <?= UI::icono($pend ? 'ds-reloj' : 'ds-exito') ?>
           <?= $pend ? 'Pendiente' : 'Resuelta' ?>
         </span>
       </div>
 
       <?php if ($rRef): ?>
       <a class="obs-reunion" href="proyecto.php?id=<?= (int)$rRef['proyecto_id'] ?>#vista-reuniones" title="De la reunión">
-        <i class="fa-solid fa-video"></i> <?= e(mb_strimwidth($rRef['topic'], 0, 40, '…')) ?>
+        <?= UI::icono('ds-video') ?> <?= e(mb_strimwidth($rRef['topic'], 0, 40, '…')) ?>
       </a>
       <?php endif; ?>
 
       <?php if ($destNombres): ?>
-      <p class="obs-para"><i class="fa-solid fa-bell"></i> Para: <?= e(implode(', ', $destNombres)) ?></p>
+      <p class="obs-para"><?= UI::icono('ds-notificaciones') ?> Para: <?= e(implode(', ', $destNombres)) ?></p>
       <?php endif; ?>
 
       <?php if (!HtmlRico::vacio($o['texto'] ?? '')): ?><div class="obs-texto rt-render"><?= $o['texto'] ?></div><?php endif; ?>
@@ -95,15 +95,15 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
         <?php elseif ($extA === 'pdf'): ?>
         <a class="obs-doc" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" title="Ver <?= e($a['nombre']) ?>"
            data-visor data-nombre="<?= e($a['nombre']) ?>" data-ext="pdf">
-          <i class="fa-solid fa-file-pdf"></i>
+          <?= UI::icono('adj-pdf') ?>
           <span><?= e($a['nombre']) ?></span>
-          <i class="fa-solid fa-eye"></i>
+          <?= UI::icono('ds-ver') ?>
         </a>
         <?php else: /* Word: el navegador no lo muestra, se descarga */ ?>
         <a class="obs-doc" href="<?= e($a['ruta']) ?>" target="_blank" rel="noopener" download>
-          <i class="fa-solid fa-file-word"></i>
+          <?= UI::icono('adj-word') ?>
           <span><?= e($a['nombre']) ?></span>
-          <i class="fa-solid fa-download"></i>
+          <?= UI::icono('ds-descargar') ?>
         </a>
         <?php endif; endforeach; ?>
       </div>
@@ -112,7 +112,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
       <div class="obs-acciones">
         <?php if (!$esRespuesta): ?>
         <button type="button" class="accion-btn obs-responder" data-obs="<?= (int)$o['id'] ?>">
-          <i class="fa-solid fa-reply"></i> Responder
+          <?= UI::icono('ChatText') ?> Responder
         </button>
         <?php if (!empty($o['respuestas']) && UI::ia('obs_resumen') && puedeGestionar((int)($o['proyecto_id'] ?? 0))): ?>
         <?= UI::botonIA('Resumir hilo', ['ia-obs-resumen' => (int)$o['id']], 'Resumen de la observación y sus respuestas') ?>
@@ -123,7 +123,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
           <input type="hidden" name="accion" value="obs_estado">
           <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
           <button class="accion-btn <?= $pend ? '' : 'accion-hecho' ?>">
-            <i class="fa-solid <?= $pend ? 'fa-check' : 'fa-rotate-left' ?>"></i>
+            <?= UI::icono($pend ? 'ds-check' : 'RotateLeft') ?>
             <?= $pend ? 'Marcar resuelta' : 'Reabrir' ?>
           </button>
         </form>
@@ -132,7 +132,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
               data-confirmar-titulo="¿Eliminar observación?" data-confirmar-ok="Sí, eliminar">
           <input type="hidden" name="accion" value="obs_eliminar">
           <input type="hidden" name="id" value="<?= (int)$o['id'] ?>">
-          <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
+          <button class="accion-btn accion-peligro" title="Eliminar"><?= UI::icono('ds-eliminar') ?></button>
         </form>
         </span>
       </div>
@@ -149,7 +149,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
           <textarea name="texto" rows="2" class="input-meca" placeholder="Responder en este hilo…"></textarea>
           <div class="obs-responder-pie">
             <button type="button" class="btn-outline btn-meca btn-sm btn-neutro obs-responder-cancelar">Cancelar</button>
-            <button class="btn-primary btn-meca btn-sm btn-agregar"><i class="fa-solid fa-paper-plane"></i> Responder</button>
+            <button class="btn-primary btn-meca btn-sm btn-agregar"><?= UI::icono('ds-enviar') ?> Responder</button>
           </div>
         </form>
       </div>
