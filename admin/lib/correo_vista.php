@@ -347,11 +347,25 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
         ? UI::vacioDS('nexo:pensando', 'Sin resultados', 'No hay correos en ' . $carpeta['etiqueta'] . ' que coincidan con «' . $q . '».', '', 'sm', false)
         : UI::vacioDS('nexo:descansando', 'No hay correos aquí', $carpeta['etiqueta'] . ' está vacía.', '', 'sm', false) ?>
   <?php else: ?>
-  <ul class="correo-lista">
+  <?php if (!$enviados): /* Elegir varios con su casilla y marcarlos de una (leídos o no leídos) */ ?>
+  <form method="post" action="actions.php" id="correo-sel" class="correo-sel-barra" hidden>
+    <input type="hidden" name="accion" value="correo_marcar_varios"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
+    <input type="hidden" name="p" value="<?= (int)$lista['pagina'] ?>"><input type="hidden" name="q" value="<?= e($q) ?>">
+    <label class="correo-sel-todos"><input type="checkbox" data-correo-sel-todos aria-label="Todos los de esta página"><span>Todos los de esta página</span></label>
+    <span class="correo-sel-n"><b data-correo-sel-n>0</b> <span data-correo-sel-txt>seleccionados</span></span>
+    <button class="mc-btn mc-btn--primary mc-btn--sm" name="leido" value="1"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar como leídos</span></button>
+    <button class="mc-btn mc-btn--secondary mc-btn--sm" name="leido" value="0"><?= UI::iconoDS('correo', 16) ?><span class="mc-btn__label">Marcar como no leídos</span></button>
+    <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-correo-sel-quitar aria-label="Quitar selección" data-ds-tip="Quitar selección (Esc)"><?= UI::iconoDS('cerrar', 18) ?></button>
+  </form>
+  <?php endif; ?>
+  <ul class="correo-lista<?= $enviados ? '' : ' correo-lista--sel' ?>">
     <?php foreach ($lista['items'] as $it):
         $quien = $enviados ? ($it['para'][0] ?? ['nombre' => '', 'email' => '']) : $it['de']; ?>
     <li>
       <?php $prioL = (int)($it['prioridad'] ?? 3); ?>
+      <?php if (!$enviados): ?>
+      <label class="correo-sel"><input type="checkbox" name="uids[]" value="<?= (int)$it['uid'] ?>" form="correo-sel" aria-label="Elegir «<?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?>»"></label>
+      <?php endif; ?>
       <a class="correo-fila<?= $it['leido'] ? '' : ' is-nuevo' ?><?= $prioL !== 3 ? ' correo-fila--p' . $prioL : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'uid' => $it['uid']])) ?>">
         <span class="correo-ini" style="background:<?= e(correoColor($quien['email'])) ?>" aria-hidden="true"><?= e(correoIniciales($quien)) ?></span>
         <span class="correo-txt">
@@ -387,6 +401,38 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
     </li>
     <?php endforeach; ?>
   </ul>
+  <script>
+  // Elegir varios correos con su casilla: la barra sale con cuántos van y marca todos de una.
+  // Shift+clic marca el tramo desde la última casilla tocada; Esc quita la selección.
+  (() => {
+    const barra = document.getElementById('correo-sel');
+    if (!barra) return;
+    const casillas = [...document.querySelectorAll('.correo-sel input[form="correo-sel"]')];
+    const todos = barra.querySelector('[data-correo-sel-todos]');
+    let ultima = null;
+    const pintar = () => {
+      const n = casillas.filter((c) => c.checked).length;
+      barra.hidden = n === 0;
+      barra.querySelector('[data-correo-sel-n]').textContent = n;
+      barra.querySelector('[data-correo-sel-txt]').textContent = n === 1 ? 'seleccionado' : 'seleccionados';
+      todos.checked = n === casillas.length;
+      todos.indeterminate = n > 0 && n < casillas.length;
+      casillas.forEach((c) => c.closest('li').classList.toggle('is-sel', c.checked));
+    };
+    casillas.forEach((c, i) => c.addEventListener('click', (e) => {
+      if (e.shiftKey && ultima !== null) {
+        const [a, b] = [Math.min(ultima, i), Math.max(ultima, i)];
+        for (let k = a; k <= b; k++) casillas[k].checked = c.checked;
+      }
+      ultima = i;
+      pintar();
+    }));
+    todos.addEventListener('change', () => { casillas.forEach((c) => { c.checked = todos.checked; }); pintar(); });
+    barra.querySelector('[data-correo-sel-quitar]').addEventListener('click', () => { casillas.forEach((c) => { c.checked = false; }); pintar(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !barra.hidden) { casillas.forEach((c) => { c.checked = false; }); pintar(); } });
+    pintar();
+  })();
+  </script>
   <?php endif; ?>
     <?php
 }

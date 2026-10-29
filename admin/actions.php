@@ -75,7 +75,7 @@ $accionesDeCualquiera = [
     'tutorial_visto',
     // Correo InnoTech: cada persona maneja SOLO su buzón (dentro se usa la
     // sesión de quien entró). correo_conf queda para el administrador.
-    'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_leidos', 'correo_eliminar',
+    'correo_conectar', 'correo_desconectar', 'correo_enviar', 'correo_marcar', 'correo_marcar_varios', 'correo_leidos', 'correo_eliminar',
     // Notificaciones nativas: cada persona anota y quita SUS dispositivos
     'push_suscribir', 'push_quitar', 'push_prefs', 'push_prueba',
     // Releases: los ven los editores y los Scrum Master; cada acción comprueba
@@ -1118,6 +1118,7 @@ switch ($accion) {
     case 'correo_desconectar':
     case 'correo_enviar':
     case 'correo_marcar':
+    case 'correo_marcar_varios':
     case 'correo_leidos':
     case 'correo_eliminar':
     case 'correo_conf':
@@ -1173,6 +1174,25 @@ switch ($accion) {
                 if ($carpC['tipo'] === 'inbox') Correo::anotarNoLeidos($midC, 0);
                 $imapC->cerrar();
                 redirigir($urlC(['c' => $carpC['nombre']]), $nC ? 'Listo: todo ' . $carpC['etiqueta'] . ' está leído.' : 'No había correos sin leer.', $nC ? 'success' : 'info');
+            }
+            // Los elegidos con su casilla: leídos o no leídos, todos de una
+            if ($accion === 'correo_marcar_varios') {
+                $volverVC = ['p' => max(0, (int)($_POST['p'] ?? 0)), 'q' => mb_substr(trim((string)($_POST['q'] ?? '')), 0, 100)];
+                $uidsC = array_slice(array_values(array_unique(array_filter(array_map('intval', (array)($_POST['uids'] ?? [])), fn($u) => $u > 0))), 0, 500);
+                if (!$uidsC) redirigir($urlC(['c' => $cC] + $volverVC), 'Elige primero los correos con su casilla.', 'info');
+                $leidoC = !empty($_POST['leido']);
+                $imapC  = Correo::abrir($midC);
+                $carpC  = Correo::carpetaValida(Correo::carpetas($imapC, $midC), $cC);
+                $imapC->abrir($carpC['nombre'], true);
+                $imapC->marcarVarios($uidsC, '\\Seen', $leidoC);
+                if (class_exists('CorreoCopias')) foreach ($uidsC as $uC) CorreoCopias::marcar($midC, $carpC['nombre'], $uC, $leidoC);
+                if ($carpC['tipo'] === 'inbox') {   // el número de la campana y del menú, al día
+                    Correo::anotarNoLeidos($midC, class_exists('CorreoCopias') ? CorreoCopias::noLeidos($imapC, $midC, 'INBOX') : (int)$imapC->estado('INBOX')['no_leidos']);
+                }
+                $imapC->cerrar();
+                $nVC = count($uidsC);
+                redirigir($urlC(['c' => $carpC['nombre']] + $volverVC),
+                    'Listo: ' . $nVC . ($nVC === 1 ? ' correo marcado como ' : ' correos marcados como ') . ($leidoC ? 'leído' : 'no leído') . ($nVC === 1 ? '.' : 's.'));
             }
             if ($accion === 'correo_marcar' || $accion === 'correo_eliminar') {
                 $uidC   = (int)($_POST['uid'] ?? 0);
