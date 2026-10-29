@@ -1697,230 +1697,75 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 </dialog>
 <?php endif; ?>
 
-<!-- Vista Reuniones (Zoom) -->
+<!-- Vista Reuniones: las próximas por día y lo último que pasó, con solo
+     botones de ícono (el mismo pintado de la suite reuniones.php, en
+     lib/reuniones_ui.php). Todo lo de cada una —la grabación, la
+     transcripción, el acta con IA, editar y eliminar— está en su detalle
+     (reunion.php); el historial entero, en reuniones.php?ver=historial. -->
 <div data-vista-panel="reuniones" hidden>
-  <section class="card-base tabla-card" style="--pc:<?= $color ?>">
+  <?php
+    require_once __DIR__ . '/lib/reuniones_ui.php';
+    $ruAhora    = time();
+    $ruProximas = ReunionesUI::proximas($reuniones, [$id => $proyecto], $ruAhora);
+    $ruPasadas  = array_slice(ReunionesUI::pasadas($reuniones, [$id => $proyecto], $ruAhora), 0, 5);
+    $ruCtx      = ['ahora' => $ruAhora, 'miembros' => $miembros, 'proyecto' => false,
+                   'rastros' => ReunionesUI::rastros(array_map(fn($v) => $v['r'], $ruPasadas))];
+  ?>
+  <section class="card-base tabla-card ru-proy" style="--pc:<?= $color ?>">
     <div class="tabla-toolbar">
-      <h2 class="font-display"><i class="fa-solid fa-video text-secondary"></i> Reuniones
-        <span class="tabla-count"><?= count($reuniones) ?></span>
+      <h2 class="font-display"><?= UI::icono('ds-video', 'text-secondary') ?> Reuniones
+        <?php if ($ruProximas): ?><span class="tabla-count" title="Próximas"><?= count($ruProximas) ?></span><?php endif; ?>
       </h2>
-      <?php if (UI::ia('daily_resumen') && puedeGestionar($id)):
-          // Desde el último día hábil: el lunes mira desde el viernes.
-          $wIa = (int)date('w');
-          $desdeIa = date('Y-m-d', strtotime($wIa === 1 ? '-3 day' : ($wIa === 0 ? '-2 day' : '-1 day'))); ?>
-      <?= UI::botonIA('Resumen para el daily', ['ia-daily' => $id, 'desde' => $desdeIa], 'Qué hizo cada persona (commits y tareas) y en qué sigue') ?>
-      <?php endif; ?>
-      <?php if ($reunionesOn): ?>
-      <?php if ($puedeReuniones): ?>
-      <button class="btn-primary btn-meca" onclick="document.getElementById('dlg-nueva-reunion').showModal()">
-        <i class="fa-solid fa-plus"></i> Nueva reunión
-      </button>
-      <?php endif; ?>
-      <?php else: ?>
-      <a class="btn-outline btn-meca btn-azul btn-sm" href="ajustes.php#tab-reuniones"><i class="fa-solid fa-gear"></i> Configurar reuniones</a>
-      <?php endif; ?>
+      <div class="ru-acc ru-proy__acc">
+        <?php if (UI::ia('daily_resumen') && puedeGestionar($id)):
+            // Desde el último día hábil: el lunes mira desde el viernes.
+            $wIa = (int)date('w');
+            $desdeIa = date('Y-m-d', strtotime($wIa === 1 ? '-3 day' : ($wIa === 0 ? '-2 day' : '-1 day'))); ?>
+        <?= ReunionesUI::ico('ds-ia', 'Resumen para el daily con IA: qué hizo cada persona (commits y tareas) y en qué sigue', '', 'ru-ico--ia', 'data-ia-daily="' . $id . '" data-desde="' . e($desdeIa) . '"') ?>
+        <?php endif; ?>
+        <?= ReunionesUI::ico('ds-reloj', 'Historial de las reuniones de este proyecto', 'reuniones.php?ver=historial&p=' . $id) ?>
+        <?php if ($reunionesOn && $puedeReuniones): ?>
+        <?= ReunionesUI::ico('ds-mas', 'Nueva reunión', '', 'ru-ico--nueva', 'aria-haspopup="dialog" onclick="document.getElementById(\'dlg-nueva-reunion\').showModal()"') ?>
+        <?php elseif (!$reunionesOn): ?>
+        <?= ReunionesUI::ico('ds-configuracion', 'Configurar reuniones (Zoom o Google Meet)', 'ajustes.php#tab-reuniones') ?>
+        <?php endif; ?>
+      </div>
     </div>
 
     <?php if (!$reunionesOn): ?>
-      <div class="obs-intro"><i class="fa-solid fa-video"></i>
+      <div class="obs-intro"><?= UI::icono('ds-video') ?>
         <span>Ve a <a href="ajustes.php#tab-reuniones">Ajustes → Reuniones</a> y configura Zoom —o activa Google
         Calendar— para crear reuniones desde aquí: sueltas o repetidas (por ejemplo, todos los días de lunes a
         viernes), con sus invitados y sus grabaciones.</span>
       </div>
     <?php endif; ?>
-    <?php if (empty($reuniones)): ?>
-      <?php if ($reunionesOn): ?><?= UI::vacio('fa-video', 'Sin reuniones', 'Crea la primera reunión (Zoom o Google Meet) de este proyecto con el botón de arriba.') ?><?php endif; ?>
-    <?php else: ?>
-    <?php
-      // Fecha larga de una ocurrencia: "Miércoles 13 ago · 10:00".
-      $mesCorto = [1 => 'ene', 2 => 'feb', 3 => 'mar', 4 => 'abr', 5 => 'may', 6 => 'jun', 7 => 'jul', 8 => 'ago', 9 => 'sep', 10 => 'oct', 11 => 'nov', 12 => 'dic'];
-      $fechaDia = function (string $dt) use ($mesCorto) {
-          $ts = strtotime($dt);
-          if ($ts === false) return $dt;
-          return Reuniones::DIAS[(int)date('N', $ts)][1] . ' ' . (int)date('j', $ts)
-               . ' ' . $mesCorto[(int)date('n', $ts)] . ' · ' . date('H:i', $ts);
-      };
-    ?>
-    <?php
-      // Grabaciones: se abren desde Drive (lib/ZoomDrive.php las pasa solas cada hora).
-      // Mientras no llegan, «Esperando, aún no se ha guardado un respaldo» y nada más;
-      // sin rastro y de hace días, «Sin grabación».
-      if (!class_exists('ZoomDrive') && is_file(__DIR__ . '/lib/ZoomDrive.php')) require_once __DIR__ . '/lib/ZoomDrive.php';
-      $grabDrive = class_exists('ZoomDrive') ? ZoomDrive::deReuniones(array_column($reuniones, 'zoom_id')) : [];
-      $buscandoGrab = class_exists('ZoomDrive') && ZoomDrive::buscandoTodo();
-      $grabacion = function (array $r, string $dia, int $termino) use ($grabDrive, $buscandoGrab): string {
-          $porDia = $grabDrive[(string)($r['zoom_id'] ?? '')] ?? [];
-          // Sin día (reunión suelta): la del último día que tenga
-          $g = $dia !== '' ? ($porDia[$dia] ?? null) : ($porDia ? $porDia[max(array_keys($porDia))] : null);
-          if ($g && $g['ver'] !== '') {
-              return '<a class="accion-btn accion-grab" href="' . e($g['ver']) . '" target="_blank" rel="noopener" title="Ver la grabación en Drive">' . UI::iconoVideo() . ' Grabación</a>';
-          }
-          if (($g && $g['pendiente']) || time() - $termino < 2 * 86400 || $buscandoGrab) {
-              return '<span class="grab-espera"><i class="fa-regular fa-hourglass-half"></i> Esperando, aún no se ha guardado un respaldo</span>';
-          }
-          return '<span class="grab-sin">Sin grabación</span>';
-      };
-    ?>
-    <div class="reu-lista">
-      <?php foreach ($reuniones as $r):
-          $repite = Reuniones::esRecurrente($r);
-          // Una reunión que se repite no está "finalizada" hasta que pasa su último día
-          $fin = $repite
-              ? (int)strtotime($r['hasta'] . ' 23:59:59')
-              : (int)strtotime($r['inicio'] ?? 'now') + ((int)$r['duracion'] * 60);
-          $pasada = $fin < time();
-          $invita = array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, $r['invitados'] ?? []));
-          $platReu  = $r['plataforma'] ?? 'zoom';
-          $esMeet   = $platReu === 'meet';
-          $esEnlace = $platReu === 'enlace';
-      ?>
-      <article class="reu-item">
-        <div class="reu-icono <?= $pasada ? 'reu-pasada' : 'reu-proxima' ?> <?= $esMeet ? 'reu-meet' : 'reu-zoom' ?>">
-          <i class="fa-solid <?= $esMeet ? 'fa-video' : 'fa-video' ?>"></i></div>
-        <div class="reu-info">
-          <b><?= e($r['topic']) ?></b>
-          <span class="reu-meta">
-            <span class="reu-plat <?= $esEnlace ? 'plat-enlace' : ($esMeet ? 'plat-meet' : 'plat-zoom') ?>"
-                  <?= $esEnlace ? 'title="Enlace puesto a mano: esta reunión no queda grabada"' : '' ?>>
-              <?= e(Reuniones::etiquetaPlataforma($platReu)) ?>
-            </span>
-            <i class="fa-regular fa-calendar"></i> <?= e($r['inicio']) ?> · <?= (int)$r['duracion'] ?> min
-            <?php if ($repite): ?>
-            <span class="reu-repite" title="<?= e(Reuniones::resumen($r)) ?>">
-              <i class="fa-solid fa-repeat"></i> <?= e(Reuniones::etiqueta((array)$r['dias'])) ?> · hasta <?= e($r['hasta']) ?>
-            </span>
-            <?php endif; ?>
-            <span class="reu-estado <?= $pasada ? 'e-pasada' : 'e-proxima' ?>"><?= $pasada ? 'Finalizada' : 'Próxima' ?></span>
-          </span>
-          <?php if ($invita): ?>
-          <span class="reu-invitados"><?= UI::avatarStack(array_values($invita), 6, 26) ?>
-            <small><?= count($invita) ?> invitado<?= count($invita) === 1 ? '' : 's' ?></small></span>
-          <?php endif; ?>
-        </div>
-        <div class="reu-acciones">
-          <?php if (!$pasada): ?>
-          <a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button>
-          <?php if (!empty($r['start_url'])): ?>
-          <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
-          <?php endif; ?>
-          <?php endif; ?>
-          <?php /* La pizarra de la reunión (pizarra.php): para marcar, armar el Kanban o explicar en vivo. Queda después de la reunión. */ ?>
-          <a class="btn-outline btn-meca btn-sm reu-pizarra" href="pizarra.php?reunion=<?= (int)$r['id'] ?>" title="Pizarra de la reunión: notas, Kanban y dibujos entre todos, en vivo"><?= UI::icono('pz-pizarra') ?> Pizarra</a>
-          <?php if ($platReu === 'zoom' && !$repite): /* grabación y transcripción (de Drive); en las recurrentes van por día, más abajo */ ?>
-          <?php if ($pasada): ?><?= $grabacion($r, '', $fin) ?><?php endif; ?>
-          <?php if ($pasada): ?>
-          <!-- Transcripción para Claude: la acción la lee de Drive -->
-          <form method="post" action="actions.php" class="inline-form" data-descarga>
-            <input type="hidden" name="accion" value="reunion_transcripcion">
-            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-            <button class="accion-btn accion-claude" data-tip="Lleva esto a Claude Code para que tenga el contexto de la reunión">
-              <img src="assets/claude.svg" alt="" width="16" height="16"> Transcripción
-            </button>
-          </form>
-          <?php endif; ?>
-          <?php endif; /* zoom */ ?>
-          <?php if ($pasada && UI::ia('acta_reunion') && puedeGestionar($id)): ?>
-          <?= UI::botonIA('Acta', ['ia-acta' => 1, 'reunion' => (int)$r['id'], 'zoom' => $esMeet ? '0' : '1',
-                                   'titulo' => (string)($r['topic'] ?? '')], 'Acta de la reunión con IA: resumen, acuerdos y tareas') ?>
-          <?php endif; ?>
-          <?php $reuData = htmlspecialchars(json_encode([
-              'id'        => (int)$r['id'],
-              'topic'     => (string)($r['topic'] ?? ''),
-              'inicio'    => str_replace(' ', 'T', (string)($r['inicio'] ?? '')),
-              'duracion'  => (int)$r['duracion'],
-              'invitados' => array_map('intval', $r['invitados'] ?? []),
-              'recurrente'=> $repite,
-              'dias'      => array_map('intval', (array)($r['dias'] ?? [])),
-              'hasta'     => (string)($r['hasta'] ?? ''),
-          ], JSON_UNESCAPED_UNICODE), ENT_QUOTES); ?>
-          <?php if ($puedeReuniones): ?>
-          <button type="button" class="accion-btn js-editar-reunion" data-editar-reunion='<?= $reuData ?>' title="Editar / invitar a más gente"><i class="fa-solid fa-pen"></i></button>
-          <form method="post" action="actions.php" class="inline-form"
-                data-confirmar="Se eliminará la reunión «<?= e($r['topic']) ?>» del panel y de <?= $esMeet ? 'Google Calendar' : 'Zoom' ?>."
-                data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">
-            <input type="hidden" name="accion" value="reunion_eliminar">
-            <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-            <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
-          </form>
-          <?php endif; ?>
-        </div>
-      </article>
 
-      <?php if ($repite):
-        // Historial por día: una reunión recurrente es UNA sola fila, pero el
-        // equipo la vive como una reunión por día. Aquí se despliega en sus
-        // ocurrencias, para que quede constancia de qué días SÍ hubo reunión
-        // (con su grabación y su resumen) y qué días no — que es lo que mira
-        // quien revisa el rendimiento.
-        $ocs   = Reuniones::fechasOcurrencias((string)$r['inicio'], (array)$r['dias'], (string)$r['hasta']);
-        $ahora = time();
-        $dSeg  = (int)$r['duracion'] * 60;
-        $pasadas = []; $proximas = []; $enCurso = null;
-        foreach ($ocs as $oc) {
-            $iniOc = strtotime($oc); $finOc = $iniOc + $dSeg;
-            if ($finOc < $ahora)                    $pasadas[] = $oc;
-            elseif ($iniOc <= $ahora)               $enCurso   = $oc;   // ya empezó, no ha acabado
-            else                                    $proximas[] = $oc;
-        }
-        $pasadasDesc = array_reverse($pasadas);     // la más reciente arriba
-        $totalPas = count($pasadas);
-      ?>
-      <details class="reu-hist"<?= $totalPas ? ' open' : '' ?>>
-        <summary>
-          <i class="fa-solid fa-clock-rotate-left"></i>
-          <b><?= $totalPas ?></b> reunión<?= $totalPas === 1 ? '' : 'es' ?> ya realizada<?= $totalPas === 1 ? '' : 's' ?>
-          <?php if ($enCurso): ?><span class="reu-dia-tag t-hoy">1 en curso</span>
-          <?php elseif ($proximas): ?><small>· quedan <?= count($proximas) ?> por venir</small><?php endif; ?>
-        </summary>
-        <ul class="reu-dias">
-          <?php if ($enCurso): ?>
-          <li class="reu-dia reu-dia-hoy">
-            <span class="reu-dia-fecha"><i class="fa-solid fa-circle-dot"></i> <?= e($fechaDia($enCurso)) ?></span>
-            <span class="reu-dia-tag t-hoy">En curso</span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
-          </li>
-          <?php elseif ($proximas): ?>
-          <li class="reu-dia reu-dia-prox">
-            <span class="reu-dia-fecha"><i class="fa-regular fa-calendar"></i> Próxima: <?= e($fechaDia($proximas[0])) ?></span>
-            <span class="reu-dia-acc"><a class="btn-meca btn-sm btn-zoom" href="reunion_entrar.php?id=<?= (int)$r['id'] ?>" target="_blank" rel="noopener" title="Entrar (queda anotado para la asistencia)"><i class="fa-solid fa-arrow-right-to-bracket"></i> Entrar</a><button type="button" class="btn-outline btn-meca btn-sm btn-copiar reu-copiar" data-copiar="<?= e($r['join_url']) ?>" title="Copiar enlace de la reunión"><?= UI::iconoCopiar() ?> Copiar</button></span>
-          </li>
-          <?php endif; ?>
-
-          <?php if (!$pasadasDesc): ?>
-          <li class="reu-dia reu-dia-vacio">Todavía no ha ocurrido ningún día de esta reunión.</li>
-          <?php endif; ?>
-
-          <?php foreach ($pasadasDesc as $oc): $fechaOc = substr($oc, 0, 10); ?>
-          <li class="reu-dia reu-dia-pasada">
-            <span class="reu-dia-fecha"><i class="fa-solid fa-check reu-dia-ok"></i> <?= e($fechaDia($oc)) ?></span>
-            <span class="reu-dia-acc">
-              <?php if ($platReu !== 'zoom'): ?>
-                <span class="reu-dia-nota">Reunión realizada</span>
-              <?php else: ?>
-                <?= $grabacion($r, $fechaOc, strtotime($oc) + $dSeg) ?>
-              <?php endif; ?>
-              <?php if ($platReu === 'zoom'): ?>
-              <form method="post" action="actions.php" class="inline-form" data-descarga>
-                <input type="hidden" name="accion" value="reunion_transcripcion">
-                <input type="hidden" name="id" value="<?= (int)$r['id'] ?>">
-                <input type="hidden" name="ocurrencia" value="<?= e($fechaOc) ?>">
-                <button class="accion-btn accion-claude" data-tip="Lleva el resumen de ese día a Claude Code">
-                  <img src="assets/claude.svg" alt="" width="16" height="16"> Resumen
-                </button>
-              </form>
-              <?php endif; ?>
-              <?php if (UI::ia('acta_reunion') && puedeGestionar($id)): ?>
-              <?= UI::botonIA('Acta', ['ia-acta' => 1, 'reunion' => (int)$r['id'], 'ocurrencia' => $fechaOc, 'zoom' => $esMeet ? '0' : '1',
-                                       'titulo' => (string)($r['topic'] ?? '') . ' · ' . $fechaOc], 'Acta de ese día con IA') ?>
-              <?php endif; ?>
-            </span>
-          </li>
-          <?php endforeach; ?>
-        </ul>
-      </details>
+    <div class="ru ru--proy">
+      <?php $ruHtml = ReunionesUI::proximasHtml($ruProximas, $ruCtx); ?>
+      <?php if ($ruHtml !== ''): ?>
+      <div class="ru-lista"><?= $ruHtml ?></div>
+      <?php elseif ($reunionesOn || $reuniones): ?>
+      <?= ReunionesUI::vacio('CalendarCheck', 'No hay reuniones por venir', $reunionesOn && $puedeReuniones ? 'Crea una con el botón + de arriba: suelta o repetida, con sus invitados.' : 'Cuando agenden una en este proyecto, sale aquí en su día.') ?>
       <?php endif; ?>
-      <?php endforeach; ?>
+
+      <?php if ($ruPasadas): ?>
+      <div class="ru-ultimas">
+        <header class="ru-ultimas__cab">
+          <h3 class="ru-ultimas__t">Lo último</h3>
+          <a class="rs-card__ver" href="reuniones.php?ver=historial&amp;p=<?= $id ?>">Ver todo el historial</a>
+        </header>
+        <div class="ru-lista"><?= ReunionesUI::dias($ruPasadas, $ruCtx, true) ?></div>
+      </div>
+      <?php endif; ?>
     </div>
+
+    <?php
+    // Desde el detalle (reunion.php), «Editar» llega con ?editar_reunion=ID: este botón
+    // escondido lleva los datos de esa reunión y admin.js lo pulsa para abrir el asistente.
+    $ruEditar = (int)($_GET['editar_reunion'] ?? 0);
+    $ruEditarR = $ruEditar && $puedeReuniones && $reunionesOn ? $reunionesRepo->buscar($ruEditar) : null;
+    if ($ruEditarR && (int)$ruEditarR['proyecto_id'] === $id): ?>
+    <button type="button" class="js-editar-reunion" data-editar-reunion='<?= ReunionesUI::datosEditar($ruEditarR) ?>' data-ru-abrir hidden></button>
     <?php endif; ?>
   </section>
 </div>

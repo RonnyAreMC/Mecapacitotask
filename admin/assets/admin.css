@@ -10103,3 +10103,410 @@ html.dark .ia-btn .ia-estrellas, html.dark .ia-estrellas { color: #A5B4FC; }
   .campo:has(> .ia-acciones) > .ia-acciones { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
 }
 @media (prefers-reduced-motion: reduce) { .ia-btn:hover .ia-estrellas { animation: none; } }
+
+/* =========================================================
+   Reuniones: la suite (reuniones.php), el detalle de una reunión
+   (reunion.php) y la pestaña Reuniones del proyecto. El pintado es de
+   lib/reuniones_ui.php; el buscador y la pieza de las pestañas, admin.js.
+
+   Como el inicio de Zoom y de Meet: la hora grande en su baldosa, el
+   tema y su renglón (plataforma, proyecto, duración), los invitados y
+   solo botones redondos de ícono (su nombre sale en la ayuda de vidrio).
+   «Entrar» es el único verde; lo que está en curso o empieza pronto va
+   arriba con el borde de vidrio que gira (el de la reunión del Resumen).
+   Tarjetas planas: el desenfoque queda para lo que flota. Lo elegido
+   lleva el canto de siempre (--elegido-canto); las barras, en azul.
+   ========================================================= */
+.ru { --ru-hora: 64px; container: ru / inline-size; display: flex; flex-direction: column; gap: 18px; min-width: 0; }
+.ru [id] { scroll-margin-top: 90px; }
+.ru-sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+.ru-sep { color: var(--ink-subtle, #627285); opacity: .6; }
+/* Lo que el buscador esconde (las filas y los días llevan su propio display) */
+.ru [data-ru-txt][hidden], .ru [data-ru-dia][hidden] { display: none; }
+
+/* ----- La barra: Próximas | Historial y el buscador ----- */
+.ru-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; min-width: 0; }
+.ru-tabs {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-columns: 1fr 1fr; padding: 4px; border-radius: 999px;
+  border: 1px solid rgba(26, 133, 255, .2);
+  background: color-mix(in srgb, #1A85FF 6%, var(--surface, #fff));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .7);
+}
+.ru-tabs__pieza {
+  position: absolute; z-index: -1; top: 4px; bottom: 4px; left: 4px; width: calc(50% - 4px);
+  border-radius: 999px; pointer-events: none;
+  background: linear-gradient(180deg, #3A97FF 0%, #1A85FF 60%, #0F74EC 100%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .45), inset 0 -2px 4px rgba(10, 60, 140, .25), 0 6px 16px -6px rgba(26, 133, 255, .7);
+  transition: transform .34s cubic-bezier(.16, 1, .3, 1);
+}
+.ru-tabs__pieza::after {
+  content: ''; position: absolute; inset: 0; padding: 1.5px; border-radius: inherit;
+  background: var(--elegido-canto);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.ru-tabs[data-activa="historial"] .ru-tabs__pieza { transform: translateX(100%); }
+.ru-tabs__op {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  min-height: 38px; padding: 0 18px; border-radius: 999px;
+  color: var(--ink-muted, #5A6B7E); font: 600 .86rem/1.2 var(--font-sans, 'Inter', sans-serif);
+  text-decoration: none; white-space: nowrap; transition: color .2s ease;
+}
+.ru-tabs__op:hover { color: var(--ink, #2D3E50); }
+.ru-tabs__op:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.ru-tabs__op .ico { width: 17px; height: 17px; }
+.ru-tabs[data-activa="proximas"] [data-op="proximas"],
+.ru-tabs[data-activa="historial"] [data-op="historial"] { color: #fff; }
+.ru-tabs__n {
+  min-width: 20px; padding: 0 6px; border-radius: 999px; box-sizing: border-box;
+  background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E);
+  font: 800 .66rem/20px var(--font-sans, 'Inter', sans-serif); text-align: center; font-variant-numeric: tabular-nums;
+}
+.ru-tabs[data-activa="proximas"] [data-op="proximas"] .ru-tabs__n { background: rgba(255, 255, 255, .24); color: #fff; }
+html.dark .ru-tabs { border-color: rgba(26, 133, 255, .3); background: color-mix(in srgb, #1A85FF 12%, var(--surface, #16212D)); box-shadow: none; }
+
+.ru-buscar { flex: 1 1 260px; max-width: 440px; margin: 0 0 0 auto; }
+.ru-buscar__caja {
+  display: flex; align-items: center; gap: 9px; height: 46px; padding: 0 16px; border-radius: 999px;
+  border: 1px solid var(--line, #DFE9F0); background: var(--surface, #fff); color: var(--ink-muted, #5A6B7E);
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.ru-buscar__caja .ico { flex: none; width: 18px; height: 18px; }
+.ru-buscar__caja:focus-within { border-color: #3D86EA; box-shadow: 0 0 0 3px rgba(61, 134, 234, .18); }
+.ru-buscar__caja input {
+  flex: 1; min-width: 0; height: 100%; padding: 0; border: 0; outline: 0; background: transparent;
+  color: var(--ink, #2D3E50); font: 500 .9rem/1.2 var(--font-sans, 'Inter', sans-serif);
+}
+.ru-buscar__caja input::placeholder { color: var(--ink-subtle, #627285); }
+
+/* ----- Las pastillas de proyecto ----- */
+.ru-pills { display: flex; gap: 8px; min-width: 0; margin: -6px -2px 0; padding: 2px; overflow-x: auto; scrollbar-width: none; }
+.ru-pills::-webkit-scrollbar { display: none; }
+.ru-pill {
+  flex: none; display: inline-flex; align-items: center; gap: 7px; height: 36px; padding: 0 14px; box-sizing: border-box;
+  border: 1.5px solid var(--line, #DFE9F0); border-radius: 999px; background: var(--surface, #fff);
+  color: var(--ink, #2D3E50); font: 600 .8rem/1 var(--font-sans, 'Inter', sans-serif); text-decoration: none; white-space: nowrap;
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.ru-pill small { color: var(--ink-muted, #5A6B7E); font-weight: 700; font-variant-numeric: tabular-nums; }
+.ru-pill__punto { width: 8px; height: 8px; border-radius: 50%; background: var(--pc, #2970EB); }
+.ru-pill:hover { background: var(--surface-hover, #E8F5FC); }
+.ru-pill:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.ru-pill.is-on { border-color: transparent; background: linear-gradient(#EFF6FF, #EFF6FF) padding-box, var(--elegido-canto) border-box; box-shadow: var(--elegido-luz); color: #1D4ED8; }
+html.dark .ru-pill.is-on { background: linear-gradient(#1B2F4A, #1B2F4A) padding-box, var(--elegido-canto) border-box; color: #BFDBFE; }
+.ru-filtro { margin: -6px 0 0; color: var(--ink-muted, #5A6B7E); font-size: .84rem; }
+.ru-filtro b { color: var(--ink, #2D3E50); }
+.ru-filtro a, .ru-card .rs-nota a { color: var(--primary-ink, #2565D4); font-weight: 600; text-decoration: none; }
+.ru-filtro a:hover, .ru-card .rs-nota a:hover { text-decoration: underline; }
+
+/* ----- Los días: el título grande y sus filas en una tarjeta plana ----- */
+.ru-lista { display: flex; flex-direction: column; gap: 20px; min-width: 0; }
+.ru-dia { display: flex; flex-direction: column; gap: 8px; min-width: 0; animation: rs-sube .45s cubic-bezier(.16, 1, .3, 1) both; }
+.ru-dia + .ru-dia { animation-delay: .06s; }
+.ru-dia__t { display: flex; align-items: baseline; gap: 10px; min-width: 0; margin: 0; padding: 0 6px; }
+.ru-dia__t b { color: var(--ink, #2D3E50); font: 800 1.08rem/1.2 var(--font-display, inherit); letter-spacing: .01em; text-transform: uppercase; }
+.ru-dia__t span { overflow: hidden; color: var(--ink-muted, #5A6B7E); font: 700 .72rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase; text-overflow: ellipsis; white-space: nowrap; }
+.ru-dia.is-hoy .ru-dia__t b { color: var(--primary-ink, #2565D4); }
+.ru-dia__n {
+  margin-left: auto; padding: 1px 9px; border-radius: 999px;
+  background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E);
+  font: 700 .72rem/1.35rem var(--font-sans, 'Inter', sans-serif); font-variant-numeric: tabular-nums;
+}
+.ru-filas {
+  display: flex; flex-direction: column; gap: 2px; min-width: 0; margin: 0; padding: 6px; list-style: none;
+  border: 1px solid var(--line, #DFE9F0); border-radius: 22px; background: var(--surface, #fff);
+}
+
+/* Una fila: la hora en su baldosa, el tema con su renglón, la gente y los íconos */
+.ru-fila {
+  position: relative; display: flex; align-items: center; gap: 14px; min-width: 0;
+  padding: 10px 12px; border-radius: 16px; color: inherit; text-decoration: none;
+  transition: background-color .15s ease;
+}
+.ru-fila:hover { background: var(--surface-hover, #E8F5FC); }
+.ru-fila.is-vivo { background: color-mix(in srgb, #10B981 8%, var(--surface, #fff)); }
+a.ru-fila:focus-visible, .ru-fila:has(a.ru-fila__t:focus-visible) { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.ru-hora {
+  flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  width: var(--ru-hora); height: 54px; border-radius: 15px;
+  background: #EEF4FF; color: #1D4ED8;
+}
+.ru-hora b { font: 800 1.12rem/1 var(--font-display, inherit); letter-spacing: -.02em; font-variant-numeric: tabular-nums; }
+.ru-hora small { margin-top: 4px; font: 800 .6rem/1 var(--font-sans, 'Inter', sans-serif); letter-spacing: .1em; text-transform: uppercase; }
+.ru-fila--pasada .ru-hora { background: var(--surface-sunken, #EAF3F9); color: var(--ink-muted, #5A6B7E); }
+html.dark .ru-hora { background: rgba(96, 165, 250, .16); color: #BFDBFE; }
+html.dark .ru-fila--pasada .ru-hora { background: rgba(255, 255, 255, .05); color: var(--ink-muted, #A5B3C2); }
+.ru-fila__txt { display: flex; flex: 1; flex-direction: column; gap: 4px; min-width: 0; }
+.ru-fila__t {
+  overflow: hidden; color: var(--ink, #2D3E50); font: 650 .96rem/1.3 var(--font-sans, 'Inter', sans-serif);
+  text-decoration: none; text-overflow: ellipsis; white-space: nowrap;
+}
+/* Toda la fila lleva al detalle; los botones y la gente quedan por encima */
+a.ru-fila__t::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+a.ru-fila__t:focus-visible { outline: none; }
+.ru-fila > .ru-gente, .ru-fila > .ru-acc, .ru-fila > .ru-tag { position: relative; z-index: 1; }
+.ru-fila__meta { display: flex; flex-wrap: wrap; align-items: center; gap: 3px 7px; min-width: 0; color: var(--ink-muted, #5A6B7E); font-size: .78rem; line-height: 1.35; }
+.ru-repite { display: inline-flex; align-items: center; gap: 4px; }
+.ru-repite .ico { flex: none; width: 13px; height: 13px; }
+.ru-gente { flex: none; }
+.ru-gente .avatar-stack .avatar, .ru-ahora .avatar-stack .avatar { border-color: var(--surface, #fff); }
+.ru-fila__ir { flex: none; width: 16px; height: 16px; color: var(--ink-muted, #5A6B7E); transition: transform .18s ease; }
+.ru-fila--pasada:hover .ru-fila__ir { transform: translateX(2px); }
+
+/* La plataforma y los estados, en su píldora */
+.ru-plat {
+  display: inline-flex; align-items: center; padding: 1px 8px; border-radius: 999px;
+  background: var(--_bg); color: var(--_fg); font: 800 .62rem/1.55 var(--font-sans, 'Inter', sans-serif);
+  letter-spacing: .05em; text-transform: uppercase; white-space: nowrap;
+}
+.ru-plat--zoom   { --_bg: rgba(45, 140, 255, .14); --_fg: #1F6FD6; }
+.ru-plat--meet   { --_bg: rgba(0, 137, 123, .14); --_fg: #00796B; }
+.ru-plat--enlace { --_bg: var(--surface-sunken, #EAF3F9); --_fg: var(--ink-muted, #5A6B7E); }
+html.dark .ru-plat--zoom { --_bg: rgba(45, 140, 255, .2); --_fg: #93C5FD; }
+html.dark .ru-plat--meet { --_bg: rgba(45, 212, 191, .16); --_fg: #5EEAD4; }
+.ru-tag {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; padding: 4px 10px; border-radius: 999px;
+  background: var(--_bg); color: var(--_fg); font: 700 .66rem/1.25 var(--font-sans, 'Inter', sans-serif);
+  letter-spacing: .06em; text-transform: uppercase; white-space: nowrap;
+}
+.ru-tag b { font-weight: 700; font-variant-numeric: tabular-nums; }
+.ru-tag--vivo, .ru-tag--ok    { --_bg: #D1FAE5; --_fg: #047857; }
+.ru-tag--pronto, .ru-tag--luego { --_bg: #DBEAFE; --_fg: #1D4ED8; }
+.ru-tag--paso, .ru-tag--gris  { --_bg: var(--surface-sunken, #EAF3F9); --_fg: var(--ink-muted, #5A6B7E); }
+html.dark .ru-tag--vivo, html.dark .ru-tag--ok { --_bg: rgba(52, 211, 153, .16); --_fg: #6EE7B7; }
+html.dark .ru-tag--pronto, html.dark .ru-tag--luego { --_bg: rgba(96, 165, 250, .18); --_fg: #93C5FD; }
+html.dark .ru-tag--paso, html.dark .ru-tag--gris { --_bg: rgba(255, 255, 255, .06); }
+
+/* Las marcas del historial: grabación, transcripción, observaciones, quién entró */
+.ru-marcas { flex: none; display: flex; align-items: center; gap: 6px; }
+.ru-marca {
+  display: inline-flex; align-items: center; justify-content: center; gap: 4px;
+  min-width: 28px; height: 28px; padding: 0 7px; box-sizing: border-box; border-radius: 999px;
+  background: var(--_bg); color: var(--_fg); font: 800 .72rem/1 var(--font-sans, 'Inter', sans-serif); font-variant-numeric: tabular-nums;
+}
+.ru-marca .ico { width: 14px; height: 14px; }
+.ru-marca[data-n]::after { content: attr(data-n); }
+.ru-marca--grab   { --_bg: #D1FAE5; --_fg: #047857; }
+.ru-marca--trans  { --_bg: #E0F2FE; --_fg: #0369A1; }
+.ru-marca--obs    { --_bg: #EDE9FE; --_fg: #6D28D9; }
+.ru-marca--gente  { --_bg: #DBEAFE; --_fg: #1D4ED8; }
+.ru-marca--espera { --_bg: var(--surface-sunken, #EAF3F9); --_fg: var(--ink-muted, #5A6B7E); }
+html.dark .ru-marca--grab  { --_bg: rgba(52, 211, 153, .16); --_fg: #6EE7B7; }
+html.dark .ru-marca--trans { --_bg: rgba(56, 189, 248, .16); --_fg: #7DD3FC; }
+html.dark .ru-marca--obs   { --_bg: rgba(167, 139, 250, .18); --_fg: #C4B5FD; }
+html.dark .ru-marca--gente { --_bg: rgba(96, 165, 250, .18); --_fg: #93C5FD; }
+html.dark .ru-marca--espera { --_bg: rgba(255, 255, 255, .06); }
+
+/* ----- Los botones: redondos, solo el ícono ----- */
+.ru-acc { flex: none; display: flex; align-items: center; gap: 6px; }
+.ru-ico {
+  position: relative; flex: none; display: grid; place-items: center;
+  width: 38px; height: 38px; margin: 0; padding: 0; border: 0; border-radius: 50%; box-sizing: border-box;
+  background: var(--surface-alt, #F5FAFD); color: var(--ink-muted, #5A6B7E); cursor: pointer; text-decoration: none;
+  box-shadow: inset 0 0 0 1px var(--line, #DFE9F0);
+  transition: background-color .18s ease, color .18s ease, transform .18s ease, box-shadow .18s ease;
+}
+.ru-ico .ico { width: 18px; height: 18px; }
+.ru-ico:hover { background: #E0EDFF; color: #1D4ED8; box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .25); transform: translateY(-1px); }
+.ru-ico:active { transform: translateY(0); }
+.ru-ico:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+/* .btn-copiar trae su fondo y su relleno (más arriba): aquí manda el botón redondo */
+.ru-ico.btn-copiar { padding: 0; font-size: inherit; }
+.ru-ico.btn-copiar:active { box-shadow: inset 0 0 0 1px var(--line, #DFE9F0); }
+html.dark .ru-ico { background: rgba(255, 255, 255, .06); color: #C5CDDA; box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .1); }
+html.dark .ru-ico:hover { background: rgba(96, 165, 250, .18); color: #BFDBFE; }
+.ru-ico--grande { width: 46px; height: 46px; }
+.ru-ico--grande .ico { width: 21px; height: 21px; }
+/* Entrar (y crear, y ver la grabación lista): el verde de los botones principales */
+.ru-ico--entrar, .ru-ico--nueva, .ru-ico--grab,
+html.dark .ru-ico--entrar, html.dark .ru-ico--nueva, html.dark .ru-ico--grab {
+  color: #fff; background: linear-gradient(180deg, #22C55E, #16A34A);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .35), 0 4px 10px -4px rgba(22, 163, 74, .55);
+}
+.ru-ico--entrar:hover, .ru-ico--nueva:hover, .ru-ico--grab:hover,
+html.dark .ru-ico--entrar:hover, html.dark .ru-ico--nueva:hover, html.dark .ru-ico--grab:hover {
+  color: #fff; background: linear-gradient(180deg, #16A34A, #15803D);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .3), 0 6px 14px -6px rgba(22, 163, 74, .6);
+}
+/* La que ya empezó: un halo que late despacio */
+.ru-ico--entrar.is-ya::after {
+  content: ''; position: absolute; inset: 0; border-radius: inherit; pointer-events: none;
+  border: 2px solid rgba(34, 197, 94, .55); animation: rs-latido 2.4s ease-out infinite;
+}
+.ru-ico--ia .ico { color: #6D5EF5; filter: drop-shadow(0 0 3px rgb(64 207 255 / .45)); }
+html.dark .ru-ico--ia .ico { color: #A5B4FC; }
+.ru-ico--ia:hover .ico { animation: ia-brillo .9s ease-in-out; }
+
+/* ----- Lo de ahora (en curso o empieza pronto): la tarjeta de la reunión del Resumen ----- */
+.ru-ahora { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 380px), 1fr)); gap: 14px; }
+.ru-ahora__item { padding: 16px 18px; animation: rs-sube .45s cubic-bezier(.16, 1, .3, 1) both; }
+.ru-ahora .rs-reu__t { margin-top: 2px; font-size: 1rem; font-weight: 700; }
+.ru-ahora__t { color: inherit; text-decoration: none; }
+.ru-ahora__t:hover { text-decoration: underline; }
+.ru-ahora__t:focus-visible { outline: none; border-radius: 6px; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.ru-ahora .rs-reu__meta { margin-top: 2px; }
+.ru-ahora .rs-reu__pie { margin-top: 12px; }
+.ru-ahora .rs-reu__pie .ru-acc { margin-left: auto; }
+
+/* ----- Vacíos y «ver más» ----- */
+.ru > .ru-vacio, .ru-card .ru-vacio { margin: 0; }
+.ru > .ru-vacio, .ru > [data-ru-sin] > .ru-vacio { padding: 16px 18px; border: 1px solid var(--line, #DFE9F0); border-radius: 22px; background: var(--surface, #fff); }
+.ru-mas { display: flex; justify-content: center; margin: 0; }
+
+/* ----- La pestaña Reuniones del proyecto: el mismo pintado, sin tarjeta dentro de la tarjeta ----- */
+.ru-proy__acc { margin-left: auto; }
+.ru--proy { padding: 0 24px 24px; }
+.ru--proy .ru-filas { padding: 0; border: 0; border-radius: 0; background: none; }
+.ru--proy .ru-fila { margin: 0 -12px; }
+.ru-ultimas { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.ru-ultimas__cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 0 6px; }
+.ru-ultimas__t { margin: 0; color: var(--ink-muted, #5A6B7E); font: 700 .72rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase; }
+.ru-proy .obs-intro .ico { flex: none; width: 18px; height: 18px; }
+
+/* ----- «¿En qué proyecto?» (Nueva reunión con varios proyectos) ----- */
+.ru-dlg .ds-modal__head .rs-ic { margin-top: 2px; }
+.ru-dlg__lista { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0 20px 18px; list-style: none; }
+
+/* ----- El detalle (reunion.php) ----- */
+.page-head:has(~ .ru-det) .page-sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; }
+.page-head:has(~ .ru-det) .page-sub a { color: var(--primary-ink, #2565D4); font-weight: 600; text-decoration: none; }
+.page-head:has(~ .ru-det) .page-sub a:hover { text-decoration: underline; }
+.page-head:has(~ .ru-det) .page-actions { align-items: center; }
+.page-head:has(~ .ru-det) .page-actions .inline-form { display: inline-flex; margin: 0; }
+
+.ru-hero {
+  position: relative; isolation: isolate;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: start; gap: 14px 20px;
+  padding: 22px 24px; border-radius: 26px;
+  background: linear-gradient(115deg, #F0F9FF 0%, #FFFFFF 48%, #F5F3FF 100%);
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, .1), 0 10px 26px -20px rgba(2, 132, 199, .45);
+  animation: rs-sube .45s cubic-bezier(.16, 1, .3, 1) both;
+}
+.ru-hero.is-vivo::before, .ru-hero.is-pronto::before {
+  content: ''; position: absolute; inset: -1.5px; z-index: -1; padding: 1.5px;
+  border-radius: inherit; pointer-events: none;
+  background: conic-gradient(from var(--rs-ang), #7DD3FC, #67E8F9, #6EE7B7, #93C5FD, #7DD3FC);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+  animation: rs-borde 9s linear infinite;
+}
+html.dark .ru-hero { background: linear-gradient(115deg, #0F2A38 0%, var(--surface, #16212D) 50%, #221E44 100%); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .07); }
+.ru-hero__main { min-width: 0; }
+.ru-hero__top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin-bottom: 10px; }
+.ru-hero__cuando {
+  display: block; color: var(--ink, #2D3E50);
+  font: 800 clamp(1.5rem, 1.15rem + 1.4vw, 2.15rem)/1.1 var(--font-display, inherit);
+  letter-spacing: -.02em; text-transform: uppercase; font-variant-numeric: tabular-nums;
+}
+.ru-hero__sub { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin: 8px 0 0; color: var(--ink-muted, #5A6B7E); font-size: .88rem; line-height: 1.4; }
+.ru-hero__sub.ru-repite .ico { width: 16px; height: 16px; color: var(--primary-ink, #2565D4); }
+.ru-hero__acc { align-self: center; gap: 8px; }
+.ru-datos {
+  grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px 18px;
+  margin: 4px 0 0; padding: 16px 0 0; border-top: 1px solid color-mix(in srgb, var(--line, #DFE9F0) 85%, transparent);
+}
+.ru-datos > div { min-width: 0; }
+.ru-datos__ancho { grid-column: span 2; }
+.ru-datos dt { color: var(--ink-muted, #5A6B7E); font: 700 .66rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .08em; text-transform: uppercase; }
+.ru-datos dd { margin: 5px 0 0; overflow: hidden; color: var(--ink, #2D3E50); font: 700 1rem/1.3 var(--font-sans, 'Inter', sans-serif); text-overflow: ellipsis; white-space: nowrap; }
+.ru-datos dd small { color: var(--ink-muted, #5A6B7E); font-size: .76rem; font-weight: 500; }
+.ru-datos__num { font-variant-numeric: tabular-nums; letter-spacing: .03em; }
+.ru-datos__quien { display: flex; align-items: center; gap: 8px; }
+.ru-enlace { color: var(--primary-ink, #2565D4); font-weight: 600; text-decoration: none; }
+.ru-enlace:hover { text-decoration: underline; }
+
+.ru-card {
+  display: flex; flex-direction: column; gap: 12px; min-width: 0;
+  padding: 18px 20px; border: 1px solid var(--line, #DFE9F0); border-radius: 22px; background: var(--surface, #fff);
+  animation: rs-sube .5s cubic-bezier(.16, 1, .3, 1) .06s both;
+}
+.ru-card__cab { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-width: 0; min-height: 30px; }
+.ru-card__t { min-width: 0; margin: 0; color: var(--ink, #2D3E50); font: 700 1.02rem/1.3 var(--font-display, inherit); }
+.ru-card__der { display: flex; align-items: center; gap: 8px; }
+.ru-card .rs-nota { margin: 0; }
+.ru-det__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; min-width: 0; }
+.ru-det .rs-ic--gris { --_bg: var(--surface-sunken, #EAF3F9); --_fg: var(--ink-muted, #5A6B7E); }
+html.dark .ru-det .rs-ic--gris { --_bg: rgba(255, 255, 255, .06); }
+
+/* Los días de una serie: una tira que se corre de lado; el elegido con su canto */
+.ru-serie { position: relative; display: flex; align-items: center; gap: 6px; margin: 0 -4px; padding: 4px 4px 10px; overflow-x: auto; scrollbar-width: thin; }
+.ru-serie__mes { flex: none; padding: 0 4px 0 10px; color: var(--ink-muted, #5A6B7E); font: 800 .66rem/1 var(--font-sans, 'Inter', sans-serif); letter-spacing: .1em; text-transform: uppercase; }
+.ru-serie__mes:first-child { padding-left: 2px; }
+.ru-chip {
+  position: relative; flex: none; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px;
+  width: 50px; height: 60px; box-sizing: border-box; border: 1.5px solid var(--line, #DFE9F0); border-radius: 15px;
+  background: var(--surface, #fff); color: var(--ink, #2D3E50); text-decoration: none;
+  transition: background-color .15s ease, border-color .15s ease, transform .15s ease;
+}
+.ru-chip small { color: var(--ink-muted, #5A6B7E); font: 700 .58rem/1 var(--font-sans, 'Inter', sans-serif); letter-spacing: .06em; text-transform: uppercase; }
+.ru-chip b { font: 800 1.08rem/1 var(--font-display, inherit); font-variant-numeric: tabular-nums; }
+.ru-chip.is-paso { background: var(--surface-sunken, #EAF3F9); }
+.ru-chip.is-luego, .ru-chip.is-pronto { color: var(--ink-muted, #5A6B7E); }
+.ru-chip.is-hoy { border-color: #3D86EA; }
+.ru-chip.is-ok::after { content: ''; position: absolute; bottom: 5px; width: 5px; height: 5px; border-radius: 50%; background: #10B981; }
+.ru-chip:hover { background: var(--surface-hover, #E8F5FC); transform: translateY(-1px); }
+.ru-chip:focus-visible { outline: none; box-shadow: var(--focus-ring, 0 0 0 2px #fff, 0 0 0 4px #2565D4); }
+.ru-chip[aria-current] { border-color: transparent; background: linear-gradient(#EFF6FF, #EFF6FF) padding-box, var(--elegido-canto) border-box; box-shadow: var(--elegido-luz); color: #1D4ED8; }
+.ru-chip[aria-current] small { color: #1D4ED8; }
+html.dark .ru-chip.is-paso { background: rgba(255, 255, 255, .04); }
+html.dark .ru-chip[aria-current] { background: linear-gradient(#1B2F4A, #1B2F4A) padding-box, var(--elegido-canto) border-box; color: #BFDBFE; }
+html.dark .ru-chip[aria-current] small { color: #BFDBFE; }
+
+/* Invitados con su asistencia (la barra, en azul) */
+.ru-asist { display: block; }
+.ru-personas { display: flex; flex-direction: column; gap: 2px; margin: 0; padding: 0; list-style: none; }
+.ru-personas li { display: flex; align-items: center; gap: 12px; min-width: 0; margin: 0 -8px; padding: 7px 8px; border-radius: 14px; }
+.ru-personas li:hover { background: var(--surface-hover, #E8F5FC); }
+.ru-personas__txt { display: flex; flex: 1; flex-direction: column; gap: 1px; min-width: 0; }
+.ru-personas__txt b, .ru-personas__txt small { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ru-personas__txt b { color: var(--ink, #2D3E50); font: 600 .88rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+.ru-personas__txt small { color: var(--ink-muted, #5A6B7E); font-size: .75rem; }
+
+/* Lo que quedó: una fila por cosa, con su baldosa y su botón */
+.ru-quedo { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+.ru-quedo__item { display: flex; align-items: center; gap: 12px; min-width: 0; padding: 10px 12px; border-radius: 16px; background: var(--surface-alt, #F5FAFD); }
+html.dark .ru-quedo__item { background: rgba(255, 255, 255, .03); }
+.ru-quedo__txt { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.ru-quedo__txt b { color: var(--ink, #2D3E50); font: 600 .9rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+.ru-quedo__txt small { color: var(--ink-muted, #5A6B7E); font-size: .77rem; line-height: 1.4; }
+.ru-quedo .inline-form { display: inline-flex; margin: 0; }
+.ru-obs { padding: 0; }
+
+/* ----- Anchos: la página se mide por su propio ancho ----- */
+@container ru (max-width: 760px) {
+  .ru-det__grid { grid-template-columns: minmax(0, 1fr); }
+}
+@container ru (max-width: 640px) {
+  .ru-buscar { flex-basis: 100%; max-width: none; margin: 0; }
+  .ru-tabs { flex: 1 1 100%; }
+  .ru-filas { padding: 4px; border-radius: 20px; }
+  /* La fila en dos renglones: la hora y el tema arriba; el estado y los íconos abajo, a la derecha */
+  .ru-fila { flex-wrap: wrap; gap: 8px 12px; padding: 10px; }
+  .ru-fila__txt { flex-basis: calc(100% - var(--ru-hora) - 12px); }
+  .ru-fila > .ru-tag, .ru-fila > .ru-marcas { order: 3; margin-left: calc(var(--ru-hora) + 12px); }
+  .ru-fila > .ru-gente { display: none; }
+  .ru-fila > .ru-acc { order: 4; margin-left: auto; }
+  .ru-fila--pasada .ru-fila__ir { display: none; }
+  .ru--proy { padding: 0 14px 16px; }
+  .ru--proy .ru-fila { margin: 0 -10px; }
+  .ru-hero { grid-template-columns: minmax(0, 1fr); padding: 18px 16px; border-radius: 22px; }
+  .ru-hero__acc { justify-content: flex-start; }
+  .ru-datos { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .ru-datos__ancho { grid-column: 1 / -1; }
+  .ru-card { padding: 16px 14px; border-radius: 20px; }
+  .ru-ahora__item { padding: 14px; }
+}
+@container ru (max-width: 400px) {
+  .ru { --ru-hora: 56px; }
+  .ru-tabs__op { padding: 0 10px; }
+  .ru-hora { height: 50px; }
+  .ru-hora b { font-size: 1rem; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ru-tabs__pieza, .ru-ico, .ru-chip, .ru-fila__ir { transition: none; }
+  .ru-dia, .ru-card, .ru-hero, .ru-ahora__item { animation: none; }
+  .ru-hero.is-vivo::before, .ru-hero.is-pronto::before, .ru-ico--entrar.is-ya::after, .ru-ico--ia:hover .ico { animation: none; }
+  .ru-ico:hover, .ru-chip:hover, .ru-fila--pasada:hover .ru-fila__ir { transform: none; }
+}

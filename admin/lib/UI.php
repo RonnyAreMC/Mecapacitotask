@@ -178,6 +178,11 @@ class UI
       <?= UI::icono(UI::hayIcono('pz-pizarra') ? 'pz-pizarra' : 'StickyNote') ?> <span class="truncate">Mis notas</span>
     </a>
     <?php endif; ?>
+    <?php if (is_file(__DIR__ . '/../reuniones.php') && Auth::usuario() && !Auth::esSupervisor()): /* la suite de reuniones: las próximas por día y el historial */ ?>
+    <a href="reuniones.php" class="sidebar-link <?= $activo === 'reuniones' ? 'active' : '' ?>" title="Reuniones: las próximas por día y el historial">
+      <?= UI::icono('ds-video') ?> <span class="truncate">Reuniones</span>
+    </a>
+    <?php endif; ?>
     <?php
     // Correo InnoTech con su propio lugar en el menú (antes solo se llegaba desde Notificaciones)
     $nCorreoMenu = null;

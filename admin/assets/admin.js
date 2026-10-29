@@ -5440,3 +5440,85 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     requestAnimationFrame(paso);
   });
 })();
+
+/* =========================================================
+   Reuniones: la suite (reuniones.php), el detalle (reunion.php) y la
+   pestaña del proyecto (pintado: lib/reuniones_ui.php; estilos: admin.css,
+   «Reuniones: la suite…»).
+   - Los asistentes por la URL: proyecto.php?nueva_reunion=1 abre «Nueva
+     reunión», y ?editar_reunion=ID el de editar (proyecto.php deja un botón
+     .js-editar-reunion escondido con sus datos, [data-ru-abrir], y aquí se
+     pulsa). Después se quita el parámetro: recargar no lo vuelve a abrir.
+   - Próximas | Historial: la pieza se desliza a la elegida mientras carga.
+   - El buscador filtra al vuelo, sin tildes ni mayúsculas, y esconde los
+     días que se quedan vacíos; con Enter busca también en lo no cargado.
+   - En los días de una serie, el elegido queda a la vista (sin mover la página).
+   ========================================================= */
+(function () {
+  const params = new URLSearchParams(location.search);
+  const quitar = (k) => {
+    params.delete(k);
+    const qs = params.toString();
+    history.replaceState(history.state, '', location.pathname + (qs ? '?' + qs : '') + location.hash);
+  };
+  // Se abren cuando ya cargó todo (ds.js arma las listas del asistente después de este archivo)
+  const abrirAsistente = () => {
+    if (params.get('nueva_reunion') === '1') {
+      const dlg = document.getElementById('dlg-nueva-reunion');
+      if (dlg && !dlg.open) dlg.showModal();
+      quitar('nueva_reunion');
+    }
+    if (params.has('editar_reunion')) {
+      const b = document.querySelector('[data-ru-abrir]');
+      if (b) b.click();
+      quitar('editar_reunion');
+    }
+  };
+  if (params.has('nueva_reunion') || params.has('editar_reunion')) {
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', abrirAsistente);
+    else abrirAsistente();
+  }
+
+  document.querySelectorAll('[data-ru-tabs]').forEach((nav) => nav.addEventListener('click', (e) => {
+    const op = e.target.closest('[data-op]');
+    if (!op || e.metaKey || e.ctrlKey || e.shiftKey || e.button > 0) return;
+    nav.dataset.activa = op.dataset.op;
+  }));
+  addEventListener('pageshow', (e) => {
+    if (!e.persisted) return;
+    document.querySelectorAll('[data-ru-tabs]').forEach((nav) => {
+      const actual = nav.querySelector('[aria-current="page"]');
+      if (actual) nav.dataset.activa = actual.dataset.op;
+    });
+  });
+
+  const ru = document.querySelector('[data-ru]');
+  const input = ru && ru.querySelector('[data-ru-buscar]');
+  if (input) {
+    const normal = (s) => String(s || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    const sin = ru.querySelector('[data-ru-sin]');
+    const filtrar = () => {
+      const t = normal(input.value.trim());
+      const filas = ru.querySelectorAll('[data-ru-txt]');
+      let hay = 0;
+      filas.forEach((el) => {
+        const ok = !t || normal(el.dataset.ruTxt).includes(t);
+        el.hidden = !ok;
+        if (ok) hay++;
+      });
+      ru.querySelectorAll('[data-ru-dia]').forEach((d) => { d.hidden = !d.querySelector('[data-ru-txt]:not([hidden])'); });
+      // Sin filas cargadas ya se ve su propio vacío: el aviso es solo para cuando el filtro las escondió
+      if (sin) sin.hidden = !t || hay > 0 || !filas.length;
+    };
+    input.addEventListener('input', filtrar);
+  }
+
+  document.querySelectorAll('[data-ru-serie]').forEach((tira) => {
+    const el = tira.querySelector('[aria-current]');
+    if (el) tira.scrollLeft = Math.max(0, el.offsetLeft - (tira.clientWidth - el.offsetWidth) / 2);
+  });
+
+  // «¿En qué proyecto?»: tocar el fondo también lo cierra
+  const dlgP = document.getElementById('dlg-ru-nueva');
+  if (dlgP) dlgP.addEventListener('mousedown', (e) => { if (e.target === dlgP) dlgP.close(); });
+})();
