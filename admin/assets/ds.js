@@ -34,9 +34,19 @@
     : /Macintosh|Mac OS X/.test(ua) ? 'mac' : 'otro';
   const navegador = /Edg(A|iOS)?\//.test(ua) ? 'edge' : /SamsungBrowser/.test(ua) ? 'samsung' : /Firefox\/|FxiOS/.test(ua) ? 'firefox'
     : /OPR\/|Opera/.test(ua) ? 'otro' : /Chrome\/|CriOS|Chromium/.test(ua) ? 'chrome' : /Safari\//.test(ua) ? 'safari' : 'otro';
+  // En iPhone, iPad y Mac los botones llevan el vidrio líquido de Apple (ds.css, «es-apple»)
+  if (plataforma === 'ios' || plataforma === 'mac') document.documentElement.classList.add('es-apple');
   // «fullscreen» no cuenta: también lo da el navegador normal con F11
   const modos = ['standalone', 'minimal-ui', 'window-controls-overlay'].map((m) => (window.matchMedia ? matchMedia('(display-mode: ' + m + ')') : null));
   const enVentana = () => modos.some((q) => q && q.matches) || navigator.standalone === true;
+  // Si la app ya se instaló en este equipo, la pestaña normal del navegador no vuelve a
+  // ofrecer instalarla: se anota al instalarla y cada vez que se abre como app (el
+  // navegador comparte el almacenamiento entre la ventana de la app y sus pestañas)
+  const manifiesto = (document.querySelector('link[rel="manifest"]')?.getAttribute('href') || 'panel').split('?')[0].split('/').pop();
+  const clave = 'mc.instalada:' + manifiesto;
+  const anotar = () => { try { localStorage.setItem(clave, '1'); } catch (e) { /* sin almacenamiento */ } };
+  const yaInstalada = () => { try { return localStorage.getItem(clave) === '1'; } catch (e) { return false; } };
+  if (enVentana()) anotar();
   let pedido = null;
   let recien = false;
   const avisar = (motivo) => document.dispatchEvent(new CustomEvent('mcinstalar:cambio', { detail: { motivo, disponible: pedido !== null, instalada: enVentana() } }));
@@ -45,12 +55,14 @@
     pedido = ev;
     avisar('disponible');
   });
-  window.addEventListener('appinstalled', () => { pedido = null; recien = true; avisar('instalada'); });
+  window.addEventListener('appinstalled', () => { pedido = null; recien = true; anotar(); avisar('instalada'); });
   // Chrome de computadora pasa la pestaña a la ventana de la app al instalar
-  modos.forEach((q) => { if (q && q.addEventListener) q.addEventListener('change', () => avisar('ventana')); });
+  modos.forEach((q) => { if (q && q.addEventListener) q.addEventListener('change', () => { if (enVentana()) anotar(); avisar('ventana'); }); });
   window.MCInstalar = {
     get disponible() { return pedido !== null; },
     get instalada() { return enVentana(); },
+    /** true si en este equipo ya se instaló (aunque ahora se vea en una pestaña normal). */
+    get yaInstalada() { return yaInstalada() || recien; },
     get recienInstalada() { return recien; },
     plataforma,
     navegador,

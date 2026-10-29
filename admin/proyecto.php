@@ -1804,6 +1804,8 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
           <a class="accion-btn" href="<?= e($r['start_url']) ?>" target="_blank" rel="noopener" title="Iniciar como anfitrión"><i class="fa-solid fa-crown"></i></a>
           <?php endif; ?>
           <?php endif; ?>
+          <?php /* La pizarra de la reunión (pizarra.php): para marcar, armar el Kanban o explicar en vivo. Queda después de la reunión. */ ?>
+          <a class="btn-outline btn-meca btn-sm reu-pizarra" href="pizarra.php?reunion=<?= (int)$r['id'] ?>" title="Pizarra de la reunión: notas, Kanban y dibujos entre todos, en vivo"><?= UI::icono('pz-pizarra') ?> Pizarra</a>
           <?php if ($platReu === 'zoom' && !$repite): /* grabación y transcripción (de Drive); en las recurrentes van por día, más abajo */ ?>
           <?php if ($pasada): ?><?= $grabacion($r, '', $fin) ?><?php endif; ?>
           <?php if ($pasada): ?>
@@ -1995,14 +1997,17 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
               </div>
             </div>
             <?php if ($opcionesReunion): ?>
-            <label class="campo"><span>De la reunión</span><?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0') ?></label>
+            <label class="campo" data-ob-reunion data-resumen="Sin reunión"><span>De la reunión</span><?= UI::select('reunion_id', [0 => 'Sin reunión'] + $opcionesReunion, '0') ?></label>
             <?php endif; ?>
           </section>
 
           <section class="wz-panel">
+            <?php /* El aviso (campana y correo) les llega a estas mismas personas: no se eligen dos veces */ ?>
+            <input type="hidden" name="avisar_a_para" value="1">
             <div class="campo ob-campo" data-ob-para data-resumen="Nadie en concreto: es del proyecto"><span>Para</span>
+              <small class="campo-ayuda">Les llega el aviso a la campana y por correo. Si no eliges a nadie, queda como observación del proyecto, sin avisar.</small>
               <div class="ob-cards ob-cards--gente">
-                <label class="ob-card ob-persona">
+                <label class="ob-card ob-persona ob-card--todos">
                   <input type="checkbox" name="autor_id[]" value="all" data-ob-todos data-ob-nombre="Todo el equipo">
                   <span class="ob-card__ic"><?= UI::icono('Users') ?></span>
                   <span class="ob-card__txt"><b class="ob-card__tit">Todo el equipo</b><small><?= count($delProyecto) ?> personas en el proyecto</small></span>
@@ -2013,15 +2018,6 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
                   <?= UI::avatar($m, 34) ?>
                   <span class="ob-card__txt"><b class="ob-card__tit"><?= e($m['nombre']) ?></b><small><?= e((string)($m['rol'] ?? '')) ?></small></span>
                 </label>
-                <?php endforeach; ?>
-              </div>
-            </div>
-            <div class="campo ob-campo" data-ob-avisar data-resumen="Nadie: solo queda registrada"><span>Avisar a</span>
-              <small class="campo-ayuda">Les llega a la campana y por correo. Al elegir para quién es, se marca sola la misma persona.</small>
-              <div class="ob-chips">
-                <label class="ob-chip"><input type="checkbox" name="destinatarios[]" value="all" data-ob-nombre="Todo el proyecto"><span><?= UI::icono('Users') ?> Todo el proyecto</span></label>
-                <?php foreach ($delProyecto as $m): ?>
-                <label class="ob-chip"><input type="checkbox" name="destinatarios[]" value="<?= (int)$m['id'] ?>" data-ob-nombre="<?= e($m['nombre']) ?>"><span><?= UI::avatar($m, 20) ?> <?= e(explode(' ', trim((string)$m['nombre']))[0]) ?></span></label>
                 <?php endforeach; ?>
               </div>
             </div>

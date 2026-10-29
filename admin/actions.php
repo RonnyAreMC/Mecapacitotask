@@ -1713,6 +1713,9 @@ switch ($accion) {
         // Destinatarios de la observación: ids elegidos; 'all' = todo el
         // proyecto; vacío = nadie en concreto (solo queda registrada).
         $destRaw = array_map('strval', (array)($_POST['destinatarios'] ?? []));
+        // El asistente de «Nueva observación» avisa a las mismas personas para las
+        // que es: no se eligen dos veces (y si no es para nadie, no se avisa a nadie)
+        if (!empty($_POST['avisar_a_para'])) $destRaw = $paraRaw;
         $aTodos  = in_array('all', $destRaw, true);
         $destIds = ObservacionRepo::destinatariosEntrada($destRaw);
         if ($aTodos) $destIds = participantesProyecto($pid, $proyectos, $tareas, $miembros);

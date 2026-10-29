@@ -225,16 +225,20 @@ function correoPintar(array $yo, array $cuenta, array $d): void
 <div class="correo" data-correo>
   <!-- En el celular las carpetas van en un cajón que sale de la izquierda (como el menú del design system) -->
   <div class="correo-velo" data-correo-velo></div>
+  <?php /* En la computadora las carpetas se pliegan a solo íconos (y se recuerda en este equipo).
+           Se aplica antes de pintar, para que no se vea abrir y cerrar al cargar. */ ?>
+  <script>try { if (localStorage.getItem('mc.correo.lado') === 'mini') document.documentElement.classList.add('correo-lado-mini'); } catch (e) {}</script>
   <aside class="correo-lado" id="correo-cajon" aria-label="Carpetas del correo">
     <div class="correo-lado__cab">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('correo', 18) ?></span>
       <span class="correo-lado__txt"><b>Correo InnoTech</b><small title="<?= e((string)$cuenta['email']) ?>"><?= e((string)$cuenta['email']) ?></small></span>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm correo-lado__plegar" data-correo-plegar aria-pressed="false" aria-label="Plegar las carpetas" data-ds-tip="Plegar las carpetas"><?= UI::icono('PanelLateral') ?></button>
       <button type="button" class="mc-iconbtn mc-iconbtn--sm correo-lado__cerrar" data-correo-cajon-cerrar aria-label="Cerrar las carpetas"><?= UI::iconoDS('cerrar', 18) ?></button>
     </div>
     <span class="correo-lado__rot">Carpetas</span>
     <nav class="correo-carpetas">
       <?php foreach ($carpetas as $f): ?>
-      <a class="correo-carpeta<?= $f['nombre'] === $carpeta['nombre'] && $modo !== 'redactar' ? ' is-actual' : '' ?>" href="<?= e(correoUrl(['c' => $f['nombre']])) ?>">
+      <a class="correo-carpeta<?= $f['nombre'] === $carpeta['nombre'] && $modo !== 'redactar' ? ' is-actual' : '' ?>" href="<?= e(correoUrl(['c' => $f['nombre']])) ?>" data-tip-mini="<?= e($f['etiqueta']) ?>">
         <?= UI::iconoDS(Correo::ICONOS[$f['tipo']] ?? 'carpeta', 18) ?><span class="correo-carpeta__txt"><?= e($f['etiqueta']) ?></span>
         <?php if ($f['tipo'] === 'inbox' && $noLeidos > 0): ?><span class="correo-carpeta__n" data-correo-n-lado><?= $noLeidos > 999 ? '999+' : $noLeidos ?></span><?php endif; ?>
       </a>
@@ -284,6 +288,22 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     else if (e.target.closest('[data-correo-cajon-cerrar], [data-correo-velo]')) poner(false);
   });
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && cajon.classList.contains('is-open')) poner(false); });
+  // En la computadora: plegar las carpetas a solo íconos (el nombre sale al pasar el mouse)
+  const plegar = raiz.querySelector('[data-correo-plegar]');
+  const pintarPlegar = () => {
+    const mini = document.documentElement.classList.contains('correo-lado-mini');
+    plegar?.setAttribute('aria-pressed', mini ? 'true' : 'false');
+    plegar?.setAttribute('aria-label', mini ? 'Abrir las carpetas' : 'Plegar las carpetas');
+    if (plegar) plegar.dataset.dsTip = mini ? 'Abrir las carpetas' : 'Plegar las carpetas';
+    // El nombre de cada carpeta, en el tooltip solo cuando no se lee
+    raiz.querySelectorAll('[data-tip-mini]').forEach((a) => { if (mini) a.dataset.dsTip = a.dataset.tipMini; else delete a.dataset.dsTip; });
+  };
+  plegar?.addEventListener('click', () => {
+    const mini = document.documentElement.classList.toggle('correo-lado-mini');
+    try { localStorage.setItem('mc.correo.lado', mini ? 'mini' : 'abierto'); } catch (e) { /* sin almacenamiento */ }
+    pintarPlegar();
+  });
+  pintarPlegar();
 })();
 </script>
     <?php

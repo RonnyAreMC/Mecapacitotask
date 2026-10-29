@@ -211,7 +211,8 @@ if ($telDlg !== ''):
     otro: 'Abre esta página en Chrome o Edge y busca «Instalar» en el menú del navegador.',
   };
   const pintar = () => {
-    const puede = I.disponible && !I.instalada;
+    // Ya instalada en este equipo: el botón de arriba no vuelve a salir en la pestaña normal
+    const puede = I.disponible && !I.instalada && !I.yaInstalada;
     if (boton) boton.hidden = !puede;
     if (!tarjeta) return;
     if (I.instalada) { tarjeta.querySelector('.correo-instalar__txt').innerHTML = '<h2>Ya la estás usando instalada</h2><p>Listo: Correo abre en su propia ventana.</p>'; return; }

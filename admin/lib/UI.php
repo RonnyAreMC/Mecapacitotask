@@ -1230,7 +1230,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
 
     public const PASOS_OBSERVACION = [
         ['Sobre qué',    '¿Sobre qué es?',          'Una o varias tareas, o la entrega en general', 'TaskSquare'],
-        ['Para quién',   '¿Para quién es?',         'A quién va dirigida y a quién avisar', 'Users'],
+        ['Para quién',   '¿Para quién es?',         'A quién va dirigida: a ellos les llega el aviso', 'Users'],
         ['Observación',  'Escribe la observación',  'Pega capturas con Ctrl+V o arrastra archivos', 'ds-mensajes'],
         ['Confirmación', 'Revisar y anotar',        'Comprueba antes de guardarla', 'CheckSquare'],
     ];

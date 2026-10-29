@@ -1514,49 +1514,46 @@ if (vistaToggle) {
 /* Observación nueva (el asistente de proyecto.php): las tarjetas de tareas y de personas.
    - «General de la entrega» o una o varias tareas: marcar una apaga la otra.
    - El buscador filtra las tareas por su título.
-   - «Todo el equipo» o personas sueltas, igual; y en «Avisar a» lo mismo.
-   - «Avisar a» copia para quién es mientras no lo toques a mano.
+   - «Todo el equipo» marca (y desmarca) a todos; si se desmarca a uno, «Todo»
+     se apaga, y si se marca a todos uno por uno, se enciende solo.
+   - El aviso va a esas mismas personas (avisar_a_para en obs_crear): no hay
+     una segunda lista que elegir.
    - Cada campo deja dicho qué poner en el resumen del último paso (data-resumen). */
 function obsTarjetas(form) {
   const cajaT = form.querySelector('[data-ob-tareas]');
   if (!cajaT) return;
   const general = cajaT.querySelector('[data-ob-general]');
   const cajaP = form.querySelector('[data-ob-para]');
-  const cajaA = form.querySelector('[data-ob-avisar]');
+  const todos = cajaP?.querySelector('[data-ob-todos]');
   const tareas = () => [...cajaT.querySelectorAll('input[name="tarea_id[]"]')];
-  const para = () => [...(cajaP?.querySelectorAll('input[name="autor_id[]"]') || [])];
-  const avisar = () => [...(cajaA?.querySelectorAll('input[name="destinatarios[]"]') || [])];
+  const personas = () => [...(cajaP?.querySelectorAll('input[name="autor_id[]"]:not([data-ob-todos])') || [])];
   const nombres = (ins, attr) => ins.filter((i) => i.checked).map((i) => i.dataset[attr]).filter(Boolean);
-  let avisarAMano = false;
 
   const resumir = () => {
     const ts = nombres(tareas(), 'obTitulo');
     general.checked = !ts.length;
     cajaT.dataset.resumen = ts.length ? ts.join(' · ') : 'General de la entrega';
-    if (cajaP) { const ps = nombres(para(), 'obNombre'); cajaP.dataset.resumen = ps.length ? ps.join(', ') : 'Nadie en concreto: es del proyecto'; }
-    if (cajaA) { const as = nombres(avisar(), 'obNombre'); cajaA.dataset.resumen = as.length ? as.join(', ') : 'Nadie: solo queda registrada'; }
-  };
-  // «Todos» apaga a los sueltos y un suelto apaga «todos»
-  const exclusivo = (ins, todos, cambiado) => {
-    if (!todos) return;
-    if (cambiado === todos && todos.checked) ins.forEach((i) => { if (i !== todos) i.checked = false; });
-    else if (cambiado !== todos && cambiado.checked) todos.checked = false;
+    const cajaR = form.querySelector('[data-ob-reunion]');
+    if (cajaR) {
+      const sel = cajaR.querySelector('select');
+      const op = sel?.selectedOptions[0];
+      cajaR.dataset.resumen = sel && sel.value !== '0' && op ? op.textContent.trim() : 'Sin reunión';
+    }
+    if (!cajaP) return;
+    const ps = nombres(personas(), 'obNombre');
+    cajaP.dataset.resumen = todos?.checked ? 'Todo el equipo (les llega el aviso a todos)'
+      : ps.length ? ps.join(', ') + ' (les llega el aviso)' : 'Nadie en concreto: es del proyecto, sin aviso';
   };
 
   form.addEventListener('change', (e) => {
     const c = e.target;
     if (c === general) {
       if (general.checked) tareas().forEach((i) => { i.checked = false; });
+    } else if (c === todos) {
+      personas().forEach((i) => { i.checked = todos.checked; });
     } else if (c.name === 'autor_id[]') {
-      exclusivo(para(), cajaP.querySelector('[data-ob-todos]'), c);
-      if (!avisarAMano && cajaA) {
-        const elegidos = new Set(para().filter((i) => i.checked).map((i) => i.value));   // 'all' ↔ 'all'
-        avisar().forEach((i) => { i.checked = elegidos.has(i.value); });
-      }
-    } else if (c.name === 'destinatarios[]') {
-      avisarAMano = true;
-      exclusivo(avisar(), cajaA.querySelector('input[value="all"]'), c);
-    } else {
+      if (todos) todos.checked = personas().length > 0 && personas().every((i) => i.checked);
+    } else if (c.name !== 'tarea_id[]' && c.name !== 'reunion_id') {
       return;
     }
     resumir();
@@ -1567,7 +1564,6 @@ function obsTarjetas(form) {
     cajaT.querySelectorAll('.ob-card[data-ob-texto]').forEach((card) => { card.hidden = q !== '' && !card.dataset.obTexto.includes(q); });
   });
   form.addEventListener('ob:reiniciar', () => {
-    avisarAMano = false;
     if (buscar) { buscar.value = ''; buscar.dispatchEvent(new Event('input')); }
     resumir();
   });

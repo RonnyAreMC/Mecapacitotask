@@ -247,6 +247,9 @@ $invitadosDe = fn(array $a) => array_values(array_filter(array_map(fn($id) => $m
     <p class="rs-reu__meta"><?= e($destacada['proyecto']['nombre']) ?><?= $destacada['tipo'] === 'daily' ? ' · Reunión fija' : ($destacada['plataforma'] !== '' ? ' · ' . e($destacada['plataforma']) : '') ?> · <?= (int)$destacada['duracion'] ?> min</p>
     <div class="rs-reu__pie">
       <?= $invitadosDe($destacada) ? UI::avatarStack($invitadosDe($destacada), 5, 30) : '<span></span>' ?>
+      <?php if ($destacada['tipo'] === 'reunion' && is_file(__DIR__ . '/pizarra.php')): /* la pizarra de esa reunión (pizarra.php), junto a «Entrar» */ ?>
+      <a class="rs-ico-btn" style="margin-left:auto" href="pizarra.php?reunion=<?= (int)$destacada['id'] ?>" aria-label="Pizarra de <?= e($destacada['titulo']) ?>" data-ds-tip="Pizarra de la reunión"><?= UI::icono('pz-pizarra') ?></a>
+      <?php endif; ?>
       <?php if ($destacada['entrar'] && ($destacadaHoy || $vivo)): /* «Entrar» el mismo día; la de otro día se mira en el proyecto */ ?>
       <a class="rs-entrar<?= $conBorde ? ' is-ya' : '' ?>" href="<?= e($destacada['entrar']) ?>"><?= UI::icono('ds-video') ?> Entrar</a>
       <?php else: ?>
