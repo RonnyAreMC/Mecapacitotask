@@ -36,6 +36,7 @@
   const archivo = $('#pz-archivo'), ayuda = $('#pz-ayuda'), pctEl = $('#pz-pct');
   const SVGNS = 'http://www.w3.org/2000/svg';
   const movReducido = window.matchMedia('(prefers-reduced-motion: reduce)');
+  const MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
 
   // Los íconos del set: pizarra.php los deja en un <template> (UI::icono)
   const ICONOS = {};
@@ -212,7 +213,7 @@
         + '<a class="pz-enlace__abrir" target="_blank" rel="noopener noreferrer" data-abrir>Abrir</a>';
     } else if (el.tipo === 'kanban') {
       n.innerHTML = '<div class="pz-kanban__cab" data-agarre><span class="pz-kanban__titulo" data-campo="titulo"></span><span class="pz-kanban__n"></span>'
-        + `<button type="button" class="pz-kanban__traer" data-kanban-traer data-solo-editar>${ico('pz-traer')} Traer tareas del proyecto</button></div>`;
+        + `<button type="button" class="pz-kanban__traer" data-kanban-traer data-solo-editar>${ico('pz-traer')} ${CFG.mia ? 'Traer mis tareas' : 'Traer tareas del proyecto'}</button></div>`;
       n._cols = new Map();
     }
     (el.tipo === 'kanban' ? capaMarcos : capaEls).appendChild(n);
@@ -279,6 +280,7 @@
       txt.style.fontSize = limitar(num(el.fs, 28), 8, 400) + 'px';
       pend.medir.add(el.id);
       programarRender({});
+      pintarAvisoTexto(el, n);
     } else if (el.tipo === 'rect' || el.tipo === 'elipse') {
       mover(n, num(el.x), num(el.y));
       n.style.width = num(el.w) + 'px';
@@ -312,17 +314,40 @@
     }
   }
 
+  /**
+   * El pie de la nota: la tarea de la que viene (#id y quién la tiene; en «Mis
+   * notas», de qué proyecto es) y el recordatorio, si tiene.
+   */
   function pintarPieTarea(el, n) {
     const pie = n.querySelector('.pz-nota__tarea');
     const t = el.tarea && el.tarea.id ? el.tarea : null;
-    const clave = t ? `${t.id}|${t.quien}|${t.estado}` : '';
+    const aviso = etiquetaAviso(el.aviso);
+    const clave = (t ? `${t.id}|${t.quien}|${t.estado}|${t.proyecto || ''}` : '') + '|' + aviso + '|' + (el.aviso || '');
     if (pie._clave === clave) return;
     pie._clave = clave;
-    pie.hidden = !t;
-    if (!t) { pie.innerHTML = ''; return; }
-    pie.innerHTML = `<a href="${esc(CFG.tareaUrl + Number(t.id))}" target="_blank" rel="noopener" data-abrir data-tip="Abrir la tarea">#${Number(t.id)}</a>`
-      + (t.quien ? `<span>${esc(t.quien)}</span>` : '')
-      + (t.estado === 'revision' ? '<span class="pz-nota__chip">En revisión</span>' : '');
+    pie.hidden = !t && !aviso;
+    let html = '';
+    if (t) {
+      // El enlace va al proyecto de la tarea (en «Mis notas» cada una es de un proyecto distinto)
+      const pid = Number(t.proyecto_id) || Number(CFG.proyecto) || 0;
+      html += pid
+        ? `<a href="proyecto.php?id=${pid}&amp;tarea=${Number(t.id)}" target="_blank" rel="noopener" data-abrir data-tip="Abrir la tarea">#${Number(t.id)}</a>`
+        : `<span>#${Number(t.id)}</span>`;
+      const quien = CFG.mia ? (t.proyecto || t.quien) : t.quien;
+      if (quien) html += `<span class="pz-trunca">${esc(quien)}</span>`;
+      if (t.estado === 'revision') html += '<span class="pz-nota__chip">En revisión</span>';
+    }
+    if (aviso) html += avisoHtml(el, aviso);
+    pie.innerHTML = html;
+  }
+  /** Los textos sueltos llevan la insignia del recordatorio debajo, sin cambiar su alto. */
+  function pintarAvisoTexto(el, n) {
+    const aviso = etiquetaAviso(el.aviso);
+    let b = n.querySelector(':scope > .pz-aviso-fuera');
+    if (!aviso) { b?.remove(); return; }
+    if (!b) { b = document.createElement('span'); b.className = 'pz-aviso-fuera'; n.appendChild(b); }
+    const clave = aviso + '|' + el.aviso;
+    if (b._clave !== clave) { b._clave = clave; b.innerHTML = avisoHtml(el, aviso); }
   }
 
   function columnasKanban(el, n) {
@@ -366,7 +391,7 @@
   function ajustarFuente(el, n) {
     const txt = n.firstElementChild;
     let w, h, max;
-    if (el.tipo === 'nota') { w = num(el.w) - 36; h = num(el.h) - 32 - (el.tarea?.id ? 28 : 0); max = 40; }
+    if (el.tipo === 'nota') { w = num(el.w, 200) - 36; h = num(el.h, 200) - 32 - (el.tarea?.id || el.aviso ? 28 : 0); max = 40; }
     else if (el.tipo === 'rect') { w = num(el.w) - 36; h = num(el.h) - 28; max = 34; }
     else { w = num(el.w) * 0.68 - 4; h = num(el.h) * 0.72 - 4; max = 34; }
     const clave = `${el.texto || ''}|${Math.round(w)}|${Math.round(h)}|${el.tipo}`;
@@ -866,6 +891,7 @@
       const el = JSON.parse(JSON.stringify(c));
       el.id = mapa.get(c.id);
       el.z = ++maxZ;
+      delete el.aviso; delete el.aviso_por;   // la copia no repite el recordatorio
       if (el.marco) el.marco = mapa.get(el.marco) || null;
       if (el.tipo === 'flecha') {
         for (const k of ['a', 'b']) {
@@ -896,7 +922,7 @@
         const lista = notasDe(n.marco, n.col);
         const i = lista.indexOf(n), sig = lista[i + 1];
         const c = Object.assign(copia(n), { id: nuevoId(), z: ++maxZ, orden: sig ? (num(n.orden) + num(sig.orden)) / 2 : num(n.orden) + 1 });
-        delete c.tarea;
+        delete c.tarea; delete c.aviso; delete c.aviso_por;
         t.tocar(c.id); els.set(c.id, c); pintar(c); nuevos.push(c.id);
       }
       t.cerrar();
@@ -1094,7 +1120,7 @@
         g.firstChild.setAttribute('stroke-width', String(gesto.grosor));
         return;
       }
-      case 'texto': case 'kanban': gesto = { ...base, tipo: 'clic', herr: herramienta }; return;
+      case 'texto': case 'kanban': case 'enlace': gesto = { ...base, tipo: 'clic', herr: herramienta }; return;
     }
   }
 
@@ -1442,6 +1468,7 @@
       case 'trazo': terminarTrazo(g); break;
       case 'clic': {
         const f = factor();
+        if (g.herr === 'enlace') { abrirEnlace(g.p0); break; }   // aquí va la tarjeta
         if (g.herr === 'texto') {
           const fs = Math.round(28 * f);
           const el = nuevoEl('texto', { x: r1(g.p0.x - 4), y: r1(g.p0.y - fs * 0.65), w: Math.round(320 * f), fs });
@@ -1454,7 +1481,7 @@
           const k = nuevoEl('kanban', { x: r1(g.p0.x - w / 2), y: r1(g.p0.y - 28 * f), w, h });
           crear([k]);
           elegirHerr('seleccionar');
-          toast('Tablero listo. «Traer tareas del proyecto» lo llena con las tareas reales.');
+          toast(CFG.mia ? 'Tablero listo. «Traer mis tareas» lo llena con tus tareas abiertas.' : 'Tablero listo. «Traer tareas del proyecto» lo llena con las tareas reales.');
         }
         break;
       }
@@ -1658,12 +1685,12 @@
     boton?.classList.add('is-cargando');
     let j;
     try { j = await pedir('tareas'); }
-    catch (err) { toast(err.message || 'No se pudieron traer las tareas.', true); return; }
+    catch (err) { toast(err.red ? 'Sin conexión: no se pudieron traer las tareas. Prueba cuando vuelva la red.' : (err.message || 'No se pudieron traer las tareas.'), true); return; }
     finally { boton?.classList.remove('is-cargando'); }
     const k = vivo(kid);
     if (!k) return;
     let tareas = Array.isArray(j.tareas) ? j.tareas : [];
-    if (!tareas.length) { toast('Este proyecto todavía no tiene tareas.'); return; }
+    if (!tareas.length) { toast(CFG.mia ? 'No tienes tareas abiertas: todo al día.' : 'Este proyecto todavía no tiene tareas.'); return; }
     // De las terminadas, solo las 20 más recientes: el tablero es para la reunión, no el archivo
     const hechas = tareas.filter((t) => t.estado === 'hecho').sort((a, b) => b.id - a.id);
     const fuera = new Set(hechas.slice(20).map((t) => t.id));
@@ -1686,6 +1713,8 @@
     for (const ta of tareas) {
       const col = colDe(ta.estado);
       const meta = { id: Number(ta.id), estado: String(ta.estado || ''), quien: String(ta.quien || '') };
+      // En «Mis notas» las tareas son de varios proyectos: cada tarjeta dice de cuál y enlaza a él
+      if (ta.proyecto_id) { meta.proyecto_id = Number(ta.proyecto_id); meta.proyecto = String(ta.proyecto || ''); }
       const ya = existentes.get(Number(ta.id));
       if (ya) {
         t.tocar(ya.id);
@@ -1706,7 +1735,7 @@
     programarRender({ acomodar: true, flechas: true, sel: true });
     const extra = fuera.size ? ' De las terminadas, van las 20 últimas.' : '';
     if (!nuevas && !movidas) toast('El tablero ya estaba al día con las tareas.' + extra);
-    else if (!movidas) toast(`Se trajeron ${nuevas} tarea${nuevas === 1 ? '' : 's'}. Solo están en la pizarra: las tareas no cambian.${extra}`);
+    else if (!movidas) toast(`Se trajeron ${nuevas} tarea${nuevas === 1 ? '' : 's'}${CFG.mia ? ' tuya' + (nuevas === 1 ? '' : 's') : ''}. Solo están en la pizarra: las tareas no cambian.${extra}`);
     else toast(`${nuevas} tarea${nuevas === 1 ? ' nueva' : 's nuevas'} y ${movidas} que cambiaron de columna.${extra}`);
   }
 
@@ -1717,6 +1746,7 @@
     if (!EDITAR && h !== 'seleccionar' && h !== 'mano') return;
     if (editando) terminarEdicion();
     if (h === 'imagen') { archivo.click(); return; }
+    if (h !== 'enlace' && popEnlace && !popEnlace.hidden) cerrarEnlace(false);
     herramienta = h;
     raiz.dataset.herr = h;
     barra.querySelectorAll('.pz-herr').forEach((b) => {
@@ -1728,13 +1758,20 @@
     if (h !== 'seleccionar') { sel.clear(); pintarSel(); ocultarCtx(); }
     pintarHover(null);
     pintarSub();
+    // Enlace: el cuadro sale enseguida; un clic en el lienzo elige dónde va la tarjeta
+    if (h === 'enlace') abrirEnlace(null);
   }
   function colocarPieza() {
     const b = barra.querySelector(`.pz-herr[data-herr="${herramienta}"]`);
     if (b) barra.style.setProperty('--px', b.offsetLeft + 'px');
   }
   barra.addEventListener('pointerdown', (e) => { if (e.target.closest('button')) e.preventDefault(); });
-  barra.addEventListener('click', (e) => { const b = e.target.closest('.pz-herr'); if (b) elegirHerr(b.dataset.herr); });
+  barra.addEventListener('click', (e) => {
+    const b = e.target.closest('.pz-herr');
+    if (!b) return;
+    if (b.hasAttribute('data-calc')) alternarCalc();   // la calculadora no es una herramienta: se abre al lado
+    else elegirHerr(b.dataset.herr);
+  });
   // La lente de vidrio: sigue al mouse por la barra (solo con transform)
   barra.addEventListener('pointerover', (e) => {
     const b = e.target.closest('.pz-herr');
@@ -1762,13 +1799,13 @@
     pintarSub();
   });
 
-  function ocultarCtx() { ctxBar.hidden = true; ctxBar._firma = ''; }
+  function ocultarCtx() { ctxBar.hidden = true; ctxBar._firma = ''; if (popAviso && !popAviso.hidden) cerrarAviso(); }
   const botonCtx = (accion, icono, nombre, tecla = '') => `<button type="button" class="pz-boton pz-boton--icono" data-ctx="${accion}" data-tip="${esc(nombre)}"${tecla ? ` data-tecla="${tecla}"` : ''} aria-label="${esc(nombre)}">${ico(icono)}</button>`;
   function pintarCtx() {
     if (!EDITAR || (gesto && gesto.movido) || !sel.size) { ocultarCtx(); return; }
     const lista = [...sel].map(vivo).filter(Boolean);
     if (!lista.length) { ocultarCtx(); return; }
-    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}`).join(',');
+    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}`).join(',');
     if (ctxBar._firma !== firma) {
       ctxBar._firma = firma;
       const tipos = new Set(lista.map((e) => e.tipo));
@@ -1786,6 +1823,12 @@
       if (tipos.has('flecha') || tipos.has('trazo')) extra += botonCtx('grosor', 'pz-grosor', 'Grosor de la línea');
       if (lista.length === 1 && tipos.has('kanban')) extra += botonCtx('traer', 'pz-traer', 'Traer tareas del proyecto') + botonCtx('columna', 'pz-columna', 'Añadir columna');
       if (lista.length === 1 && tipos.has('enlace')) extra += botonCtx('abrir', 'ds-enlace', 'Abrir el enlace');
+      if (lista.length === 1 && (tipos.has('nota') || tipos.has('texto'))) {
+        // El recordatorio: a su hora le llega un aviso (campana, notificación y correo) a quien lo puso
+        const av = lista[0].aviso ? etiquetaAviso(lista[0].aviso) : '';
+        const nombre = av ? `Recordatorio: ${av}` : 'Recordármelo a una hora';
+        extra += `<button type="button" class="pz-boton pz-boton--icono${av ? ' is-activa' : ''}" data-ctx="aviso" data-tip="${esc(nombre)}" aria-label="${esc(nombre)}">${ico('ds-notificaciones')}</button>`;
+      }
       if (extra) partes.push(extra, '<span class="pz-ctx__sep"></span>');
       partes.push(botonCtx('frente', 'pz-frente', 'Traer al frente'), botonCtx('duplicar', 'ds-duplicar', 'Duplicar', 'Ctrl D'), botonCtx('borrar', 'ds-eliminar', 'Borrar', 'Supr'));
       ctxBar.innerHTML = partes.join('');
@@ -1833,6 +1876,7 @@
       case 'traer': traerTareas(lista[0].id); break;
       case 'columna': agregarColumna(lista[0].id); break;
       case 'abrir': if (/^https?:\/\//i.test(lista[0].url || '')) window.open(lista[0].url, '_blank', 'noopener'); break;
+      case 'aviso': abrirAviso(lista[0].id); return;
     }
     ctxBar._firma = '';
     pintarCtx();
@@ -1947,7 +1991,7 @@
   /* =========================================================
      Teclado
      ========================================================= */
-  const ATAJOS = { v: 'seleccionar', h: 'mano', n: 'nota', t: 'texto', r: 'rect', o: 'elipse', a: 'flecha', p: 'lapiz', k: 'kanban', i: 'imagen' };
+  const ATAJOS = { v: 'seleccionar', h: 'mano', n: 'nota', t: 'texto', r: 'rect', o: 'elipse', a: 'flecha', p: 'lapiz', k: 'kanban', i: 'imagen', l: 'enlace' };
   document.addEventListener('keydown', (e) => {
     if (editando) {
       if (e.key === 'Escape' || (e.key === 'Enter' && (e.ctrlKey || e.metaKey))) { e.preventDefault(); terminarEdicion(); return; }
@@ -1957,6 +2001,7 @@
     }
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t?.isContentEditable) return;
+    if (t?.closest?.('#pz-calc, .pz-pop')) return;   // la calculadora y los cuadros tienen su propio teclado
     const mod = e.ctrlKey || e.metaKey;
     if (e.code === 'Space' && !mod) {
       e.preventDefault();
@@ -1981,6 +2026,8 @@
     switch (e.key) {
       case 'Escape':
         if (!ayuda.hidden) { ayuda.hidden = true; return; }
+        if (popAviso && !popAviso.hidden) { cerrarAviso(); return; }
+        if (popEnlace && !popEnlace.hidden) { cerrarEnlace(); return; }
         if (gesto) { cancelarGesto(); return; }
         if (herramienta !== 'seleccionar') { elegirHerr('seleccionar'); return; }
         if (sel.size) { sel.clear(); pintarSel(); pintarCtx(); }
@@ -2013,6 +2060,7 @@
       }
       case '?': ayuda.hidden = !ayuda.hidden; return;
     }
+    if (e.key.toLowerCase() === 'c') { e.preventDefault(); alternarCalc(); return; }
     const herr = ATAJOS[e.key.toLowerCase()];
     if (herr && (EDITAR || herr === 'seleccionar' || herr === 'mano')) { e.preventDefault(); elegirHerr(herr); }
   });
@@ -2042,6 +2090,8 @@
   }
   const enCampo = (t) => t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || (t?.isContentEditable && !lienzo.contains(t));
   document.addEventListener('copy', (e) => {
+    // Con la calculadora enfocada, Ctrl+C copia su resultado
+    if (e.target?.closest?.('#pz-calc')) { e.preventDefault(); e.clipboardData.setData('text/plain', calcRes.textContent.trim()); toast('Resultado copiado.'); return; }
     if (editando || enCampo(e.target) || !sel.size) return;
     const lista = copiarSeleccion();
     if (!lista.length) return;
@@ -2066,9 +2116,11 @@
       if (!PLANO) { e.preventDefault(); document.execCommand('insertText', false, e.clipboardData.getData('text/plain')); }
       return;
     }
+    if (e.target?.closest?.('#pz-calc')) { e.preventDefault(); calcPegar(e.clipboardData?.getData('text/plain') || ''); return; }
     if (!EDITAR || enCampo(e.target)) return;
     const dt = e.clipboardData;
     if (!dt) return;
+    ocultarPista(true);
     const imagenes = [...dt.files].filter((f) => /^image\//.test(f.type));
     e.preventDefault();
     const p = puntoPegado();
@@ -2109,6 +2161,7 @@
     raiz.classList.remove('is-soltando');
     if (!EDITAR) return;
     e.preventDefault();
+    ocultarPista(true);
     const p = aMundo(e.clientX, e.clientY);
     const archivos = [...(e.dataTransfer.files || [])];
     const imagenes = archivos.filter((f) => /^image\//.test(f.type));
@@ -2157,10 +2210,25 @@
     sel.clear(); sel.add(el.id);
     programarRender({ sel: true, ctx: true });
     pintarVacio();
+    subirArchivo(el, blob, file.name || 'imagen.png', urlLocal);
+  }
+  // Las imágenes que no subieron por falta de red esperan aquí (solo en esta pestaña) y salen solas al volver
+  const enEspera = new Map();
+  function reintentarSubidas() {
+    for (const [id, s] of enEspera) {
+      if (s.subiendo) continue;
+      if (!vivo(id)) { enEspera.delete(id); URL.revokeObjectURL(s.urlLocal); continue; }
+      subirArchivo(els.get(id), s.blob, s.nombre, s.urlLocal);
+    }
+  }
+  async function subirArchivo(el, blob, nombre, urlLocal) {
+    const espera = enEspera.get(el.id);
+    if (espera) espera.subiendo = true;
     const fd = new FormData();
-    fd.append('imagen', blob, file.name || 'imagen.png');
+    fd.append('imagen', blob, nombre);
     try {
       const j = await pedir('imagen', { metodo: 'POST', cuerpo: fd });
+      enEspera.delete(el.id);
       const actual = els.get(el.id);
       if (!actual || actual.borrado) { URL.revokeObjectURL(urlLocal); return; }   // la borraron mientras subía
       actual.src = String(j.url || '');
@@ -2174,6 +2242,13 @@
       // Cambia a la del servidor cuando ya está en caché (sin parpadeo)
       medidas(actual.src).then(() => { if (vivo(el.id)) { delete actual._blob; pintar(actual); } URL.revokeObjectURL(urlLocal); }, () => {});
     } catch (err) {
+      if (err.red && vivo(el.id)) {
+        // Sin red: la imagen se queda en la pizarra y se reintenta cuando el panel vuelva a contestar
+        if (!espera) toast('Sin conexión: la imagen se queda aquí y se sube sola cuando vuelva la red.');
+        enEspera.set(el.id, { blob, nombre, urlLocal, subiendo: false });
+        return;
+      }
+      enEspera.delete(el.id);
       els.delete(el.id); quitarNodo(el.id); sel.delete(el.id);
       URL.revokeObjectURL(urlLocal);
       programarRender({ sel: true, ctx: true });
@@ -2190,13 +2265,19 @@
 
   async function pedir(accion, { metodo = 'GET', cuerpo = null, params = '' } = {}) {
     const json = cuerpo && !(cuerpo instanceof FormData);
-    const r = await fetch(`${CFG.api}&accion=${accion}${params}`, {
-      method: metodo,
-      credentials: 'same-origin',
-      cache: 'no-store',
-      headers: Object.assign({ 'X-Requested-With': 'fetch' }, json ? { 'Content-Type': 'application/json' } : {}),
-      body: cuerpo ? (json ? JSON.stringify(cuerpo) : cuerpo) : undefined,
-    });
+    let r;
+    try {
+      r = await fetch(`${CFG.api}&accion=${accion}${params}`, {
+        method: metodo,
+        credentials: 'same-origin',
+        cache: 'no-store',
+        headers: Object.assign({ 'X-Requested-With': 'fetch' }, json ? { 'Content-Type': 'application/json' } : {}),
+        body: cuerpo ? (json ? JSON.stringify(cuerpo) : cuerpo) : undefined,
+      });
+    } catch (e) {
+      // Sin red o el panel no contesta: el navegador solo dice «Failed to fetch»
+      throw Object.assign(new Error('No hay conexión con el panel. Lo que hiciste queda guardado aquí y se manda solo al volver.'), { red: true });
+    }
     let j = null;
     try { j = await r.json(); } catch (e) { /* no es JSON */ }
     if (r.status === 401) throw Object.assign(new Error(j?.error || 'Tu sesión se cerró.'), { sesion: true });
@@ -2227,6 +2308,7 @@
       if (EDITAR && sync.sucios.size) await enviar();
       await consultar();
       sync.fallos = 0;
+      if (enEspera.size) reintentarSubidas();
     } catch (err) {
       if (err.sesion) { sync.parado = true; sync.motivo = 'Tu sesión se cerró · recarga'; }
       else if (err.permiso) { sync.parado = true; sync.motivo = 'Sin permiso · recarga'; toast(err.message, true); }
@@ -2287,6 +2369,7 @@
       recuperarPendientes();
       if (!vistaGuardada) ajustar(false);
       pintarVacio();
+      if (!vivos().length) mostrarPista();   // la primera vez, en una pizarra vacía: cómo se pega
     }
   }
 
@@ -2425,6 +2508,7 @@
     return `<span class="avatar" style="--sz:28px;--av-c1:${color}">${dentroAv}</span>`;
   }
   function pintarPresentes(lista) {
+    if (CFG.mia) return;   // «Mis notas»: solo la ve quien la tiene
     for (const p of lista) nombres.set(Number(p.id), { nombre: String(p.nombre || ''), color: p.color });
     const firma = lista.map((p) => p.id + (p.foto || '')).join(',');
     if (!otrosEl || otrosEl._firma === firma) return;
@@ -2603,6 +2687,438 @@
   }
 
   /* =========================================================
+     Recordatorio en una nota (o un texto)
+     Se guarda en el elemento como aviso: 'YYYY-MM-DD HH:MM' (hora local, 24 h)
+     y aviso_por: quien lo puso. Viaja con el guardado como cualquier campo; el
+     servidor lo indexa y a esa hora le avisa a quien lo puso (campana,
+     notificación del navegador y correo). Quitar el campo borra el aviso.
+     ========================================================= */
+  const DIAS_C = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+  const MESES_C = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  const dosD = (n) => String(n).padStart(2, '0');
+  const textoFecha = (d) => `${d.getFullYear()}-${dosD(d.getMonth() + 1)}-${dosD(d.getDate())} ${dosD(d.getHours())}:${dosD(d.getMinutes())}`;
+  function fechaAviso(s) {
+    const m = /^(\d{4})-(\d\d)-(\d\d)[ T](\d\d):(\d\d)$/.exec(String(s || ''));
+    return m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+  }
+  /** «hoy 15:30», «mañana 9:00», «vie 9:00», «12 nov 9:00»; si ya pasó, «Avisado». */
+  function etiquetaAviso(s) {
+    const d = fechaAviso(s);
+    if (!d) return '';
+    const ahora = new Date();
+    if (d <= ahora) return 'Avisado';
+    const hora = d.getHours() + ':' + dosD(d.getMinutes());
+    const dias = Math.round((new Date(d.getFullYear(), d.getMonth(), d.getDate()) - new Date(ahora.getFullYear(), ahora.getMonth(), ahora.getDate())) / 86400000);
+    if (dias === 0) return 'hoy ' + hora;
+    if (dias === 1) return 'mañana ' + hora;
+    if (dias < 7) return DIAS_C[d.getDay()] + ' ' + hora;
+    return d.getDate() + ' ' + MESES_C[d.getMonth()] + ' ' + hora;
+  }
+  function avisoHtml(el, etiqueta) {
+    const pasado = etiqueta === 'Avisado';
+    const d = fechaAviso(el.aviso);
+    const larga = d ? `${DIAS_C[d.getDay()]} ${d.getDate()} ${MESES_C[d.getMonth()]} · ${d.getHours()}:${dosD(d.getMinutes())}` : '';
+    const por = Number(el.aviso_por) || 0;
+    const quien = por && por !== YO ? (nombres.get(por)?.nombre || '').split(' ')[0] : '';
+    const tip = (pasado ? 'Ya se avisó' : 'Recordatorio') + (quien ? ` de ${quien}` : '') + (larga ? ': ' + larga : '');
+    return `<span class="pz-aviso${pasado ? ' is-pasado' : ''}" data-tip="${esc(tip)}">${ico('ds-notificaciones')}<span>${esc(etiqueta)}</span></span>`;
+  }
+  // Cada medio minuto la insignia se pone al día («mañana» pasa a «hoy» y luego a «Avisado»)
+  setInterval(() => {
+    if (document.hidden) return;
+    for (const el of vivos()) {
+      if (!el.aviso) continue;
+      const n = nodos.get(el.id);
+      if (n && el.tipo === 'nota') pintarPieTarea(el, n);
+      else if (n && el.tipo === 'texto') pintarAvisoTexto(el, n);
+    }
+  }, 30000);
+
+  /* ----- Cuadros de vidrio (enlace y recordatorio): junto a lo que los abrió ----- */
+  function abrirPop(pop, ancla, foco) {
+    pop.hidden = false;
+    const w = pop.offsetWidth, h = pop.offsetHeight, W = window.innerWidth, H = window.innerHeight;
+    let x, y;
+    if (ancla && ancla.width != null) { x = ancla.left + ancla.width / 2 - w / 2; y = ancla.bottom + 10; if (y + h > H - 90) y = ancla.top - h - 10; }
+    else if (ancla) { x = ancla.x - w / 2; y = ancla.y + 22; if (y + h > H - 90) y = ancla.y - h - 22; }
+    else { x = W / 2 - w / 2; y = H - h - 100; }   // encima de la barra de herramientas
+    pop.style.setProperty('--cx', Math.round(limitar(x, 8, W - w - 8)) + 'px');
+    pop.style.setProperty('--cy', Math.round(limitar(y, 76, H - h - 8)) + 'px');
+    if (foco) requestAnimationFrame(() => foco.focus({ preventScroll: true }));
+  }
+
+  /* ----- Enlace: la dirección en su cuadro (sin prompt); un clic en el lienzo elige dónde va ----- */
+  const popEnlace = $('#pz-pop-enlace'), inEnlace = $('#pz-enlace-url'), errEnlace = $('#pz-enlace-error');
+  let destinoEnlace = null, marcaEnlace = null;
+  function abrirEnlace(p) {
+    if (!EDITAR || !popEnlace) return;
+    destinoEnlace = p;
+    errEnlace.hidden = true;
+    inEnlace.removeAttribute('aria-invalid');
+    abrirPop(popEnlace, p ? aPantalla(p.x, p.y) : null, inEnlace);
+    if (p) {
+      if (!marcaEnlace) { marcaEnlace = document.createElement('div'); marcaEnlace.className = 'pz-destino'; capaSel.appendChild(marcaEnlace); }
+      marcaEnlace.hidden = false;
+      marcaEnlace.style.transform = `translate(${p.x}px,${p.y}px)`;
+    } else if (marcaEnlace) marcaEnlace.hidden = true;
+  }
+  function cerrarEnlace(volver = true) {
+    if (!popEnlace) return;
+    popEnlace.hidden = true;
+    destinoEnlace = null;
+    inEnlace.value = '';
+    if (marcaEnlace) marcaEnlace.hidden = true;
+    if (volver && herramienta === 'enlace') elegirHerr('seleccionar');
+  }
+  /** «edcon.ec/guia» → «https://edcon.ec/guia». Solo http(s) y con un dominio de verdad. */
+  function urlDe(v) {
+    v = String(v || '').trim();
+    if (!v) return '';
+    if (!/^[a-z][a-z0-9+.-]*:\/\//i.test(v)) v = 'https://' + v.replace(/^\/+/, '');
+    try {
+      const u = new URL(v);
+      if (!/^https?:$/.test(u.protocol) || !(u.hostname.includes('.') || u.hostname === 'localhost')) return '';
+      return u.href;
+    } catch (e) { return ''; }
+  }
+  function crearEnlaceDelCuadro() {
+    const url = urlDe(inEnlace.value);
+    if (!url) { errEnlace.hidden = false; inEnlace.setAttribute('aria-invalid', 'true'); inEnlace.focus(); return; }
+    const p = destinoEnlace || aMundo(window.innerWidth / 2, window.innerHeight / 2);
+    cerrarEnlace(false);
+    elegirHerr('seleccionar');
+    pegarTexto(url, p);
+    ocultarPista(true);
+  }
+  if (popEnlace) {
+    popEnlace.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-enlace]');
+      if (b) { if (b.dataset.enlace === 'crear') crearEnlaceDelCuadro(); else cerrarEnlace(); }
+    });
+    popEnlace.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); crearEnlaceDelCuadro(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cerrarEnlace(); }
+    });
+    inEnlace.addEventListener('input', () => { errEnlace.hidden = true; inEnlace.removeAttribute('aria-invalid'); });
+  }
+
+  /* ----- El cuadro del recordatorio ----- */
+  const popAviso = $('#pz-pop-aviso'), inAviso = $('#pz-aviso-cuando'), errAviso = $('#pz-aviso-error'), actualAviso = $('#pz-aviso-actual');
+  let avisoDe = null;
+  function abrirAviso(id) {
+    const el = vivo(id);
+    if (!el || !EDITAR || !popAviso) return;
+    avisoDe = id;
+    const d = fechaAviso(el.aviso);
+    const base = d && d > new Date() ? d : new Date(Date.now() + 3600e3);
+    inAviso.value = textoFecha(base).replace(' ', 'T');
+    inAviso.min = textoFecha(new Date()).replace(' ', 'T');
+    const et = etiquetaAviso(el.aviso);
+    actualAviso.textContent = !el.aviso ? 'A esa hora te llega un aviso en la campana, en el navegador y por correo.'
+      : et === 'Avisado' ? 'Este recordatorio ya se avisó. Pon otra hora si quieres que vuelva a sonar.' : `Te avisamos ${et}.`;
+    errAviso.hidden = true;
+    popAviso.querySelector('[data-aviso="quitar"]').hidden = !el.aviso;
+    abrirPop(popAviso, ctxBar.hidden ? null : ctxBar.getBoundingClientRect(), inAviso);
+  }
+  function cerrarAviso() { if (popAviso) popAviso.hidden = true; avisoDe = null; }
+  function ponerAviso(valor) {
+    const el = vivo(avisoDe);
+    if (!el) { cerrarAviso(); return; }
+    if (valor) {
+      const d = fechaAviso(valor);
+      if (!d || d <= new Date()) { errAviso.textContent = 'Esa hora ya pasó: elige una más adelante.'; errAviso.hidden = false; return; }
+    }
+    cerrarAviso();
+    cambiarTodos([el], (x) => {
+      if (valor) { x.aviso = valor; x.aviso_por = YO; }
+      else { delete x.aviso; delete x.aviso_por; }
+    });
+    toast(valor ? `Listo: te avisamos ${etiquetaAviso(valor)}.` : 'Recordatorio quitado.');
+    ctxBar._firma = '';
+    pintarCtx();
+  }
+  function guardarAviso() {
+    const v = String(inAviso.value || '').replace('T', ' ').slice(0, 16);
+    if (!fechaAviso(v)) { errAviso.textContent = 'Elige la fecha y la hora.'; errAviso.hidden = false; return; }
+    ponerAviso(v);
+  }
+  if (popAviso) {
+    popAviso.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-aviso]');
+      if (!b) return;
+      const a = b.dataset.aviso;
+      if (a === 'hora') ponerAviso(textoFecha(new Date(Date.now() + 3600e3)));
+      else if (a === 'manana') { const d = new Date(); d.setDate(d.getDate() + 1); d.setHours(9, 0, 0, 0); ponerAviso(textoFecha(d)); }
+      else if (a === 'quitar') ponerAviso(null);
+      else if (a === 'guardar') guardarAviso();
+      else cerrarAviso();
+    });
+    popAviso.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); guardarAviso(); }
+      else if (e.key === 'Escape') { e.preventDefault(); cerrarAviso(); }
+    });
+    inAviso.addEventListener('input', () => { errAviso.hidden = true; });
+    // Un clic fuera lo cierra (salvo en la propia campana, que lo abre)
+    document.addEventListener('pointerdown', (e) => {
+      if (!popAviso.hidden && !popAviso.contains(e.target) && !e.target.closest?.('[data-ctx="aviso"]')) cerrarAviso();
+    }, { capture: true, passive: true });
+  }
+
+  /* ----- La primera vez, en una pizarra vacía: cómo se pega ----- */
+  const pista = $('#pz-pista'), CLAVE_PISTA = 'pz-pista-pegar';
+  function mostrarPista() { if (pista && EDITAR && !local.leer(CLAVE_PISTA)) pista.hidden = false; }
+  function ocultarPista(recordar) {
+    if (pista) pista.hidden = true;
+    if (recordar) local.poner(CLAVE_PISTA, 1);
+  }
+  pista?.addEventListener('click', (e) => { if (e.target.closest('[data-pista-ok]')) ocultarPista(true); });
+
+  /* =========================================================
+     Mini calculadora: personal (no se sincroniza), se arrastra por su
+     cabecera y se usa también con el teclado mientras está enfocada. La cinta
+     con las últimas cuentas queda en el navegador de cada quien.
+     ========================================================= */
+  const calc = $('#pz-calc');
+  const calcExpr = $('#pz-calc-expr'), calcRes = $('#pz-calc-res'), calcCinta = $('#pz-calc-cinta');
+  const botonCalc = barra.querySelector('[data-calc]');
+  const CLAVE_CINTA = 'pz-calc-cinta', CLAVE_CALC_POS = 'pz-calc-pos';
+  let calcTxt = '', calcRecien = false, cintaElegida = 0;
+  let cinta = (local.leer(CLAVE_CINTA, []) || []).filter((c) => c && c.expr != null && c.res != null).slice(0, 8);
+
+  /**
+   * Evalúa la cuenta sin eval(): números, + − × ÷, paréntesis (los que falten
+   * al final se cierran solos) y %. El % va como en las calculadoras de
+   * bolsillo: «200 + 10%» es 220 (el 10 % de 200); suelto, «50%» es 0,5.
+   */
+  function evaluar(s) {
+    const toks = [];
+    for (let i = 0; i < s.length;) {
+      const c = s[i];
+      if (c === ' ') { i++; continue; }
+      if (/[0-9.]/.test(c)) {
+        let j = i;
+        while (j < s.length && /[0-9.]/.test(s[j])) j++;
+        const n = s.slice(i, j);
+        if (n === '.' || (n.match(/\./g) || []).length > 1) throw new Error('numero');
+        toks.push({ n: parseFloat(n) });
+        i = j;
+        continue;
+      }
+      if ('+-*/%()'.includes(c)) { toks.push({ o: c }); i++; continue; }
+      throw new Error('simbolo');
+    }
+    if (!toks.length) throw new Error('vacio');
+    let k = 0;
+    const es = (o) => toks[k] && toks[k].o === o;
+    const suma = () => {
+      let v = producto().v;
+      while (es('+') || es('-')) {
+        const op = toks[k++].o, d = producto();
+        const x = d.pct ? (v * d.base) / 100 : d.v;
+        v = op === '+' ? v + x : v - x;
+      }
+      return v;
+    };
+    const producto = () => {
+      const f = porciento();
+      let v = f.v, solo = true;
+      while (es('*') || es('/')) {
+        const op = toks[k++].o, g = porciento();
+        solo = false;
+        if (op === '/') { if (g.v === 0) throw new Error('cero'); v /= g.v; } else v *= g.v;
+      }
+      return solo && f.pct ? f : { v };
+    };
+    const porciento = () => {
+      let v = unario(), base = v, pct = false;
+      while (es('%')) { k++; base = v; v /= 100; pct = true; }
+      return { v, base, pct };
+    };
+    const unario = () => {
+      if (es('-')) { k++; return -unario(); }
+      if (es('+')) { k++; return unario(); }
+      const t = toks[k++];
+      if (!t) throw new Error('fin');
+      if (t.n != null) return t.n;
+      if (t.o === '(') { const v = suma(); if (es(')')) k++; return v; }
+      throw new Error('falta');
+    };
+    const v = suma();
+    if (k < toks.length) throw new Error('sobra');
+    if (!Number.isFinite(v)) throw new Error('infinito');
+    return v;
+  }
+  const fmtCalc = (v) => {
+    if (Object.is(v, -0)) v = 0;
+    const r = parseFloat(v.toPrecision(12));
+    return Math.abs(r) >= 1e15 || (r !== 0 && Math.abs(r) < 1e-9) ? r.toExponential(6) : String(r);
+  };
+  /** «12*3-2» → «12 × 3 − 2» (el menos de un número negativo queda pegado). */
+  function bonito(s) {
+    let out = '';
+    for (const c of s) {
+      const prev = out.trimEnd().slice(-1);
+      if (c === '*') out += ' × ';
+      else if (c === '/') out += ' ÷ ';
+      else if (c === '+') out += ' + ';
+      else if (c === '-') out += /[0-9.)%]/.test(prev) ? ' − ' : '−';
+      else out += c;
+    }
+    return out.replace(/\s+/g, ' ').trim();
+  }
+  function calcTecla(k) {
+    if (k === 'C') { calcTxt = ''; calcRecien = false; }
+    else if (k === 'atras') { calcTxt = calcRecien ? '' : calcTxt.slice(0, -1); calcRecien = false; }
+    else if (k === '=') { calcular(); return; }
+    else {
+      // Tras «=»: un número empieza otra cuenta; un operador sigue con el resultado
+      if (calcRecien) { if (/[0-9.(]/.test(k)) calcTxt = ''; calcRecien = false; }
+      const ultimo = calcTxt.slice(-1);
+      if (/[0-9]/.test(k)) { if (ultimo === ')' || ultimo === '%') calcTxt += '*'; calcTxt += k; }
+      else if (k === '.') {
+        const num = /[0-9.]*$/.exec(calcTxt)[0];
+        if (num.includes('.')) return;
+        if (ultimo === ')' || ultimo === '%') calcTxt += '*';
+        calcTxt += num ? '.' : '0.';
+      } else if ('+*/'.includes(k)) {
+        if (!calcTxt || ultimo === '(') return;
+        if (/[+\-*/]/.test(ultimo)) calcTxt = calcTxt.slice(0, -1).replace(/[+\-*/]$/, '');
+        if (calcTxt) calcTxt += k;
+      } else if (k === '-') {
+        if (ultimo === '-' || ultimo === '+') calcTxt = calcTxt.slice(0, -1);
+        calcTxt += '-';
+      } else if (k === '%') { if (/[0-9)]/.test(ultimo)) calcTxt += '%'; }
+      else if (k === '(') { if (/[0-9)%]/.test(ultimo)) calcTxt += '*'; calcTxt += '('; }
+      else if (k === ')') {
+        const abiertos = (calcTxt.match(/\(/g) || []).length - (calcTxt.match(/\)/g) || []).length;
+        if (abiertos > 0 && /[0-9)%]/.test(ultimo)) calcTxt += ')';
+      }
+      if (calcTxt.length > 120) calcTxt = calcTxt.slice(0, 120);
+    }
+    pintarCalc();
+  }
+  function calcular() {
+    if (!calcTxt) return;
+    const limpio = calcTxt.replace(/[+\-*/(]+$/, '');
+    let v;
+    try { v = evaluar(limpio); }
+    catch (e) {
+      calcRes.textContent = e.message === 'cero' ? 'No se puede dividir entre 0' : 'Revisa la cuenta';
+      calc.classList.add('is-error');
+      return;
+    }
+    cinta.unshift({ expr: bonito(limpio), res: fmtCalc(v).replace(/^-/, '−') });   // el menos, igual que en la cuenta
+    cinta = cinta.slice(0, 8);
+    cintaElegida = 0;
+    local.poner(CLAVE_CINTA, cinta);
+    calcTxt = fmtCalc(v);
+    calcRecien = true;
+    pintarCalc();
+  }
+  function pintarCalc() {
+    calc.classList.remove('is-error');
+    if (calcRecien && cinta[0]) {
+      calcExpr.textContent = cinta[0].expr + ' =';
+      calcRes.textContent = cinta[0].res;
+    } else {
+      calcExpr.textContent = bonito(calcTxt);
+      let vista = '';
+      const limpio = calcTxt.replace(/[+\-*/(]+$/, '');
+      if (limpio) { try { vista = fmtCalc(evaluar(limpio)).replace(/^-/, '−'); } catch (e) { vista = ''; } }
+      calcRes.textContent = vista || (calcTxt ? '…' : '0');
+    }
+    calcCinta.innerHTML = cinta.length
+      ? cinta.map((c, i) => `<button type="button" class="pz-calc__op${i === cintaElegida ? ' is-elegida' : ''}" data-calc-op="${i}" data-tip="Usar este resultado"><span>${esc(c.expr)} =</span><b>${esc(c.res)}</b></button>`).join('')
+      : '<p class="pz-calc__vacia">Aquí quedan tus últimas cuentas.</p>';
+    const pegar = calc.querySelector('[data-calc-accion="pegar"]');
+    if (pegar) pegar.disabled = !cinta.length;
+  }
+  function calcPegar(texto) {
+    const t = String(texto || '').replace(/×|x|X/g, '*').replace(/÷/g, '/').replace(/−/g, '-').replace(/,/g, '.').replace(/[^0-9.+\-*/%()]/g, '');
+    for (const c of t) calcTecla(c);
+  }
+  function pegarCuenta() {
+    if (!EDITAR) return;
+    const c = cinta[cintaElegida] || cinta[0];
+    if (!c) { toast('Primero haz una cuenta y pulsa «=».'); return; }
+    const p = puntoPegado(), f = factor();
+    crear([nuevoEl('nota', { x: r1(p.x - 100 * f), y: r1(p.y - 100 * f), w: Math.round(200 * f), h: Math.round(200 * f), texto: `${c.expr} = ${c.res}` })]);
+    toast('Cuenta pegada en la pizarra.');
+  }
+  function colocarCalc(pos) {
+    const w = calc.offsetWidth, h = calc.offsetHeight;
+    const x = limitar(pos && Number.isFinite(pos.x) ? pos.x : window.innerWidth - w - 16, 8, Math.max(8, window.innerWidth - w - 8));
+    const y = limitar(pos && Number.isFinite(pos.y) ? pos.y : window.innerHeight - h - 132, 76, Math.max(76, window.innerHeight - h - 8));
+    calc._x = x; calc._y = y;
+    calc.style.setProperty('--cx', Math.round(x) + 'px');
+    calc.style.setProperty('--cy', Math.round(y) + 'px');
+  }
+  function alternarCalc(abrir) {
+    if (!calc) return;
+    if (abrir === undefined) abrir = calc.hidden;
+    calc.hidden = !abrir;
+    botonCalc?.classList.toggle('is-abierta', abrir);
+    botonCalc?.setAttribute('aria-pressed', abrir ? 'true' : 'false');
+    if (abrir) {
+      pintarCalc();
+      colocarCalc(local.leer(CLAVE_CALC_POS));
+      calc.focus({ preventScroll: true });
+    } else if (calc.contains(document.activeElement)) lienzo.focus({ preventScroll: true });
+  }
+  if (calc) {
+    const TECLAS = { Enter: '=', '=': '=', Backspace: 'atras', Delete: 'C', c: 'C', C: 'C', x: '*', X: '*', ',': '.' };
+    calc.addEventListener('keydown', (e) => {
+      if (e.ctrlKey || e.metaKey || e.altKey) return;   // Ctrl+C / Ctrl+V: los eventos copy / paste
+      let k = TECLAS[e.key] ?? e.key;
+      if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); if (calcTxt) calcTecla('C'); else alternarCalc(false); return; }
+      if (e.key === ' ') { e.preventDefault(); return; }   // que la barra no repita el último botón
+      if (!/^[0-9.+\-*/%()=C]$/.test(k) && k !== 'atras') return;
+      e.preventDefault();
+      e.stopPropagation();
+      calcTecla(k);
+      const b = calc.querySelector(`[data-k="${CSS.escape(k)}"]`);
+      if (b) { b.classList.add('is-pulsada'); setTimeout(() => b.classList.remove('is-pulsada'), 120); }
+    });
+    calc.addEventListener('click', (e) => {
+      const t = e.target.closest('[data-k]');
+      if (t) { calcTecla(t.dataset.k); return; }
+      const op = e.target.closest('[data-calc-op]');
+      if (op) {
+        cintaElegida = Number(op.dataset.calcOp) || 0;
+        const c = cinta[cintaElegida];
+        if (c) { calcTxt = c.res.replace(/^−/, '-'); calcRecien = false; }
+        pintarCalc();
+        return;
+      }
+      const a = e.target.closest('[data-calc-accion]')?.dataset.calcAccion;
+      if (a === 'cerrar') alternarCalc(false);
+      else if (a === 'pegar') pegarCuenta();
+    });
+    // Se arrastra por la cabecera (solo con transform)
+    const agarre = calc.querySelector('[data-calc-agarre]');
+    agarre.addEventListener('pointerdown', (e) => {
+      if (e.button !== 0 || e.target.closest('button')) return;
+      e.preventDefault();
+      agarre.setPointerCapture(e.pointerId);
+      const dx = e.clientX - calc._x, dy = e.clientY - calc._y;
+      calc.classList.add('is-moviendo');
+      const mueve = (ev) => colocarCalc({ x: ev.clientX - dx, y: ev.clientY - dy });
+      const suelta = () => {
+        agarre.removeEventListener('pointermove', mueve);
+        agarre.removeEventListener('pointerup', suelta);
+        agarre.removeEventListener('pointercancel', suelta);
+        calc.classList.remove('is-moviendo');
+        local.poner(CLAVE_CALC_POS, { x: Math.round(calc._x), y: Math.round(calc._y) });
+        calc.focus({ preventScroll: true });
+      };
+      agarre.addEventListener('pointermove', mueve);
+      agarre.addEventListener('pointerup', suelta);
+      agarre.addEventListener('pointercancel', suelta);
+    });
+    window.addEventListener('resize', () => { if (!calc.hidden) colocarCalc({ x: calc._x, y: calc._y }); }, { passive: true });
+  }
+
+  /* =========================================================
      Avisos y ayudas
      ========================================================= */
   let relojToast = 0;
@@ -2631,7 +3147,7 @@
     tipEl = el;
     tipReloj = setTimeout(() => {
       if (!el.isConnected) return;
-      tip.innerHTML = esc(el.dataset.tip) + (el.dataset.tecla ? ' ' + el.dataset.tecla.split(' ').map((k) => `<kbd>${esc(k)}</kbd>`).join('') : '');
+      tip.innerHTML = esc(el.dataset.tip) + (el.dataset.tecla ? ' ' + el.dataset.tecla.split(' ').map((k) => `<kbd>${esc(MAC && k === 'Ctrl' ? '⌘' : k)}</kbd>`).join('') : '');
       const r = el.getBoundingClientRect(), w = tip.offsetWidth, h = tip.offsetHeight;
       const x = limitar(r.left + r.width / 2 - w / 2, 8, window.innerWidth - w - 8);
       const y = r.top < 140 ? r.bottom + 8 : r.top - h - 8;
@@ -2655,6 +3171,11 @@
   const vistaGuardada = local.leer(CLAVE_VISTA);
   if (vistaGuardada && Number.isFinite(vistaGuardada.x) && Number.isFinite(vistaGuardada.z)) {
     vista.x = vistaGuardada.x; vista.y = vistaGuardada.y; vista.z = limitar(vistaGuardada.z, Z_MIN, Z_MAX);
+  }
+  // En Mac, las teclas dicen ⌘ (la ayuda, las pistas y los atajos)
+  if (MAC) {
+    document.querySelectorAll('#pz kbd[data-mod]').forEach((k) => { k.textContent = '⌘'; });
+    document.querySelectorAll('#pz-ayuda dt').forEach((dt) => { dt.textContent = dt.textContent.replace(/\bCtrl\b/g, '⌘'); });
   }
   raiz.dataset.herr = herramienta;
   aplicarVista();

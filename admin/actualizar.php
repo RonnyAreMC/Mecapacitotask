@@ -101,7 +101,7 @@ function actualizarPanel(array $opc): void
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
         'lib/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/ApiToken.php', 'lib/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
         'lib/Releases.php', 'releases.php', 'assets/releases.js', 'seed_releases.php', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
-        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php', 'lib/Pizarra.php', 'pizarra_api.php', 'pizarra.php', 'assets/pizarra.js', 'assets/pizarra.css', 'iconos/Pizarra/pz-pizarra.svg', 'iconos/Pizarra/pz-traer.svg',
+        'lib/Cronograma.php', 'cron_deploys.php', 'lib/GitLab.php', 'lib/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/resumen_tira.php', 'resumen.php', 'lib/ResumenPersona.php', 'lib/Pizarra.php', 'pizarra_api.php', 'pizarra.php', 'assets/pizarra.js', 'assets/pizarra.css', 'iconos/Pizarra/pz-pizarra.svg', 'iconos/Pizarra/pz-traer.svg', 'iconos/Pizarra/pz-calculadora.svg', 'iconos/Pizarra/pz-atras.svg',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/UI.php'        => ["'ia-estrellas'", 'PASOS_OBSERVACION', 'dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'stroke-width="1.9"', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
+        'lib/UI.php'        => ["'ia-estrellas'", 'pizarra.php?mia=1', 'PASOS_OBSERVACION', 'dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'stroke-width="1.9"', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
         'lib/Notificaciones.php' => ["'recordatorio'", "'reunion_pronto'", 'Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -169,9 +169,9 @@ function actualizarPanel(array $opc): void
         'lib/resumen_tira.php' => ['data-rt-correo-n', 'data-rt-pista', 'rt-radar', 'Por revisar como PO'],
         'lib/Pizarra.php'   => ['function tareasDe', 'function avisarRecordatorios', 'final class Pizarra', 'piz_elementos', 'function subirImagen'],
         'pizarra_api.php'   => ['Pizarra::tareasDe', 'accion=guardar', 'Pizarra::presentes'],
-        'pizarra.php'       => ['pz-iconos', 'Pizarra::puedeEditar', 'pz-datos'],
-        'assets/pizarra.js' => ['retomarSaltados', 'function traerTareas', 'CLAVE_PEND', 'function exportarPNG'],
-        'assets/pizarra.css' => ['.pz-barra__pieza', '.pz-kanban__traer', '--pz-canto'],
+        'pizarra.php'       => ['Pizarra::rid(true)', 'pz-pop-aviso', 'pz-calc-cinta', 'Solo tú la ves', 'pz-iconos', 'Pizarra::puedeEditar', 'pz-datos'],
+        'assets/pizarra.js' => ['function evaluar', 'function abrirAviso', 'aviso_por', 'Traer mis tareas', 'function reintentarSubidas', 'function urlDe', '{ red: true }', 'retomarSaltados', 'function traerTareas', 'CLAVE_PEND', 'function exportarPNG'],
+        'assets/pizarra.css' => ['.pz-calc__teclas', '.pz-pop__chips', '.pz-aviso-fuera', '.pz-pista__ok', '.pz-barra__pieza', '.pz-kanban__traer', '--pz-canto'],
         'lib/Reuniones.php' => ['function recordarProximas', 'function proximoInicio', 'function choqueZoom'],
         'resumen.php'       => ['pizarra.php?reunion=', 'data-rs-sec="hoy"', 'rs-col__hit', 'ResumenPersona::datos'],
         'lib/ResumenPersona.php' => ['final class ResumenPersona', 'function siguientePaso'],

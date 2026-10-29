@@ -173,6 +173,11 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
+    <?php if (is_file(__DIR__ . '/../pizarra.php') && Auth::usuario()): /* la pizarra personal: notas, recordatorios y dibujos de cada quien */ ?>
+    <a href="pizarra.php?mia=1" class="sidebar-link <?= $activo === 'mis-notas' ? 'active' : '' ?>" title="Mis notas: tu pizarra, solo tú la ves">
+      <?= UI::icono(UI::hayIcono('pz-pizarra') ? 'pz-pizarra' : 'StickyNote') ?> <span class="truncate">Mis notas</span>
+    </a>
+    <?php endif; ?>
     <?php
     // Correo InnoTech con su propio lugar en el menú (antes solo se llegaba desde Notificaciones)
     $nCorreoMenu = null;
