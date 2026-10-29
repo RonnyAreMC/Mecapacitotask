@@ -5196,7 +5196,9 @@ html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:
    fila; al elegir, sale la barra (vidrio, fija arriba al bajar) con cuántos
    van. La fila elegida se tiñe de celeste.
    ========================================================= */
-.correo-lista--sel .correo-fila { padding-left: 50px; }
+.correo-lista--sel.is-eligiendo .correo-fila { padding-left: 50px; }
+.correo-lista--sel .correo-sel { display: none; }
+.correo-lista--sel.is-eligiendo .correo-sel { display: grid; }
 .correo-sel { position: absolute; left: 16px; top: 50%; z-index: 1; display: grid; place-items: center; width: 24px; height: 24px; transform: translateY(-50%); cursor: pointer; }
 .correo-sel input, .correo-sel-todos input { width: 18px; height: 18px; margin: 0; accent-color: var(--primary); cursor: pointer; }
 .correo-lista li.is-sel .correo-fila { background: var(--primary-soft); }
@@ -5215,3 +5217,34 @@ html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:
   .correo-sel-todos span, .correo-sel-barra .mc-btn__label { display: none; }
 }
 @media (prefers-reduced-transparency: reduce) { .correo-sel-barra { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); } }
+
+/* «Marcar como leídos» → Todos | Elegir cuáles (las casillas salen recién al elegir) */
+.correo-leidos-menu { position: relative; }
+.correo-leidos-menu > summary { list-style: none; cursor: pointer; }
+.correo-leidos-menu > summary::-webkit-details-marker { display: none; }
+.correo-leidos-menu__pop {
+  position: absolute; right: 0; top: calc(100% + 6px); z-index: 20; display: flex; flex-direction: column; gap: 2px;
+  min-width: 260px; padding: 6px; border-radius: var(--radius-lg);
+  background: color-mix(in srgb, var(--surface) 90%, transparent);
+  -webkit-backdrop-filter: blur(18px) saturate(1.6); backdrop-filter: blur(18px) saturate(1.6);
+  box-shadow: 0 0 0 1px var(--line), 0 16px 32px -16px rgb(15 23 42 / .4);
+}
+.correo-leidos-menu__pop form { margin: 0; }
+.correo-leidos-menu__op {
+  display: flex; align-items: center; gap: 10px; width: 100%; padding: 9px 10px; border: 0; border-radius: var(--radius-md);
+  background: transparent; color: var(--ink); text-align: left; font: inherit; cursor: pointer;
+}
+.correo-leidos-menu__op:hover:not(:disabled) { background: var(--primary-soft); }
+.correo-leidos-menu__op:disabled { color: var(--ink-disabled); cursor: not-allowed; }
+.correo-leidos-menu__op > span { display: flex; flex-direction: column; gap: 1px; }
+.correo-leidos-menu__op b { font-size: var(--mc-fs-sm, .8125rem); font-weight: 600; }
+.correo-leidos-menu__op small { color: var(--ink-muted); font-size: .75rem; }
+@media (prefers-reduced-transparency: reduce) { .correo-leidos-menu__pop { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--surface); } }
+
+/* Conversaciones (como Gmail): cuántos correos tiene y el botón de la vista encendido */
+.correo-n {
+  display: inline-grid; place-items: center; min-width: 20px; height: 18px; margin-left: 6px; padding: 0 6px; border-radius: 999px;
+  background: color-mix(in srgb, var(--ink) 8%, transparent); color: var(--ink-muted); font: 600 .6875rem/1 var(--font-sans); vertical-align: 1px;
+}
+.correo-fila.is-nuevo .correo-n { background: var(--primary-soft); color: var(--primary-ink); }
+.correo-pag .mc-iconbtn.is-on { color: var(--primary-ink); background: var(--primary-soft); }

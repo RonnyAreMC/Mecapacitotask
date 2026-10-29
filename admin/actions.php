@@ -1178,7 +1178,8 @@ switch ($accion) {
             // Los elegidos con su casilla: leídos o no leídos, todos de una
             if ($accion === 'correo_marcar_varios') {
                 $volverVC = ['p' => max(0, (int)($_POST['p'] ?? 0)), 'q' => mb_substr(trim((string)($_POST['q'] ?? '')), 0, 100)];
-                $uidsC = array_slice(array_values(array_unique(array_filter(array_map('intval', (array)($_POST['uids'] ?? [])), fn($u) => $u > 0))), 0, 500);
+                // Una casilla puede traer una conversación entera («12,15,18»)
+                $uidsC = array_slice(array_values(array_unique(array_filter(array_map('intval', preg_split('/\s*,\s*/', implode(',', array_map('strval', (array)($_POST['uids'] ?? []))))), fn($u) => $u > 0))), 0, 500);
                 if (!$uidsC) redirigir($urlC(['c' => $cC] + $volverVC), 'Elige primero los correos con su casilla.', 'info');
                 $leidoC = !empty($_POST['leido']);
                 $imapC  = Correo::abrir($midC);

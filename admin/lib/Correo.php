@@ -1404,7 +1404,17 @@ final class Correo
      * suman los correos guardados en el panel que ya no están en el servidor, y
      * el punto azul de los guardados lo pone el panel (como en Gmail).
      */
-    public static function lista(CorreoImap $imap, string $carpeta, int $pagina, string $q, int $porPagina = 30, int $mid = 0): array
+    /** Cuántos de los más recientes se juntan por conversación en la lista (más atrás, uno por uno) */
+    public const VENTANA_HILOS = 300;
+
+    /**
+     * La lista de una carpeta. Con $agrupar, como Gmail: los correos del mismo
+     * tema (el asunto sin «Re:» ni «Fwd:») van en una sola fila, aunque se hayan
+     * mandado por separado o los escriba gente distinta. La fila es el más
+     * reciente y lleva 'hilo' => [n, uids, gente, sinLeer]; se pagina por
+     * conversación. Se junta entre los VENTANA_HILOS más recientes.
+     */
+    public static function lista(CorreoImap $imap, string $carpeta, int $pagina, string $q, int $porPagina = 30, int $mid = 0, bool $agrupar = false): array
     {
         $imap->abrir($carpeta);
         $q = mb_substr(trim($q), 0, 100);
@@ -1419,10 +1429,53 @@ final class Correo
             $uids = array_values(array_unique(array_merge($uids, array_keys($faltan))));
         }
         rsort($uids);
-        $total = count($uids);
-        $paginas = max(1, (int)ceil($total / $porPagina));
-        $pagina = min(max(1, $pagina), $paginas);
-        $tramo = array_slice($uids, ($pagina - 1) * $porPagina, $porPagina);
+        $grupoDe = [];   // uid de la fila → su conversación
+        if ($agrupar) {
+            // Una pasada liviana (asunto, de, para y si está leído) por los más recientes
+            $ventana = array_slice($uids, 0, self::VENTANA_HILOS);
+            $serv = array_values(array_filter($ventana, fn($u) => !isset($faltan[$u])));
+            $liv = $serv ? $imap->traer($serv, 'UID FLAGS BODY.PEEK[HEADER.FIELDS (FROM TO SUBJECT)]') : [];
+            $grupos = [];
+            foreach ($ventana as $u) {
+                if (isset($faltan[$u])) {
+                    $f = $faltan[$u];
+                    [$asu, $deU, $paraU, $leidoU] = [(string)$f['asunto'], (array)$f['de'], (array)$f['para'], !empty($f['leido'])];
+                } elseif (isset($liv[$u])) {
+                    $cab = '';
+                    foreach ($liv[$u] as $k => $v) if (str_starts_with($k, 'BODY[')) $cab = (string)$v;
+                    [$hU] = CorreoMime::partir($cab);
+                    $flU = array_map('strtolower', array_filter((array)($liv[$u]['FLAGS'] ?? []), 'is_string'));
+                    $asu = CorreoMime::cab($hU, 'subject');
+                    $deU = CorreoMime::direcciones($hU['from'][0] ?? '')[0] ?? ['nombre' => '', 'email' => ''];
+                    $paraU = CorreoMime::direcciones($hU['to'][0] ?? '');
+                    $leidoU = isset($guardadas[$u]) ? !empty($guardadas[$u]['leido']) : in_array('\\seen', $flU, true);
+                } else {
+                    continue;
+                }
+                $base = mb_strtolower(preg_replace('/\s+/u', ' ', self::asuntoBase($asu)));
+                $clave = $base !== '' ? 'a:' . $base : 'u:' . $u;   // sin asunto, cada uno solo
+                $grupos[$clave] ??= ['uids' => [], 'de' => [], 'para' => [], 'sinLeer' => 0];
+                $grupos[$clave]['uids'][] = $u;
+                $grupos[$clave]['de'][] = $deU;
+                foreach ($paraU as $x) $grupos[$clave]['para'][] = $x;
+                if (!$leidoU) $grupos[$clave]['sinLeer']++;
+            }
+            $conv = array_values($grupos);   // en orden: el más reciente de cada una primero
+            foreach (array_slice($uids, self::VENTANA_HILOS) as $u) $conv[] = ['uids' => [$u], 'de' => [], 'para' => [], 'sinLeer' => -1];
+            $total = count($conv);
+            $paginas = max(1, (int)ceil($total / $porPagina));
+            $pagina = min(max(1, $pagina), $paginas);
+            $tramo = [];
+            foreach (array_slice($conv, ($pagina - 1) * $porPagina, $porPagina) as $g) {
+                $tramo[] = $g['uids'][0];
+                $grupoDe[$g['uids'][0]] = $g;
+            }
+        } else {
+            $total = count($uids);
+            $paginas = max(1, (int)ceil($total / $porPagina));
+            $pagina = min(max(1, $pagina), $paginas);
+            $tramo = array_slice($uids, ($pagina - 1) * $porPagina, $porPagina);
+        }
         $items = [];
         $delServidor = array_values(array_filter($tramo, fn($u) => !isset($faltan[$u])));
         // BODYSTRUCTURE: qué adjuntos trae cada uno (PDF, Excel, imagen…) sin bajar el correo
@@ -1453,7 +1506,20 @@ final class Correo
                 'tam'     => (int)($d['RFC822.SIZE'] ?? 0),
             ];
         }
-        return ['items' => $items, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas, 'por' => $porPagina];
+        // Cada fila de una conversación lleva a quiénes participan y cuántos son (sin repetir a nadie)
+        foreach ($items as &$it) {
+            $g = $grupoDe[(int)$it['uid']] ?? null;
+            if (!$g || count($g['uids']) < 2) continue;
+            $unicos = fn(array $l) => array_values(array_reduce($l, function ($acc, $x) {
+                $e = strtolower((string)($x['email'] ?? ''));
+                if ($e !== '' && !isset($acc[$e])) $acc[$e] = ['nombre' => (string)($x['nombre'] ?? ''), 'email' => $e];
+                return $acc;
+            }, []));
+            $it['hilo'] = ['n' => count($g['uids']), 'uids' => $g['uids'], 'de' => $unicos($g['de']), 'para' => $unicos($g['para']), 'sinLeer' => $g['sinLeer']];
+            if ($g['sinLeer'] >= 0) $it['leido'] = $g['sinLeer'] === 0;
+        }
+        unset($it);
+        return ['items' => $items, 'total' => $total, 'pagina' => $pagina, 'paginas' => $paginas, 'por' => $porPagina, 'agrupado' => $agrupar];
     }
 
     /** El mensaje completo (lo marca leído). null si no existe. */

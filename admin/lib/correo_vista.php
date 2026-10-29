@@ -187,7 +187,10 @@ function correoVista(array $yo): void
             $rUid = (int)($_GET['responder'] ?? $_GET['reenviar'] ?? 0);
             if ($rUid > 0) $base = Correo::mensaje($imap, $carpeta['nombre'], $rUid) ?? ($conCopias ? CorreoCopias::mensaje($mid, $carpeta['nombre'], $rUid) : null);
         } else {
-            $lista = Correo::lista($imap, $carpeta['nombre'], (int)($_GET['p'] ?? 1), (string)($_GET['q'] ?? ''), 30, $carpeta['tipo'] === 'inbox' ? $mid : 0);
+            // Por conversación (como Gmail) salvo que se pida uno por uno; se recuerda en la sesión
+            if (isset($_GET['hilos'])) $_SESSION['correo_hilos'] = $_GET['hilos'] === 'no' ? 'no' : 'si';
+            $agruparC = ($_SESSION['correo_hilos'] ?? 'si') !== 'no';
+            $lista = Correo::lista($imap, $carpeta['nombre'], (int)($_GET['p'] ?? 1), (string)($_GET['q'] ?? ''), 30, $carpeta['tipo'] === 'inbox' ? $mid : 0, $agruparC);
         }
         if ($conCopias) $noLeidos = CorreoCopias::noLeidos($imap, $mid, $bandeja);
         if ($modo === 'leer' && $carpeta['tipo'] === 'inbox') {
@@ -263,7 +266,7 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     <?php
     if ($modo === 'leer') correoLeer($mensaje, $carpeta, $carpetas, (array)($d['hilo'] ?? []));
     elseif ($modo === 'redactar') correoRedactar($yo, $cuenta, $carpeta, $base, $carpetas);
-    else correoLista($lista, $carpeta, (int)$noLeidos);
+    else correoLista($lista, $carpeta, (int)$noLeidos, (string)($cuenta['email'] ?? ''));
     ?>
   </section>
 </div>
@@ -310,8 +313,10 @@ function correoPintar(array $yo, array $cuenta, array $d): void
     if ($esAdmin) correoAjustes();
 }
 
-function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
+function correoLista(array $lista, array $carpeta, int $noLeidos = 0, string $yoEmail = ''): void
 {
+    $agrupado = !empty($lista['agrupado']);
+    $yoEmail = strtolower($yoEmail);
     $q = trim((string)($_GET['q'] ?? ''));
     $desde = $lista['total'] ? ($lista['pagina'] - 1) * $lista['por'] + 1 : 0;
     $hasta = min($lista['total'], $lista['pagina'] * $lista['por']);
@@ -326,16 +331,21 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
         <input class="mc-input__control" name="q" value="<?= e($q) ?>" maxlength="100" placeholder="Buscar en <?= e($carpeta['etiqueta']) ?>" aria-label="Buscar correos"></div>
     </form>
     <div class="correo-pag">
-      <?php if (!$enviados): /* siempre a la vista; en gris si no queda nada sin leer */ ?>
-      <form method="post" action="actions.php" class="correo-inline correo-todos-leidos">
-        <input type="hidden" name="accion" value="correo_leidos"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
-        <?php if ($haySinLeer): ?>
-        <button class="mc-btn mc-btn--ghost mc-btn--sm" data-ds-tip="Marca como leído todo <?= e($carpeta['etiqueta']) ?>, no solo esta página"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todos como leídos</span></button>
-        <?php else: ?>
-        <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm is-off" aria-disabled="true" data-ds-tip="No hay correos sin leer en <?= e($carpeta['etiqueta']) ?>"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar todos como leídos</span></button>
-        <?php endif; ?>
-      </form>
+      <?php if (!$enviados): /* «Marcar como leídos»: todos o elegir cuáles (recién ahí salen las casillas) */ ?>
+      <details class="correo-leidos-menu">
+        <summary class="mc-btn mc-btn--ghost mc-btn--sm"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar como leídos</span><?= UI::iconoDS('chevron-abajo', 14) ?></summary>
+        <div class="correo-leidos-menu__pop" role="menu">
+          <form method="post" action="actions.php" class="correo-inline">
+            <input type="hidden" name="accion" value="correo_leidos"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
+            <button role="menuitem" class="correo-leidos-menu__op"<?= $haySinLeer ? '' : ' disabled' ?>><?= UI::iconoDS('check-doble', 16) ?><span><b>Todos</b><small><?= $haySinLeer ? 'Todo ' . e($carpeta['etiqueta']) . ', no solo esta página' : 'No hay nada sin leer' ?></small></span></button>
+          </form>
+          <button type="button" role="menuitem" class="correo-leidos-menu__op" data-correo-elegir><?= UI::iconoDS('check', 16) ?><span><b>Elegir cuáles</b><small>Marca los que quieras con su casilla</small></span></button>
+        </div>
+      </details>
       <?php endif; ?>
+      <?php /* Por conversación (como Gmail) o uno por uno */ ?>
+      <a class="mc-iconbtn mc-iconbtn--sm<?= $agrupado ? ' is-on' : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'q' => $q, 'hilos' => $agrupado ? 'no' : 'si'])) ?>"
+         aria-label="<?= $agrupado ? 'Ver uno por uno' : 'Agrupar por conversación' ?>" data-ds-tip="<?= $agrupado ? 'Agrupados por conversación · ver uno por uno' : 'Agrupar por conversación, como Gmail' ?>"><?= UI::iconoDS('mensajes', 18) ?></a>
       <span><?= $lista['total'] ? $desde . '–' . $hasta . ' de ' . $lista['total'] : '0' ?></span>
       <a class="mc-iconbtn mc-iconbtn--sm<?= $lista['pagina'] <= 1 ? ' is-off' : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'q' => $q, 'p' => $lista['pagina'] - 1])) ?>" aria-label="Más nuevos" data-ds-tip="Más nuevos"><?= UI::iconoDS('chevron-izq', 18) ?></a>
       <a class="mc-iconbtn mc-iconbtn--sm<?= $lista['pagina'] >= $lista['paginas'] ? ' is-off' : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'q' => $q, 'p' => $lista['pagina'] + 1])) ?>" aria-label="Más antiguos" data-ds-tip="Más antiguos"><?= UI::iconoDS('chevron-der', 18) ?></a>
@@ -353,9 +363,9 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
     <input type="hidden" name="p" value="<?= (int)$lista['pagina'] ?>"><input type="hidden" name="q" value="<?= e($q) ?>">
     <label class="correo-sel-todos"><input type="checkbox" data-correo-sel-todos aria-label="Todos los de esta página"><span>Todos los de esta página</span></label>
     <span class="correo-sel-n"><b data-correo-sel-n>0</b> <span data-correo-sel-txt>seleccionados</span></span>
-    <button class="mc-btn mc-btn--primary mc-btn--sm" name="leido" value="1"><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar como leídos</span></button>
-    <button class="mc-btn mc-btn--secondary mc-btn--sm" name="leido" value="0"><?= UI::iconoDS('correo', 16) ?><span class="mc-btn__label">Marcar como no leídos</span></button>
-    <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-correo-sel-quitar aria-label="Quitar selección" data-ds-tip="Quitar selección (Esc)"><?= UI::iconoDS('cerrar', 18) ?></button>
+    <button class="mc-btn mc-btn--primary mc-btn--sm" name="leido" value="1" data-correo-sel-accion><?= UI::iconoDS('check-doble', 16) ?><span class="mc-btn__label">Marcar como leídos</span></button>
+    <button class="mc-btn mc-btn--secondary mc-btn--sm" name="leido" value="0" data-correo-sel-accion><?= UI::iconoDS('correo', 16) ?><span class="mc-btn__label">Marcar como no leídos</span></button>
+    <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-correo-sel-quitar aria-label="Dejar de elegir" data-ds-tip="Dejar de elegir (Esc)"><?= UI::iconoDS('cerrar', 18) ?></button>
   </form>
   <?php endif; ?>
   <ul class="correo-lista<?= $enviados ? '' : ' correo-lista--sel' ?>">
@@ -364,12 +374,21 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
     <li>
       <?php $prioL = (int)($it['prioridad'] ?? 3); ?>
       <?php if (!$enviados): ?>
-      <label class="correo-sel"><input type="checkbox" name="uids[]" value="<?= (int)$it['uid'] ?>" form="correo-sel" aria-label="Elegir «<?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?>»"></label>
+      <?php $uidsFila = !empty($it['hilo']) ? implode(',', array_map('intval', $it['hilo']['uids'])) : (string)(int)$it['uid']; ?>
+      <label class="correo-sel"><input type="checkbox" name="uids[]" value="<?= e($uidsFila) ?>" form="correo-sel" aria-label="Elegir «<?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?>»"></label>
       <?php endif; ?>
       <a class="correo-fila<?= $it['leido'] ? '' : ' is-nuevo' ?><?= $prioL !== 3 ? ' correo-fila--p' . $prioL : '' ?>" href="<?= e(correoUrl(['c' => $carpeta['nombre'], 'uid' => $it['uid']])) ?>">
         <span class="correo-ini" style="background:<?= e(correoColor($quien['email'])) ?>" aria-hidden="true"><?= e(correoIniciales($quien)) ?></span>
         <span class="correo-txt">
+          <?php if (!empty($it['hilo'])):
+              // Quiénes participan, como Gmail: «Ana, Diego, yo» y cuántos correos son
+              $genteH = $enviados ? $it['hilo']['para'] : $it['hilo']['de'];
+              $nombresH = array_map(fn($x) => $x['email'] === $yoEmail ? 'yo' : (explode(' ', trim(correoQuien($x)))[0] ?: $x['email']), $genteH);
+              $nombresH = array_values(array_unique($nombresH)); ?>
+          <span class="correo-de"><?= $enviados ? 'Para: ' : '' ?><?= e(implode(', ', array_slice($nombresH, 0, 3)) . (count($nombresH) > 3 ? '…' : '')) ?><span class="correo-n" aria-label="<?= (int)$it['hilo']['n'] ?> correos en esta conversación"><?= (int)$it['hilo']['n'] ?></span><?= correoPrioridad($prioL) ?></span>
+          <?php else: ?>
           <span class="correo-de"><?= $enviados ? 'Para: ' : '' ?><?= e(correoQuien($quien) ?: '(sin remitente)') ?><?= correoPrioridad($prioL) ?></span>
+          <?php endif; ?>
           <span class="correo-asunto"><?= e($it['asunto'] !== '' ? $it['asunto'] : '(sin asunto)') ?></span>
           <?php
             // Por fuera, sin abrirlo: qué adjuntos trae, con el ícono de su tipo (PDF, Excel, imagen…)
@@ -392,8 +411,12 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
       </a>
       <?php if (!$enviados): /* al pasar el ratón, en lugar de la fecha: leído ↔ no leído */ ?>
       <form method="post" action="actions.php" class="correo-fila__marcar">
-        <input type="hidden" name="accion" value="correo_marcar"><input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>">
-        <input type="hidden" name="uid" value="<?= (int)$it['uid'] ?>"><input type="hidden" name="leido" value="<?= $it['leido'] ? '0' : '1' ?>">
+        <?php if (!empty($it['hilo'])): ?>
+        <input type="hidden" name="accion" value="correo_marcar_varios"><input type="hidden" name="uids[]" value="<?= e($uidsFila) ?>">
+        <?php else: ?>
+        <input type="hidden" name="accion" value="correo_marcar"><input type="hidden" name="uid" value="<?= (int)$it['uid'] ?>">
+        <?php endif; ?>
+        <input type="hidden" name="c" value="<?= e($carpeta['nombre']) ?>"><input type="hidden" name="leido" value="<?= $it['leido'] ? '0' : '1' ?>">
         <input type="hidden" name="p" value="<?= (int)$lista['pagina'] ?>"><input type="hidden" name="q" value="<?= e($q) ?>">
         <button class="mc-iconbtn mc-iconbtn--sm" aria-label="<?= $it['leido'] ? 'Marcar como no leído' : 'Marcar como leído' ?>" data-ds-tip="<?= $it['leido'] ? 'Marcar como no leído' : 'Marcar como leído' ?>"><?= UI::iconoDS($it['leido'] ? 'correo' : 'check', 18) ?></button>
       </form>
@@ -410,9 +433,13 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
     const casillas = [...document.querySelectorAll('.correo-sel input[form="correo-sel"]')];
     const todos = barra.querySelector('[data-correo-sel-todos]');
     let ultima = null;
+    const lista = document.querySelector('.correo-lista--sel');
+    let eligiendo = false;
     const pintar = () => {
       const n = casillas.filter((c) => c.checked).length;
-      barra.hidden = n === 0;
+      barra.hidden = !eligiendo;
+      lista?.classList.toggle('is-eligiendo', eligiendo);
+      barra.querySelectorAll('[data-correo-sel-accion]').forEach((b) => { b.disabled = n === 0; });
       barra.querySelector('[data-correo-sel-n]').textContent = n;
       barra.querySelector('[data-correo-sel-txt]').textContent = n === 1 ? 'seleccionado' : 'seleccionados';
       todos.checked = n === casillas.length;
@@ -428,8 +455,16 @@ function correoLista(array $lista, array $carpeta, int $noLeidos = 0): void
       pintar();
     }));
     todos.addEventListener('change', () => { casillas.forEach((c) => { c.checked = todos.checked; }); pintar(); });
-    barra.querySelector('[data-correo-sel-quitar]').addEventListener('click', () => { casillas.forEach((c) => { c.checked = false; }); pintar(); });
-    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !barra.hidden) { casillas.forEach((c) => { c.checked = false; }); pintar(); } });
+    const salir = () => { eligiendo = false; casillas.forEach((c) => { c.checked = false; }); pintar(); };
+    barra.querySelector('[data-correo-sel-quitar]').addEventListener('click', salir);
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && eligiendo) salir(); });
+    // «Marcar como leídos» → «Elegir cuáles»: recién ahí salen las casillas
+    document.querySelector('[data-correo-elegir]')?.addEventListener('click', (e) => {
+      e.currentTarget.closest('details')?.removeAttribute('open');
+      eligiendo = true;
+      pintar();
+      casillas[0]?.focus();
+    });
     pintar();
   })();
   </script>
