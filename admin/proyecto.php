@@ -2029,6 +2029,12 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
                     'name' => 'texto',
                     'placeholder' => 'Escribe la observación… pega capturas con Ctrl+V o arrástralas aquí.',
                   ]) ?>
+              <?php if (UI::ia('obs_redaccion') || UI::ia('obs_adjunto')): ?>
+              <div class="ia-acciones">
+                <?php if (UI::ia('obs_redaccion')): ?><?= UI::botonIA('Mejorar redacción', ['ia-obs' => 'redaccion'], 'Reescribe el borrador de forma clara y profesional') ?><?php endif; ?>
+                <?php if (UI::ia('obs_adjunto')): ?><?= UI::botonIA('Describir adjunto', ['ia-obs' => 'adjunto'], 'Redacta la observación mirando la captura o el PDF adjunto') ?><?php endif; ?>
+              </div>
+              <?php endif; ?>
             </div>
             <div class="campo ob-campo" data-ob-adjuntos data-resumen="Ninguno"><span>Adjuntos</span>
               <?php /* La misma zona del correo (lib/correo_vista.php); los archivos los lleva
@@ -2043,12 +2049,6 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
                 <ul class="ds-adjuntos__lista oc-previews"></ul>
               </div>
             </div>
-            <?php if (UI::ia('obs_redaccion') || UI::ia('obs_adjunto')): ?>
-            <div class="ob-ia">
-              <?php if (UI::ia('obs_redaccion')): ?><?= UI::botonIA('Mejorar redacción', ['ia-obs' => 'redaccion'], 'Reescribe el borrador de forma clara y profesional') ?><?php endif; ?>
-              <?php if (UI::ia('obs_adjunto')): ?><?= UI::botonIA('Describir adjunto', ['ia-obs' => 'adjunto'], 'Redacta la observación mirando la captura o el PDF adjunto') ?><?php endif; ?>
-            </div>
-            <?php endif; ?>
             <template class="ob-iconos-adj"><?php foreach (['pdf', 'word', 'excel', 'ppt', 'imagen', 'otro'] as $c) echo '<span data-clase="' . $c . '">' . UI::icono('adj-' . $c) . '</span>'; ?></template>
           </section>
 

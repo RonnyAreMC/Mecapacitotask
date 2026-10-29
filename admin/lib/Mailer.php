@@ -1206,6 +1206,23 @@ class Mailer
     }
 
     /**
+     * El recordatorio que alguien se puso en una nota de su pizarra (Mis notas o
+     * la de una reunión): le llega a su hora (Pizarra::avisarRecordatorios).
+     */
+    public static function recordatorioNota(array $miembro, string $texto, string $donde, string $pagina): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $cuerpo = self::encabezado($acento, '&#9200;', 'Tu recordatorio',
+                    'Hola ' . e(explode(' ', trim((string)($miembro['nombre'] ?? '')))[0]) . ', te pediste que te avisáramos ahora.')
+            . self::detalle($texto, ['Dónde' => e($donde), 'Hora' => date('g:i a')]);
+        return self::enviar($miembro['email'], 'Recordatorio: ' . mb_strimwidth($texto, 0, 60, '…'),
+            self::plantilla($cuerpo, self::urlPagina($pagina), 'Abrir la pizarra'));
+    }
+
+    /**
      * «Tu reunión empieza en 10 minutos»: el recordatorio que sale solo antes
      * de cada reunión (Reuniones::recordarProximas, desde cron_correo.php).
      * $inicio es la vez que toca (en las que se repiten, la de hoy).

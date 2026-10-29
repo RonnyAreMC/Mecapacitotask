@@ -58,7 +58,7 @@ UI::cabecera(
         <div class="tarjetas-color">
           <label class="tarjeta-color" style="--tc:<?= e($cfg['color_secundario']) ?>">
             <input type="color" name="color_secundario" value="<?= e($cfg['color_secundario']) ?>">
-            <i class="fa-solid fa-wand-magic-sparkles tc-icono"></i>
+            <?= UI::icono('ds-ia', 'tc-icono') ?>
             <span class="tc-nombre">Color principal</span>
             <b class="tc-hex"><?= e(strtoupper($cfg['color_secundario'])) ?></b>
           </label>

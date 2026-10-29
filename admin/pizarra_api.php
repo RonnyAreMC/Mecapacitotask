@@ -8,6 +8,9 @@
  *   POST ?reunion=ID&accion=imagen           multipart, campo «imagen»
  *   GET  ?reunion=ID&accion=tareas           las tareas del proyecto (para el kanban)
  *
+ * Con ?mia=1 en vez de ?reunion=ID: «Mis notas», la pizarra personal de quien
+ * tiene la sesión (y «tareas» trae sus tareas abiertas de todos sus proyectos).
+ *
  * Sin sesión o sin permiso: 401/403 con {ok:false, error}. Las llamadas
  * deben venir del propio panel (cabecera X-Requested-With y mismo origen):
  * un enlace o un formulario de otro sitio no puede escribir en la pizarra.
@@ -34,11 +37,19 @@ if ($origen !== '' && parse_url($origen, PHP_URL_HOST) !== parse_url('http://' .
 // La sesión no hace falta abierta mientras se consulta: así los sondeos no se hacen fila
 if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
 
-$rid = (int)($_GET['reunion'] ?? 0);
-$reunion = (new ReunionRepo())->buscar($rid);
-if (!Pizarra::puedeVer($reunion)) $responder(['ok' => false, 'error' => 'Esa pizarra no está disponible.'], 403);
-$editar = Pizarra::puedeEditar($reunion);
+// ?mia=1: «Mis notas», la pizarra personal de quien tiene la sesión (solo la suya)
+$mia = !empty($_GET['mia']);
 $mid = (int)$yo['id'];
+if ($mia) {
+    $rid = Pizarra::rid(true);
+    $reunion = null;
+    $editar = true;
+} else {
+    $rid = (int)($_GET['reunion'] ?? 0);
+    $reunion = (new ReunionRepo())->buscar($rid);
+    if ($rid <= 0 || !Pizarra::puedeVer($reunion)) $responder(['ok' => false, 'error' => 'Esa pizarra no está disponible.'], 403);
+    $editar = Pizarra::puedeEditar($reunion);
+}
 $esPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 
 try {
@@ -49,7 +60,7 @@ try {
                 'ok'        => true,
                 'version'   => Pizarra::version($rid),
                 'elementos' => Pizarra::cambios($rid, $desde),
-                'presentes' => Pizarra::presentes($rid, $mid),
+                'presentes' => $mia ? [] : Pizarra::presentes($rid, $mid),
                 'editar'    => $editar,
                 'yo'        => $mid,
             ]);
@@ -67,7 +78,7 @@ try {
             $responder(['ok' => true] + Pizarra::subirImagen((array)($_FILES['imagen'] ?? [])));
 
         case 'tareas':
-            $responder(['ok' => true, 'tareas' => Pizarra::tareas((int)$reunion['proyecto_id'])]);
+            $responder(['ok' => true, 'tareas' => $mia ? Pizarra::tareasDe($mid) : Pizarra::tareas((int)$reunion['proyecto_id'])]);
     }
     $responder(['ok' => false, 'error' => 'Acción desconocida.'], 400);
 } catch (RuntimeException $e) {

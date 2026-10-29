@@ -115,7 +115,7 @@ UI::cabecera(
     'Sube un JSON con la planificación y se crean todas las tareas de una. Ideal para cargar el sprint completo.',
     $conIAPlan
         ? '<button type="button" class="btn-primary btn-meca" onclick="document.getElementById(\'dlg-ia-plan\').showModal()">'
-          . '<i class="fa-solid fa-wand-magic-sparkles"></i> Extraer con IA</button>'
+          . UI::icono('ds-ia', 'ia-estrellas') . ' Extraer con IA</button>'
         : ''
 );
 ?>
@@ -133,7 +133,7 @@ UI::cabecera(
             <input type="file" name="archivo" accept="application/json,.json" hidden>
           </label>
           <button type="button" class="btn-ghost btn-meca btn-sm" id="plan-ejemplo">
-            <i class="fa-solid fa-wand-magic-sparkles"></i> Ejemplo
+            <?= UI::icono('ds-ia', 'ia-estrellas') ?> Ejemplo
           </button>
         </div>
       </div>
@@ -280,7 +280,7 @@ UI::cabecera(
 <dialog id="dlg-ia-plan" class="dlg-meca dlg-ia">
   <form id="ia-plan-form" class="dlg-form" enctype="multipart/form-data">
     <header>
-      <h3 class="font-display"><i class="fa-solid fa-wand-magic-sparkles text-secondary"></i> Extraer tareas con IA</h3>
+      <h3 class="font-display"><?= UI::icono('ds-ia', 'ia-estrellas text-secondary') ?> Extraer tareas con IA</h3>
       <button type="button" class="dlg-close" title="Cerrar" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
     </header>
 
@@ -302,7 +302,7 @@ UI::cabecera(
 
     <footer>
       <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><i class="fa-solid fa-wand-magic-sparkles"></i> Generar tareas con IA</button>
+      <button type="submit" class="btn-primary btn-meca"><?= UI::icono('ds-ia', 'ia-estrellas') ?> Generar tareas con IA</button>
     </footer>
   </form>
 </dialog>

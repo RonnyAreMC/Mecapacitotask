@@ -893,7 +893,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         $attrs = '';
         foreach ($data as $k => $v) $attrs .= ' data-' . $k . '="' . e((string)$v) . '"';
         return '<button type="button" class="ia-btn"' . $attrs . ($titulo !== '' ? ' title="' . e($titulo) . '"' : '') . '>'
-             . '<i class="fa-solid fa-wand-magic-sparkles"></i> ' . e($texto) . '</button>';
+             . self::icono('ds-ia', 'ia-estrellas') . ' ' . e($texto) . '</button>';
     }
 
     /** $ilustracion: iconos/ilustraciones/<nombre>.svg a la izquierda del título, o 'nexo:<pose>' para la mascota (flota suave). Opcional. */

@@ -8,6 +8,8 @@
    panel funciona igual y solo desaparece la IA.
    ========================================================= */
 (function () {
+  // Las estrellitas de la IA (el mismo SVG que iconos/DS/ds-ia.svg)
+  const ESTRELLAS = '<svg class="ico ia-estrellas" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M10 6.5c.7 4.1 2.4 5.8 6.5 6.5-4.1.7-5.8 2.4-6.5 6.5-.7-4.1-2.4-5.8-6.5-6.5 4.1-.7 5.8-2.4 6.5-6.5z"/><path d="M18 2.8c.3 1.8 1 2.5 2.8 2.8-1.8.3-2.5 1-2.8 2.8-.3-1.8-1-2.5-2.8-2.8 1.8-.3 2.5-1 2.8-2.8z"/></svg>';
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g,
     (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   // Nunca el alert() del navegador: el aviso del sistema (o, si faltara, la consola)
@@ -76,7 +78,7 @@
 
   /** Pie de cada resultado: qué modelo respondió y cuánto costó. */
   const firma = (r) => r && r.modelo
-    ? '<p class="ia-firma"><i class="fa-solid fa-wand-magic-sparkles"></i> ' + esc(r.modelo)
+    ? '<p class="ia-firma">' + ESTRELLAS + ' ' + esc(r.modelo)
       + (r.respaldo ? ' (respaldo)' : '') + ' · US$ ' + Number(r.costo || 0).toFixed(4)
       + ' · Es un borrador: revísalo antes de usarlo.</p>'
     : '';
@@ -125,7 +127,7 @@
     precargarNexo();
     const dlg = document.createElement('dialog');
     dlg.className = 'dlg-meca dlg-ia';
-    dlg.innerHTML = '<div class="dlg-form"><header><h3 class="font-display"><i class="fa-solid ' + icono + '"></i> '
+    dlg.innerHTML = '<div class="dlg-form"><header><h3 class="font-display">' + (icono === 'fa-wand-magic-sparkles' ? ESTRELLAS : '<i class="fa-solid ' + icono + '"></i>') + ' '
       + esc(titulo) + '</h3><button type="button" class="dlg-close" title="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>'
       + '<div class="ia-cuerpo">' + cuerpo + '</div><footer>' + (botones || '')
       + '<button type="button" class="btn-outline btn-meca ia-cerrar">Cerrar</button></footer></div>';
@@ -289,7 +291,7 @@
     if (!b) return;
     e.preventDefault();
     const conZoom = b.dataset.zoom === '1';
-    const ICO = '<i class="fa-solid fa-wand-magic-sparkles"></i>';
+    const ICO = ESTRELLAS;
     const dlg = modal('Acta con IA — ' + (b.dataset.titulo || 'Reunión'), 'fa-file-signature',
       '<div class="ia-acta-origen">'
       // «Generar desde la transcripción» solo aparece si Zoom la tiene (se pregunta al abrir)
@@ -339,7 +341,7 @@
       '<p class="campo-ayuda">Pega el correo, el WhatsApp o la nota con el pedido. La IA propone los campos y busca si ya hay uno parecido.</p>'
       + '<textarea class="input-meca" rows="9" data-ia-req-texto placeholder="Pega aquí el mensaje…"></textarea>'
       + '<div data-ia-req-res></div>',
-      '<button type="button" class="btn-primary btn-meca" data-ia-req-ir><i class="fa-solid fa-wand-magic-sparkles"></i> Rellenar el formulario</button>');
+      '<button type="button" class="btn-primary btn-meca" data-ia-req-ir>' + ESTRELLAS + ' Rellenar el formulario</button>');
     dlg.querySelector('[data-ia-req-ir]').addEventListener('click', (ev) => {
       const texto = dlg.querySelector('[data-ia-req-texto]').value.trim();
       if (texto.length < 10) { toast('Pega el mensaje con el pedido.', 'error'); return; }
@@ -442,7 +444,7 @@
       + '<div class="mc-field"><label class="mc-field__label">Proyecto</label><select data-ds-select data-ds-buscar data-tc-proyecto aria-label="Proyecto">'
       + '<option value="">Elige el proyecto</option>' + proyectos.map((p) => '<option value="' + p.id + '">' + esc(p.nombre) + '</option>').join('') + '</select></div>'
       + ind('tc-ind', 'Ej.: que sean dos tareas, una de diseño y otra de publicación; asígnalas a Kevin; para el viernes')
-      + '<p class="tcw-nota"><i class="fa-solid fa-wand-magic-sparkles"></i> Al pulsar «Proponer tareas» la IA lee el correo y arma las tareas. Las revisas antes de crearlas.</p></section>'
+      + '<p class="tcw-nota">' + ESTRELLAS + ' Al pulsar «Proponer tareas» la IA lee el correo y arma las tareas. Las revisas antes de crearlas.</p></section>'
       // 2b. Requerimiento
       + '<section class="wz-panel" data-p="requerimiento"><div class="tcw-incluye"><p>La IA lee el correo y deja lleno el formulario con:</p><ul>'
       + ['El título y el detalle de lo que piden', 'Quién lo pide y su institución', 'El responsable, mirando cuánto tiene encima cada persona', 'El plazo real con Claude Code: un cambio de texto o de etiqueta es 1 día', 'Los adjuntos del correo, como documentos']
@@ -455,10 +457,10 @@
       + '</div>'
       + '<div class="wz-pie"><span class="wz-contador"></span><div class="wz-acciones">'
       + '<button type="button" class="btn-outline btn-meca btn-neutro" data-tcw-atras><i class="fa-solid fa-arrow-left"></i> Atrás</button>'
-      + '<button type="button" class="btn-outline btn-meca" data-tc-proponer><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Proponer tareas</span></button>'
+      + '<button type="button" class="btn-outline btn-meca" data-tc-proponer>' + ESTRELLAS + ' <span>Proponer tareas</span></button>'
       + '<button type="button" class="btn-primary btn-meca" data-tcw-sig>Siguiente <i class="fa-solid fa-arrow-right"></i></button>'
       + '<button type="button" class="btn-primary btn-meca" data-tc-crear><i class="fa-solid fa-check"></i> <span>Crear tareas</span></button>'
-      + '<button type="button" class="btn-primary btn-meca" data-tc-req><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Armar con IA</span></button>'
+      + '<button type="button" class="btn-primary btn-meca" data-tc-req>' + ESTRELLAS + ' <span>Armar con IA</span></button>'
       + '</div></div></div></div>';
     document.body.appendChild(dlg);
 
@@ -726,7 +728,7 @@
       + '<div class="mc-input mc-input--md ds-input-area"><textarea class="mc-input__control rc-respuesta" id="rc-respuesta" rows="11" data-rc-respuesta></textarea></div></div>'
       + '<div data-rc-firma></div>'
       + '</div>',
-      '<button type="button" class="btn-primary btn-meca" data-rc-generar><i class="fa-solid fa-wand-magic-sparkles"></i> <span>Leer y proponer respuesta</span></button>'
+      '<button type="button" class="btn-primary btn-meca" data-rc-generar>' + ESTRELLAS + ' <span>Leer y proponer respuesta</span></button>'
       + '<button type="button" class="btn-primary btn-meca wz-oculto" data-rc-usar><i class="fa-solid fa-reply"></i> <span>Usar esta respuesta</span></button>');
     dlg.classList.add('dlg-ia-ancho', 'dlg-rc');
     const ind = dlg.querySelector('[data-rc-ind]');
@@ -917,7 +919,7 @@
       + '<p class="campo-ayuda">Junta los commits de los repositorios del proyecto y las tareas que cada uno completó o tiene en curso.</p></div>'
       + '<div data-ia-daily-res></div>',
       '<button type="button" class="btn-outline btn-meca" data-ia-daily-copiar hidden><i class="fa-regular fa-copy"></i> Copiar</button>'
-      + '<button type="button" class="btn-primary btn-meca" data-ia-daily-ir><i class="fa-solid fa-wand-magic-sparkles"></i> Generar</button>');
+      + '<button type="button" class="btn-primary btn-meca" data-ia-daily-ir>' + ESTRELLAS + ' Generar</button>');
     dlg.classList.add('dlg-ia-ancho');
     let res = null;
     dlg.querySelector('[data-ia-daily-ir]').addEventListener('click', (ev) => conBoton(ev.currentTarget, async () => {

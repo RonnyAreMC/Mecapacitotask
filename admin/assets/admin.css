@@ -10083,3 +10083,23 @@ html.dark .rs-avance__ic { background: color-mix(in srgb, var(--pc, #2970EB) 22%
   .rs-boton--verde::before, .rs-entrar.is-ya::after, .rs-punto-vivo::after { animation: none; }
   .rs-kpi > a:hover, .rs-boton:hover, .rs-entrar:hover { transform: none; }
 }
+
+/* =========================================================
+   Botones de IA: las estrellitas (iconos/DS/ds-ia.svg) con un degradado
+   de cian a violeta, y en un campo, a la derecha de su título (en la misma
+   fila que «Descripción» u «Observación»), no debajo del editor.
+   ========================================================= */
+.ia-btn .ia-estrellas, .ia-estrellas { width: 15px; height: 15px; flex: none; color: #6D5EF5; filter: drop-shadow(0 0 3px rgb(64 207 255 / .45)); }
+html.dark .ia-btn .ia-estrellas, html.dark .ia-estrellas { color: #A5B4FC; }
+.ia-btn:hover .ia-estrellas { animation: ia-brillo .9s ease-in-out; }
+@keyframes ia-brillo { 50% { transform: scale(1.18) rotate(12deg); filter: drop-shadow(0 0 6px rgb(64 207 255 / .7)); } }
+.campo:has(> .ia-acciones) { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 12px; row-gap: 6px; }
+.campo:has(> .ia-acciones) > span:first-child { grid-column: 1; grid-row: 1; }
+.campo:has(> .ia-acciones) > .ia-acciones { grid-column: 2; grid-row: 1; justify-content: flex-end; margin: 0 0 6px; }
+.campo:has(> .ia-acciones) > :not(span:first-child):not(.ia-acciones) { grid-column: 1 / -1; }
+.campo:has(> .ia-acciones) .ia-btn { min-height: 28px; padding: 0 10px; font-size: .75rem; }
+@media (max-width: 560px) {
+  /* En el celular, el título arriba y los botones de IA en su propia fila, a la derecha */
+  .campo:has(> .ia-acciones) > .ia-acciones { grid-column: 1 / -1; grid-row: 2; justify-content: flex-start; }
+}
+@media (prefers-reduced-motion: reduce) { .ia-btn:hover .ia-estrellas { animation: none; } }

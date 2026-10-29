@@ -1205,8 +1205,8 @@ window.MCSonido = (function () {
               ultimo = Math.max(ultimo, ...nuevas.map((n) => n.id));
               vacio.hidden = true;
               sonar();
-              // Una reunión por empezar (el aviso de los 10 minutos) suena distinto
-              if (nuevas.some((x) => x.tipo === 'reunion_pronto')) MCSonido.tocar('reunion');
+              // Una reunión por empezar (el aviso de los 10 minutos) o un recordatorio suenan distinto
+              if (nuevas.some((x) => x.tipo === 'reunion_pronto' || x.tipo === 'recordatorio')) MCSonido.tocar('reunion');
               const n = nuevas[0];
               // Si este dispositivo recibe la notificación del sistema, esa basta: la campana suena y se marca
               if (!conSistema('avisos') && window.MC && MC.toast) {

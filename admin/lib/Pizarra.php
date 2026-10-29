@@ -15,6 +15,13 @@
  *
  * Gana la última escritura por elemento: dos personas moviendo cosas
  * distintas no se pisan; si mueven la misma, queda la última.
+ *
+ * «Mis notas» es la pizarra personal de cada quien (pizarra.php?mia=1): usa
+ * las mismas tablas con la clave en negativo (-id del miembro), así nunca
+ * choca con la de una reunión. Solo la ve y la edita su dueño.
+ *
+ * Una nota puede llevar un recordatorio (aviso: 'Y-m-d H:i', aviso_por): se
+ * indexa en piz_avisos al guardar y cron_correo.php lo avisa a su hora.
  */
 final class Pizarra
 {
@@ -41,10 +48,20 @@ final class Pizarra
         $pdo->exec('CREATE INDEX IF NOT EXISTS piz_elementos_v ON piz_elementos (reunion, v)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS piz_meta (reunion INTEGER PRIMARY KEY, version INTEGER NOT NULL DEFAULT 0, actualizado TEXT)');
         $pdo->exec('CREATE TABLE IF NOT EXISTS piz_presencia (reunion INTEGER NOT NULL, miembro INTEGER NOT NULL, t INTEGER NOT NULL, PRIMARY KEY (reunion, miembro))');
+        // Recordatorios puestos en una nota (campo «aviso»): se avisan a su hora (avisarRecordatorios)
+        $pdo->exec('CREATE TABLE IF NOT EXISTS piz_avisos (reunion INTEGER NOT NULL, eid TEXT NOT NULL, cuando TEXT NOT NULL, para INTEGER NOT NULL, texto TEXT NOT NULL DEFAULT \'\', enviado INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (reunion, eid))');
+        $pdo->exec('CREATE INDEX IF NOT EXISTS piz_avisos_cuando ON piz_avisos (enviado, cuando)');
         return self::$pdo = $pdo;
     }
 
     /* ---------- Permisos ---------- */
+
+    /** La clave de la pizarra: la de la reunión, o -id para «Mis notas» de quien tiene la sesión. */
+    public static function rid(bool $mia, int $reunionId = 0): int
+    {
+        return $mia ? -(int)(Auth::usuario()['id'] ?? 0) : $reunionId;
+    }
+
 
     /** La ve quien ve el proyecto de la reunión. */
     public static function puedeVer(?array $r): bool
@@ -107,6 +124,10 @@ final class Pizarra
             $existe = $db->prepare('SELECT borrado FROM piz_elementos WHERE reunion = ? AND eid = ?');
             $poner = $db->prepare('INSERT INTO piz_elementos (reunion, eid, v, borrado, datos, por) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (reunion, eid) DO UPDATE SET v = excluded.v, borrado = excluded.borrado, datos = excluded.datos, por = excluded.por');
+            $ponerAviso = $db->prepare('INSERT INTO piz_avisos (reunion, eid, cuando, para, texto) VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (reunion, eid) DO UPDATE SET enviado = CASE WHEN piz_avisos.cuando <> excluded.cuando THEN 0 ELSE piz_avisos.enviado END,
+                cuando = excluded.cuando, para = excluded.para, texto = excluded.texto');
+            $quitarAviso = $db->prepare('DELETE FROM piz_avisos WHERE reunion = ? AND eid = ?');
             foreach (array_slice($cambios, 0, 500) as $c) {
                 if (!is_array($c)) continue;
                 $eid = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($c['id'] ?? ''));
@@ -118,6 +139,7 @@ final class Pizarra
                     if ($antes === false) continue;
                     $poner->execute([$reunion, $eid, ++$v, 1, '{}', $por]);
                     if ((string)$antes === '0') $vivos--;
+                    $quitarAviso->execute([$reunion, $eid]);
                     continue;
                 }
                 unset($c['id'], $c['v'], $c['borrado']);
@@ -127,6 +149,15 @@ final class Pizarra
                 if ($nuevo && $vivos >= self::MAX_ELEMENTOS) continue;
                 $poner->execute([$reunion, $eid, ++$v, 0, $json, $por]);
                 if ($nuevo) $vivos++;
+                // El recordatorio de la nota: si cambia la hora, se vuelve a avisar
+                $cuando = DateTime::createFromFormat('!Y-m-d H:i', trim((string)($c['aviso'] ?? '')));
+                if ($cuando) {
+                    $para = (int)($c['aviso_por'] ?? 0) ?: ($reunion < 0 ? -$reunion : $por);
+                    $texto = mb_substr(trim(preg_replace('/\s+/u', ' ', strip_tags((string)($c['texto'] ?? '')))), 0, 200);
+                    $ponerAviso->execute([$reunion, $eid, $cuando->format('Y-m-d H:i'), $para, $texto]);
+                } else {
+                    $quitarAviso->execute([$reunion, $eid]);
+                }
             }
             $db->prepare('INSERT INTO piz_meta (reunion, version, actualizado) VALUES (?, ?, ?)
                 ON CONFLICT (reunion) DO UPDATE SET version = excluded.version, actualizado = excluded.actualizado')
@@ -190,7 +221,65 @@ final class Pizarra
         return ['url' => $nombre, 'ancho' => (int)$dim[0], 'alto' => (int)$dim[1]];
     }
 
-    /* ---------- Tareas del proyecto (para el kanban) ---------- */
+    /* ---------- Recordatorios ---------- */
+
+    /**
+     * Los recordatorios que ya tocan: a quien lo puso, en la campana, como
+     * notificación nativa (Notif::crear la manda a sus dispositivos) y por
+     * correo. Lo llama cron_correo.php cada minuto. Devuelve cuántos avisó.
+     */
+    public static function avisarRecordatorios(): int
+    {
+        $db = self::db();
+        $st = $db->prepare('SELECT reunion, eid, cuando, para, texto FROM piz_avisos WHERE enviado = 0 AND cuando <= ? ORDER BY cuando LIMIT 50');
+        $st->execute([date('Y-m-d H:i')]);
+        $filas = $st->fetchAll(PDO::FETCH_ASSOC);
+        if (!$filas) return 0;
+        if (is_file(__DIR__ . '/Notificaciones.php')) require_once __DIR__ . '/Notificaciones.php';
+        $hecho = $db->prepare('UPDATE piz_avisos SET enviado = 1 WHERE reunion = ? AND eid = ?');
+        $miembros = (new MiembroRepo())->mapa();
+        $reuniones = new ReunionRepo();
+        $n = 0;
+        foreach ($filas as $f) {
+            $hecho->execute([(int)$f['reunion'], $f['eid']]);   // antes de avisar: si algo falla, no se repite cada minuto
+            $m = $miembros[(int)$f['para']] ?? null;
+            if (!$m) continue;
+            $rid = (int)$f['reunion'];
+            $donde = $rid < 0 ? 'Mis notas' : 'Pizarra de «' . (string)(($reuniones->buscar($rid) ?? [])['topic'] ?? 'la reunión') . '»';
+            $url = $rid < 0 ? 'pizarra.php?mia=1' : 'pizarra.php?reunion=' . $rid;
+            $texto = (string)$f['texto'] !== '' ? (string)$f['texto'] : 'Tienes un recordatorio';
+            if (class_exists('Notif')) Notif::crear([(int)$f['para']], 'recordatorio', $texto, $donde, $url, 0);
+            try { Mailer::recordatorioNota($m, $texto, $donde, $url); } catch (\Throwable $e) { error_log('Recordatorio de nota: ' . $e->getMessage()); }
+            $n++;
+        }
+        return $n;
+    }
+
+    /* ---------- Tareas para el kanban ---------- */
+
+    /** En «Mis notas»: las tareas abiertas de la persona en todos sus proyectos. */
+    public static function tareasDe(int $mid): array
+    {
+        $finales = Catalogo::estadosFinales();
+        $proyectos = [];
+        foreach ((new ProyectoRepo())->todos() as $p) $proyectos[(int)$p['id']] = $p;
+        $out = [];
+        foreach ((new TareaRepo())->todas() as $t) {
+            $pid = (int)($t['proyecto_id'] ?? 0);
+            if (!isset($proyectos[$pid]) || !TareaRepo::tieneAsignado($t, $mid) || in_array($t['estado'] ?? '', $finales, true)) continue;
+            if (!puedeVerProyecto($pid)) continue;
+            $out[] = [
+                'id'          => (int)$t['id'],
+                'titulo'      => (string)($t['titulo'] ?? ''),
+                'estado'      => (string)($t['estado'] ?? 'pendiente'),
+                'quien'       => '',
+                'proyecto'    => (string)($proyectos[$pid]['nombre'] ?? ''),
+                'proyecto_id' => $pid,
+            ];
+        }
+        return $out;
+    }
+
 
     public static function tareas(int $proyectoId): array
     {

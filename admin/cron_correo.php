@@ -39,6 +39,16 @@ try {
 } catch (Throwable $e) {
     echo 'Recordatorios de reunión: ' . $e->getMessage() . "\n";
 }
+// Los recordatorios que cada quien puso en una nota de su pizarra (lib/Pizarra.php)
+if (is_file(__DIR__ . '/lib/Pizarra.php')) {
+    require_once __DIR__ . '/lib/Pizarra.php';
+    try {
+        $nNotas = Pizarra::avisarRecordatorios();
+        if ($nNotas) echo date('Y-m-d H:i:s') . ' · recordatorios de notas: ' . $nNotas . "\n";
+    } catch (Throwable $e) {
+        echo 'Recordatorios de notas: ' . $e->getMessage() . "\n";
+    }
+}
 
 // El horario de subidas (lib/Cronograma.php): toma los builds de GitLab y, a la hora de cada proyecto,
 // registra la subida y avisa a todos. Va al final de cada vuelta, y también si el correo está apagado.
