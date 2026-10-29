@@ -5178,3 +5178,14 @@ html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn).active > .ico:first-child 
     background: transparent !important; height: 4px !important; margin: 6px auto !important;
   }
 }
+/* Con los cuadritos de 42 px las filas quedaban muy separadas: el cuadrito
+   ya da el alto, así que la fila casi no lleva relleno y van más juntas */
+html .sidebar :is(.sidebar-link, .nav-grupo-btn), html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn) { padding-top: 3px; padding-bottom: 3px; padding-left: 8px; padding-right: 10px; }
+html .sidebar .sidebar-nav { gap: 2px; }
+html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn), html.sb-collapsed.dark .sidebar :is(.sidebar-link, .nav-grupo-btn) { padding: 3px 0; }
+html.sb-collapsed .sidebar .sidebar-nav { gap: 2px; }
+/* Los íconos de los equipos traían un margen negativo (para verse más grandes sin
+   cuadrito): con el cuadrito los corría y los pegaba entre sí. Van como los demás. */
+html .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:first-child,
+html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:first-child,
+html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:first-child { margin: 0; width: 20px; height: 20px; }
