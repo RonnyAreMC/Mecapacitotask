@@ -5164,3 +5164,17 @@ html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn).active > .ico:first-child 
 html .sidebar .sidebar-link-proyecto.active > .ico:first-child { color: var(--pc, var(--primary-ink)) !important; }
 /* Al pasar el mouse, solo se ilumina el cuadrito */
 html .sidebar :is(.sidebar-link, .nav-grupo-btn):hover:not(.active) > .ico:first-child { background: color-mix(in srgb, #40CFFF 12%, var(--surface)); }
+
+/* Los cuadritos de todo el menú, del tamaño de los atajos de abajo (42 px, como
+   Despliegues), y sin líneas separadoras: ni las rayitas entre grupos del menú
+   plegado ni la línea sobre los atajos (queda solo el espacio). */
+html .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico:first-child,
+html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico:first-child { width: 20px; height: 20px; padding: 11px; border-radius: 12px; }
+html .sidebar :is(.sidebar-link, .nav-grupo-btn).active > .ico:first-child,
+html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn).active > .ico:first-child { padding: 9.5px; }
+.sb-atajos { border-top: 0; padding-top: 6px; }
+@media (min-width: 901px) {
+  html.sb-collapsed .sidebar .sidebar-label, html.sb-collapsed.dark .sidebar .sidebar-label {
+    background: transparent !important; height: 4px !important; margin: 6px auto !important;
+  }
+}
