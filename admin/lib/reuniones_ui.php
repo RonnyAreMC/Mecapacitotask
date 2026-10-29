@@ -1,8 +1,9 @@
 <?php
 /**
- * Reuniones: lo que comparten la suite (reuniones.php), el detalle de una
- * reunión (reunion.php) y la pestaña «Reuniones» de cada proyecto
- * (proyecto.php).
+ * Reuniones: lo que comparten la suite de cada proyecto (reuniones.php?p=ID),
+ * el detalle de una reunión (reunion.php), la pestaña «Reuniones» de cada
+ * proyecto (proyecto.php) y la videoteca de las grabaciones (videoteca.php,
+ * la entrada «Reuniones» del menú lateral).
  *
  * La idea viene del inicio de Zoom y de Meet: las próximas por día, lo que
  * está en curso o empieza pronto arriba y destacado, el historial aparte y,
@@ -31,6 +32,12 @@ final class ReunionesUI
     public const VENTANA_DIAS = 7;
     /** Asistencia: quien pulsó «Entrar» de 15 minutos antes a 15 después (como Releases). */
     public const MARGEN_INGRESO = 15 * 60;
+    /**
+     * ¿pizarra.php sabe mostrar la de una reunión en vista previa de solo lectura
+     * (&embed=1)? Con eso la videoteca la mete en su pestaña «Pizarra»; sin eso,
+     * una tarjeta con «Abrir la pizarra».
+     */
+    public const PIZARRA_EMBED = true;
     /** Estados de Drive que ya se pueden abrir (los de ZoomDrive::LISTOS). */
     private const DRIVE_LISTOS = ['en_drive', 'borrado'];
 
@@ -342,10 +349,193 @@ final class ReunionesUI
         return preg_match('#^https?://#i', trim((string)($r['join_url'] ?? ''))) ? 'reunion_entrar.php?id=' . (int)$r['id'] : '';
     }
 
-    /** El detalle de esa vez: reunion.php?id=…&dia=… (el día, solo en las que se repiten). */
-    public static function urlDetalle(array $vez): string
+    /**
+     * El detalle de esa vez: reunion.php?id=…&dia=… (el día, solo en las que se
+     * repiten). $desde: de dónde se llega ('historial' o 'proyecto'), para que su
+     * botón de volver regrese ahí.
+     */
+    public static function urlDetalle(array $vez, string $desde = ''): string
     {
-        return 'reunion.php?id=' . $vez['id'] . ($vez['serie'] ? '&dia=' . $vez['dia'] : '');
+        return 'reunion.php?id=' . $vez['id'] . ($vez['serie'] ? '&dia=' . $vez['dia'] : '')
+            . (in_array($desde, ['historial', 'proyecto'], true) ? '&desde=' . $desde : '');
+    }
+
+    /** El color del proyecto, el mismo del menú lateral (los muy oscuros se aclaran). */
+    public static function colorProyecto(array $p): string
+    {
+        $c = ProyectoRepo::colorBase($p);
+        return $c === '#2D3E50' ? '#40CFFF' : $c;
+    }
+
+    /** El ícono del proyecto, siempre SVG: los viejos que no son del set caen a la carpeta. */
+    public static function iconoProyecto(array $p, string $clase = ''): string
+    {
+        $ico = UI::icono((string)($p['icono'] ?? '') ?: 'FolderOpen', $clase);
+        return str_starts_with($ico, '<svg') ? $ico : UI::icono('FolderOpen', $clase);
+    }
+
+    /** El proyecto como chip, con su ícono y su color. */
+    public static function chipProyecto(array $p, string $href): string
+    {
+        return '<a class="ru-chip-proy" href="' . e($href) . '" style="--pc:' . e(self::colorProyecto($p)) . '">'
+            . '<span class="ru-chip-proy__ic" aria-hidden="true">' . self::iconoProyecto($p) . '</span>' . e((string)($p['nombre'] ?? 'Proyecto')) . '</a>';
+    }
+
+    /**
+     * El encabezado de la suite, del detalle y de la videoteca: el botón de
+     * volver a la izquierda del título y, a la derecha, en la misma fila, los
+     * botones redondos de vidrio (en el celular bajan bajo el título).
+     * $titulo y $sub van tal cual (HTML ya escapado); $acciones, los botones.
+     */
+    public static function cabecera(string $volver, string $volverTip, string $titulo, string $sub = '', string $acciones = ''): void
+    {
+        echo '<header class="page-head ru-cab">'
+            . '<div class="ru-cab__main">'
+            . ($volver !== '' ? '<a class="rs-boton rs-boton--icono ru-cab__volver" href="' . e($volver) . '" aria-label="' . e($volverTip) . '" data-ds-tip="' . e($volverTip) . '">' . UI::icono('ds-chevron-izq') . '</a>' : '')
+            . '<div class="ru-cab__txt"><h1 class="page-title font-display">' . $titulo . '</h1>'
+            . ($sub !== '' ? '<p class="page-sub ru-cab__sub">' . $sub . '</p>' : '') . '</div></div>'
+            . ($acciones !== '' ? '<div class="page-actions ru-cab__acc">' . $acciones . '</div>' : '')
+            . '</header>';
+    }
+
+    /** Un botón redondo de vidrio del encabezado (.rs-boton), con su ayuda y su nombre. */
+    public static function botonCab(string $icono, string $tip, string $href = '', string $clase = '', string $attrs = '', string $tipo = 'button'): string
+    {
+        $a = ' class="rs-boton rs-boton--icono' . ($clase !== '' ? ' ' . e($clase) : '') . '" aria-label="' . e($tip) . '" data-ds-tip="' . e($tip) . '"'
+           . ($attrs !== '' ? ' ' . $attrs : '');
+        return $href !== ''
+            ? '<a href="' . e($href) . '"' . $a . '>' . UI::icono($icono) . '</a>'
+            : '<button type="' . ($tipo === 'submit' ? 'submit' : 'button') . '"' . $a . '>' . UI::icono($icono) . '</button>';
+    }
+
+    /**
+     * La transcripción para Claude Code: el formulario de descarga de siempre
+     * (reunion_transcripcion, data-descarga; actions.php la lee de Drive). En
+     * una serie lleva el día (ocurrencia).
+     */
+    public static function formTranscripcion(array $r, string $diaOc, string $claseBoton = ''): string
+    {
+        return '<form method="post" action="actions.php" class="inline-form" data-descarga>'
+            . '<input type="hidden" name="accion" value="reunion_transcripcion">'
+            . '<input type="hidden" name="id" value="' . (int)$r['id'] . '">'
+            . ($diaOc !== '' ? '<input type="hidden" name="ocurrencia" value="' . e($diaOc) . '">' : '')
+            . self::ico('ds-descargar', $diaOc !== '' ? 'Descargar el resumen de ese día para Claude Code' : 'Descargar la transcripción para Claude Code', '', $claseBoton, '', 'submit')
+            . '</form>';
+    }
+
+    /** El acta con IA: los mismos data-* del botón de siempre (los maneja assets/ia.js). */
+    public static function botonActa(array $r, string $diaOc, string $claseBoton = ''): string
+    {
+        $plat = (string)($r['plataforma'] ?? 'zoom');
+        $attrs = 'data-ia-acta="1" data-reunion="' . (int)$r['id'] . '"' . ($diaOc !== '' ? ' data-ocurrencia="' . e($diaOc) . '"' : '')
+            . ' data-zoom="' . ($plat === 'meet' ? '0' : '1') . '" data-titulo="' . e(self::tema($r) . ($diaOc !== '' ? ' · ' . $diaOc : '')) . '"';
+        return self::ico('ds-ia', $diaOc !== '' ? 'Acta de ese día con IA' : 'Acta de la reunión con IA: resumen, acuerdos y tareas', '', trim('ru-ico--ia ' . $claseBoton), $attrs);
+    }
+
+    /** El id del archivo de Drive de un enlace «…/file/d/ID/view» ('' si no lo es). */
+    public static function driveId(string $url): string
+    {
+        return preg_match('#/file/d/([\w-]+)#', $url, $m) ? $m[1] : '';
+    }
+
+    /** La duración como en un reproductor: «15:00», «1:30:00». */
+    public static function duracionTexto(int $min): string
+    {
+        return $min >= 60 ? intdiv($min, 60) . ':' . str_pad((string)($min % 60), 2, '0', STR_PAD_LEFT) . ':00' : $min . ':00';
+    }
+
+    /** Cuándo fue, corto: «hoy», «ayer», «hace 3 días», «12 oct», «12 oct 2025». */
+    public static function cuandoFue(int $ts, int $ahora): string
+    {
+        $dias = (int)round((strtotime(date('Y-m-d', $ahora)) - strtotime(date('Y-m-d', $ts))) / 86400);
+        return match (true) {
+            $dias <= 0 => 'hoy',
+            $dias === 1 => 'ayer',
+            $dias < 7 => 'hace ' . $dias . ' días',
+            default => (int)date('j', $ts) . ' ' . self::MESES[(int)date('n', $ts) - 1] . (date('Y', $ts) !== date('Y', $ahora) ? ' ' . date('Y', $ts) : ''),
+        };
+    }
+
+    /**
+     * Las grabaciones: las veces que ya pasaron y tienen su video en Drive, de la
+     * más nueva a la más vieja. Cada una suma 'ver' (el enlace de Drive) y 'drive' (su id).
+     */
+    public static function grabadas(array $reuniones, array $proyectos, int $ahora, array $rastros): array
+    {
+        $out = [];
+        foreach (self::pasadas(array_values(array_filter($reuniones, fn($r) => ($r['plataforma'] ?? 'zoom') === 'zoom' && (string)($r['zoom_id'] ?? '') !== '')), $proyectos, $ahora) as $v) {
+            $g = self::grabacion($v['r'], $v['serie'] ? $v['dia'] : '', $v['fin'], $rastros);
+            if ($g['estado'] !== 'lista') continue;
+            $out[] = $v + ['ver' => $g['ver'], 'drive' => self::driveId($g['ver'])];
+        }
+        return $out;
+    }
+
+    /** Los adjuntos de unas observaciones y de sus respuestas: [['a' => adjunto, 'o' => observación]]. */
+    public static function adjuntos(array $hilos): array
+    {
+        $out = [];
+        foreach ($hilos as $o) {
+            foreach (array_merge([$o], (array)($o['respuestas'] ?? [])) as $x) {
+                foreach ((array)($x['adjuntos'] ?? []) as $a) {
+                    if (is_array($a) && (string)($a['ruta'] ?? '') !== '') $out[] = ['a' => $a, 'o' => $x];
+                }
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * La portada 16:9 de una grabación: la generada (el color y el ícono del
+     * proyecto, con el tema en grande) siempre está debajo; encima, la miniatura
+     * de Drive, que se quita sola si no carga (sin permiso, o todavía sin
+     * miniatura): así la portada nunca queda vacía.
+     */
+    public static function portada(array $vez, string $drive, string $extra = '', bool $conMiniatura = true): string
+    {
+        $p = $vez['p'];
+        return '<span class="vt-portada" style="--pc:' . e(self::colorProyecto($p)) . '">'
+            . '<span class="vt-portada__gen" aria-hidden="true"><span class="vt-portada__ic">' . self::iconoProyecto($p) . '</span>'
+            . '<b class="vt-portada__t">' . e(self::tema($vez['r'])) . '</b><small class="vt-portada__p">' . e((string)($p['nombre'] ?? '')) . '</small></span>'
+            . ($conMiniatura && $drive !== '' ? '<img class="vt-portada__img" src="https://drive.google.com/thumbnail?id=' . rawurlencode($drive) . '&amp;sz=w640" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '')
+            . $extra . '</span>';
+    }
+
+    /**
+     * Una tarjeta de video (la videoteca): la portada con su duración, el
+     * proyecto como canal, el título en dos líneas y «Proyecto · fecha · N asistentes».
+     * $ctx: ahora, miembros, rastros.
+     */
+    public static function tarjetaVideo(array $vez, array $ctx, string $href, string $id = ''): string
+    {
+        $r = $vez['r'];
+        $p = $vez['p'];
+        $nEnt = count(self::entraron($vez, $ctx['rastros']));
+        $conTrans = self::transcripcion($r, $vez['serie'] ? $vez['dia'] : '', $vez['fin'], $ctx['rastros']) === 'lista';
+        $extra = '<span class="vt-dur">' . self::duracionTexto(self::duracion($r)) . '</span>'
+            . ($conTrans ? '<span class="vt-cc" role="img" aria-label="Con transcripción" data-ds-tip="Con transcripción">' . UI::icono('NoteText') . '</span>' : '');
+        $meta = e((string)($p['nombre'] ?? '')) . '<span class="ru-sep" aria-hidden="true">·</span>' . e(self::cuandoFue($vez['ts'], $ctx['ahora']))
+            . ($nEnt ? '<span class="ru-sep" aria-hidden="true">·</span>' . ($nEnt === 1 ? '1 asistente' : $nEnt . ' asistentes') : '');
+        return '<li class="vt-item" data-ru-txt="' . e(self::textoBuscar($vez, $ctx['miembros'])) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>'
+            . '<a class="vt-card" href="' . e($href) . '">'
+            . self::portada($vez, (string)($vez['drive'] ?? ''), $extra)
+            . '<span class="vt-info"><span class="vt-canal" style="--pc:' . e(self::colorProyecto($p)) . '" aria-hidden="true">' . self::iconoProyecto($p) . '</span>'
+            . '<span class="vt-info__txt"><b class="vt-t" title="' . e(self::tema($r)) . '">' . e(self::tema($r)) . '</b>'
+            . '<small class="vt-meta">' . $meta . '</small></span></span>'
+            . '</a></li>';
+    }
+
+    /** El ícono de un adjunto según su extensión (iconos/Archivos/adj-*). */
+    public static function iconoAdjunto(string $ext): string
+    {
+        return UI::icono(match (strtolower($ext)) {
+            'pdf'                                        => 'adj-pdf',
+            'doc', 'docx'                                => 'adj-word',
+            'xls', 'xlsx', 'csv'                         => 'adj-excel',
+            'ppt', 'pptx'                                => 'adj-ppt',
+            'jpg', 'jpeg', 'png', 'webp', 'gif', 'avif'  => 'adj-imagen',
+            default                                      => 'adj-otro',
+        });
     }
 
     public static function hayPizarra(): bool
@@ -406,13 +596,13 @@ final class ReunionesUI
     }
 
     /** Los botones de una vez próxima: Entrar (solo si toca), la pizarra, copiar el enlace y el detalle. */
-    public static function acciones(array $vez, bool $conEntrar = true): string
+    public static function acciones(array $vez, bool $conEntrar = true, string $desde = ''): string
     {
         $h = '';
         if ($conEntrar && in_array($vez['estado'], ['vivo', 'pronto'], true)) $h .= self::icoEntrar($vez);
         if (self::hayPizarra()) $h .= self::ico('pz-pizarra', 'Pizarra de la reunión', 'pizarra.php?reunion=' . $vez['id']);
         $h .= self::icoCopiar($vez['r']);
-        $h .= self::ico('ds-ver', 'Ver el detalle', self::urlDetalle($vez));
+        $h .= self::ico('ds-ver', 'Ver el detalle', self::urlDetalle($vez, $desde));
         return '<div class="ru-acc">' . $h . '</div>';
     }
 
@@ -440,12 +630,12 @@ final class ReunionesUI
         };
         return '<li class="ru-fila is-' . $vez['estado'] . '" data-ru-txt="' . e(self::textoBuscar($vez, $ctx['miembros'])) . '">'
             . '<span class="ru-hora" aria-hidden="true"><b>' . e($hh) . '</b><small>' . e($ap) . '</small></span>'
-            . '<span class="ru-fila__txt"><a class="ru-fila__t" href="' . e(self::urlDetalle($vez)) . '" title="' . e(self::tema($r)) . '">'
+            . '<span class="ru-fila__txt"><a class="ru-fila__t" href="' . e(self::urlDetalle($vez, (string)($ctx['desde'] ?? ''))) . '" title="' . e(self::tema($r)) . '">'
             . '<span class="ru-sr">' . e(self::hora($vez['ts'])) . ' · </span>' . e(self::tema($r)) . '</a>'
             . '<small class="ru-fila__meta">' . self::meta($vez, !empty($ctx['proyecto'])) . '</small></span>'
             . $estado
             . ($inv ? '<span class="ru-gente">' . UI::avatarStack($inv, 4, 28) . '</span>' : '')
-            . self::acciones($vez)
+            . self::acciones($vez, true, (string)($ctx['desde'] ?? ''))
             . '</li>';
     }
 
@@ -481,7 +671,7 @@ final class ReunionesUI
         $r = $vez['r'];
         [$hh, $ap] = self::horaPartes($vez['ts']);
         $marcas = self::marcas($vez, $ctx['rastros']);
-        return '<li data-ru-txt="' . e(self::textoBuscar($vez, $ctx['miembros'])) . '"><a class="ru-fila ru-fila--pasada" href="' . e(self::urlDetalle($vez)) . '">'
+        return '<li data-ru-txt="' . e(self::textoBuscar($vez, $ctx['miembros'])) . '"><a class="ru-fila ru-fila--pasada" href="' . e(self::urlDetalle($vez, (string)($ctx['desde'] ?? ''))) . '">'
             . '<span class="ru-hora" aria-hidden="true"><b>' . e($hh) . '</b><small>' . e($ap) . '</small></span>'
             . '<span class="ru-fila__txt"><b class="ru-fila__t" title="' . e(self::tema($r)) . '"><span class="ru-sr">' . e(self::hora($vez['ts'])) . ' · </span>' . e(self::tema($r)) . '</b>'
             . '<small class="ru-fila__meta">' . self::meta($vez, !empty($ctx['proyecto'])) . '</small></span>'
@@ -530,13 +720,13 @@ final class ReunionesUI
                 . '<span class="rs-cuenta">' . UI::icono('ds-reloj') . ' ' . ($vivo ? 'termina' : 'empieza')
                 . ' <b data-cuenta-regresiva data-corto data-ya="' . ($vivo ? 'ya terminó' : 'ya empezó') . '" data-hasta="' . ($vivo ? $vez['fin'] : $vez['ts']) . '" data-ahora="' . $ctx['ahora'] . '">&nbsp;</b></span></div>'
                 . '<b class="rs-reu__cuando">' . e(self::cuando($vez['ts'], $ctx['ahora'])) . '</b>'
-                . '<p class="rs-reu__t"><a class="ru-ahora__t" href="' . e(self::urlDetalle($vez)) . '">' . e(self::tema($r)) . '</a></p>'
+                . '<p class="rs-reu__t"><a class="ru-ahora__t" href="' . e(self::urlDetalle($vez, (string)($ctx['desde'] ?? ''))) . '">' . e(self::tema($r)) . '</a></p>'
                 . '<p class="rs-reu__meta ru-fila__meta">' . self::meta($vez, !empty($ctx['proyecto'])) . '</p>'
                 . '<div class="rs-reu__pie">' . ($inv ? UI::avatarStack($inv, 5, 30) : '<span></span>')
                 . '<div class="ru-acc">'
                 . (self::hayPizarra() ? self::ico('pz-pizarra', 'Pizarra de la reunión', 'pizarra.php?reunion=' . $vez['id']) : '')
                 . self::icoCopiar($r)
-                . self::ico('ds-ver', 'Ver el detalle', self::urlDetalle($vez))
+                . self::ico('ds-ver', 'Ver el detalle', self::urlDetalle($vez, (string)($ctx['desde'] ?? '')))
                 . self::icoEntrar($vez, 'ru-ico--grande')
                 . '</div></div></article>';
         }

@@ -42,7 +42,7 @@ $mia = !empty($_GET['mia']);
 // nota, solo el lienzo y para mirar (la página que la inserta la abre entera al tocarla).
 $idNota  = (int)($_GET['nota'] ?? 0);
 $publica = isset($pzPublica) && is_array($pzPublica);
-$embed   = !empty($_GET['embed']) && ($idNota > 0 || $publica);
+$embed   = !empty($_GET['embed']);   // también la de una reunión (la vista previa de la videoteca)
 if ($publica || $idNota > 0) {
     $nota = $publica ? $pzPublica : Pizarra::notaPropia($idNota);
     if (!$nota) redirigir('notas.php', 'Esa nota ya no está disponible.', 'error');
@@ -60,7 +60,7 @@ if ($publica || $idNota > 0) {
     $api      = $publica ? 'pizarra_api.php?t=' . $tk : 'pizarra_api.php?nota=' . $idNota;
 } elseif ($mia) {
     $idReu    = (int)Pizarra::rid(true);   // -id del miembro
-    $editar   = true;
+    $editar   = !$embed;
     $pid      = 0;
     $proyecto = null;
     $titulo   = 'Mis notas';
@@ -73,7 +73,7 @@ if ($publica || $idNota > 0) {
     if (!$reu || !Pizarra::puedeVer($reu)) {
         redirigir('index.php', 'Esa pizarra no está disponible: la reunión no existe o no es de tus proyectos.', 'error');
     }
-    $editar   = Pizarra::puedeEditar($reu);
+    $editar   = Pizarra::puedeEditar($reu) && !$embed;   // la vista previa es solo para mirar
     $pid      = (int)($reu['proyecto_id'] ?? 0);
     $proyecto = (new ProyectoRepo())->buscar($pid);
     $titulo   = trim((string)($reu['topic'] ?? '')) ?: 'Reunión';

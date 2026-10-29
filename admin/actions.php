@@ -4464,7 +4464,8 @@ switch ($accion) {
         if (!puedeReunionesDelProyecto($pid)) {
             redirigir('proyecto.php?id=' . $pid, 'Solo puedes editar reuniones de tus proyectos.', 'error');
         }
-        $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
+        // Abierto desde el detalle (reunion.php): «volver» lo trae y se regresa ahí (volverAqui: solo páginas del panel)
+        $volver = volverAqui('proyecto.php?id=' . $pid . '#vista-reuniones');
         $topic = trim($_POST['topic'] ?? '');
         $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));
         $duracion = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
@@ -4623,7 +4624,8 @@ switch ($accion) {
                 Zoom::eliminarReunion($reu['zoom_id']);
             }
             $reuniones->eliminar((int)$reu['id']);
-            redirigir('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones', 'Reunión eliminada.');
+            // Desde el detalle se vuelve a la suite del proyecto (o a su historial); volverAqui solo deja páginas del panel
+            redirigir(volverAqui('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones'), 'Reunión eliminada.');
         }
         redirigir('index.php', 'Reunión no encontrada.', 'error');
 

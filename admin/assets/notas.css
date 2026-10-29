@@ -6,7 +6,8 @@
    fondo padding-box / border-box, y el vidrio va solo en lo que flota (los
    cuadros de color, recordatorio y compartir). Claro y oscuro (html.dark).
    ========================================================= */
-.admin-main:has(> .nt) { padding-bottom: 20px; }
+/* Sin espacios libres a los lados: la app de notas ocupa todo el ancho de la página */
+.admin-main:has(> .nt) { padding: 16px 16px 16px; }
 
 .nt {
   --nt-sup: var(--surface, #fff);
@@ -26,7 +27,7 @@
   --nt-c-rosa: #FCE8F0; --nt-c-durazno: #FFECDF; --nt-c-vainilla: #FFF5D6;
 
   display: grid; grid-template-columns: minmax(264px, 340px) minmax(0, 1fr);
-  height: var(--nt-alto, calc(100dvh - 150px)); min-height: 460px;
+  height: var(--nt-alto, calc(100dvh - 92px)); min-height: 460px;
   border: 1px solid var(--nt-linea); border-radius: 18px; overflow: hidden;
   background: var(--nt-sup); color: var(--nt-tinta);
 }
@@ -154,9 +155,9 @@ html.dark .nt {
 .nt-giro { width: 13px; height: 13px; border-radius: 50%; border: 2px solid color-mix(in srgb, var(--nt-azul) 25%, transparent); border-top-color: var(--nt-azul); animation: nt-giro .8s linear infinite; }
 @keyframes nt-giro { to { transform: rotate(360deg); } }
 
-.nt-papel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 16px clamp(18px, 4vw, 56px) 28px; cursor: text; }
-.nt-papel > * { width: 100%; max-width: 780px; margin-inline: auto; }
-.nt-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 8px; min-height: 24px; margin-bottom: 6px; color: var(--nt-tinta-3); font-size: .75rem; cursor: default; }
+.nt-papel { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; display: flex; flex-direction: column; padding: 16px clamp(18px, 2.4vw, 36px) 28px; cursor: text; }
+.nt-papel > * { width: 100%; }   /* la hoja usa todo el ancho de la nota, sin bandas vacías */
+.nt-meta { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-start; gap: 6px 8px; min-height: 24px; margin-bottom: 6px; color: var(--nt-tinta-3); font-size: .75rem; cursor: default; }
 .nt-meta__chip {
   display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border: 0; border-radius: 999px;
   background: color-mix(in srgb, var(--nt-tinta) 7%, transparent); color: var(--nt-tinta-2);

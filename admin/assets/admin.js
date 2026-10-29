@@ -5472,6 +5472,7 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       const b = document.querySelector('[data-ru-abrir]');
       if (b) b.click();
       quitar('editar_reunion');
+      quitar('volver');   // ya va en el formulario (a dónde se regresa al guardar)
     }
   };
   if (params.has('nueva_reunion') || params.has('editar_reunion')) {
@@ -5518,7 +5519,27 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     if (el) tira.scrollLeft = Math.max(0, el.offsetLeft - (tira.clientWidth - el.offsetWidth) / 2);
   });
 
-  // «¿En qué proyecto?»: tocar el fondo también lo cierra
-  const dlgP = document.getElementById('dlg-ru-nueva');
-  if (dlgP) dlgP.addEventListener('mousedown', (e) => { if (e.target === dlgP) dlgP.close(); });
+  // La videoteca, vista «ver»: el panel Archivos | Pizarra. La pieza se desliza a la
+  // elegida, las flechas cambian de pestaña y la vista previa de la pizarra (un iframe
+  // con data-src) recién se carga al abrir su pestaña.
+  document.querySelectorAll('[data-vt-tabs]').forEach((tabs) => {
+    const panel = tabs.closest('.vt-panel');
+    const ops = [...tabs.querySelectorAll('[data-op]')];
+    const elegir = (op, foco) => {
+      tabs.dataset.activa = op.dataset.op;
+      ops.forEach((b) => { const si = b === op; b.setAttribute('aria-selected', String(si)); b.tabIndex = si ? 0 : -1; });
+      panel.querySelectorAll('[data-vt-pane]').forEach((p) => { p.hidden = p.dataset.vtPane !== op.dataset.op; });
+      const fr = panel.querySelector('[data-vt-pane="' + op.dataset.op + '"] iframe[data-src]');
+      if (fr) { fr.src = fr.dataset.src; fr.removeAttribute('data-src'); }
+      if (foco) op.focus();
+    };
+    ops.forEach((b, i) => {
+      b.addEventListener('click', () => elegir(b));
+      b.addEventListener('keydown', (e) => {
+        if (e.key !== 'ArrowRight' && e.key !== 'ArrowLeft') return;
+        e.preventDefault();
+        elegir(ops[(i + (e.key === 'ArrowRight' ? 1 : ops.length - 1)) % ops.length], true);
+      });
+    });
+  });
 })();

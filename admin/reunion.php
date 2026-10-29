@@ -2,9 +2,13 @@
 /**
  * El detalle de una reunión: todo lo que hay de ella (reunion.php?id=X[&dia=Y-m-d]).
  *
- *   · Arriba, el tema y, con solo íconos, la pizarra, editar y eliminar
- *     (editar abre el asistente de proyecto.php con ?editar_reunion=ID;
- *     eliminar es la misma acción reunion_eliminar de siempre).
+ *   · Arriba, el botón de volver (a la suite del proyecto; con &desde=historial
+ *     al historial y con &desde=proyecto a la pestaña del proyecto), el tema,
+ *     el proyecto como chip y, a la derecha, botones redondos de vidrio:
+ *     eliminar (rojo suave, aparte), la pizarra, copiar, iniciar como
+ *     anfitrión, editar y Entrar (verde). Editar abre el asistente de
+ *     proyecto.php (?editar_reunion=ID&volver=…) y, al guardar, actions.php
+ *     vuelve aquí; eliminar (reunion_eliminar de siempre) vuelve a la suite.
  *   · La tarjeta de «cuándo»: la fecha y la hora grandes, su estado (en
  *     curso, empieza pronto, próxima o realizada) con su cuenta regresiva,
  *     la repetición y los datos para entrar (plataforma, código,
@@ -25,7 +29,7 @@ require_once __DIR__ . '/lib/reuniones_ui.php';
 
 $r = (new ReunionRepo())->buscar((int)($_GET['id'] ?? 0));
 if (!$r || !puedeVerProyecto((int)($r['proyecto_id'] ?? 0))) {
-    redirigir('reuniones.php', 'Esa reunión no está disponible.', 'error');
+    redirigir('index.php', 'Esa reunión no está disponible.', 'error');
 }
 if (esSupervisor()) {
     redirigir('index.php', 'Las reuniones no son parte de tu vista de supervisión.', 'error');
@@ -47,28 +51,55 @@ $puedeReuniones = puedeReunionesDelProyecto($pid);
 $puedeEditar    = $puedeReuniones && ReunionesUI::plataformasListas();   // sin Zoom ni Meet, proyecto.php no trae el asistente
 $puedeActa      = UI::ia('acta_reunion') && puedeGestionar($pid);
 $plural = fn(int $n, string $uno, string $varios) => $n . ' ' . ($n === 1 ? $uno : $varios);
+$entrar = ReunionesUI::enlaceEntrar($r);
+$nombreP = (string)$proyecto['nombre'];
 
-/* ---------- La cabecera: el tema y, con solo íconos, pizarra, editar y eliminar ---------- */
+/* ---------- De dónde se llegó: a dónde vuelve el botón y adónde lleva editar o eliminar ---------- */
+$desde = in_array($_GET['desde'] ?? '', ['historial', 'proyecto'], true) ? (string)$_GET['desde'] : '';
+[$volver, $volverTip] = match ($desde) {
+    'proyecto'  => ['proyecto.php?id=' . $pid . '#vista-reuniones', 'Volver a ' . $nombreP],
+    'historial' => ['reuniones.php?p=' . $pid . '&ver=historial', 'Volver al historial de ' . $nombreP],
+    default     => ['reuniones.php?p=' . $pid, 'Volver a las reuniones de ' . $nombreP],
+};
+$deDia = fn(string $dia) => 'reunion.php?id=' . (int)$r['id'] . '&dia=' . $dia . ($desde !== '' ? '&desde=' . $desde : '');
+// Tras editar se vuelve a este mismo detalle; tras eliminar, a la suite (o al historial). actions.php lo valida (volverAqui).
+$aqui = $vez && $serie ? $deDia($vez['dia']) : 'reunion.php?id=' . (int)$r['id'] . ($desde !== '' ? '&desde=' . $desde : '');
+$trasEliminar = $desde === 'proyecto' ? '' : $volver;
+
+/* ---------- El encabezado: volver, el tema y, a la derecha, los botones redondos ---------- */
+// Eliminar va primero y separado (en rojo suave); el principal, Entrar, al final y en verde.
 $acciones = '';
-if (ReunionesUI::hayPizarra()) {
-    $acciones .= '<a class="rs-boton rs-boton--icono" href="pizarra.php?reunion=' . (int)$r['id'] . '" aria-label="Pizarra de la reunión" data-ds-tip="Pizarra de la reunión: notas, Kanban y dibujos entre todos">' . UI::icono('pz-pizarra') . '</a>';
-}
-if ($puedeEditar) {
-    $acciones .= '<a class="rs-boton rs-boton--icono" href="proyecto.php?id=' . $pid . '&amp;editar_reunion=' . (int)$r['id'] . '#vista-reuniones" aria-label="Editar o invitar a más gente" data-ds-tip="Editar o invitar a más gente' . ($serie ? ' (toda la serie)' : '') . '">' . UI::icono('ds-editar') . '</a>';
-}
 if ($puedeReuniones) {
     $acciones .= '<form method="post" action="actions.php" class="inline-form"'
         . ' data-confirmar="Se eliminará la reunión «' . e($tema) . '»' . ($serie ? ' con todos sus días' : '') . ' del panel y de ' . ($plat === 'meet' ? 'Google Calendar' : 'Zoom') . '."'
         . ' data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">'
         . '<input type="hidden" name="accion" value="reunion_eliminar"><input type="hidden" name="id" value="' . (int)$r['id'] . '">'
-        . '<button class="rs-boton rs-boton--icono rs-boton--rosa" aria-label="Eliminar la reunión" data-ds-tip="Eliminar la reunión">' . UI::icono('ds-eliminar') . '</button></form>';
+        . ($trasEliminar !== '' ? '<input type="hidden" name="volver" value="' . e($trasEliminar) . '">' : '')
+        . ReunionesUI::botonCab('ds-eliminar', 'Eliminar la reunión', '', 'ru-borrar', '', 'submit') . '</form>'
+        . '<span class="ru-cab__sep" aria-hidden="true"></span>';
 }
-$sub = '<a href="reuniones.php">Reuniones</a><span class="ru-sep" aria-hidden="true">·</span>'
-     . '<a href="proyecto.php?id=' . $pid . '#vista-reuniones">' . e((string)$proyecto['nombre']) . '</a>'
-     . '<span class="ru-sep" aria-hidden="true">·</span>' . ReunionesUI::plataforma($r);
+if (ReunionesUI::hayPizarra()) {
+    $acciones .= ReunionesUI::botonCab('pz-pizarra', 'Pizarra de la reunión: notas, Kanban y dibujos entre todos', 'pizarra.php?reunion=' . (int)$r['id']);
+}
+if (trim((string)($r['join_url'] ?? '')) !== '') {
+    $acciones .= ReunionesUI::botonCab('ds-copiar', 'Copiar el enlace de la reunión', '', 'btn-copiar', 'data-copiar="' . e(trim((string)$r['join_url'])) . '"');
+}
+if (!$paso && !empty($r['start_url'])) {
+    $acciones .= ReunionesUI::botonCab('ds-play', 'Iniciar como anfitrión', (string)$r['start_url'], '', 'target="_blank" rel="noopener"');
+}
+if ($puedeEditar) {
+    $acciones .= ReunionesUI::botonCab('ds-editar', 'Editar o invitar a más gente' . ($serie ? ' (toda la serie)' : ''),
+        'proyecto.php?id=' . $pid . '&editar_reunion=' . (int)$r['id'] . '&volver=' . rawurlencode($aqui) . '#vista-reuniones');
+}
+if (!$paso && $entrar) {
+    $ya = in_array($estado, ['vivo', 'pronto'], true);
+    $acciones .= ReunionesUI::botonCab('ds-video', $ya ? 'Entrar a la reunión (queda anotado para la asistencia)' : 'Entrar a la reunión (todavía no empieza)',
+        $entrar, $ya ? 'rs-boton--verde' : 'rs-boton--primario', 'target="_blank" rel="noopener"');
+}
+$sub = ReunionesUI::chipProyecto($proyecto, 'proyecto.php?id=' . $pid) . ReunionesUI::plataforma($r);
 
-UI::inicio($tema . ' · Reuniones', 'reuniones');
-UI::cabecera(e($tema), $sub, $acciones);
+UI::inicio($tema . ' · Reuniones', 'proyecto-' . $pid);
+ReunionesUI::cabecera($volver, $volverTip, e($tema), $sub, $acciones);
 
 if (!$vez): ?>
 <div class="ru ru-det">
@@ -78,7 +109,6 @@ if (!$vez): ?>
 
 /* ---------- Cuándo ---------- */
 $etiqueta = ['vivo' => 'En curso', 'pronto' => 'Empieza pronto', 'luego' => 'Próxima', 'paso' => 'Realizada'][$estado];
-$entrar = ReunionesUI::enlaceEntrar($r);
 $creador = $miembros[(int)($r['creador_id'] ?? 0)] ?? null;
 $codigo = ReunionesUI::codigo($r);
 $enlace = trim((string)($r['join_url'] ?? ''));
@@ -107,17 +137,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
       <p class="ru-hero__sub ru-repite"><?= UI::icono('RepeatCircle') ?> Se repite: <?= e(ReunionesUI::repeticion($r)) ?></p>
       <?php endif; ?>
     </div>
-    <div class="ru-acc ru-hero__acc">
-      <?= ReunionesUI::icoCopiar($r, 'ru-ico--grande') ?>
-      <?php if (!$paso && !empty($r['start_url'])): ?>
-      <?= ReunionesUI::ico('ds-play', 'Iniciar como anfitrión', (string)$r['start_url'], 'ru-ico--grande', 'target="_blank" rel="noopener"') ?>
-      <?php endif; ?>
-      <?php if (!$paso && $entrar): ?>
-      <?= in_array($estado, ['vivo', 'pronto'], true)
-          ? ReunionesUI::icoEntrar($vez, 'ru-ico--grande')
-          : ReunionesUI::ico('ds-video', 'Entrar a la reunión (todavía no empieza)', $entrar, 'ru-ico--grande', 'target="_blank" rel="noopener"') ?>
-      <?php endif; ?>
-    </div>
+    <?php /* Entrar, copiar e iniciar como anfitrión están arriba, en el encabezado */ ?>
     <dl class="ru-datos">
       <div><dt>Plataforma</dt><dd><?= e(Reuniones::etiquetaPlataforma($plat)) ?><?php if ($plat === 'enlace'): ?> <small>no queda grabada</small><?php endif; ?></dd></div>
       <?php if ($codigo !== ''): ?><div><dt><?= $plat === 'meet' ? 'Código' : 'ID de la reunión' ?></dt><dd class="ru-datos__num"><?= e($codigo) ?></dd></div><?php endif; ?>
@@ -149,7 +169,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
           $elegido = $v['dia'] === $vez['dia'];
           $txt = ReunionesUI::cuando($v['ts'], $ahora) . ' · ' . ['vivo' => 'en curso', 'pronto' => 'empieza pronto', 'luego' => 'por venir', 'paso' => 'ya pasó'][$v['estado']];
       ?>
-      <a class="ru-chip is-<?= $v['estado'] ?><?= $v['dia'] === date('Y-m-d', $ahora) ? ' is-hoy' : '' ?><?= $ok ? ' is-ok' : '' ?>" href="reunion.php?id=<?= (int)$r['id'] ?>&amp;dia=<?= $v['dia'] ?>"
+      <a class="ru-chip is-<?= $v['estado'] ?><?= $v['dia'] === date('Y-m-d', $ahora) ? ' is-hoy' : '' ?><?= $ok ? ' is-ok' : '' ?>" href="<?= e($deDia($v['dia'])) ?>"
          title="<?= e($txt) ?>"<?= $elegido ? ' aria-current="date"' : '' ?>>
         <small><?= e($diasC[(int)date('w', $v['ts'])]) ?></small><b><?= (int)date('j', $v['ts']) ?></b>
       </a>
@@ -241,29 +261,24 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
                         'espera' => 'Esperando, aún no se ha guardado un respaldo.',
                         default => 'Sin grabación.',
                     },
-                    $grab['estado'] === 'lista' ? ReunionesUI::ico('MonitorPlay', 'Ver la grabación en Drive', $grab['ver'], 'ru-ico--grab', 'target="_blank" rel="noopener"') : '');
+                    $grab['estado'] === 'lista'
+                        ? '<span class="ru-acc">' . ReunionesUI::ico('ds-enlace', 'Abrir la grabación en Drive', $grab['ver'], '', 'target="_blank" rel="noopener"')
+                          . (is_file(__DIR__ . '/videoteca.php') ? ReunionesUI::ico('MonitorPlay', 'Verla aquí, en Reuniones', 'videoteca.php?v=' . (int)$r['id'] . '&dia=' . $vez['dia'], 'ru-ico--grab') : '') . '</span>'
+                        : '');
                 // La transcripción para Claude Code: la misma descarga de siempre (actions.php la lee de Drive)
-                $form = '<form method="post" action="actions.php" class="inline-form" data-descarga>'
-                    . '<input type="hidden" name="accion" value="reunion_transcripcion">'
-                    . '<input type="hidden" name="id" value="' . (int)$r['id'] . '">'
-                    . ($diaOc !== '' ? '<input type="hidden" name="ocurrencia" value="' . e($diaOc) . '">' : '')
-                    . ReunionesUI::ico('ds-descargar', $serie ? 'Descargar el resumen de ese día para Claude Code' : 'Descargar la transcripción para Claude Code', '', '', '', 'submit')
-                    . '</form>';
                 echo $item('NoteText', 'celeste', 'Transcripción', match ($trans) {
                         'lista' => 'Lista en Drive: bájala para llevarla a Claude Code.',
                         'espera' => 'Esperando, aún no se ha guardado un respaldo.',
                         default => 'Zoom no dejó transcripción de este día.',
-                    }, $form);
+                    }, ReunionesUI::formTranscripcion($r, $diaOc));
             }
         } else {
             echo $item('MonitorPlay', 'gris', 'Grabación', $plat === 'meet' ? 'Las de Google Meet no quedan grabadas en el panel.' : 'Con un enlace propio la reunión no queda grabada.');
         }
         // El acta con IA: los mismos data-* que el botón de siempre (assets/ia.js)
         if ($puedeActa) {
-            $actaAttrs = 'data-ia-acta="1" data-reunion="' . (int)$r['id'] . '"' . ($diaOc !== '' ? ' data-ocurrencia="' . e($diaOc) . '"' : '')
-                . ' data-zoom="' . ($plat === 'meet' ? '0' : '1') . '" data-titulo="' . e($tema . ($diaOc !== '' ? ' · ' . $diaOc : '')) . '"';
             echo $item('ds-ia', 'lila', 'Acta con IA', $paso ? 'Resumen, acuerdos y tareas, desde la transcripción o el texto que pegues.' : 'Cuando termine: resumen, acuerdos y tareas con IA.',
-                $paso ? ReunionesUI::ico('ds-ia', $serie ? 'Acta de ese día con IA' : 'Acta de la reunión con IA: resumen, acuerdos y tareas', '', 'ru-ico--ia', $actaAttrs) : '');
+                $paso ? ReunionesUI::botonActa($r, $diaOc) : '');
         }
         if (ReunionesUI::hayPizarra()) {
             echo $item('pz-pizarra', 'azul', 'Pizarra', $pizarraLlena === true ? 'Tiene notas: queda después de la reunión.' : 'Notas, Kanban y dibujos entre todos, en vivo.',
@@ -291,7 +306,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
     </header>
     <?php if ($serie && count($hilos) !== count($obsDia)): ?>
     <p class="rs-nota"><?= $todasObs ? 'Las de todos los días.' : 'Las anotadas ese día.' ?>
-      <a href="reunion.php?id=<?= (int)$r['id'] ?>&amp;dia=<?= $vez['dia'] ?><?= $todasObs ? '' : '&amp;obs=todas' ?>#ru-obs"><?= $todasObs ? 'Ver solo las de ese día' : 'Ver las de todos los días (' . count($hilos) . ')' ?></a></p>
+      <a href="<?= e($deDia($vez['dia']) . ($todasObs ? '' : '&obs=todas')) ?>#ru-obs"><?= $todasObs ? 'Ver solo las de ese día' : 'Ver las de todos los días (' . count($hilos) . ')' ?></a></p>
     <?php endif; ?>
     <?php if ($obsDia): ?>
     <div class="obs-lista ru-obs"><?php foreach ($obsDia as $o) echo obsItemHtml($o); ?></div>

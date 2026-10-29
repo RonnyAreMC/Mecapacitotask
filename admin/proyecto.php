@@ -1708,7 +1708,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
     $ruAhora    = time();
     $ruProximas = ReunionesUI::proximas($reuniones, [$id => $proyecto], $ruAhora);
     $ruPasadas  = array_slice(ReunionesUI::pasadas($reuniones, [$id => $proyecto], $ruAhora), 0, 5);
-    $ruCtx      = ['ahora' => $ruAhora, 'miembros' => $miembros, 'proyecto' => false,
+    $ruCtx      = ['ahora' => $ruAhora, 'miembros' => $miembros, 'proyecto' => false, 'desde' => 'proyecto',   // el detalle vuelve aquí
                    'rastros' => ReunionesUI::rastros(array_map(fn($v) => $v['r'], $ruPasadas))];
   ?>
   <section class="card-base tabla-card ru-proy" style="--pc:<?= $color ?>">
@@ -1723,7 +1723,8 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
             $desdeIa = date('Y-m-d', strtotime($wIa === 1 ? '-3 day' : ($wIa === 0 ? '-2 day' : '-1 day'))); ?>
         <?= ReunionesUI::ico('ds-ia', 'Resumen para el daily con IA: qué hizo cada persona (commits y tareas) y en qué sigue', '', 'ru-ico--ia', 'data-ia-daily="' . $id . '" data-desde="' . e($desdeIa) . '"') ?>
         <?php endif; ?>
-        <?= ReunionesUI::ico('ds-reloj', 'Historial de las reuniones de este proyecto', 'reuniones.php?ver=historial&p=' . $id) ?>
+        <?= ReunionesUI::ico('ds-expandir', 'Abrir la suite de reuniones de este proyecto', 'reuniones.php?p=' . $id) ?>
+        <?= ReunionesUI::ico('ds-reloj', 'Historial de las reuniones de este proyecto', 'reuniones.php?p=' . $id . '&ver=historial') ?>
         <?php if ($reunionesOn && $puedeReuniones): ?>
         <?= ReunionesUI::ico('ds-mas', 'Nueva reunión', '', 'ru-ico--nueva', 'aria-haspopup="dialog" onclick="document.getElementById(\'dlg-nueva-reunion\').showModal()"') ?>
         <?php elseif (!$reunionesOn): ?>
@@ -1752,7 +1753,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
       <div class="ru-ultimas">
         <header class="ru-ultimas__cab">
           <h3 class="ru-ultimas__t">Lo último</h3>
-          <a class="rs-card__ver" href="reuniones.php?ver=historial&amp;p=<?= $id ?>">Ver todo el historial</a>
+          <a class="rs-card__ver" href="reuniones.php?p=<?= $id ?>&amp;ver=historial">Ver todo el historial</a>
         </header>
         <div class="ru-lista"><?= ReunionesUI::dias($ruPasadas, $ruCtx, true) ?></div>
       </div>
@@ -1764,6 +1765,9 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
     // escondido lleva los datos de esa reunión y admin.js lo pulsa para abrir el asistente.
     $ruEditar = (int)($_GET['editar_reunion'] ?? 0);
     $ruEditarR = $ruEditar && $puedeReuniones && $reunionesOn ? $reunionesRepo->buscar($ruEditar) : null;
+    // Y con &volver=reunion.php?…, al guardar actions.php regresa a ese detalle (solo páginas de reuniones)
+    $ruVolver = (string)($_GET['volver'] ?? '');
+    $ruVolver = $ruEditarR && preg_match('#^reunion(es)?\.php\?[\w=&%.,+-]*$#', $ruVolver) ? $ruVolver : '';
     if ($ruEditarR && (int)$ruEditarR['proyecto_id'] === $id): ?>
     <button type="button" class="js-editar-reunion" data-editar-reunion='<?= ReunionesUI::datosEditar($ruEditarR) ?>' data-ru-abrir hidden></button>
     <?php endif; ?>
@@ -2228,6 +2232,7 @@ $comData = json_encode([
   <form method="post" action="actions.php" class="dlg-form wz">
     <input type="hidden" name="accion" value="reunion_editar">
     <input type="hidden" name="id" id="er-id" value="">
+    <?php if (!empty($ruVolver)): /* abierto desde el detalle (reunion.php): al guardar se vuelve ahí */ ?><input type="hidden" name="volver" value="<?= e($ruVolver) ?>"><?php endif; ?>
     <?= UI::wizardRiel('fa-pen', 'Editar reunión', 'En ' . $proyecto['nombre'], UI::PASOS_EDITAR_REUNION) ?>
     <div class="wz-cuerpo">
       <header>
