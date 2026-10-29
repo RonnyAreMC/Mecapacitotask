@@ -111,6 +111,19 @@ window.MCSonido = (function () {
 })();
 
 /* =========================================================
+   La pizarra (pizarra.php) se abre siempre en otra pestaña: así no se
+   pierde lo que se estaba viendo (la reunión, la nota, la suite). Vale para
+   todos sus enlaces, estén donde estén; la vista previa insertada no cuenta.
+   ========================================================= */
+document.addEventListener('click', (e) => {
+  const a = e.target.closest && e.target.closest('a[href*="pizarra.php"]');
+  if (!a || a.target === '_blank' || /[?&]embed=1/.test(a.getAttribute('href') || '')) return;
+  if (document.body.classList.contains('pz-body')) return;   // dentro de la misma pizarra
+  a.target = '_blank';
+  a.rel = 'noopener';
+}, true);
+
+/* =========================================================
    Componentes del design system (SIGE) que necesitan JS.
 
    - Lista desplegable: <div class="mc-select" data-ds-select> con su

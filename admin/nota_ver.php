@@ -110,9 +110,9 @@ $esMia = $n && (int)(Auth::usuario()['id'] ?? 0) === (int)($n['miembro_id'] ?? -
       <section class="pz" aria-label="Pizarra de la nota">
         <div class="pz-cab">
           <span class="pz-t">Pizarra</span>
-          <a class="boton" href="<?= e($base . '&pizarra=1') ?>">Ver pizarra</a>
+          <a class="boton" href="<?= e($base . '&pizarra=1') ?>" target="_blank" rel="noopener">Ver pizarra</a>
         </div>
-        <a class="marco" href="<?= e($base . '&pizarra=1') ?>" aria-label="Ver la pizarra entera">
+        <a class="marco" href="<?= e($base . '&pizarra=1') ?>" target="_blank" rel="noopener" aria-label="Ver la pizarra entera">
           <iframe src="<?= e($base . '&pizarra=1&embed=1') ?>" title="Vista previa de la pizarra" loading="lazy" tabindex="-1" aria-hidden="true"></iframe>
         </a>
       </section>

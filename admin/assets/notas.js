@@ -736,18 +736,26 @@
   enlaceEl.addEventListener('focus', () => enlaceEl.select());
 
   /* ---------- Pizarra ---------- */
+  // La pizarra se abre en otra pestaña. Se abre ya, dentro del clic (si se esperara
+  // a guardar, el navegador la tomaría por una ventana emergente y la bloquearía),
+  // y se le pone la dirección cuando está lista. Sin pestaña, va en esta.
   async function irAPizarra() {
     const n = nota();
     if (!n) return;
+    const pestana = window.open('', '_blank');
+    if (pestana) pestana.opener = null;
+    const ir = (url) => { if (pestana && !pestana.closed) pestana.location.href = url; else location.href = url; };
     if (sucias().length) await guardar();
-    if (n.pizarra) { location.href = 'pizarra.php?nota=' + n.id; return; }
+    if (n.pizarra) { ir('pizarra.php?nota=' + n.id); return; }
     const b = btn('pizarra');
     b.disabled = true;
     try {
       const j = await api('pizarra', { id: n.id, poner: true });
       mezclar(n, j.nota);
-      location.href = j.url;
+      b.disabled = false;
+      ir(j.url);
     } catch (err) {
+      if (pestana && !pestana.closed) pestana.close();
       b.disabled = false;
       toast('No se pudo agregar la pizarra: ' + err.message, 'error');
     }
@@ -767,7 +775,14 @@
   pzEl?.addEventListener('click', async (e) => {
     const a = e.target.closest('a[href^="pizarra.php"]');
     if (!a || e.metaKey || e.ctrlKey || e.shiftKey) return;
-    if (sucias().length) { e.preventDefault(); await guardar(); location.href = a.href; }
+    if (sucias().length) {
+      // Va en otra pestaña (ds.js): se abre ya, dentro del clic, y se le da la dirección al guardar
+      e.preventDefault();
+      const t = window.open('', '_blank');
+      if (t) t.opener = null;
+      await guardar();
+      if (t && !t.closed) t.location.href = a.href; else location.href = a.href;
+    }
   });
   // La vista previa se pone al día al volver (otra pestaña, botón atrás, cambio de tema)
   const refrescarPrevia = () => { if (pzMarco && !pzMarco.hidden && nota()?.pizarra) pintarPizarra(true); };

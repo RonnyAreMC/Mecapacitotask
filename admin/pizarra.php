@@ -360,6 +360,17 @@ if ($editar) {
   <script type="application/json" id="pz-datos"><?= json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </div>
 <script src="<?= asset('assets/pizarra.js') ?>" defer></script>
+<script>
+// La pizarra se abre en otra pestaña (ds.js): ahí «Volver» la cierra y se vuelve a la
+// pestaña de antes. Si se llegó navegando en esta misma, «Volver» va a su página.
+document.querySelector('.pz-arriba a.pz-boton[href]')?.addEventListener('click', function (e) {
+  if (history.length > 1) return;
+  e.preventDefault();
+  var a = this;
+  window.close();
+  setTimeout(function () { location.href = a.href; }, 200);   // si el navegador no la deja cerrar
+});
+</script>
 <?php if ($embed): ?>
 <script>
 // Vista previa: en cuanto carga, encuadra todo con poco margen y deja de preguntar

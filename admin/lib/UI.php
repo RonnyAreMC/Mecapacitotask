@@ -209,7 +209,8 @@ class UI
            class="sidebar-link sidebar-link-proyecto <?= $activo === 'proyecto-' . $p['id'] ? 'active' : '' ?>"
            title="<?= e($p['nombre']) ?>"
            style="--pc:<?= ProyectoRepo::colorBase($p) === '#2D3E50' ? '#40CFFF' : e(ProyectoRepo::colorBase($p)) ?>">
-          <?= UI::icono($p['icono'] ?? 'FolderOpen') ?>
+          <?php $icP = UI::icono($p['icono'] ?? 'FolderOpen'); /* un ícono viejo sin SVG cae en la carpeta */ ?>
+          <?= str_starts_with($icP, '<svg') ? $icP : UI::icono('FolderOpen') ?>
           <span class="truncate"><?= e($p['nombre']) ?></span>
         </a>
         <?php endforeach; ?>
@@ -1576,6 +1577,27 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         'fa-spinner'                 => 'RefreshCircle',
         'fa-magnifying-glass-chart'  => 'OctagonHelp',
         'fa-circle-check'            => 'WavyCheck',
+        // Proyectos con el ícono de antes (se guardaba el de Font Awesome): su SVG del panel
+        'fa-store'                   => 'ds-carrito',
+        'fa-cart-shopping'           => 'ds-carrito',
+        'fa-cash-register'           => 'ds-carrito',
+        'fa-money-bill-wave'         => 'ds-efectivo',
+        'fa-money-bill'              => 'ds-efectivo',
+        'fa-wallet'                  => 'Wallet',
+        'fa-calculator'              => 'Calculator',
+        'fa-building'                => 'Bank',
+        'fa-building-columns'        => 'Bank',
+        'fa-graduation-cap'          => 'Graduation',
+        'fa-school'                  => 'Graduation',
+        'fa-book'                    => 'ds-curso',
+        'fa-folder'                  => 'FolderOpen',
+        'fa-folder-open'             => 'FolderOpen',
+        'fa-users'                   => 'ds-usuarios',
+        'fa-chart-pie'               => 'ds-reportes',
+        'fa-chart-column'            => 'ds-reportes',
+        'fa-laptop-code'             => 'ds-codigo',
+        'fa-file-lines'              => 'ds-documento',
+        'fa-globe'                   => 'ds-global',
     ];
 
     public static function icono(string $nombre, string $clase = ''): string
