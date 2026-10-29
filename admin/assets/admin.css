@@ -5280,7 +5280,7 @@ html.dark .lg-lente {
      de 1.5px, así se queda con su color.
    ========================================================= */
 :root {
-  --elegido-canto: linear-gradient(125deg, rgb(64 207 255 / .95), rgb(64 207 255 / .3) 38%, rgb(255 255 255 / 0) 56%, rgb(255 215 0 / .85));
+  --elegido-canto: linear-gradient(125deg, rgb(64 207 255 / .95), rgb(37 99 235 / .55) 38%, rgb(255 255 255 / 0) 56%, rgb(34 197 94 / .85));
   --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .9), 0 4px 12px -6px rgb(11 143 191 / .55);
 }
 html.dark { --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .1), 0 4px 14px -6px rgb(64 207 255 / .45); }
