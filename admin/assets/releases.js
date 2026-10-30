@@ -725,6 +725,20 @@
     const sucio = document.querySelector('[data-rl-rev-sucio]');
     let hayCambios = false;
     const marcar = (si) => { hayCambios = si; if (sucio) sucio.hidden = !si; };
+    // Días hábiles de retraso de «real» frente a «plan» (lunes a viernes, sin los feriados del módulo)
+    const feriados = new Set(leerJSON({ textContent: revForm.dataset.feriados || '[]' }) || []);
+    const diasTarde = (plan, real) => {
+      if (real <= plan) return 0;
+      let n = 0;
+      const d = new Date(plan + 'T12:00:00');
+      for (let i = 0; i < 800; i++) {
+        d.setDate(d.getDate() + 1);
+        const iso = d.toISOString().slice(0, 10);
+        if (iso > real) break;
+        if (d.getDay() !== 0 && d.getDay() !== 6 && !feriados.has(iso)) n++;
+      }
+      return n;
+    };
     revForm.addEventListener('input', () => marcar(true));
     revForm.addEventListener('change', (e) => {
       marcar(true);
@@ -816,6 +830,51 @@
         }
         obs.dispatchEvent(new Event('input', { bubbles: true }));
       });
+      // Cuándo terminó de verdad, frente al fin del plan (días hábiles, sin feriados), y el porqué si no llegó
+      const real = fila.querySelector('[data-rl-fecha-real]');
+      const porque = fila.querySelector('[data-rl-porque]');
+      const tardeDe = () => (real && real.value && real.dataset.plan ? diasTarde(real.dataset.plan, real.value) : null);
+      const pedirPorque = () => {
+        if (!porque) return;
+        const est = (fila.querySelector('input[type="radio"]:checked') || {}).value || 'pendiente';
+        const mot = porque.querySelector('select');
+        const txt = porque.querySelector('[data-rl-porque-txt]');
+        porque.classList.toggle('is-pide', (tardeDe() > 0 || ['parcial', 'no_cumplido', 'reprogramado'].includes(est)) && !(mot && mot.value));
+        const ver = fila.querySelector('[data-rl-porque-ver]');
+        if (ver) {
+          const t = [mot && mot.value ? mot.options[mot.selectedIndex].text : '', txt ? txt.value.trim() : ''].filter(Boolean).join(' — ');
+          ver.hidden = !t;
+          ver.querySelector('span').textContent = t;
+        }
+      };
+      const pintarReal = () => {
+        if (!real) return;
+        const tarde = tardeDe();
+        const txt = !real.value ? (real.hasAttribute('data-cerrado') ? 'Falta anotar la fecha' : 'Aún no termina') : (tarde === null ? 'Sin fecha del plan' : (tarde > 0 ? tarde + (tarde === 1 ? ' día hábil' : ' días hábiles') + ' tarde' : 'A tiempo'));
+        const tono = !real.value ? '' : (tarde > 0 ? ' is-tarde' : ' is-a-tiempo');
+        const valida = fila.querySelector('[data-rl-valida]');
+        if (valida) {
+          valida.className = 'rl-valida' + tono;
+          valida.innerHTML = (real.dataset.plan ? 'El plan decía ' + esc(fCorta(real.dataset.plan)) + ' · ' : '') + '<b>' + esc(txt) + '</b>';
+        }
+        const celda = fila.querySelector('[data-rl-termino]');
+        if (celda) {
+          celda.className = 'rl-fechas__c rl-fechas__c--real' + (tono || ' is-vacia');
+          celda.querySelector('[data-rl-termino-fecha]').textContent = real.value ? fCorta(real.value) : '—';
+          celda.querySelector('[data-rl-termino-valida]').textContent = txt;
+        }
+        pedirPorque();
+      };
+      if (real) {
+        real.addEventListener('change', pintarReal);
+        fila.querySelectorAll('[data-rl-fecha]').forEach((b) => b.addEventListener('click', () => {
+          real.value = b.dataset.rlFecha;
+          real.dispatchEvent(new Event('md-sync'));   // el selector de fecha del panel repinta su etiqueta
+          real.dispatchEvent(new Event('change', { bubbles: true }));
+        }));
+      }
+      if (porque) { porque.addEventListener('input', pedirPorque); porque.addEventListener('change', pedirPorque); }
+      fila.addEventListener('change', (e) => { if (e.target.type === 'radio') pedirPorque(); });
       // El resumen de la fila plegada (resultado y %) al día
       const resTxt = fila.querySelector('[data-rl-res-txt]');
       const resPct = fila.querySelector('[data-rl-res-pct]');
@@ -871,6 +930,16 @@
         const sel = revForm.querySelector('select[name="agregar_codigo"]');
         if (!sel || !sel.value) { toast('Elige el ítem que quieres sumar a la sesión.', 'warning'); return; }
         try { const j = await guardar(ag, { agregar: [sel.value] }); if (j) { marcar(false); toast(sel.value + ' sumado a la sesión.'); location.reload(); } } catch (err) { toast(err.message, 'error'); }
+        return;
+      }
+      const ex = e.target.closest('[data-rl-ext]');
+      if (ex) {
+        const quitar = ex.dataset.rlExt === 'quitar';
+        if (quitar && !(await confirmar({ titulo: '¿Quitar a este invitado?', mensaje: 'Sale de la lista. No se le manda ningún correo.', ok: 'Sí, quitar' }))) return;
+        try {
+          const j = await ocupado(ex, () => post('rel_revision_externo', { id: revId, op: ex.dataset.rlExt, email: ex.dataset.email }));
+          if (j) { toast(j.mensaje || 'Listo.'); if (quitar && !hayCambios) setTimeout(() => location.reload(), 500); else if (quitar) ex.closest('li').remove(); }
+        } catch (err) { toast(err.message, 'error'); }
         return;
       }
       const qu = e.target.closest('[data-rl-quitar]');

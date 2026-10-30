@@ -49,6 +49,18 @@ final class Releases
         'no_aplica'    => ['No aplica',    'gris'],
     ];
 
+    /** Por qué un ítem no llegó a su fecha (o quedó a medias) en la revisión. */
+    public const MOTIVOS = [
+        'requerimientos' => 'Faltan requerimientos',
+        'dependencia'    => 'Depende de otro equipo',
+        'ube'            => 'Bloqueado por UBE',
+        'alcance'        => 'Cambió el alcance',
+        'defectos'       => 'Defectos o pruebas',
+        'tecnico'        => 'Problema técnico',
+        'personal'       => 'Falta de personal',
+        'otro'           => 'Otro',
+    ];
+
     /** Salud de un ítem frente a lo que el plan esperaba hoy. */
     public const SALUD = [
         'al_dia'    => ['Al día',        'verde'],
@@ -235,6 +247,59 @@ final class Releases
         return $r ? $r + ['cumplimiento' => self::cumplimiento([$r])] : null;
     }
 
+    /**
+     * Las fechas de una fila de la revisión, para leerla de un vistazo: cuándo
+     * debía terminar el ítem (y si se movió del plan original), cuánto debía
+     * llevar el día de la sesión y cuánto lleva: lo registrado en la sesión o,
+     * mientras no se registre, el avance de hoy; cuándo lo terminaron de verdad
+     * (frente al fin del plan, el del Excel) y por qué no llegó, si se anotó. 'tono' es su salud a esa fecha
+     * (al_dia, riesgo, atrasado, vencido, futuro, cerrado o sin_fecha) y 'dias',
+     * los días hábiles que le faltan (o, si venció, los que lleva vencido).
+     */
+    public static function fechasFila(array $f, ?array $it, string $fechaSesion, ?string $hoy = null): array
+    {
+        $hoy ??= date('Y-m-d');
+        $ini = (string)($it['inicio'] ?? '');
+        $fin = (string)($it['fin'] ?? '');
+        $finOrig = (string)($it['fin_original'] ?? '');
+        $registrado = ($f['pct'] ?? null) !== null && ($f['estado'] ?? 'pendiente') !== 'pendiente';
+        // Registrada, se mide a la fecha de la sesión; si no, a hoy
+        $ref = $registrado ? $fechaSesion : $hoy;
+        $real = (string)($f['fecha_real'] ?? '');
+        $plan = $finOrig !== '' ? $finOrig : $fin;
+        $x = ['inicio' => $ini, 'fin' => $fin, 'fin_plan' => $plan, 'reprogramado' => $finOrig !== '' && $finOrig !== $fin ? $fin : '',
+              'fecha_real' => $real, 'dias_tarde' => $real !== '' && $plan !== '' ? self::diasTarde($plan, $real) : null,
+              'motivo' => (string)($f['motivo'] ?? ''), 'porque' => (string)($f['porque'] ?? ''), 'cerrado_el' => '',
+              'esperado' => $it ? self::esperado($it, $fechaSesion) : (isset($f['esperado']) ? (int)$f['esperado'] : null),
+              'esperado_ref' => $it ? self::esperado($it, $ref) : null,
+              'va' => $registrado ? (int)$f['pct'] : ($it ? (int)$it['avance'] : null),
+              'registrado' => $registrado, 'ref' => $ref, 'dias' => null, 'diferencia' => null];
+        if ($x['va'] !== null && $x['esperado_ref'] !== null) $x['diferencia'] = $x['va'] - $x['esperado_ref'];
+        // El día que el panel lo dio por terminado (de su historial), para anotarlo de un toque
+        if (($it['estado'] ?? '') === 'cerrado') {
+            foreach (array_reverse((array)($it['historial'] ?? [])) as $ev) {
+                if (str_contains((string)($ev['texto'] ?? ''), '→ ' . self::ESTADOS['cerrado'][0])) { $x['cerrado_el'] = substr((string)$ev['fecha'], 0, 10); break; }
+            }
+        }
+        // Registrada, manda lo que se vio en la sesión: un «Parcial» no cuenta como terminado aunque el ítem lo esté
+        $itCerrado = ($it['estado'] ?? '') === 'cerrado';
+        $cerrado = $registrado ? $f['estado'] === 'cumplido' && ($itCerrado || stripos((string)($f['tipo'] ?? ''), 'cierre') !== false) : $itCerrado;
+        if ($cerrado) $x['tono'] = 'cerrado';
+        elseif (!$it || $fin === '') $x['tono'] = 'sin_fecha';
+        elseif (($it['estado'] ?? '') === 'bloqueado') $x['tono'] = 'bloqueado';
+        elseif ($fin < $ref) $x['tono'] = 'vencido';
+        elseif ($ini !== '' && $ref < $ini) $x['tono'] = 'futuro';
+        elseif ($x['esperado_ref'] <= 0) $x['tono'] = 'al_dia';
+        else {
+            $ratio = $x['va'] / $x['esperado_ref'];
+            $x['tono'] = $ratio >= 1 ? 'al_dia' : ($ratio >= 0.7 ? 'riesgo' : 'atrasado');
+        }
+        if ($fin !== '' && !$cerrado) {
+            $x['dias'] = $fin < $ref ? self::habiles(date('Y-m-d', strtotime($fin . ' +1 day')), $ref) : self::habiles($ref, $fin) - 1;
+        }
+        return $x;
+    }
+
     /** El último análisis de IA de un equipo (o null). */
     public static function analisis(string $equipo): ?array
     {
@@ -258,6 +323,12 @@ final class Releases
             if ((int)$d->format('N') <= 5 && !isset($feriados[$d->format('Y-m-d')])) $n++;
         }
         return $n;
+    }
+
+    /** Días hábiles de retraso de $real frente a $plan (0 si llegó a tiempo o antes). */
+    public static function diasTarde(string $plan, string $real): int
+    {
+        return $real > $plan ? self::habiles(date('Y-m-d', strtotime($plan . ' +1 day')), $real) : 0;
     }
 
     /** % que el plan espera hoy (días hábiles transcurridos hasta ayer, como la hoja de revisiones). */
@@ -424,10 +495,12 @@ final class Releases
     /** Cumplimiento de una o varias revisiones (como la hoja «Cumplimiento»). */
     public static function cumplimiento(array $revisiones): array
     {
-        $c = ['programados' => 0, 'revisados' => 0, 'pct' => null] + array_fill_keys(array_keys(self::RESULTADOS), 0);
+        $c = ['programados' => 0, 'revisados' => 0, 'pct' => null, 'a_tiempo' => 0, 'tarde' => 0, 'motivos' => []] + array_fill_keys(array_keys(self::RESULTADOS), 0);
         foreach ($revisiones as $r) {
             foreach ((array)($r['filas'] ?? []) as $f) {
                 $c['programados']++;
+                if (($f['fecha_real'] ?? '') !== '' && isset($f['dias_tarde'])) $c[(int)$f['dias_tarde'] > 0 ? 'tarde' : 'a_tiempo']++;
+                if (($f['motivo'] ?? '') !== '') $c['motivos'][$f['motivo']] = ($c['motivos'][$f['motivo']] ?? 0) + 1;
                 $e = isset(self::RESULTADOS[$f['estado'] ?? '']) ? $f['estado'] : 'pendiente';
                 $c[$e]++;
                 if ($e !== 'pendiente') $c['revisados']++;
@@ -898,8 +971,15 @@ final class Releases
             if (array_key_exists($k, $d)) $c[$k] = mb_substr(trim((string)$d[$k]), 0, $max);
         }
         if (array_key_exists('fecha', $d)) $c['fecha'] = self::fecha($d['fecha']);
+        // La fecha del Excel queda guardada la primera vez que la sesión se mueve
+        if ($antes && isset($c['fecha']) && $c['fecha'] !== ($antes['fecha'] ?? '') && empty($antes['fecha_plan'])) $c['fecha_plan'] = (string)$antes['fecha'];
         if (array_key_exists('equipo', $d)) $c['equipo'] = mb_substr(trim((string)$d['equipo']), 0, 40);
         if (array_key_exists('asistentes', $d)) $c['asistentes'] = array_values(array_unique(array_filter(array_map('intval', (array)$d['asistentes']))));
+        // Los invitados externos que vinieron (por su correo)
+        if (array_key_exists('externos_asistio', $d) && !empty($antes['externos'])) {
+            $vino = array_flip(array_map(fn($x) => strtolower(trim((string)$x)), (array)$d['externos_asistio']));
+            $c['externos'] = array_map(fn($x) => ['asistio' => isset($vino[$x['email'] ?? ''])] + (array)$x, (array)$antes['externos']);
+        }
         // Presencial (con su lugar) o virtual (la reunión de Zoom/Meet del panel, en el proyecto del equipo)
         if (array_key_exists('modalidad', $d)) $c['modalidad'] = $d['modalidad'] === 'virtual' ? 'virtual' : 'presencial';
         if (array_key_exists('duracion', $d) && (int)$d['duracion'] > 0) $c['duracion'] = min(480, max(15, (int)$d['duracion']));
@@ -918,6 +998,18 @@ final class Releases
             if (array_key_exists('estado', $f)) $filas[(int)$i]['estado'] = isset(self::RESULTADOS[$f['estado']]) ? $f['estado'] : 'pendiente';
             if (array_key_exists('pct', $f)) $filas[(int)$i]['pct'] = $f['pct'] === '' || $f['pct'] === null ? null : max(0, min(100, (int)$f['pct']));
             if (array_key_exists('obs', $f)) $filas[(int)$i]['obs'] = mb_substr(trim((string)$f['obs']), 0, 3000);
+            // Cuándo lo terminaron de verdad y, si no llegó, por qué
+            if (array_key_exists('motivo', $f)) $filas[(int)$i]['motivo'] = isset(self::MOTIVOS[$f['motivo']]) ? $f['motivo'] : '';
+            if (array_key_exists('porque', $f)) $filas[(int)$i]['porque'] = mb_substr(trim((string)$f['porque']), 0, 500);
+            if (array_key_exists('fecha_real', $f)) {
+                $real = self::fecha($f['fecha_real']);
+                $filas[(int)$i]['fecha_real'] = $real;
+                // Contra la fecha de fin del plan (el Excel), no contra la reprogramada
+                $itF = (int)($filas[(int)$i]['item_id'] ?? 0) ? self::item((int)$filas[(int)$i]['item_id']) : self::itemPorCodigo((string)$filas[(int)$i]['codigo']);
+                $plan = (string)(($itF['fin_original'] ?? '') ?: ($itF['fin'] ?? ''));
+                $filas[(int)$i]['fin_plan'] = $plan;
+                $filas[(int)$i]['dias_tarde'] = $real !== '' && $plan !== '' ? self::diasTarde($plan, $real) : null;
+            }
         }
         foreach ((array)($d['quitar'] ?? []) as $i) unset($filas[(int)$i]);
         $c['filas'] = array_values($filas);
@@ -937,6 +1029,7 @@ final class Releases
             $id = (int)$antes['id'];
         }
         $rev = self::revision($id);
+        if ($id > 0 && $antes) self::avisarExternos($antes, $rev, $quien);
         if ($realizada && ($antes['estado'] ?? '') !== 'realizada') {
             self::aplicarResultados($rev, $quien);
             self::avisarRevision($rev, $quien);
@@ -1022,6 +1115,76 @@ final class Releases
             $ids = array_merge($ids, ProyectoRepo::miembrosDe($p) ?? [], array_filter([(int)($p['scrum'] ?? 0), ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0)]));
         }
         return array_values(array_unique(array_filter(array_map('intval', $ids))));
+    }
+
+    /**
+     * Invita a la revisión a alguien de fuera del equipo (UBE, un proveedor…):
+     * queda en 'externos' y le llega por correo la fecha, la hora, dónde (o el
+     * enlace de la reunión) y lo que se va a revisar. Si ya estaba, se le
+     * reenvía. Devuelve [la revisión, true o el motivo si el correo no salió].
+     */
+    public static function invitarExterno(int $id, array $d, int $quien = -1): array
+    {
+        if ($quien < 0) $quien = (int)(Auth::usuario()['id'] ?? 0);
+        $rev = self::revision($id);
+        if (!$rev) throw new RuntimeException('Esa revisión ya no existe.');
+        $email = strtolower(trim((string)($d['email'] ?? '')));
+        if (!filter_var($email, FILTER_VALIDATE_EMAIL)) throw new RuntimeException('Ese correo no es válido.');
+        $nombre = mb_substr(trim((string)($d['nombre'] ?? '')), 0, 120);
+        $ext = ['nombre' => $nombre !== '' ? $nombre : explode('@', $email)[0], 'email' => $email,
+                'org' => mb_substr(trim((string)($d['org'] ?? '')), 0, 160), 'nota' => mb_substr(trim((string)($d['nota'] ?? '')), 0, 1000),
+                'invitado' => date('Y-m-d H:i'), 'por' => $quien, 'asistio' => false];
+        $lista = (array)($rev['externos'] ?? []);
+        $ya = array_search($email, array_column($lista, 'email'), true);
+        if ($ya !== false) $lista[$ya] = $ext + ['asistio' => !empty($lista[$ya]['asistio'])];
+        else $lista[] = $ext;
+        self::repo('rel_revisiones')->update($id, ['externos' => array_values($lista)]);
+        $rev = self::revision($id);
+        return [$rev, self::correoExterno($rev, $ext, 'invitacion', $quien)];
+    }
+
+    public static function quitarExterno(int $id, string $email): ?array
+    {
+        $rev = self::revision($id);
+        if (!$rev) return null;
+        $lista = array_values(array_filter((array)($rev['externos'] ?? []), fn($x) => ($x['email'] ?? '') !== strtolower(trim($email))));
+        self::repo('rel_revisiones')->update($id, ['externos' => $lista]);
+        return self::revision($id);
+    }
+
+    /** El correo a un invitado externo: la invitación, que cambió de fecha u hora, o que se canceló. */
+    private static function correoExterno(array $rev, array $ext, string $tipo, int $quien): true|string
+    {
+        if (!class_exists('Mailer') || !Mailer::listo()) return 'el correo del panel no está configurado (Ajustes → Correo).';
+        $porCodigo = [];
+        foreach (self::items() as $it) $porCodigo[$it['codigo']] = $it;
+        $filas = [];
+        foreach ((array)$rev['filas'] as $f) {
+            $it = (int)($f['item_id'] ?? 0) ? self::item((int)$f['item_id']) : ($porCodigo[$f['codigo']] ?? null);
+            $filas[] = ['codigo' => (string)$f['codigo'], 'titulo' => (string)($f['titulo'] ?: ($it['titulo'] ?? '')), 'fin' => (string)($it['fin'] ?? '')];
+        }
+        $quienNom = (new MiembroRepo())->mapa()[$quien]['nombre'] ?? '';
+        try {
+            $r = Mailer::invitacionRevision($rev, $ext, $tipo, $quienNom, $filas);
+        } catch (Throwable $e) {
+            return $e->getMessage();
+        }
+        return $r ?? 'no se pudo enviar el correo.';
+    }
+
+    /** Cambió el día o la hora, o se canceló: se avisa a los externos que ya estaban invitados. */
+    private static function avisarExternos(array $antes, array $rev, int $quien): void
+    {
+        if (empty($rev['externos'])) return;
+        $tipo = match (true) {
+            ($rev['estado'] ?? '') === 'cancelada' && ($antes['estado'] ?? '') !== 'cancelada' => 'cancelada',
+            ($rev['estado'] ?? '') !== 'cancelada' && (($antes['fecha'] ?? '') !== $rev['fecha'] || (string)($antes['hora'] ?? '') !== (string)($rev['hora'] ?? '')) => 'cambio',
+            default => '',
+        };
+        if ($tipo === '') return;
+        foreach ((array)$rev['externos'] as $ext) {
+            try { self::correoExterno($rev, (array)$ext, $tipo, $quien); } catch (Throwable $e) { /* uno que falle no frena al resto */ }
+        }
     }
 
     public static function borrarRevision(int $id): bool
@@ -1987,7 +2150,7 @@ final class Releases
                     if ($fe === '' || $eq === '') continue;
                     $k = $fe . '|' . $eq;
                     $d['revisiones'][$k] ??= ['fecha' => $fe, 'equipo' => $eq, 'hora' => self::val($f, $col, 'hora'), 'sprint' => self::val($f, $col, 'sprint'),
-                        'semana' => (int)self::val($f, $col, 'sem'), 'responsable' => self::val($f, $col, 'resp'), 'titulo' => '', 'filas' => []];
+                        'semana' => (int)self::val($f, $col, 'sem'), 'responsable' => self::val($f, $col, 'resp'), 'titulo' => '', 'filas' => [], 'fecha_plan' => $fe];
                     $foco = self::val($f, $col, 'foco');
                     $esp = self::val($f, $col, 'esperado');
                     $real = self::val($f, $col, 'real');

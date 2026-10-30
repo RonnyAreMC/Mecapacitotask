@@ -81,7 +81,7 @@ $accionesDeCualquiera = [
     // Releases: los ven los editores y los Scrum Master; cada acción comprueba
     // por dentro quién puede qué (Releases::puedeVer, puedeEditar o SM del equipo).
     'rel_importar', 'rel_item_guardar', 'rel_item_tareas', 'rel_item_borrar', 'rel_tarea_crear', 'rel_equipo_guardar',
-    'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar',
+    'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar', 'rel_revision_externo',
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
 ];
@@ -3953,6 +3953,7 @@ switch ($accion) {
     case 'rel_hito_borrar':
     case 'rel_revision_guardar':
     case 'rel_revision_borrar':
+    case 'rel_revision_externo':
     case 'rel_ia_aplicar':
     case 'rel_conf_guardar':
     case 'rel_daily_registrar':
@@ -4115,7 +4116,7 @@ switch ($accion) {
                     if ($revRl && isset($_POST['equipo']) && $_POST['equipo'] !== $eqRevRl && !$relSmDe((string)$_POST['equipo'])) $relFin(false, 'No puedes pasar la revisión a un equipo que no llevas.');
                     $antesRl = $revRl;
                     $revRl = Releases::guardarRevision($idRl, array_intersect_key($_POST, array_flip(['fecha', 'hora', 'equipo', 'titulo', 'responsable',
-                        'acuerdos', 'asistentes', 'filas', 'agregar', 'quitar', 'realizada', 'estado', 'sprint', 'lugar', 'modalidad', 'duracion'])));
+                        'acuerdos', 'asistentes', 'externos_asistio', 'filas', 'agregar', 'quitar', 'realizada', 'estado', 'sprint', 'lugar', 'modalidad', 'duracion'])));
                     // Se movió de día u hora (arrastrando en la agenda o al editarla): su reunión se mueve con ella
                     $msgReuRl = $antesRl ? relMoverReunion($antesRl, $revRl, $proyectos, $miembros) : '';
                     // Virtual: se enlaza a una reunión que ya existe o se crea la de Zoom en el proyecto del equipo
@@ -4179,6 +4180,24 @@ switch ($accion) {
                     if ($ridDl > 0 && !in_array($ridDl, array_column(Releases::dailyCandidatas($eqDl), 'id'), true)) throw new RuntimeException('Esa reunión no es de los proyectos del equipo.');
                     Releases::guardarEquipo((int)$EDl['id'], ['daily_reunion' => $ridDl]);
                     $relFin(true, $ridDl ? 'Listo: esa es la daily del equipo.' : 'Listo: se toma la reunión que se llame «Daily…».');
+
+                case 'rel_revision_externo':
+                    // Invitar (o reenviar) a alguien de fuera del equipo, o quitarlo de la lista
+                    $revRl = Releases::revision((int)($_POST['id'] ?? 0));
+                    if (!$revRl) throw new RuntimeException('Esa revisión ya no existe.');
+                    if (!$relSmDe((string)$revRl['equipo'])) $relFin(false, 'A las revisiones invitan los editores o el Scrum Master del equipo.');
+                    if (($_POST['op'] ?? '') === 'quitar') {
+                        Releases::quitarExterno((int)$revRl['id'], (string)($_POST['email'] ?? ''));
+                        $relFin(true, 'Ya no está en la lista de invitados.');
+                    }
+                    if (($_POST['op'] ?? '') === 'reenviar') {
+                        $extRl = array_values(array_filter((array)($revRl['externos'] ?? []), fn($x) => ($x['email'] ?? '') === strtolower(trim((string)($_POST['email'] ?? '')))))[0] ?? null;
+                        if (!$extRl) throw new RuntimeException('Esa persona ya no está invitada.');
+                        $_POST = $extRl + $_POST;
+                    }
+                    [$revRl, $envRl] = Releases::invitarExterno((int)$revRl['id'], array_intersect_key($_POST, array_flip(['nombre', 'email', 'org', 'nota'])), $relYo);
+                    $relFin(true, $envRl === true ? 'Invitación enviada a ' . trim((string)$_POST['email']) . '.'
+                        : 'Quedó en la lista, pero el correo no salió: ' . $envRl, ['revision' => $revRl]);
 
                 case 'rel_revision_borrar':
                     $relSoloEditor();

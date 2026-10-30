@@ -1252,6 +1252,81 @@ class Mailer
     }
 
     /**
+     * Revisión de Releases para alguien de fuera del equipo
+     * (Releases::invitarExterno): cuándo, dónde o el enlace, quién invita y lo
+     * que se va a revisar con la fecha en que debía terminar cada ítem. Sin
+     * botón al panel, que no tiene cuenta: el de la reunión o el del calendario.
+     * $tipo: 'invitacion', 'cambio' (otro día u hora) o 'cancelada'.
+     * $filas: [['codigo', 'titulo', 'fin'], …].
+     */
+    public static function invitacionRevision(array $rev, array $ext, string $tipo, string $quien, array $filas): true|string|null
+    {
+        if (!self::listo() || empty($ext['email'])) {
+            return null;
+        }
+        $acento  = Config::all()['color_secundario'] ?? '#2B76F7';
+        $dias    = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+        $meses   = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+        [$ini, $dur] = Releases::horario((string)($rev['hora'] ?? ''), (int)($rev['duracion'] ?? 90));
+        $t       = strtotime($rev['fecha'] . ' ' . $ini);
+        $hora    = trim((string)($rev['hora'] ?? '')) !== '' ? (string)$rev['hora'] : $ini;
+        $cuando  = $dias[(int)date('w', $t)] . ' ' . (int)date('j', $t) . ' de ' . $meses[(int)date('n', $t) - 1] . ' de ' . date('Y', $t) . ' · ' . $hora;
+        $virtual = ($rev['modalidad'] ?? '') === 'virtual';
+        $url     = trim((string)($rev['join_url'] ?? ''));
+        $donde   = $virtual
+            ? 'Virtual · ' . (['zoom' => 'Zoom', 'meet' => 'Google Meet', 'enlace' => 'enlace de la reunión'][$rev['plataforma'] ?? ''] ?? 'reunión en línea')
+            : 'Presencial' . (trim((string)($rev['lugar'] ?? '')) !== '' ? ' · ' . $rev['lugar'] : '');
+        $equipo  = (string)$rev['equipo'];
+        $datos   = ['Equipo' => e($equipo), 'Cuándo' => e($cuando), 'Dónde' => e($donde)];
+        if (!empty($rev['duracion']) || preg_match('/[–-]/u', $hora)) $datos['Duración'] = $dur . ' min';
+        if (trim((string)($rev['responsable'] ?? '')) !== '') $datos['La dirige'] = e($rev['responsable']);
+        if ($quien !== '') $datos['Te invita'] = e($quien);
+        // «Dr. Juan Pérez» → «Dr. Juan»: el título solo no saluda a nadie
+        $partes  = preg_split('/\s+/u', trim((string)($ext['nombre'] ?? ''))) ?: [''];
+        $nombre  = e(isset($partes[1]) && preg_match('/^(dr|dra|ing|lic|mg|msc|mgs|phd|sr|sra|srta|prof|abg|econ|arq)\.?$/iu', $partes[0]) ? $partes[0] . ' ' . $partes[1] : $partes[0]);
+        [$glifo, $titulo, $sub] = match ($tipo) {
+            'cambio'    => ['&#8635;', 'La revisión cambió de fecha', 'la revisión del equipo ' . e($equipo) . ' ahora es el <b>' . e($cuando) . '</b>.'],
+            'cancelada' => ['&#10005;', 'Se canceló la revisión', 'la revisión del equipo ' . e($equipo) . ' del ' . e($cuando) . ' se canceló. No hace falta que hagas nada.'],
+            default     => ['&#9679;', 'Te invitaron a una revisión', ($quien !== '' ? e($quien) . ' te invitó' : 'Te invitaron') . ' a la revisión del equipo ' . e($equipo) . '.'],
+        };
+        $cuerpo = self::encabezado($tipo === 'cancelada' ? '#86868b' : $acento, $glifo, $titulo, ($nombre !== '' ? 'Hola ' . $nombre . ', ' : '') . $sub)
+            . self::detalle(trim((string)($rev['titulo'] ?? '')) !== '' ? (string)$rev['titulo'] : 'Revisión ' . $equipo, $datos);
+        if (trim((string)($ext['nota'] ?? '')) !== '' && $tipo === 'invitacion') {
+            $cuerpo .= '<div style="margin-top:14px;padding:12px 16px;border-radius:12px;background:#f5f5f7;color:#1d1d1f;font-size:14px;line-height:1.5;">' . nl2br(e((string)$ext['nota'])) . '</div>';
+        }
+        // Lo que se va a revisar y para cuándo debía estar cada cosa
+        if ($filas && $tipo !== 'cancelada') {
+            $lineas = '';
+            foreach (array_slice($filas, 0, 25) as $f) {
+                $fin = $f['fin'] !== '' ? date('d/m/Y', strtotime($f['fin'])) : '—';
+                $lineas .= '<tr><td style="padding:7px 10px 7px 0;border-top:1px solid #e5e5ea;color:#1d1d1f;font-size:12px;font-weight:700;white-space:nowrap;vertical-align:top;font-family:ui-monospace,Menlo,monospace;">' . e($f['codigo']) . '</td>'
+                    . '<td style="padding:7px 10px 7px 0;border-top:1px solid #e5e5ea;color:#1d1d1f;font-size:13px;line-height:1.4;vertical-align:top;">' . e($f['titulo']) . '</td>'
+                    . '<td style="padding:7px 0;border-top:1px solid #e5e5ea;color:#6e6e73;font-size:12px;white-space:nowrap;text-align:right;vertical-align:top;">' . $fin . '</td></tr>';
+            }
+            $cuerpo .= '<div style="margin-top:18px;color:#1d1d1f;font-size:15px;font-weight:600;">Qué se va a revisar (' . count($filas) . ')</div>'
+                . '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="margin-top:8px;">'
+                . '<tr><td style="padding:0 0 6px;color:#86868b;font-size:11px;">Código</td><td style="padding:0 0 6px;color:#86868b;font-size:11px;">Historia</td><td style="padding:0 0 6px;color:#86868b;font-size:11px;text-align:right;">Debía terminar</td></tr>'
+                . $lineas . '</table>';
+        }
+        // Para guardarla en el calendario (Google Calendar; con la reunión, también su enlace)
+        $cal = '';
+        if ($tipo !== 'cancelada') {
+            $cal = 'https://calendar.google.com/calendar/render?' . http_build_query([
+                'action' => 'TEMPLATE', 'text' => 'Revisión ' . $equipo . (trim((string)($rev['titulo'] ?? '')) !== '' ? ' · ' . mb_strimwidth((string)$rev['titulo'], 0, 80, '…') : ''),
+                'dates' => date('Ymd\THis', $t) . '/' . date('Ymd\THis', $t + $dur * 60), 'ctz' => date_default_timezone_get(),
+                'details' => ($url !== '' ? 'Enlace: ' . $url . "\n" : '') . 'Equipo ' . $equipo, 'location' => $virtual ? $url : (string)($rev['lugar'] ?? ''),
+            ]);
+            if ($virtual && $url !== '') {
+                $cuerpo .= '<div style="margin-top:16px;font-size:13px;"><a href="' . e($cal) . '" style="color:' . $acento . ';text-decoration:none;font-weight:600;">Agregar a mi calendario</a></div>';
+            }
+        }
+        $asunto = ['cambio' => 'Cambio de fecha', 'cancelada' => 'Cancelada'][$tipo] ?? 'Invitación';
+        $asunto .= ': Revisión ' . $equipo . ' · ' . date('d/m', $t) . ' ' . $ini;
+        [$btn, $txt] = $virtual && $url !== '' && $tipo !== 'cancelada' ? [$url, 'Entrar a la reunión'] : [$cal, $cal !== '' ? 'Agregar a mi calendario' : ''];
+        return self::enviar((string)$ext['email'], $asunto, self::plantilla($cuerpo, $btn, $txt));
+    }
+
+    /**
      * Propuesta de intercambio de tareas (a quien la recibe).
      * $de y $para son miembros; $tareaDe es la del proponente.
      */

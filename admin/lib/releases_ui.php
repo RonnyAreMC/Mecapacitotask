@@ -54,6 +54,66 @@ function rlDias(?int $d, string $estado = ''): string
         default => 'Venció hace ' . abs($d) . ' días',
     };
 }
+/** «vie 30 oct» (con el año si no es este). */
+function rlFC(string $f): string
+{
+    $t = strtotime($f);
+    if (!$t) return '—';
+    return mb_substr(RL_DIA[(int)date('w', $t)], 0, 3) . ' ' . (int)date('j', $t) . ' ' . RL_MES[(int)date('n', $t) - 1] . (date('Y', $t) !== date('Y') ? ' ' . date('Y', $t) : '');
+}
+/** «A tiempo», «3 días hábiles tarde», «Aún no termina» o, si ya está terminado, «Falta anotar la fecha». */
+function rlValidaFecha(?int $tarde, string $real, bool $cerrado = false): string
+{
+    if ($real === '') return $cerrado ? 'Falta anotar la fecha' : 'Aún no termina';
+    if ($tarde === null) return 'Sin fecha del plan';
+    return $tarde > 0 ? $tarde . ' ' . ($tarde === 1 ? 'día hábil' : 'días hábiles') . ' tarde' : 'A tiempo';
+}
+/**
+ * La tira de fechas de una fila de la revisión (Releases::fechasFila): cuándo
+ * debía terminar según el plan, cuánto debía llevar el día de la sesión, cuánto
+ * lleva, cuándo terminó de verdad y cómo va; debajo, el porqué si se anotó.
+ */
+function rlFechasFila(array $x, string $fechaSesion, string $hoy): string
+{
+    $tono = $x['tono'];
+    $etiqueta = $tono === 'sin_fecha' ? 'Sin fecha de fin' : Releases::SALUD[$tono][0];
+    $dias = $x['dias'];
+    $plural = fn(int $n, string $s, string $p) => $n . ' ' . ($n === 1 ? $s : $p);
+    $cuando = match (true) {
+        $tono === 'cerrado' => '',
+        $tono === 'futuro' => 'Empieza el ' . rlFC($x['inicio']),
+        $dias === null => '',
+        $x['fin'] < $x['ref'] => $dias > 0 ? ($x['ref'] === $hoy ? 'Venció hace ' : 'Llevaba vencido ') . $plural($dias, 'día hábil', 'días hábiles') : 'Venció el ' . rlFC($x['fin']),
+        $x['fin'] === $x['ref'] => $x['ref'] === $hoy ? 'Vence hoy' : 'Vencía ese día',
+        $dias <= 0 => 'Vence el ' . rlFC($x['fin']),
+        default => ($x['ref'] === $hoy ? 'Faltan ' : 'Le faltaban ') . $plural($dias, 'día hábil', 'días hábiles'),
+    };
+    $dif = '';
+    if ($x['diferencia'] !== null && !in_array($tono, ['cerrado', 'futuro', 'sin_fecha'], true)) {
+        $d = (int)$x['diferencia'];
+        $dif = (!$x['registrado'] && $x['ref'] !== $fechaSesion ? 'Hoy, ' : '') . ($d === 0 ? 'en lo esperado' : abs($d) . ' pts ' . ($d < 0 ? 'por debajo' : 'por encima'));
+        $dif = mb_strtoupper(mb_substr($dif, 0, 1)) . mb_substr($dif, 1);
+    }
+    $futura = $fechaSesion > $hoy;
+    $tarde = $x['dias_tarde'];
+    $h = '<div class="rl-fechas rl-s--' . e($tono === 'sin_fecha' ? 'futuro' : $tono) . '">';
+    $h .= '<div class="rl-fechas__c"><small title="Según el plan (el Excel del cronograma)">Debía terminar</small><b>' . ($x['fin_plan'] !== '' ? e(rlFC($x['fin_plan'])) : '—') . '</b>'
+        . ($x['reprogramado'] !== '' ? '<em>Reprogramado al ' . e(rlFC($x['reprogramado'])) . '</em>' : ($x['inicio'] !== '' ? '<em>Empezó el ' . e(rlFC($x['inicio'])) . '</em>' : '')) . '</div>';
+    $h .= '<div class="rl-fechas__c"><small title="Lo que el plan esperaba el día de la sesión">Esperado ' . ($futura ? 'para el ' : 'al ') . e(preg_replace('/^\S+ /u', '', rlFC($fechaSesion))) . '</small>'
+        . '<b class="mc-num">' . ($x['esperado'] === null ? '—' : (int)$x['esperado'] . ' %') . '</b></div>';
+    $h .= '<div class="rl-fechas__c rl-fechas__c--va"><small>' . ($x['registrado'] ? 'Se registró' : 'Hoy va en') . '</small>'
+        . '<span class="rl-fechas__va"><b class="mc-num">' . ($x['va'] === null ? '—' : (int)$x['va'] . ' %') . '</b>'
+        . ($x['va'] !== null ? rlBarra((int)$x['va'], (int)($x['esperado_ref'] ?? 0), $tono === 'sin_fecha' ? 'futuro' : $tono) : '') . '</span></div>';
+    $h .= '<div class="rl-fechas__c rl-fechas__c--real' . ($x['fecha_real'] === '' ? ' is-vacia' : ($tarde ? ' is-tarde' : ' is-a-tiempo')) . '" data-rl-termino>'
+        . '<small>Terminó</small><b data-rl-termino-fecha>' . ($x['fecha_real'] !== '' ? e(rlFC($x['fecha_real'])) : '—') . '</b>'
+        . '<em data-rl-termino-valida>' . e(rlValidaFecha($tarde, $x['fecha_real'], $tono === 'cerrado')) . '</em></div>';
+    $h .= '<div class="rl-fechas__c rl-fechas__c--estado"><span class="rl-fechas__chip"><i aria-hidden="true"></i>' . e($etiqueta) . '</span>'
+        . '<em>' . e(implode(' · ', array_filter([$dif, $cuando]))) . '</em></div>';
+    $motivo = $x['motivo'] !== '' ? (Releases::MOTIVOS[$x['motivo']] ?? '') : '';
+    $h .= '<p class="rl-fechas__porque" data-rl-porque-ver' . ($motivo === '' && $x['porque'] === '' ? ' hidden' : '') . '><b>Por qué:</b> <span>'
+        . e(implode(' — ', array_filter([$motivo, $x['porque']]))) . '</span></p>';
+    return $h . '</div>';
+}
 /** Barra del % real con la marca del % esperado; el color, el de la salud. */
 function rlBarra(int $pct, int $esp, string $salud, string $cls = ''): string
 {

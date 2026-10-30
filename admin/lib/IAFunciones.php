@@ -765,6 +765,8 @@ final class IAFunciones
                 . ' · resultado: ' . (Releases::RESULTADOS[$f['estado']][0] ?? $f['estado'])
                 . ($f['pct'] !== null ? ' · ' . (int)$f['pct'] . ' % real' : '') . (($f['esperado'] ?? null) !== null ? ' (esperado ' . (int)$f['esperado'] . ' %)' : '')
                 . (($f['entregado'] ?? '') !== '' ? "\n  Debía estar: " . self::txt($f['entregado'], 300) : '')
+                . (($f['fecha_real'] ?? '') !== '' ? "\n  Terminó el " . $f['fecha_real'] . (($f['fin_plan'] ?? '') !== '' ? ' (el plan decía ' . $f['fin_plan'] . ($f['dias_tarde'] ? ', ' . (int)$f['dias_tarde'] . ' días hábiles tarde' : ', a tiempo') . ')' : '') : '')
+                . (($f['motivo'] ?? '') !== '' ? "\n  Por qué: " . (Releases::MOTIVOS[$f['motivo']] ?? $f['motivo']) . (($f['porque'] ?? '') !== '' ? ' — ' . self::txt($f['porque'], 300) : '') : '')
                 . (($f['obs'] ?? '') !== '' ? "\n  Observación: " . self::txt($f['obs'], 600) : '');
         }
         if (!$lineas) throw new IAError('La revisión no tiene ítems que resumir.');
