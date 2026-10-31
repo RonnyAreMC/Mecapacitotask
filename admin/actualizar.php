@@ -523,37 +523,44 @@ function actualizarPanel(array $opc): void
             nota('error', 'Releases: ' . $e->getMessage());
         }
 
-        /* Orden de Felipe (30/10/2026): cuatro ítems de Alpha pasan al equipo Académico
-           (se crea si no existe). Se aplica UNA vez (semillas.rel_academico_felipe): si
-           después alguien los devuelve a Alpha desde el panel, no se vuelven a mover. */
-        paso('Ítems de Alpha a Académico');
+        /* Orden de Felipe (30/10/2026): cuatro ítems de Alpha pasan a Beta, que es el
+           equipo académico. Se aplica UNA vez (semillas.rel_beta_felipe): si después
+           alguien los cambia desde el panel, no se vuelven a mover. Si la versión anterior
+           alcanzó a crear el equipo «Académico» (semillas.rel_academico_felipe) y quedó
+           vacío, se borra. */
+        paso('Ítems de Alpha a Beta (académico)');
         try {
             $crudoAc = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
             $semAc   = (array)($crudoAc['semillas'] ?? []);
             $codAc   = ['R1-A04', 'R2-A01', 'R2-A06', 'R3-A07'];
-            if (!empty($semAc['rel_academico_felipe'])) {
-                nota('ok', 'Los 4 ítems que pidió Felipe ya pasaron a Académico (el ' . $semAc['rel_academico_felipe'] . ').');
+            if (!empty($semAc['rel_beta_felipe'])) {
+                nota('ok', 'Los 4 ítems que pidió Felipe ya pasaron a Beta (el ' . $semAc['rel_beta_felipe'] . ').');
             } elseif (!(new JsonStore('rel_items'))->all()) {
-                nota('info', 'Sin ítems todavía: nada que pasar a Académico.');
+                nota('info', 'Sin ítems todavía: nada que pasar a Beta.');
+            } elseif (!Releases::equipo('Beta')) {
+                nota('error', 'No hay un equipo «Beta»: no se movieron R1-A04, R2-A01, R2-A06 ni R3-A07. Usa php admin/mover_items.php con el nombre del equipo académico.');
             } else {
-                $eqAc = Releases::buscarEquipo('Académico');
-                if (count($eqAc) > 1) throw new RuntimeException('hay varios equipos que podrían ser «Académico» (' . implode(', ', $eqAc) . '). Usa php admin/mover_items.php con el nombre exacto.');
-                $nuevoAc = !$eqAc;
-                if ($nuevoAc && !$seco) Releases::guardarEquipo(0, ['nombre' => 'Académico', 'color' => '#0891B2']);
-                $nomAc = $eqAc[0] ?? 'Académico';
                 $quienAc = 0;
                 foreach ((new MiembroRepo())->todos() as $mAc) {
                     if (str_contains(Releases::normal((string)($mAc['nombre'] ?? '')), 'ronny')) { $quienAc = (int)$mAc['id']; break; }
                 }
-                $resAc = $nuevoAc && $seco ? array_fill_keys($codAc, ['hecho' => true]) : Releases::moverItems($nomAc, $codAc, 'Por orden de Felipe', $quienAc, $seco);
+                $resAc = Releases::moverItems('Beta', $codAc, 'Por orden de Felipe (Beta es el equipo académico)', $quienAc, $seco);
                 $hechosAc = array_keys(array_filter($resAc, fn($r) => $r['hecho']));
-                if (!$seco && method_exists('Config', 'respaldos')) Config::guardar(['semillas' => ['rel_academico_felipe' => date('Y-m-d')] + $semAc]);
-                nota('ok', ($nuevoAc ? ($seco ? 'Crearía' : 'Creado') . ' el equipo Académico. ' : '')
-                    . ($hechosAc ? ($seco ? 'Pasarían' : 'Pasaron') . ' a ' . $nomAc . ' (por orden de Felipe): ' . implode(', ', $hechosAc) : 'Los 4 ítems ya eran de ' . $nomAc)
-                    . '. Salen de las revisiones de Alpha que aún no se hacen.');
+                // El equipo «Académico» que creó la versión anterior, si quedó sin nada
+                $borradoAc = false;
+                $eqAc = Releases::equipo('Académico');
+                if ($eqAc && !empty($semAc['rel_academico_felipe']) && !$eqAc['miembros'] && !$eqAc['proyectos'] && empty($eqAc['sm_id'])
+                    && !array_filter(Releases::items(), fn($it) => $it['equipo'] === 'Académico' && !in_array($it['codigo'], $codAc, true))
+                    && !Releases::revisiones(['equipo' => 'Académico'])) {
+                    if (!$seco) (new JsonStore('rel_equipos'))->delete((int)$eqAc['id']);
+                    $borradoAc = true;
+                }
+                if (!$seco && method_exists('Config', 'respaldos')) Config::guardar(['semillas' => ['rel_beta_felipe' => date('Y-m-d')] + $semAc]);
+                nota('ok', ($hechosAc ? ($seco ? 'Pasarían' : 'Pasaron') . ' a Beta (por orden de Felipe): ' . implode(', ', $hechosAc) . '. Salen de las revisiones que aún no se hacen.' : 'Los 4 ítems ya eran de Beta.')
+                    . ($borradoAc ? ' ' . ($seco ? 'Borraría' : 'Borrado') . ' el equipo «Académico» que había quedado vacío.' : ''));
             }
         } catch (Throwable $e) {
-            nota('error', 'Pasar a Académico: ' . $e->getMessage());
+            nota('error', 'Pasar a Beta: ' . $e->getMessage());
         }
     }
 
