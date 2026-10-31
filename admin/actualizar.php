@@ -150,7 +150,7 @@ function actualizarPanel(array $opc): void
         'lib/correo_vista.php' => ['data-correo-elegir', 'correo_marcar_varios', 'data-correo-plegar', 'correoDirectorio', 'correoPagina', 'correoBloqueRequerimiento', 'CorreoCopias::mensaje', 'data-ia-correo', 'correoTipoVisible', 'correo-dest-fila', 'correo-opciones', 'correoHilo', 'correo-adjs', 'correoPrioridad', 'correo_respuesta_ia', 'solo_cabecera', 'nexo:descansando', 'correoTextoAHtml', 'correo-fila__marcar', 'No hay nada sin leer'],
         'lib/ReqCorreo.php' => ['crudoCopia', 'function plazoDe', 'function gente'],
         'lib/ReqSeguimiento.php' => ['function avisarTerminado'],
-        'lib/Releases.php'  => ['function fechasFila', 'function invitarExterno', 'function diasTarde', 'MOTIVOS', 'function importar', 'function tablero', 'function paso', 'function sembrar', 'dependencias', 'function veTodo', 'function resumenDailies', 'function itemsDeProyecto', 'function mismoNombre', 'function dailiesDelDia', '$diasPasados', 'function ingresosDelDia'],
+        'lib/Releases.php'  => ['function moverItems', 'function buscarEquipo', 'function fechasFila', 'function invitarExterno', 'function diasTarde', 'MOTIVOS', 'function importar', 'function tablero', 'function paso', 'function sembrar', 'dependencias', 'function veTodo', 'function resumenDailies', 'function itemsDeProyecto', 'function mismoNombre', 'function dailiesDelDia', '$diasPasados', 'function ingresosDelDia'],
         'releases.php'      => ['rl-dlg-externo', 'data-rl-fecha-real', 'Debía quedar listo esta semana', 'Por qué no se llegó', 'Releases::', 'rl-rfila__cuerpo', 'VISTAS_LECTOR', 'rl-dlg--ancho', 'rl-dlg-daily', 'data-rl-editar-rev', '$pasadosDl', 'separados por comas', 'según el panel', 'rl-tabs-bar'],
         'lib/releases_ui.php' => ['function rlFechasFila', 'function rlValidaFecha', 'function rlVistaRelease', 'function rlRecursosJs', 'releases juntos', 'rl-buscar--fila'],
         'assets/releases.js' => ['data-rl-ext', 'md-sync', 'data-rl-abrir-fila', 'rl-frase', 'data-rl-agenda', 'data-rl-daily-reg', 'rl-gfila__lbl', 'DL.pasados'],
@@ -521,6 +521,39 @@ function actualizarPanel(array $opc): void
             }
         } catch (Throwable $e) {
             nota('error', 'Releases: ' . $e->getMessage());
+        }
+
+        /* Orden de Felipe (30/10/2026): cuatro ítems de Alpha pasan al equipo Académico
+           (se crea si no existe). Se aplica UNA vez (semillas.rel_academico_felipe): si
+           después alguien los devuelve a Alpha desde el panel, no se vuelven a mover. */
+        paso('Ítems de Alpha a Académico');
+        try {
+            $crudoAc = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+            $semAc   = (array)($crudoAc['semillas'] ?? []);
+            $codAc   = ['R1-A04', 'R2-A01', 'R2-A06', 'R3-A07'];
+            if (!empty($semAc['rel_academico_felipe'])) {
+                nota('ok', 'Los 4 ítems que pidió Felipe ya pasaron a Académico (el ' . $semAc['rel_academico_felipe'] . ').');
+            } elseif (!(new JsonStore('rel_items'))->all()) {
+                nota('info', 'Sin ítems todavía: nada que pasar a Académico.');
+            } else {
+                $eqAc = Releases::buscarEquipo('Académico');
+                if (count($eqAc) > 1) throw new RuntimeException('hay varios equipos que podrían ser «Académico» (' . implode(', ', $eqAc) . '). Usa php admin/mover_items.php con el nombre exacto.');
+                $nuevoAc = !$eqAc;
+                if ($nuevoAc && !$seco) Releases::guardarEquipo(0, ['nombre' => 'Académico', 'color' => '#0891B2']);
+                $nomAc = $eqAc[0] ?? 'Académico';
+                $quienAc = 0;
+                foreach ((new MiembroRepo())->todos() as $mAc) {
+                    if (str_contains(Releases::normal((string)($mAc['nombre'] ?? '')), 'ronny')) { $quienAc = (int)$mAc['id']; break; }
+                }
+                $resAc = $nuevoAc && $seco ? array_fill_keys($codAc, ['hecho' => true]) : Releases::moverItems($nomAc, $codAc, 'Por orden de Felipe', $quienAc, $seco);
+                $hechosAc = array_keys(array_filter($resAc, fn($r) => $r['hecho']));
+                if (!$seco && method_exists('Config', 'respaldos')) Config::guardar(['semillas' => ['rel_academico_felipe' => date('Y-m-d')] + $semAc]);
+                nota('ok', ($nuevoAc ? ($seco ? 'Crearía' : 'Creado') . ' el equipo Académico. ' : '')
+                    . ($hechosAc ? ($seco ? 'Pasarían' : 'Pasaron') . ' a ' . $nomAc . ' (por orden de Felipe): ' . implode(', ', $hechosAc) : 'Los 4 ítems ya eran de ' . $nomAc)
+                    . '. Salen de las revisiones de Alpha que aún no se hacen.');
+            }
+        } catch (Throwable $e) {
+            nota('error', 'Pasar a Académico: ' . $e->getMessage());
         }
     }
 

@@ -1,9 +1,9 @@
 <?php
 /**
- * Pasa ítems de Releases a otro equipo, por terminal: el cambio queda en el
- * historial de cada ítem con su motivo (y se avisa como cualquier cambio de
- * equipo) y los ítems salen de las revisiones que el equipo de antes todavía
- * no hace, si ahí seguían sin revisar.
+ * Pasa ítems de Releases a otro equipo, por terminal (Releases::moverItems):
+ * el cambio queda en el historial de cada ítem con su motivo (y se avisa como
+ * cualquier cambio de equipo) y los ítems salen de las revisiones que el
+ * equipo de antes todavía no hace, si ahí seguían sin revisar.
  *
  *   php admin/mover_items.php Académico R1-A04 R2-A01 --motivo="Por orden de Felipe" [--por=Ronny] [--seco]
  *
@@ -27,16 +27,11 @@ foreach (array_slice($argv, 1) as $a) {
 $seco = !empty($opc['seco']);
 $motivo = trim((string)($opc['motivo'] ?? ''));
 $destino = array_shift($libres);
-$codigos = array_values(array_unique(array_map('strtoupper', $libres)));
-if ($destino === null || !$codigos) exit("Uso: php admin/mover_items.php <equipo> <código> [<código>…] --motivo=\"…\" [--por=nombre] [--seco]\n");
+if ($destino === null || !$libres) exit("Uso: php admin/mover_items.php <equipo> <código> [<código>…] --motivo=\"…\" [--por=nombre] [--seco]\n");
 
-// El equipo: el que se llama así o, si no, el único que lo contiene
-$equipos = array_keys(Releases::equipos());
-$buscado = Releases::normal($destino);
-$iguales = array_values(array_filter($equipos, fn($n) => Releases::normal($n) === $buscado));
-$parecidos = $iguales ?: array_values(array_filter($equipos, fn($n) => str_contains(Releases::normal($n), $buscado)));
+$parecidos = Releases::buscarEquipo($destino);
 if (count($parecidos) !== 1) {
-    exit(($parecidos ? "«{$destino}» puede ser varios equipos" : "No hay un equipo «{$destino}»") . '. Los equipos son: ' . implode(', ', $equipos)
+    exit(($parecidos ? "«{$destino}» puede ser varios equipos" : "No hay un equipo «{$destino}»") . '. Los equipos son: ' . implode(', ', array_keys(Releases::equipos()))
         . ".\nSi es nuevo, créalo antes en Releases → Ajustes → Equipos.\n");
 }
 $equipo = $parecidos[0];
@@ -50,27 +45,16 @@ if (($opc['por'] ?? '') !== '') {
     if (!$quien) echo "Ojo: no encontré a «{$opc['por']}» entre los miembros; el cambio queda sin autor.\n";
 }
 
-$hoy = date('Y-m-d');
-$n = 0;
 echo ($seco ? '[en seco] ' : '') . 'A ' . $equipo . ($motivo !== '' ? " · motivo: $motivo" : '') . "\n";
-foreach ($codigos as $cod) {
-    $it = Releases::itemPorCodigo($cod);
-    if (!$it) { echo "  $cod: no existe\n"; continue; }
-    if ($it['equipo'] === $equipo) { echo "  $cod: ya es de $equipo\n"; continue; }
-    $antes = $it['equipo'];
-    // Las revisiones que el equipo de antes aún no hace: el ítem sale si ahí seguía sin revisar
-    $sesiones = [];
-    foreach (Releases::revisiones(['equipo' => $antes, 'desde' => $hoy]) as $r) {
-        if (($r['estado'] ?? 'programada') === 'realizada') continue;
-        $quitar = array_keys(array_filter((array)$r['filas'], fn($f) => strtoupper((string)$f['codigo']) === $cod && ($f['estado'] ?? 'pendiente') === 'pendiente'));
-        if ($quitar) $sesiones[(int)$r['id']] = [$r['fecha'], $quitar];
-    }
-    if (!$seco) {
-        Releases::guardarItem((int)$it['id'], ['equipo' => $equipo, 'motivo' => $motivo], $quien);
-        foreach ($sesiones as $id => [, $quitar]) Releases::guardarRevision($id, ['quitar' => $quitar], $quien);
-    }
-    $n++;
-    echo "  $cod · {$it['titulo']}: $antes → $equipo"
-        . ($sesiones ? ' · sale de ' . count($sesiones) . ' revisión(es) de ' . $antes . ' (' . implode(', ', array_map(fn($s) => date('d/m', strtotime($s[0])), $sesiones)) . ')' : '') . "\n";
+try {
+    $res = Releases::moverItems($equipo, $libres, $motivo, $quien, $seco);
+} catch (Throwable $e) {
+    exit('No se pudo: ' . $e->getMessage() . "\n");
 }
+foreach ($res as $cod => $r) {
+    echo '  ' . $cod . ($r['titulo'] !== '' ? ' · ' . $r['titulo'] : '') . ': '
+        . ($r['hecho'] ? $r['antes'] . ' → ' . $equipo . ($r['sesiones'] ? ' · sale de ' . count($r['sesiones']) . ' revisión(es) de ' . $r['antes']
+            . ' (' . implode(', ', array_map(fn($f) => date('d/m', strtotime($f)), $r['sesiones'])) . ')' : '') : $r['nota']) . "\n";
+}
+$n = count(array_filter($res, fn($r) => $r['hecho']));
 echo $seco ? "Nada cambió (en seco): $n ítem(s) pasarían a $equipo.\n" : "Listo: $n ítem(s) pasaron a $equipo.\n";

@@ -918,6 +918,45 @@ final class Releases
         return $repo->insert($c + ['proyectos' => [], 'miembros' => [], 'orden' => count(self::equipos()) + 1]);
     }
 
+    /** Los equipos que se llaman así (sin importar tildes ni mayúsculas) o, si ninguno, los que lo contienen. */
+    public static function buscarEquipo(string $nombre): array
+    {
+        $buscado = self::normal($nombre);
+        $todos = array_keys(self::equipos());
+        $iguales = array_values(array_filter($todos, fn($n) => self::normal($n) === $buscado));
+        return $iguales ?: array_values(array_filter($todos, fn($n) => $buscado !== '' && str_contains(self::normal($n), $buscado)));
+    }
+
+    /**
+     * Pasa ítems a otro equipo: el cambio queda en el historial de cada uno con
+     * su motivo (y se avisa como cualquier cambio de equipo), y salen de las
+     * revisiones que el equipo de antes aún no hace, si ahí seguían sin revisar.
+     * Devuelve, por código: ['titulo', 'antes', 'hecho' (bool), 'nota', 'sesiones' => [fechas]].
+     */
+    public static function moverItems(string $equipo, array $codigos, string $motivo, int $quien = 0, bool $seco = false): array
+    {
+        if (!self::equipo($equipo)) throw new RuntimeException('No existe el equipo ' . $equipo . '.');
+        $hoy = date('Y-m-d');
+        $out = [];
+        foreach (array_values(array_unique(array_map('strtoupper', $codigos))) as $cod) {
+            $it = self::itemPorCodigo($cod);
+            if (!$it) { $out[$cod] = ['titulo' => '', 'antes' => '', 'hecho' => false, 'nota' => 'no existe', 'sesiones' => []]; continue; }
+            if ($it['equipo'] === $equipo) { $out[$cod] = ['titulo' => $it['titulo'], 'antes' => $equipo, 'hecho' => false, 'nota' => 'ya es de ' . $equipo, 'sesiones' => []]; continue; }
+            $sesiones = [];
+            foreach (self::revisiones(['equipo' => $it['equipo'], 'desde' => $hoy]) as $r) {
+                if (($r['estado'] ?? 'programada') === 'realizada') continue;
+                $quitar = array_keys(array_filter((array)$r['filas'], fn($f) => strtoupper((string)$f['codigo']) === $cod && ($f['estado'] ?? 'pendiente') === 'pendiente'));
+                if ($quitar) $sesiones[(int)$r['id']] = [$r['fecha'], $quitar];
+            }
+            if (!$seco) {
+                self::guardarItem((int)$it['id'], ['equipo' => $equipo, 'motivo' => $motivo], $quien);
+                foreach ($sesiones as $id => [, $quitar]) self::guardarRevision($id, ['quitar' => $quitar], $quien);
+            }
+            $out[$cod] = ['titulo' => $it['titulo'], 'antes' => $it['equipo'], 'hecho' => true, 'nota' => '', 'sesiones' => array_column($sesiones, 0)];
+        }
+        return $out;
+    }
+
     public static function guardarRelease(int $id, array $d): array
     {
         $repo = self::repo('rel_releases');
