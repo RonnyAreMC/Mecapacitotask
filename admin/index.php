@@ -91,7 +91,7 @@ foreach ($fijasRepo->todas() as $r) {
     $pid = (int)$r['proyecto_id'];
     if (!isset($mapaProy[$pid])) continue;   // proyecto borrado: la fija ya no dice nada
     $dias = ReunionFijaRepo::diasDe($r);
-    $hoy  = in_array($hoyIso, $dias, true);
+    $hoy  = in_array($hoyIso, $dias, true) && !Feriados::es(date('Y-m-d'));   // en feriado no hay reuniones fijas
     $fijas[] = [
         'r'        => $r,
         'proyecto' => $mapaProy[$pid],

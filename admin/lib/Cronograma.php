@@ -119,6 +119,7 @@ final class Cronograma
     private static function ventanaDelDia(int $dia, string $hora): int
     {
         if (!in_array((int)date('N', $dia), self::conf()['dias'], true)) return 0;
+        if (Feriados::es(date('Y-m-d', $dia))) return 0;   // feriado nacional: ni hora límite ni aviso
         [$h, $m] = array_map('intval', explode(':', $hora));
         return mktime($h, $m, 0, (int)date('n', $dia), (int)date('j', $dia), (int)date('Y', $dia));
     }

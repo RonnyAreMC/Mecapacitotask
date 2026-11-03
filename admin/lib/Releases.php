@@ -314,8 +314,7 @@ final class Releases
     public static function habiles(string $desde, string $hasta): int
     {
         if ($desde === '' || $hasta === '' || $hasta < $desde) return 0;
-        static $feriados = null;
-        $feriados ??= array_flip(self::conf()['feriados']);
+        $feriados = Feriados::mapa();   // el calendario general (calendario.php)
         $n = 0;
         $d = new DateTimeImmutable($desde);
         $fin = new DateTimeImmutable($hasta);
@@ -1275,11 +1274,10 @@ final class Releases
     private const DAILY_CUENTAN = ['cumplida', 'incompleta', 'no_hecha', 'sin_zoom', 'sin_registrar'];
     private const DAILY_RE = '/\b(dail(y|ies)|diari[ao]s?|stand ?-?up)\b/iu';
 
+    /** Lunes a viernes y no feriado (el calendario general, lib/Feriados.php). */
     public static function esHabil(string $fecha): bool
     {
-        static $feriados = null;
-        $feriados ??= array_flip(self::conf()['feriados']);
-        return $fecha !== '' && (int)date('N', strtotime($fecha)) <= 5 && !isset($feriados[$fecha]);
+        return $fecha !== '' && Feriados::esHabil($fecha);
     }
 
     /**
@@ -1732,6 +1730,7 @@ final class Releases
     {
         $hoy ??= date('Y-m-d');
         if (date('H:i') < '07:00' && $hoy === date('Y-m-d')) return 0;
+        if (Feriados::es($hoy)) return 0;   // feriado nacional: ni vencimientos, ni atrasos, ni la revisión de hoy
         $marca = __DIR__ . '/../data/releases_avisos.json';
         $ultimo = json_decode((string)@file_get_contents($marca), true);
         if (($ultimo['dia'] ?? '') === $hoy) return 0;
@@ -1947,6 +1946,8 @@ final class Releases
             $conf['feriados'] = array_values(array_unique(array_merge((array)($conf['feriados'] ?? []), $datos['feriados'])));
             sort($conf['feriados']);
             $r['feriados'] = count($datos['feriados']);
+            // Y al calendario general (calendario.php), que es el que cuenta en todo el panel
+            if (!$seco) Feriados::sembrar(array_replace(array_fill_keys($datos['feriados'], ''), (array)($datos['feriados_nombres'] ?? [])));
         }
         if ($datos['guia']) $conf['guia'] = $datos['guia'];
         if (!empty($datos['programa']) && empty($conf['programa'])) $conf['programa'] = $datos['programa'];
@@ -2231,7 +2232,10 @@ final class Releases
                 foreach ($filas as $f) {
                     $fe = self::fecha((string)($f[1] ?? ''));
                     $tipo = self::normal((string)($f[3] ?? ''));
-                    if ($fe !== '' && is_numeric($f[0] ?? null) && !str_contains($tipo, 'jornada') && !str_contains($tipo, 'pasa a') && !isset($f[4])) $d['feriados'][] = $fe;
+                    if ($fe !== '' && is_numeric($f[0] ?? null) && !str_contains($tipo, 'jornada') && !str_contains($tipo, 'pasa a') && !isset($f[4])) {
+                        $d['feriados'][] = $fe;
+                        $d['feriados_nombres'][$fe] = trim((string)($f[3] ?? ''));
+                    }
                 }
                 $d['feriados'] = array_values(array_unique($d['feriados']));
             } elseif (str_contains($hn, 'guia')) {

@@ -65,21 +65,21 @@ final class ReqCorreo
         Config::guardar(['req_plazos' => $out]);
     }
 
-    /** Hoy si es día hábil; si es fin de semana, el lunes. */
+    /** Hoy si es día hábil; si es fin de semana o feriado, el siguiente hábil. */
     public static function inicioHabil(?string $hoy = null): string
     {
         $t = strtotime($hoy ?? date('Y-m-d'));
-        while ((int)date('N', $t) >= 6) $t = strtotime('+1 day', $t);
+        for ($i = 0; $i < 30 && !Feriados::esHabil(date('Y-m-d', $t)); $i++) $t = strtotime('+1 day', $t);
         return date('Y-m-d', $t);
     }
 
-    /** $desde + $n días hábiles (sin sábados ni domingos). */
+    /** $desde + $n días hábiles (sin sábados, domingos ni feriados). */
     public static function sumarHabiles(string $desde, int $n): string
     {
         $t = strtotime($desde);
-        while ($n > 0) {
+        for ($i = 0; $n > 0 && $i < 1000; $i++) {
             $t = strtotime('+1 day', $t);
-            if ((int)date('N', $t) <= 5) $n--;
+            if (Feriados::esHabil(date('Y-m-d', $t))) $n--;
         }
         return date('Y-m-d', $t);
     }

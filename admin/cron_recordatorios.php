@@ -12,6 +12,8 @@ require_once __DIR__ . '/lib/bootstrap.php';
 cronCallado('recordatorios');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_recordatorios.log
 
 if (!Mailer::listo()) { echo "Correo no configurado.\n"; exit; }
+// Feriado nacional (lib/Feriados.php): ese día no salen recordatorios; se mandan el siguiente día hábil
+if (($feriadoHoy = Feriados::hoy()) !== '') { echo "Hoy es feriado ($feriadoHoy): sin recordatorios.\n"; exit; }
 $conf = Mailer::config();
 if (empty($conf['avisar_recordatorio'])) { echo "Recordatorios desactivados.\n"; exit; }
 

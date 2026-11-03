@@ -121,6 +121,7 @@ final class ReqSeguimiento
     {
         $hoy ??= date('Y-m-d');
         if (date('H:i') < '08:00' && $hoy === date('Y-m-d')) return 0;
+        if (Feriados::es($hoy)) return 0;   // feriado nacional: los vencidos se avisan el siguiente día hábil
         $marca = __DIR__ . '/../data/req_seguimiento.json';
         $ultimo = json_decode((string)@file_get_contents($marca), true);
         if (($ultimo['dia'] ?? '') === $hoy) return 0;

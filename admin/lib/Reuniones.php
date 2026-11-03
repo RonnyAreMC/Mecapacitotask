@@ -248,7 +248,8 @@ class Reuniones
         if (!$dias || $ts === false || $fin === false || $fin < $ts) return [];
         $out = [];
         while ($ts <= $fin && count($out) <= 500) {          // tope de seguridad
-            if (in_array((int)date('N', $ts), $dias, true)) {
+            // Un feriado nacional (lib/Feriados.php) no tiene la reunión que se repite: ni recordatorio ni agenda
+            if (in_array((int)date('N', $ts), $dias, true) && !Feriados::es(date('Y-m-d', $ts))) {
                 $out[] = date('Y-m-d', $ts) . ' ' . $hora;
             }
             $ts = strtotime('+1 day', $ts);

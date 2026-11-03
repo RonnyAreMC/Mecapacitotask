@@ -1343,7 +1343,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
   </div>
 
   <div class="rl-rev">
-    <form class="rl-rev__main" method="post" action="actions.php" data-rl-rev-form data-feriados="<?= e(json_encode(array_values((array)($conf['feriados'] ?? [])))) ?>">
+    <form class="rl-rev__main" method="post" action="actions.php" data-rl-rev-form data-feriados="<?= e(json_encode(array_keys(Feriados::mapa()))) ?>">
       <input type="hidden" name="accion" value="rel_revision_guardar">
       <input type="hidden" name="id" value="<?= (int)$rev['id'] ?>">
       <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$rev['id']])) ?>">

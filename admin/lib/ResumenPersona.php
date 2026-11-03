@@ -129,7 +129,8 @@ final class ResumenPersona
             }
         }
         $dow = (int)date('N', $ahora);
-        foreach ((new ReunionFijaRepo())->todas() as $f) {
+        // En feriado nacional no hay daily ni las demás reuniones fijas
+        foreach (Feriados::es($hoy) ? [] : (new ReunionFijaRepo())->todas() as $f) {
             $pid = (int)($f['proyecto_id'] ?? 0);
             if (!isset($participo[$pid], $proyectos[$pid])) continue;
             if (!in_array($dow, ReunionFijaRepo::diasDe($f), true) || trim((string)($f['hora'] ?? '')) === '') continue;
@@ -317,6 +318,9 @@ final class ResumenPersona
     public static function siguientePaso(array $d): string
     {
         $partes = [];
+        if (($fer = Feriados::nombre((string)$d['hoy'])) !== '') {
+            $partes[] = 'hoy es feriado nacional (<b>' . e($fer) . '</b>): no hay daily ni avisos automáticos';
+        }
         $r = $d['destacada'];
         $hoyR = $r && date('Y-m-d', $r['ts']) === $d['hoy'];
         if ($r && $r['estado'] === 'vivo') {

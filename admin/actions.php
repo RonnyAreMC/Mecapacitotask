@@ -1051,6 +1051,30 @@ switch ($accion) {
         exit('{"ok":true}');
 
     case 'tutorial_crear':
+    /* ---------- Calendario general: los feriados nacionales (lib/Feriados.php · calendario.php) ---------- */
+    case 'feriado_agregar':
+    case 'feriado_quitar':
+    case 'feriado_traer':
+        $anioF = max(2020, min(2100, (int)($_POST['anio'] ?? date('Y'))));
+        try {
+            if ($accion === 'feriado_agregar') {
+                $fF = Feriados::agregar((string)($_POST['fecha'] ?? ''), (string)($_POST['nombre'] ?? ''));
+                redirigir('calendario.php?a=' . substr((string)$fF['fecha'], 0, 4), 'Listo: el ' . date('d/m/Y', strtotime($fF['fecha'])) . ' («' . $fF['nombre'] . '») no se cuenta como día hábil.');
+            }
+            if ($accion === 'feriado_quitar') {
+                Feriados::quitar((int)($_POST['id'] ?? 0));
+                redirigir('calendario.php?a=' . $anioF, 'Listo: ese día vuelve a contarse como hábil.');
+            }
+            $rF = Feriados::sincronizar($anioF);
+            $deF = ['oficial' => 'el calendario oficial', 'base' => 'la base pública Nager.Date', 'respaldo' => 'la lista guardada (la base pública no respondió)'][$rF['fuente']] ?? '';
+            redirigir('calendario.php?a=' . $anioF, $rF['fuente'] === 'ninguna'
+                ? 'No se pudieron traer los feriados de ' . $anioF . ': la base pública no respondió. Prueba más tarde o agrégalos a mano.'
+                : ($rF['nuevos'] ? 'Se agregaron ' . count($rF['nuevos']) . ' feriado(s) de ' . $anioF . ' desde ' . $deF . '.' : 'Ya estaban los ' . $rF['total'] . ' feriados de ' . $anioF . ' (' . $deF . ').'),
+                $rF['fuente'] === 'ninguna' ? 'error' : 'success');
+        } catch (Throwable $e) {
+            redirigir('calendario.php?a=' . $anioF, $e->getMessage(), 'error');
+        }
+
     case 'tutorial_quitar':
     case 'tutorial_avisar':
         if (!class_exists('Tutoriales')) redirigir('index.php', 'Los tutoriales no están disponibles en este servidor.', 'error');

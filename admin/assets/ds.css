@@ -5341,3 +5341,51 @@ html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:
 .rl-rfila__termino .rl-atajo { background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
 .rl-rfila__termino .rl-atajo:hover { background: var(--primary-soft); box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 30%, var(--line)); }
 .rl-fechas__c small { letter-spacing: .02em; }
+
+/* Calendario general (calendario.php): los feriados nacionales, que no se cuentan como días hábiles */
+.fcal-pagina { display: flex; flex-direction: column; gap: var(--space-5); }
+.fcal-cab { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 22px; }
+.fcal-anio { display: flex; align-items: center; gap: 10px; }
+.fcal-anio > b { min-width: 64px; color: var(--ink); font-size: 1.5rem; text-align: center; }
+.fcal-resumen { margin: 0; color: var(--ink-muted); font-size: .86rem; }
+.fcal-resumen b { color: var(--ink); }
+.fcal-hoy { display: inline-flex; align-items: center; gap: 8px; margin: 0 0 0 auto; padding: 7px 14px; border-radius: 999px;
+  background: var(--primary-soft); color: var(--primary-ink); font-size: .84rem; }
+.fcal-hoy .mc-icon { flex: none; }
+.fcal-hoy.is-feriado { background: var(--danger-soft); color: var(--danger-ink); }
+.fcal-traer { margin: 0; }
+.fcal-cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-5); align-items: start; }
+.fcal-meses { display: grid; grid-template-columns: repeat(auto-fill, minmax(208px, 1fr)); gap: var(--space-4); }
+.fcal-mes { padding: 14px 14px 12px; border-radius: var(--radius-lg); background: var(--surface); box-shadow: 0 0 0 1px var(--line), var(--shadow-xs); }
+.fcal-mes.is-actual { box-shadow: 0 0 0 1.5px color-mix(in srgb, var(--primary) 45%, var(--line)), var(--shadow-xs); }
+.fcal-mes h3 { margin: 0 0 8px; color: var(--ink); font: 700 .9rem/1.2 var(--font-display); }
+.fcal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+.fcal-dow { padding-bottom: 4px; color: var(--ink-subtle); font-size: .64rem; font-weight: 700; text-align: center; }
+.fcal-d { display: grid; place-items: center; aspect-ratio: 1; border-radius: 8px; color: var(--ink); font-size: .74rem; font-variant-numeric: tabular-nums; }
+.fcal-d.is-finde { color: var(--ink-subtle); }
+.fcal-d.is-pasado:not(.is-feriado) { color: var(--ink-disabled); }
+.fcal-d.is-feriado { background: var(--danger-soft); color: var(--danger-ink); font-weight: 700; cursor: default; }
+.fcal-d.is-feriado.is-pasado { opacity: .7; }
+.fcal-d.is-hoy { box-shadow: inset 0 0 0 1.5px var(--primary); color: var(--primary-ink); font-weight: 700; }
+.fcal-lista { position: sticky; top: calc(var(--topbar-h, 64px) + 16px); display: flex; flex-direction: column; gap: 12px; padding: 18px; }
+.fcal-lista h2 { margin: 0; color: var(--ink); font-size: 1.05rem; }
+.fcal-fers { display: flex; flex-direction: column; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.fcal-fer { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: center; gap: 10px; padding: 6px 4px; border-radius: 12px; }
+.fcal-fer + .fcal-fer { border-top: 1px solid var(--line); border-radius: 0; }
+.fcal-fer__dia { display: flex; flex-direction: column; align-items: center; padding: 4px 0; border-radius: 10px; background: var(--danger-soft); color: var(--danger-ink); line-height: 1.05; }
+.fcal-fer__dia b { font-size: 1.05rem; }
+.fcal-fer__dia small { font-size: .62rem; font-weight: 700; text-transform: uppercase; }
+.fcal-fer__txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.fcal-fer__txt b { color: var(--ink); font-size: .86rem; font-weight: 600; }
+.fcal-fer__txt small { color: var(--ink-muted); font-size: .72rem; }
+.fcal-fer__txt em { color: var(--ink-subtle); }
+.fcal-fer form { margin: 0; }
+.fcal-fer.is-pasado .fcal-fer__dia { opacity: .6; }
+.fcal-fer.is-hoy .fcal-fer__dia { box-shadow: 0 0 0 1.5px var(--danger); }
+.fcal-fer.is-off .fcal-fer__dia { background: var(--surface-sunken); color: var(--ink-subtle); }
+.fcal-fer.is-off .fcal-fer__txt b { color: var(--ink-subtle); text-decoration: line-through; }
+.fcal-vacio, .fcal-fuente { margin: 0; color: var(--ink-muted); font-size: .8rem; line-height: 1.5; }
+.fcal-fuente { padding-top: 10px; border-top: 1px solid var(--line); font-size: .74rem; }
+@media (max-width: 1100px) { .fcal-cuerpo { grid-template-columns: minmax(0, 1fr); } .fcal-lista { position: static; } .fcal-hoy { margin-left: 0; } }
+@media (max-width: 520px) { .fcal-meses { grid-template-columns: minmax(0, 1fr); } }
+.fcal-d.is-feriado.is-hoy { color: var(--danger-ink); box-shadow: inset 0 0 0 1.5px var(--danger); }

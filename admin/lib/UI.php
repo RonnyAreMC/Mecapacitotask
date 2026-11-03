@@ -292,9 +292,10 @@ class UI
         if (is_file(__DIR__ . '/../' . $pv)) { $paginaVideos = $pv; break; }
     }
     $itMio = (is_file(__DIR__ . '/../notas.php') ? $navLink('notas.php', 'mis-notas', UI::icono(UI::hayIcono('ds-notas') ? 'ds-notas' : 'StickyNote'), 'Mis notas', 'Mis notas: solo tú las ves') : '')
+        . (is_file(__DIR__ . '/../calendario.php') ? $navLink('calendario.php', 'calendario', UI::icono('ds-agenda'), 'Calendario', 'Los feriados nacionales: esos días no se cuentan') : '')
         . ($paginaVideos !== '' && !Auth::esSupervisor() ? $navLink($paginaVideos, 'videos', UI::icono('MonitorPlay'), 'Videos', 'Las reuniones grabadas, como en YouTube') : '')
         . (is_file(__DIR__ . '/Tutoriales.php') ? $navLink('tutoriales.php', 'tutoriales', UI::icono('ds-video'), 'Tutoriales', 'Tutoriales en video') : '');
-    echo $navGrupo('Mi espacio', 'ds-perfil', $itMio, in_array($activo, ['mis-notas', 'videos', 'tutoriales'], true));
+    echo $navGrupo('Mi espacio', 'ds-perfil', $itMio, in_array($activo, ['mis-notas', 'calendario', 'videos', 'tutoriales'], true));
 
     /* ---- Abajo: los atajos de trabajo entre equipos, como botones de ícono con su contador ---- */
     $atajo = fn(string $href, string $clave, string $icono, string $tip, int $n = 0, bool $fin = true) =>
