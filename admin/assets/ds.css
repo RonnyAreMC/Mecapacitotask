@@ -5636,3 +5636,39 @@ html .ds-modal__foot { background: transparent; border-top: 0; padding: 8px var(
 html .ds-modal__foot .mc-btn--ghost { box-shadow: inset 0 0 0 1px var(--line-strong); background: var(--surface); color: var(--ink); }
 html .ds-modal__foot :is(.mc-btn--success, .mc-btn--primary) { background: var(--primary); color: var(--on-primary, #fff); }
 html .ds-modal__head .ds-modal__title { font: 600 1.25rem/1.4 var(--font-sans); }
+
+/* Revisiones de la semana: cada día a lo ancho y sus sesiones en una grilla (sin tarjetas estiradas ni huecos) */
+.rl-agenda { display: flex; flex-direction: column; gap: 12px; }
+.rl-dia { min-height: 0; padding: 12px 14px 14px; }
+.rl-dia__lista { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 10px; align-items: start; }
+.rl-dia__cab { padding: 0 2px 8px; }
+.rl-ses { padding: 12px 14px; }
+.rl-ses__foco { -webkit-line-clamp: 2; }
+
+/* Reuniones diarias: las cifras en una fila, el día por día a lo ancho y la gente en columnas */
+.rl-dailies__cuerpo { grid-template-columns: minmax(0, 1fr); gap: var(--space-4); }
+.rl-dailies__nums { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 12px; }
+.rl-dnum { padding: 12px 14px; border-radius: 12px; background: var(--surface-sunken); }
+.rl-dnum.col-s-ok dd, .rl-dnum.col-s-warn dd, .rl-dnum.col-s-crit dd { color: var(--col-fg); }
+.rl-dbarra > i { background: var(--col-solid, var(--primary)); }
+.rl-ddias { grid-template-columns: repeat(auto-fill, minmax(64px, 1fr)); }
+.rl-dgente { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 10px 28px; }
+.rl-d--cumplida { --d-bg: var(--col-ok-solid); --d-ink: #fff; --d-line: transparent; }
+.rl-d--incompleta { --d-bg: var(--col-warn-bg); --d-ink: var(--col-warn-fg); --d-line: color-mix(in srgb, var(--col-warn-solid) 45%, transparent); }
+.rl-d--no_hecha { --d-bg: var(--col-crit-bg); --d-ink: var(--col-crit-fg); --d-line: transparent; }
+.rl-d--sin_registrar { --d-bg: var(--surface); --d-ink: var(--col-crit-fg); --d-line: color-mix(in srgb, var(--col-crit-solid) 50%, transparent); }
+.rl-d--sin_zoom { --d-bg: var(--col-nm-bg); --d-ink: var(--col-nm-fg); --d-line: var(--line-strong); }
+.rl-d--no_aplica, .rl-d--pendiente { --d-bg: var(--col-none-bg); --d-ink: var(--col-none-fg); }
+/* Agenda: los días lado a lado; dentro de cada día, sus sesiones en columnas (un solo día llena el ancho con varias tarjetas) */
+.rl-agenda { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); align-items: start; }
+.rl-agenda.is-vacia { grid-template-columns: minmax(0, 1fr); }
+.rl-dia__lista { grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); }
+/* Resumen de Releases: cada fila en una línea y todo alineado (el nombre largo se corta con «…») */
+.rl-arbol td:first-child { width: 42%; min-width: 300px; max-width: 0; }
+.rl-arbol__nom { display: flex; align-items: center; width: 100%; }
+.rl-arbol__abrir, .rl-arbol__hueco { flex: none; width: 30px; }
+.rl-arbol .rl-code { flex: none; min-width: 34px; justify-content: center; text-align: center; }
+.rl-arbol__txt { flex: 1; min-width: 0; }
+.rl-arbol__txt b, .rl-arbol__txt small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rl-arbol__nom--hija { padding-left: 40px; }
+.rl-arbol td:nth-child(3) { white-space: nowrap; }

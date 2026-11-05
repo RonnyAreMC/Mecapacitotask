@@ -528,7 +528,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <tr class="rl-arbol__fila">
             <td><span class="rl-arbol__nom">
               <?php if ($hijos): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm rl-arbol__abrir" data-rl-arbol-abrir="<?= e($cod) ?>" aria-expanded="false" aria-label="Ver los equipos de <?= e($cod) ?>"><?= rlIco('chevron-der', 16) ?></button><?php else: ?><span class="rl-arbol__hueco"></span><?php endif; ?>
-              <?= rlCode($cod, $r['color']) ?><span><b><?= e((string)($r['nombre'] ?? $cod)) ?></b><?php if (($r['sprints'] ?? '') !== ''): ?><small><?= e($r['sprints']) ?></small><?php endif; ?></span></span></td>
+              <?= rlCode($cod, $r['color']) ?><span class="rl-arbol__txt" title="<?= e((string)($r['nombre'] ?? $cod)) ?>"><b><?= e((string)($r['nombre'] ?? $cod)) ?></b><?php if (($r['sprints'] ?? '') !== ''): ?><small><?= e($r['sprints']) ?></small><?php endif; ?></span></span></td>
             <td class="rl-arbol__fechas mc-num"><?= e(rlF($x['inicio'] ?: ($r['inicio'] ?? ''))) ?> → <?= e(rlF($x['fin'] ?: ($r['fin'] ?? ''), true)) ?></td>
             <td class="mc-num"><b><?= (int)$x['cerrados'] ?></b>/<?= (int)$x['total'] ?><small> terminados</small></td>
             <td><span class="rl-arbol__av"><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><b class="mc-num"><?= (int)$x['pct'] ?> %</b></span></td>
@@ -537,7 +537,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           </tr>
           <?php foreach ($hijos as $nom => $c): $sc = rlSaludGrupo($c, $hoy); $smE = $miembros[(int)($eqs[$nom]['sm_id'] ?? 0)]['nombre'] ?? (string)($eqs[$nom]['sm_nombre'] ?? ''); ?>
           <tr class="rl-arbol__fila rl-arbol__fila--hija" data-rl-arbol-de="<?= e($cod) ?>" hidden>
-            <td><span class="rl-arbol__nom rl-arbol__nom--hija"><i class="rl-arbol__dot" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" aria-hidden="true"></i><span><b><?= e($nom) ?></b><?php if ($smE !== ''): ?><small><?= e($smE) ?></small><?php endif; ?></span></span></td>
+            <td><span class="rl-arbol__nom rl-arbol__nom--hija"><i class="rl-arbol__dot" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" aria-hidden="true"></i><span class="rl-arbol__txt"><b><?= e($nom) ?></b><?php if ($smE !== ''): ?><small><?= e($smE) ?></small><?php endif; ?></span></span></td>
             <td class="rl-arbol__fechas mc-num"><?= e(rlF($c['inicio'] ?? '')) ?> → <?= e(rlF($c['fin'] ?? '', true)) ?></td>
             <td class="mc-num"><b><?= (int)$c['cerrados'] ?></b>/<?= (int)$c['total'] ?></td>
             <td><span class="rl-arbol__av"><?= rlBarra((int)$c['pct'], (int)$c['esperado'], $sc) ?><b class="mc-num"><?= (int)$c['pct'] ?> %</b></span></td>
@@ -935,12 +935,13 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <?php if ($dl['desde'] > $hoy): ?>
     <p class="rl-vacio-txt"><?= rlIco('reloj', 16) ?> Se empieza a medir el <?= e(rlFL($dl['desde'])) ?>.</p>
     <?php else: ?>
+    <?php $tonoDl = fn(?int $p) => $p === null ? 'nm' : ($p >= 80 ? 'ok' : ($p >= 60 ? 'warn' : 'crit'));   // la colorimetría: 80 % o más cumple, 60 % alerta ?>
     <div class="rl-dailies__cuerpo">
       <dl class="rl-dailies__nums">
-        <div class="rl-dnum"><dt>Cumplimiento</dt><dd class="mc-num"><?= $dl['pct'] === null ? '—' : (int)$dl['pct'] . '<small>%</small>' ?></dd>
+        <div class="rl-dnum col-s-<?= $tonoDl($dl['pct']) ?>"><dt>Cumplimiento</dt><dd class="mc-num"><?= $dl['pct'] === null ? '—' : (int)$dl['pct'] . '<small>%</small>' ?></dd>
           <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['pct'] ?? 0) ?>%"></i></span>
           <small><?= $dl['cuentan'] ? (int)$dl['cuenta']['cumplida'] . ' de ' . (int)$dl['cuentan'] . ' día(s) hábiles' : 'Aún no hay días medidos' ?></small></div>
-        <div class="rl-dnum"><dt>Asistencia</dt><dd class="mc-num"><?= $dl['asistencia'] === null ? '—' : (int)$dl['asistencia'] . '<small>%</small>' ?></dd>
+        <div class="rl-dnum col-s-<?= $tonoDl($dl['asistencia']) ?>"><dt>Asistencia</dt><dd class="mc-num"><?= $dl['asistencia'] === null ? '—' : (int)$dl['asistencia'] . '<small>%</small>' ?></dd>
           <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['asistencia'] ?? 0) ?>%"></i></span>
           <small>Promedio del equipo conectado</small></div>
         <div class="rl-dnum<?= ($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ? ' is-mal' : '' ?>"><dt>Sin daily</dt><dd class="mc-num"><?= (int)($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ?></dd>
@@ -978,7 +979,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <ul class="rl-dgente">
           <?php foreach ($conDatos as $mid => $p): $m = $miembros[$mid] ?? null; $pc = (int)round($p['va'] * 100 / $p['de']); ?>
           <li><?= $m ? UI::avatar($m, 28) : '' ?><span class="rl-dgente__n"><?= e($nomDl((int)$mid)) ?></span>
-            <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= $pc ?>%"></i></span><b class="mc-num"><?= (int)$p['va'] ?>/<?= (int)$p['de'] ?></b></li>
+            <span class="rl-dbarra col-s-<?= $tonoDl($pc) ?>" aria-hidden="true"><i style="--p:<?= $pc ?>%"></i></span><b class="mc-num"><?= (int)$p['va'] ?>/<?= (int)$p['de'] ?></b></li>
           <?php endforeach; ?>
         </ul>
         <?php else: ?>
