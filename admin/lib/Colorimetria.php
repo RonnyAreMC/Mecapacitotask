@@ -85,7 +85,7 @@ final class Colorimetria
         'dod'   => ['p' => 'De lo terminado en los últimos 30 días, lo que no tiene observaciones de QA pendientes.', 'e' => 'Igual, con las tareas de sus proyectos.'],
         'riesgos' => ['p' => 'Tareas abiertas de prioridad alta con la fecha límite vencida.', 'e' => 'Igual, con las tareas de sus proyectos.'],
         'acep'  => ['p' => 'Sus ítems que pasaron la primera revisión de cierre; sin revisiones, las tareas terminadas que no se volvieron a abrir.', 'e' => 'Ítems que pasaron su primera revisión de cierre; sin revisiones, las tareas que no se volvieron a abrir.'],
-        'imped' => ['p' => 'Tareas abiertas que esperan una dependencia sin terminar.', 'e' => 'Ítems bloqueados.'],
+        'imped' => ['p' => 'Tareas abiertas con un impedimento anotado o que esperan una dependencia sin terminar.', 'e' => 'Ítems bloqueados y tareas de sus proyectos con un impedimento abierto o esperando una dependencia.'],
         'vel'   => ['p' => 'Cuánto cambian las tareas terminadas por semana (últimas cuatro).', 'e' => 'Igual, con las tareas de sus proyectos.'],
     ];
 
@@ -379,10 +379,18 @@ final class Colorimetria
             if ($ini !== '' && $ini <= $fin) $dias[] = (strtotime($fin) - strtotime($ini)) / 86400;
         }
         if ($dias) $x['ciclo'] = round(array_sum($dias) / count($dias), 1);
-        // Impedimentos: tareas abiertas que esperan una dependencia sin terminar
+        // Observaciones pendientes por tarea: las de QA (defectos) y los impedimentos anotados en su ficha
+        $conObs = $conImp = [];
+        foreach ($obsPend as $o) {
+            if (!($tid = (int)($o['tarea_id'] ?? 0)) || !isset($porId[$tid])) continue;
+            if (($o['tipo'] ?? 'nota') === 'impedimento') $conImp[$tid] = true;
+            else $conObs[$tid] = ($conObs[$tid] ?? 0) + 1;
+        }
+        // Impedimentos: tareas abiertas con un impedimento anotado o que esperan una dependencia sin terminar
         $n = 0;
         foreach ($tareas as $t) {
             if ($hecha($t)) continue;
+            if (isset($conImp[(int)$t['id']])) { $n++; continue; }
             foreach (array_map('intval', (array)($t['dependencias'] ?? [])) as $dep) {
                 if (isset($porId[$dep]) && !$hecha($porId[$dep])) { $n++; break; }
             }
@@ -404,8 +412,6 @@ final class Colorimetria
         }
         if (!$total) return $x;
         $alta = fn(array $t) => in_array(mb_strtolower((string)($t['prioridad'] ?? '')), ['alta', 'urgente', 'critica', 'crítica'], true);
-        $conObs = [];
-        foreach ($obsPend as $o) if (($tid = (int)($o['tarea_id'] ?? 0)) && isset($porId[$tid])) $conObs[$tid] = ($conObs[$tid] ?? 0) + 1;
         // Defectos críticos: observaciones de QA sin resolver en tareas abiertas de prioridad alta
         $x['defec'] = array_sum(array_map(fn($t) => !$hecha($t) && $alta($t) ? ($conObs[(int)$t['id']] ?? 0) : 0, $tareas));
         // Riesgos críticos: tareas abiertas de prioridad alta que ya se pasaron de su fecha límite
@@ -427,11 +433,11 @@ final class Colorimetria
         return $x;
     }
 
-    /** Las observaciones de QA sin resolver (las que abren hilo), de todo el panel. */
+    /** Las observaciones de QA y los impedimentos sin resolver (los que abren hilo), de todo el panel. */
     public static function obsPendientes(): array
     {
         static $l = null;
-        return $l ??= array_values(array_filter((new JsonStore('observaciones'))->all(), fn($o) => ($o['tipo'] ?? 'nota') === 'nota'
+        return $l ??= array_values(array_filter((new JsonStore('observaciones'))->all(), fn($o) => in_array($o['tipo'] ?? 'nota', ['nota', 'impedimento'], true)
             && ($o['estado'] ?? '') === 'pendiente' && (int)($o['padre_id'] ?? 0) === 0));
     }
 
@@ -501,7 +507,7 @@ final class Colorimetria
         $revs = array_filter(Releases::revisiones(['equipo' => $equipo, 'desde' => date('Y-m-d', strtotime($hoy . ' -28 days')), 'hasta' => $hoy]), fn($r) => ($r['estado'] ?? '') === 'realizada');
         $cu = $revs ? Releases::cumplimiento($revs) : null;
         $x['pred'] = $cu && $cu['pct'] !== null ? (float)$cu['pct'] : null;
-        $x['imped'] = $items ? count(array_filter($items, fn($it) => $it['estado'] === 'bloqueado')) : null;
+        $x['imped'] = $items ? count(array_filter($items, fn($it) => $it['estado'] === 'bloqueado')) + (int)($x['imped'] ?? 0) : $x['imped'];
         $x['items'] = count($items);
         $x['cerrados'] = count(array_filter($items, fn($it) => $it['estado'] === 'cerrado'));
         return $x;

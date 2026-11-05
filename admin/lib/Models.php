@@ -1837,9 +1837,10 @@ class ObservacionRepo
 
     public function crear(array $datos): array
     {
-        // 'nota' (revisión/QA normal) o 'recordatorio' (aviso de dependencia).
+        // 'nota' (revisión/QA normal), 'recordatorio' (aviso de dependencia) o 'impedimento'
+        // (lo que frena una tarea, anotado desde su ficha; 'depende_de': el otro equipo, si es de otro).
         $tipo = $datos['tipo'] ?? 'nota';
-        if (!in_array($tipo, ['nota', 'recordatorio'], true)) $tipo = 'nota';
+        if (!in_array($tipo, ['nota', 'recordatorio', 'impedimento'], true)) $tipo = 'nota';
         return $this->store->insert([
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'tarea_id'    => (int)($datos['tarea_id'] ?? 0),
@@ -1860,6 +1861,7 @@ class ObservacionRepo
             // A quién va dirigida: ids de miembros. Vacío = a todo el equipo.
             'destinatarios' => self::destinatariosEntrada($datos['destinatarios'] ?? []),
             'tipo'        => $tipo,
+            'depende_de'  => mb_substr(trim((string)($datos['depende_de'] ?? '')), 0, 80),
             'adjuntos'    => array_values($datos['adjuntos'] ?? []),
         ]);
     }

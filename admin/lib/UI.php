@@ -1207,7 +1207,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
     public const PASOS_DETALLE_TAREA = [
         ['Detalle',      'Qué hay que hacer',         'Responsables, fechas, dependencias y documentos.', 'fa-file-lines'],
         ['Historia',     'Por dónde pasó',            'Quién la agregó, a quién se pasó, cuándo empezó y terminó.', 'fa-clock-rotate-left'],
-        ['Impedimentos', 'Lo que la frenó',           'Las observaciones que le pusieron y si ya se resolvieron.', 'fa-triangle-exclamation'],
+        ['Impedimentos', 'Lo que la frena',           'Lo que la frena, de qué equipo depende y si ya se resolvió.', 'fa-triangle-exclamation'],
         ['Release',      'A qué suma',                'El ítem del release al que está amarrada.', 'fa-route'],
         ['Commits',      'El código que la menciona', 'Los commits que llevan su #id.', 'fa-code-commit'],
     ];

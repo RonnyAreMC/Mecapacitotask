@@ -10717,3 +10717,45 @@ html.dark .vt-pizarra-card { background: rgba(255, 255, 255, .03); }
   .vt-portada__img, .vt-portada__gen { transition: none; }
   .vt-card:hover .vt-portada__img, .vt-card:hover .vt-portada__gen { transform: none; }
 }
+
+/* ---------- La ficha de la tarea, ordenada y sin cortes ---------- */
+/* Sin los arcos del canto derecho: en la ficha se veían cortados */
+.dlg-detalle-wz .wz-cuerpo { background: var(--wz-sup); }
+/* El pie es su propia barra: ya no flota sobre el contenido ni lo tapa con el desvanecido */
+.dlg-detalle-wz .wz-panel.activo { flex: 1 1 auto; padding-bottom: 22px; }
+.dlg-detalle-wz .wz-pie { position: relative; flex: none; min-height: 0; padding: 12px var(--wz-margen) 14px; border-top: 1px solid var(--wz-linea); background: var(--wz-sup); }
+.dlg-detalle-wz .wz-pie::before { display: none; }
+/* Lo que falta para la fecha: un chip junto al estado y la prioridad, con el color de la colorimetría */
+.dt-plazo { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 999px; background: var(--col-bg); color: var(--col-fg); font-size: .8rem; font-weight: 700; }
+.dt-plazo svg { flex: none; }
+/* Trabajo en paralelo: un aviso con fondo suave, sin raya de color */
+.dt-carga { margin: 14px 0 0; padding: 12px 14px; border: 0; border-radius: 12px; background: var(--col-warn-bg, #FEF3C7); color: var(--c-text); }
+.dt-carga b { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; color: var(--col-warn-fg, #92400E); }
+.dlg-detalle-wz .dt-desc { margin-top: 14px; }
+
+/* Impedimentos: el resumen con el botón, el formulario y la lista */
+.dt-imp-cab { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 14px 16px; border-radius: 14px; background: var(--wz-sec, #F1F5F9); }
+.dt-imp-cab__txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.dt-imp-cab__txt b { color: var(--wz-tinta); font-size: .95rem; font-weight: 700; }
+.dt-imp-cab__txt small { color: var(--wz-tinta-2); font-size: .8rem; line-height: 1.45; }
+.dt-imp-cab .btn-meca { flex: none; }
+.dt-imp-cab .btn-meca[hidden] { display: none; }
+.dt-imp-form { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 14px; background: var(--wz-sup); box-shadow: 0 0 0 1px var(--wz-linea); }
+.dt-imp-form[hidden], .dt-imp-form [hidden] { display: none; }
+.dt-imp-form textarea.input-meca { min-height: 84px; }
+.dt-imp-form__fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.dt-imp-form__pie { display: flex; justify-content: flex-end; gap: 10px; }
+.dt-imp-form__pie .btn-meca svg, .dt-imp-cab .btn-meca svg { flex: none; }
+.dt-imp .dt-imp__item { gap: 8px; }
+.dt-imp__cab { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.dt-imp .dt-imp__item .dt-imp__estado { align-self: center; gap: 6px; background: var(--col-bg); color: var(--col-fg); font-weight: 700; }
+.dt-imp__tipo { color: var(--wz-tinta-2); font-size: .76rem; font-weight: 600; }
+.dt-imp__eq { display: inline-flex; align-items: center; gap: 6px; padding: 2px 10px; border-radius: 999px; background: var(--wz-sec, #F1F5F9); color: var(--wz-tinta); font-size: .76rem; font-weight: 600; }
+.dt-imp__eq i { width: 8px; height: 8px; border-radius: 50%; background: var(--dc, #64748b); }
+.dt-imp__accion { margin-left: auto; }
+/* En la pestaña Observaciones */
+.obs-tipo-imp { display: inline-flex; align-items: center; gap: 4px; color: var(--col-warn-fg, #92400E); font-weight: 700; }
+@media (max-width: 560px) {
+  .dt-imp-cab { flex-direction: column; align-items: stretch; }
+  .dt-imp-form__pie > .btn-meca { flex: 1 1 0; justify-content: center; }
+}

@@ -2670,6 +2670,12 @@ usort($genteFicha, fn($a, $b) => strcmp($a['nombre'], $b['nombre']));
 $tAbrir = (int)($_GET['tarea'] ?? 0) > 0 ? (new TareaRepo())->buscar((int)$_GET['tarea']) : null;
 ?>
 <script type="application/json" id="dt-gente"><?= json_encode($genteFicha, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
+<?php /* Los íconos (SVG del DS) que pinta admin.js en la ficha: impedimentos y lo que falta para la fecha */ ?>
+<script type="application/json" id="dt-iconos"><?= json_encode([
+    'mas' => UI::iconoDS('mas', 16), 'check' => UI::iconoDS('check', 16), 'reabrir' => UI::iconoDS('reintentar', 16),
+    'abierto' => Colorimetria::icono('warn', 14), 'resuelto' => Colorimetria::icono('ok', 14), 'reloj' => UI::iconoDS('reloj', 14),
+    'vencida' => Colorimetria::icono('crit', 14), 'carga' => UI::iconoDS('usuarios', 16),
+], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?></script>
 <?php if ($tAbrir && (int)$tAbrir['proyecto_id'] === $id): ?>
 <div hidden id="tarea-abrir" data-ver-tarea="<?= $verTareaAttr($tAbrir) ?>"></div>
 <?php endif; ?>

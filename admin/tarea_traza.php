@@ -97,7 +97,23 @@ usort($historia, fn($a, $b) => strcmp($a['t'], $b['t']));
 // Terminada antes del historial: la fecha que se guardaba al completarla
 if ($finReal === '' && in_array($t['estado'] ?? '', $finales, true)) $finReal = (string)($t['completada_en'] ?? '');
 
-/* ---------- Observaciones (impedimentos) ---------- */
+/* ---------- Impedimentos y observaciones ---------- */
+// Los equipos de los que puede depender (los de Releases, menos el suyo, y las áreas), con su color
+if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+$equiposImp = [];
+$colorEq = [];
+if (class_exists('Releases')) {
+    foreach (Releases::equipos() as $nomE => $eqE) {
+        if ($nomE === 'Todos') continue;
+        $colorEq['Equipo ' . $nomE] = (string)$eqE['color'];
+        if (in_array((int)$t['proyecto_id'], Releases::proyectosEquipo((string)$nomE), true)) continue;   // el suyo
+        $equiposImp[] = ['v' => 'Equipo ' . $nomE, 'grupo' => 'Equipos', 'color' => (string)$eqE['color']];
+    }
+}
+foreach (Catalogo::equipos() as [$labelE]) $equiposImp[] = ['v' => (string)$labelE, 'grupo' => 'Áreas', 'color' => ''];
+$yo = (int)(Auth::usuario()['id'] ?? 0);
+$gestiona = puedeGestionar((int)$t['proyecto_id']);
+$suya = TareaRepo::tieneAsignado($t, $yo);
 $todasObs = array_values(array_filter((new ObservacionRepo())->delProyecto((int)$t['proyecto_id']), fn($o) => (int)($o['tarea_id'] ?? 0) === $id));
 $respuestas = [];
 foreach ($todasObs as $o) if ((int)($o['padre_id'] ?? 0) > 0) $respuestas[(int)$o['padre_id']] = ($respuestas[(int)$o['padre_id']] ?? 0) + 1;
@@ -113,14 +129,18 @@ foreach ($todasObs as $o) {
         'resuelto_en'=> (string)($o['resuelto_en'] ?? ''),
         'respuestas' => (int)($respuestas[(int)$o['id']] ?? 0),
         'tipo'       => (string)($o['tipo'] ?? 'nota'),
+        'id'         => (int)$o['id'],
+        'depende_de' => (string)($o['depende_de'] ?? ''),
+        'color'      => $colorEq[(string)($o['depende_de'] ?? '')] ?? '',
+        // Los impedimentos los resuelve quien los anotó, quien tiene la tarea o quien gestiona
+        'puede_resolver' => ($o['tipo'] ?? '') === 'impedimento' && !Auth::esSupervisor() && ((int)($o['creado_por'] ?? 0) === $yo || $suya || $gestiona),
     ];
 }
 usort($impedimentos, fn($a, $b) => strcmp($b['creado'], $a['creado']));
 
 /* ---------- Release ---------- */
 $release = [];
-if (is_file(__DIR__ . '/lib/Releases.php')) {
-    require_once __DIR__ . '/lib/Releases.php';
+if (class_exists('Releases')) {
     $ver = Releases::veTodo();
     foreach (Releases::items() as $it) {
         if (!in_array($id, array_map('intval', (array)($it['tareas'] ?? [])), true)) continue;
@@ -167,6 +187,8 @@ echo json_encode([
     'inicio_real'  => $inicioReal,
     'fin_real'     => $finReal,
     'impedimentos' => $impedimentos,
+    'puede_imp'    => !Auth::esSupervisor(),
+    'equipos_imp'  => $equiposImp,
     'release'      => $release,
     'commits'      => $commits,
 ], JSON_UNESCAPED_UNICODE);

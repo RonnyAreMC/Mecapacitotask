@@ -34,6 +34,9 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
     $tRef    = (int)($o['tarea_id'] ?? 0) ? $tareas->buscar((int)$o['tarea_id']) : null;
     $rRef    = (int)($o['reunion_id'] ?? 0) ? $reuniones->buscar((int)$o['reunion_id']) : null;
     $esRecord = ($o['tipo'] ?? 'nota') === 'recordatorio';
+    // Impedimento anotado desde la ficha de la tarea (y, si es de otro, de qué equipo depende)
+    $esImp    = ($o['tipo'] ?? 'nota') === 'impedimento';
+    $depImp   = trim((string)($o['depende_de'] ?? ''));
     // Nombres de los destinatarios (a quién se dirigió / avisó).
     $destNombres = [];
     foreach (ObservacionRepo::destinatariosDe($o) as $mid) {
@@ -49,6 +52,7 @@ function obsItemHtml(array $o, bool $esRespuesta = false): string
           <b><?= e($paraNombres ? implode(', ', $paraNombres) : ($autor['nombre'] ?? 'Alguien')) ?></b>
           <span class="obs-meta">
             <?php if ($esRecord): ?><span class="obs-tipo-record"><?= UI::icono('ds-notificaciones') ?> Recordatorio</span> · <?php endif; ?>
+            <?php if ($esImp): ?><span class="obs-tipo-imp"><?= UI::icono('ds-alerta') ?> Impedimento<?= $depImp !== '' ? ' · depende de ' . e($depImp) : '' ?></span> · <?php endif; ?>
             <span class="obs-equipo"><?= UI::iconoEquipo((string)($o['equipo'] ?? ''), $eqIcono, 'ico-equipo--chip') ?> <?= e($eqLabel) ?></span>
             · <?= e($o['creado'] ?? '') ?>
             <?php if ($creador): ?>

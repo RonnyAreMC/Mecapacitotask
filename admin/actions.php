@@ -44,6 +44,8 @@ $accionesDeCualquiera = [
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
     'dep_recordar',
+    // Los impedimentos de una tarea (su ficha): los anota cualquiera del proyecto
+    'imp_crear', 'imp_resolver',
     // El responsable de un requerimiento suelto puede marcarlo terminado desde
     // su bandeja, y anotar observaciones en el que tenga asignado (dentro se
     // comprueba que sea suyo).
@@ -1943,6 +1945,58 @@ switch ($accion) {
             $avisados ? 'Recordatorio enviado (' . $avisados . ') y guardado en observaciones.'
                       : 'Nadie del otro equipo tiene correo registrado. Igual quedó guardado en observaciones.',
             $avisados ? 'success' : 'info');
+
+    /* ---------- Impedimentos de una tarea (paso «Impedimentos» de su ficha) ----------
+       Cualquiera del proyecto anota lo que frena una tarea y, si depende de otro equipo,
+       de cuál y por qué. Queda como observación de tipo «impedimento»: sale en la pestaña
+       Observaciones y cuenta en la colorimetría (Impedimentos abiertos). */
+    case 'imp_crear':
+    case 'imp_resolver':
+        $finImp = function (bool $ok, string $msg): never {
+            header('Content-Type: application/json; charset=utf-8');
+            exit(json_encode(['ok' => $ok, 'mensaje' => $msg], JSON_UNESCAPED_UNICODE));
+        };
+        $yoImp = (int)(Auth::usuario()['id'] ?? 0);
+        if (Auth::esSupervisor()) $finImp(false, 'Un supervisor solo observa el tablero.');
+        $obsRepo = new ObservacionRepo();
+        if ($accion === 'imp_resolver') {
+            $oImp = $obsRepo->buscar((int)($_POST['id'] ?? 0));
+            $tImp = $oImp ? $tareas->buscar((int)($oImp['tarea_id'] ?? 0)) : null;
+            if (!$oImp || !$tImp || !puedeVerProyecto((int)$oImp['proyecto_id'])) $finImp(false, 'Eso ya no está.');
+            // Lo resuelve quien lo anotó, quien tiene la tarea o quien gestiona el proyecto
+            if ((int)($oImp['creado_por'] ?? 0) !== $yoImp && !TareaRepo::tieneAsignado($tImp, $yoImp) && !puedeGestionar((int)$oImp['proyecto_id'])) {
+                $finImp(false, 'Lo marca resuelto quien lo anotó, quien tiene la tarea o quien gestiona el proyecto.');
+            }
+            $nuevoImp = ($oImp['estado'] ?? 'pendiente') === 'pendiente' ? 'resuelta' : 'pendiente';
+            $obsRepo->actualizar((int)$oImp['id'], ['estado' => $nuevoImp, 'resuelto_en' => $nuevoImp === 'resuelta' ? date('Y-m-d H:i') : '',
+                                                    'resuelto_por' => $nuevoImp === 'resuelta' ? $yoImp : 0]);
+            chequearEntrega((int)$oImp['proyecto_id'], $proyectos, $tareas);
+            $finImp(true, $nuevoImp === 'resuelta' ? 'Listo: quedó resuelto.' : 'Quedó abierto otra vez.');
+        }
+        $tImp = $tareas->buscar((int)($_POST['tarea_id'] ?? 0));
+        if (!$tImp || !puedeVerProyecto((int)$tImp['proyecto_id'])) $finImp(false, 'Esa tarea ya no está disponible.');
+        $txtImp = mb_substr(trim((string)($_POST['texto'] ?? '')), 0, 1000);
+        if (mb_strlen($txtImp) < 5) $finImp(false, 'Cuenta qué la frena y por qué.');
+        $depImp = mb_substr(trim((string)($_POST['depende_de'] ?? '')), 0, 80);
+        if ($depImp === 'otro') {
+            $depImp = mb_substr(trim((string)($_POST['depende_otro'] ?? '')), 0, 80);
+            if ($depImp === '') $finImp(false, 'Escribe de qué equipo o de quién depende.');
+        }
+        $pidImp = (int)$tImp['proyecto_id'];
+        $paraImp = TareaRepo::asignadosDe($tImp) ?: [0];
+        $yoMImp = Auth::usuario() ?? [];
+        $obsRepo->crear([
+            'proyecto_id' => $pidImp, 'tarea_id' => (int)$tImp['id'], 'autor_id' => (int)$paraImp[0], 'para' => $paraImp,
+            'creado_por'  => $yoImp, 'equipo' => $yoMImp ? MiembroRepo::equipoDe($yoMImp) : '',
+            'texto'       => HtmlRico::limpiar('<p>' . nl2br(e($txtImp)) . '</p>'),
+            'tipo'        => 'impedimento', 'depende_de' => $depImp,
+        ]);
+        // En la campana: quien tiene la tarea y el Scrum Master del proyecto (a quien lo anotó, no)
+        $pImp = $proyectos->buscar($pidImp) ?? [];
+        avisoPanel(array_values(array_unique(array_filter([...TareaRepo::asignadosDe($tImp), ProyectoRepo::scrumDe($pImp)]))), 'observacion',
+            'Nuevo impedimento', '#' . (int)$tImp['id'] . ' «' . mb_substr((string)$tImp['titulo'], 0, 80) . '»' . ($depImp !== '' ? ' · depende de ' . $depImp : '')
+            . ': ' . mb_substr($txtImp, 0, 140), 'proyecto.php?id=' . $pidImp . '&tarea=' . (int)$tImp['id']);
+        $finImp(true, 'Impedimento anotado' . ($depImp !== '' ? ': depende de ' . $depImp : '') . '.');
 
     case 'obs_estado':
         $obsRepo = new ObservacionRepo();

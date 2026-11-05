@@ -2119,7 +2119,7 @@ function abrirDetalleTarea(t) {
     const lista = t.carga_extra || [];
     carga.hidden = !lista.length;
     carga.innerHTML = lista.length
-      ? '<b>También tiene trabajo en paralelo en estas fechas</b><ul>' + lista.map((c) =>
+      ? '<b>' + dtIco('carga') + 'También tiene trabajo en paralelo en estas fechas</b><ul>' + lista.map((c) =>
           '<li>' + esc(c.persona) + ' — <i>' + esc(c.origen || '') + '</i>: «' + esc(c.titulo) +
           '» del ' + esc(c.ini) + ' al ' + esc(c.fin) + '</li>'
         ).join('') + '</ul>'
@@ -2132,13 +2132,14 @@ function abrirDetalleTarea(t) {
     const lim = t.fecha_limite && !t.final ? new Date(t.fecha_limite + 'T12:00') : null;
     const hoy = new Date(); hoy.setHours(12, 0, 0, 0);
     const dd = lim ? Math.round((lim - hoy) / 86400000) : null;
-    restante.hidden = dd === null;
-    if (dd !== null) {
-      restante.textContent = dd > 1 ? 'Faltan ' + dd + ' días'
+    restante.hidden = true;   // va como chip junto al estado y la prioridad
+    if (dd !== null && chips) {
+      const txt = dd > 1 ? 'Faltan ' + dd + ' días'
         : dd === 1 ? 'Falta 1 día'
         : dd === 0 ? 'Vence hoy'
         : dd === -1 ? 'Venció ayer' : 'Venció hace ' + (-dd) + ' días';
-      restante.classList.toggle('urgente', dd <= 0);
+      const tono = dd < 0 ? 'crit' : dd <= 2 ? 'warn' : 'none';
+      chips.insertAdjacentHTML('beforeend', '<span class="dt-plazo col-s-' + tono + '">' + dtIco(dd < 0 ? 'vencida' : 'reloj') + esc(txt) + '</span>');
     }
   }
 
@@ -2336,17 +2337,41 @@ function dtPintarTraza(dlg, cajas, d, id) {
       + '<div><b>' + esc(h.texto) + '</b><small>' + [dtFecha(h.t), h.por ? 'por ' + esc(h.por) : '', h.motivo ? motivo(esc(h.motivo)) : ''].filter(Boolean).join(' · ') + '</small></div></li>'
     ).join('') + '</ol>';
 
-  // 3. Impedimentos: las observaciones de la tarea
+  // 3. Impedimentos: lo que frena la tarea (y de qué equipo depende) y sus observaciones de QA
   const imp = d.impedimentos || [];
   const pend = imp.filter((o) => !o.resuelta).length;
   cuenta(2, pend, true);
-  cajas.impedimentos.innerHTML = imp.length ? '<ul class="dt-imp">' + imp.map((o) =>
-    '<li class="dt-imp__item' + (o.resuelta ? ' is-resuelta' : '') + '">'
-    + '<span class="dt-imp__estado">' + (o.resuelta ? '<i class="fa-solid fa-check"></i> Resuelta' : '<i class="fa-solid fa-triangle-exclamation"></i> Pendiente') + '</span>'
+  const TIPO_IMP = { impedimento: 'Impedimento', nota: 'Observación', recordatorio: 'Recordatorio' };
+  const grupos = {};
+  (d.equipos_imp || []).forEach((o) => { (grupos[o.grupo] = grupos[o.grupo] || []).push(o); });
+  const opciones = '<option value="">No, es de nuestro equipo</option>'
+    + Object.entries(grupos).map(([g, l]) => '<optgroup label="' + esc(g) + '">' + l.map((o) => '<option value="' + esc(o.v) + '">' + esc(o.v) + '</option>').join('') + '</optgroup>').join('')
+    + '<option value="otro">Otro (escríbelo)</option>';
+  const resueltos = imp.length - pend;
+  const resumen = pend ? '<b>' + pend + ' abierto' + (pend === 1 ? '' : 's') + '</b>' + (resueltos ? '<small>' + resueltos + ' resuelto' + (resueltos === 1 ? '' : 's') + '</small>' : '')
+    : '<b>Nada la frena ahora</b><small>' + (resueltos ? resueltos + ' resuelto' + (resueltos === 1 ? '' : 's') + '. ' : '') + 'Si algo la detiene, anótalo: queda marcado y le llega al Scrum Master.</small>';
+  const abrirForm = !imp.length && d.puede_imp;   // sin nada anotado, el formulario ya está abierto
+  const item = (o) => '<li class="dt-imp__item' + (o.resuelta ? ' is-resuelta' : '') + '">'
+    + '<div class="dt-imp__cab">'
+    + '<span class="dt-imp__estado col-s-' + (o.resuelta ? 'ok' : 'warn') + '">' + dtIco(o.resuelta ? 'resuelto' : 'abierto') + (o.resuelta ? 'Resuelto' : 'Abierto') + '</span>'
+    + '<span class="dt-imp__tipo">' + (TIPO_IMP[o.tipo] || 'Observación') + '</span>'
+    + (o.depende_de ? '<span class="dt-imp__eq"' + (o.color ? ' style="--dc:' + esc(o.color) + '"' : '') + '><i></i>Depende de ' + esc(o.depende_de) + '</span>' : '')
+    + (o.puede_resolver ? '<button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte dt-imp__accion" data-dt-imp-resolver="' + (+o.id) + '"'
+        + ' aria-label="' + (o.resuelta ? 'Volver a abrir' : 'Marcar resuelto') + '" data-ds-tip="' + (o.resuelta ? 'Volver a abrir' : 'Marcar resuelto') + '">' + dtIco(o.resuelta ? 'reabrir' : 'check') + '</button>' : '')
+    + '</div>'
     + '<p>' + esc(o.texto) + '</p>'
-    + '<small>' + [o.por ? 'De ' + esc(o.por) : '', o.para && o.para !== 'nadie' ? 'para ' + esc(o.para) : '', dtFecha(o.creado),
-        o.resuelta && o.resuelto_en ? 'resuelta el ' + dtFecha(o.resuelto_en) : '', o.respuestas ? o.respuestas + ' respuesta' + (o.respuestas === 1 ? '' : 's') : ''].filter(Boolean).join(' · ') + '</small></li>'
-  ).join('') + '</ul>' : vacio('Sin observaciones: nadie le puso impedimentos.');
+    + '<small>' + [o.por ? 'Lo anotó ' + esc(o.por) : '', dtFecha(o.creado),
+        o.resuelta && o.resuelto_en ? 'resuelto el ' + dtFecha(o.resuelto_en) : '', o.respuestas ? o.respuestas + ' respuesta' + (o.respuestas === 1 ? '' : 's') : ''].filter(Boolean).join(' · ') + '</small></li>';
+  cajas.impedimentos.innerHTML = '<div class="dt-imp-cab"><div class="dt-imp-cab__txt">' + resumen + '</div>'
+    + (d.puede_imp ? '<button type="button" class="btn-primary btn-meca btn-sm" data-dt-imp-abrir' + (abrirForm ? ' hidden' : '') + '>' + dtIco('mas') + ' Agregar impedimento</button>' : '') + '</div>'
+    + (d.puede_imp ? '<div class="dt-imp-form" data-dt-imp-form data-tarea="' + esc(id) + '"' + (abrirForm ? '' : ' hidden') + '>'
+      + '<label class="campo"><span>¿Qué la frena y por qué?</span><textarea class="input-meca" rows="3" maxlength="1000" data-dt-imp-texto'
+      + ' placeholder="Ej. no podemos probar la carga de notas: falta el servicio de matrículas"></textarea></label>'
+      + '<div class="dt-imp-form__fila"><label class="campo"><span>¿Depende de otro equipo?</span><select class="input-meca" data-dt-imp-eq>' + opciones + '</select></label>'
+      + '<label class="campo" data-dt-imp-otro hidden><span>¿De quién?</span><input class="input-meca" maxlength="80" data-dt-imp-otro-txt placeholder="Ej. Infraestructura de la universidad"></label></div>'
+      + '<div class="dt-imp-form__pie">' + (abrirForm ? '' : '<button type="button" class="btn-outline btn-meca btn-neutro btn-sm" data-dt-imp-cerrar>Cancelar</button>')
+      + '<button type="button" class="btn-primary btn-meca btn-sm" data-dt-imp-guardar>' + dtIco('check') + ' Guardar impedimento</button></div></div>' : '')
+    + (imp.length ? '<ul class="dt-imp">' + imp.map(item).join('') + '</ul>' : '');
 
   // 4. Release: el ítem al que suma
   const rel = d.release || [];
@@ -2367,6 +2392,70 @@ function dtPintarTraza(dlg, cajas, d, id) {
     + '<span class="dt-commit__msg">' + esc(c.msg) + '</span><small>' + [esc(c.autor), esc(c.repo), dtFecha(c.fecha)].filter(Boolean).join(' · ') + '</small></a></li>'
   ).join('') + '</ul>' : vacio('Ningún commit menciona #' + id + ' en los últimos seis meses. Para enlazarlos, el mensaje del commit termina con <code>#' + id + '</code>.');
 }
+// Los íconos SVG del DS para la ficha (proyecto.php los deja en #dt-iconos)
+let dtIconos = null;
+function dtIco(k) {
+  if (dtIconos === null) { try { dtIconos = JSON.parse(document.getElementById('dt-iconos')?.textContent || '{}'); } catch (_) { dtIconos = {}; } }
+  return dtIconos[k] || '';
+}
+
+/* Impedimentos de la ficha: abrir el formulario, elegir el equipo, guardar y resolver (actions.php imp_*) */
+async function dtImpEnviar(dlg, datos, idTarea) {
+  const fd = new FormData();
+  Object.entries(datos).forEach(([k, v]) => fd.set(k, v));
+  let j = null;
+  try { j = await (await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin' })).json(); } catch (_) { j = null; }
+  if (!j || !j.ok) { if (window.MC && MC.toast) MC.toast(j ? j.mensaje : 'No se pudo: revisa tu conexión.', 'error'); return false; }
+  if (window.MC && MC.toast) MC.toast(j.mensaje, 'success');
+  dlg.dataset.recargar = '1';   // al cerrar, el tablero se pone al día
+  dtTraza(dlg, idTarea);
+  return true;
+}
+document.addEventListener('click', async (e) => {
+  const abrir = e.target.closest('[data-dt-imp-abrir]');
+  if (abrir) {
+    const f = abrir.closest('.dt-traza').querySelector('[data-dt-imp-form]');
+    f.hidden = false; abrir.hidden = true;
+    f.querySelector('textarea').focus();
+    return;
+  }
+  const cerrar = e.target.closest('[data-dt-imp-cerrar]');
+  if (cerrar) {
+    const caja = cerrar.closest('.dt-traza');
+    caja.querySelector('[data-dt-imp-form]').hidden = true;
+    const b = caja.querySelector('[data-dt-imp-abrir]');
+    if (b) b.hidden = false;
+    return;
+  }
+  const guardar = e.target.closest('[data-dt-imp-guardar]');
+  if (guardar) {
+    const f = guardar.closest('[data-dt-imp-form]');
+    const txt = f.querySelector('[data-dt-imp-texto]');
+    if (txt.value.trim().length < 5) { txt.focus(); if (window.MC && MC.toast) MC.toast('Cuenta qué la frena y por qué.', 'warning'); return; }
+    const eq = f.querySelector('[data-dt-imp-eq]').value;
+    const otro = f.querySelector('[data-dt-imp-otro-txt]');
+    if (eq === 'otro' && !otro.value.trim()) { otro.focus(); if (window.MC && MC.toast) MC.toast('Escribe de qué equipo o de quién depende.', 'warning'); return; }
+    guardar.disabled = true;
+    const ok = await dtImpEnviar(guardar.closest('dialog'), { accion: 'imp_crear', tarea_id: f.dataset.tarea, texto: txt.value, depende_de: eq, depende_otro: otro.value }, f.dataset.tarea);
+    if (!ok) guardar.disabled = false;
+    return;
+  }
+  const res = e.target.closest('[data-dt-imp-resolver]');
+  if (res) {
+    const f = res.closest('.dt-traza').querySelector('[data-dt-imp-form]');
+    res.disabled = true;
+    const ok = await dtImpEnviar(res.closest('dialog'), { accion: 'imp_resolver', id: res.dataset.dtImpResolver }, f ? f.dataset.tarea : '');
+    if (!ok) res.disabled = false;
+  }
+});
+document.addEventListener('change', (e) => {
+  const sel = e.target.closest('[data-dt-imp-eq]');
+  if (!sel) return;
+  const otro = sel.closest('[data-dt-imp-form]').querySelector('[data-dt-imp-otro]');
+  otro.hidden = sel.value !== 'otro';
+  if (!otro.hidden) otro.querySelector('input').focus();
+});
+
 // Enlace directo a una tarea (proyecto.php?id=…&tarea=…, p. ej. desde Releases): se abre su ficha
 // y el número sale de la dirección, así recargar no la vuelve a abrir. Espera a que
 // cargue todo el archivo: la ficha usa cosas que se declaran más abajo.
