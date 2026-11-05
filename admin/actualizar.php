@@ -91,7 +91,7 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/Tutoriales.php', 'lib/ReqCorreo.php', 'lib/ReqSeguimiento.php', 'arreglar_tildes.php', 'lib/releases_ui.php', 'lib/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/CorreoCopias.php',
-        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg',
+        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg',
         'lib/Whatsapp.php', 'cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
         'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg', 'iconos/ilustraciones/ia-mascota.svg',
@@ -109,7 +109,7 @@ function actualizarPanel(array $opc): void
     $nNexo = count(glob($dir . '/iconos/nexo/*.webp') ?: []);
     $nNexo >= 40 ? nota('ok', $nNexo . ' poses de Nexo (iconos/nexo)') : nota('error', 'Solo hay ' . $nNexo . ' imágenes de Nexo en iconos/nexo: falta subir la carpeta completa (40).');
     $nIconos = count(glob($dir . '/iconos/DS/ds-*.svg') ?: []);
-    $nIconos >= 118 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (118).');
+    $nIconos >= 120 ? nota('ok', $nIconos . ' íconos del sistema (iconos/DS)') : nota('error', 'Solo hay ' . $nIconos . ' íconos en iconos/DS: falta subir la carpeta completa (120).');
     $ilus = ['notificaciones-vacio', 'reportes-vacio', 'instructores-equipo', 'asistente-ia', 'sin-resultados-cursos', 'curso-sin-modulos',
              'banco-vacio', 'sin-ordenes', 'error-amable', 'construccion', 'despliegue', 'universidad-agraria', 'ingles',
              'unidad-educativa', 'academico', 'talento-humano', 'financiero', 'mesa-ayuda', 'sitios-web', 'asistente-virtual',
@@ -438,6 +438,22 @@ function actualizarPanel(array $opc): void
     /* Equipo de Diseñadores: se agrega UNA vez a los equipos guardados (si
        luego alguien lo quita en Ajustes, no vuelve). Si nunca se guardaron
        equipos, ya sale de los de fábrica (Config::defaults). */
+    /* Íconos de proyecto: el de «Procesos» (iconos/DS/ds-procesos.svg) entra a la lista corta
+       del selector UNA vez (semillas.icono_procesos): si luego lo quitan en Ajustes, no vuelve. */
+    paso('Íconos de proyecto');
+    $crudoI   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+    $semillaI = (array)($crudoI['semillas'] ?? []);
+    $listaI   = $crudoI['iconos'] ?? null;
+    if (!empty($semillaI['icono_procesos'])) {
+        nota('ok', 'El ícono «Procesos» ya está en el selector de íconos de proyecto');
+    } elseif (!method_exists('Config', 'respaldos')) {
+        nota('error', 'No se agregó el ícono «Procesos»: lib/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
+    } else {
+        $nuevaI = is_array($listaI) && $listaI !== [] && !in_array('ds-procesos', $listaI, true) ? [...$listaI, 'ds-procesos'] : null;
+        if (!$seco) Config::guardar(($nuevaI ? ['iconos' => $nuevaI] : []) + ['semillas' => ['icono_procesos' => date('Y-m-d')] + $semillaI]);
+        nota('ok', 'Ícono «Procesos» ' . ($seco ? 'se agregaría' : 'agregado') . ' al selector de íconos de proyecto (al crear o editar un proyecto)');
+    }
+
     paso('Equipos');
     $crudoE   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
     $listaE   = $crudoE['equipos'] ?? null;
