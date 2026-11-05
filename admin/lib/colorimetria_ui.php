@@ -41,19 +41,32 @@ function colDetalle(array $fila): string
     foreach (['ok', 'warn', 'crit', 'nm'] as $k) if ($ev['cuenta'][$k]) $h .= '<span class="col-s-' . $k . '"><i class="col-punto"></i><b class="mc-num">' . $ev['cuenta'][$k] . '</b> ' . e($C::nombre($k)) . '</span>';
     $h .= '</span>';
     if ($ev['claves']) $h .= '<span class="col-det__claves">' . $C::estado('crit', ($ev['escalo'] ? 'Escaló por clave: ' : 'Clave en ' . $C::nombre('crit') . ': ') . implode(', ', array_map(fn($r) => $r['i']['n'], $ev['claves']))) . '</span>';
+    // Primero lo que tiene dato, por dimensión; lo que todavía no tiene, en una sola línea al final
+    $tp = $fila['tipo'] === 'proyecto' ? 'p' : 'e';
     $h .= '</div><div class="col-ind"><div class="col-ind__cols"><span>Indicador</span><span>Marco</span><span>Real</span><span>Meta</span><span>Zonas</span><span>Peso</span><span>Estado</span></div>';
+    $sin = [];
     foreach ($ev['dims'] as $d) {
-        $h .= '<div class="col-ind__dim"><b>' . e($d['n']) . '</b>' . $C::estado($d['puntaje'] === null ? 'nm' : $d['st']) . '</div>';
-        foreach ($d['filas'] as $id => $r) {
+        $conDato = array_filter($d['filas'], fn($r) => $r['v'] !== null);
+        foreach (array_diff_key($d['filas'], $conDato) as $id => $r) $sin[$id] = $r['i'];
+        if (!$conDato) continue;
+        $h .= '<div class="col-ind__dim"><b>' . e($d['n']) . '</b><span class="col-ind__est">' . $C::estado($d['st']) . '</span></div>';
+        foreach ($conDato as $id => $r) {
             $i = $r['i'];
-            $src = $fila['fuente'][$id] ?? '';
-            $h .= '<div class="col-ind__fila"><span class="col-ind__nom">' . e($i['n']) . (!empty($i['clave']) ? '<span class="col-tag col-tag--clave">Clave</span>' : '') . '</span>'
+            $como = Colorimetria::COMO[$id][$tp] ?? '';
+            $anotado = ($fila['fuente'][$id] ?? '') === 'manual';
+            $h .= '<div class="col-ind__fila"><span class="col-ind__nom"><span class="col-ind__txt"' . ($como !== '' ? ' data-ds-tip="' . e($como) . '"' : '') . '>' . e($i['n']) . '</span>'
+                . (!empty($i['clave']) ? '<span class="col-tag col-tag--clave">Clave</span>' : '') . '</span>'
                 . '<span><span class="col-tag' . ($i['m'] === 'Scrum' ? ' col-tag--scrum' : '') . '">' . $i['m'] . '</span></span>'
                 . '<span class="col-ind__real"><b class="mc-num">' . e($C::fmt($i, $r['v'])) . '</b>'
-                . ($src === 'auto' ? '<small title="' . e(Colorimetria::COMO[$id][$fila['tipo'] === 'proyecto' ? 'p' : 'e'] ?? '') . '">del panel</small>' : ($src === 'manual' ? '<small>anotado</small>' : '')) . '</span>'
+                . ($anotado ? '<span class="col-ind__anot" data-ds-tip="Anotado a mano este mes">' . UI::iconoDS('editar', 12) . '</span>' : '') . '</span>'
                 . '<span class="mc-num">' . e($C::meta($i)) . '</span>' . colBala($i, $r['v'], $r['st'])
-                . '<span class="mc-num">' . $C::num((float)$i['w']) . '</span><span>' . $C::estado($r['st']) . '</span></div>';
+                . '<span class="mc-num">' . $C::num((float)$i['w']) . '</span><span class="col-ind__est">' . $C::estado($r['st']) . '</span></div>';
         }
+    }
+    if ($sin) {
+        $h .= '<div class="col-ind__sin">' . $C::icono('nm', 16) . '<span><b>Sin dato todavía</b> (no cuentan en el puntaje): ';
+        $h .= implode(' · ', array_map(fn($id, $i) => '<span' . (($c = Colorimetria::COMO[$id][$tp] ?? '') !== '' ? ' data-ds-tip="' . e($c) . '"' : '') . '>' . e($i['n']) . '</span>', array_keys($sin), $sin));
+        $h .= '</span></div>';
     }
     return $h . '</div></div>';
 }
@@ -69,25 +82,31 @@ function colModal(array $fila, string $id, string $volver): string
     $per = $C::periodo();
     $mes = $meses[(int)substr($per, 5, 2) - 1];
     [$man, $perMan, $med] = $C::manuales($fila['tipo'], $fila['ref'], $per);
-    $puede = $C::puedeMedir($fila['tipo'], $fila['ref']);
+    // Lo que se anota: los indicadores prendidos que el panel no calcula (y lo que ya se anotó, para corregirlo)
+    $anotables = [];
+    foreach (Colorimetria::IND as $iid => $_) {
+        $i = $C::ind($iid);
+        if (!$i['act']) continue;
+        $calcula = str_contains((string)($i['auto'] ?? ''), $fila['tipo'] === 'proyecto' ? 'p' : 'e');
+        if (!$calcula || array_key_exists($iid, $man)) $anotables[$iid] = $i;
+    }
+    $puede = $anotables && $C::puedeMedir($fila['tipo'], $fila['ref']);
+    $sub = 'Lo calcula el panel con sus tareas, revisiones y observaciones de QA.';
+    if ($fila['periodo'] !== '') $sub .= ' Con lo anotado en ' . e($meses[(int)substr($fila['periodo'], 5, 2) - 1]) . '.';
     $h = '<dialog id="' . e($id) . '" class="dlg-meca col-dlg"><div class="dlg-form">'
         . '<header><h3 class="col-s-' . e($fila['estado']) . '">' . $C::icono($fila['estado'], 20) . ' Salud ' . ($fila['tipo'] === 'equipo' ? 'del ' : 'de ') . e($fila['nombre'])
-        . '<small>Con la colorimetría de la PMO. ' . ($fila['periodo'] !== '' ? 'Lo anotado es de ' . e($meses[(int)substr($fila['periodo'], 5, 2) - 1]) . '.' : 'Todavía no se anotan valores del mes.') . '</small></h3>'
+        . '<small>' . $sub . '</small></h3>'
         . '<button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar">' . UI::iconoDS('cerrar', 18) . '</button></header>'
         . colDetalle($fila);
     if ($puede) {
-        $h .= '<details class="col-mes"' . ($perMan === '' ? ' open' : '') . '><summary>' . UI::iconoDS('editar', 16) . ' Anotar los valores de ' . e($mes) . '<small>Lo que el panel no calcula: costo, margen, riesgos, satisfacción…</small></summary>'
+        $h .= '<details class="col-mes"><summary>' . UI::iconoDS('editar', 16) . ' Anotar lo que el panel no calcula (' . e($mes) . ')<small>' . e(implode(', ', array_map(fn($i) => $i['n'], $anotables))) . '</small></summary>'
             . '<form method="post" action="actions.php" class="col-mes__form">'
             . '<input type="hidden" name="accion" value="col_medir"><input type="hidden" name="t" value="' . e($fila['tipo']) . '"><input type="hidden" name="r" value="' . e($fila['ref']) . '">'
             . '<input type="hidden" name="periodo" value="' . e($per) . '"><input type="hidden" name="volver" value="' . e($volver) . '">'
             . '<input type="hidden" name="codigo" value="' . e($fila['ficha']['codigo']) . '"><input type="hidden" name="cliente" value="' . e($fila['ficha']['cliente']) . '">';
         if ($perMan !== '' && $perMan !== $per) $h .= '<p class="col-mes__nota">' . UI::iconoDS('info', 14) . ' Vienen los valores de ' . e($meses[(int)substr($perMan, 5, 2) - 1]) . ': al guardar quedan como los de ' . e($mes) . '.</p>';
         $h .= '<div class="col-mes__grid">';
-        foreach (Colorimetria::IND as $iid => $_) {
-            $i = $C::ind($iid);
-            if (!$i['act']) continue;
-            $calcula = str_contains((string)($i['auto'] ?? ''), $fila['tipo'] === 'proyecto' ? 'p' : 'e');
-            if ($calcula && !array_key_exists($iid, $man)) continue;   // lo que calcula el panel no se pide (si se anotó, se deja corregir)
+        foreach ($anotables as $iid => $i) {
             $val = array_key_exists($iid, $man) ? $C::num((float)$man[$iid], (int)$i['d']) : '';
             $h .= '<label class="col-mes__campo"><span>' . e($i['n']) . (!empty($i['clave']) ? ' <span class="col-tag col-tag--clave">Clave</span>' : '') . '<small>Meta ' . e($C::meta($i)) . '</small></span>'
                 . '<span class="mc-input mc-input--sm"><input class="mc-input__control mc-num" name="vals[' . $iid . ']" inputmode="decimal" value="' . e($val) . '" placeholder="—">'

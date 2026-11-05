@@ -49,7 +49,8 @@ final class Colorimetria
      * Catálogo de indicadores. m: marco (PMO o Scrum). dir: up (más es mejor) o
      * down (menos es mejor). g: umbral de Cumple. a: umbral de Alerta. w: peso.
      * min/max: el rango del gráfico de bala. auto: lo calcula el panel (p:
-     * proyectos, e: equipos de Releases); los demás se anotan cada mes.
+     * proyectos, e: equipos de Releases); los demás se anotan cada mes y salen
+     * apagados de fábrica (se prenden en Configuración si la PMO los va a anotar).
      */
     public const IND = [
         'spi'     => ['n' => 'Índice de cronograma (SPI)', 'dim' => 'Cronograma', 'm' => 'PMO', 'dir' => 'up', 'u' => '', 'd' => 2, 'g' => 0.95, 'a' => 0.85, 'w' => 10, 'clave' => true, 'min' => 0.6, 'max' => 1.2, 'auto' => 'pe'],
@@ -57,17 +58,17 @@ final class Colorimetria
         'cpi'     => ['n' => 'Índice de costo (CPI)', 'dim' => 'Costo', 'm' => 'PMO', 'dir' => 'up', 'u' => '', 'd' => 2, 'g' => 0.95, 'a' => 0.85, 'w' => 10, 'clave' => true, 'min' => 0.6, 'max' => 1.2],
         'desv'    => ['n' => 'Desviación de presupuesto al cierre', 'dim' => 'Costo', 'm' => 'PMO', 'dir' => 'down', 'u' => '%', 'd' => 1, 'g' => 5, 'a' => 10, 'w' => 5, 'min' => 0, 'max' => 20],
         'margen'  => ['n' => 'Margen de utilidad', 'dim' => 'Costo', 'm' => 'PMO', 'dir' => 'up', 'u' => '%', 'd' => 1, 'g' => 25, 'a' => 15, 'w' => 6, 'min' => 0, 'max' => 40],
-        'alcance' => ['n' => 'Variación de alcance', 'dim' => 'Alcance y entrega', 'm' => 'PMO', 'dir' => 'down', 'u' => '%', 'd' => 0, 'g' => 10, 'a' => 20, 'w' => 5, 'min' => 0, 'max' => 30],
+        'alcance' => ['n' => 'Variación de alcance', 'dim' => 'Alcance y entrega', 'm' => 'PMO', 'dir' => 'down', 'u' => '%', 'd' => 0, 'g' => 10, 'a' => 20, 'w' => 5, 'min' => 0, 'max' => 30, 'auto' => 'pe'],
         'hist'    => ['n' => 'Avance del release', 'dim' => 'Alcance y entrega', 'm' => 'Scrum', 'dir' => 'up', 'u' => '%', 'd' => 1, 'g' => 95, 'a' => 85, 'w' => 7, 'clave' => true, 'min' => 50, 'max' => 100, 'auto' => 'pe'],
         'pred'    => ['n' => 'Predictibilidad del sprint', 'dim' => 'Alcance y entrega', 'm' => 'Scrum', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 85, 'a' => 70, 'w' => 7, 'min' => 40, 'max' => 100, 'auto' => 'pe'],
         'ciclo'   => ['n' => 'Tiempo de ciclo promedio', 'dim' => 'Alcance y entrega', 'm' => 'Scrum', 'dir' => 'down', 'u' => 'días', 'd' => 1, 'g' => 5, 'a' => 8, 'w' => 3, 'min' => 0, 'max' => 12, 'auto' => 'pe'],
-        'defec'   => ['n' => 'Defectos críticos abiertos', 'dim' => 'Calidad', 'm' => 'Scrum', 'dir' => 'down', 'u' => '', 'd' => 0, 'int' => true, 'g' => 0, 'a' => 2, 'w' => 8, 'clave' => true, 'min' => 0, 'max' => 6, 'auto' => 'p'],
+        'defec'   => ['n' => 'Defectos críticos abiertos', 'dim' => 'Calidad', 'm' => 'Scrum', 'dir' => 'down', 'u' => '', 'd' => 0, 'int' => true, 'g' => 0, 'a' => 2, 'w' => 8, 'clave' => true, 'min' => 0, 'max' => 6, 'auto' => 'pe'],
         'cob'     => ['n' => 'Cobertura de pruebas automatizadas', 'dim' => 'Calidad', 'm' => 'Scrum', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 80, 'a' => 60, 'w' => 4, 'min' => 30, 'max' => 100],
-        'dod'     => ['n' => 'Historias que cumplen la Definición de Hecho', 'dim' => 'Calidad', 'm' => 'Scrum', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 95, 'a' => 85, 'w' => 4, 'min' => 50, 'max' => 100],
-        'riesgos' => ['n' => 'Riesgos críticos abiertos', 'dim' => 'Riesgos y bloqueos', 'm' => 'PMO', 'dir' => 'down', 'u' => '', 'd' => 0, 'int' => true, 'g' => 0, 'a' => 2, 'w' => 8, 'clave' => true, 'min' => 0, 'max' => 6],
+        'dod'     => ['n' => 'Historias que cumplen la Definición de Hecho', 'dim' => 'Calidad', 'm' => 'Scrum', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 95, 'a' => 85, 'w' => 4, 'min' => 50, 'max' => 100, 'auto' => 'pe'],
+        'riesgos' => ['n' => 'Riesgos críticos abiertos', 'dim' => 'Riesgos y bloqueos', 'm' => 'PMO', 'dir' => 'down', 'u' => '', 'd' => 0, 'int' => true, 'g' => 0, 'a' => 2, 'w' => 8, 'clave' => true, 'min' => 0, 'max' => 6, 'auto' => 'pe'],
         'imped'   => ['n' => 'Impedimentos abiertos', 'dim' => 'Riesgos y bloqueos', 'm' => 'Scrum', 'dir' => 'down', 'u' => '', 'd' => 0, 'int' => true, 'g' => 1, 'a' => 3, 'w' => 3, 'min' => 0, 'max' => 6, 'auto' => 'pe'],
         'sat'     => ['n' => 'Satisfacción del cliente', 'dim' => 'Cliente', 'm' => 'PMO', 'dir' => 'up', 'u' => 'de 5', 'd' => 1, 'g' => 4.5, 'a' => 4.0, 'w' => 6, 'min' => 3, 'max' => 5],
-        'acep'    => ['n' => 'Entregables aceptados a la primera', 'dim' => 'Cliente', 'm' => 'PMO', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 90, 'a' => 75, 'w' => 3, 'min' => 50, 'max' => 100],
+        'acep'    => ['n' => 'Entregables aceptados a la primera', 'dim' => 'Cliente', 'm' => 'PMO', 'dir' => 'up', 'u' => '%', 'd' => 0, 'g' => 90, 'a' => 75, 'w' => 3, 'min' => 50, 'max' => 100, 'auto' => 'pe'],
         'salud'   => ['n' => 'Salud del equipo', 'dim' => 'Equipo', 'm' => 'Scrum', 'dir' => 'up', 'u' => 'de 5', 'd' => 1, 'g' => 4.0, 'a' => 3.5, 'w' => 3, 'min' => 1, 'max' => 5],
         'vel'     => ['n' => 'Variación de velocidad', 'dim' => 'Equipo', 'm' => 'Scrum', 'dir' => 'down', 'u' => '%', 'd' => 0, 'g' => 15, 'a' => 30, 'w' => 3, 'min' => 0, 'max' => 50, 'auto' => 'pe'],
     ];
@@ -79,7 +80,11 @@ final class Colorimetria
         'hist'  => ['p' => 'Avance de sus ítems de Releases sobre el esperado.', 'e' => 'Avance del release en curso sobre el esperado.'],
         'pred'  => ['p' => 'De lo que vencía en las últimas dos semanas, lo que se terminó a tiempo.', 'e' => 'Cumplimiento de sus revisiones de las últimas cuatro semanas.'],
         'ciclo' => ['p' => 'Días entre empezar y terminar las tareas de los últimos 30 días.', 'e' => 'Igual, con las tareas de sus proyectos.'],
-        'defec' => ['p' => 'Observaciones de QA pendientes en tareas de prioridad alta.', 'e' => ''],
+        'alcance' => ['p' => 'Tareas nuevas de los últimos 30 días sobre las que ya había.', 'e' => 'Ítems del release en curso agregados en el panel sobre los del Excel.'],
+        'defec' => ['p' => 'Observaciones de QA pendientes en tareas abiertas de prioridad alta.', 'e' => 'Igual, en las tareas de sus proyectos.'],
+        'dod'   => ['p' => 'De lo terminado en los últimos 30 días, lo que no tiene observaciones de QA pendientes.', 'e' => 'Igual, con las tareas de sus proyectos.'],
+        'riesgos' => ['p' => 'Tareas abiertas de prioridad alta con la fecha límite vencida.', 'e' => 'Igual, con las tareas de sus proyectos.'],
+        'acep'  => ['p' => 'Sus ítems que pasaron la primera revisión de cierre; sin revisiones, las tareas terminadas que no se volvieron a abrir.', 'e' => 'Ítems que pasaron su primera revisión de cierre; sin revisiones, las tareas que no se volvieron a abrir.'],
         'imped' => ['p' => 'Tareas abiertas que esperan una dependencia sin terminar.', 'e' => 'Ítems bloqueados.'],
         'vel'   => ['p' => 'Cuánto cambian las tareas terminadas por semana (últimas cuatro).', 'e' => 'Igual, con las tareas de sus proyectos.'],
     ];
@@ -128,7 +133,7 @@ final class Colorimetria
         if ($c !== null) return $c;
         $c = ['estados' => [], 'puntos' => ['ok' => 100, 'warn' => 50, 'crit' => 0], 'bandas' => ['ok' => 80, 'warn' => 55], 'escala' => ['on' => true, 'min' => 2], 'ind' => []];
         foreach (self::ESTADOS as $k => [, $nombre, $color]) $c['estados'][$k] = ['nombre' => $nombre, 'color' => $color];
-        foreach (self::IND as $id => $i) $c['ind'][$id] = ['act' => true, 'g' => $i['g'], 'a' => $i['a'], 'w' => $i['w'], 'clave' => !empty($i['clave'])];
+        foreach (self::IND as $id => $i) $c['ind'][$id] = ['act' => !empty($i['auto']), 'g' => $i['g'], 'a' => $i['a'], 'w' => $i['w'], 'clave' => !empty($i['clave'])];
         $o = (array)(Config::get('colorimetria') ?? []);
         foreach (self::ESTADOS as $k => $_) {
             $e = (array)($o['estados'][$k] ?? []);
@@ -337,7 +342,7 @@ final class Colorimetria
      * predictibilidad, tiempo de ciclo, impedimentos y variación de velocidad.
      * También el avance real y el esperado a hoy (para la barra).
      */
-    public static function deTareas(array $tareas, ?string $hoy = null): array
+    public static function deTareas(array $tareas, ?string $hoy = null, array $obsPend = []): array
     {
         $hoy ??= date('Y-m-d');
         $finales = Catalogo::estadosFinales();
@@ -350,6 +355,7 @@ final class Colorimetria
         $planHoy = count(array_filter($conFecha, fn($t) => $t['fecha_limite'] <= $hoy));
         $hechasConFecha = count(array_filter($conFecha, $hecha));
         $x = ['spi' => null, 'hitos' => null, 'pred' => null, 'ciclo' => null, 'imped' => null, 'vel' => null,
+              'alcance' => null, 'defec' => null, 'dod' => null, 'riesgos' => null, 'acep' => null,
               'avance' => $total ? (int)round($hechas / $total * 100) : null, 'plan' => $conFecha ? (int)round($planHoy / count($conFecha) * 100) : null];
         if ($planHoy > 0) $x['spi'] = round(min(2, $hechasConFecha / $planHoy), 2);
         // A tiempo: terminada a más tardar en su fecha límite (sin fecha de cierre anotada, cuenta como a tiempo)
@@ -396,17 +402,59 @@ final class Colorimetria
             $var = array_sum(array_map(fn($s) => ($s - $media) ** 2, $semanas)) / 4;
             $x['vel'] = round(sqrt($var) / $media * 100, 1);
         }
+        if (!$total) return $x;
+        $alta = fn(array $t) => in_array(mb_strtolower((string)($t['prioridad'] ?? '')), ['alta', 'urgente', 'critica', 'crítica'], true);
+        $conObs = [];
+        foreach ($obsPend as $o) if (($tid = (int)($o['tarea_id'] ?? 0)) && isset($porId[$tid])) $conObs[$tid] = ($conObs[$tid] ?? 0) + 1;
+        // Defectos críticos: observaciones de QA sin resolver en tareas abiertas de prioridad alta
+        $x['defec'] = array_sum(array_map(fn($t) => !$hecha($t) && $alta($t) ? ($conObs[(int)$t['id']] ?? 0) : 0, $tareas));
+        // Riesgos críticos: tareas abiertas de prioridad alta que ya se pasaron de su fecha límite
+        $x['riesgos'] = count(array_filter($conFecha, fn($t) => !$hecha($t) && $alta($t) && $t['fecha_limite'] < $hoy));
+        // Definición de Hecho: de lo terminado en los últimos 30 días, lo que no tiene observaciones de QA pendientes
+        $fin = fn(array $t) => substr((string)($t['completada_en'] ?? ''), 0, 10);
+        $recientes = array_filter($tareas, fn($t) => $hecha($t) && $fin($t) >= $hace30);
+        if ($recientes) $x['dod'] = round(count(array_filter($recientes, fn($t) => empty($conObs[(int)$t['id']]))) / count($recientes) * 100, 1);
+        // Aceptadas a la primera: de lo terminado en los últimos 60 días, lo que no se volvió a abrir
+        $hace60 = date('Y-m-d', strtotime($hoy . ' -60 days'));
+        $reabierta = fn(array $t) => (bool)array_filter((array)($t['historial'] ?? []), fn($h) => ($h['tipo'] ?? '') === 'estado'
+            && in_array($h['de'] ?? '', $finales, true) && !in_array($h['a'] ?? '', $finales, true));
+        $ultimas = array_filter($tareas, fn($t) => $hecha($t) && $fin($t) >= $hace60);
+        if ($ultimas) $x['acep'] = round(count(array_filter($ultimas, fn($t) => !$reabierta($t))) / count($ultimas) * 100, 1);
+        // Variación de alcance: tareas nuevas de los últimos 30 días sobre las que ya había (con al menos 5)
+        $creada = fn(array $t) => substr((string)($t['creado'] ?? ''), 0, 10);
+        $base = count(array_filter($tareas, fn($t) => $creada($t) !== '' && $creada($t) < $hace30));
+        if ($base >= 5) $x['alcance'] = round(count(array_filter($tareas, fn($t) => $creada($t) >= $hace30)) / $base * 100, 1);
         return $x;
+    }
+
+    /** Las observaciones de QA sin resolver (las que abren hilo), de todo el panel. */
+    public static function obsPendientes(): array
+    {
+        static $l = null;
+        return $l ??= array_values(array_filter((new JsonStore('observaciones'))->all(), fn($o) => ($o['tipo'] ?? 'nota') === 'nota'
+            && ($o['estado'] ?? '') === 'pendiente' && (int)($o['padre_id'] ?? 0) === 0));
+    }
+
+    /** De los ítems con estos códigos, el % que pasó su primera revisión de cierre (null si ninguno llegó a una). */
+    private static function aLaPrimera(array $codigos): ?float
+    {
+        if (!$codigos || !class_exists('Releases')) return null;
+        $quiero = array_flip(array_map(fn($c) => strtoupper((string)$c), $codigos));
+        $primera = [];
+        foreach (Releases::revisiones() as $r) {   // vienen por fecha: la primera que se ve es la primera revisión
+            foreach ((array)($r['filas'] ?? []) as $f) {
+                $cod = strtoupper((string)($f['codigo'] ?? ''));
+                if (!isset($quiero[$cod]) || isset($primera[$cod]) || stripos((string)($f['tipo'] ?? ''), 'cierre') === false) continue;
+                if (in_array($f['estado'] ?? '', ['cumplido', 'parcial', 'no_cumplido'], true)) $primera[$cod] = $f['estado'] === 'cumplido';
+            }
+        }
+        return $primera ? round(count(array_filter($primera)) / count($primera) * 100, 1) : null;
     }
 
     /** Lo que el panel calcula de un proyecto: sus tareas, sus observaciones de QA y sus ítems de Releases. */
     public static function autoProyecto(array $p, array $tareas, array $obsPendientes): array
     {
-        $x = self::deTareas($tareas);
-        // Defectos críticos: observaciones de QA sin resolver en tareas de prioridad alta
-        $altas = [];
-        foreach ($tareas as $t) if (($t['prioridad'] ?? '') === 'alta' && !in_array($t['estado'] ?? '', Catalogo::estadosFinales(), true)) $altas[(int)$t['id']] = true;
-        $x['defec'] = $tareas ? count(array_filter($obsPendientes, fn($o) => isset($altas[(int)($o['tarea_id'] ?? 0)]))) : null;
+        $x = self::deTareas($tareas, null, $obsPendientes);
         $x['hist'] = null;
         if (class_exists('Releases') && method_exists('Releases', 'itemsDeProyecto')) {
             // Los ítems vienen sin calcular: el esperado a hoy y el avance (un terminado cuenta 100)
@@ -414,6 +462,8 @@ final class Colorimetria
             $esp = array_sum(array_map(fn($it) => Releases::esperado($it), $items));
             $av = array_sum(array_map(fn($it) => ($it['estado'] ?? '') === 'cerrado' ? 100 : (int)($it['avance'] ?? 0), $items));
             if ($esp > 0) $x['hist'] = round(min(150, $av / $esp * 100), 1);
+            // Aceptados a la primera: con revisiones de cierre de sus ítems, esas mandan sobre las tareas reabiertas
+            $x['acep'] = self::aLaPrimera(array_column($items, 'codigo')) ?? $x['acep'];
         }
         return $x;
     }
@@ -423,8 +473,7 @@ final class Colorimetria
     {
         $hoy ??= date('Y-m-d');
         $items = Releases::items(['equipo' => $equipo], $hoy);
-        $x = self::deTareas(Releases::tareasEquipo($equipo), $hoy);
-        $x['defec'] = null;
+        $x = self::deTareas(Releases::tareasEquipo($equipo), $hoy, self::obsPendientes());
         $esp = array_sum(array_column($items, 'esperado'));
         $x['spi'] = $esp > 0 ? round(min(2, array_sum(array_column($items, 'avance')) / $esp), 2) : null;
         $x['avance'] = $items ? (int)round(array_sum(array_column($items, 'avance')) / count($items)) : null;
@@ -440,6 +489,13 @@ final class Colorimetria
         $delRel = array_filter($items, fn($it) => $it['release'] === $enCurso);
         $espR = array_sum(array_column($delRel, 'esperado'));
         $x['hist'] = $espR > 0 ? round(min(150, array_sum(array_column($delRel, 'avance')) / $espR * 100), 1) : null;
+        // Variación de alcance: los ítems del release en curso que se agregaron en el panel sobre los que venían del Excel
+        if ($delRel) {
+            $agregados = count(array_filter($delRel, fn($it) => (string)(((array)($it['historial'] ?? []))[0]['texto'] ?? '') === 'Creó el ítem'));
+            $baseR = count($delRel) - $agregados;
+            $x['alcance'] = $baseR > 0 ? round($agregados / $baseR * 100, 1) : $x['alcance'];
+        }
+        $x['acep'] = self::aLaPrimera(array_column($items, 'codigo')) ?? $x['acep'];
         $x['release'] = $enCurso;
         // Predictibilidad: el cumplimiento de sus revisiones de las últimas cuatro semanas
         $revs = array_filter(Releases::revisiones(['equipo' => $equipo, 'desde' => date('Y-m-d', strtotime($hoy . ' -28 days')), 'hasta' => $hoy]), fn($r) => ($r['estado'] ?? '') === 'realizada');
@@ -472,9 +528,7 @@ final class Colorimetria
         $tareasPor = [];
         foreach ((new TareaRepo())->todas() as $t) $tareasPor[(int)$t['proyecto_id']][] = $t;
         $obsPor = [];
-        foreach ((new JsonStore('observaciones'))->all() as $o) {
-            if (($o['tipo'] ?? 'nota') === 'nota' && ($o['estado'] ?? '') === 'pendiente' && (int)($o['padre_id'] ?? 0) === 0) $obsPor[(int)($o['proyecto_id'] ?? 0)][] = $o;
-        }
+        foreach (self::obsPendientes() as $o) $obsPor[(int)($o['proyecto_id'] ?? 0)][] = $o;
         $out = [];
         foreach ((new ProyectoRepo())->todos() as $p) {
             $pid = (int)$p['id'];
@@ -493,8 +547,10 @@ final class Colorimetria
         [$vals, $fuente, $per] = self::mezclar($auto, 'proyecto', (string)$pid);
         $f = self::ficha('proyecto', (string)$pid);
         $empezo = (bool)array_filter($ts, fn($t) => ($t['estado'] ?? 'pendiente') !== 'pendiente');
+        // Todas sus tareas terminadas: está Finalizado (si le suman tareas nuevas, vuelve a medirse su salud)
+        $todasHechas = $ts && !array_filter($ts, fn($t) => !in_array($t['estado'] ?? '', Catalogo::estadosFinales(), true));
         $fase = $f['fase'] !== '' ? $f['fase'] : match ((string)($p['estado'] ?? 'activo')) {
-            'pausado' => 'hold', 'completado' => 'done', default => $empezo ? 'run' : 'none',
+            'pausado' => 'hold', 'completado' => 'done', default => $todasHechas ? 'done' : ($empezo ? 'run' : 'none'),
         };
         $ev = self::evaluar($vals, $fase);
         return ['tipo' => 'proyecto', 'ref' => (string)$pid, 'nombre' => (string)$p['nombre'], 'p' => $p,
@@ -506,8 +562,7 @@ final class Colorimetria
     public static function delProyecto(array $p): array
     {
         $pid = (int)$p['id'];
-        $obs = array_filter((new JsonStore('observaciones'))->all(), fn($o) => (int)($o['proyecto_id'] ?? 0) === $pid
-            && ($o['tipo'] ?? 'nota') === 'nota' && ($o['estado'] ?? '') === 'pendiente' && (int)($o['padre_id'] ?? 0) === 0);
+        $obs = array_filter(self::obsPendientes(), fn($o) => (int)($o['proyecto_id'] ?? 0) === $pid);
         return self::filaProyecto($p, (new TareaRepo())->delProyecto($pid), array_values($obs));
     }
 

@@ -527,13 +527,13 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             $hijos = array_filter((array)($x['equipos'] ?? []), fn($c) => !empty($c['total'])); ?>
           <tr class="rl-arbol__fila">
             <td><span class="rl-arbol__nom">
-              <?php if ($hijos): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm rl-arbol__abrir" data-rl-arbol-abrir="<?= e($cod) ?>" aria-expanded="false" aria-label="Ver los equipos de <?= e($cod) ?>"><?= rlIco('chevron-der', 16) ?></button><?php else: ?><span class="rl-arbol__hueco"></span><?php endif; ?>
+              <?php if ($hijos): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte rl-arbol__abrir" data-rl-arbol-abrir="<?= e($cod) ?>" aria-expanded="false" aria-label="Ver los equipos de <?= e($cod) ?>"><?= rlIco('chevron-der', 16) ?></button><?php else: ?><span class="rl-arbol__hueco"></span><?php endif; ?>
               <?= rlCode($cod, $r['color']) ?><span class="rl-arbol__txt" title="<?= e((string)($r['nombre'] ?? $cod)) ?>"><b><?= e((string)($r['nombre'] ?? $cod)) ?></b><?php if (($r['sprints'] ?? '') !== ''): ?><small><?= e($r['sprints']) ?></small><?php endif; ?></span></span></td>
             <td class="rl-arbol__fechas mc-num"><?= e(rlF($x['inicio'] ?: ($r['inicio'] ?? ''))) ?> → <?= e(rlF($x['fin'] ?: ($r['fin'] ?? ''), true)) ?></td>
             <td class="mc-num"><b><?= (int)$x['cerrados'] ?></b>/<?= (int)$x['total'] ?><small> terminados</small></td>
             <td><span class="rl-arbol__av"><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><b class="mc-num"><?= (int)$x['pct'] ?> %</b></span></td>
             <td><?= rlSalud($s) ?></td>
-            <td><a class="mc-iconbtn mc-iconbtn--sm" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod])) ?>" aria-label="Abrir <?= e($cod) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
+            <td><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod])) ?>" aria-label="Abrir <?= e($cod) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
           </tr>
           <?php foreach ($hijos as $nom => $c): $sc = rlSaludGrupo($c, $hoy); $smE = $miembros[(int)($eqs[$nom]['sm_id'] ?? 0)]['nombre'] ?? (string)($eqs[$nom]['sm_nombre'] ?? ''); ?>
           <tr class="rl-arbol__fila rl-arbol__fila--hija" data-rl-arbol-de="<?= e($cod) ?>" hidden>
@@ -542,7 +542,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             <td class="mc-num"><b><?= (int)$c['cerrados'] ?></b>/<?= (int)$c['total'] ?></td>
             <td><span class="rl-arbol__av"><?= rlBarra((int)$c['pct'], (int)$c['esperado'], $sc) ?><b class="mc-num"><?= (int)$c['pct'] ?> %</b></span></td>
             <td><?= rlSalud($sc) ?></td>
-            <td><a class="mc-iconbtn mc-iconbtn--sm" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod, 'e' => $nom])) ?>" aria-label="Abrir <?= e($cod . ' · ' . $nom) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
+            <td><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod, 'e' => $nom])) ?>" aria-label="Abrir <?= e($cod . ' · ' . $nom) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
           </tr>
           <?php endforeach; ?>
         <?php endforeach; ?>
@@ -715,7 +715,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <a class="mc-btn mc-btn--soft mc-btn--t-verde mc-btn--sm" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>"><?= rlIco('check', 16) ?><span class="mc-btn__label"><?= $r['cumplimiento']['pct'] !== null ? (int)$r['cumplimiento']['pct'] . ' %' : 'Ver' ?></span></a>
           <?php else: ?>
           <?php $regR = $smDe($r['equipo']); /* solo el ícono: el lápiz para registrar, el ojo para verla */ ?>
-          <a class="mc-iconbtn mc-iconbtn--sm<?= $esHoy ? ' mc-iconbtn--primary' : ' mc-iconbtn--outline' ?>" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" aria-label="<?= $regR ? 'Registrar' : 'Ver' ?> la revisión de <?= e($r['equipo']) ?>" data-ds-tip="<?= $regR ? 'Registrar' : 'Ver' ?>"><?= rlIco($regR ? 'editar' : 'ver', 16) ?></a>
+          <a class="mc-iconbtn mc-iconbtn--sm <?= $esHoy ? 'mc-iconbtn--solido' : 'mc-iconbtn--tinte' ?>" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" aria-label="<?= $regR ? 'Registrar' : 'Ver' ?> la revisión de <?= e($r['equipo']) ?>" data-ds-tip="<?= $regR ? 'Registrar' : 'Ver' ?>"><?= rlIco($regR ? 'editar' : 'ver', 16) ?></a>
           <?php endif; ?>
         </li>
         <?php endforeach; ?>
@@ -1088,7 +1088,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?php if ($smDe($en) && $abiertosEq): ?>
           <form class="rl-sinitem__form" data-rl-vincular-una="<?= (int)$t['id'] ?>">
             <?= UI::selectDS('item', array_column(array_map(fn($it) => ['k' => (string)$it['id'], 'v' => $it['codigo'] . ' · ' . mb_strimwidth($it['titulo'], 0, 46, '…')], $abiertosEq), 'v', 'k'), '', ['vacio' => 'Vincular a…', 'aria' => 'Elegir el ítem para la tarea #' . (int)$t['id']]) ?>
-            <button type="submit" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--primary" aria-label="Vincular la tarea #<?= (int)$t['id'] ?>" data-ds-tip="Vincular"><?= rlIco('relacionar', 16) ?></button>
+            <button type="submit" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" aria-label="Vincular la tarea #<?= (int)$t['id'] ?>" data-ds-tip="Vincular"><?= rlIco('relacionar', 16) ?></button>
           </form>
           <?php endif; ?>
         </li>
@@ -1147,9 +1147,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 ?>
   <section class="rl-semana-nav">
     <div class="rl-semana-nav__ir">
-      <a class="mc-iconbtn mc-iconbtn--outline" href="<?= e(rlUrl(['v' => 'revisiones', 's' => date('Y-m-d', strtotime($lunes . ' -7 days')), 'e' => $fEq])) ?>" aria-label="Semana anterior" data-ds-tip="Semana anterior"><?= rlIco('chevron-izq', 18) ?></a>
+      <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'revisiones', 's' => date('Y-m-d', strtotime($lunes . ' -7 days')), 'e' => $fEq])) ?>" aria-label="Semana anterior" data-ds-tip="Semana anterior"><?= rlIco('chevron-izq', 18) ?></a>
       <div class="rl-semana-nav__tit"><?php $nSem = (int)round((strtotime($lunes) - strtotime($lunesHoy)) / 604800); ?><small><?= match (true) { $nSem === 0 => 'Esta semana', $nSem === 1 => 'La próxima semana', $nSem === -1 => 'La semana pasada', $nSem > 1 => 'Dentro de ' . $nSem . ' semanas', default => 'Hace ' . abs($nSem) . ' semanas' } ?></small><b class="font-display">Del <?= e($tituloSemana) ?></b></div>
-      <a class="mc-iconbtn mc-iconbtn--outline" href="<?= e(rlUrl(['v' => 'revisiones', 's' => date('Y-m-d', strtotime($lunes . ' +7 days')), 'e' => $fEq])) ?>" aria-label="Semana siguiente" data-ds-tip="Semana siguiente"><?= rlIco('chevron-der', 18) ?></a>
+      <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'revisiones', 's' => date('Y-m-d', strtotime($lunes . ' +7 days')), 'e' => $fEq])) ?>" aria-label="Semana siguiente" data-ds-tip="Semana siguiente"><?= rlIco('chevron-der', 18) ?></a>
       <?php if ($lunes !== $lunesHoy): ?><a class="mc-btn mc-btn--secondary mc-btn--sm" href="<?= e(rlUrl(['v' => 'revisiones', 'e' => $fEq])) ?>"><span class="mc-btn__label">Hoy</span></a><?php endif; ?>
     </div>
     <div class="rl-chips">
@@ -1428,8 +1428,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               <b class="mc-num rl-rfila__respct" data-rl-res-pct><?= $pctF === '' ? '' : $pctF . ' %' ?></b>
             </span>
             <span class="rl-rfila__acc">
-              <?php if ($puedeReg): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-quitar="<?= (int)$i ?>" aria-label="Quitar de la sesión" data-ds-tip="Quitar de la sesión"><?= rlIco('eliminar', 15) ?></button><?php endif; ?>
-              <button type="button" class="mc-iconbtn mc-iconbtn--sm rl-rfila__abrir" data-rl-abrir-fila aria-expanded="<?= $i === $abiertaRl ? 'true' : 'false' ?>" aria-controls="rl-rf-<?= (int)$i ?>" aria-label="Abrir o cerrar <?= e((string)$f['codigo']) ?>"><?= rlIco('chevron-abajo', 18) ?></button>
+              <?php if ($puedeReg): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-rl-quitar="<?= (int)$i ?>" aria-label="Quitar de la sesión" data-ds-tip="Quitar de la sesión"><?= rlIco('eliminar', 15) ?></button><?php endif; ?>
+              <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte rl-rfila__abrir" data-rl-abrir-fila aria-expanded="<?= $i === $abiertaRl ? 'true' : 'false' ?>" aria-controls="rl-rf-<?= (int)$i ?>" aria-label="Abrir o cerrar <?= e((string)$f['codigo']) ?>"><?= rlIco('chevron-abajo', 18) ?></button>
             </span>
           </header>
           <?= rlFechasFila($fx, (string)$rev['fecha'], $hoy) ?>
@@ -1560,8 +1560,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               <label class="rl-ext__vino"><input type="checkbox" name="externos_asistio[]" value="<?= e((string)$x['email']) ?>"<?= !empty($x['asistio']) ? ' checked' : '' ?><?= $puedeReg ? '' : ' disabled' ?>><span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span>Asistió</label>
               <?php if ($puedeReg): ?>
               <span class="rl-ext__acc">
-                <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-ext="reenviar" data-email="<?= e((string)$x['email']) ?>" aria-label="Reenviar la invitación a <?= e((string)$x['nombre']) ?>" data-ds-tip="Reenviar la invitación"><?= rlIco('enviar', 15) ?></button>
-                <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-ext="quitar" data-email="<?= e((string)$x['email']) ?>" aria-label="Quitar a <?= e((string)$x['nombre']) ?>" data-ds-tip="Quitar"><?= rlIco('eliminar', 15) ?></button>
+                <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" data-rl-ext="reenviar" data-email="<?= e((string)$x['email']) ?>" aria-label="Reenviar la invitación a <?= e((string)$x['nombre']) ?>" data-ds-tip="Reenviar la invitación"><?= rlIco('enviar', 15) ?></button>
+                <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-rl-ext="quitar" data-email="<?= e((string)$x['email']) ?>" aria-label="Quitar a <?= e((string)$x['nombre']) ?>" data-ds-tip="Quitar"><?= rlIco('eliminar', 15) ?></button>
               </span>
               <?php endif; ?>
             </li>
@@ -1689,7 +1689,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <small><?= e(ucfirst(rlFL($h['fecha'], true, true))) ?><?= ($h['origen'] ?? '') !== '' ? ' · ' . e($h['origen']) : '' ?></small>
           <?php if ($editor): ?>
           <form class="rl-tl__hecho" data-rl-hito-hecho="<?= (int)$h['id'] ?>"><?= rlSwitch('hecho', !empty($h['hecho']), 'Hecho') ?></form>
-          <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-rl-hito-editar="<?= e(json_encode(['id' => (int)$h['id'], 'titulo' => $h['titulo'], 'fecha' => $h['fecha'], 'release' => $h['release'] ?? '', 'descripcion' => $h['descripcion'] ?? '', 'hecho' => !empty($h['hecho'])], JSON_UNESCAPED_UNICODE)) ?>" aria-label="Editar el hito" data-ds-tip="Editar"><?= rlIco('editar', 16) ?></button>
+          <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" data-rl-hito-editar="<?= e(json_encode(['id' => (int)$h['id'], 'titulo' => $h['titulo'], 'fecha' => $h['fecha'], 'release' => $h['release'] ?? '', 'descripcion' => $h['descripcion'] ?? '', 'hecho' => !empty($h['hecho'])], JSON_UNESCAPED_UNICODE)) ?>" aria-label="Editar el hito" data-ds-tip="Editar"><?= rlIco('editar', 16) ?></button>
           <?php endif; ?>
         </div>
       </div>

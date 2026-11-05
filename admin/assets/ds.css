@@ -5724,3 +5724,39 @@ button.ph-cifra-estado:hover, .rl-hero__salud:hover { background: var(--surface-
 .pac-resumen .pac-estado { margin-left: auto; font-size: .76rem; }
 .pac-resumen .pac-estado { display: inline-flex; margin-left: auto; }
 .pac-resumen .pac-estado .col-ic { color: var(--col-solid); }
+
+/* Botones de solo ícono con forma, como los de la barra de arriba (que no se vean «muertos»):
+   --tinte, un cuadrito con el fondo suave del color y el ícono del color; --solido, relleno (la acción principal) */
+.mc-iconbtn--tinte { --_fg: var(--primary-ink); --_bgh: color-mix(in srgb, var(--primary) 20%, var(--surface)); --_fgh: var(--primary-ink);
+  background: var(--primary-soft); color: var(--_fg); border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent); }
+.mc-iconbtn--tinte.mc-iconbtn--danger { --_fg: var(--danger-ink); --_bgh: color-mix(in srgb, var(--danger) 18%, var(--surface)); --_fgh: var(--danger-ink);
+  background: var(--danger-soft); border-color: color-mix(in srgb, var(--danger) 25%, transparent); }
+.mc-iconbtn--solido { --_fg: #fff; --_bgh: var(--primary-hover, var(--primary)); --_fgh: #fff;
+  background: var(--primary); color: #fff; border: 0; box-shadow: 0 2px 8px -3px color-mix(in srgb, var(--primary) 60%, transparent); }
+.rl-ses__editar { display: inline-grid; place-items: center; width: 28px; height: 28px; border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent);
+  border-radius: 8px; background: var(--primary-soft); color: var(--primary-ink); cursor: pointer; }
+.rl-ses__editar:hover { background: color-mix(in srgb, var(--primary) 20%, var(--surface)); }
+
+/* La tabla de la salud, ordenada: todas las filas de la misma altura, el estado de cada
+   dimensión en la misma columna que el de sus indicadores y el encabezado fijo al bajar */
+.col-ind__cols, .col-ind__fila, .col-ind__dim { grid-template-columns: minmax(220px, 3fr) 64px 92px 84px minmax(140px, 1.6fr) 44px 128px; }
+.col-dlg .col-ind__cols { position: sticky; top: 0; z-index: 1; }
+.col-ind__dim { display: grid; gap: 0 12px; align-items: center; min-height: 38px; padding: 0 16px; }
+.col-ind__dim > b { grid-column: 1 / 7; }
+.col-ind__dim > .col-ind__est { grid-column: 7; }
+.col-ind__fila { min-height: 46px; padding-block: 6px; }
+.col-ind__nom { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; min-width: 0; }
+.col-ind__nom .col-tag--clave { margin-left: 0; }
+.col-ind__txt[data-ds-tip] { cursor: help; }
+.col-ind__real { flex-direction: row; align-items: center; gap: 6px; white-space: nowrap; }
+.col-ind__anot { display: inline-grid; place-items: center; color: var(--ink-subtle); }
+.col-ind__est { display: flex; align-items: center; white-space: nowrap; }
+.col-ind__sin { display: flex; align-items: flex-start; gap: 8px; padding: 10px 16px; border-top: 1px solid var(--line); background: var(--surface-sunken);
+  color: var(--ink-muted); font-size: .78rem; line-height: 1.55; }
+.col-ind__sin > svg, .col-ind__sin > .mc-icon { flex: none; margin-top: 2px; }
+.col-ind__sin b { color: var(--ink); font-weight: 600; }
+.col-ind__sin [data-ds-tip] { cursor: help; text-decoration: underline dotted; text-underline-offset: 3px; }
+@media (max-width: 760px) {
+  .col-dlg .col-ind { overflow-x: auto; }
+  .col-ind__cols, .col-ind__fila, .col-ind__dim { min-width: 780px; }
+}
