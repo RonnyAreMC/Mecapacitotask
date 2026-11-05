@@ -10742,7 +10742,13 @@ html.dark .vt-pizarra-card { background: rgba(255, 255, 255, .03); }
 .dt-imp-cab .btn-meca[hidden] { display: none; }
 .dt-imp-form { display: flex; flex-direction: column; gap: 14px; padding: 16px; border-radius: 14px; background: var(--wz-sup); box-shadow: 0 0 0 1px var(--wz-linea); }
 .dt-imp-form[hidden], .dt-imp-form [hidden] { display: none; }
-.dt-imp-form textarea.input-meca { min-height: 84px; }
+.dt-imp-form textarea { min-height: 84px; }
+.dt-imp-form .campo, .dt-colab-caja .campo { display: flex; flex-direction: column; gap: 6px; }
+.dt-imp-form .mc-select, .dt-colab-caja .mc-select { width: 100%; }
+.dt-imp-form .campo[hidden] { display: none; }
+/* En la lista de equipos, lo que cubre cada uno en una sola línea */
+#dlg-detalle-tarea .mc-select__pop .mc-option__desc { display: block; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+#dlg-detalle-tarea .mc-select__pop .mc-option__text { min-width: 0; }
 .dt-imp-form__fila { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
 .dt-imp-form__pie { display: flex; justify-content: flex-end; gap: 10px; }
 .dt-imp-form__pie .btn-meca svg, .dt-imp-cab .btn-meca svg { flex: none; }

@@ -107,10 +107,10 @@ if (class_exists('Releases')) {
         if ($nomE === 'Todos') continue;
         $colorEq['Equipo ' . $nomE] = (string)$eqE['color'];
         if (in_array((int)$t['proyecto_id'], Releases::proyectosEquipo((string)$nomE), true)) continue;   // el suyo
-        $equiposImp[] = ['v' => 'Equipo ' . $nomE, 'grupo' => 'Equipos', 'color' => (string)$eqE['color']];
+        $equiposImp[] = ['v' => 'Equipo ' . $nomE, 'grupo' => 'Equipos', 'color' => (string)$eqE['color'], 'desc' => trim((string)($eqE['dominio'] ?? ''))];
     }
 }
-foreach (Catalogo::equipos() as [$labelE]) $equiposImp[] = ['v' => (string)$labelE, 'grupo' => 'Áreas', 'color' => ''];
+foreach (Catalogo::equipos() as [$labelE]) $equiposImp[] = ['v' => (string)$labelE, 'grupo' => 'Áreas', 'color' => '', 'desc' => ''];
 $yo = (int)(Auth::usuario()['id'] ?? 0);
 $gestiona = puedeGestionar((int)$t['proyecto_id']);
 $suya = TareaRepo::tieneAsignado($t, $yo);

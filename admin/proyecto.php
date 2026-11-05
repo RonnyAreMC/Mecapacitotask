@@ -2616,7 +2616,8 @@ function depPicker(): void { ?>
         <?php /* Sin <form>: la ficha ya es un formulario (el asistente). Lo envía admin.js */ ?>
         <button type="button" class="dt-colab-btn" data-dt-colab-abrir><i class="fa-solid fa-user-plus"></i> Pedir ayuda o sumar a quien te ayudó</button>
         <div class="dt-colab-caja" data-dt-colab hidden>
-          <label class="campo"><span>¿A quién?</span><select class="input-meca" data-dt-colab-quien></select></label>
+          <?php /* La lista del DS (assets/ds.js la arma; admin.js le pone las opciones y la refresca) */ ?>
+          <div class="campo"><span>¿A quién?</span><select data-ds-select data-ds-tam="md" data-placeholder="Elige a la persona…" aria-label="¿A quién?" data-dt-colab-quien></select></div>
           <label class="campo"><span>Para qué (opcional)</span><textarea class="input-meca" rows="2" maxlength="500" data-dt-colab-nota placeholder="Ej. me ayudó con las pruebas del formulario"></textarea></label>
           <div class="dt-colab-pie">
             <button type="button" class="btn-outline btn-meca btn-neutro btn-sm" data-dt-colab-cerrar>Cancelar</button>

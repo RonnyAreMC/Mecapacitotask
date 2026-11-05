@@ -2236,8 +2236,10 @@ function dtPrepararColab(dlg, t) {
   fila.dataset.tarea = t.id;
   fila.querySelector('[data-dt-colab]').hidden = true;
   fila.querySelector('[data-dt-colab-abrir]').hidden = false;
-  fila.querySelector('[data-dt-colab-quien]').innerHTML = '<option value="">Elige a la persona…</option>'
+  const quienSel = fila.querySelector('[data-dt-colab-quien]');
+  quienSel.innerHTML = '<option value="">Elige a la persona…</option>'
     + libres.map((g) => '<option value="' + (+g.id) + '">' + esc(g.nombre) + '</option>').join('');
+  if (window.DS && DS.refrescar && quienSel.closest('.mc-select')) DS.refrescar(quienSel);
   fila.querySelector('[data-dt-colab-nota]').value = '';
 }
 
@@ -2248,14 +2250,14 @@ document.addEventListener('click', async (e) => {
   const abrir = fila.querySelector('[data-dt-colab-abrir]');
   if (e.target.closest('[data-dt-colab-abrir]')) {
     caja.hidden = false; abrir.hidden = true;
-    fila.querySelector('[data-dt-colab-quien]').focus();
+    dtFoco(fila.querySelector('[data-dt-colab-quien]'));
     return;
   }
   if (e.target.closest('[data-dt-colab-cerrar]')) { caja.hidden = true; abrir.hidden = false; return; }
   const btn = e.target.closest('[data-dt-colab-sumar]');
   if (!btn) return;
   const quien = fila.querySelector('[data-dt-colab-quien]');
-  if (!quien.value) { quien.focus(); if (window.MC && MC.toast) MC.toast('Elige a la persona.', 'warning'); return; }
+  if (!quien.value) { dtFoco(quien); if (window.MC && MC.toast) MC.toast('Elige a la persona.', 'warning'); return; }
   const fd = new FormData();
   fd.set('accion', 'tarea_colaborador');
   fd.set('ajax', '1');
@@ -2344,9 +2346,10 @@ function dtPintarTraza(dlg, cajas, d, id) {
   const TIPO_IMP = { impedimento: 'Impedimento', nota: 'Observación', recordatorio: 'Recordatorio' };
   const grupos = {};
   (d.equipos_imp || []).forEach((o) => { (grupos[o.grupo] = grupos[o.grupo] || []).push(o); });
-  const opciones = '<option value="">No, es de nuestro equipo</option>'
-    + Object.entries(grupos).map(([g, l]) => '<optgroup label="' + esc(g) + '">' + l.map((o) => '<option value="' + esc(o.v) + '">' + esc(o.v) + '</option>').join('') + '</optgroup>').join('')
-    + '<option value="otro">Otro (escríbelo)</option>';
+  const opciones = '<option value="" data-desc="Lo resolvemos dentro del equipo">No, es de nuestro equipo</option>'
+    + Object.entries(grupos).map(([g, l]) => '<optgroup label="' + esc(g) + '">' + l.map((o) => '<option value="' + esc(o.v) + '"'
+        + (o.desc ? ' data-desc="' + esc(o.desc) + '"' : '') + '>' + esc(o.v) + '</option>').join('') + '</optgroup>').join('')
+    + '<optgroup label="Otro"><option value="otro" data-desc="Otra área, la universidad o un proveedor">Otro (escríbelo)</option></optgroup>';
   const resueltos = imp.length - pend;
   const resumen = pend ? '<b>' + pend + ' abierto' + (pend === 1 ? '' : 's') + '</b>' + (resueltos ? '<small>' + resueltos + ' resuelto' + (resueltos === 1 ? '' : 's') + '</small>' : '')
     : '<b>Nada la frena ahora</b><small>' + (resueltos ? resueltos + ' resuelto' + (resueltos === 1 ? '' : 's') + '. ' : '') + 'Si algo la detiene, anótalo: queda marcado y le llega al Scrum Master.</small>';
@@ -2365,10 +2368,10 @@ function dtPintarTraza(dlg, cajas, d, id) {
   cajas.impedimentos.innerHTML = '<div class="dt-imp-cab"><div class="dt-imp-cab__txt">' + resumen + '</div>'
     + (d.puede_imp ? '<button type="button" class="btn-primary btn-meca btn-sm" data-dt-imp-abrir' + (abrirForm ? ' hidden' : '') + '>' + dtIco('mas') + ' Agregar impedimento</button>' : '') + '</div>'
     + (d.puede_imp ? '<div class="dt-imp-form" data-dt-imp-form data-tarea="' + esc(id) + '"' + (abrirForm ? '' : ' hidden') + '>'
-      + '<label class="campo"><span>¿Qué la frena y por qué?</span><textarea class="input-meca" rows="3" maxlength="1000" data-dt-imp-texto'
-      + ' placeholder="Ej. no podemos probar la carga de notas: falta el servicio de matrículas"></textarea></label>'
-      + '<div class="dt-imp-form__fila"><label class="campo"><span>¿Depende de otro equipo?</span><select class="input-meca" data-dt-imp-eq>' + opciones + '</select></label>'
-      + '<label class="campo" data-dt-imp-otro hidden><span>¿De quién?</span><input class="input-meca" maxlength="80" data-dt-imp-otro-txt placeholder="Ej. Infraestructura de la universidad"></label></div>'
+      + '<label class="campo"><span>¿Qué la frena y por qué?</span><span class="mc-input mc-input--multiline"><textarea class="mc-input__control" rows="3" maxlength="1000" data-dt-imp-texto'
+      + ' placeholder="Ej. no podemos probar la carga de notas: falta el servicio de matrículas"></textarea></span></label>'
+      + '<div class="dt-imp-form__fila"><div class="campo"><span>¿Depende de otro equipo?</span><select data-ds-select data-ds-tam="md" aria-label="¿Depende de otro equipo?" data-buscar="Buscar equipo…" data-dt-imp-eq>' + opciones + '</select></div>'
+      + '<label class="campo" data-dt-imp-otro hidden><span>¿De quién?</span><span class="mc-input mc-input--md"><input class="mc-input__control" maxlength="80" data-dt-imp-otro-txt placeholder="Ej. Infraestructura de la universidad"></span></label></div>'
       + '<div class="dt-imp-form__pie">' + (abrirForm ? '' : '<button type="button" class="btn-outline btn-meca btn-neutro btn-sm" data-dt-imp-cerrar>Cancelar</button>')
       + '<button type="button" class="btn-primary btn-meca btn-sm" data-dt-imp-guardar>' + dtIco('check') + ' Guardar impedimento</button></div></div>' : '')
     + (imp.length ? '<ul class="dt-imp">' + imp.map(item).join('') + '</ul>' : '');
@@ -2392,6 +2395,12 @@ function dtPintarTraza(dlg, cajas, d, id) {
     + '<span class="dt-commit__msg">' + esc(c.msg) + '</span><small>' + [esc(c.autor), esc(c.repo), dtFecha(c.fecha)].filter(Boolean).join(' · ') + '</small></a></li>'
   ).join('') + '</ul>' : vacio('Ningún commit menciona #' + id + ' en los últimos seis meses. Para enlazarlos, el mensaje del commit termina con <code>#' + id + '</code>.');
 }
+// Foco en una lista del DS: su botón (el <select> real está escondido)
+function dtFoco(sel) {
+  const btn = sel && sel.closest('.mc-select') ? sel.closest('.mc-select').querySelector('.mc-select__trigger') : null;
+  (btn || sel)?.focus();
+}
+
 // Los íconos SVG del DS para la ficha (proyecto.php los deja en #dt-iconos)
 let dtIconos = null;
 function dtIco(k) {
