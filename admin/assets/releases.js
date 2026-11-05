@@ -1553,7 +1553,10 @@
     // Pulsar fuera del detalle (en el fondo) lo cierra
     if (e.target instanceof HTMLDialogElement && e.target.matches('dialog.rl-det[open]')) e.target.close();
   });
+  // Los enlaces viejos del equipo (#dailies, #items…) llevan a la pantalla de ese tema (?d=)
   const hashDet = decodeURIComponent(location.hash.slice(1));
-  const dlgHash = hashDet && [...document.querySelectorAll('dialog[data-rl-hash]')].find((d) => d.dataset.rlHash === hashDet);
-  if (dlgHash && !dlgHash.open) dlgHash.showModal();
+  if (document.querySelector('.rl-subnav') && ['salud', 'items', 'dailies', 'alertas', 'impedimentos', 'tareas', 'ia'].includes(hashDet)) {
+    const u = new URL(location.href);
+    if (!u.searchParams.get('d')) { u.searchParams.set('d', hashDet); u.hash = ''; location.replace(u.toString()); }
+  }
 })();

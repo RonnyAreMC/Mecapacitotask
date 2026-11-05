@@ -661,7 +661,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               <td class="rl-matriz__tot"><a class="rl-celda rl-celda--tot rl-s--<?= e($s) ?>" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom])) ?>">
                 <b class="mc-num"><?= (int)$x['pct'] ?>%</b><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><small><?= (int)$x['cerrados'] ?>/<?= (int)$x['total'] ?></small></a></td>
               <td class="rl-matriz__dl"><?php if ($dlx['pct'] !== null): ?>
-                <a class="rl-celda rl-celda--dl" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom])) ?>#dailies" data-ds-tip="<?= (int)$dlx['cuenta']['cumplida'] ?> de <?= (int)$dlx['cuentan'] ?> día(s) cumplidos<?= $dlx['asistencia'] !== null ? ' · asistencia ' . (int)$dlx['asistencia'] . ' %' : '' ?>">
+                <a class="rl-celda rl-celda--dl" href="<?= e(rlUrl(['v' => 'equipo', 'e' => $nom, 'd' => 'dailies'])) ?>" data-ds-tip="<?= (int)$dlx['cuenta']['cumplida'] ?> de <?= (int)$dlx['cuentan'] ?> día(s) cumplidos<?= $dlx['asistencia'] !== null ? ' · asistencia ' . (int)$dlx['asistencia'] . ' %' : '' ?>">
                   <b class="mc-num"><?= (int)$dlx['pct'] ?>%</b><span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)$dlx['pct'] ?>%"></i></span>
                   <?php if ($dlx['cuenta']['sin_registrar'] === $dlx['cuentan']): ?><small class="is-mal">Sin daily en el panel</small><?php else: ?><small><?= (int)$dlx['cuenta']['cumplida'] ?>/<?= (int)$dlx['cuentan'] ?> días</small><?php endif; ?></a>
               <?php else: ?><span class="rl-celda rl-celda--vacia" data-ds-tip="<?= !$dlx['aplica'] ? 'Sin gente ni proyectos: no tiene daily' : ($conf['dailies']['desde'] > $hoy ? 'Se mide desde el ' . e(rlF($conf['dailies']['desde'], true)) : 'Aún no hay días medidos') ?>">—</span><?php endif; ?></td>
@@ -860,10 +860,17 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
   <?php
     /* ---------- El tablero del equipo: un resumen por tema, en tarjetas; el detalle de cada
        uno (salud, ítems, dailies, alertas, impedimentos, tareas e IA) se abre en su modal ---------- */
-    $cerrarDet = '<button type="button" class="dlg-close rl-det__cerrar" data-cerrar-dlg aria-label="Cerrar">' . rlIco('cerrar', 18) . '</button>';
-    $verDet = fn(string $id, string $que) => '<button type="button" class="rl-pan__btn" data-rl-abrir-dlg="' . $id . '" aria-label="Ver el detalle de ' . e($que) . '" data-ds-tip="Ver detalle">' . rlIco('ver', 16) . '</button>';
+    $cerrarDet = '';   // el detalle es su propia pantalla: no lleva ×
     $colE = Colorimetria::delEquipo($en);
     if ($colE) require_once __DIR__ . '/lib/colorimetria_ui.php';
+    // Cada tema tiene su pantalla (?d=…); sin d, el tablero con el resumen de todos
+    $DETALLES = ['salud' => ['Salud', 'progreso'], 'items' => ['Ítems', 'ruta'], 'dailies' => ['Reuniones diarias', 'video'], 'alertas' => ['Alertas', 'alerta'],
+                 'impedimentos' => ['Impedimentos', 'bandera'], 'tareas' => ['Tareas', 'completar'], 'ia' => ['Asociación con IA', 'ia']];
+    if (!$dl['aplica']) unset($DETALLES['dailies']);
+    if (!$colE) unset($DETALLES['salud']);
+    $det = isset($DETALLES[$_GET['d'] ?? '']) ? (string)$_GET['d'] : '';
+    $urlDet = fn(string $d = '') => rlUrl(['v' => 'equipo', 'e' => $en] + ($d !== '' ? ['d' => $d] : []));
+    $verDet = fn(string $d, string $que) => '<a class="rl-pan__btn" href="' . e($urlDet($d)) . '" aria-label="Ver el detalle de ' . e($que) . '" data-ds-tip="Ver detalle">' . rlIco('ver', 16) . '</a>';
     $kAv = Colorimetria::deSalud($salE === 'vacio' ? 'futuro' : $salE);
     $abiertosE = array_values(array_filter($delEq, fn($it) => $it['estado'] !== 'cerrado'));
     $domE = date('Y-m-d', strtotime($hoy . ' +' . (7 - (int)date('N', strtotime($hoy))) . ' days'));
@@ -907,15 +914,22 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <div class="rl-eqcab__txt"><h2 class="font-display">Equipo <?= e($en) ?></h2><?php if (($E['dominio'] ?? '') !== ''): ?><p><?= e($E['dominio']) ?></p><?php endif; ?></div>
     <div class="rl-eqcab__acc">
       <?php if ($puedeDl && $dl['aplica'] && $dl['desde'] <= $hoy): ?><button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-rl-daily-reg="<?= e($hoy) ?>" aria-label="Registrar la daily" data-ds-tip="Registrar la daily"><?= rlIco('check', 18) ?></button><?php endif; ?>
-      <?php if ($puedeIA): ?><button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-rl-abrir-dlg="rl-det-ia" aria-label="Asociar tareas con IA" data-ds-tip="Asociar tareas con IA"><?= rlIco('ia', 18) ?></button><?php endif; ?>
+      <?php if ($puedeIA): ?><a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e($urlDet('ia')) ?>" aria-label="Asociar tareas con IA" data-ds-tip="Asociar tareas con IA"><?= rlIco('ia', 18) ?></a><?php endif; ?>
       <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'revisiones', 'e' => $en])) ?>" aria-label="Revisiones del equipo" data-ds-tip="Revisiones del equipo"><?= rlIco('agenda', 18) ?></a>
       <?php if ($editor): ?><a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'ajustes', 't' => 'equipos'])) ?>#eq-<?= (int)$E['id'] ?>" aria-label="Editar el equipo" data-ds-tip="Editar el equipo"><?= rlIco('editar', 18) ?></a><?php endif; ?>
     </div>
   </header>
+  <nav class="rl-subnav" aria-label="Qué ver del equipo">
+    <a class="rl-subnav__op<?= $det === '' ? ' is-active' : '' ?>" href="<?= e($urlDet()) ?>"<?= $det === '' ? ' aria-current="page"' : '' ?>><?= rlIco('dashboard', 16) ?>Resumen</a>
+    <?php foreach ($DETALLES as $kD => [$lblD, $icoD]): $nD = match ($kD) { 'alertas' => $nAlertas, 'impedimentos' => count($impE), default => 0 }; ?>
+    <a class="rl-subnav__op<?= $det === $kD ? ' is-active' : '' ?>" href="<?= e($urlDet($kD)) ?>"<?= $det === $kD ? ' aria-current="page"' : '' ?>><?= rlIco($icoD, 16) ?><?= e($lblD) ?><?= $nD ? '<span class="rl-subnav__n mc-num">' . $nD . '</span>' : '' ?></a>
+    <?php endforeach; ?>
+  </nav>
 
-  <div class="rl-tab">
-    <section class="rl-pan rl-pan--8">
-      <header class="rl-pan__cab"><h3>Resumen del equipo</h3><?= $colE ? $verDet('dlg-col-equipo', 'la salud del equipo') : '' ?></header>
+  <?php $pan = []; ?>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Resumen del equipo</h3><?= $colE ? $verDet('salud', 'la salud del equipo') : '' ?></header>
       <div class="rl-pan__cuerpo">
         <dl class="rl-mini">
           <div><dt>Releases</dt><dd class="mc-num"><?= count(array_filter($porRel)) ?></dd></div>
@@ -932,14 +946,16 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?= $kpi('Atrasados', (string)(int)$resEq['atrasados'], $resEq['atrasados'] ? 'crit' : 'ok') ?>
           <?= $kpi('En riesgo', (string)(int)$resEq['riesgo'], $resEq['riesgo'] ? 'warn' : 'ok') ?>
           <?php if ($colE): ?>
-          <button type="button" class="rl-kpi rl-kpi--btn col-s-<?= e($colE['estado']) ?>" data-rl-abrir-dlg="dlg-col-equipo" data-ds-tip="Cómo va según la colorimetría">
-            <small>Salud</small><b><?= Colorimetria::icono($colE['estado'], 20) ?><?= e(Colorimetria::nombre($colE['estado'])) ?></b><?= $colE['ev']['puntaje'] !== null && in_array($colE['estado'], ['ok', 'warn', 'crit'], true) ? '<em>Puntaje ' . Colorimetria::num($colE['ev']['puntaje']) . ' de 100</em>' : '' ?></button>
+          <a class="rl-kpi rl-kpi--btn col-s-<?= e($colE['estado']) ?>" href="<?= e($urlDet('salud')) ?>" data-ds-tip="Cómo va según la colorimetría">
+            <small>Salud</small><b><?= Colorimetria::icono($colE['estado'], 20) ?><?= e(Colorimetria::nombre($colE['estado'])) ?></b><?= $colE['ev']['puntaje'] !== null && in_array($colE['estado'], ['ok', 'warn', 'crit'], true) ? '<em>Puntaje ' . Colorimetria::num($colE['ev']['puntaje']) . ' de 100</em>' : '' ?></a>
           <?php endif; ?>
         </div>
       </div>
     </section>
+    <?php $pan['resumen'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
       <header class="rl-pan__cab"><h3>Equipo</h3><?php if ($editor): ?><a class="rl-pan__btn" href="<?= e(rlUrl(['v' => 'ajustes', 't' => 'equipos'])) ?>#eq-<?= (int)$E['id'] ?>" aria-label="Editar el equipo" data-ds-tip="Editar"><?= rlIco('editar', 16) ?></a><?php endif; ?></header>
       <div class="rl-pan__cuerpo">
         <div class="rl-personas rl-personas--col">
@@ -960,9 +976,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <?php endif; ?>
       </div>
     </section>
+    <?php $pan['equipo'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--<?= $dl['aplica'] ? '6' : '12' ?>">
-      <header class="rl-pan__cab"><h3>Avance por release</h3><?= $verDet('rl-det-items', 'los ítems') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Avance por release</h3><?= $verDet('items', 'los ítems') ?></header>
       <div class="rl-pan__cuerpo">
         <ul class="rl-hbars">
           <?php foreach ($rels as $cod => $r): if (empty($porRel[$cod])) continue; $rq = Releases::resumen($porRel[$cod]); $kR = Colorimetria::deSalud(rlSaludGrupo($rq, $hoy)); ?>
@@ -975,10 +993,12 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <p class="rl-pan__nota">El color es la salud según la colorimetría; la marca gris, lo que el plan espera hoy.</p>
       </div>
     </section>
+    <?php $pan['avance'] = ob_get_clean(); ?>
 
     <?php if ($dl['aplica']): $cDl = $dl['cuenta']; ?>
-    <section class="rl-pan rl-pan--6">
-      <header class="rl-pan__cab"><h3>Reuniones diarias</h3><?= $verDet('rl-det-dailies', 'las reuniones diarias') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Reuniones diarias</h3><?= $verDet('dailies', 'las reuniones diarias') ?></header>
       <div class="rl-pan__cuerpo">
         <?php if ($dl['desde'] > $hoy): ?>
         <p class="rl-vacio-txt"><?= rlIco('reloj', 16) ?> Se empieza a medir el <?= e(rlFL($dl['desde'])) ?>.</p>
@@ -990,30 +1010,36 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <?php endif; ?>
       </div>
     </section>
+    <?php $pan['dailies'] = ob_get_clean(); ?>
     <?php endif; ?>
 
-    <section class="rl-pan rl-pan--4">
-      <header class="rl-pan__cab"><h3>Ítems</h3><?= $verDet('rl-det-items', 'los ítems') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Ítems</h3><?= $verDet('items', 'los ítems') ?></header>
       <div class="rl-pan__cuerpo">
         <?= rlDona([[(int)$resEq['cerrados'], 'done', 'Terminados'], [(int)$resEq['en_curso'], 'ok', 'En curso'], [(int)$resEq['por_iniciar'], 'none', 'Por iniciar'], [(int)$resEq['bloqueados'], 'crit', 'Bloqueados']],
                    ($resEq['total'] ? (int)round($resEq['cerrados'] * 100 / $resEq['total']) : 0) . '<small>%</small>', 'terminados') ?>
       </div>
     </section>
+    <?php $pan['items'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
-      <header class="rl-pan__cab"><h3>Alertas<?= $nAlertas ? ' <span class="rl-pan__n mc-num">' . $nAlertas . '</span>' : '' ?></h3><?= $verDet('rl-det-alertas', 'las alertas') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Alertas<?= $nAlertas ? ' <span class="rl-pan__n mc-num">' . $nAlertas . '</span>' : '' ?></h3><?= $verDet('alertas', 'las alertas') ?></header>
       <div class="rl-pan__cuerpo">
         <ul class="rl-alist">
-          <?php foreach ($alertasE as [$lbl, $tono, $lista]): ?>
-          <li><button type="button" class="<?= $tono === 'azul' ? 'rl-kpi--azul' : 'col-s-' . $tono ?><?= $lista ? '' : ' is-cero' ?>" data-rl-abrir-dlg="rl-det-alertas">
-            <?= $tono === 'azul' ? rlIco('agenda', 16) : Colorimetria::icono($tono, 16) ?><span><?= e($lbl) ?></span><b class="mc-num"><?= count($lista) ?></b></button></li>
+          <?php foreach ($alertasE as $kAl => [$lbl, $tono, $lista]): ?>
+          <li><a class="<?= $tono === 'azul' ? 'rl-kpi--azul' : 'col-s-' . $tono ?><?= $lista ? '' : ' is-cero' ?>" href="<?= e($urlDet('alertas')) ?>#al-<?= $kAl ?>">
+            <?= $tono === 'azul' ? rlIco('agenda', 16) : Colorimetria::icono($tono, 16) ?><span><?= e($lbl) ?></span><b class="mc-num"><?= count($lista) ?></b></a></li>
           <?php endforeach; ?>
         </ul>
       </div>
     </section>
+    <?php $pan['alertas'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
-      <header class="rl-pan__cab"><h3>Impedimentos</h3><?= $verDet('rl-det-imp', 'los impedimentos') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Impedimentos</h3><?= $verDet('impedimentos', 'los impedimentos') ?></header>
       <div class="rl-pan__cuerpo">
         <div class="rl-grande col-s-<?= $impE ? 'warn' : 'ok' ?>"><b class="mc-num"><?= count($impE) ?></b><span><?= count($impE) === 1 ? 'abierto' : 'abiertos' ?><small><?= $impOtros ? array_sum($impOtros) . ' dependen de otro equipo' : 'Ninguno depende de otro equipo' ?></small></span></div>
         <?php if ($impOtros): ?>
@@ -1027,9 +1053,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <?php endif; ?>
       </div>
     </section>
+    <?php $pan['imp'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
-      <header class="rl-pan__cab"><h3>Tareas del equipo</h3><?= $verDet('rl-det-tareas', 'las tareas sin ítem') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Tareas del equipo</h3><?= $verDet('tareas', 'las tareas sin ítem') ?></header>
       <div class="rl-pan__cuerpo">
         <div class="rl-kpis rl-kpis--3">
           <?= $kpi('Abiertas', (string)$abiertasT, 'azul') ?>
@@ -1039,9 +1067,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <p class="rl-pan__dato"><b class="mc-num"><?= $conItemT ?></b> de <b class="mc-num"><?= count($tareasEq) ?></b> tareas cubren algún ítem.</p>
       </div>
     </section>
+    <?php $pan['tareas'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
-      <header class="rl-pan__cab"><h3>Asociación con IA</h3><?= $verDet('rl-det-ia', 'la asociación con IA') ?></header>
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
+      <header class="rl-pan__cab"><h3>Asociación con IA</h3><?= $verDet('ia', 'la asociación con IA') ?></header>
       <div class="rl-pan__cuerpo">
         <?php if ($analisis): ?>
         <p class="rl-pan__dato"><?= rlIco('ia', 16) ?> La última, el <b><?= e(rlFL(substr((string)$analisis['fecha'], 0, 10), false)) ?></b><?= ($miembros[(int)($analisis['quien'] ?? 0)]['nombre'] ?? '') !== '' ? ' · ' . e($miembros[(int)$analisis['quien']]['nombre']) : '' ?></p>
@@ -1054,8 +1084,10 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <?php endif; ?>
       </div>
     </section>
+    <?php $pan['ia'] = ob_get_clean(); ?>
 
-    <section class="rl-pan rl-pan--4">
+    <?php ob_start(); ?>
+    <section class="rl-pan rl-pan--{{S}}">
       <header class="rl-pan__cab"><h3>Revisiones</h3><a class="rl-pan__btn" href="<?= e(rlUrl(['v' => 'revisiones', 'e' => $en])) ?>" aria-label="Ver las revisiones del equipo" data-ds-tip="Ver detalle"><?= rlIco('ver', 16) ?></a></header>
       <div class="rl-pan__cuerpo">
         <?php if ($proxRev): ?>
@@ -1072,16 +1104,39 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         </div>
       </div>
     </section>
-  </div>
+    <?php $pan['revisiones'] = ob_get_clean(); ?>
+  
+  <?php
+    // Las tarjetas de cada pantalla: [clave, columnas de 12]
+    $panes = function (array $lista) use ($pan): string {
+        $h = '<div class="rl-tab">';
+        foreach ($lista as [$k, $c]) if (isset($pan[$k])) $h .= str_replace('{{S}}', (string)$c, $pan[$k]);
+        return $h . '</div>';
+    };
+    echo $panes(match ($det) {
+        ''             => [['resumen', 8], ['equipo', 4], ['avance', isset($pan['dailies']) ? 6 : 12], ['dailies', 6], ['items', 4], ['alertas', 4], ['imp', 4], ['tareas', 4], ['ia', 4], ['revisiones', 4]],
+        'salud'        => [['resumen', 12]],
+        'items'        => [['avance', 8], ['items', 4]],
+        'dailies'      => [],
+        'alertas'      => [['alertas', 4], ['avance', 8]],
+        'impedimentos' => [['imp', 4], ['tareas', 4], ['alertas', 4]],
+        'tareas', 'ia' => [['tareas', 6], ['ia', 6]],
+    });
+  ?>
 
-  <?php if ($colE) echo colModal($colE, 'dlg-col-equipo', rlUrl(['v' => 'equipo', 'e' => $en])); ?>
+  <?php if ($det === 'salud'): ?>
+  <section class="mc-card rl-card">
+    <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('progreso', 20) ?> Salud del equipo <?= e($en) ?></h2><p class="rl-card__sub">Cada indicador de la colorimetría de la PMO con su valor, su meta y su estado. Pasa el puntero por un nombre para ver de dónde sale.</p></div></header>
+    <?= colPagina($colE, $urlDet('salud')) ?>
+  </section>
+  <?php endif; ?>
 
-  <dialog class="dlg-meca rl-det" id="rl-det-alertas" data-rl-hash="alertas" aria-label="Alertas del equipo">
+  <?php if ($det === 'alertas'): ?>
     <section class="mc-card rl-card">
       <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('alerta', 20) ?> Alertas del equipo <?= e($en) ?></h2><p class="rl-card__sub">Lo que pide atención hoy. Pulsa un ítem para ver su detalle y marcar cómo va.</p></div><?= $cerrarDet ?></header>
       <div class="rl-alertas">
-      <?php foreach ($alertasE as [$lbl, $tono, $lista]): $lista = array_values($lista); usort($lista, fn($a, $b) => [$a['fin'], $a['codigo']] <=> [$b['fin'], $b['codigo']]); ?>
-        <div class="rl-alerta rl-t--<?= $tono === 'warn' ? 'amarillo' : ($tono === 'crit' ? 'rojo' : 'azul') ?>">
+      <?php foreach ($alertasE as $kAl => [$lbl, $tono, $lista]): $lista = array_values($lista); usort($lista, fn($a, $b) => [$a['fin'], $a['codigo']] <=> [$b['fin'], $b['codigo']]); ?>
+        <div id="al-<?= $kAl ?>" class="rl-alerta rl-t--<?= $tono === 'warn' ? 'amarillo' : ($tono === 'crit' ? 'rojo' : 'azul') ?>">
           <h3 class="rl-alerta__tit"><span class="mc-tile mc-tile--<?= $tonoAl[$tono] ?> mc-tile--sm"><?= $tono === 'azul' ? rlIco('agenda', 18) : Colorimetria::icono($tono, 18) ?></span><?= e($lbl) ?><span class="rl-n"><?= count($lista) ?></span></h3>
           <?php if (!$lista): ?><p class="rl-vacio-txt"><?= rlIco('exito', 16) ?> Nada por aquí.</p><?php endif; ?>
           <div class="rl-filas"><?php foreach ($lista as $it) echo rlFilaItem($it, $eqs, $rels, $it['estado'] === 'bloqueado' ? 'Bloqueado · fin ' . rlF($it['fin']) : ''); ?></div>
@@ -1089,9 +1144,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <?php endforeach; ?>
       </div>
     </section>
-  </dialog>
+  <?php endif; ?>
 
-  <dialog class="dlg-meca rl-det" id="rl-det-imp" data-rl-hash="impedimentos" aria-label="Impedimentos del equipo">
+  <?php if ($det === 'impedimentos'): ?>
     <section class="mc-card rl-card">
       <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('alerta', 20) ?> Impedimentos abiertos <span class="rl-n"><?= count($impE) ?></span></h2><p class="rl-card__sub">Lo que frena las tareas del equipo y de qué equipo depende. Se anotan y se resuelven en la ficha de cada tarea.</p></div><?= $cerrarDet ?></header>
       <?php if (!$impE): ?>
@@ -1108,10 +1163,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       </ul>
       <?php endif; ?>
     </section>
-  </dialog>
+  <?php endif; ?>
 
-  <?php if ($dl['aplica']): ?>
-  <dialog class="dlg-meca rl-det" id="rl-det-dailies" data-rl-hash="dailies" aria-label="Reuniones diarias">
+  <?php if ($dl['aplica'] && $det === 'dailies'): ?>
   <section class="mc-card rl-card rl-dailies" id="dailies" data-rl-dailies>
     <header class="rl-card__cab">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('video', 20) ?></span>
@@ -1200,7 +1254,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <?php endif; ?>
     <script type="application/json" data-rl-dailies-datos><?= json_encode($jsDl, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   </section>
-  </dialog>
+  <?php elseif ($dl['aplica'] && $puedeDl): /* en las otras pantallas, solo lo que necesita «Registrar la daily» */ ?>
+  <div data-rl-dailies hidden><script type="application/json" data-rl-dailies-datos><?= json_encode($jsDl, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script></div>
   <?php endif; ?>
 
   <?php if ($puedeDl && $dl['aplica'] && $dl['desde'] <= $hoy):
@@ -1236,7 +1291,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 
   <div class="rl-ia-slot" data-rl-ia-slot hidden></div>
 
-  <dialog class="dlg-meca rl-det" id="rl-det-ia" data-rl-hash="ia" aria-label="Tareas del equipo e ítems">
+  <?php if ($det === 'ia'): ?>
   <section class="mc-card rl-card rl-iaeq" data-rl-iaeq data-equipo="<?= e($en) ?>">
     <header class="rl-card__cab">
       <img class="ia-masc ia-masc--mini nexo" src="<?= e(asset('iconos/nexo/idea.webp')) ?>" alt="" width="52" height="52">
@@ -1256,11 +1311,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         'proyectos' => $datosItemJs(['id' => 0, 'codigo' => '', 'titulo' => '', 'equipo' => $en, 'inicio' => '', 'fin' => ''])['proyectos'], 'miembrosEq' => $E['miembros']],
         JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   </section>
-  </dialog>
+  <?php endif; ?>
 
   <?php /* Ítems del equipo como la tabla de la colorimetría: cada release es un grupo con sus totales
          en las mismas columnas y cada ítem una fila de la misma altura (al pulsarla se abre el ítem) */ ?>
-  <dialog class="dlg-meca rl-det rl-det--ancho" id="rl-det-items" data-rl-hash="items" aria-label="Ítems del equipo">
+  <?php if ($det === 'items'): ?>
   <section class="mc-card rl-card">
     <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Ítems del equipo <?= e($en) ?></h2><p class="rl-card__sub">Por release, con sus tareas del panel y la salud según la colorimetría. Pulsa uno para marcar cómo va.</p></div><?= $cerrarDet ?></header>
     <div class="rl-itab">
@@ -1307,10 +1362,10 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <?php endforeach; ?>
     </div>
   </section>
-  </dialog>
+  <?php endif; ?>
 
   <?php /* Las tareas abiertas que no cubren ningún ítem, con su vínculo rápido */ ?>
-  <dialog class="dlg-meca rl-det" id="rl-det-tareas" data-rl-hash="tareas" aria-label="Tareas abiertas sin ítem">
+  <?php if ($det === 'tareas'): ?>
     <section class="mc-card rl-card">
       <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('completar', 20) ?> Tareas abiertas sin ítem <span class="rl-n"><?= count($sinItem) ?></span></h2>
         <p class="rl-card__sub">Tareas de los proyectos del equipo que todavía no cubren ningún ítem.</p></div><?= $cerrarDet ?></header>
@@ -1332,7 +1387,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       </ul>
       <?php endif; ?>
     </section>
-  </dialog>
+  <?php endif; ?>
 
 <?php elseif ($v === 'item'):
 /* =========================================================================

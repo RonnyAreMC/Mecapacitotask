@@ -5808,7 +5808,7 @@ html.dark { --rl-pan-cab: #1E3A7B; --rl-pan-cab-fg: #F1F5FF; }
 .rl-pan__btn { display: inline-grid; place-items: center; flex: none; width: 30px; height: 30px; border: 0; border-radius: 8px; background: rgb(255 255 255 / .14); color: var(--rl-pan-cab-fg); cursor: pointer; text-decoration: none; }
 .rl-pan__btn:hover { background: rgb(255 255 255 / .26); }
 .rl-pan__btn:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
-.rl-pan__cuerpo { display: flex; flex: 1; flex-direction: column; gap: 14px; padding: 16px; }
+.rl-pan__cuerpo { display: flex; flex: 1; flex-direction: column; justify-content: center; gap: 14px; padding: 16px; }
 .rl-pan__dato { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 0; color: var(--ink-muted); font-size: .82rem; }
 .rl-pan__dato b { color: var(--ink); }
 .rl-pan__dato .mc-icon { color: var(--primary); }
@@ -5828,7 +5828,7 @@ html.dark { --rl-pan-cab: #1E3A7B; --rl-pan-cab-fg: #F1F5FF; }
 .rl-kpi b { display: flex; align-items: center; gap: 6px; color: var(--ink); font-size: 1.45rem; font-weight: 700; line-height: 1.1; }
 .rl-kpi b small { color: var(--ink-muted); font-size: .8rem; font-weight: 600; }
 .rl-kpi em { color: var(--ink-muted); font-size: .72rem; font-style: normal; }
-.rl-kpi--btn { cursor: pointer; }
+.rl-kpi--btn { cursor: pointer; text-decoration: none; }
 .rl-kpi--btn b { color: var(--col-fg); font-size: 1.05rem; }
 .rl-kpi--btn:hover { background: var(--col-bg); }
 /* Barra de avance con el color de la colorimetría y la marca de lo esperado */
@@ -5862,12 +5862,12 @@ html.dark { --rl-pan-cab: #1E3A7B; --rl-pan-cab-fg: #F1F5FF; }
 .rl-tono { color: var(--col-fg); }
 /* Alertas, impedimentos, personas y la próxima revisión */
 .rl-alist { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
-.rl-alist button { display: flex; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: var(--col-bg); color: var(--col-fg); cursor: pointer; font: inherit; font-size: .84rem; text-align: left; }
-.rl-alist button span { flex: 1; color: var(--ink); }
-.rl-alist button b { color: var(--col-fg); font-size: .95rem; }
-.rl-alist button.is-cero { background: var(--surface-sunken); color: var(--ink-subtle); }
-.rl-alist button.is-cero b { color: var(--ink-subtle); }
-.rl-alist button:hover { filter: brightness(.97); }
+.rl-alist a { display: flex; text-decoration: none; align-items: center; gap: 10px; width: 100%; padding: 8px 10px; border: 0; border-radius: 8px; background: var(--col-bg); color: var(--col-fg); cursor: pointer; font: inherit; font-size: .84rem; text-align: left; }
+.rl-alist a span { flex: 1; color: var(--ink); }
+.rl-alist a b { color: var(--col-fg); font-size: .95rem; }
+.rl-alist a.is-cero { background: var(--surface-sunken); color: var(--ink-subtle); }
+.rl-alist a.is-cero b { color: var(--ink-subtle); }
+.rl-alist a:hover { filter: brightness(.97); }
 .rl-grande { display: flex; align-items: center; gap: 12px; }
 .rl-grande > b { color: var(--col-fg); font-size: 2.2rem; font-weight: 700; line-height: 1; }
 .rl-grande > span { display: flex; flex-direction: column; color: var(--ink); font-weight: 600; }
@@ -5905,3 +5905,16 @@ html.dark { --rl-pan-cab: #1E3A7B; --rl-pan-cab-fg: #F1F5FF; }
 @media (max-width: 760px) { .rl-tab { grid-template-columns: minmax(0, 1fr); } .rl-pan, .rl-pan--4, .rl-pan--8, .rl-pan--12 { grid-column: auto; } .rl-kpis--3 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
 /* La barra del gráfico de bala de la colorimetría, del color de su estado (no negra) */
 .col-bala__val { background: var(--col-solid, var(--ink)); }
+
+/* Las pantallas del equipo: una barra con cada tema (Resumen, Salud, Ítems, Dailies…) */
+.rl-subnav { display: flex; gap: 6px; overflow-x: auto; padding: 6px; border-radius: 12px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); scrollbar-width: thin; }
+.rl-subnav__op { display: inline-flex; align-items: center; gap: 6px; flex: none; height: 36px; padding: 0 14px; border-radius: 8px; color: var(--ink-muted); font-size: .84rem; font-weight: 600; text-decoration: none; white-space: nowrap; }
+.rl-subnav__op:hover { background: var(--surface-hover); color: var(--ink); }
+.rl-subnav__op.is-active { background: var(--rl-pan-cab); color: var(--rl-pan-cab-fg); }
+.rl-subnav__op:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.rl-subnav__n { display: inline-grid; place-items: center; min-width: 18px; height: 18px; padding: 0 5px; border-radius: 999px; background: var(--col-crit-solid); color: #fff; font-size: .7rem; font-weight: 700; }
+/* La salud del equipo como pantalla (sin modal) */
+.col-pag { display: flex; flex-direction: column; gap: 14px; }
+.col-pag .col-det { padding: 0; contain: none; }
+.col-pag .col-mes__form footer { justify-content: flex-end; }
+.col-pag .col-mes__form footer > button { flex: 0 1 320px; }

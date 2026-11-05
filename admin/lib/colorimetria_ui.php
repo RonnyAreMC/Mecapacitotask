@@ -72,17 +72,18 @@ function colDetalle(array $fila): string
 }
 
 /**
- * El modal completo: el detalle y, si quien entra lo gestiona, los valores del
- * mes. $volver: la página a la que se regresa al guardar (la misma).
+ * Los valores del mes que el panel no calcula (los indicadores prendidos que se
+ * anotan, y lo ya anotado para corregirlo), en un desplegable con su formulario.
+ * Vacío si no hay nada que anotar o quien entra no lo gestiona. $volver: la
+ * página a la que se regresa al guardar. $enModal: con el botón «Cerrar».
  */
-function colModal(array $fila, string $id, string $volver): string
+function colFormMes(array $fila, string $volver, bool $enModal = false): string
 {
     $C = Colorimetria::class;
     $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     $per = $C::periodo();
     $mes = $meses[(int)substr($per, 5, 2) - 1];
     [$man, $perMan, $med] = $C::manuales($fila['tipo'], $fila['ref'], $per);
-    // Lo que se anota: los indicadores prendidos que el panel no calcula (y lo que ya se anotó, para corregirlo)
     $anotables = [];
     foreach (Colorimetria::IND as $iid => $_) {
         $i = $C::ind($iid);
@@ -90,34 +91,45 @@ function colModal(array $fila, string $id, string $volver): string
         $calcula = str_contains((string)($i['auto'] ?? ''), $fila['tipo'] === 'proyecto' ? 'p' : 'e');
         if (!$calcula || array_key_exists($iid, $man)) $anotables[$iid] = $i;
     }
-    $puede = $anotables && $C::puedeMedir($fila['tipo'], $fila['ref']);
+    if (!$anotables || !$C::puedeMedir($fila['tipo'], $fila['ref'])) return '';
+    $h = '<details class="col-mes"><summary>' . UI::iconoDS('editar', 16) . ' Anotar lo que el panel no calcula (' . e($mes) . ')<small>' . e(implode(', ', array_map(fn($i) => $i['n'], $anotables))) . '</small></summary>'
+        . '<form method="post" action="actions.php" class="col-mes__form">'
+        . '<input type="hidden" name="accion" value="col_medir"><input type="hidden" name="t" value="' . e($fila['tipo']) . '"><input type="hidden" name="r" value="' . e($fila['ref']) . '">'
+        . '<input type="hidden" name="periodo" value="' . e($per) . '"><input type="hidden" name="volver" value="' . e($volver) . '">'
+        . '<input type="hidden" name="codigo" value="' . e($fila['ficha']['codigo']) . '"><input type="hidden" name="cliente" value="' . e($fila['ficha']['cliente']) . '">';
+    if ($perMan !== '' && $perMan !== $per) $h .= '<p class="col-mes__nota">' . UI::iconoDS('info', 14) . ' Vienen los valores de ' . e($meses[(int)substr($perMan, 5, 2) - 1]) . ': al guardar quedan como los de ' . e($mes) . '.</p>';
+    $h .= '<div class="col-mes__grid">';
+    foreach ($anotables as $iid => $i) {
+        $val = array_key_exists($iid, $man) ? $C::num((float)$man[$iid], (int)$i['d']) : '';
+        $h .= '<label class="col-mes__campo"><span>' . e($i['n']) . (!empty($i['clave']) ? ' <span class="col-tag col-tag--clave">Clave</span>' : '') . '<small>Meta ' . e($C::meta($i)) . '</small></span>'
+            . '<span class="mc-input mc-input--sm"><input class="mc-input__control mc-num" name="vals[' . $iid . ']" inputmode="decimal" value="' . e($val) . '" placeholder="—">'
+            . ($i['u'] !== '' ? '<span class="mc-input__affix">' . e($i['u']) . '</span>' : '') . '</span></label>';
+    }
+    return $h . '</div>'
+        . '<label class="col-mes__campo col-mes__campo--ancho"><span>Fase</span>' . UI::selectDS('fase', Colorimetria::FASES, $fila['ficha']['fase'], ['aria' => 'Fase']) . '</label>'
+        . '<label class="col-mes__campo col-mes__campo--ancho"><span>Nota del mes <small>(opcional)</small></span><span class="mc-input mc-input--multiline"><textarea class="mc-input__control" name="nota" rows="2" maxlength="1000" placeholder="De dónde salen los valores, qué pasó en el mes…">'
+        . e((string)(($perMan === $per ? ($med['nota'] ?? '') : ''))) . '</textarea></span></label>'
+        . '<footer>' . ($enModal ? '<button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cerrar</button>' : '')
+        . '<button class="btn-primary btn-meca">' . UI::iconoDS('check', 16) . ' Guardar los valores de ' . e($mes) . '</button></footer>'
+        . '</form></details>';
+}
+
+/** El modal completo (la página del proyecto): el detalle y los valores del mes. */
+function colModal(array $fila, string $id, string $volver): string
+{
+    $C = Colorimetria::class;
+    $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
     $sub = 'Lo calcula el panel con sus tareas, revisiones y observaciones de QA.';
     if ($fila['periodo'] !== '') $sub .= ' Con lo anotado en ' . e($meses[(int)substr($fila['periodo'], 5, 2) - 1]) . '.';
-    $h = '<dialog id="' . e($id) . '" class="dlg-meca col-dlg"><div class="dlg-form">'
+    return '<dialog id="' . e($id) . '" class="dlg-meca col-dlg"><div class="dlg-form">'
         . '<header><h3 class="col-s-' . e($fila['estado']) . '">' . $C::icono($fila['estado'], 20) . ' Salud ' . ($fila['tipo'] === 'equipo' ? 'del ' : 'de ') . e($fila['nombre'])
         . '<small>' . $sub . '</small></h3>'
         . '<button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar">' . UI::iconoDS('cerrar', 18) . '</button></header>'
-        . colDetalle($fila);
-    if ($puede) {
-        $h .= '<details class="col-mes"><summary>' . UI::iconoDS('editar', 16) . ' Anotar lo que el panel no calcula (' . e($mes) . ')<small>' . e(implode(', ', array_map(fn($i) => $i['n'], $anotables))) . '</small></summary>'
-            . '<form method="post" action="actions.php" class="col-mes__form">'
-            . '<input type="hidden" name="accion" value="col_medir"><input type="hidden" name="t" value="' . e($fila['tipo']) . '"><input type="hidden" name="r" value="' . e($fila['ref']) . '">'
-            . '<input type="hidden" name="periodo" value="' . e($per) . '"><input type="hidden" name="volver" value="' . e($volver) . '">'
-            . '<input type="hidden" name="codigo" value="' . e($fila['ficha']['codigo']) . '"><input type="hidden" name="cliente" value="' . e($fila['ficha']['cliente']) . '">';
-        if ($perMan !== '' && $perMan !== $per) $h .= '<p class="col-mes__nota">' . UI::iconoDS('info', 14) . ' Vienen los valores de ' . e($meses[(int)substr($perMan, 5, 2) - 1]) . ': al guardar quedan como los de ' . e($mes) . '.</p>';
-        $h .= '<div class="col-mes__grid">';
-        foreach ($anotables as $iid => $i) {
-            $val = array_key_exists($iid, $man) ? $C::num((float)$man[$iid], (int)$i['d']) : '';
-            $h .= '<label class="col-mes__campo"><span>' . e($i['n']) . (!empty($i['clave']) ? ' <span class="col-tag col-tag--clave">Clave</span>' : '') . '<small>Meta ' . e($C::meta($i)) . '</small></span>'
-                . '<span class="mc-input mc-input--sm"><input class="mc-input__control mc-num" name="vals[' . $iid . ']" inputmode="decimal" value="' . e($val) . '" placeholder="—">'
-                . ($i['u'] !== '' ? '<span class="mc-input__affix">' . e($i['u']) . '</span>' : '') . '</span></label>';
-        }
-        $h .= '</div>'
-            . '<label class="col-mes__campo col-mes__campo--ancho"><span>Fase</span>' . UI::selectDS('fase', Colorimetria::FASES, $fila['ficha']['fase'], ['aria' => 'Fase']) . '</label>'
-            . '<label class="col-mes__campo col-mes__campo--ancho"><span>Nota del mes <small>(opcional)</small></span><span class="mc-input mc-input--multiline"><textarea class="mc-input__control" name="nota" rows="2" maxlength="1000" placeholder="De dónde salen los valores, qué pasó en el mes…">'
-            . e((string)(($perMan === $per ? ($med['nota'] ?? '') : ''))) . '</textarea></span></label>'
-            . '<footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cerrar</button><button class="btn-primary btn-meca">' . UI::iconoDS('check', 16) . ' Guardar los valores de ' . e($mes) . '</button></footer>'
-            . '</form></details>';
-    }
-    return $h . '</div></dialog>';
+        . colDetalle($fila) . colFormMes($fila, $volver, true) . '</div></dialog>';
+}
+
+/** La misma salud como pantalla (el detalle del equipo en Releases): sin modal. */
+function colPagina(array $fila, string $volver): string
+{
+    return '<div class="col-pag">' . colDetalle($fila) . colFormMes($fila, $volver) . '</div>';
 }
