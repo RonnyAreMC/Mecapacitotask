@@ -194,21 +194,30 @@
   }
 
   /* =========================================================
-     1. Planificar desde un documento (modal «Extraer con IA» de planificar.php)
+     1. Planificar (modal «Generar tareas con IA» de planificar.php): desde lo que
+        se describe (ia_plan_descripcion, con un documento de apoyo opcional) o, sin
+        descripción, desde el documento del plan (ia_plan_documento). El JSON queda
+        en el editor y se valida solo: se ve cada tarea con su ítem del release.
      ========================================================= */
   const fPlan = document.getElementById('ia-plan-form');
   if (fPlan) {
     const dlgPlan = fPlan.closest('dialog');
     const quitarError = () => { const v = dlgPlan && dlgPlan.querySelector('.ia-error'); if (v) v.remove(); };
-    // Al cerrar se va el error; el documento y las indicaciones se quedan por si quiere volver a generar.
+    // Al cerrar se va el error; lo escrito y el documento se quedan por si quiere volver a generar.
     if (dlgPlan) dlgPlan.addEventListener('close', quitarError);
+    const conDesc = fPlan.dataset.conDescripcion === '1';
+    const conDoc = fPlan.dataset.conDocumento === '1';
 
     fPlan.addEventListener('submit', (e) => {
       e.preventDefault();
       const btn = e.submitter || fPlan.querySelector('button[type="submit"]');
-      // Sin documento: el aviso va en el propio campo de subida (UI::archivo)
+      const desc = fPlan.querySelector('[name="descripcion"]');
       const doc = fPlan.querySelector('input[type="file"][name="archivo"]');
-      if (!doc || !doc.files.length) {
+      const hayDesc = conDesc && !!desc && desc.value.trim() !== '';
+      const hayDoc = !!doc && doc.files.length > 0;
+      if (!hayDesc && !(conDoc && hayDoc)) {
+        if (conDesc) { avisarError(btn, 'Describe de qué va el trabajo.'); if (desc) desc.focus(); return; }
+        // Solo documento: el aviso va en el propio campo de subida (UI::archivo)
         const fx = doc && doc.closest('[data-archivo]');
         const errFx = fx && fx.querySelector('.fx-error');
         if (!errFx) { avisarError(btn, 'Sube el documento del plan (Excel, PDF, Word o CSV).'); return; }
@@ -222,18 +231,41 @@
       conGiro(btn, async () => {
         quitarError();
         try {
-          const r = await pedir('ia_plan_documento', new FormData(fPlan));
+          const fd = new FormData(fPlan);
+          // Sin descripción, lo escrito son las indicaciones para desglosar el documento
+          if (!hayDesc) fd.set('instrucciones', desc ? desc.value : '');
+          const r = await pedir(hayDesc ? 'ia_plan_descripcion' : 'ia_plan_documento', fd);
+          const repetidas = (r.repetidas || []).map((x) => '#' + x.id + ' «' + x.titulo + '»');
+          const partes = [];
+          if (r.notas) partes.push(r.notas);
+          if (repetidas.length) partes.push('Ya existían y no las repetí: ' + repetidas.join(', ') + '.');
+          if (!r.n) {
+            // Todo lo descrito ya estaba en el proyecto: no hay nada que validar
+            avisarError(btn, partes.join(' ') || 'No hay tareas nuevas que crear.');
+            return;
+          }
           const ta = document.getElementById('plan-json');
           ta.value = r.json;
           ta.dispatchEvent(new Event('input', { bubbles: true }));
-          const notas = document.getElementById('ia-plan-notas');
-          if (notas) notas.innerHTML = '<div class="mc-alert mc-alert--tip" role="status"><div class="mc-alert__content">'
-            + '<p class="mc-alert__title">' + esc(r.n) + ' tareas propuestas</p><div class="mc-alert__desc">'
-            + (r.notas ? esc(r.notas) + ' ' : '')
-            + 'Revísalas en el editor, pulsa «Validar sin crear» y después «Importar tareas».' + firma(r) + '</div></div></div>';
+          const notas = r.n + (r.n === 1 ? ' tarea propuesta' : ' tareas propuestas') + (partes.length ? '. ' + partes.join(' ') : '.')
+            + ' Revisa cada una (y su ítem del release) y pulsa «Importar tareas».'
+            + (r.modelo ? ' (IA: ' + r.modelo + ' · US$ ' + Number(r.costo || 0).toFixed(4) + ')' : '');
+          const campoNotas = document.getElementById('plan-ia-notas');
+          if (campoNotas) campoNotas.value = notas;
           if (dlgPlan) dlgPlan.close();
+          // Se valida solo: la página vuelve con cada tarea, sus responsables y su ítem del release
+          const fEditor = document.getElementById('plan-form');
+          const modo = document.getElementById('plan-modo');
+          if (fEditor && modo) {
+            modo.value = 'validar';
+            toast(notas, 'success', 6000);
+            fEditor.requestSubmit ? fEditor.requestSubmit() : fEditor.submit();
+            return;
+          }
+          const caja = document.getElementById('ia-plan-notas');
+          if (caja) caja.innerHTML = '<div class="mc-alert mc-alert--tip" role="status"><div class="mc-alert__content">'
+            + '<p class="mc-alert__title">' + esc(r.n) + ' tareas propuestas</p><div class="mc-alert__desc">' + esc(notas) + firma(r) + '</div></div></div>';
           ta.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          toast(r.n + ' tareas propuestas: revísalas y valídalas antes de importar.', 'success', 6000);
         } catch (err) {
           // Dentro del modal; si ya lo cerraron mientras esperaba, como aviso
           if (dlgPlan && !dlgPlan.open) toast(err.message, 'error', 6000);

@@ -317,7 +317,9 @@ final class ImportadorTareas
             $depId = $porRef[self::norm($c['dep'])] ?? $porTitulo[self::norm($c['dep'])] ?? 0;
             if ($depId <= 0) continue;
             $valido = $this->tareasRepo->dependenciaValida($c['id'], $depId, $c['pid']);
-            if ($valido > 0) $this->tareasRepo->actualizar($c['id'], ['depende_de' => $valido]);
+            // En la lista (lo que lee el panel) y en el campo de antes: solo con depende_de, la tarea
+            // nueva traía «dependencias» vacía y la dependencia no se veía en ningún lado
+            if ($valido > 0) $this->tareasRepo->actualizar($c['id'], ['dependencias' => [$valido], 'depende_de' => $valido]);
         }
 
         // Amarrarlas a sus ítems del release (una vez por ítem): su avance sale de ahí

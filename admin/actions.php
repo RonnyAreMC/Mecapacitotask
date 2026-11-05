@@ -67,7 +67,7 @@ $accionesDeCualquiera = [
     'rfija_crear', 'rfija_editar', 'rfija_eliminar',
     // IA: administrador y Scrum Master. Cada acción comprueba por dentro el
     // perfil (IA::puedeUsar) y que el proyecto sea suyo (puedeGestionar).
-    'ia_plan_documento', 'ia_acta', 'ia_acta_hay', 'ia_req_texto', 'ia_obs_redaccion', 'ia_obs_adjunto', 'ia_obs_resumen',
+    'ia_plan_documento', 'ia_plan_descripcion', 'ia_acta', 'ia_acta_hay', 'ia_req_texto', 'ia_obs_redaccion', 'ia_obs_adjunto', 'ia_obs_resumen',
     'ia_tarea_descripcion', 'ia_tarea_desglose', 'ia_tarea_dependencias', 'ia_crear_tareas',
     'ia_deploy_notas', 'ia_daily',
     // Campana: cada quien marca las suyas. Pedidos entre equipos: los hace y
@@ -3734,6 +3734,7 @@ switch ($accion) {
        salvo ia_crear_tareas, que crea las tareas que la persona marcó. */
 
     case 'ia_plan_documento':
+    case 'ia_plan_descripcion':
     case 'ia_acta':
     case 'ia_acta_hay':
     case 'ia_req_texto':
@@ -3801,6 +3802,17 @@ switch ($accion) {
 
         try {
             switch ($accion) {
+                case 'ia_plan_descripcion':
+                    // Planificar desde lo que describe quien planifica (con un documento de apoyo opcional)
+                    $exigirProyIa();
+                    $descPd = trim((string)($_POST['descripcion'] ?? ''));
+                    if ($descPd === '') throw new IAError('Describe de qué va el trabajo.');
+                    $fPd = $_FILES['archivo'] ?? null;
+                    $conDocPd = $fPd && ($fPd['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file((string)$fPd['tmp_name']);
+                    $resIa = IAFunciones::planDescripcion($proyIa, $descPd,
+                        $conDocPd ? IA::leerArchivo((string)$fPd['name'], (string)$fPd['tmp_name']) : null, $conDocPd ? (string)$fPd['name'] : '');
+                    break;
+
                 case 'ia_plan_documento':
                     $exigirProyIa();
                     $f = $_FILES['archivo'] ?? null;
