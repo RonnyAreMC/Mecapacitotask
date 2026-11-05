@@ -5722,3 +5722,5 @@ button.ph-cifra-estado:hover, .rl-hero__salud:hover { background: var(--surface-
 .pac-resumen__ico { flex: none; color: var(--ink-subtle); }
 .pac-hechas .pac-resumen__ico { color: var(--tone-verde-fg); }
 .pac-resumen .pac-estado { margin-left: auto; font-size: .76rem; }
+.pac-resumen .pac-estado { display: inline-flex; margin-left: auto; }
+.pac-resumen .pac-estado .col-ic { color: var(--col-solid); }

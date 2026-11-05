@@ -227,10 +227,11 @@ foreach (Colorimetria::proyectos() as $fCol) $colorimetria[(int)$fCol['ref']] = 
            terminadas (el detalle por estado está en el tablero). -->
       <?php $estCol = $colorimetria[(int)$p['id']] ?? 'nm'; ?>
       <p class="pac-resumen">
-        <span><?= UI::iconoDS('estado-check-cuadro', 15, 'pac-resumen__ico') ?><b><?= $total ?></b> <?= $total === 1 ? 'tarea' : 'tareas' ?></span>
-        <span class="pac-hechas"><?= UI::iconoDS('estado-cumple', 15, 'pac-resumen__ico') ?><b><?= $hechas ?></b> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?></span>
-        <?php /* El estado del proyecto con la colorimetría: el mismo tono de la barra, con su ícono */ ?>
-        <?= Colorimetria::estado($estCol, null, 'pac-estado') ?>
+        <?php /* Solo ícono y número; lo que significa sale al pasar el mouse */ ?>
+        <span data-ds-tip="<?= $total === 1 ? 'Tarea' : 'Tareas' ?>" aria-label="<?= $total ?> <?= $total === 1 ? 'tarea' : 'tareas' ?>"><?= UI::iconoDS('estado-check-cuadro', 16, 'pac-resumen__ico') ?><b><?= $total ?></b></span>
+        <span class="pac-hechas" data-ds-tip="<?= $hechas === 1 ? 'Terminada' : 'Terminadas' ?>" aria-label="<?= $hechas ?> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?>"><?= UI::iconoDS('estado-cumple', 16, 'pac-resumen__ico') ?><b><?= $hechas ?></b></span>
+        <?php /* El estado del proyecto con la colorimetría: solo su ícono, en el mismo tono de la barra */ ?>
+        <span class="pac-estado col-s-<?= e($estCol) ?>" data-ds-tip="<?= e(Colorimetria::nombre($estCol)) ?>" aria-label="Estado: <?= e(Colorimetria::nombre($estCol)) ?>"><?= Colorimetria::icono($estCol, 18) ?></span>
       </p>
       <div class="pac-progress col-s-<?= e($estCol) ?>" title="<?= e(Colorimetria::nombre($estCol)) ?>">
         <?= UI::progreso($avance, 'var(--col-solid)') ?>
