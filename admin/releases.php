@@ -714,7 +714,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?php if ($hecha): ?>
           <a class="mc-btn mc-btn--soft mc-btn--t-verde mc-btn--sm" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>"><?= rlIco('check', 16) ?><span class="mc-btn__label"><?= $r['cumplimiento']['pct'] !== null ? (int)$r['cumplimiento']['pct'] . ' %' : 'Ver' ?></span></a>
           <?php else: ?>
-          <a class="mc-btn mc-btn--<?= $esHoy ? 'primary' : 'secondary' ?> mc-btn--sm" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>"><?= rlIco('editar', 16) ?><span class="mc-btn__label"><?= $smDe($r['equipo']) ? 'Registrar' : 'Ver' ?></span></a>
+          <?php $regR = $smDe($r['equipo']); /* solo el ícono: el lápiz para registrar, el ojo para verla */ ?>
+          <a class="mc-iconbtn mc-iconbtn--sm<?= $esHoy ? ' mc-iconbtn--primary' : ' mc-iconbtn--outline' ?>" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" aria-label="<?= $regR ? 'Registrar' : 'Ver' ?> la revisión de <?= e($r['equipo']) ?>" data-ds-tip="<?= $regR ? 'Registrar' : 'Ver' ?>"><?= rlIco($regR ? 'editar' : 'ver', 16) ?></a>
           <?php endif; ?>
         </li>
         <?php endforeach; ?>
