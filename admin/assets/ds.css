@@ -5716,3 +5716,9 @@ button.ph-cifra-estado, .rl-hero__salud { display: inline-flex; align-items: cen
 button.ph-cifra-estado:hover, .rl-hero__salud:hover { background: var(--surface-hover); }
 .rl-hero__salud { margin: 6px 0 0; }
 .rl-hero__salud small { color: var(--ink-muted); font-size: .74rem; }
+/* Tarjetas de proyecto: íconos en el resumen y el estado de la colorimetría a la derecha */
+.pac-resumen { align-items: center; }
+.pac-resumen > span { display: inline-flex; align-items: center; gap: 5px; }
+.pac-resumen__ico { flex: none; color: var(--ink-subtle); }
+.pac-hechas .pac-resumen__ico { color: var(--tone-verde-fg); }
+.pac-resumen .pac-estado { margin-left: auto; font-size: .76rem; }

@@ -165,7 +165,7 @@ function actualizarPanel(array $opc): void
         'lib/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['data-vt-tabs', "quitar('volver')", 'data-ru-abrir', 'nueva_reunion', 'data-ru-serie', 'function obsTarjetas', 'MecaWizard.CHECK', 'ACTIVAS:', "setProperty('--lx'", 'data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'fq-colab', 'fq-obs-rico', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
-        'index.php'         => ['Colorimetria::proyectos', 'Feriados::es', 'nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
+        'index.php'         => ['pac-resumen__ico', 'Colorimetria::proyectos', 'Feriados::es', 'nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
         'lib/resumen_tira.php' => ['data-rt-correo-n', 'data-rt-pista', 'rt-radar', 'Por revisar como PO'],
         'lib/Pizarra.php'   => ['function ridNota', 'function tareasDe', 'function avisarRecordatorios', 'final class Pizarra', 'piz_elementos', 'function subirImagen'],
         'pizarra_api.php'   => ['notaCompartida(', 'Pizarra::tareasDe', 'accion=guardar', 'Pizarra::presentes'],

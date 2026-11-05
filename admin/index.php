@@ -225,11 +225,13 @@ foreach (Colorimetria::proyectos() as $fCol) $colorimetria[(int)$fCol['ref']] = 
 
       <!-- Solo lo que se pregunta: cuántas tareas hay y cuántas ya están
            terminadas (el detalle por estado está en el tablero). -->
-      <p class="pac-resumen">
-        <span><b><?= $total ?></b> <?= $total === 1 ? 'tarea' : 'tareas' ?></span>
-        <span class="pac-hechas"><b><?= $hechas ?></b> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?></span>
-      </p>
       <?php $estCol = $colorimetria[(int)$p['id']] ?? 'nm'; ?>
+      <p class="pac-resumen">
+        <span><?= UI::iconoDS('estado-check-cuadro', 15, 'pac-resumen__ico') ?><b><?= $total ?></b> <?= $total === 1 ? 'tarea' : 'tareas' ?></span>
+        <span class="pac-hechas"><?= UI::iconoDS('estado-cumple', 15, 'pac-resumen__ico') ?><b><?= $hechas ?></b> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?></span>
+        <?php /* El estado del proyecto con la colorimetría: el mismo tono de la barra, con su ícono */ ?>
+        <?= Colorimetria::estado($estCol, null, 'pac-estado') ?>
+      </p>
       <div class="pac-progress col-s-<?= e($estCol) ?>" title="<?= e(Colorimetria::nombre($estCol)) ?>">
         <?= UI::progreso($avance, 'var(--col-solid)') ?>
       </div>
