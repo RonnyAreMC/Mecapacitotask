@@ -5672,3 +5672,18 @@ html .ds-modal__head .ds-modal__title { font: 600 1.25rem/1.4 var(--font-sans); 
 .rl-arbol__txt b, .rl-arbol__txt small { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rl-arbol__nom--hija { padding-left: 40px; }
 .rl-arbol td:nth-child(3) { white-space: nowrap; }
+/* El eje del Gantt sobre el celeste: los números de las semanas en blanco */
+.rl-gantt__sem { color: rgb(255 255 255 / .88); }
+.rl-gantt__eje .rl-gantt__mes { color: #fff; }
+/* Paginador de las tareas de un ítem (15 por página) */
+.rl-pag { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 8px; padding-top: 10px; }
+.rl-pag__info { color: var(--ink-muted); font-size: .78rem; }
+.rl-pag__btns { display: inline-flex; align-items: center; gap: 4px; }
+.rl-pag__n { min-width: 32px; height: 32px; padding: 0 8px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: 600 .8rem/1 var(--font-sans); cursor: pointer; }
+.rl-pag__n:hover { background: var(--surface-hover); }
+.rl-pag__n.is-on { background: var(--primary); color: var(--on-primary, #fff); }
+.rl-pag__sep { padding: 0 2px; color: var(--ink-subtle); }
+/* Ítems del equipo con su cobertura de tareas en la misma fila */
+.rl-cobchip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; background: var(--surface); color: var(--ink-muted); font-size: .7rem; font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
+.rl-cobchip.is-falta { background: var(--col-warn-bg); color: var(--col-warn-fg); box-shadow: none; }
+.rl-tareas > li[hidden] { display: none !important; }

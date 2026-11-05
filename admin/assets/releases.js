@@ -495,6 +495,45 @@
     sc.scrollLeft = Math.max(0, x - sc.clientWidth * 0.45);
   });
 
+  /* «Tareas que lo cubren»: 15 por página con su paginador, para que la lista no crezca sin fin.
+     También en el panel lateral del ítem, que llega después (lo vigila un observador). */
+  const POR_PAG = 15;
+  function paginar(ul) {
+    if (ul.dataset.rlPag) return;
+    ul.dataset.rlPag = '1';
+    const items = [...ul.children];
+    if (items.length <= POR_PAG) return;
+    const total = Math.ceil(items.length / POR_PAG);
+    const nav = document.createElement('nav');
+    nav.className = 'rl-pag';
+    nav.setAttribute('aria-label', 'Páginas de tareas');
+    ul.after(nav);
+    const ir = (p) => {
+      items.forEach((li, i) => { li.hidden = i < p * POR_PAG || i >= (p + 1) * POR_PAG; });
+      // Las páginas cerca de la actual, la primera y la última; lo demás, «…»
+      const nums = [...new Set([0, total - 1, p - 1, p, p + 1].filter((x) => x >= 0 && x < total))].sort((x, y) => x - y);
+      let h = '<span class="rl-pag__info">' + (p * POR_PAG + 1) + '–' + Math.min(items.length, (p + 1) * POR_PAG) + ' de ' + items.length + '</span><span class="rl-pag__btns">'
+        + '<button type="button" class="mc-iconbtn mc-iconbtn--sm" data-p="' + (p - 1) + '"' + (p === 0 ? ' disabled' : '') + ' aria-label="Página anterior">' + ico('chevron-izq', 16) + '</button>';
+      nums.forEach((x, i) => {
+        if (i && x - nums[i - 1] > 1) h += '<span class="rl-pag__sep">…</span>';
+        h += '<button type="button" class="rl-pag__n' + (x === p ? ' is-on' : '') + '" data-p="' + x + '"' + (x === p ? ' aria-current="page"' : '') + '>' + (x + 1) + '</button>';
+      });
+      h += '<button type="button" class="mc-iconbtn mc-iconbtn--sm" data-p="' + (p + 1) + '"' + (p === total - 1 ? ' disabled' : '') + ' aria-label="Página siguiente">' + ico('chevron-der', 16) + '</button></span>';
+      nav.innerHTML = h;
+    };
+    nav.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-p]');
+      if (!b || b.disabled) return;
+      ir(Math.max(0, Math.min(total - 1, +b.dataset.p)));
+      ul.closest('.rl-bloque')?.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    });
+    ir(0);
+  }
+  const paginarTodo = (raiz) => (raiz.querySelectorAll ? raiz : document).querySelectorAll('ul.rl-tareas:not([data-rl-pag])').forEach(paginar);
+  paginarTodo(document);
+  new MutationObserver((ms) => ms.forEach((m) => m.addedNodes.forEach((n) => { if (n.nodeType === 1) { if (n.matches('ul.rl-tareas')) paginar(n); else paginarTodo(n); } })))
+    .observe(document.body, { childList: true, subtree: true });
+
   /* Listas largas de tareas: se ven 3 y un «+N más» que abre todas en un modal */
   const TCHIPS = {};
   function tchipsResumen(codigo, titulo, chips) {

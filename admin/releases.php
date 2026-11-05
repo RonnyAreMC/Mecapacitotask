@@ -1044,43 +1044,33 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   </section>
 
-  <div class="rl-grid rl-grid--2-1">
+  <div class="rl-grid<?= $sinItem ? ' rl-grid--2-1' : '' ?>">
     <section class="mc-card rl-card">
-      <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Ítems del equipo</h2><p class="rl-card__sub">Por release. Pulsa uno para marcar cómo va.</p></div></header>
+      <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Ítems del equipo</h2><p class="rl-card__sub">Por release, con sus tareas del panel. Pulsa uno para marcar cómo va.</p></div></header>
       <?php foreach ($rels as $cod => $r): if (empty($porRel[$cod])) continue; $rq = Releases::resumen($porRel[$cod]); $abierto = $rq['cerrados'] < $rq['total']; ?>
       <details class="rl-grupo-rel"<?= $abierto ? ' open' : '' ?> style="--rc:<?= e($r['color']) ?>">
         <summary><?= rlCode($cod, $r['color']) ?><b><?= e($r['nombre'] ?? '') ?></b><span class="mc-num"><?= (int)$rq['cerrados'] ?>/<?= (int)$rq['total'] ?></span><?= rlIco('chevron-abajo', 16) ?></summary>
         <div class="rl-filas"><?php foreach ($porRel[$cod] as $it) {
             $depEq = rlDependencias((string)($it['dependencias'] ?? ''), $porCodigo, $en)['equipos'];
             $chips = implode('', array_map(fn($n) => '<span class="rl-depchip" style="--ec:' . e(rlColorEq($eqs, $n)) . '" title="Depende de algo que entrega ' . e($n) . '">' . rlIco('relacionar', 12) . 'lo entrega ' . e($n) . '</span>', $depEq));
+            // Su cobertura de tareas (antes en su propia tarjeta): cuántas tiene, cuántas terminaron y cuántas puso la IA
+            $tsC = array_values(array_filter(array_map(fn($id) => $mapa[(int)$id] ?? null, (array)$it['tareas'])));
+            $nC = count($tsC);
+            $hC = count(array_filter($tsC, fn($t) => in_array($t['estado'] ?? '', $finales, true)));
+            $iaC = count(array_intersect((array)($it['tareas_ia'] ?? []), (array)$it['tareas']));
+            $empiezaC = $it['estado'] !== 'cerrado' && ($it['inicio'] ?? '') !== '' && $it['inicio'] <= date('Y-m-d', strtotime($hoy . ' +14 days'));
+            $chips .= $nC ? '<span class="rl-cobchip" title="Tareas del panel que lo cubren">' . rlIco('completar', 12) . $hC . '/' . $nC . ' tareas</span>' . ($iaC ? '<span class="rl-chip-ia">' . rlIco('ia', 12) . $iaC . ' por la IA</span>' : '')
+                : ($empiezaC ? '<span class="rl-cobchip is-falta">' . rlIco('alerta', 12) . 'Sin tareas y ya empieza</span>' : '');
             echo rlFilaItem($it, $eqs, $rels, Releases::ESTADOS[$it['estado']][0] . ' · ' . rlF($it['inicio']) . ' → ' . rlF($it['fin']), $chips);
         } ?></div>
       </details>
       <?php endforeach; ?>
     </section>
 
+    <?php if ($sinItem): /* sin tareas sueltas, los ítems ocupan todo el ancho */ ?>
     <section class="mc-card rl-card">
-      <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('completar', 20) ?> Cobertura de tareas</h2><p class="rl-card__sub">Cuántas tareas del panel tiene cada ítem abierto.</p></div></header>
-      <ul class="rl-cobertura">
-        <?php foreach ($abiertosEq as $it):
-            $ts = array_values(array_filter(array_map(fn($id) => $mapa[(int)$id] ?? null, $it['tareas'])));
-            $h = count(array_filter($ts, fn($t) => in_array($t['estado'] ?? '', $finales, true)));
-            $n = count($ts);
-            $empieza = ($it['inicio'] ?? '') !== '' && $it['inicio'] <= date('Y-m-d', strtotime($hoy . ' +14 days')); ?>
-        <li class="<?= !$n && $empieza ? 'is-falta' : '' ?>">
-          <a href="<?= e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) ?>" data-rl-item="<?= (int)$it['id'] ?>"<?= rlTipItem($it) ?>>
-            <?= rlCode($it['codigo'], rlColorRel($rels, $it['release'])) ?>
-            <span class="rl-cobertura__txt"><b><?= e($it['titulo']) ?></b>
-              <small><?= $n ? $h . ' de ' . $n . ' completada' . ($n === 1 ? '' : 's') . ' · avance ' . (int)$it['avance'] . ' %' : ($empieza ? 'Sin tareas y ya empieza' : 'Sin tareas todavía') ?>
-                <?php $nIa = count(array_intersect((array)($it['tareas_ia'] ?? []), $it['tareas'])); if ($nIa): ?><span class="rl-chip-ia"><?= rlIco('ia', 12) ?><?= $nIa ?> por la IA</span><?php endif; ?></small></span>
-            <span class="rl-cobertura__n<?= !$n ? ' is-cero' : '' ?> mc-num"><?= $n ?></span>
-          </a>
-          <?php if ($n): ?><span class="rl-cobertura__barra" style="--p:<?= round($h / $n * 100) ?>%"></span><?php endif; ?>
-        </li>
-        <?php endforeach; ?>
-        <?php if (!$abiertosEq): ?><li><p class="rl-vacio-txt"><?= rlIco('exito', 16) ?> Todos los ítems del equipo están terminados.</p></li><?php endif; ?>
-      </ul>
-      <h3 class="rl-subtit">Tareas abiertas sin ítem <span class="rl-n"><?= count($sinItem) ?></span></h3>
+      <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('completar', 20) ?> Tareas abiertas sin ítem <span class="rl-n"><?= count($sinItem) ?></span></h2>
+        <p class="rl-card__sub">Tareas de los proyectos del equipo que todavía no cubren ningún ítem.</p></div></header>
       <?php if (!$sinItem): ?>
       <p class="rl-vacio-txt"><?= rlIco('exito', 16) ?> <?= $tareasEq ? 'Cada tarea abierta del equipo está en algún ítem.' : 'No hay tareas en los proyectos del equipo.' ?></p>
       <?php else: ?>
@@ -1100,6 +1090,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <?php if (count($sinItem) > 12): ?><p class="rl-vacio-txt">Y <?= count($sinItem) - 12 ?> más.</p><?php endif; ?>
       <?php endif; ?>
     </section>
+    <?php endif; ?>
   </div>
 
 <?php elseif ($v === 'item'):
