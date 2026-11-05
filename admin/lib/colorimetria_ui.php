@@ -15,7 +15,7 @@ function colBala(array $i, ?float $val, string $st): string
     $zonas = $i['dir'] === 'up'
         ? [['crit', $i['min'], $i['a']], ['warn', $i['a'], $i['g']], ['ok', $i['g'], $i['max']]]
         : [['ok', $i['min'], $i['g'] + $e], ['warn', $i['g'] + $e, $i['a'] + $e], ['crit', $i['a'] + $e, $i['max']]];
-    $h = '<span class="col-bala" role="img" aria-label="' . e($i['n'] . ': ' . Colorimetria::fmt($i, $val) . ', meta ' . Colorimetria::meta($i)) . '">';
+    $h = '<span class="col-bala col-s-' . e($st) . '" role="img" aria-label="' . e($i['n'] . ': ' . Colorimetria::fmt($i, $val) . ', meta ' . Colorimetria::meta($i)) . '">';
     foreach ($zonas as [$k, $de, $a]) {
         $l = $pos((float)$de);
         $h .= '<i class="col-bala__zona col-s-' . ($st === 'nm' ? 'nm' : $k) . '" style="left:' . round($l, 2) . '%;width:' . round(max(0, $pos((float)$a) - $l), 2) . '%"></i>';

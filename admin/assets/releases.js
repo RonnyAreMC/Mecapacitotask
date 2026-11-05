@@ -1538,4 +1538,22 @@
       } catch (err) { toast(err.message, 'error'); }
     });
   }
+
+  /* =========================================================
+     Tablero del equipo: cada tarjeta abre su detalle en un modal (data-rl-abrir-dlg).
+     Con #dailies, #items, #alertas… en la dirección, ese detalle se abre solo.
+     ========================================================= */
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rl-abrir-dlg]');
+    if (b) {
+      const d = document.getElementById(b.dataset.rlAbrirDlg);
+      if (d && typeof d.showModal === 'function') { e.preventDefault(); if (!d.open) d.showModal(); }
+      return;
+    }
+    // Pulsar fuera del detalle (en el fondo) lo cierra
+    if (e.target instanceof HTMLDialogElement && e.target.matches('dialog.rl-det[open]')) e.target.close();
+  });
+  const hashDet = decodeURIComponent(location.hash.slice(1));
+  const dlgHash = hashDet && [...document.querySelectorAll('dialog[data-rl-hash]')].find((d) => d.dataset.rlHash === hashDet);
+  if (dlgHash && !dlgHash.open) dlgHash.showModal();
 })();

@@ -131,24 +131,34 @@ function rlBarra(int $pct, int $esp, string $salud, string $cls = ''): string
         . ($esp > 0 ? '<span class="rl-barra__esp" style="--e:' . $esp . '%"></span>' : '') . '</span>';
 }
 /**
- * Gráfico de bala del avance, como el de la colorimetría: las zonas salen de lo
- * esperado hoy (bajo el 70 % de lo esperado, Crítico; hasta lo esperado, Alerta;
- * de ahí en adelante, Cumple, igual que Releases::salud) y la barra es el real.
- * $k: el estado de la colorimetría (con 'done' todo es Cumple).
+ * Barra de avance con el color de la colorimetría ($k: ok, warn, crit, none, done…)
+ * y una marca gris fina en lo que el plan espera hoy.
  */
 function rlBala(int $pct, int $esp, string $k): string
 {
     $pct = max(0, min(100, $pct));
     $esp = max(0, min(100, $esp));
-    $z = '';
-    if ($k === 'done') $z = '<i class="col-bala__zona col-s-ok" style="left:0;width:100%"></i>';
-    elseif ($esp > 0) {
-        $a = round($esp * 0.7, 2);
-        $z = '<i class="col-bala__zona col-s-crit" style="left:0;width:' . $a . '%"></i>'
-           . '<i class="col-bala__zona col-s-warn" style="left:' . $a . '%;width:' . round($esp - $a, 2) . '%"></i>'
-           . '<i class="col-bala__zona col-s-ok" style="left:' . $esp . '%;width:' . (100 - $esp) . '%"></i>';
+    return '<span class="rl-pbar col-s-' . e($k) . '" role="img" aria-label="Avance ' . $pct . ' %, esperado hoy ' . $esp . ' %"><i style="width:' . $pct . '%"></i>'
+        . ($esp > 0 && $esp < 100 && $k !== 'done' ? '<em style="left:' . $esp . '%"></em>' : '') . '</span>';
+}
+/**
+ * Dona con sus partes [[valor, estado de la colorimetría, etiqueta]…], el número del
+ * centro (puede llevar <small>) y lo que mide, con su leyenda al lado.
+ */
+function rlDona(array $partes, string $centro, string $sub): string
+{
+    $tot = array_sum(array_map(fn($p) => max(0, (int)$p[0]), $partes));
+    $h = '<div class="rl-dona"><span class="rl-dona__graf"><svg viewBox="0 0 36 36" aria-hidden="true"><circle class="rl-dona__pista" cx="18" cy="18" r="15.9155"/>';
+    $ya = 0.0;
+    if ($tot > 0) foreach ($partes as [$n, $k]) {
+        if ($n <= 0) continue;
+        $p = $n / $tot * 100;
+        $h .= '<circle class="rl-dona__seg col-s-' . e($k) . '" cx="18" cy="18" r="15.9155" stroke-dasharray="' . round($p, 3) . ' ' . round(100 - $p, 3) . '" stroke-dashoffset="' . round(25 - $ya, 3) . '"/>';
+        $ya += $p;
     }
-    return '<span class="col-bala" role="img" aria-label="Avance ' . $pct . ' %, esperado hoy ' . $esp . ' %">' . $z . '<i class="col-bala__val" style="width:' . $pct . '%"></i></span>';
+    $h .= '</svg><span class="rl-dona__centro"><b class="mc-num">' . $centro . '</b><small>' . e($sub) . '</small></span></span><ul class="rl-dona__ley">';
+    foreach ($partes as [$n, $k, $lbl]) $h .= '<li class="col-s-' . e($k) . '"><i></i><span>' . e($lbl) . '</span><b class="mc-num">' . (int)$n . '</b></li>';
+    return $h . '</ul></div>';
 }
 /** Anillo del % con la marca del esperado (un trazo fino sobre el anillo). */
 function rlAnillo(int $pct, int $esp, string $salud, int $px = 72): string
