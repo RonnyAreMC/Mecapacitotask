@@ -335,7 +335,7 @@ class UI
         /* ---- Configuración (solo administradores) ---- */
         $itConf = (is_file(__DIR__ . '/../ia.php') ? $navLink('ia.php', 'ia', UI::icono('ds-ia'), 'Consola de IA', 'Claves, modelos y consumo de la IA') : '')
             . (is_file(__DIR__ . '/../buzones.php') ? $navLink('buzones.php', 'buzones', UI::icono('ds-correo'), 'Cuentas de correo', 'Las cuentas del cPanel: crear, contraseñas, espacio y reenvíos') : '')
-            . (is_file(__DIR__ . '/../colorimetria.php') ? $navLink('colorimetria.php?v=config', 'colorimetria', UI::icono('ds-reportes'), 'Colorimetría', 'Los tonos de cada estado, los umbrales y los valores del mes de la PMO') : '')
+            . (is_file(__DIR__ . '/../colorimetria.php') ? $navLink('colorimetria.php?v=config', 'colorimetria', UI::icono('ds-reportes'), 'Colorimetría', 'Los tonos de cada estado, el puntaje y los umbrales de cada indicador') : '')
             . $navLink('ajustes.php', 'ajustes', UI::icono('ds-configuracion'), 'Ajustes');
         echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones', 'colorimetria'], true), 0, '', true);
     } else {

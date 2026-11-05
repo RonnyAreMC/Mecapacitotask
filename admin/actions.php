@@ -1062,7 +1062,9 @@ switch ($accion) {
         if ($accion === 'col_medir') {
             $tCol = ($_POST['t'] ?? '') === 'equipo' ? 'equipo' : 'proyecto';
             $rCol = (string)($_POST['r'] ?? '');
-            $volCol = 'colorimetria.php' . ($tCol === 'equipo' ? '?v=equipos' : '');
+            // De vuelta a la página donde se abrió (el proyecto o el equipo), si es del panel
+            $volCol = (string)($_POST['volver'] ?? '');
+            if (!preg_match('#^(proyecto\.php\?id=\d+|releases\.php\?[^\s<>"]*)$#', $volCol)) $volCol = $tCol === 'equipo' ? 'releases.php' : 'proyecto.php?id=' . (int)$rCol;
             if (!Colorimetria::puedeMedir($tCol, $rCol)) redirigir($volCol, 'Los valores del mes los anota el administrador o quien gestiona ese proyecto.', 'error');
             try {
                 $perCol = (string)($_POST['periodo'] ?? '');
@@ -1070,7 +1072,7 @@ switch ($accion) {
                 Colorimetria::guardarMedicion($tCol, $rCol, $perCol, (array)($_POST['vals'] ?? []), (string)($_POST['nota'] ?? ''), (int)(Auth::usuario()['id'] ?? 0));
                 redirigir($volCol, 'Listo: quedaron los valores de ' . $perCol . ' y la salud se recalculó.');
             } catch (Throwable $e) {
-                redirigir('colorimetria.php?v=medir&t=' . $tCol . '&r=' . rawurlencode($rCol), $e->getMessage(), 'error');
+                redirigir($volCol, $e->getMessage(), 'error');
             }
         }
         // La configuración la cambia solo el administrador (no está en la lista de «cualquiera»)

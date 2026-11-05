@@ -5687,3 +5687,32 @@ html .ds-modal__head .ds-modal__title { font: 600 1.25rem/1.4 var(--font-sans); 
 .rl-cobchip { display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px; background: var(--surface); color: var(--ink-muted); font-size: .7rem; font-weight: 600; box-shadow: inset 0 0 0 1px var(--line); }
 .rl-cobchip.is-falta { background: var(--col-warn-bg); color: var(--col-warn-fg); box-shadow: none; }
 .rl-tareas > li[hidden] { display: none !important; }
+/* La página de configuración de la colorimetría: cada tarjeta con su espacio (no se montan) */
+.col-conf { display: flex; flex-direction: column; gap: var(--space-4); }
+.col-conf .mc-check { margin-top: 4px; }
+.col-reset { margin: 0; }
+
+/* El modal de la salud (colorimetría) de un proyecto o equipo, en su propia página */
+.dlg-meca.col-dlg { width: min(1080px, calc(100vw - 32px)); }
+.col-dlg .col-det { padding: 0; contain: none; }
+.col-det__claves { flex-basis: 100%; }
+.col-dlg .col-ind { max-height: min(52vh, 560px); overflow: auto; }
+.col-mes { border-radius: 12px; background: var(--surface-sunken); }
+.col-mes > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding: 12px 14px; color: var(--primary-ink); font-weight: 600; cursor: pointer; list-style: none; }
+.col-mes > summary::-webkit-details-marker { display: none; }
+.col-mes > summary small { flex-basis: 100%; padding-left: 24px; color: var(--ink-muted); font-weight: 400; font-size: .76rem; }
+.col-mes__form { display: flex; flex-direction: column; gap: 12px; padding: 0 14px 14px; }
+.col-mes__nota { display: flex; align-items: center; gap: 6px; margin: 0; color: var(--ink-muted); font-size: .78rem; }
+.col-mes__grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 12px 16px; }
+.col-mes__campo { display: flex; flex-direction: column; gap: 6px; }
+.col-mes__campo > span:first-child { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; color: var(--ink); font-size: .84rem; font-weight: 500; }
+.col-mes__campo small { flex-basis: 100%; color: var(--ink-subtle); font-size: .72rem; font-weight: 400; }
+.col-mes__campo--ancho { max-width: 520px; }
+.col-mes__form footer { display: flex; gap: 12px; padding-top: 4px; }
+.col-mes__form footer > button { flex: 1 1 0; justify-content: center; min-height: 40px; border-radius: 8px; }
+.col-mes__form footer > .btn-outline { border: 1px solid var(--line-strong) !important; background: var(--surface) !important; color: var(--ink) !important; box-shadow: none !important; }
+.col-mes__form footer > .btn-primary { background: var(--primary) !important; color: #fff !important; box-shadow: none !important; }
+button.ph-cifra-estado, .rl-hero__salud { display: inline-flex; align-items: center; gap: 8px; padding: 4px 8px; margin-left: -8px; border: 0; border-radius: 8px; background: transparent; font: inherit; cursor: pointer; }
+button.ph-cifra-estado:hover, .rl-hero__salud:hover { background: var(--surface-hover); }
+.rl-hero__salud { margin: 6px 0 0; }
+.rl-hero__salud small { color: var(--ink-muted); font-size: .74rem; }

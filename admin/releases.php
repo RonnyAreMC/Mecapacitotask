@@ -870,6 +870,12 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <div class="rl-hero__lado">
       <?= rlAnillo((int)$resEq['pct'], (int)$resEq['esperado'], $salE === 'vacio' ? 'futuro' : $salE, 112) ?>
       <p class="rl-hero__esp">esperado hoy <b class="mc-num"><?= (int)$resEq['esperado'] ?> %</b></p>
+      <?php /* Su salud con la colorimetría: el detalle y los valores del mes, en un modal aquí mismo */
+      if ($colE = Colorimetria::delEquipo($en)): require_once __DIR__ . '/lib/colorimetria_ui.php'; ?>
+      <button type="button" class="rl-hero__salud" onclick="document.getElementById('dlg-col-equipo').showModal()" data-ds-tip="Cómo va y los valores del mes">
+        <?= Colorimetria::estado($colE['estado']) ?><?= $colE['ev']['puntaje'] !== null && in_array($colE['estado'], ['ok', 'warn', 'crit'], true) ? '<small>Puntaje ' . Colorimetria::num($colE['ev']['puntaje']) . '</small>' : '' ?></button>
+      <?= colModal($colE, 'dlg-col-equipo', rlUrl(['v' => 'equipo', 'e' => $en])) ?>
+      <?php endif; ?>
       <dl class="rl-hero__nums">
         <div><dt>Ítems</dt><dd class="mc-num"><?= (int)$resEq['total'] ?></dd></div>
         <div><dt>Terminados</dt><dd class="mc-num"><?= (int)$resEq['cerrados'] ?></dd></div>

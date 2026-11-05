@@ -92,9 +92,15 @@ final class Colorimetria
 
     public static function deSalud(string $salud): string { return self::DE_SALUD[$salud] ?? 'nm'; }
 
-    /** El ícono de cada estado (SVG en línea): círculo con check, triángulo, cuadro con x, bandera, pausa o círculo con raya. */
+    /** Los íconos de estado del Design System Innotech 2.0 (iconos/DS/ds-estado-*.svg). */
+    public const ICONOS = ['ok' => 'estado-cumple', 'warn' => 'estado-alerta', 'crit' => 'estado-critico', 'done' => 'estado-finalizado',
+                           'hold' => 'estado-pausado', 'none' => 'estado-sin-iniciar', 'nm' => 'estado-sin-medicion'];
+
+    /** El ícono de cada estado: el del Design System; si falta el archivo, uno dibujado aquí. */
     public static function icono(string $k, int $px = 14): string
     {
+        $n = self::ICONOS[$k] ?? 'estado-sin-medicion';
+        if (class_exists('UI') && method_exists('UI', 'hayIcono') && UI::hayIcono('ds-' . $n)) return UI::iconoDS($n, $px, 'col-ic');
         $c = '<svg class="col-ic" width="' . $px . '" height="' . $px . '" viewBox="0 0 16 16" aria-hidden="true">';
         return $c . match ($k) {
             'ok'   => '<circle fill="currentColor" cx="8" cy="8" r="7"/><path d="M4.8 8.2l2.2 2.2 4.2-4.6" stroke="var(--col-bg, #fff)" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
@@ -512,17 +518,29 @@ final class Colorimetria
         $out = [];
         foreach (Releases::equipos() as $nom => $e) {
             if ($nom === 'Todos' || !Releases::items(['equipo' => $nom])) continue;
-            $auto = self::autoEquipo($nom);
-            [$vals, $fuente, $per] = self::mezclar($auto, 'equipo', $nom);
-            $f = self::ficha('equipo', $nom);
-            $fase = $f['fase'] !== '' ? $f['fase'] : ($auto['items'] && $auto['cerrados'] >= $auto['items'] ? 'done' : (($auto['avance'] ?? 0) > 0 ? 'run' : 'none'));
-            $ev = self::evaluar($vals, $fase);
-            $out[] = ['tipo' => 'equipo', 'ref' => $nom, 'nombre' => 'Equipo ' . $nom, 'e' => $e,
-                      'codigo' => $f['codigo'] !== '' ? $f['codigo'] : 'EQ-' . strtoupper(self::slug($nom)), 'cliente' => $f['cliente'] !== '' ? $f['cliente'] : (string)($e['dominio'] ?? ''), 'ficha' => $f,
-                      'vals' => $vals, 'fuente' => $fuente, 'periodo' => $per, 'auto' => $auto, 'fase' => $fase, 'ev' => $ev, 'estado' => $ev['estado']];
+            $out[] = self::filaEquipo((string)$nom, $e);
         }
         usort($out, fn($a, $b) => [self::SEV[$b['estado']], $a['nombre']] <=> [self::SEV[$a['estado']], $b['nombre']]);
         return $out;
+    }
+
+    /** La salud de un equipo de Releases (su página), o null si no tiene ítems. */
+    public static function delEquipo(string $nom): ?array
+    {
+        if (!class_exists('Releases') || $nom === 'Todos' || !($e = Releases::equipo($nom)) || !Releases::items(['equipo' => $nom])) return null;
+        return self::filaEquipo($nom, $e);
+    }
+
+    private static function filaEquipo(string $nom, array $e): array
+    {
+        $auto = self::autoEquipo($nom);
+        [$vals, $fuente, $per] = self::mezclar($auto, 'equipo', $nom);
+        $f = self::ficha('equipo', $nom);
+        $fase = $f['fase'] !== '' ? $f['fase'] : ($auto['items'] && $auto['cerrados'] >= $auto['items'] ? 'done' : (($auto['avance'] ?? 0) > 0 ? 'run' : 'none'));
+        $ev = self::evaluar($vals, $fase);
+        return ['tipo' => 'equipo', 'ref' => $nom, 'nombre' => 'Equipo ' . $nom, 'e' => $e,
+                'codigo' => $f['codigo'] !== '' ? $f['codigo'] : 'EQ-' . strtoupper(self::slug($nom)), 'cliente' => $f['cliente'] !== '' ? $f['cliente'] : (string)($e['dominio'] ?? ''), 'ficha' => $f,
+                'vals' => $vals, 'fuente' => $fuente, 'periodo' => $per, 'auto' => $auto, 'fase' => $fase, 'ev' => $ev, 'estado' => $ev['estado']];
     }
 
     /** PRY-<NOMBRE>-<AÑO>-<id>, como en la guía, mientras no se le ponga uno. */

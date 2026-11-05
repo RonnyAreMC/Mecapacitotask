@@ -722,7 +722,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   // La salud del proyecto con la colorimetría: el tono de la barra de avance y su estado
   if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
   $colP = Colorimetria::delProyecto($proyecto);
+  require_once __DIR__ . '/lib/colorimetria_ui.php';
   ?>
+  <?= colModal($colP, 'dlg-col-proyecto', 'proyecto.php?id=' . (int)$proyecto['id']) ?>
   <div class="ph-main">
     <div class="ph-info">
       <h1 class="font-display" title="Creado <?= e($proyecto['creado'] ?? '') ?>"><?= e($proyecto['nombre']) ?></h1>
@@ -739,8 +741,8 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <div class="ph-cifra-hechas"><dt>Completadas</dt><dd><?= $completadas ?></dd></div>
         <div class="ph-cifra-avance col-s-<?= e($colP['estado']) ?>"><dt>Avance</dt><dd><?= $avance ?>%</dd>
           <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span>
-          <?php $urlCol = Colorimetria::puedeMedir('proyecto', (string)$proyecto['id']) ? 'colorimetria.php?v=medir&t=proyecto&r=' . (int)$proyecto['id'] : (Colorimetria::puedeVer() ? 'colorimetria.php?v=proyectos' : ''); ?>
-          <?= $urlCol !== '' ? '<a class="ph-cifra-estado" href="' . e($urlCol) . '" data-ds-tip="Cómo se calcula y los valores del mes">' . Colorimetria::estado($colP['estado']) . '</a>' : Colorimetria::estado($colP['estado'], null, 'ph-cifra-estado') ?><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?></div>
+          <?php /* Su salud: el detalle por indicador y los valores del mes, en un modal aquí mismo (lib/colorimetria_ui.php) */ ?>
+          <button type="button" class="ph-cifra-estado" onclick="document.getElementById('dlg-col-proyecto').showModal()" data-ds-tip="Cómo va y los valores del mes"><?= Colorimetria::estado($colP['estado']) ?></button><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?></div>
       </dl>
     </div>
     <div class="ph-arte" aria-hidden="true">
