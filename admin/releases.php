@@ -1051,30 +1051,56 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
   </section>
 
-  <div class="rl-grid<?= $sinItem ? ' rl-grid--2-1' : '' ?>">
-    <section class="mc-card rl-card">
-      <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Ítems del equipo</h2><p class="rl-card__sub">Por release, con sus tareas del panel. Pulsa uno para marcar cómo va.</p></div></header>
-      <?php foreach ($rels as $cod => $r): if (empty($porRel[$cod])) continue; $rq = Releases::resumen($porRel[$cod]); $abierto = $rq['cerrados'] < $rq['total']; ?>
-      <details class="rl-grupo-rel"<?= $abierto ? ' open' : '' ?> style="--rc:<?= e($r['color']) ?>">
-        <summary><?= rlCode($cod, $r['color']) ?><b><?= e($r['nombre'] ?? '') ?></b><span class="mc-num"><?= (int)$rq['cerrados'] ?>/<?= (int)$rq['total'] ?></span><?= rlIco('chevron-abajo', 16) ?></summary>
-        <div class="rl-filas"><?php foreach ($porRel[$cod] as $it) {
+  <?php /* Ítems del equipo como la tabla de la colorimetría: cada release es un grupo con sus totales
+         en las mismas columnas y cada ítem una fila de la misma altura (al pulsarla se abre el ítem) */ ?>
+  <section class="mc-card rl-card">
+    <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Ítems del equipo</h2><p class="rl-card__sub">Por release, con sus tareas del panel y la salud según la colorimetría. Pulsa uno para marcar cómo va.</p></div></header>
+    <div class="rl-itab">
+      <div class="rl-itab__cols"><span>Ítem</span><span>Estado</span><span>Fechas</span><span>Tareas</span><span>Real</span><span>Esperado hoy</span><span>Avance</span><span>Salud</span></div>
+      <?php foreach ($rels as $cod => $r): if (empty($porRel[$cod])) continue;
+        $rq = Releases::resumen($porRel[$cod]);
+        $filasIt = '';
+        $tN = $tH = 0;
+        foreach ($porRel[$cod] as $it) {
             $depEq = rlDependencias((string)($it['dependencias'] ?? ''), $porCodigo, $en)['equipos'];
-            $chips = implode('', array_map(fn($n) => '<span class="rl-depchip" style="--ec:' . e(rlColorEq($eqs, $n)) . '" title="Depende de algo que entrega ' . e($n) . '">' . rlIco('relacionar', 12) . 'lo entrega ' . e($n) . '</span>', $depEq));
-            // Su cobertura de tareas (antes en su propia tarjeta): cuántas tiene, cuántas terminaron y cuántas puso la IA
+            $deps = implode('', array_map(fn($n) => '<span class="rl-depchip" style="--ec:' . e(rlColorEq($eqs, $n)) . '" title="Depende de algo que entrega ' . e($n) . '">' . rlIco('relacionar', 12) . 'lo entrega ' . e($n) . '</span>', $depEq));
+            // Su cobertura: cuántas tareas del panel tiene, cuántas terminaron y cuántas puso la IA
             $tsC = array_values(array_filter(array_map(fn($id) => $mapa[(int)$id] ?? null, (array)$it['tareas'])));
             $nC = count($tsC);
             $hC = count(array_filter($tsC, fn($t) => in_array($t['estado'] ?? '', $finales, true)));
+            $tN += $nC; $tH += $hC;
             $iaC = count(array_intersect((array)($it['tareas_ia'] ?? []), (array)$it['tareas']));
             $empiezaC = $it['estado'] !== 'cerrado' && ($it['inicio'] ?? '') !== '' && $it['inicio'] <= date('Y-m-d', strtotime($hoy . ' +14 days'));
-            $chips .= $nC ? '<span class="rl-cobchip" title="Tareas del panel que lo cubren">' . rlIco('completar', 12) . $hC . '/' . $nC . ' tareas</span>' . ($iaC ? '<span class="rl-chip-ia">' . rlIco('ia', 12) . $iaC . ' por la IA</span>' : '')
-                : ($empiezaC ? '<span class="rl-cobchip is-falta">' . rlIco('alerta', 12) . 'Sin tareas y ya empieza</span>' : '');
-            echo rlFilaItem($it, $eqs, $rels, Releases::ESTADOS[$it['estado']][0] . ' · ' . rlF($it['inicio']) . ' → ' . rlF($it['fin']), $chips);
-        } ?></div>
+            $tarCel = $nC ? '<b class="mc-num">' . $hC . '/' . $nC . '</b>' . ($iaC ? '<small class="rl-itab__ia" data-ds-tip="' . $iaC . ' las asoció la IA">' . rlIco('ia', 12) . $iaC . '</small>' : '')
+                : ($empiezaC ? '<span class="rl-itab__falta" data-ds-tip="Sin tareas y ya empieza">' . rlIco('alerta', 14) . 'Sin tareas</span>' : '<span class="rl-itab__nada">—</span>');
+            $kIt = Colorimetria::deSalud((string)$it['salud']);
+            $filasIt .= '<a class="rl-itab__fila" href="' . e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) . '" data-rl-item="' . (int)$it['id'] . '"' . rlTipItem($it) . '>'
+                . '<span class="rl-itab__item">' . rlCode($it['codigo'], rlColorRel($rels, $it['release'])) . '<span class="rl-itab__txt"><b>' . e($it['titulo']) . '</b>' . ($deps !== '' ? '<small>' . $deps . '</small>' : '') . '</span></span>'
+                . '<span class="rl-itab__est">' . e(Releases::ESTADOS[$it['estado']][0]) . '</span>'
+                . '<span class="mc-num rl-itab__fec">' . e(rlF($it['inicio'])) . ' → ' . e(rlF($it['fin'])) . '</span>'
+                . '<span class="rl-itab__tar">' . $tarCel . '</span>'
+                . '<b class="mc-num">' . (int)$it['avance'] . ' %</b><span class="mc-num rl-itab__esp">' . (int)$it['esperado'] . ' %</span>'
+                . rlBala((int)$it['avance'], (int)$it['esperado'], $kIt)
+                . '<span class="rl-itab__sal">' . Colorimetria::estado($kIt) . '</span></a>';
+        }
+        $kRel = Colorimetria::deSalud(rlSaludGrupo($rq, $hoy)); ?>
+      <details class="rl-itab__grupo"<?= $rq['cerrados'] < $rq['total'] ? ' open' : '' ?>>
+        <summary class="rl-itab__dim">
+          <span class="rl-itab__item"><?= rlIco('chevron-der', 16) ?><?= rlCode($cod, $r['color']) ?><b class="rl-itab__relnom" title="<?= e($r['nombre'] ?? '') ?>"><?= e($r['nombre'] ?? '') ?></b></span>
+          <span class="rl-itab__est"><b class="mc-num"><?= (int)$rq['cerrados'] ?>/<?= (int)$rq['total'] ?></b> cerrados</span>
+          <span class="mc-num rl-itab__fec"><?= e(rlF($rq['inicio'])) ?> → <?= e(rlF($rq['fin'])) ?></span>
+          <span class="rl-itab__tar"><?= $tN ? '<b class="mc-num">' . $tH . '/' . $tN . '</b>' : '<span class="rl-itab__nada">—</span>' ?></span>
+          <b class="mc-num"><?= (int)$rq['pct'] ?> %</b><span class="mc-num rl-itab__esp"><?= (int)$rq['esperado'] ?> %</span>
+          <?= rlBala((int)$rq['pct'], (int)$rq['esperado'], $kRel) ?>
+          <span class="rl-itab__sal"><?= Colorimetria::estado($kRel) ?></span>
+        </summary>
+        <?= $filasIt ?>
       </details>
       <?php endforeach; ?>
-    </section>
+    </div>
+  </section>
 
-    <?php if ($sinItem): /* sin tareas sueltas, los ítems ocupan todo el ancho */ ?>
+  <?php if ($sinItem): /* las tareas abiertas que no cubren ningún ítem, debajo de la tabla */ ?>
     <section class="mc-card rl-card">
       <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('completar', 20) ?> Tareas abiertas sin ítem <span class="rl-n"><?= count($sinItem) ?></span></h2>
         <p class="rl-card__sub">Tareas de los proyectos del equipo que todavía no cubren ningún ítem.</p></div></header>
@@ -1097,8 +1123,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <?php if (count($sinItem) > 12): ?><p class="rl-vacio-txt">Y <?= count($sinItem) - 12 ?> más.</p><?php endif; ?>
       <?php endif; ?>
     </section>
-    <?php endif; ?>
-  </div>
+  <?php endif; ?>
 
 <?php elseif ($v === 'item'):
 /* =========================================================================

@@ -130,6 +130,26 @@ function rlBarra(int $pct, int $esp, string $salud, string $cls = ''): string
         . '<span class="rl-barra__fill" style="--p:' . $pct . '%"></span>'
         . ($esp > 0 ? '<span class="rl-barra__esp" style="--e:' . $esp . '%"></span>' : '') . '</span>';
 }
+/**
+ * Gráfico de bala del avance, como el de la colorimetría: las zonas salen de lo
+ * esperado hoy (bajo el 70 % de lo esperado, Crítico; hasta lo esperado, Alerta;
+ * de ahí en adelante, Cumple, igual que Releases::salud) y la barra es el real.
+ * $k: el estado de la colorimetría (con 'done' todo es Cumple).
+ */
+function rlBala(int $pct, int $esp, string $k): string
+{
+    $pct = max(0, min(100, $pct));
+    $esp = max(0, min(100, $esp));
+    $z = '';
+    if ($k === 'done') $z = '<i class="col-bala__zona col-s-ok" style="left:0;width:100%"></i>';
+    elseif ($esp > 0) {
+        $a = round($esp * 0.7, 2);
+        $z = '<i class="col-bala__zona col-s-crit" style="left:0;width:' . $a . '%"></i>'
+           . '<i class="col-bala__zona col-s-warn" style="left:' . $a . '%;width:' . round($esp - $a, 2) . '%"></i>'
+           . '<i class="col-bala__zona col-s-ok" style="left:' . $esp . '%;width:' . (100 - $esp) . '%"></i>';
+    }
+    return '<span class="col-bala" role="img" aria-label="Avance ' . $pct . ' %, esperado hoy ' . $esp . ' %">' . $z . '<i class="col-bala__val" style="width:' . $pct . '%"></i></span>';
+}
 /** Anillo del % con la marca del esperado (un trazo fino sobre el anillo). */
 function rlAnillo(int $pct, int $esp, string $salud, int $px = 72): string
 {
