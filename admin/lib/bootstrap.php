@@ -83,6 +83,7 @@ if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE && !defined('MCH
 require_once __DIR__ . '/Storage.php';
 require_once __DIR__ . '/Models.php';
 require_once __DIR__ . '/Feriados.php';   // calendario general: los feriados no son días hábiles en ningún lado
+require_once __DIR__ . '/Colorimetria.php';   // un solo tono por estado en todo el panel (los avances y los estados)
 require_once __DIR__ . '/HtmlRico.php';
 require_once __DIR__ . '/AutoEstado.php';
 require_once __DIR__ . '/UI.php';

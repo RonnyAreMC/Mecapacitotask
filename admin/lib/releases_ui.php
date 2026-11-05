@@ -24,8 +24,15 @@ function rlChip(string $texto, string $tono, string $extra = ''): string
     return '<span class="mc-status mc-status--sm mc-status--' . rlTono($tono) . ($extra !== '' ? ' ' . $extra : '') . '"><span class="mc-status__dot"></span>' . e($texto) . '</span>';
 }
 function rlEstado(string $k): string { [$l, $t] = Releases::ESTADOS[$k] ?? Releases::ESTADOS['por_iniciar']; return rlChip($l, $t); }
-function rlSalud(string $k): string { [$l, $t] = Releases::SALUD[$k] ?? ['Sin datos', 'gris']; return rlChip($l, $t); }
-function rlResultado(string $k): string { [$l, $t] = Releases::RESULTADOS[$k] ?? Releases::RESULTADOS['pendiente']; return rlChip($l, $t); }
+/** La salud de un ítem o grupo con la colorimetría: ícono y texto del tono de su estado. */
+function rlSalud(string $k): string { return Colorimetria::estado(Colorimetria::deSalud($k), Releases::SALUD[$k][0] ?? 'Sin datos'); }
+/** El resultado de una fila de revisión, con el tono de la colorimetría (Cumplido = Cumple, Parcial = Alerta…). */
+function rlResultado(string $k): string
+{
+    $k = isset(Releases::RESULTADOS[$k]) ? $k : 'pendiente';
+    $col = ['cumplido' => 'ok', 'parcial' => 'warn', 'no_cumplido' => 'crit', 'reprogramado' => 'hold', 'no_aplica' => 'nm', 'pendiente' => 'none'][$k];
+    return Colorimetria::estado($col, Releases::RESULTADOS[$k][0]);
+}
 /** 15/11 o 15/11/2026 */
 function rlF(?string $f, bool $anio = false): string
 {

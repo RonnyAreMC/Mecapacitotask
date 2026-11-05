@@ -186,6 +186,12 @@ require __DIR__ . '/lib/resumen_tira.php';
     <?= UI::vacio('fa-folder-plus', 'Aún no hay proyectos', 'Crea el primer proyecto del equipo con el botón "Nuevo proyecto".') ?>
   <?php endif; ?>
 <?php else: ?>
+<?php
+// La salud de cada proyecto con la colorimetría: su barra de avance va con el tono de su estado
+if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+$colorimetria = [];
+foreach (Colorimetria::proyectos() as $fCol) $colorimetria[(int)$fCol['ref']] = $fCol['estado'];
+?>
 <section class="proyectos-admin-grid">
   <?php $iCard = 0; foreach ($proyectos as $p):
       $resumen = $resumenes[(int)$p['id']] ?? $tareasRepo->resumen((int)$p['id']);
@@ -223,8 +229,9 @@ require __DIR__ . '/lib/resumen_tira.php';
         <span><b><?= $total ?></b> <?= $total === 1 ? 'tarea' : 'tareas' ?></span>
         <span class="pac-hechas"><b><?= $hechas ?></b> <?= $hechas === 1 ? 'terminada' : 'terminadas' ?></span>
       </p>
-      <div class="pac-progress">
-        <?= UI::progreso($avance, $color) ?>
+      <?php $estCol = $colorimetria[(int)$p['id']] ?? 'nm'; ?>
+      <div class="pac-progress col-s-<?= e($estCol) ?>" title="<?= e(Colorimetria::nombre($estCol)) ?>">
+        <?= UI::progreso($avance, 'var(--col-solid)') ?>
       </div>
 
       <div class="pac-foot">

@@ -128,6 +128,9 @@ class UI
 <link rel="stylesheet" href="<?= asset('assets/ds.css') ?>">
 <?php endif; ?>
 <?php self::estilosConfig(); ?>
+<?php if (class_exists('Colorimetria')): /* los tonos de cada estado (Cumple, Alerta, Crítico…), con los colores de la configuración */ ?>
+<style id="col-tokens"><?= Colorimetria::css() ?></style>
+<?php endif; ?>
 </head>
 <body class="admin-body" data-limite-subida="<?= limiteSubidaBytes() ?>" data-rol="<?= e(Auth::rol()) ?>">
 <aside class="sidebar">
@@ -184,12 +187,6 @@ class UI
     <a href="notificaciones.php?tab=correo" class="sidebar-link <?= $activo === 'correo' ? 'active' : '' ?>" title="Correo InnoTech">
       <?= UI::icono('ds-correo') ?> <span class="truncate">Correo</span>
       <span class="nav-badge nav-badge-fin" data-correo-n-menu title="Correos sin leer"<?= $nCorreoMenu ? '' : ' hidden' ?>><?= $nCorreoMenu > 999 ? '999+' : $nCorreoMenu ?></span>
-    </a>
-    <?php endif; ?>
-    <?php // Colorimetría (colorimetria.php): la salud de los proyectos y de los equipos de Releases, para quien gestiona o supervisa
-    if (is_file(__DIR__ . '/../colorimetria.php') && (Auth::esAdmin() || Auth::esScrum() || Auth::esSupervisor())): ?>
-    <a href="colorimetria.php" class="sidebar-link <?= $activo === 'colorimetria' ? 'active' : '' ?>" title="Colorimetría: la salud de cada proyecto">
-      <?= UI::icono('ds-reportes') ?> <span class="truncate">Colorimetría</span>
     </a>
     <?php endif; ?>
 
@@ -338,8 +335,9 @@ class UI
         /* ---- Configuración (solo administradores) ---- */
         $itConf = (is_file(__DIR__ . '/../ia.php') ? $navLink('ia.php', 'ia', UI::icono('ds-ia'), 'Consola de IA', 'Claves, modelos y consumo de la IA') : '')
             . (is_file(__DIR__ . '/../buzones.php') ? $navLink('buzones.php', 'buzones', UI::icono('ds-correo'), 'Cuentas de correo', 'Las cuentas del cPanel: crear, contraseñas, espacio y reenvíos') : '')
+            . (is_file(__DIR__ . '/../colorimetria.php') ? $navLink('colorimetria.php?v=config', 'colorimetria', UI::icono('ds-reportes'), 'Colorimetría', 'Los tonos de cada estado, los umbrales y los valores del mes de la PMO') : '')
             . $navLink('ajustes.php', 'ajustes', UI::icono('ds-configuracion'), 'Ajustes');
-        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones'], true), 0, '', true);
+        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones', 'colorimetria'], true), 0, '', true);
     } else {
         /* ---- Conocimiento (los demás equipos): el release y los hitos (solo ver), la documentación y los tutoriales ---- */
         if (is_file(__DIR__ . '/Releases.php')) require_once __DIR__ . '/Releases.php';

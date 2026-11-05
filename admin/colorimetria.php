@@ -14,7 +14,7 @@ if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Release
 Auth::requiereLogin();
 if (!Colorimetria::puedeVer()) redirigir('index.php', 'La colorimetría la ven el administrador, los Scrum Master y los supervisores.', 'error');
 
-$v = (string)($_GET['v'] ?? 'proyectos');
+$v = (string)($_GET['v'] ?? (Auth::esAdmin() ? 'config' : 'proyectos'));
 if (!in_array($v, ['proyectos', 'equipos', 'config', 'guia', 'medir'], true)) $v = 'proyectos';
 if ($v === 'config' && !Auth::esAdmin()) $v = 'proyectos';
 $conf = Colorimetria::conf();
@@ -92,7 +92,7 @@ if (in_array($v, ['proyectos', 'equipos'], true)) {
 }
 
 UI::inicio('Colorimetría', 'colorimetria');
-UI::cabecera('Colorimetría', 'La salud de cada proyecto y de cada equipo de Releases, con un solo color por estado. Lo que el panel sabe se calcula solo; lo de la PMO se anota cada mes.', $acciones);
+UI::cabecera('Colorimetría', 'Los tonos de cada estado que usa todo el panel (avances de proyectos, Releases, revisiones), sus umbrales y los valores del mes de la PMO. Lo que el panel sabe se calcula solo.', $acciones);
 ?>
 <style><?= Colorimetria::css() ?></style>
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -105,9 +105,9 @@ UI::cabecera('Colorimetría', 'La salud de cada proyecto y de cada equipo de Rel
 </svg>
 <div class="ds col-pagina">
   <nav class="tabs-meca col-tabs" aria-label="Vistas">
-    <a class="tab-btn<?= $v === 'proyectos' || ($v === 'medir' && ($_GET['t'] ?? '') !== 'equipo') ? ' active' : '' ?>" href="colorimetria.php"><?= UI::icono('ds-carpeta') ?> <span class="tab-txt">Proyectos</span></a>
-    <?php if (class_exists('Releases')): ?><a class="tab-btn<?= $v === 'equipos' || ($v === 'medir' && ($_GET['t'] ?? '') === 'equipo') ? ' active' : '' ?>" href="colorimetria.php?v=equipos"><?= UI::icono('ds-usuarios') ?> <span class="tab-txt">Equipos de Releases</span></a><?php endif; ?>
     <?php if (Auth::esAdmin()): ?><a class="tab-btn<?= $v === 'config' ? ' active' : '' ?>" href="colorimetria.php?v=config"><?= UI::icono('ds-configuracion') ?> <span class="tab-txt">Configuración</span></a><?php endif; ?>
+    <a class="tab-btn<?= $v === 'proyectos' || ($v === 'medir' && ($_GET['t'] ?? '') !== 'equipo') ? ' active' : '' ?>" href="colorimetria.php?v=proyectos"><?= UI::icono('ds-carpeta') ?> <span class="tab-txt">Valores de proyectos</span></a>
+    <?php if (class_exists('Releases')): ?><a class="tab-btn<?= $v === 'equipos' || ($v === 'medir' && ($_GET['t'] ?? '') === 'equipo') ? ' active' : '' ?>" href="colorimetria.php?v=equipos"><?= UI::icono('ds-usuarios') ?> <span class="tab-txt">Valores de equipos</span></a><?php endif; ?>
     <a class="tab-btn<?= $v === 'guia' ? ' active' : '' ?>" href="colorimetria.php?v=guia"><?= UI::icono('ds-documento') ?> <span class="tab-txt">Guía</span></a>
   </nav>
 

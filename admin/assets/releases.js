@@ -495,6 +495,42 @@
     sc.scrollLeft = Math.max(0, x - sc.clientWidth * 0.45);
   });
 
+  /* Listas largas de tareas: se ven 3 y un «+N más» que abre todas en un modal */
+  const TCHIPS = {};
+  function tchipsResumen(codigo, titulo, chips) {
+    TCHIPS[codigo] = { titulo, chips };
+    return '<div class="rl-iaeq__tareas">' + chips.slice(0, 3).join('')
+      + (chips.length > 3 ? '<button type="button" class="rl-tchip rl-tchip--mas" data-rl-tchips="' + esc(codigo) + '">+' + (chips.length - 3) + ' más</button>' : '') + '</div>';
+  }
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rl-tchips]');
+    if (!b) return;
+    const d = TCHIPS[b.dataset.rlTchips];
+    if (!d) return;
+    let dlg = document.getElementById('rl-dlg-tchips');
+    if (!dlg) {
+      dlg = document.createElement('dialog');
+      dlg.id = 'rl-dlg-tchips';
+      dlg.className = 'dlg-meca rl-dlg rl-dlg-tchips';
+      document.body.appendChild(dlg);
+      dlg.addEventListener('click', (ev) => { if (ev.target === dlg || ev.target.closest('[data-cerrar-dlg]')) dlg.close(); });
+    }
+    dlg.innerHTML = '<div class="dlg-form"><header><h3 class="font-display">' + ico('relacionar', 18) + ' ' + esc(b.dataset.rlTchips) + ' · ' + d.chips.length + ' tareas'
+      + (d.titulo ? '<small>' + esc(d.titulo) + '</small>' : '') + '</h3><button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar">' + ico('cerrar', 18) + '</button></header>'
+      + '<div class="rl-tchips-todas">' + d.chips.join('') + '</div></div>';
+    dlg.showModal();
+  });
+
+  /* Resumen por release: abre y cierra las filas de sus equipos */
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rl-arbol-abrir]');
+    if (!b) return;
+    const abrir = b.getAttribute('aria-expanded') !== 'true';
+    b.setAttribute('aria-expanded', abrir ? 'true' : 'false');
+    b.closest('tr').classList.toggle('is-abierta', abrir);
+    document.querySelectorAll('[data-rl-arbol-de="' + CSS.escape(b.dataset.rlArbolAbrir) + '"]').forEach((tr) => { tr.hidden = !abrir; });
+  });
+
   /* =========================================================
      Tablero: personalizar qué secciones se ven
      ========================================================= */
@@ -502,7 +538,8 @@
   const popPers = document.querySelector('[data-rl-personalizar-pop]');
   if (btnPers && popPers) {
     document.body.appendChild(popPers);
-    const ocultos = new Set(leerLocal('rl-tablero-ocultos', []));
+    // Sin nada elegido, se ve el resumen: la hoja de ruta y la matriz se encienden en «Personalizar»
+    const ocultos = new Set(leerLocal('rl-tablero-ocultos', ['ruta', 'matriz']));
     const aplicar = () => document.querySelectorAll('[data-rl-sec]').forEach((s) => { s.hidden = ocultos.has(s.dataset.rlSec); });
     popPers.querySelectorAll('input[type="checkbox"]').forEach((c) => {
       const k = c.name.replace('rl-sec-', '');
@@ -610,12 +647,12 @@
           h += '<li class="rl-iaeq__item"><div class="rl-iaeq__fila">' + '<span class="rl-code" style="--rc:var(--primary)">' + linkItem(x.codigo) + '</span>'
             + '<b>' + esc(it.titulo || '') + '</b>' + chip(lbl, t) + '</div>'
             + (x.comentario ? '<p>' + esc(x.comentario) + '</p>' : '')
-            + (ids.length ? '<div class="rl-iaeq__tareas">' + ids.map((id) => {
+            + (ids.length ? tchipsResumen(x.codigo, it.titulo || '', ids.map((id) => {
               const tt = tarea(id);
               const est = ya.has(id) ? 'is-ya' : (quitadas.has(id) ? 'is-quitada' : 'is-falta');
               return '<span class="rl-tchip ' + est + '" title="' + esc(ya.has(id) ? 'Vinculada' : quitadas.has(id) ? 'Alguien la quitó a mano: la IA no la vuelve a poner' : 'Sin vincular') + '">'
                 + (ya.has(id) ? ico('check', 12) : '') + '#' + id + ' ' + esc(tt ? tt.titulo : '(ya no existe)') + '</span>';
-            }).join('') + '</div>' : '')
+            })) : '')
             + (faltan.length && ctx.puede && !aplicadas.has('items:' + x.codigo)
               ? '<button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-ia-vincular="' + esc(x.codigo) + '" data-tareas="' + esc(faltan.join(',')) + '">' + ico('relacionar', 14) + '<span class="mc-btn__label">' + (faltan.length === 1 ? 'Vincular la que falta' : 'Vincular las ' + faltan.length + ' que faltan') + '</span></button>' : '')
             + '</li>';
@@ -1022,7 +1059,7 @@
      ========================================================= */
   document.addEventListener('submit', async (e) => {
     const f = e.target.closest('form[data-rl-form]');
-    if (!f) return;
+    if (!f || e.defaultPrevented) return;   // el asistente por pasos ya lo frenó (avanzar o un campo pendiente)
     e.preventDefault();
     const fd = new FormData(f);
     const btn = e.submitter || f.querySelector('[type="submit"]');

@@ -28,7 +28,7 @@
   --pz-azul: #2563EB;
   --pz-rosa: #E11D48;
   --pz-font: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --pz-font-display: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  --pz-font-display: Inter, system-ui, sans-serif;
   --pz-ease: cubic-bezier(.2, .7, .2, 1);
 
   /* Lo elegido: canto fijo (no gira) con doble fondo, como en el resto del panel */

@@ -86,6 +86,33 @@ final class Colorimetria
 
     public const FASES = ['' => 'Según el panel', 'run' => 'En curso', 'none' => 'Sin iniciar', 'hold' => 'Pausado', 'done' => 'Finalizado'];
 
+    /** La salud de Releases (al_dia, riesgo, atrasado…) en el estado de la colorimetría. */
+    public const DE_SALUD = ['al_dia' => 'ok', 'riesgo' => 'warn', 'atrasado' => 'crit', 'vencido' => 'crit', 'bloqueado' => 'crit',
+                             'futuro' => 'none', 'cerrado' => 'done', 'vacio' => 'nm', 'nm' => 'nm'];
+
+    public static function deSalud(string $salud): string { return self::DE_SALUD[$salud] ?? 'nm'; }
+
+    /** El ícono de cada estado (SVG en línea): círculo con check, triángulo, cuadro con x, bandera, pausa o círculo con raya. */
+    public static function icono(string $k, int $px = 14): string
+    {
+        $c = '<svg class="col-ic" width="' . $px . '" height="' . $px . '" viewBox="0 0 16 16" aria-hidden="true">';
+        return $c . match ($k) {
+            'ok'   => '<circle fill="currentColor" cx="8" cy="8" r="7"/><path d="M4.8 8.2l2.2 2.2 4.2-4.6" stroke="var(--col-bg, #fff)" stroke-width="1.9" fill="none" stroke-linecap="round" stroke-linejoin="round"/>',
+            'warn' => '<path fill="currentColor" d="M8 1.6l6.8 11.8H1.2z"/><path d="M8 6v3.4M8 11.4v.1" stroke="var(--col-bg, #fff)" stroke-width="1.9" fill="none" stroke-linecap="round"/>',
+            'crit' => '<rect fill="currentColor" x="1.5" y="1.5" width="13" height="13" rx="3.5"/><path d="M5.4 5.4l5.2 5.2M10.6 5.4l-5.2 5.2" stroke="var(--col-bg, #fff)" stroke-width="1.9" fill="none" stroke-linecap="round"/>',
+            'done' => '<path d="M4 14.5V2M4 3h8.2l-2.1 3 2.1 3H4" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>',
+            'hold' => '<path d="M5.6 3v10M10.4 3v10" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+            default => '<circle cx="8" cy="8" r="6.2" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M5.2 8h5.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>',
+        } . '</svg>';
+    }
+
+    /** El estado como en el Design System: ícono y texto del color del estado, sin fondo. */
+    public static function estado(string $k, ?string $texto = null, string $extra = ''): string
+    {
+        $k = isset(self::ESTADOS[$k]) ? $k : 'nm';
+        return '<span class="col-est col-s-' . $k . ($extra !== '' ? ' ' . $extra : '') . '">' . self::icono($k) . '<span>' . e($texto ?? self::nombre($k)) . '</span></span>';
+    }
+
     /* ============================== Configuración ============================== */
 
     /** La configuración vigente: la de fábrica con lo que se cambió en la pestaña Configuración. */
@@ -376,9 +403,11 @@ final class Colorimetria
         $x['defec'] = $tareas ? count(array_filter($obsPendientes, fn($o) => isset($altas[(int)($o['tarea_id'] ?? 0)]))) : null;
         $x['hist'] = null;
         if (class_exists('Releases') && method_exists('Releases', 'itemsDeProyecto')) {
+            // Los ítems vienen sin calcular: el esperado a hoy y el avance (un terminado cuenta 100)
             $items = Releases::itemsDeProyecto((int)$p['id']);
-            $esp = array_sum(array_map(fn($it) => (int)$it['esperado'], $items));
-            if ($esp > 0) $x['hist'] = round(min(150, array_sum(array_map(fn($it) => (int)$it['avance'], $items)) / $esp * 100), 1);
+            $esp = array_sum(array_map(fn($it) => Releases::esperado($it), $items));
+            $av = array_sum(array_map(fn($it) => ($it['estado'] ?? '') === 'cerrado' ? 100 : (int)($it['avance'] ?? 0), $items));
+            if ($esp > 0) $x['hist'] = round(min(150, $av / $esp * 100), 1);
         }
         return $x;
     }
@@ -444,21 +473,36 @@ final class Colorimetria
         foreach ((new ProyectoRepo())->todos() as $p) {
             $pid = (int)$p['id'];
             if (!Auth::esAdmin() && function_exists('puedeVerProyecto') && !puedeVerProyecto($pid)) continue;
-            $ts = $tareasPor[$pid] ?? [];
-            $auto = self::autoProyecto($p, $ts, $obsPor[$pid] ?? []);
-            [$vals, $fuente, $per] = self::mezclar($auto, 'proyecto', (string)$pid);
-            $f = self::ficha('proyecto', (string)$pid);
-            $empezo = (bool)array_filter($ts, fn($t) => ($t['estado'] ?? 'pendiente') !== 'pendiente');
-            $fase = $f['fase'] !== '' ? $f['fase'] : match ((string)($p['estado'] ?? 'activo')) {
-                'pausado' => 'hold', 'completado' => 'done', default => $empezo ? 'run' : 'none',
-            };
-            $ev = self::evaluar($vals, $fase);
-            $out[] = ['tipo' => 'proyecto', 'ref' => (string)$pid, 'nombre' => (string)$p['nombre'], 'p' => $p,
-                      'codigo' => $f['codigo'] !== '' ? $f['codigo'] : self::codigoPorDefecto($p), 'cliente' => $f['cliente'], 'ficha' => $f,
-                      'vals' => $vals, 'fuente' => $fuente, 'periodo' => $per, 'auto' => $auto, 'fase' => $fase, 'ev' => $ev, 'estado' => $ev['estado']];
+            $out[] = self::filaProyecto($p, $tareasPor[$pid] ?? [], $obsPor[$pid] ?? []);
         }
         usort($out, fn($a, $b) => [self::SEV[$b['estado']], $a['nombre']] <=> [self::SEV[$a['estado']], $b['nombre']]);
         return $out;
+    }
+
+    /** La salud de un proyecto (con sus tareas y sus observaciones de QA pendientes). */
+    public static function filaProyecto(array $p, array $ts, array $obs): array
+    {
+        $pid = (int)$p['id'];
+        $auto = self::autoProyecto($p, $ts, $obs);
+        [$vals, $fuente, $per] = self::mezclar($auto, 'proyecto', (string)$pid);
+        $f = self::ficha('proyecto', (string)$pid);
+        $empezo = (bool)array_filter($ts, fn($t) => ($t['estado'] ?? 'pendiente') !== 'pendiente');
+        $fase = $f['fase'] !== '' ? $f['fase'] : match ((string)($p['estado'] ?? 'activo')) {
+            'pausado' => 'hold', 'completado' => 'done', default => $empezo ? 'run' : 'none',
+        };
+        $ev = self::evaluar($vals, $fase);
+        return ['tipo' => 'proyecto', 'ref' => (string)$pid, 'nombre' => (string)$p['nombre'], 'p' => $p,
+                'codigo' => $f['codigo'] !== '' ? $f['codigo'] : self::codigoPorDefecto($p), 'cliente' => $f['cliente'], 'ficha' => $f,
+                'vals' => $vals, 'fuente' => $fuente, 'periodo' => $per, 'auto' => $auto, 'fase' => $fase, 'ev' => $ev, 'estado' => $ev['estado']];
+    }
+
+    /** La salud de un solo proyecto (su página): lee solo sus tareas y sus observaciones. */
+    public static function delProyecto(array $p): array
+    {
+        $pid = (int)$p['id'];
+        $obs = array_filter((new JsonStore('observaciones'))->all(), fn($o) => (int)($o['proyecto_id'] ?? 0) === $pid
+            && ($o['tipo'] ?? 'nota') === 'nota' && ($o['estado'] ?? '') === 'pendiente' && (int)($o['padre_id'] ?? 0) === 0);
+        return self::filaProyecto($p, (new TareaRepo())->delProyecto($pid), array_values($obs));
     }
 
     /** Los equipos de Releases, con su salud. */

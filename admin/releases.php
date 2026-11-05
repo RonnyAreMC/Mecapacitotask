@@ -406,10 +406,7 @@ $acciones = '';
 $sub = 'La planificación estratégica en un solo lugar: avance por release y por equipo, revisiones semanales y alertas de fechas.';
 switch ($v) {
     case 'tablero':
-        // La salud de cada equipo con la colorimetría de la PMO (colorimetria.php)
-        $acciones = (is_file(__DIR__ . '/colorimetria.php') && (Auth::esAdmin() || Auth::esScrum() || Auth::esSupervisor())
-                ? '<a class="mc-btn mc-btn--ghost" href="colorimetria.php?v=equipos">' . rlIco('reportes', 18) . '<span class="mc-btn__label">Colorimetría</span></a>' : '')
-            . '<button type="button" class="mc-btn mc-btn--ghost" data-rl-personalizar aria-expanded="false">' . rlIco('configuracion', 18) . '<span class="mc-btn__label">Personalizar</span></button>'
+        $acciones = '<button type="button" class="mc-btn mc-btn--ghost" data-rl-personalizar aria-expanded="false">' . rlIco('configuracion', 18) . '<span class="mc-btn__label">Personalizar</span></button>'
             . $botonIA('Resumen con IA', ['rl-ia-general' => '1']);
         break;
     case 'release':
@@ -509,13 +506,50 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 
   <div class="rl-personalizar mc-pop" data-rl-personalizar-pop hidden role="dialog" aria-label="Qué se ve en el tablero">
     <p class="rl-personalizar__t">Qué se ve en el tablero</p>
-    <?php foreach (['ruta' => 'Hoja de ruta', 'matriz' => 'Equipos × releases', 'revisiones' => 'Próximas revisiones', 'alertas' => 'Alertas', 'hitos' => 'Próximos hitos'] as $k => $lbl): ?>
+    <?php foreach (['resumen' => 'Resumen por release', 'ruta' => 'Hoja de ruta', 'matriz' => 'Equipos × releases', 'revisiones' => 'Próximas revisiones', 'alertas' => 'Alertas', 'hitos' => 'Próximos hitos'] as $k => $lbl): ?>
     <?= UI::checkDS('rl-sec-' . $k, true, $lbl, '', 'rl-personalizar__op') ?>
     <?php endforeach; ?>
     <p class="rl-personalizar__nota">Se guarda en este navegador.</p>
   </div>
 
   <div class="rl-ia-slot" data-rl-ia-slot hidden></div>
+
+  <?php /* Resumen primero, como las tablas del Design System: una fila por release y, al abrirla, sus equipos. El detalle, al entrar. */ ?>
+  <section class="mc-card rl-card rl-resumen" data-rl-sec="resumen">
+    <header class="rl-card__cab"><div><h2 class="rl-card__tit"><?= rlIco('ruta', 20) ?> Releases</h2>
+      <p class="rl-card__sub">Cómo va cada release. Ábrelo para ver sus equipos; los ítems están al entrar.</p></div></header>
+    <div class="rl-arbol-wrap">
+      <table class="rl-arbol" data-rl-arbol>
+        <thead><tr><th scope="col">Release</th><th scope="col">Fechas</th><th scope="col">Ítems</th><th scope="col">Avance</th><th scope="col">Estado</th><th scope="col"><span class="mc-sr-only">Abrir</span></th></tr></thead>
+        <tbody>
+        <?php foreach ($rels as $cod => $r): $x = $tab['releases'][$cod] ?? null; if (!$x || !$x['total']) continue;
+            $s = rlSaludGrupo($x, $hoy);
+            $hijos = array_filter((array)($x['equipos'] ?? []), fn($c) => !empty($c['total'])); ?>
+          <tr class="rl-arbol__fila">
+            <td><span class="rl-arbol__nom">
+              <?php if ($hijos): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm rl-arbol__abrir" data-rl-arbol-abrir="<?= e($cod) ?>" aria-expanded="false" aria-label="Ver los equipos de <?= e($cod) ?>"><?= rlIco('chevron-der', 16) ?></button><?php else: ?><span class="rl-arbol__hueco"></span><?php endif; ?>
+              <?= rlCode($cod, $r['color']) ?><span><b><?= e((string)($r['nombre'] ?? $cod)) ?></b><?php if (($r['sprints'] ?? '') !== ''): ?><small><?= e($r['sprints']) ?></small><?php endif; ?></span></span></td>
+            <td class="rl-arbol__fechas mc-num"><?= e(rlF($x['inicio'] ?: ($r['inicio'] ?? ''))) ?> → <?= e(rlF($x['fin'] ?: ($r['fin'] ?? ''), true)) ?></td>
+            <td class="mc-num"><b><?= (int)$x['cerrados'] ?></b>/<?= (int)$x['total'] ?><small> terminados</small></td>
+            <td><span class="rl-arbol__av"><?= rlBarra((int)$x['pct'], (int)$x['esperado'], $s) ?><b class="mc-num"><?= (int)$x['pct'] ?> %</b></span></td>
+            <td><?= rlSalud($s) ?></td>
+            <td><a class="mc-iconbtn mc-iconbtn--sm" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod])) ?>" aria-label="Abrir <?= e($cod) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
+          </tr>
+          <?php foreach ($hijos as $nom => $c): $sc = rlSaludGrupo($c, $hoy); $smE = $miembros[(int)($eqs[$nom]['sm_id'] ?? 0)]['nombre'] ?? (string)($eqs[$nom]['sm_nombre'] ?? ''); ?>
+          <tr class="rl-arbol__fila rl-arbol__fila--hija" data-rl-arbol-de="<?= e($cod) ?>" hidden>
+            <td><span class="rl-arbol__nom rl-arbol__nom--hija"><i class="rl-arbol__dot" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>" aria-hidden="true"></i><span><b><?= e($nom) ?></b><?php if ($smE !== ''): ?><small><?= e($smE) ?></small><?php endif; ?></span></span></td>
+            <td class="rl-arbol__fechas mc-num"><?= e(rlF($c['inicio'] ?? '')) ?> → <?= e(rlF($c['fin'] ?? '', true)) ?></td>
+            <td class="mc-num"><b><?= (int)$c['cerrados'] ?></b>/<?= (int)$c['total'] ?></td>
+            <td><span class="rl-arbol__av"><?= rlBarra((int)$c['pct'], (int)$c['esperado'], $sc) ?><b class="mc-num"><?= (int)$c['pct'] ?> %</b></span></td>
+            <td><?= rlSalud($sc) ?></td>
+            <td><a class="mc-iconbtn mc-iconbtn--sm" href="<?= e(rlUrl(['v' => 'release', 'r' => $cod, 'e' => $nom])) ?>" aria-label="Abrir <?= e($cod . ' · ' . $nom) ?>" data-ds-tip="Ver sus ítems"><?= rlIco('ver', 16) ?></a></td>
+          </tr>
+          <?php endforeach; ?>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </section>
 
 <?php
     // ---------- Hoja de ruta ----------
@@ -1128,9 +1162,10 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
   </section>
 
   <?php $hayMovibles = (bool)array_filter($semana, fn($r) => $smDe($r['equipo'])); ?>
-  <?php if ($hayMovibles): ?><p class="rl-agenda__ayuda"><?= rlIco('info', 15) ?> Arrastra una revisión a otro día de la semana para moverla, o pulsa <?= rlIco('editar', 14) ?> para cambiarle la fecha, la hora o el foco. Si tiene su reunión de Zoom, se mueve con ella.</p><?php endif; ?>
+  <?php if ($hayMovibles): ?><p class="rl-agenda__ayuda"><?= rlIco('info', 15) ?> Solo se ven los días con revisiones. Pulsa <?= rlIco('editar', 14) ?> para cambiarle el día, la hora o el foco, o arrástrala a otro de estos días. Si tiene su reunión de Zoom, se mueve con ella.</p><?php endif; ?>
   <section class="rl-agenda<?= !$semana ? ' is-vacia' : '' ?>" aria-label="Revisiones de la semana"<?= $hayMovibles ? ' data-rl-agenda' : '' ?>>
-    <?php for ($i = 0; $i < 5; $i++): $d = date('Y-m-d', strtotime($lunes . " +$i days")); $lista = $porDia[$d] ?? []; ?>
+    <?php for ($i = 0; $i < 5; $i++): $d = date('Y-m-d', strtotime($lunes . " +$i days")); $lista = $porDia[$d] ?? [];
+        if (!$lista) continue;   // solo los días que tienen revisiones: los vacíos no ocupan sitio ?>
     <div class="rl-dia<?= $d === $hoy ? ' is-hoy' : '' ?><?= $d < $hoy ? ' is-pasado' : '' ?>" data-rl-dia="<?= e($d) ?>">
       <header class="rl-dia__cab"><small><?= e(RL_DIA[(int)date('w', strtotime($d))]) ?></small><b class="mc-num"><?= (int)date('j', strtotime($d)) ?></b><?= $d === $hoy ? '<span class="rl-dia__hoy">Hoy</span>' : '' ?></header>
       <div class="rl-dia__lista">
@@ -1138,6 +1173,14 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <div class="rl-ses<?= $hecha ? ' is-hecha' : '' ?><?= $cancelada ? ' is-cancelada' : '' ?><?= $mueve ? ' is-movible' : '' ?>" style="--ec:<?= e(rlColorEq($eqs, $r['equipo'])) ?>"<?= $mueve ? ' draggable="true" data-rl-ses="' . (int)$r['id'] . '" data-fecha="' . e($r['fecha']) . '"' : '' ?>>
           <span class="rl-ses__top"><b><a class="rl-ses__ir" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$r['id']])) ?>" draggable="false"><?= e($r['equipo']) ?></a></b><span class="rl-ses__hora mc-num"><?= e((string)$r['hora']) ?></span></span>
           <?php if (($r['titulo'] ?? '') !== ''): ?><span class="rl-ses__foco"><?= e($r['titulo']) ?></span><?php endif; ?>
+          <span class="rl-ses__info">
+            <?php if (($r['responsable'] ?? '') !== ''): ?><span><?= rlIco('perfil', 13) ?> <?= e($r['responsable']) ?></span><?php endif; ?>
+            <?php if (($r['modalidad'] ?? '') === 'virtual'): ?><span><?= rlIco('video', 13) ?> Virtual<?= ($r['plataforma'] ?? '') !== '' ? ' · ' . e(['zoom' => 'Zoom', 'meet' => 'Meet', 'enlace' => 'enlace propio'][$r['plataforma']] ?? $r['plataforma']) : '' ?></span>
+            <?php else: ?><span><?= rlIco('ruta', 13) ?> Presencial<?= ($r['lugar'] ?? '') !== '' ? ' · ' . e($r['lugar']) : '' ?></span><?php endif; ?>
+          </span>
+          <?php $codsS = array_values(array_filter(array_map(fn($fS) => (string)($fS['codigo'] ?? ''), (array)$r['filas']))); if ($codsS): ?>
+          <span class="rl-ses__items"><?php foreach (array_slice($codsS, 0, 4) as $cS): ?><span class="rl-ses__item"><?= e($cS) ?></span><?php endforeach; ?><?= count($codsS) > 4 ? '<span class="rl-ses__item rl-ses__item--mas">+' . (count($codsS) - 4) . '</span>' : '' ?></span>
+          <?php endif; ?>
           <?php
             // Cómo llegan sus ítems: atrasados, en riesgo, al día (o, ya registrada, cuántos terminaron tarde)
             $sv = ['atrasado' => 0, 'riesgo' => 0, 'al_dia' => 0, 'tarde' => 0];
@@ -1157,10 +1200,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           </span>
           <?php endif; ?>
           <span class="rl-ses__pie">
-            <?= $hecha ? rlChip('Realizada', 'verde') : ($cancelada ? rlChip('Cancelada', 'gris') : rlChip($r['fecha'] < $hoy ? 'Sin registrar' : 'Programada', $r['fecha'] < $hoy ? 'amarillo' : 'gris')) ?>
-            <span class="rl-ses__n"><?= rlIco('notas', 14) ?> <?= count($r['filas']) ?></span>
-            <?php if (($r['modalidad'] ?? '') === 'virtual'): ?><span class="rl-ses__modo" title="Virtual<?= !empty($r['join_url']) ? ' · con reunión' : '' ?>"><?= rlIco('video', 14) ?></span>
-            <?php else: ?><span class="rl-ses__modo" title="Presencial<?= ($r['lugar'] ?? '') !== '' ? ' · ' . e($r['lugar']) : '' ?>"><?= rlIco('ruta', 14) ?></span><?php endif; ?>
+            <?= $hecha ? Colorimetria::estado('done', 'Realizada') : ($cancelada ? Colorimetria::estado('nm', 'Cancelada') : Colorimetria::estado($r['fecha'] < $hoy ? 'warn' : 'none', $r['fecha'] < $hoy ? 'Sin registrar' : 'Programada')) ?>
+            <span class="rl-ses__n" title="Ítems a revisar"><?= rlIco('notas', 14) ?> <?= count($r['filas']) ?> ítems</span>
             <?php if ($cu['pct'] !== null): ?><span class="rl-ses__pct mc-num"><?= (int)$cu['pct'] ?> %</span><?php endif; ?>
             <?php if ($mueve): ?>
             <button type="button" class="rl-ses__editar" aria-label="Editar la revisión de <?= e($r['equipo']) ?>" data-ds-tip="Editar"
@@ -1175,7 +1216,6 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?php endif; ?>
         </div>
         <?php endforeach; ?>
-        <?php if (!$lista): ?><span class="rl-dia__nada">—</span><?php endif; ?>
       </div>
     </div>
     <?php endfor; ?>
@@ -1685,29 +1725,74 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
   <?php if ($t === 'equipos'): ?>
   <p class="ds-ayuda">El Scrum Master y el PO se eligen entre la gente del panel; si alguien no tiene cuenta, escribe su nombre. Los proyectos son donde están las tareas del equipo: la IA y la cobertura las leen de ahí.</p>
   <div class="rl-ajustes-grid">
-    <?php foreach ($eqs as $nom => $E): ?>
-    <form class="mc-card rl-card rl-eqform" id="eq-<?= (int)$E['id'] ?>" method="post" action="actions.php" data-rl-form="rel_equipo_guardar" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>">
-      <input type="hidden" name="accion" value="rel_equipo_guardar"><input type="hidden" name="id" value="<?= (int)$E['id'] ?>">
-      <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'ajustes', 't' => 'equipos'])) ?>">
-      <input type="hidden" name="proyectos[]" value=""><input type="hidden" name="miembros[]" value="">
-      <header class="rl-card__cab"><span class="rl-eq-tile rl-eq-tile--sm" aria-hidden="true"><?= e(mb_substr($nom, 0, 1)) ?></span><div><h2 class="rl-card__tit"><?= e($nom) ?></h2></div>
-        <label class="rl-color" data-ds-tip="Color del equipo"><input type="color" name="color" value="<?= e(rlColorEq($eqs, $nom)) ?>" aria-label="Color del equipo"></label></header>
-      <div class="rl-form-grid rl-form-grid--eq">
-        <?= rlCampo('Nombre', rlInput('name="nombre" maxlength="40" value="' . e($nom) . '" required')) ?>
-        <?= rlCampo('Día de revisión', UI::selectDS('dia_revision', $dias, (string)($E['dia_revision'] ?? ''))) ?>
-        <?= rlCampo('Hora', rlInput('name="hora_revision" maxlength="20" placeholder="09:00–10:00" value="' . e((string)($E['hora_revision'] ?? '')) . '"')) ?>
-      </div>
-      <div class="rl-form-grid rl-form-grid--2">
+    <?php
+      // Cada equipo en su tarjeta, solo el resumen; «Editar» abre el asistente por pasos
+      $pasosEq = [['Equipo', 'El equipo', 'Nombre, color y día de revisión', 'ds-usuarios'], ['Personas', 'Quién lo lleva', 'Su Scrum Master y su Product Owner', 'ds-perfil'],
+                  ['Proyectos', 'Dónde trabaja', 'Su dominio y sus proyectos del panel', 'ds-carpeta'], ['Miembros', 'Quiénes son', 'Reciben los avisos del equipo', 'ds-programadores']];
+      $nomPersona = fn(int $id, string $txt) => $id > 0 && isset($miembros[$id]) ? (string)$miembros[$id]['nombre'] : $txt;
+      $dlgsEq = '';
+      foreach ($eqs as $nom => $E):
+        $smN = $nomPersona((int)($E['sm_id'] ?? 0), (string)($E['sm_nombre'] ?? ''));
+        $poN = $nomPersona((int)($E['po_id'] ?? 0), (string)($E['po_nombre'] ?? ''));
+        $proysN = array_values(array_filter(array_map(fn($pid) => $proyMapa[(int)$pid]['nombre'] ?? '', (array)$E['proyectos'])));
+        $diaN = ($E['dia_revision'] ?? '') !== '' ? ($dias[$E['dia_revision']] ?? $E['dia_revision']) : '';
+        $idDlg = 'rl-dlg-eq-' . (int)$E['id']; ?>
+    <article class="mc-card rl-card rl-eqres" style="--ec:<?= e(rlColorEq($eqs, $nom)) ?>">
+      <header class="rl-eqres__cab">
+        <span class="rl-eq-tile rl-eq-tile--sm" aria-hidden="true"><?= e(mb_substr($nom, 0, 1)) ?></span>
+        <div><h2 class="rl-card__tit"><?= e($nom) ?></h2>
+          <small><?= rlIco('agenda', 13) ?> <?= $diaN !== '' ? 'Revisión los ' . e(mb_strtolower($diaN)) . (($E['hora_revision'] ?? '') !== '' ? ' · ' . e($E['hora_revision']) : '') : 'Sin día fijo de revisión' ?></small></div>
+        <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-abrir="<?= $idDlg ?>"><?= rlIco('editar', 16) ?><span class="mc-btn__label">Editar</span></button>
+      </header>
+      <dl class="rl-eqres__datos">
+        <div><dt>Scrum Master</dt><dd><?= $smN !== '' ? e($smN) : '<span class="rl-eqres__falta">Sin asignar</span>' ?></dd></div>
+        <div><dt>Product Owner</dt><dd><?= $poN !== '' ? e($poN) : '<span class="rl-eqres__falta">Sin asignar</span>' ?></dd></div>
+        <div><dt>Proyectos</dt><dd><?= $proysN ? e(implode(', ', array_slice($proysN, 0, 2))) . (count($proysN) > 2 ? ' <span class="rl-eqres__mas">+' . (count($proysN) - 2) . '</span>' : '') : '<span class="rl-eqres__falta">Ninguno</span>' ?></dd></div>
+        <div><dt>Miembros</dt><dd class="mc-num"><?= count((array)$E['miembros']) ?: '<span class="rl-eqres__falta">Ninguno</span>' ?></dd></div>
+      </dl>
+      <?php if (trim((string)($E['dominio'] ?? '')) !== ''): ?><p class="rl-eqres__dom" title="<?= e($E['dominio']) ?>"><?= e($E['dominio']) ?></p><?php endif; ?>
+    </article>
+    <?php ob_start(); ?>
+<dialog id="<?= $idDlg ?>" class="dlg-meca dlg-wizard">
+  <form class="dlg-form wz" method="post" action="actions.php" data-rl-form="rel_equipo_guardar" data-rl-tras="recargar">
+    <input type="hidden" name="accion" value="rel_equipo_guardar"><input type="hidden" name="id" value="<?= (int)$E['id'] ?>">
+    <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'ajustes', 't' => 'equipos'])) ?>">
+    <input type="hidden" name="proyectos[]" value=""><input type="hidden" name="miembros[]" value="">
+    <?= UI::wizardRiel('ds-usuarios', 'Equipo ' . $nom, 'Su gente, sus proyectos y su revisión', $pasosEq) ?>
+    <div class="wz-cuerpo">
+      <header><div><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>
+        <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><?= rlIco('cerrar', 18) ?></button></header>
+      <section class="wz-panel">
+        <div class="rl-form-grid rl-form-grid--2">
+          <?= rlCampo('Nombre', rlInput('name="nombre" maxlength="40" value="' . e($nom) . '" required')) ?>
+          <?= rlCampo('Color', '<label class="rl-color rl-color--campo"><input type="color" name="color" value="' . e(rlColorEq($eqs, $nom)) . '" aria-label="Color del equipo"></label>') ?>
+          <?= rlCampo('Día de revisión', UI::selectDS('dia_revision', $dias, (string)($E['dia_revision'] ?? ''))) ?>
+          <?= rlCampo('Hora', rlInput('name="hora_revision" maxlength="20" placeholder="09:00–10:00" value="' . e((string)($E['hora_revision'] ?? '')) . '"')) ?>
+        </div>
+      </section>
+      <section class="wz-panel">
         <?= rlCampo('Scrum Master', UI::selectDS('sm_id', $selM, (string)((int)($E['sm_id'] ?? 0) ?: ''), ['buscar' => true]) . rlInput('name="sm_nombre" maxlength="120" placeholder="Nombre si no está en el panel" value="' . e((string)($E['sm_nombre'] ?? '')) . '"', 'sm')) ?>
         <?= rlCampo('Product Owner', UI::selectDS('po_id', $selM, (string)((int)($E['po_id'] ?? 0) ?: ''), ['buscar' => true]) . rlInput('name="po_nombre" maxlength="120" placeholder="Nombre si no está en el panel" value="' . e((string)($E['po_nombre'] ?? '')) . '"', 'sm')) ?>
-      </div>
-      <?= rlCampo('Dominio', rlTexto('dominio', (string)($E['dominio'] ?? ''), 2, 'De qué se encarga el equipo')) ?>
-      <div class="rl-form-grid">
-        <?= rlCampo('Proyectos del panel', rlMulti('proyectos[]', $opsP, $E['proyectos'], 'Buscar proyecto…')) ?>
+      </section>
+      <section class="wz-panel">
+        <?= rlCampo('Dominio', rlTexto('dominio', (string)($E['dominio'] ?? ''), 3, 'De qué se encarga el equipo')) ?>
+        <?= rlCampo('Proyectos del panel', rlMulti('proyectos[]', $opsP, $E['proyectos'], 'Buscar proyecto…'), 'Donde están las tareas del equipo: la IA y la cobertura las leen de ahí.') ?>
+      </section>
+      <section class="wz-panel">
         <?= rlCampo('Miembros', rlMulti('miembros[]', $opsM, $E['miembros'], 'Buscar persona…'), 'Reciben los avisos del equipo si lo activas en Avisos.') ?>
+      </section>
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><?= rlIco('chevron-izq', 16) ?> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <?= rlIco('chevron-der', 16) ?></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><?= rlIco('check', 16) ?> Guardar <?= e($nom) ?></button>
+        </div>
       </div>
-      <footer class="rl-card__pie"><button class="mc-btn mc-btn--primary" type="submit"><?= rlIco('check', 18) ?><span class="mc-btn__label">Guardar <?= e($nom) ?></span></button></footer>
-    </form>
+    </div>
+  </form>
+</dialog>
+    <?php $dlgsEq .= ob_get_clean(); ?>
     <?php endforeach; ?>
     <form class="mc-card rl-card rl-eqform rl-eqform--nuevo" method="post" action="actions.php" data-rl-form="rel_equipo_guardar" data-rl-tras="recargar">
       <input type="hidden" name="accion" value="rel_equipo_guardar"><input type="hidden" name="id" value="0">
@@ -1720,6 +1805,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <footer class="rl-card__pie"><button class="mc-btn mc-btn--success" type="submit"><?= rlIco('mas', 18) ?><span class="mc-btn__label">Crear equipo</span></button></footer>
     </form>
   </div>
+  <?= $dlgsEq ?>
 
   <?php elseif ($t === 'releases'): ?>
   <p class="ds-ayuda">Las fechas del release se usan para la hoja de ruta y para avisar; nunca limitan las fechas de las tareas.</p>

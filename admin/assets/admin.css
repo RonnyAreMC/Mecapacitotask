@@ -210,7 +210,7 @@ html.sb-collapsed .sidebar-brand { padding: 8px; border-radius: 16px; }
 .sidebar-brand:hover img { transform: rotate(-6deg) scale(1.06); }
 .sidebar-brand strong {
   display: block;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-size: 1.02rem; font-weight: 800; letter-spacing: -.01em;
 }
 .sidebar-brand span {
@@ -1475,7 +1475,7 @@ html.dark .pac-ir:hover { color: #93C5FD; }
 }
 .avatar img { width: 100%; height: 100%; object-fit: cover; }
 .avatar span {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 800;
   font-size: calc(var(--sz, 40px) * .38);
   letter-spacing: -.02em;
@@ -3894,7 +3894,7 @@ html body .btn-cargando.btn-cargando {
   text-align: center;
 }
 .rd-cifra b {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-size: 3rem; font-weight: 700; line-height: 1;
   color: var(--c-text);
 }
@@ -3925,7 +3925,7 @@ html body .btn-cargando.btn-cargando {
   box-shadow: var(--sh-inset-mini);
 }
 .rd-kpi-datos { display: flex; flex-direction: column; line-height: 1.15; min-width: 0; }
-.rd-kpi-datos b { font-size: 1.5rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.rd-kpi-datos b { font-size: 1.5rem; font-weight: 800; color: var(--c-text); font-family: Inter, system-ui, sans-serif; }
 .rd-kpi-datos small { font-size: .78rem; color: var(--c-text-muted); font-weight: 600; }
 .rd-kpi.kpi-ok .rd-kpi-ico     { background: color-mix(in srgb, var(--c-success) 16%, transparent); color: var(--c-success); }
 .rd-kpi.kpi-info .rd-kpi-ico   { background: color-mix(in srgb, var(--c-secondary) 14%, transparent); color: var(--c-secondary); }
@@ -5467,7 +5467,7 @@ html.dark .ob-estado { color: color-mix(in srgb, var(--ec) 55%, #fff); }
 /* Supervisor: toggle Kanban / Flujo (no tiene la barra de pestañas normal) */
 .sup-toggle { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin: 6px 0 16px; }
 .sup-toggle-tit {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-weight: 800; font-size: 1.05rem; color: var(--c-text);
   display: inline-flex; align-items: center; gap: 8px; margin-right: 6px;
 }
@@ -7798,7 +7798,7 @@ html.dark .sidebar .theme-toggle .tt-luna{ color: var(--c-cian) !important; }
 .mc-donut-wrap{ display:flex; align-items:center; gap:22px; flex-wrap:wrap; }
 .mc-donut{ width:150px; height:150px; flex:none; }
 .mc-donut-track{ stroke:color-mix(in srgb,var(--c-text) 10%, transparent); }
-.mc-donut-num{ font:800 30px 'Plus Jakarta Sans',sans-serif; fill:var(--c-text); text-anchor:middle; }
+.mc-donut-num{ font:800 30px Inter,sans-serif; fill:var(--c-text); text-anchor:middle; }
 .mc-donut-sub{ font:600 11px Inter,sans-serif; fill:var(--c-text-soft); text-anchor:middle; letter-spacing:.08em; text-transform:uppercase; }
 .mc-legend{ list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:8px; flex:1; min-width:140px; }
 .mc-legend li{ display:flex; align-items:center; gap:9px; font-size:.86rem; color:var(--c-text-muted); }
@@ -7807,7 +7807,7 @@ html.dark .sidebar .theme-toggle .tt-luna{ color: var(--c-cian) !important; }
 
 /* Puntualidad */
 .mc-punt{ text-align:center; margin-bottom:14px; }
-.mc-punt-num{ font:800 46px 'Plus Jakarta Sans',sans-serif; line-height:1; }
+.mc-punt-num{ font:800 46px Inter,sans-serif; line-height:1; }
 .mc-punt-sub{ margin:6px 0 0; font-size:.82rem; color:var(--c-text-soft); }
 .mc-split{ display:flex; height:10px; border-radius:6px; overflow:hidden; margin:0 0 16px; background:color-mix(in srgb,var(--c-text) 8%, transparent); }
 .mc-split-a{ background:#16A34A; } .mc-split-b{ background:#E63946; }
@@ -8647,7 +8647,7 @@ html.sb-collapsed .nav-badge-fin {
 .phk-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; width: 100%; }
 .phk-linea { display: flex; flex-direction: row; align-items: baseline; gap: 6px; min-width: 0; }
 .phk-linea b {
-  font-family: 'Plus Jakarta Sans', sans-serif;
+  font-family: Inter, system-ui, sans-serif;
   font-size: 1.25rem; font-weight: 800; line-height: 1; color: var(--c-text);
 }
 .phk-linea small {
@@ -9191,7 +9191,7 @@ html.dark .rt-flecha:hover { background: rgba(255, 255, 255, .1); color: #7DD3FC
   box-shadow: var(--sh-mini);
 }
 .dep-item-hora { display: flex; flex-direction: column; align-items: center; min-width: 66px; }
-.dep-item-hora b { font-size: 1.05rem; font-weight: 800; color: var(--c-text); font-family: 'Plus Jakarta Sans', sans-serif; }
+.dep-item-hora b { font-size: 1.05rem; font-weight: 800; color: var(--c-text); font-family: Inter, system-ui, sans-serif; }
 .dep-item-hora small { font-size: .68rem; color: var(--c-text-soft); white-space: nowrap; }
 .dep-item-cuerpo { flex: 1; min-width: 0; }
 .dep-item-cab { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }

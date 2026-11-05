@@ -179,7 +179,7 @@
   --z-popover: 60;
   --z-modal: 80;
   --z-toast: 90;
-  --font-display: "Plus Jakarta Sans", Inter, system-ui, sans-serif;
+  --font-display: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;   /* Design System Innotech 2.0: todo en Inter */
   --font-sans: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono: "JetBrains Mono", ui-monospace, "SF Mono", Menlo, Consolas, monospace;
 }
@@ -5509,3 +5509,88 @@ html.dark .col-sw i { background: var(--sw-d); }
 .col-medir__fila label small { color: var(--ink-muted); font-size: .74rem; }
 .col-medir__pie { display: flex; justify-content: flex-end; gap: 10px; }
 @media (max-width: 640px) { .col-medir__fila { grid-template-columns: minmax(0, 1fr); } }
+
+/* =========================================================
+   Colorimetría en todo el panel (lib/Colorimetria.php): el estado va con su
+   ícono y su texto del color del estado (sin fondo, como el Design System
+   Innotech 2.0), y las barras, anillos y el Gantt toman el tono de su estado.
+   La salud de Releases y los resultados de las revisiones usan los mismos tonos.
+   ========================================================= */
+.col-est { display: inline-flex; align-items: center; gap: 6px; color: var(--col-fg); font-size: .8rem; font-weight: 600; line-height: 1.3; white-space: nowrap; }
+.col-est .col-ic { flex: none; color: var(--col-solid); }
+html .rl-s--al_dia, html.dark .rl-s--al_dia { --s: var(--col-ok-solid); --s-soft: var(--col-ok-bg); --s-ink: var(--col-ok-fg); }
+html .rl-s--cerrado, html.dark .rl-s--cerrado { --s: var(--col-done-solid); --s-soft: var(--col-done-bg); --s-ink: var(--col-done-fg); }
+html .rl-s--riesgo, html.dark .rl-s--riesgo { --s: var(--col-warn-solid); --s-soft: var(--col-warn-bg); --s-ink: var(--col-warn-fg); }
+html .rl-s--atrasado, html .rl-s--vencido, html .rl-s--bloqueado,
+html.dark .rl-s--atrasado, html.dark .rl-s--vencido, html.dark .rl-s--bloqueado { --s: var(--col-crit-solid); --s-soft: var(--col-crit-bg); --s-ink: var(--col-crit-fg); }
+html .rl-s--futuro, html .rl-s--vacio, html.dark .rl-s--futuro, html.dark .rl-s--vacio { --s: var(--col-none-solid); --s-soft: var(--col-none-bg); --s-ink: var(--col-none-fg); }
+html .rl-r--cumplido, html.dark .rl-r--cumplido { --r: var(--col-ok-solid); --r-soft: var(--col-ok-bg); --r-ink: var(--col-ok-fg); }
+html .rl-r--parcial, html.dark .rl-r--parcial { --r: var(--col-warn-solid); --r-soft: var(--col-warn-bg); --r-ink: var(--col-warn-fg); }
+html .rl-r--no_cumplido, html.dark .rl-r--no_cumplido { --r: var(--col-crit-solid); --r-soft: var(--col-crit-bg); --r-ink: var(--col-crit-fg); }
+html .rl-r--reprogramado, html.dark .rl-r--reprogramado { --r: var(--col-hold-solid); --r-soft: var(--col-hold-bg); --r-ink: var(--col-hold-fg); }
+html .rl-r--no_aplica, html.dark .rl-r--no_aplica { --r: var(--col-nm-solid); --r-soft: var(--col-nm-bg); --r-ink: var(--col-nm-fg); }
+html .rl-r--pendiente, html.dark .rl-r--pendiente { --r: var(--col-none-band); --r-soft: var(--col-none-bg); --r-ink: var(--col-none-fg); }
+.rl-barra__fill { background: var(--s, var(--primary)); }
+.rl-anillo__fill { stroke: var(--s, var(--primary)); }
+.rl-gbar__fill { background: var(--s, var(--primary)); }
+.rl-gbar { background: color-mix(in srgb, var(--s, var(--primary)) 13%, var(--surface)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--s, var(--primary)) 32%, transparent); }
+/* La barra de avance del proyecto (encabezado y tarjetas) con el tono de su estado */
+.ph-cifra-avance .ph-cifra-barra > span { background: var(--col-solid, var(--success)); }
+.ph-cifra-avance .ph-cifra-estado { display: flex; width: max-content; margin-top: 8px; }
+.pac-progress .progress-bar { background: var(--col-solid, var(--primary)) !important; }
+a.ph-cifra-estado { text-decoration: none; border-radius: 6px; }
+a.ph-cifra-estado:hover .col-est span { text-decoration: underline; }
+
+/* Resumen por release (tablero de Releases): tabla que se despliega, como las del Design System Innotech 2.0.
+   Encabezado azul, una fila por release y, al abrirla, sus equipos un nivel adentro. */
+.rl-arbol-wrap { overflow-x: auto; border-radius: 12px; box-shadow: 0 0 0 1px var(--line); }
+.rl-arbol { width: 100%; min-width: 760px; border-collapse: collapse; font-size: .8125rem; }
+.rl-arbol th { padding: 11px 14px; background: var(--primary); color: #fff; font-size: .75rem; font-weight: 600; text-align: left; white-space: nowrap; }
+.rl-arbol td { padding: 10px 14px; border-top: 1px solid var(--line); color: var(--ink); vertical-align: middle; }
+.rl-arbol tbody tr:first-child td { border-top: 0; }
+.rl-arbol__fila:hover td { background: var(--surface-hover); }
+.rl-arbol__fila.is-abierta td { background: color-mix(in srgb, var(--primary) 6%, var(--surface)); }
+.rl-arbol__fila--hija td { background: var(--surface-sunken); }
+.rl-arbol__nom { display: inline-flex; align-items: center; gap: 10px; min-width: 0; }
+.rl-arbol__nom > span { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
+.rl-arbol__nom b { font-weight: 600; }
+.rl-arbol__nom small, .rl-arbol td small { color: var(--ink-subtle); font-size: .72rem; }
+.rl-arbol__nom--hija { padding-left: 44px; }
+.rl-arbol__hueco { display: inline-block; width: 30px; }
+.rl-arbol__abrir .mc-icon { transition: transform var(--mc-dur-2) var(--mc-ease); }
+.rl-arbol__fila.is-abierta .rl-arbol__abrir .mc-icon { transform: rotate(90deg); }
+.rl-arbol__dot { flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--ec); }
+.rl-arbol__fechas { color: var(--ink-muted); white-space: nowrap; }
+.rl-arbol__av { display: flex; align-items: center; gap: 10px; min-width: 150px; }
+.rl-arbol__av .rl-barra { height: 6px; }
+.rl-arbol__av .rl-barra__esp { top: -3px; bottom: -3px; width: 2px; margin-left: -1px; }
+.rl-arbol__av b { min-width: 40px; text-align: right; }
+/* «+N más» de las listas de tareas y el modal con todas */
+.rl-tchip--mas { border: 0; background: var(--primary-soft); color: var(--primary-ink); font: inherit; font-weight: 600; cursor: pointer; }
+.rl-tchip--mas:hover { background: color-mix(in srgb, var(--primary) 18%, var(--surface)); }
+.rl-dlg-tchips { width: min(640px, calc(100vw - 32px)); }
+.rl-tchips-todas { display: flex; flex-direction: column; gap: 6px; max-height: min(60vh, 520px); overflow: auto; padding: 4px 2px; }
+.rl-tchips-todas .rl-tchip { justify-content: flex-start; border-radius: 10px; padding: 7px 12px; white-space: normal; }
+/* Agenda de revisiones: solo los días con sesiones, más anchos y con su información */
+.rl-agenda { grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); }
+.rl-agenda.is-vacia { grid-template-columns: minmax(0, 1fr); }
+.rl-ses__info { display: flex; flex-wrap: wrap; gap: 4px 12px; color: var(--ink-muted); font-size: .72rem; }
+.rl-ses__info > span { display: inline-flex; align-items: center; gap: 4px; }
+.rl-ses__items { display: flex; flex-wrap: wrap; gap: 4px; }
+.rl-ses__item { padding: 1px 7px; border-radius: 6px; background: color-mix(in srgb, var(--surface) 70%, transparent); color: var(--ink); font: 600 .68rem/1.5 var(--font-mono, ui-monospace, monospace); }
+.rl-ses__item--mas { color: var(--ink-muted); }
+.rl-ses .col-est { font-size: .72rem; }
+/* Ajustes → Equipos: el resumen de cada equipo (editar abre el asistente por pasos) */
+.rl-eqres { display: flex; flex-direction: column; gap: 14px; padding: 18px 20px; }
+.rl-eqres__cab { display: flex; align-items: center; gap: 12px; }
+.rl-eqres__cab > div { display: flex; flex: 1; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-eqres__cab small { display: inline-flex; align-items: center; gap: 5px; color: var(--ink-muted); font-size: .75rem; }
+.rl-eqres__datos { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 16px; margin: 0; }
+.rl-eqres__datos dt { color: var(--ink-subtle); font-size: .7rem; font-weight: 600; }
+.rl-eqres__datos dd { margin: 2px 0 0; overflow: hidden; color: var(--ink); font-size: .84rem; font-weight: 500; text-overflow: ellipsis; white-space: nowrap; }
+.rl-eqres__falta { color: var(--ink-disabled); font-weight: 400; }
+.rl-eqres__mas { color: var(--ink-muted); font-size: .74rem; }
+.rl-eqres__dom { margin: 0; padding-top: 12px; border-top: 1px solid var(--line); color: var(--ink-muted); font-size: .78rem; line-height: 1.5;
+  display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.dlg-wizard .rl-multi { max-height: 300px; }
+.rl-tchips-todas .rl-tchip:not(.is-ya) { background: var(--surface-sunken); }

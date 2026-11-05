@@ -719,6 +719,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   // El detalle por estado está en el tablero de abajo.
   $totalTareas = array_sum($resumen);
   $portadaHero = UI::portadaDe($proyecto);
+  // La salud del proyecto con la colorimetría: el tono de la barra de avance y su estado
+  if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+  $colP = Colorimetria::delProyecto($proyecto);
   ?>
   <div class="ph-main">
     <div class="ph-info">
@@ -734,8 +737,10 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
           <small class="ph-cifra-nota"><?= $totalTareas - $nArchivadas ?> en el tablero · <?= $nArchivadas ?> archivada<?= $nArchivadas === 1 ? '' : 's' ?></small>
           <?php endif; ?></div>
         <div class="ph-cifra-hechas"><dt>Completadas</dt><dd><?= $completadas ?></dd></div>
-        <div class="ph-cifra-avance"><dt>Avance</dt><dd><?= $avance ?>%</dd>
-          <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span></div>
+        <div class="ph-cifra-avance col-s-<?= e($colP['estado']) ?>"><dt>Avance</dt><dd><?= $avance ?>%</dd>
+          <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span>
+          <?php $urlCol = Colorimetria::puedeMedir('proyecto', (string)$proyecto['id']) ? 'colorimetria.php?v=medir&t=proyecto&r=' . (int)$proyecto['id'] : (Colorimetria::puedeVer() ? 'colorimetria.php?v=proyectos' : ''); ?>
+          <?= $urlCol !== '' ? '<a class="ph-cifra-estado" href="' . e($urlCol) . '" data-ds-tip="Cómo se calcula y los valores del mes">' . Colorimetria::estado($colP['estado']) . '</a>' : Colorimetria::estado($colP['estado'], null, 'ph-cifra-estado') ?><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?></div>
       </dl>
     </div>
     <div class="ph-arte" aria-hidden="true">
