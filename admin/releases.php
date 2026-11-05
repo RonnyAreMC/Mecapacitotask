@@ -406,7 +406,10 @@ $acciones = '';
 $sub = 'La planificación estratégica en un solo lugar: avance por release y por equipo, revisiones semanales y alertas de fechas.';
 switch ($v) {
     case 'tablero':
-        $acciones = '<button type="button" class="mc-btn mc-btn--ghost" data-rl-personalizar aria-expanded="false">' . rlIco('configuracion', 18) . '<span class="mc-btn__label">Personalizar</span></button>'
+        // La salud de cada equipo con la colorimetría de la PMO (colorimetria.php)
+        $acciones = (is_file(__DIR__ . '/colorimetria.php') && (Auth::esAdmin() || Auth::esScrum() || Auth::esSupervisor())
+                ? '<a class="mc-btn mc-btn--ghost" href="colorimetria.php?v=equipos">' . rlIco('reportes', 18) . '<span class="mc-btn__label">Colorimetría</span></a>' : '')
+            . '<button type="button" class="mc-btn mc-btn--ghost" data-rl-personalizar aria-expanded="false">' . rlIco('configuracion', 18) . '<span class="mc-btn__label">Personalizar</span></button>'
             . $botonIA('Resumen con IA', ['rl-ia-general' => '1']);
         break;
     case 'release':

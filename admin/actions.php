@@ -38,6 +38,8 @@ $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json', 'contexto_tareas_json',
     // El token de la API para Claude Code: cada quien el suyo (Mi perfil)
     'api_token_crear', 'api_token_quitar',
+    // Colorimetría: anota el SM o el PO del proyecto (Colorimetria::puedeMedir lo revisa)
+    'col_medir',
     'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
@@ -1051,6 +1053,38 @@ switch ($accion) {
         exit('{"ok":true}');
 
     case 'tutorial_crear':
+    /* ---------- Colorimetría de proyectos (lib/Colorimetria.php · colorimetria.php) ---------- */
+    case 'col_medir':
+    case 'col_conf':
+    case 'col_conf_reset':
+        require_once __DIR__ . '/lib/Colorimetria.php';
+        if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+        if ($accion === 'col_medir') {
+            $tCol = ($_POST['t'] ?? '') === 'equipo' ? 'equipo' : 'proyecto';
+            $rCol = (string)($_POST['r'] ?? '');
+            $volCol = 'colorimetria.php' . ($tCol === 'equipo' ? '?v=equipos' : '');
+            if (!Colorimetria::puedeMedir($tCol, $rCol)) redirigir($volCol, 'Los valores del mes los anota el administrador o quien gestiona ese proyecto.', 'error');
+            try {
+                $perCol = (string)($_POST['periodo'] ?? '');
+                Colorimetria::guardarFicha($tCol, $rCol, $_POST);
+                Colorimetria::guardarMedicion($tCol, $rCol, $perCol, (array)($_POST['vals'] ?? []), (string)($_POST['nota'] ?? ''), (int)(Auth::usuario()['id'] ?? 0));
+                redirigir($volCol, 'Listo: quedaron los valores de ' . $perCol . ' y la salud se recalculó.');
+            } catch (Throwable $e) {
+                redirigir('colorimetria.php?v=medir&t=' . $tCol . '&r=' . rawurlencode($rCol), $e->getMessage(), 'error');
+            }
+        }
+        // La configuración la cambia solo el administrador (no está en la lista de «cualquiera»)
+        if ($accion === 'col_conf_reset') {
+            Colorimetria::restablecer();
+            redirigir('colorimetria.php?v=config', 'Listo: volvieron los valores recomendados de la guía.');
+        }
+        try {
+            Colorimetria::guardarConf($_POST);
+            redirigir('colorimetria.php?v=config', 'Configuración guardada: la salud de todos los proyectos ya se calcula con estos valores.');
+        } catch (Throwable $e) {
+            redirigir('colorimetria.php?v=config', $e->getMessage(), 'error');
+        }
+
     /* ---------- Calendario general: los feriados nacionales (lib/Feriados.php · calendario.php) ---------- */
     case 'feriado_agregar':
     case 'feriado_quitar':

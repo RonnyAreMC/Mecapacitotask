@@ -186,6 +186,12 @@ class UI
       <span class="nav-badge nav-badge-fin" data-correo-n-menu title="Correos sin leer"<?= $nCorreoMenu ? '' : ' hidden' ?>><?= $nCorreoMenu > 999 ? '999+' : $nCorreoMenu ?></span>
     </a>
     <?php endif; ?>
+    <?php // Colorimetría (colorimetria.php): la salud de los proyectos y de los equipos de Releases, para quien gestiona o supervisa
+    if (is_file(__DIR__ . '/../colorimetria.php') && (Auth::esAdmin() || Auth::esScrum() || Auth::esSupervisor())): ?>
+    <a href="colorimetria.php" class="sidebar-link <?= $activo === 'colorimetria' ? 'active' : '' ?>" title="Colorimetría: la salud de cada proyecto">
+      <?= UI::icono('ds-reportes') ?> <span class="truncate">Colorimetría</span>
+    </a>
+    <?php endif; ?>
 
     <?php
     // Plegada, la barra no lista los proyectos uno a uno (crecia sin fin y
