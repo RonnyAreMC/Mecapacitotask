@@ -91,7 +91,7 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/Tutoriales.php', 'lib/ReqCorreo.php', 'lib/ReqSeguimiento.php', 'arreglar_tildes.php', 'lib/releases_ui.php', 'lib/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/CorreoCopias.php',
-        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg',
+        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg', 'iconos/ilustraciones/procesos.svg',
         'lib/Whatsapp.php', 'cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
         'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg', 'iconos/ilustraciones/ia-mascota.svg',
@@ -452,6 +452,28 @@ function actualizarPanel(array $opc): void
         $nuevaI = is_array($listaI) && $listaI !== [] && !in_array('ds-procesos', $listaI, true) ? [...$listaI, 'ds-procesos'] : null;
         if (!$seco) Config::guardar(($nuevaI ? ['iconos' => $nuevaI] : []) + ['semillas' => ['icono_procesos' => date('Y-m-d')] + $semillaI]);
         nota('ok', 'Ícono «Procesos» ' . ($seco ? 'se agregaría' : 'agregado') . ' al selector de íconos de proyecto (al crear o editar un proyecto)');
+    }
+
+    /* Portada «Procesos» (iconos/ilustraciones/procesos.svg): a Buinco se le pone UNA vez
+       (semillas.portada_buinco), aunque tuviera «Sin portada». Luego se cambia al editar el proyecto. */
+    paso('Portada de Buinco');
+    $crudoB   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+    $semillaB = (array)($crudoB['semillas'] ?? []);
+    if (!empty($semillaB['portada_buinco'])) {
+        nota('ok', 'Buinco ya tiene su portada de procesos (desde el ' . $semillaB['portada_buinco'] . ')');
+    } elseif (!method_exists('Config', 'respaldos') || !isset(UI::PORTADAS['procesos'])) {
+        nota('error', 'No se puso la portada de Buinco: lib/Models.php o lib/UI.php son de la versión anterior. Súbelos de nuevo y repite.');
+    } else {
+        $nB = 0;
+        $repoB = new ProyectoRepo();
+        foreach ($repoB->todos() as $pB) {
+            if (mb_strtolower(trim((string)($pB['nombre'] ?? ''))) !== 'buinco' || ($pB['portada'] ?? '') === 'procesos') continue;
+            if (!$seco) (new JsonStore('proyectos'))->update((int)$pB['id'], ['portada' => 'procesos']);
+            $nB++;
+        }
+        if (!$seco) Config::guardar(['semillas' => ['portada_buinco' => date('Y-m-d')] + $semillaB]);
+        nota('ok', $nB ? 'Buinco ' . ($seco ? 'quedaría' : 'quedó') . ' con la portada de procesos (el diagrama de flujo con los engranajes)'
+            : 'No hay un proyecto «Buinco» sin la portada de procesos: nada que cambiar');
     }
 
     paso('Equipos');

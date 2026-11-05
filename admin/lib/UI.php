@@ -1840,6 +1840,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         'asistente-virtual'   => 'Asistente virtual',
         'app-movil'           => 'Apps móviles',
         'emprendimiento'      => 'Emprendimiento y vinculación',
+        'procesos'            => 'Procesos · Flujos de trabajo',
     ];
 
     /**
@@ -1856,6 +1857,7 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
         'financiero'          => ['financ', 'contab', 'tesorer', 'factur', 'tpv', 'punto de venta', 'pagos'],
         'mesa-ayuda'          => ['mesa de ayuda', 'soporte', 'helpdesk', 'ticket'],
         'emprendimiento'      => ['emprend', 'vinculacion', 'sociedad', 'comunidad', 'startup'],
+        'procesos'            => ['proceso', 'flujo de trabajo', 'workflow', ' bpm', 'buinco'],
         'asistente-virtual'   => ['asistente', 'chatbot', 'bot '],
         'sitios-web'          => ['web', 'sitio', 'portal', 'pagina', 'landing'],
     ];
