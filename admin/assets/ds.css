@@ -128,8 +128,10 @@
   --code-function: #6FDCFF;
   --code-type: #FFE14D;
   --code-error: #FF8A8A;
-  --table-head: #DDF1FA;
-  --table-head-fg: #2D3E50;
+  --table-head: #3399FF;   /* encabezado celeste de las tablas, como el Design System Innotech 2.0 */
+  --table-head-fg: #FFFFFF;
+  --table-head-suave: #E8F2FF;   /* las tablas dentro de un modal: celeste suave con texto oscuro */
+  --table-head-suave-fg: #1B2A41;
   --sidebar-bg: #FFFFFF;
   --sidebar-fg: #3A4D61;
   --sidebar-muted: #5A6B7E;
@@ -241,8 +243,10 @@ html.dark {
   --code-bg: #0A141D;
   --code-chrome: #101C27;
   --code-line: #152535;
-  --table-head: #16323F;
-  --table-head-fg: #E6ECF2;
+  --table-head: #1F5FA8;
+  --table-head-fg: #FFFFFF;
+  --table-head-suave: #1B2B46;
+  --table-head-suave-fg: #E8EEF7;
   --sidebar-bg: #121E2A;
   --sidebar-fg: #C5D3E0;
   --sidebar-muted: #8FB0C2;
@@ -5594,3 +5598,41 @@ a.ph-cifra-estado:hover .col-est span { text-decoration: underline; }
   display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
 .dlg-wizard .rl-multi { max-height: 300px; }
 .rl-tchips-todas .rl-tchip:not(.is-ya) { background: var(--surface-sunken); }
+
+/* =========================================================
+   Design System Innotech 2.0: tablas con el encabezado celeste y texto
+   blanco (en un modal, celeste suave y texto oscuro), y modales blancos y
+   limpios: título arriba, etiquetas sobre los campos, botones abajo.
+   ========================================================= */
+.tabla-meca thead th { text-transform: none !important; letter-spacing: 0 !important; font-size: .75rem !important; }
+.tabla-meca thead th i, .tabla-meca thead th .ico, .tabla-equipo thead th i { color: currentColor !important; opacity: .85; }
+.mc-table__table th.is-sorted { color: var(--table-head-fg); text-decoration: underline; text-underline-offset: 3px; }
+.col-tabla th, .rl-arbol th, .rl-comp th { background: var(--table-head); color: var(--table-head-fg); text-transform: none; letter-spacing: 0; font-size: .75rem; font-weight: 600; }
+.col-ind__cols { background: var(--table-head); color: var(--table-head-fg); text-transform: none; letter-spacing: 0; font-size: .72rem; font-weight: 600; }
+.rl-cumple thead th { text-transform: none; letter-spacing: 0; font-size: .72rem; }
+dialog :is(.tabla-meca, .col-tabla, .rl-comp, .rl-cumple, table) thead th,
+dialog .col-ind__cols { background: var(--table-head-suave) !important; color: var(--table-head-suave-fg) !important; }
+
+html .dlg-meca:not(.dlg-wizard), html .ds-modal {
+  border: 0; border-radius: 16px; background: var(--surface); color: var(--ink);
+  box-shadow: 0 0 0 1px var(--line), 0 24px 64px -24px rgb(15 23 42 / .45);
+}
+html .dlg-meca:not(.dlg-wizard) .dlg-form { gap: 16px; padding: 24px; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > header { align-items: flex-start; margin: 0; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > header h3 { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 4px 10px; color: var(--ink); font: 600 1.25rem/1.4 var(--font-sans); letter-spacing: -.01em; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > header h3 > :is(i, svg):first-child { width: auto; height: auto; padding: 0; background: none; box-shadow: none; color: var(--primary); font-size: 1rem; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > header h3 small { flex-basis: 100%; color: var(--ink-muted); font: 400 .8125rem/1.4 var(--font-sans); }
+html .dlg-meca:not(.dlg-wizard) .dlg-close { width: 32px; height: 32px; border-radius: 8px; background: transparent; box-shadow: none; color: var(--ink-muted); }
+html .dlg-meca:not(.dlg-wizard) .dlg-close:hover { background: var(--surface-hover); color: var(--ink); }
+html .dlg-meca:not(.dlg-wizard) :is(.campo > span, .mc-field__label) { color: var(--ink); font: 500 .875rem/1.4 var(--font-sans); }
+html .dlg-meca:not(.dlg-wizard) :is(.input-meca, .select-meca) { border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: none; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > footer, html .ds-modal__foot { display: flex; gap: 12px; margin-top: 4px; padding-top: 16px; border-top: 0; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > footer > :is(button, a), html .ds-modal__foot > :is(button, a) { flex: 1 1 0; justify-content: center; min-height: 40px; border-radius: 8px; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > footer > :is(.btn-outline, .btn-ghost):not(.btn-rojo, .btn-peligro) {
+  border: 1px solid var(--line-strong) !important; background: var(--surface) !important; color: var(--ink) !important; box-shadow: none !important; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > footer > .btn-primary { background: var(--primary) !important; color: var(--on-primary, #fff) !important; box-shadow: none !important; }
+html .dlg-meca:not(.dlg-wizard) .dlg-form > footer > :is(.btn-rojo, .btn-peligro) { border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--line)) !important; background: var(--surface) !important; color: var(--danger-ink) !important; box-shadow: none !important; }
+html .ds-modal__foot { background: transparent; border-top: 0; padding: 8px var(--space-5) var(--space-5); }
+html .ds-modal__foot .mc-btn--ghost { box-shadow: inset 0 0 0 1px var(--line-strong); background: var(--surface); color: var(--ink); }
+html .ds-modal__foot :is(.mc-btn--success, .mc-btn--primary) { background: var(--primary); color: var(--on-primary, #fff); }
+html .ds-modal__head .ds-modal__title { font: 600 1.25rem/1.4 var(--font-sans); }
