@@ -1,7 +1,7 @@
 # Pasarela de WhatsApp (Baileys)
 
 Servicio en Node que mantiene abierta la conexión de WhatsApp del panel y manda los mensajes que le pide el PHP
-(`admin/lib/Whatsapp.php`). Viene del SIGC (`servicios/whatsapp-baileys`), con tres cambios: arranca con `app.cjs`
+(`admin/lib/notifications/Whatsapp.php`). Viene del SIGC (`servicios/whatsapp-baileys`), con tres cambios: arranca con `app.cjs`
 (cPanel), acepta vivir en una subcarpeta (`BAILEYS_BASE`) y, si cPanel abre dos procesos, solo uno se conecta.
 
 El panel lo usa para dos cosas, y solo cuando en **Ajustes → Reuniones → WhatsApp** está encendido:
