@@ -450,7 +450,7 @@ function blFormHistoria(array $x): string
       </section>
       <?php if (!$nueva && $h['historial']): ?>
       <section class="rl-pan">
-        <header class="rl-pan__cab"><h3>Lo que pasó con ella</h3></header>
+        <header class="rl-pan__cab"><h3>Historial</h3></header>
         <div class="rl-pan__cuerpo bl-hu__cuerpo"><ol class="bl-hu__hist">
           <?php foreach (array_reverse((array)$h['historial']) as $ev): ?>
           <li><b><?= e((string)$ev['texto']) ?></b><small><?= e(trim((string)$ev['fecha'] . ' · ' . (string)($miembros[(int)($ev['quien'] ?? 0)]['nombre'] ?? ''), ' ·')) ?></small></li>
