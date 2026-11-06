@@ -6622,3 +6622,17 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .bl-cbtn:hover .bl-cbtn__lbl, .bl-cbtn:focus-visible .bl-cbtn__lbl { max-width: 240px; opacity: 1; }
 .bl-hu__cab .bl-cbtn--peligro:hover, .bl-hu__cab .bl-cbtn--peligro:focus-visible { border-color: color-mix(in srgb, var(--col-crit-solid, var(--danger)) 45%, transparent); background: var(--col-crit-bg, var(--danger-soft)); color: var(--col-crit-fg, var(--danger)); }
 @media (prefers-reduced-motion: reduce) { .bl-cbtn, .bl-cbtn__lbl { transition: none; } }
+/* La barra de la lista en Sprints: qué se ve (Backlog o Tablero), junto al encabezado de la lista */
+.bl-barra { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 4px 0 -2px; }
+.bl-barra__tit { margin: 0; color: var(--ink); font-size: .95rem; font-weight: 700; }
+/* El avance del proyecto entra al dashboard (toda la tarjeta es el enlace) */
+.ph-cifra--entrar { cursor: pointer; transition: box-shadow .15s, border-color .15s; }
+.ph-cifra--entrar:hover { border-color: color-mix(in srgb, var(--primary) 45%, var(--line)); box-shadow: 0 4px 14px -8px rgb(15 23 42 / .3); }
+.ph-cifra-ir { display: inline-flex; align-items: center; gap: 5px; margin-top: 8px; color: var(--primary-ink); font-size: .78rem; font-weight: 600; text-decoration: none; }
+.ph-cifra-ir::after { content: ''; position: absolute; inset: 0; border-radius: inherit; }
+.ph-cifra--entrar:hover .ph-cifra-ir { text-decoration: underline; }
+.ph-cifra-ir:focus-visible { outline: none; }
+.ph-cifra--entrar:focus-within { box-shadow: var(--focus-ring); }
+.ph-cifra--entrar .ph-cifra-estado { display: flex; }
+/* La salud en el dashboard */
+.an-salud { justify-content: flex-start; }

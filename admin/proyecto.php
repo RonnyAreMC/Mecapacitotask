@@ -701,9 +701,6 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       </a>
       <?php endforeach; ?>
       <?php endif; ?>
-      <?php if ($puedeTareas): /* Analítica (BI) del proyecto: sprints, release, dailies y tareas (analitica.php) */ ?>
-      <a class="btn-ghost btn-meca btn-sm ph-analitica" href="analitica.php?id=<?= $id ?>" aria-label="Analítica" data-ds-tip="Analítica"><?= UI::iconoDS('reportes', 18) ?></a>
-      <?php endif; ?>
       <button class="btn-ghost btn-meca btn-sm solo-admin" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
@@ -742,10 +739,18 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
           <small class="ph-cifra-nota"><?= $totalTareas - $nArchivadas ?> en el tablero · <?= $nArchivadas ?> archivada<?= $nArchivadas === 1 ? '' : 's' ?></small>
           <?php endif; ?></div>
         <div class="ph-cifra-hechas"><dt>Completadas</dt><dd><?= $completadas ?></dd></div>
+        <?php if ($puedeTareas): /* El dashboard del proyecto (analitica.php): se entra por su avance; allí está también su salud */ ?>
+        <div class="ph-cifra-avance ph-cifra--entrar col-s-<?= e($colP['estado']) ?>">
+          <dt>Avance</dt><dd><?= $avance ?>%</dd>
+          <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span>
+          <span class="ph-cifra-estado"><?= Colorimetria::estado($colP['estado']) ?></span><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?>
+          <a class="ph-cifra-ir" href="analitica.php?id=<?= $id ?>" data-ds-tip="Sprints, release, dailies, tareas y su salud"><?= UI::iconoDS('reportes', 16) ?> Entrar al dashboard <?= UI::iconoDS('chevron-der', 14) ?></a></div>
+        <?php else: ?>
         <div class="ph-cifra-avance col-s-<?= e($colP['estado']) ?>"><dt>Avance</dt><dd><?= $avance ?>%</dd>
           <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span>
           <?php /* Su salud: el detalle por indicador y los valores del mes, en un modal aquí mismo (lib/colorimetria_ui.php) */ ?>
           <button type="button" class="ph-cifra-estado" onclick="document.getElementById('dlg-col-proyecto').showModal()" data-ds-tip="Cómo va y los valores del mes"><?= Colorimetria::estado($colP['estado']) ?></button><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?></div>
+        <?php endif; ?>
       </dl>
     </div>
     <div class="ph-arte" aria-hidden="true">

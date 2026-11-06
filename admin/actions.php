@@ -1070,7 +1070,7 @@ switch ($accion) {
             $rCol = (string)($_POST['r'] ?? '');
             // De vuelta a la página donde se abrió (el proyecto o el equipo), si es del panel
             $volCol = (string)($_POST['volver'] ?? '');
-            if (!preg_match('#^(proyecto\.php\?id=\d+|releases\.php\?[^\s<>"]*)$#', $volCol)) $volCol = $tCol === 'equipo' ? 'releases.php' : 'proyecto.php?id=' . (int)$rCol;
+            if (!preg_match('#^(proyecto\.php\?id=\d+|analitica\.php\?id=\d+(\#an-salud)?|releases\.php\?[^\s<>"]*)$#', $volCol)) $volCol = $tCol === 'equipo' ? 'releases.php' : 'proyecto.php?id=' . (int)$rCol;
             if (!Colorimetria::puedeMedir($tCol, $rCol)) redirigir($volCol, 'Los valores del mes los anota el administrador o quien gestiona ese proyecto.', 'error');
             try {
                 $perCol = (string)($_POST['periodo'] ?? '');

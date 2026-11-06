@@ -171,13 +171,9 @@ function blPestana(array $x): string
     <?php /* Solo íconos, como la cabecera del dashboard: el nombre va en la ayuda */ ?>
     <div class="bl-cab__acc">
       <?php if (Releases::puedeEditar()): ?><a class="rs-boton rs-boton--icono" href="releases.php?v=ajustes&amp;t=sprints" aria-label="Calendario de sprints" data-ds-tip="Calendario de sprints (Releases → Ajustes)"><?= UI::icono('ds-agenda') ?></a><?php endif; ?>
-      <?php if ($puede): ?><a class="rs-boton rs-boton--icono rs-boton--primario" href="<?= e(blUrlHistoria($pid)) ?>" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></a><?php endif; ?>
       <?php if ($puede): ?><a class="rs-boton rs-boton--icono" href="historias_importar.php?p=<?= $pid ?>" aria-label="Importar historias" data-ds-tip="Importar historias desde un documento (Word o PDF)"><?= rlIco('importar', 18) ?></a><?php endif; ?>
-      <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
-        <span class="rs-vista__pieza" aria-hidden="true"></span>
-        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
-        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r, 'sp_v' => 'tablero'])) ?>" data-vista-op="tablero" aria-label="Tablero del sprint" data-ds-tip="Tablero del sprint"<?= $vista === 'tablero' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-dashboard') ?></a>
-      </nav>
+      <?php /* Crear, siempre a la derecha */ ?>
+      <?php if ($puede): ?><a class="rs-boton rs-boton--icono rs-boton--primario" href="<?= e(blUrlHistoria($pid)) ?>" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></a><?php endif; ?>
     </div>
   </div>
 
@@ -190,6 +186,16 @@ function blPestana(array $x): string
   </div>
   <p class="bl-nota"><?= rlIco('reloj', 14) ?> Sprints de <?= $conf['semanas'] === 1 ? 'una semana' : 'dos semanas' ?>, desde el <?= e(rlFL($conf['inicio'], false, true)) ?>: el calendario se calcula solo<?= $conf['arrastrar'] ? ' y lo que no se termina pasa al sprint siguiente' : '' ?>.
     <?php if (Releases::puedeEditar()): ?><a href="releases.php?v=ajustes&amp;t=sprints">Cambiarlo en Releases → Ajustes</a><?php endif; ?></p>
+
+  <?php /* Qué ver (Backlog o Tablero), junto al encabezado de la lista */ ?>
+  <div class="bl-barra">
+    <h3 class="bl-barra__tit"><?= $vista === 'tablero' ? 'Tablero del sprint' : 'Historias de ' . e($r) . ' por sprint' ?></h3>
+    <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
+        <span class="rs-vista__pieza" aria-hidden="true"></span>
+        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
+        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r, 'sp_v' => 'tablero'])) ?>" data-vista-op="tablero" aria-label="Tablero del sprint" data-ds-tip="Tablero del sprint"<?= $vista === 'tablero' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-dashboard') ?></a>
+      </nav>
+  </div>
 
 <?php if ($vista === 'backlog'): ?>
   <div class="bl-secs">

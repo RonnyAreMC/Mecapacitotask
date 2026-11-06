@@ -235,6 +235,7 @@ $pan = function (int $ancho, string $titulo, string $clave, int $alto = 280, str
 $kpiHtml = fn(string $clave, string $lbl, string $val, string $tono, string $pie = '') => '<div class="rl-kpi ' . ($tono === 'azul' ? 'rl-kpi--azul' : 'col-s-' . e($tono)) . '" data-an-kpi="' . e($clave) . '">'
     . '<small>' . e($lbl) . '</small><b class="mc-num">' . $val . '</b><em>' . $pie . '</em></div>';
 
+require_once __DIR__ . '/lib/colorimetria_ui.php';
 UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
 ?>
 <link rel="stylesheet" href="<?= asset('assets/analitica.css') ?>">
@@ -278,7 +279,7 @@ UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
   <?php /* Las secciones como las fases del DS: lo ya recorrido ✓, donde se está », lo que falta •
            (assets/analitica.js las marca al bajar por la página) */ ?>
   <nav class="an-fases" aria-label="Secciones de la analítica" data-an-fases>
-    <?php foreach (['an-resumen' => 'Resumen', 'an-sprints' => 'Sprints', 'an-release' => 'Release', 'an-dailies' => 'Reuniones diarias', 'an-tareas' => 'Tareas'] as $ancla => $txt): ?>
+    <?php foreach (['an-resumen' => 'Resumen', 'an-salud' => 'Salud', 'an-sprints' => 'Sprints', 'an-release' => 'Release', 'an-dailies' => 'Reuniones diarias', 'an-tareas' => 'Tareas'] as $ancla => $txt): ?>
     <a class="an-fase" href="#<?= $ancla ?>" data-an-fase="<?= $ancla ?>"><span class="an-fase__ico" aria-hidden="true"></span><span><?= $txt ?></span></a>
     <?php endforeach; ?>
   </nav>
@@ -308,6 +309,16 @@ UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
           <?= $kpiHtml('dailies', 'Dailies', '—', 'nm') ?>
         </div>
       </div>
+    </section>
+  </div>
+
+  <?php /* La salud del proyecto con la colorimetría (la que antes salía en el modal del proyecto): el puntaje,
+           cada indicador con su meta y sus zonas, lo que no tiene dato y los valores del mes */ ?>
+  <h2 class="an-sec" id="an-salud"><?= UI::iconoDS('info', 20) ?>Salud<small>Lo calcula el panel con sus tareas, revisiones y observaciones de QA</small></h2>
+  <div class="rl-tab">
+    <section class="rl-pan rl-pan--12">
+      <header class="rl-pan__cab"><h3><?= Colorimetria::icono($colP['estado'], 18) ?> Salud de <?= e((string)$proyecto['nombre']) ?></h3><small class="an-pan__sub"><?= e(Colorimetria::nombre($colP['estado'])) ?></small></header>
+      <div class="rl-pan__cuerpo an-salud"><?= colPagina($colP, 'analitica.php?id=' . $id . '#an-salud') ?></div>
     </section>
   </div>
 
