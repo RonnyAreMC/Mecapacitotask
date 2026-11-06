@@ -10780,3 +10780,18 @@ html.dark .vt-pizarra-card { background: rgba(255, 255, 255, .03); }
 .ia-plan-doc > summary small { color: var(--ink-muted); font-weight: 400; }
 .ia-plan-doc > :not(summary) { margin: 0 12px 12px; }
 @media (max-width: 560px) { .dlg-ia .ia-plan-grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Asistentes por pasos: el pie es su propia barra (ya no flota sobre los campos) y los
+   botones son planos y con texto: «Atrás» discreto, «Siguiente» y el de guardar en azul ---------- */
+.dlg-wizard .wz-panel.activo { flex: 1 1 auto; padding-bottom: 22px; }
+.dlg-meca.dlg-wizard .wz-pie { position: relative; flex: none; min-height: 0; padding: 12px var(--wz-margen) 14px; border-top: 1px solid var(--wz-linea); background: var(--wz-sup); }
+.dlg-meca.dlg-wizard .wz-pie::before { display: none; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca { --mc-fs-body: .875rem; min-height: 40px; padding: 0 16px; gap: 6px; border-radius: 10px; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca::after { display: none; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca:is(.wz-siguiente, .wz-atras) { --mc-fs-body: .875rem; width: auto; padding: 0 16px; gap: 6px; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca.wz-atras { --_bg: transparent; --_bgh: var(--wz-sec-h, #EEF2F7); --_fg: var(--wz-tinta-2); --_bd: var(--wz-linea); box-shadow: none !important; }
+.dlg-meca.dlg-wizard .wz-pie .btn-primary.btn-meca,
+.dlg-meca.dlg-wizard .wz-pie .btn-primary.btn-meca.wz-guardar { --_bg: var(--primary, #2970EB); --_bgh: var(--primary-hover, #2565D4); --_fg: #fff; --_bd: transparent; box-shadow: none !important; }
+.dlg-meca.dlg-wizard .wz-pie .btn-meca:focus-visible { box-shadow: 0 0 0 2px var(--wz-sup), 0 0 0 4px var(--wz-azul) !important; }
+/* Sin los arcos del canto derecho en ningún asistente: se veían cortados */
+.dlg-meca.dlg-wizard .wz-cuerpo { background: var(--wz-sup); }
