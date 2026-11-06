@@ -62,11 +62,14 @@ function blFila(array $h, array $x): string
         . ($x['puede'] ? '<span class="bl-fila__asa" aria-hidden="true">' . rlIco('arrastrar', 16) . '</span>' : '')
         . '<a class="bl-fila__abrir" href="' . e(blUrlHistoria((int)$h['proyecto_id'], (int)$h['id'])) . '" draggable="false"><span class="bl-cod">' . e($h['codigo']) . '</span>'
         . '<span class="bl-fila__tit">' . e($h['titulo']) . '</span></a>'
-        . '<span class="bl-fila__meta">' . (function_exists('blDorChip') ? blDorChip($h) : '') . blEpica($h, $x['rels'])
-        . ($nAdj ? '<span class="bl-mini" data-ds-tip="' . $nAdj . ' diagrama(s) o documento(s)">' . rlIco('documento', 14) . $nAdj . '</span>' : '')
+        // Cada dato en su columna de ancho fijo (aunque falte): así todas las filas quedan alineadas
+        . '<span class="bl-fila__dor">' . (function_exists('blDorChip') ? blDorChip($h) : '') . '</span>'
+        . '<span class="bl-fila__ep">' . blEpica($h, $x['rels']) . '</span>'
+        . '<span class="bl-fila__minis">'
         . ($nT ? '<span class="bl-mini" data-ds-tip="' . $nT . ' tarea(s)">' . rlIco('completar', 14) . $nT . '</span>' : '')
+        . ($nAdj ? '<span class="bl-mini" data-ds-tip="' . $nAdj . ' diagrama(s) o documento(s)">' . rlIco('documento', 14) . $nAdj . '</span>' : '')
         . ((int)$h['arrastres'] ? '<span class="bl-mini is-arrastre" data-ds-tip="Pasó sola de sprint ' . (int)$h['arrastres'] . ' vez/veces por no terminarse">' . rlIco('reintentar', 14) . (int)$h['arrastres'] . '</span>' : '')
-        . '</span>' . blEstado($h['estado']) . blPrio($h['prioridad']) . blPts($h) . blResp($h, $x['miembros']) . '</li>';
+        . '</span><span class="bl-fila__est">' . blEstado($h['estado']) . '</span>' . blPrio($h['prioridad']) . blPts($h) . blResp($h, $x['miembros']) . '</li>';
 }
 
 /** Una tarjeta del tablero del sprint. */
