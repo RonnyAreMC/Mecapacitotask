@@ -55,7 +55,7 @@
 .an-ley { display: inline-flex; align-items: center; gap: 6px; }
 .an-ley i { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--x, var(--col-nm-solid)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); }
 .an-ley i.an-ley__barra { width: 18px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--col-ok-solid) 0 33%, var(--col-warn-solid) 33% 66%, var(--col-crit-solid) 66%); }
-.an-ley i.an-ley__marca { width: 3px; height: 14px; border-radius: 2px; background: var(--ink); }
+.an-ley i.an-ley__marca { width: 3px; height: 14px; border-radius: 2px; background: var(--col-nm-solid, var(--ink-muted)); }
 .an-leyendas { display: flex; flex-wrap: wrap; gap: 6px 14px; }
 
 /* Tabla de las historias que pasaron de sprint: cabecera celeste */
@@ -106,3 +106,34 @@
   .an-pan__sub { max-width: 45%; }
   .an-tabla th:nth-child(3), .an-tabla td:nth-child(3) { display: none; }
 }
+
+/* ---------- Las fases del DS: las secciones (arriba, fija) y los sprints del release ---------- */
+.an-fases { position: sticky; top: 64px; z-index: 6; display: flex; gap: 2px; margin: 0; padding: 8px 0; background: var(--bg, #F4F7FB); }
+.an-fase, .an-paso__fase { display: flex; flex: 1; align-items: center; justify-content: center; gap: 6px; min-width: 0; height: 30px; padding: 0 12px;
+  background: var(--surface-sunken); box-shadow: inset 0 0 0 1px var(--line); color: var(--ink); font: 600 .78rem/1 var(--font-sans); white-space: nowrap; text-decoration: none;
+  transition: background-color .2s, color .2s; }
+.an-fase span:last-child { overflow: hidden; text-overflow: ellipsis; }
+.an-fase:first-child, .an-pasos__fila .an-paso:first-child .an-paso__fase { border-radius: 999px 0 0 999px; }
+.an-fase:last-child, .an-pasos__fila .an-paso:last-child .an-paso__fase { border-radius: 0 999px 999px 0; }
+.an-fase__ico { display: inline-grid; place-items: center; width: 12px; height: 12px; color: currentColor; }
+.an-fase[data-estado="hecha"], .an-paso.is-hecha .an-paso__fase { background: var(--primary); box-shadow: none; color: #fff; }
+.an-fase[data-estado="actual"], .an-paso.is-actual .an-paso__fase { background: var(--rl-pan-cab, #0B1B5C); box-shadow: none; color: #fff; }
+.an-fase[data-estado="pendiente"] .an-fase__ico, .an-paso.is-pendiente .an-paso__fase svg { color: var(--ink-muted); }
+.an-fase:hover { filter: brightness(1.04); }
+.an-fase:focus-visible { outline: none; box-shadow: var(--focus-ring); }
+.an-pasos { display: flex; align-items: flex-start; gap: 10px; overflow-x: auto; padding: 4px 2px 6px; }
+.an-pasos__fila { display: flex; flex: 1; gap: 2px; min-width: max-content; margin: 0; padding: 0; list-style: none; }
+.an-paso { display: flex; flex: 1 1 0; flex-direction: column; gap: 6px; min-width: 88px; }
+.an-paso .an-paso__fase { flex: none; padding: 0 8px; }
+.an-paso__fase svg { flex: none; }
+.an-paso__det { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 7px 6px; border: 1px solid var(--line); border-radius: 4px; background: var(--surface); text-align: center; }
+.an-paso__det b { color: var(--ink); font-size: .72rem; font-weight: 600; white-space: nowrap; }
+.an-paso__det small { color: var(--ink-muted); font-size: .7rem; white-space: nowrap; }
+.an-paso.is-actual .an-paso__det { border-color: color-mix(in srgb, var(--rl-pan-cab, #0B1B5C) 40%, var(--line)); }
+.an-paso.is-elegido .an-paso__det { box-shadow: 0 0 0 2px var(--primary); }
+.an-paso--fin { flex: 0 0 auto; min-width: 150px; }
+.an-paso--fin .an-paso__fase { border-radius: 999px; padding: 0 16px; }
+.an-pasos__vacio { margin: 0; color: var(--ink-muted); font-size: .84rem; }
+.an-ley-nota { display: block; margin-top: 6px; color: var(--ink-muted); font-size: .76rem; }
+@media (max-width: 720px) { .an-fases { overflow-x: auto; top: 56px; } .an-fase { flex: 0 0 auto; } }
+@media (prefers-reduced-motion: reduce) { .an-fase, .an-paso__fase { transition: none; } }

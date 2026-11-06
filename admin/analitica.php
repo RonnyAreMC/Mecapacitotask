@@ -275,12 +275,12 @@ UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
     </div>
   </section>
 
-  <nav class="rl-subnav" aria-label="Secciones de la analítica">
-    <a class="rl-subnav__op" href="#an-resumen"><?= UI::iconoDS('dashboard', 16) ?>Resumen</a>
-    <a class="rl-subnav__op" href="#an-sprints"><?= UI::iconoDS('ruta', 16) ?>Sprints</a>
-    <a class="rl-subnav__op" href="#an-release"><?= UI::iconoDS('bandera', 16) ?>Release</a>
-    <a class="rl-subnav__op" href="#an-dailies"><?= UI::iconoDS('video', 16) ?>Reuniones diarias</a>
-    <a class="rl-subnav__op" href="#an-tareas"><?= UI::iconoDS('completar', 16) ?>Tareas</a>
+  <?php /* Las secciones como las fases del DS: lo ya recorrido ✓, donde se está », lo que falta •
+           (assets/analitica.js las marca al bajar por la página) */ ?>
+  <nav class="an-fases" aria-label="Secciones de la analítica" data-an-fases>
+    <?php foreach (['an-resumen' => 'Resumen', 'an-sprints' => 'Sprints', 'an-release' => 'Release', 'an-dailies' => 'Reuniones diarias', 'an-tareas' => 'Tareas'] as $ancla => $txt): ?>
+    <a class="an-fase" href="#<?= $ancla ?>" data-an-fase="<?= $ancla ?>"><span class="an-fase__ico" aria-hidden="true"></span><span><?= $txt ?></span></a>
+    <?php endforeach; ?>
   </nav>
 
   <!-- Resumen: los indicadores primero; el detalle de cada tema, abajo -->
@@ -313,6 +313,10 @@ UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
 
   <h2 class="an-sec" id="an-sprints"><?= UI::iconoDS('ruta', 20) ?>Sprints<small>Velocidad, burndown y lo que pasó de un sprint a otro</small></h2>
   <div class="rl-tab">
+    <section class="rl-pan rl-pan--12">
+      <header class="rl-pan__cab"><h3>Sprints del release</h3><small class="an-pan__sub" data-an-sub="pasos"></small></header>
+      <div class="rl-pan__cuerpo"><div class="an-pasos" id="an-pasos"></div></div>
+    </section>
     <?= $pan(8, 'Comprometido vs. hecho por sprint', 'vel', 300, 'Comprometido: los puntos de las historias que estuvieron en el sprint. Hecho: los que se terminaron en sus fechas (la velocidad).') ?>
     <?= $pan(4, 'Historias por estado', 'hu-estado', 300, 'Con un sprint elegido, solo sus historias; si no, las de los sprints del periodo y las del backlog.') ?>
     <?= $pan(8, 'Burndown del sprint', 'burn', 300, 'Los puntos que faltaban cada día hábil frente a la línea ideal.') ?>

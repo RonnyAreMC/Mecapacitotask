@@ -290,19 +290,29 @@
   });
 
   /** Una dona con el total al centro. */
+  /** Reparto por categoría en anillos concéntricos (radialBar abierto abajo): cada anillo es
+      su parte del total; al centro, el total, y al pasar por un anillo, su parte. */
   const dona = (T, anim, id, filas, centro, unidad) => {
     const tot = suma(filas, (f) => f.v);
+    const n = filas.length;
     pintar(id, base(T, anim, {
-      chart: { type: 'donut', height: 300 },
-      series: filas.map((f) => f.v), labels: filas.map((f) => f.n), colors: filas.map((f) => f.c),
-      stroke: { width: 2, colors: [T.surface] },
-      plotOptions: { pie: { expandOnClick: false, donut: { size: '64%', labels: {
-        show: true,
-        name: { show: true, fontSize: '12px', fontWeight: 600, color: T.muted },
-        value: { show: true, fontSize: '24px', fontWeight: 700, color: T.ink, formatter: (v) => n1(+v) },
-        total: { show: true, showAlways: true, label: centro, fontSize: '12px', fontWeight: 600, color: T.muted, formatter: () => n1(tot) },
-      } } } },
-      tooltip: { y: { formatter: (v) => pl(v, unidad[0], unidad[1]) + ' · ' + Math.round(v * 100 / (tot || 1)) + ' %' } },
+      chart: { type: 'radialBar', height: 310 },
+      series: filas.map((f) => Math.round(f.v * 1000 / (tot || 1)) / 10),
+      labels: filas.map((f) => f.n), colors: filas.map((f) => f.c),
+      plotOptions: { radialBar: {
+        startAngle: -135, endAngle: 135, offsetY: 6,
+        hollow: { size: n <= 2 ? '46%' : n <= 4 ? '34%' : '24%', background: 'transparent' },
+        track: { background: T.track, strokeWidth: '100%', margin: n > 4 ? 3 : 5 },
+        dataLabels: {
+          name: { show: true, fontSize: '12px', fontWeight: 600, color: T.muted, offsetY: -4 },
+          value: { show: true, fontSize: '22px', fontWeight: 700, color: T.ink, offsetY: 6, formatter: (v) => Math.round(v) + ' %' },
+          total: { show: true, label: centro, fontSize: '12px', fontWeight: 600, color: T.muted, formatter: () => n1(tot) },
+        },
+      } },
+      stroke: { lineCap: 'round' },
+      legend: { show: true, position: 'bottom', fontSize: '12px', fontWeight: 600, labels: { colors: T.ink }, markers: { size: 5, shape: 'circle' },
+        formatter: (nom, o) => nom + ' · ' + pl(filas[o.seriesIndex].v, unidad[0], unidad[1]) },
+      tooltip: { enabled: false },
     }));
   };
   const tip = (titulo, lineas) => '<div class="an-tip"><b>' + esc(titulo) + '</b>' + lineas.map((l) => '<span>' + l + '</span>').join('') + '</div>';
@@ -621,7 +631,7 @@
       chart: { type: 'bar', height: alto },
       series: [{ name: 'Avance', data: l.map((it) => ({
         x: it.c, y: it.av, fillColor: T.col[it.k] || T.col.nm,
-        goals: [{ name: 'Esperado hoy', value: it.esp, strokeHeight: 16, strokeWidth: 3, strokeLineCap: 'round', strokeColor: T.ink }],
+        goals: [{ name: 'Esperado hoy', value: it.esp, strokeHeight: 18, strokeWidth: 4, strokeLineCap: 'round', strokeColor: T.col.nm }],
       })) }],
       plotOptions: { bar: { horizontal: true, barHeight: '56%', borderRadius: 3, borderRadiusApplication: 'end' } },
       xaxis: { min: 0, max: 100, tickAmount: 5, labels: { formatter: (v) => Math.round(v) + ' %' } },
@@ -666,7 +676,8 @@
     const ley = raiz.querySelector('[data-an-ley-dl]');
     const col = COLOR_DL(T);
     if (ley) ley.innerHTML = '<span class="an-leyendas">' + ['cumplida', 'incompleta', 'no_hecha', 'sin_registrar', 'sin_zoom', 'no_aplica']
-      .map((k) => '<span class="an-ley">' + punto(col[k]) + esc(D.dailyEstados[k] || k) + '</span>').join('') + '<span class="an-ley">' + punto(T.sunken) + 'Sin día hábil</span></span>';
+      .map((k) => '<span class="an-ley">' + punto(col[k]) + esc(D.dailyEstados[k] || k) + '</span>').join('') + '<span class="an-ley">' + punto(T.colBg.hold) + 'Feriado</span></span>'
+      + '<span class="an-ley-nota">Cada barra es un día hábil: su color es cómo salió la daily y su alto, cuánta gente se conectó.</span>';
     const m = diasJuntos(C);
     const desdeDl = C.dls.length ? C.dls.map((d) => d.desde).sort()[0] : '';
     if (!m.size) {
@@ -676,49 +687,36 @@
     }
     const fechas = [...m.keys()].sort();
     const ini = fechas[0], fin = C.fin;
-    const semanas = [];
-    for (let f = lunes(ini); f <= fin; f = mas(f, 7)) semanas.push(f);
-    const salto = Math.ceil(semanas.length / 14);   // con muchas semanas, una etiqueta cada tantas
-    const etiqueta = (i) => (i % salto === 0 ? fc(semanas[i]) : ' '.repeat(i + 1));
     const varios = C.dls.length > 1;
-    const series = [4, 3, 2, 1, 0].map((wd) => ({
-      name: DIAS[wd][0].toUpperCase() + DIAS[wd].slice(1),
-      data: semanas.map((lu, i) => {
-        const f = mas(lu, wd);
-        const l = m.get(f);
-        if (f < ini || f > fin) return { x: etiqueta(i), y: 0, f, txt: 'Fuera del periodo' };
-        if (D.feriados[f]) return { x: etiqueta(i), y: 0.4, f, txt: 'Feriado: ' + D.feriados[f] };
-        if (!l) return { x: etiqueta(i), y: 0, f, txt: 'Sin medir' };
-        const e = peor(l);
-        return { x: etiqueta(i), y: DL_COD[e] || 1, f, l, e };
-      }),
-    }));
+    // Sin asistencia medida, la barra tiene el alto que corresponde a su estado (y lo dice al pasar)
+    const ALTO = { cumplida: 100, incompleta: 60, no_hecha: 18, sin_registrar: 12, sin_zoom: 12, no_aplica: 8, pendiente: 6 };
+    const datos = fechas.map((f) => {
+      const l = m.get(f), e = peor(l);
+      const as = l.map((x) => x.as).filter((v) => v != null);
+      const a = as.length ? Math.round(prom(as)) : null;
+      return { x: ms(f), y: a != null ? Math.max(a, 4) : (ALTO[e] || 6), fillColor: col[e] || T.col.nm, f, l, e, a };
+    });
+    Object.keys(D.feriados).filter((f) => en(f, ini, fin) && !m.has(f) && dsem(f) <= 4)
+      .forEach((f) => datos.push({ x: ms(f), y: 8, fillColor: T.colBg.hold, f, fer: D.feriados[f] }));
+    datos.sort((a, b) => a.x - b.x);
     const cuentan = fechas.filter((f) => DL_CUENTAN.includes(peor(m.get(f))));
     sub('dl-cal', pl(cuentan.length, 'día hábil medido', 'días hábiles medidos') + (varios ? ' · el peor estado del día' : ''));
     pintar('dl-cal', base(T, anim, {
-      chart: { type: 'heatmap', height: 260 },
-      series,
-      plotOptions: { heatmap: { radius: 4, enableShades: false, useFillColorAsStroke: false, colorScale: { ranges: [
-        { from: -1, to: 0.2, color: T.sunken, name: 'Sin día hábil' },
-        { from: 0.2, to: 0.6, color: T.colBg.hold, name: 'Feriado' },
-        { from: 0.6, to: 1.5, color: col.pendiente, name: D.dailyEstados.pendiente },
-        { from: 1.5, to: 2.5, color: col.no_aplica, name: D.dailyEstados.no_aplica },
-        { from: 2.5, to: 3.5, color: col.sin_zoom, name: D.dailyEstados.sin_zoom },
-        { from: 3.5, to: 4.5, color: col.sin_registrar, name: D.dailyEstados.sin_registrar },
-        { from: 4.5, to: 5.5, color: col.no_hecha, name: D.dailyEstados.no_hecha },
-        { from: 5.5, to: 6.5, color: col.incompleta, name: D.dailyEstados.incompleta },
-        { from: 6.5, to: 7.5, color: col.cumplida, name: D.dailyEstados.cumplida },
-      ] } } },
-      stroke: { width: 3, colors: [T.surface] },
+      chart: { type: 'bar', height: 260 },
+      series: [{ name: 'Daily', data: datos }],
+      plotOptions: { bar: { columnWidth: datos.length > 60 ? '88%' : datos.length > 20 ? '70%' : '46%', borderRadius: 4, borderRadiusApplication: 'end' } },
+      dataLabels: { enabled: false },
+      xaxis: { type: 'datetime', min: ms(ini) - DIA_MS, max: ms(fin) + DIA_MS, labels: { datetimeUTC: true, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'd MMM' } } },
+      yaxis: ejePct(T),
+      annotations: { yaxis: [linea(T, D.umbral, 'Mínimo ' + D.umbral + ' %', T.col.warn)] },
       legend: { show: false },
-      xaxis: { labels: { rotate: 0, trim: false, style: { colors: T.muted, fontSize: '11px' } } },
-      yaxis: { labels: { style: { colors: T.muted, fontSize: '11.5px', fontWeight: 600 } } },
-      tooltip: { custom: ({ seriesIndex: si, dataPointIndex: di, w }) => {
-        const p = w.config.series[si].data[di];
+      states: { hover: { filter: { type: 'darken', value: 0.88 } } },
+      tooltip: { custom: ({ dataPointIndex: i }) => {
+        const p = datos[i];
         if (!p) return '';
-        if (!p.l) return tip(fdia(p.f), [esc(p.txt)]);
+        if (p.fer) return tip(fdia(p.f), [punto(T.colBg.hold) + esc('Feriado: ' + p.fer)]);
         return tip(fdia(p.f), p.l.map((x) => punto(col[x.e]) + esc((varios ? 'Equipo ' + x.eq + ': ' : '') + (D.dailyEstados[x.e] || x.e)
-          + (x.as != null ? ' · ' + x.as + ' % conectado' : ''))));
+          + (x.as != null ? ' · ' + x.as + ' % conectado' : ' · sin asistencia medida'))));
       } },
     }));
   };
@@ -936,6 +934,63 @@
     }));
   };
 
+  /* ---------- Los sprints del release, como las fases del DS ---------- */
+  const IC = {
+    hecha: '<svg viewBox="0 0 16 16" width="12" height="12"><path d="M3.5 8.4l3 3 6-6.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    actual: '<svg viewBox="0 0 16 16" width="12" height="12"><path d="M3.5 4l4 4-4 4M8.5 4l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+    pendiente: '<svg viewBox="0 0 16 16" width="12" height="12"><circle cx="8" cy="8" r="2.2" fill="currentColor"/></svg>',
+  };
+  const pasosSprints = (T, C) => {
+    const caja = raiz.querySelector('#an-pasos');
+    if (!caja) return;
+    const rel = F.rel || D.relActual;
+    const r = REL.get(rel);
+    const l = D.sprints.filter((s) => s.rel.includes(rel)).sort((a, b) => (a.ini < b.ini ? -1 : 1));
+    if (!r || !l.length) { sub('pasos', ''); caja.innerHTML = '<p class="an-pasos__vacio">Elige un release para ver sus sprints.</p>'; return; }
+    const estado = (ini, fin) => (fin < HOY ? 'hecha' : ini <= HOY ? 'actual' : 'pendiente');
+    const pts = (s) => ({
+      comp: suma(D.historias.filter((h) => C.relOk(h.r) && h.vis.includes(s.c)), (h) => h.pt),
+      hecho: suma(D.historias.filter((h) => C.relOk(h.r) && h.e === 'hecho' && en(h.h, s.ini, s.fin)), (h) => h.pt),
+    });
+    const n = l.filter((s) => s.fin < HOY).length;
+    const fin = r.fin && r.fin < HOY;
+    sub('pasos', rel + ' · ' + n + ' de ' + l.length + ' sprints terminados');
+    const seg = l.map((s) => {
+      const e = estado(s.ini, s.fin), p = pts(s);
+      return '<li class="an-paso is-' + e + (F.sp === s.c ? ' is-elegido' : '') + '"' + (e === 'actual' ? ' aria-current="step"' : '') + '>'
+        + '<span class="an-paso__fase">' + IC[e] + esc(s.c) + '</span>'
+        + '<span class="an-paso__det"><b>' + esc(fc(s.ini) + ' – ' + fc(s.fin)) + '</b><small>' + (p.comp ? n1(p.hecho) + ' de ' + n1(p.comp) + ' pts' : 'Sin historias') + '</small></span></li>';
+    }).join('');
+    caja.innerHTML = '<ol class="an-pasos__fila">' + seg + '</ol>'
+      + '<div class="an-paso an-paso--fin is-' + (fin ? 'hecha' : 'pendiente') + '"><span class="an-paso__fase">' + IC[fin ? 'hecha' : 'pendiente'] + (fin ? 'Finalizado' : 'Sin finalizar') + '</span>'
+      + '<span class="an-paso__det"><b>' + esc(rel) + '</b><small>' + (r.fin ? 'Termina el ' + esc(fl(r.fin)) : '') + '</small></span></div>';
+  };
+
+  /* ---------- Las secciones como fases: lo recorrido ✓, donde se está », lo que falta • ---------- */
+  const fases = document.querySelector('[data-an-fases]');
+  if (fases) {
+    const ops = [...fases.querySelectorAll('[data-an-fase]')];
+    const secs = ops.map((a) => document.getElementById(a.getAttribute('data-an-fase')));
+    let marca = 0;
+    const marcar = () => {
+      marca = 0;
+      const tope = fases.getBoundingClientRect().bottom + 24;
+      let cur = 0;
+      secs.forEach((s, i) => { if (s && s.getBoundingClientRect().top <= tope) cur = i; });
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) cur = secs.length - 1;
+      ops.forEach((a, i) => {
+        const e = i < cur ? 'hecha' : i === cur ? 'actual' : 'pendiente';
+        if (a.getAttribute('data-estado') === e) return;
+        a.setAttribute('data-estado', e);
+        a.querySelector('.an-fase__ico').innerHTML = IC[e];
+        e === 'actual' ? a.setAttribute('aria-current', 'location') : a.removeAttribute('aria-current');
+      });
+    };
+    window.addEventListener('scroll', () => { if (!marca) marca = requestAnimationFrame(marcar); }, { passive: true });
+    window.addEventListener('resize', () => { if (!marca) marca = requestAnimationFrame(marcar); });
+    marcar();
+  }
+
   /* ---------- Todo junto ---------- */
   const PASOS = [velocidad, huEstado, burndown, huPrioridad, arrastres, relRadial, relSalud, revisiones, relItems, relGantt,
     dlCalendario, dlEstados, dlAsistencia, dlPersonas, tareasSemana, tareasEstado, tareasResponsable, tareasPrioridad, tareasVencidas, tiempoCiclo];
@@ -948,6 +1003,7 @@
     const C = contexto();
     try { resumen(T, C); } catch (e) { console.error('Analítica: resumen', e); }
     try { tablaArrastres(T, C); } catch (e) { console.error('Analítica: tabla', e); }
+    try { pasosSprints(T, C); } catch (e) { console.error('Analítica: sprints del release', e); }
     if (typeof window.ApexCharts === 'undefined') {
       raiz.querySelectorAll('.an-graf').forEach((el) => vacio(el.id.slice(5), 'No se pudo cargar la librería de gráficos. Recarga la página.'));
       return;
