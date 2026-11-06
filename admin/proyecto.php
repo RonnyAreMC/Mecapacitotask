@@ -701,6 +701,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
       </a>
       <?php endforeach; ?>
       <?php endif; ?>
+      <?php if ($puedeTareas): /* Analítica (BI) del proyecto: sprints, release, dailies y tareas (analitica.php) */ ?>
+      <a class="btn-ghost btn-meca btn-sm ph-analitica" href="analitica.php?id=<?= $id ?>" aria-label="Analítica" data-ds-tip="Analítica"><?= UI::iconoDS('reportes', 18) ?></a>
+      <?php endif; ?>
       <button class="btn-ghost btn-meca btn-sm solo-admin" onclick="document.getElementById('dlg-editar-proyecto').showModal()">
         <i class="fa-solid fa-pen"></i> Editar
       </button>
