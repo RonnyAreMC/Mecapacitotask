@@ -380,13 +380,18 @@ function blFormHistoria(array $x): string
 <form class="bl-hu" method="post" action="actions.php" enctype="multipart/form-data" data-bl-form data-puede="<?= $puede ? '1' : '' ?>">
   <input type="hidden" name="accion" value="bl_historia_guardar"><input type="hidden" name="id" value="<?= (int)$h['id'] ?>"><input type="hidden" name="proyecto_id" value="<?= $pid ?>">
   <input type="hidden" name="volver" value="<?= e($volver) ?>"><input type="hidden" name="tareas[]" value="">
+  <?php /* La cabecera: el título grande y debajo de qué es; a la derecha cada acción una sola vez, en contorno
+           (historial, borrar, guardar y volver). Queda fija al bajar. */ ?>
   <header class="bl-hu__cab">
-    <a class="rs-boton rs-boton--icono" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
-    <div class="bl-hu__tit"><span class="bl-dlg__cod"><?= $nueva ? 'Nueva historia' : e($h['codigo']) ?></span>
-      <span class="bl-hu__proy"><?= e((string)$p['nombre']) ?><?= !$nueva ? ' · ' . blEstado((string)$h['estado']) : '' ?></span></div>
-    <?php /* Cada acción una sola vez, aquí arriba (la cabecera queda fija al bajar): diagrama, borrar y guardar */ ?>
-    <?php if ($puede && !$nueva): ?><button type="button" class="rs-boton rs-boton--icono bl-borrar" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>" aria-label="Borrar la historia" data-ds-tip="Borrar la historia"><?= rlIco('eliminar', 18) ?></button><?php endif; ?>
-    <?php if ($puede): ?><button type="submit" class="rs-boton rs-boton--primario"><?= UI::icono('ds-check') ?><span><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
+    <div class="bl-hu__tit"><h1 class="bl-hu__h"><?= $nueva ? 'Nueva historia' : e((string)$h['titulo']) ?></h1>
+      <p class="bl-hu__proy"><?php if (!$nueva): ?><span class="bl-hu__lbl">Historia:</span> <b><?= e($h['codigo']) ?></b> <span class="bl-hu__sep">·</span><?php endif; ?>
+        <span class="bl-hu__lbl">Proyecto:</span> <b><?= e((string)$p['nombre']) ?></b><?= !$nueva ? ' ' . blEstado((string)$h['estado']) : '' ?></p></div>
+    <div class="bl-hu__acc">
+      <?php if (!$nueva && $h['historial']): ?><button type="button" class="bl-cbtn" data-bl-hist aria-label="Historial de la historia" data-ds-tip="Historial"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5v4h4"/><path d="M12 7.5V12l3 2"/></svg></button><?php endif; ?>
+      <?php if ($puede && !$nueva): ?><button type="button" class="bl-cbtn bl-borrar" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>" aria-label="Borrar la historia" data-ds-tip="Borrar la historia"><?= rlIco('eliminar', 18) ?></button><?php endif; ?>
+      <?php if ($puede): ?><button type="submit" class="bl-cbtn bl-cbtn--txt"><?= rlIco('check', 18) ?><span><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
+      <a class="bl-cbtn" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></a>
+    </div>
   </header>
   <fieldset class="bl-fs bl-hu__grid"<?= $puede ? '' : ' disabled' ?>>
     <div class="bl-hu__col">
@@ -496,16 +501,6 @@ function blFormHistoria(array $x): string
             'Se crean en este proyecto para el responsable de la historia, con las fechas de su sprint.') ?><?php endif; ?>
         </div>
       </section>
-      <?php if (!$nueva && $h['historial']): ?>
-      <section class="rl-pan">
-        <header class="rl-pan__cab"><h3>Historial</h3></header>
-        <div class="rl-pan__cuerpo bl-hu__cuerpo"><ol class="bl-hu__hist">
-          <?php foreach (array_reverse((array)$h['historial']) as $ev): ?>
-          <li><b><?= e((string)$ev['texto']) ?></b><small><?= e(trim((string)$ev['fecha'] . ' · ' . (string)($miembros[(int)($ev['quien'] ?? 0)]['nombre'] ?? ''), ' ·')) ?></small></li>
-          <?php endforeach; ?>
-        </ol></div>
-      </section>
-      <?php endif; ?>
     </div>
   </fieldset>
   <?php if (!$nueva):
@@ -537,6 +532,21 @@ function blFormHistoria(array $x): string
   </section>
   <?php endif; ?>
 </form>
+<?php if (!$nueva && $h['historial']): ?>
+<?php /* El historial de la historia: en un modal (el botón del reloj de la cabecera) */ ?>
+<dialog class="ds-modal bl-histdlg" data-bl-hist-dlg aria-labelledby="bl-hist-t">
+  <div class="ds">
+    <header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5v4h4"/><path d="M12 7.5V12l3 2"/></svg></span>
+      <div><h2 class="ds-modal__title" id="bl-hist-t">Historial de <?= e($h['codigo']) ?></h2><p class="ds-modal__sub"><?= count((array)$h['historial']) ?> cambio(s), del más reciente al más antiguo.</p></div></header>
+    <div class="ds-modal__body"><ol class="bl-hu__hist">
+      <?php foreach (array_reverse((array)$h['historial']) as $ev): $qEv = $miembros[(int)($ev['quien'] ?? 0)] ?? null; ?>
+      <li><span class="bl-hu__hist-av"><?= $qEv ? UI::avatar($qEv, 26) : '' ?></span><span><b><?= e((string)$ev['texto']) ?></b><small><?= e(trim((string)$ev['fecha'] . ' · ' . (string)($qEv['nombre'] ?? ''), ' ·')) ?></small></span></li>
+      <?php endforeach; ?>
+    </ol></div>
+    <footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-dlg-cerrar><span class="mc-btn__label">Cerrar</span></button></footer>
+  </div>
+</dialog>
+<?php endif; ?>
 <?php if ($conIA): ?>
 <dialog class="ds-modal bl-iat" data-bl-ia-dlg aria-labelledby="bl-iat-t">
   <div class="ds">

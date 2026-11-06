@@ -350,3 +350,11 @@
     ir(0);
   });
 })();
+
+/* ---------- El historial de la historia, en su modal (botón del reloj de la cabecera) ---------- */
+(() => {
+  const dlg = document.querySelector('[data-bl-hist-dlg]');
+  if (!dlg) return;
+  document.addEventListener('click', (e) => { if (e.target.closest('[data-bl-hist]')) dlg.showModal(); });
+  dlg.addEventListener('click', (e) => { if (e.target === dlg || e.target.closest('[data-dlg-cerrar]')) dlg.close(); });
+})();
