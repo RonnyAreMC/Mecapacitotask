@@ -8,9 +8,8 @@
  *    la capacidad) y, al final, el backlog sin sprint. Se arrastran entre sí.
  *  - Tablero: las columnas Por hacer · En curso · En revisión · Hecho del sprint
  *    elegido, con su burndown. Se arrastran entre columnas.
- *  - Cada historia se abre en un asistente (crear, editar o, para quien no la
- *    gestiona, solo verla): la historia, sus criterios, su planificación
- *    (épica, sprint, estimación…) y sus diagramas y tareas.
+ *  - Cada historia se abre en su pantalla completa (historia.php): crear,
+ *    editar o, para quien no la gestiona, solo verla.
  *
  * El modelo es lib/Backlog.php; las acciones (bl_*) están en actions.php y el
  * JavaScript en assets/backlog.js. Usa las ayudas de lib/releases_ui.php.
@@ -59,8 +58,8 @@ function blFila(array $h, array $x): string
     $nT = count($h['tareas']);
     return '<li class="bl-fila" data-bl-id="' . (int)$h['id'] . '" data-pts="' . (int)$h['puntos'] . '" data-hecho="' . ($h['estado'] === 'hecho' ? 1 : 0) . '"' . ($x['puede'] ? ' draggable="true"' : '') . '>'
         . ($x['puede'] ? '<span class="bl-fila__asa" aria-hidden="true">' . rlIco('arrastrar', 16) . '</span>' : '')
-        . '<button type="button" class="bl-fila__abrir" data-bl-abrir="' . (int)$h['id'] . '"><span class="bl-cod">' . e($h['codigo']) . '</span>'
-        . '<span class="bl-fila__tit">' . e($h['titulo']) . '</span></button>'
+        . '<a class="bl-fila__abrir" href="' . e(blUrlHistoria((int)$h['proyecto_id'], (int)$h['id'])) . '" draggable="false"><span class="bl-cod">' . e($h['codigo']) . '</span>'
+        . '<span class="bl-fila__tit">' . e($h['titulo']) . '</span></a>'
         . '<span class="bl-fila__meta">' . blEpica($h, $x['rels'])
         . ($nAdj ? '<span class="bl-mini" data-ds-tip="' . $nAdj . ' diagrama(s) o documento(s)">' . rlIco('documento', 14) . $nAdj . '</span>' : '')
         . ($nT ? '<span class="bl-mini" data-ds-tip="' . $nT . ' tarea(s)">' . rlIco('completar', 14) . $nT . '</span>' : '')
@@ -74,7 +73,7 @@ function blTarjeta(array $h, array $x): string
     $ts = array_values(array_filter(array_map(fn($id) => $x['tareasPorId'][(int)$id] ?? null, $h['tareas'])));
     $hechas = count(array_filter($ts, fn($t) => in_array($t['estado'] ?? '', $x['finales'], true)));
     return '<article class="bl-card" data-bl-id="' . (int)$h['id'] . '" data-pts="' . (int)$h['puntos'] . '"' . ($x['puede'] ? ' draggable="true"' : '') . '>'
-        . '<button type="button" class="bl-card__abrir" data-bl-abrir="' . (int)$h['id'] . '"><span class="bl-card__tit">' . e($h['titulo']) . '</span></button>'
+        . '<a class="bl-card__abrir" href="' . e(blUrlHistoria((int)$h['proyecto_id'], (int)$h['id'])) . '" draggable="false"><span class="bl-card__tit">' . e($h['titulo']) . '</span></a>'
         . '<div class="bl-card__meta">' . blEpica($h, $x['rels']) . ($ts ? '<span class="bl-mini" data-ds-tip="Tareas terminadas">' . rlIco('completar', 14) . $hechas . '/' . count($ts) . '</span>' : '') . '</div>'
         . '<footer class="bl-card__pie"><span class="bl-cod">' . e($h['codigo']) . '</span>' . blPrio($h['prioridad']) . blPts($h) . blResp($h, $x['miembros']) . '</footer></article>';
 }
@@ -163,7 +162,7 @@ function blPestana(array $x): string
     <?php /* Solo íconos, como la cabecera del dashboard: el nombre va en la ayuda */ ?>
     <div class="bl-cab__acc">
       <?php if (Releases::puedeEditar()): ?><a class="rs-boton rs-boton--icono" href="releases.php?v=ajustes&amp;t=sprints" aria-label="Calendario de sprints" data-ds-tip="Calendario de sprints (Releases → Ajustes)"><?= UI::icono('ds-agenda') ?></a><?php endif; ?>
-      <?php if ($puede): ?><button type="button" class="rs-boton rs-boton--icono rs-boton--primario" data-bl-nueva data-sprint="" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></button><?php endif; ?>
+      <?php if ($puede): ?><a class="rs-boton rs-boton--icono rs-boton--primario" href="<?= e(blUrlHistoria($pid)) ?>" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></a><?php endif; ?>
       <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
         <span class="rs-vista__pieza" aria-hidden="true"></span>
         <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
@@ -198,7 +197,7 @@ function blPestana(array $x): string
         <span class="bl-sec__n" data-bl-n><?= count($lista) ?> historia(s)</span>
         <span class="bl-sec__pts" data-bl-pts data-cap="<?= (int)$cap ?>"><b class="mc-num"><?= (int)$pts ?></b> pts<?= $cap ? ' de ' . (int)$cap : '' ?></span>
         <span class="bl-sec__barra<?= $cap && $pts > $cap ? ' is-pasa' : '' ?>" aria-hidden="true"><i style="width:<?= $pts ? (int)round($hechos * 100 / $pts) : 0 ?>%"></i></span>
-        <?php if ($puede && $mom !== 'pasado'): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" data-bl-nueva data-sprint="<?= e($cod) ?>" aria-label="Nueva historia en el <?= e($cod) ?>" data-ds-tip="Nueva historia aquí"><?= rlIco('mas', 16) ?></button><?php endif; ?>
+        <?php if ($puede && $mom !== 'pasado'): ?><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(blUrlHistoria($pid, 0, $cod)) ?>" aria-label="Nueva historia en el <?= e($cod) ?>" data-ds-tip="Nueva historia aquí"><?= rlIco('mas', 16) ?></a><?php endif; ?>
       </summary>
       <ol class="bl-lista" data-bl-lista data-sprint="<?= e($cod) ?>">
         <?php foreach ($lista as $h) echo blFila($h, $ctx); ?>
@@ -213,7 +212,7 @@ function blPestana(array $x): string
         <?= rlIco('lista-espera', 16) ?><b class="bl-sec__cod">Backlog</b><span class="bl-sec__fechas">Sin sprint todavía · por prioridad</span>
         <span class="bl-sec__n" data-bl-n><?= count($bl) ?> historia(s)</span>
         <span class="bl-sec__pts" data-bl-pts data-cap="0"><b class="mc-num"><?= (int)$ptsBl ?></b> pts</span>
-        <?php if ($puede): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" data-bl-nueva data-sprint="" aria-label="Nueva historia en el backlog" data-ds-tip="Nueva historia aquí"><?= rlIco('mas', 16) ?></button><?php endif; ?>
+        <?php if ($puede): ?><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(blUrlHistoria($pid)) ?>" aria-label="Nueva historia en el backlog" data-ds-tip="Nueva historia aquí"><?= rlIco('mas', 16) ?></a><?php endif; ?>
       </header>
       <ol class="bl-lista" data-bl-lista data-sprint="">
         <?php foreach ($bl as $h) echo blFila($h, $ctx); ?>
@@ -279,129 +278,184 @@ function blPestana(array $x): string
   <?php endif; ?>
 <?php endif; ?>
 
-  <?= blDialogo($x, $todas, $epicas, $sps, $relsP, $act) ?>
 </div>
     <?php
     return (string)ob_get_clean();
 }
 
-/** El asistente de la historia (crear, editar o solo verla) y sus datos para assets/backlog.js. */
-function blDialogo(array $x, array $todas, array $epicas, array $sps, array $relsP, string $act): string
+/** El enlace a la pantalla de una historia (nueva: con su sprint, si viene). */
+function blUrlHistoria(int $pid, int $id = 0, string $sprint = ''): string
+{
+    return 'historia.php?' . http_build_query(array_filter(['p' => $pid, 'id' => $id ?: null, 'sprint' => $sprint !== '' ? $sprint : null]));
+}
+
+/**
+ * Un escenario de los criterios (Dado · Cuando · Entonces), para pintarlo en el
+ * servidor; assets/backlog.js suma, quita y renumera.
+ */
+function blEscenario(array $e, int $n): string
+{
+    $ej = ['dado' => 'que el estudiante tiene la matrícula pagada', 'cuando' => 'elige sus materias', 'entonces' => "ve solo las que puede tomar\ny le llega el comprobante al correo"];
+    $campo = fn(string $k, string $lbl, string $en) => '<label class="bl-esc__fila"><span class="bl-esc__k">' . $lbl . '<small>' . $en . '</small></span>'
+        . '<textarea class="bl-esc__t" rows="1" maxlength="1500" data-k="' . $k . '" name="escenarios[' . $n . '][' . $k . ']" placeholder="' . e($n === 0 ? $ej[$k] : '') . '">' . e((string)($e[$k] ?? '')) . '</textarea></label>';
+    return '<div class="bl-esc" data-bl-esc><div class="bl-esc__cab"><span class="bl-esc__n">Escenario ' . ($n + 1) . '</span>'
+        . '<input class="bl-esc__nom" data-k="nombre" name="escenarios[' . $n . '][nombre]" maxlength="160" placeholder="Nombre (opcional)" value="' . e((string)($e['nombre'] ?? '')) . '">'
+        . '<button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-bl-esc-quitar aria-label="Quitar el escenario" data-ds-tip="Quitar el escenario">' . rlIco('cerrar', 15) . '</button></div>'
+        . $campo('dado', 'Dado', 'Given') . $campo('cuando', 'Cuando', 'When') . $campo('entonces', 'Entonces', 'Then') . '</div>';
+}
+
+/**
+ * La historia en su pantalla completa (historia.php): crear, editar o, para quien
+ * no la gestiona, solo verla. $x: proyecto, miembros (id => miembro), tareas (las
+ * del proyecto), puede, historia (o null si es nueva), sprint (el de una nueva).
+ */
+function blFormHistoria(array $x): string
 {
     $p = $x['proyecto'];
     $pid = (int)$p['id'];
     $puede = $x['puede'];
     $miembros = $x['miembros'];
+    $h = $x['historia'];
+    $nueva = !$h;
     $conf = Backlog::conf();
     $hoy = date('Y-m-d');
+    $sps = Backlog::sprints();
+    $act = Backlog::actual($hoy);
+    $epicas = Backlog::epicas($pid);
+    $rels = Releases::releases();
+    $relsP = array_values(array_unique(array_column($epicas, 'release'))) ?: array_map('strval', array_keys($rels));
+    $h ??= ['id' => 0, 'codigo' => '', 'titulo' => '', 'como' => '', 'quiero' => '', 'para' => '', 'escenarios' => [], 'notas' => '', 'item_id' => 0,
+            'sprint' => (string)($x['sprint'] ?? ''), 'estimacion' => '', 'prioridad' => 'media', 'estado' => 'por_hacer', 'responsable' => 0, 'tareas' => [], 'adjuntos' => [], 'historial' => []];
+    $notas = str_contains((string)$h['notas'], '<') ? (string)$h['notas'] : (trim((string)$h['notas']) !== '' ? '<p>' . nl2br(e((string)$h['notas'])) . '</p>' : '');
     // La gente del proyecto (con su PO y su SM)
     $ids = ProyectoRepo::miembrosDe($p);
     $ids = $ids === null ? array_keys($miembros) : array_merge($ids, [ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)]);
-    $gente = ['0' => ['Sin responsable', 'La lleva quien la tome']];
+    $gente = [];
     foreach (array_unique(array_map('intval', $ids)) as $mid) if (isset($miembros[$mid])) $gente[(string)$mid] = [(string)$miembros[$mid]['nombre'], (string)($miembros[$mid]['rol'] ?? '')];
-    uasort($gente, fn($a, $b) => $a[0] === 'Sin responsable' ? -1 : ($b[0] === 'Sin responsable' ? 1 : strnatcasecmp($a[0], $b[0])));
+    uasort($gente, fn($a, $b) => strnatcasecmp($a[0], $b[0]));
+    $gente = ['0' => ['Sin responsable', 'La lleva quien la tome']] + $gente;
     $optEpica = ['0' => ['Sin épica', 'No suma a ningún ítem del release']];
-    foreach ($epicas as $it) $optEpica[(string)(int)$it['id']] = [$it['codigo'] . ' · ' . mb_strimwidth((string)$it['titulo'], 0, 60, '…'), $it['release'] . ' · equipo ' . $it['equipo']];
-    // Sprints: el backlog y los de los releases del proyecto que no pasaron (y el de la historia, si es viejo)
+    foreach ($epicas as $it) $optEpica[(string)(int)$it['id']] = [$it['codigo'] . ' · ' . (string)$it['titulo'], $it['release'] . ' · equipo ' . $it['equipo']];
     $optSprint = ['' => ['Backlog', 'Sin sprint todavía']];
     foreach ($sps as $cod => $s) {
-        if ($s['fin'] < $hoy || !array_intersect($s['releases'], $relsP)) continue;
+        if (($s['fin'] < $hoy && $cod !== $h['sprint']) || !array_intersect($s['releases'], $relsP)) continue;
         $optSprint[$cod] = [$cod . ' · ' . rlF($s['inicio']) . ' → ' . rlF($s['fin']), ($cod === $act ? 'En curso · ' : '') . implode(', ', $s['releases'])];
     }
-    $optEstado = array_map(fn($v) => $v[0], Backlog::ESTADOS);
-    $tareasOps = [];
+    if ($h['sprint'] !== '' && !isset($optSprint[$h['sprint']])) $optSprint[$h['sprint']] = [$h['sprint'] . ' (ya pasó)', ''];
     $finales = Catalogo::estadosFinales();
     $ts = $x['tareas'];
     usort($ts, fn($a, $b) => [in_array($a['estado'] ?? '', $finales, true), -(int)$a['id']] <=> [in_array($b['estado'] ?? '', $finales, true), -(int)$b['id']]);
-    foreach (array_slice($ts, 0, 400) as $t) $tareasOps[(int)$t['id']] = ['#' . (int)$t['id'] . ' ' . mb_strimwidth((string)$t['titulo'], 0, 80, '…'), (string)(Catalogo::estadosTarea()[$t['estado'] ?? ''][0] ?? '')];
-    // Lo de cada historia, para llenar el asistente al abrirla
-    $datos = [];
-    foreach ($todas as $h) {
-        $datos[(int)$h['id']] = ['id' => (int)$h['id'], 'codigo' => $h['codigo'], 'titulo' => $h['titulo'], 'como' => $h['como'], 'quiero' => $h['quiero'], 'para' => $h['para'],
-            'escenarios' => array_values((array)$h['escenarios']),
-            // El detalle con formato; el de antes (texto suelto) se pasa a párrafos
-            'notas' => str_contains((string)$h['notas'], '<') ? (string)$h['notas'] : (trim((string)$h['notas']) !== '' ? '<p>' . nl2br(e((string)$h['notas'])) . '</p>' : ''),
-            'item_id' => (int)$h['item_id'], 'sprint' => $h['sprint'], 'estimacion' => $h['estimacion'],
-            'prioridad' => $h['prioridad'], 'estado' => $h['estado'], 'responsable' => (int)$h['responsable'], 'tareas' => $h['tareas'],
-            'adjuntos' => array_map(fn($a) => ['ruta' => (string)$a['ruta'], 'nombre' => (string)$a['nombre'], 'tipo' => (string)($a['tipo'] ?? 'doc')], (array)$h['adjuntos']),
-            'historial' => array_map(fn($ev) => ['fecha' => (string)$ev['fecha'], 'quien' => (string)($miembros[(int)($ev['quien'] ?? 0)]['nombre'] ?? ''), 'texto' => (string)$ev['texto']], array_reverse((array)$h['historial']))];
-    }
-    $pasos = [
-        ['Historia', 'Qué se quiere', 'El título y la historia: como quién, qué quiere y para qué.', 'ds-requerimiento'],
-        ['Criterios', 'Cuándo está lista', 'Los escenarios en Dado · Cuando · Entonces y el detalle con formato.', 'ds-check-doble'],
-        ['Planificación', 'Cuándo y cuánto', 'Su épica, el sprint, la estimación, la prioridad y quién la lleva.', 'ds-reloj'],
-        ['Diagramas y tareas', 'Con qué se hace', 'Sus diagramas de proceso y documentos, y las tareas del proyecto que la cumplen.', 'ds-documento'],
-    ];
+    $tareasOps = [];
+    foreach (array_slice($ts, 0, 400) as $t) $tareasOps[(int)$t['id']] = ['#' . (int)$t['id'] . ' ' . mb_strimwidth((string)$t['titulo'], 0, 90, '…'), (string)(Catalogo::estadosTarea()[$t['estado'] ?? ''][0] ?? '')];
     $est = Backlog::opcionesEstimacion();
+    $urlProy = 'proyecto.php?id=' . $pid . '#vista-sprints';
+    $volver = $nueva ? blUrlHistoria($pid) . '&id=__ID__' : blUrlHistoria($pid, (int)$h['id']);
     ob_start(); ?>
-<dialog id="bl-dlg" class="dlg-meca dlg-wizard bl-dlg">
-  <form id="bl-form" class="dlg-form wz" method="post" action="actions.php" enctype="multipart/form-data" data-puede="<?= $puede ? '1' : '' ?>">
-    <input type="hidden" name="accion" value="bl_historia_guardar"><input type="hidden" name="id" value="0"><input type="hidden" name="proyecto_id" value="<?= $pid ?>">
-    <input type="hidden" name="volver" value="<?= e(($x['url'])([])) ?>"><input type="hidden" name="tareas[]" value="">
-    <?= UI::wizardRiel('ds-requerimiento', 'Historia de usuario', 'Del backlog de ' . (string)$p['nombre'], $pasos) ?>
-    <div class="wz-cuerpo">
-      <header><div><p class="bl-dlg__kick"><span class="bl-dlg__cod" data-bl-ceja></span></p><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>
-        <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><?= rlIco('cerrar', 18) ?></button></header>
-      <section class="wz-panel"><fieldset class="bl-fs">
-        <?= rlCampo('Título', rlInput('name="titulo" maxlength="200" required placeholder="Ej.: Matricularse en línea"')) ?>
-        <?= rlCampo('Como…', rlInput('name="como" maxlength="160" placeholder="estudiante de grado"'), 'Quién la necesita: el rol, no una persona.') ?>
-        <?= rlCampo('Quiero…', rlTexto('quiero', '', 2, 'elegir mis materias y pagar la matrícula desde el portal')) ?>
-        <?= rlCampo('Para…', rlTexto('para', '', 2, 'no tener que ir a la secretaría')) ?>
-      </fieldset></section>
-      <section class="wz-panel"><fieldset class="bl-fs">
-        <div class="mc-field"><span class="mc-field__label">Criterios de aceptación <small>Dado · Cuando · Entonces (Given · When · Then)</small></span>
-          <div class="bl-escs" data-bl-escenarios></div>
-          <button type="button" class="bl-escs__mas" data-bl-esc-mas><?= rlIco('mas', 16) ?> Agregar escenario</button>
-          <div class="mc-field__foot"><span class="mc-field__hint">Cuando todos los escenarios se cumplen, la historia está hecha. Para un «y…», sigue en otra línea del mismo campo.</span></div></div>
-        <div class="mc-field"><span class="mc-field__label">Detalle <small>(reglas del negocio, ejemplos, tablas, enlaces)</small></span>
-          <?= UI::editorRico(['name' => 'notas', 'id' => 'bl-notas', 'placeholder' => 'Escribe o pega aquí: reglas, ejemplos, tablas…']) ?></div>
-      </fieldset></section>
-      <section class="wz-panel"><fieldset class="bl-fs">
-        <?php /* La épica en su fila: su nombre se lee entero */ ?>
-        <?= rlCampo('Épica (ítem del release)', UI::selectDS('item_id', $optEpica, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="item_id"'])) ?>
-        <div class="mc-field"><span class="mc-field__label">Estimación <small>(<?= $conf['escala'] === 'camisa' ? 'talla de camisa' : 'puntos de Fibonacci' ?>)</small></span>
-          <div class="bl-est-ops" role="radiogroup" aria-label="Estimación">
-            <label class="bl-est-op"><input type="radio" name="estimacion" value="" checked><span>—</span></label>
-            <?php foreach ($est as $o): ?><label class="bl-est-op"><input type="radio" name="estimacion" value="<?= e($o) ?>"><span><?= e($o) ?></span></label><?php endforeach; ?>
-            <label class="bl-est-op" data-ds-tip="Hay que conversarla antes de estimar"><input type="radio" name="estimacion" value="?"><span>?</span></label>
-          </div></div>
-        <div class="mc-field"><span class="mc-field__label">Prioridad</span>
-          <div class="bl-est-ops bl-prio-ops" role="radiogroup" aria-label="Prioridad">
-            <?php foreach (Backlog::PRIORIDADES as $k => $lbl): ?>
-            <label class="bl-est-op"><input type="radio" name="prioridad" value="<?= $k ?>"<?= $k === 'media' ? ' checked' : '' ?>><span><?= blPrio($k) ?><?= e($lbl) ?></span></label>
-            <?php endforeach; ?>
-          </div></div>
-        <div class="rl-form-grid rl-form-grid--2">
-          <?= rlCampo('Sprint', UI::selectDS('sprint', $optSprint, '', ['tam' => 'md', 'attrs' => 'data-bl-campo="sprint"'])) ?>
-          <?= rlCampo('Estado', UI::selectDS('estado', $optEstado, 'por_hacer', ['tam' => 'md', 'attrs' => 'data-bl-campo="estado"'])) ?>
+<form class="bl-hu" method="post" action="actions.php" enctype="multipart/form-data" data-bl-form data-puede="<?= $puede ? '1' : '' ?>">
+  <input type="hidden" name="accion" value="bl_historia_guardar"><input type="hidden" name="id" value="<?= (int)$h['id'] ?>"><input type="hidden" name="proyecto_id" value="<?= $pid ?>">
+  <input type="hidden" name="volver" value="<?= e($volver) ?>"><input type="hidden" name="tareas[]" value="">
+  <header class="bl-hu__cab">
+    <a class="rs-boton rs-boton--icono" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
+    <div class="bl-hu__tit"><span class="bl-dlg__cod"><?= $nueva ? 'Nueva historia' : e($h['codigo']) ?></span>
+      <span class="bl-hu__proy"><?= e((string)$p['nombre']) ?><?= !$nueva ? ' · ' . blEstado((string)$h['estado']) : '' ?></span></div>
+    <?php if ($puede): ?><button type="submit" class="rs-boton rs-boton--primario"><?= UI::icono('ds-check') ?><span><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
+  </header>
+  <fieldset class="bl-fs bl-hu__grid"<?= $puede ? '' : ' disabled' ?>>
+    <div class="bl-hu__col">
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Historia</h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <?= rlCampo('Título', rlInput('name="titulo" maxlength="200" required placeholder="Ej.: Matricularse en línea" value="' . e((string)$h['titulo']) . '"')) ?>
+          <div class="rl-form-grid rl-form-grid--2">
+            <?= rlCampo('Como…', rlInput('name="como" maxlength="160" placeholder="estudiante de grado" value="' . e((string)$h['como']) . '"'), 'Quién la necesita: el rol, no una persona.') ?>
+            <?= rlCampo('Para…', rlTexto('para', (string)$h['para'], 2, 'no tener que ir a la secretaría')) ?>
+          </div>
+          <?= rlCampo('Quiero…', rlTexto('quiero', (string)$h['quiero'], 2, 'elegir mis materias y pagar la matrícula desde el portal')) ?>
         </div>
-        <?= rlCampo('Responsable', UI::selectDS('responsable', $gente, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="responsable"'])) ?>
-      </fieldset></section>
-      <section class="wz-panel"><fieldset class="bl-fs">
-        <div class="mc-field"><span class="mc-field__label">Diagramas de proceso y documentos</span>
-          <ul class="bl-adj" data-bl-adj></ul>
-          <div class="bl-solo-edita"><?= UI::archivo(['name' => 'adjuntos[]', 'multiple' => true, 'variante' => 'zona', 'accept' => '.png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.xlsx,.pptx,.doc,.xls,.ppt,.csv,.txt',
-            'ayuda' => 'Imágenes (BPMN, flujos), PDF, Word, Excel o PowerPoint · máx 15 MB cada uno', 'maxMB' => 15]) ?></div></div>
-        <?= rlCampo('Tareas del proyecto que la cumplen', rlMulti('tareas[]', $tareasOps, [], 'Buscar tarea…')) ?>
-        <div class="bl-solo-edita"><?= rlCampo('Crear tareas nuevas', rlTexto('tareas_nuevas', '', 3, "Una por línea. Ej.:\nPantalla de selección de materias\nIntegrar el pago con el banco"),
-            'Se crean en este proyecto para el responsable de la historia, con las fechas de su sprint, y quedan en esta lista.') ?></div>
-        <details class="bl-hist" data-bl-hist-caja hidden><summary><?= rlIco('reloj', 16) ?> Lo que pasó con ella</summary><ol data-bl-hist></ol></details>
-      </fieldset>
-        <?php if ($puede): ?><button type="button" class="bl-borrar" data-bl-borrar hidden><?= rlIco('eliminar', 16) ?> Borrar esta historia</button><?php endif; ?>
       </section>
-      <div class="wz-pie">
-        <span class="wz-contador"></span>
-        <div class="wz-acciones">
-          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><?= rlIco('chevron-izq', 16) ?> Atrás</button>
-          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <?= rlIco('chevron-der', 16) ?></button>
-          <?php if ($puede): ?><button type="submit" class="btn-primary btn-meca wz-guardar"><?= rlIco('check', 16) ?> Guardar historia</button>
-          <?php else: ?><button type="button" class="btn-outline btn-meca btn-neutro wz-guardar" data-cerrar-dlg>Cerrar</button><?php endif; ?>
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Criterios de aceptación <small class="bl-hu__sub">Dado · Cuando · Entonces (Given · When · Then)</small></h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <div class="bl-escs" data-bl-escenarios>
+            <?php foreach (($h['escenarios'] ?: [[]]) as $n => $e) echo blEscenario((array)$e, (int)$n); ?>
+          </div>
+          <?php if ($puede): ?><button type="button" class="bl-escs__mas" data-bl-esc-mas><?= rlIco('mas', 16) ?> Agregar escenario</button><?php endif; ?>
+          <p class="bl-hu__ayuda">Cuando todos los escenarios se cumplen, la historia está hecha. Para un «y…», sigue en otra línea del mismo campo.</p>
         </div>
-      </div>
+      </section>
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Detalle <small class="bl-hu__sub">reglas del negocio, ejemplos, tablas, enlaces</small></h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo"><?= UI::editorRico(['name' => 'notas', 'id' => 'bl-notas', 'valor' => $notas, 'placeholder' => 'Escribe o pega aquí: reglas, ejemplos, tablas…']) ?></div>
+      </section>
     </div>
-  </form>
-  <script type="application/json" id="bl-datos"><?= json_encode(['historias' => $datos], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
-</dialog>
+    <div class="bl-hu__col">
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Planificación</h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <?= rlCampo('Épica (ítem del release)', UI::selectDS('item_id', $optEpica, (string)(int)$h['item_id'], ['tam' => 'md', 'buscar' => true])) ?>
+          <div class="rl-form-grid rl-form-grid--2">
+            <?= rlCampo('Sprint', UI::selectDS('sprint', $optSprint, (string)$h['sprint'], ['tam' => 'md'])) ?>
+            <?= rlCampo('Estado', UI::selectDS('estado', array_map(fn($v) => $v[0], Backlog::ESTADOS), (string)$h['estado'], ['tam' => 'md'])) ?>
+          </div>
+          <div class="mc-field"><span class="mc-field__label">Estimación <small>(<?= $conf['escala'] === 'camisa' ? 'talla de camisa' : 'puntos de Fibonacci' ?>)</small></span>
+            <div class="bl-est-ops" role="radiogroup" aria-label="Estimación">
+              <?php foreach (array_merge([''], $est, ['?']) as $o): ?>
+              <label class="bl-est-op"<?= $o === '?' ? ' data-ds-tip="Hay que conversarla antes de estimar"' : '' ?>><input type="radio" name="estimacion" value="<?= e($o) ?>"<?= (string)$h['estimacion'] === $o ? ' checked' : '' ?>><span><?= $o === '' ? '—' : e($o) ?></span></label>
+              <?php endforeach; ?>
+            </div></div>
+          <div class="mc-field"><span class="mc-field__label">Prioridad</span>
+            <div class="bl-est-ops bl-prio-ops" role="radiogroup" aria-label="Prioridad">
+              <?php foreach (Backlog::PRIORIDADES as $k => $lbl): ?>
+              <label class="bl-est-op"><input type="radio" name="prioridad" value="<?= $k ?>"<?= $h['prioridad'] === $k ? ' checked' : '' ?>><span><?= blPrio($k) ?><?= e($lbl) ?></span></label>
+              <?php endforeach; ?>
+            </div></div>
+          <?= rlCampo('Responsable', UI::selectDS('responsable', $gente, (string)(int)$h['responsable'], ['tam' => 'md', 'buscar' => true])) ?>
+        </div>
+      </section>
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Diagramas y documentos</h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <ul class="bl-adj">
+            <?php foreach ((array)$h['adjuntos'] as $a): $img = ($a['tipo'] ?? '') === 'img'; ?>
+            <li class="bl-adj__item"><a href="<?= e((string)$a['ruta']) ?>" target="_blank" rel="noopener">
+              <?= $img ? '<img src="' . e((string)$a['ruta']) . '" alt="" loading="lazy">' : '<span class="bl-adj__doc">' . e(strtoupper(pathinfo((string)$a['nombre'], PATHINFO_EXTENSION) ?: 'doc')) . '</span>' ?>
+              <span><?= e((string)$a['nombre']) ?></span></a>
+              <?php if ($puede): ?><label class="bl-adj__quitar"><input type="checkbox" name="quitar_adjuntos[]" value="<?= e((string)$a['ruta']) ?>"> Quitar</label><?php endif; ?></li>
+            <?php endforeach; ?>
+            <?php if (!$h['adjuntos']): ?><li class="bl-adj__vacio"><?= $puede ? 'Todavía no tiene diagramas ni documentos.' : 'Sin diagramas ni documentos.' ?></li><?php endif; ?>
+          </ul>
+          <?php if ($puede): ?><?= UI::archivo(['name' => 'adjuntos[]', 'multiple' => true, 'variante' => 'zona', 'accept' => '.png,.jpg,.jpeg,.webp,.gif,.pdf,.docx,.xlsx,.pptx,.doc,.xls,.ppt,.csv,.txt',
+            'ayuda' => 'Imágenes (BPMN, flujos), PDF, Word, Excel o PowerPoint · máx 15 MB cada uno', 'maxMB' => 15]) ?><?php endif; ?>
+        </div>
+      </section>
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Tareas que la cumplen</h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <?= rlMulti('tareas[]', $tareasOps, (array)$h['tareas'], 'Buscar tarea…', !$puede) ?>
+          <?php if ($puede): ?><?= rlCampo('Crear tareas nuevas', rlTexto('tareas_nuevas', '', 3, "Una por línea. Ej.:\nPantalla de selección de materias\nIntegrar el pago con el banco"),
+            'Se crean en este proyecto para el responsable de la historia, con las fechas de su sprint.') ?><?php endif; ?>
+        </div>
+      </section>
+      <?php if (!$nueva && $h['historial']): ?>
+      <section class="rl-pan">
+        <header class="rl-pan__cab"><h3>Lo que pasó con ella</h3></header>
+        <div class="rl-pan__cuerpo bl-hu__cuerpo"><ol class="bl-hu__hist">
+          <?php foreach (array_reverse((array)$h['historial']) as $ev): ?>
+          <li><b><?= e((string)$ev['texto']) ?></b><small><?= e(trim((string)$ev['fecha'] . ' · ' . (string)($miembros[(int)($ev['quien'] ?? 0)]['nombre'] ?? ''), ' ·')) ?></small></li>
+          <?php endforeach; ?>
+        </ol></div>
+      </section>
+      <?php endif; ?>
+    </div>
+  </fieldset>
+  <?php if ($puede): ?>
+  <footer class="bl-hu__pie">
+    <a class="mc-btn mc-btn--ghost" href="<?= e($urlProy) ?>"><span class="mc-btn__label">Volver</span></a>
+    <?php if (!$nueva): ?><button type="button" class="mc-btn mc-btn--ghost rl-btn-peligro" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>"><?= rlIco('eliminar', 18) ?><span class="mc-btn__label">Borrar</span></button><?php endif; ?>
+    <button type="submit" class="mc-btn mc-btn--primary"><?= rlIco('check', 18) ?><span class="mc-btn__label"><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button>
+  </footer>
+  <?php endif; ?>
+</form>
     <?php
     return (string)ob_get_clean();
 }

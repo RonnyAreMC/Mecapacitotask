@@ -1,0 +1,38 @@
+<?php
+/**
+ * Una historia de usuario en su pantalla completa (la abre la pestaña «Sprints»
+ * del proyecto): ?p=ID del proyecto (&id=ID de la historia; sin id, una nueva,
+ * con &sprint=S23 si se creó desde un sprint). La arman su PO, su Scrum Master
+ * y el administrador; los demás del proyecto la ven. El formulario está en
+ * lib/backlog_ui.php (blFormHistoria) y se guarda con bl_historia_guardar.
+ */
+require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/Releases.php';
+require_once __DIR__ . '/lib/Backlog.php';
+require_once __DIR__ . '/lib/releases_ui.php';
+require_once __DIR__ . '/lib/backlog_ui.php';
+
+$pid = (int)($_GET['p'] ?? 0);
+$proyecto = (new ProyectoRepo())->buscar($pid);
+if (!$proyecto || !puedeVerProyecto($pid)) redirigir('index.php', 'Ese proyecto no está disponible.', 'error');
+$id = (int)($_GET['id'] ?? 0);
+$historia = $id > 0 ? Backlog::historia($id) : null;
+if ($id > 0 && (!$historia || (int)$historia['proyecto_id'] !== $pid)) redirigir('proyecto.php?id=' . $pid . '#vista-sprints', 'Esa historia ya no existe.', 'error');
+$puede = Backlog::puede($pid);
+if (!$historia && !$puede) redirigir('proyecto.php?id=' . $pid . '#vista-sprints', 'Las historias las crean el PO del proyecto, su Scrum Master o el administrador.', 'error');
+$sprint = (string)($_GET['sprint'] ?? '');
+if ($sprint !== '' && !isset(Backlog::sprints()[$sprint])) $sprint = '';
+
+UI::inicio(($historia ? $historia['codigo'] . ' · ' : 'Nueva historia · ') . $proyecto['nombre'], 'proyecto-' . $pid);
+?>
+<div class="ds bl-hu-pag">
+  <nav class="mc-crumbs rl-migas" aria-label="Estás en">
+    <a class="mc-crumbs__link" href="proyecto.php?id=<?= $pid ?>"><?= e((string)$proyecto['nombre']) ?></a><span class="mc-crumbs__sep">/</span>
+    <a class="mc-crumbs__link" href="proyecto.php?id=<?= $pid ?>#vista-sprints">Sprints</a><span class="mc-crumbs__sep">/</span>
+    <span class="mc-crumbs__cur"><?= $historia ? e($historia['codigo']) : 'Nueva historia' ?></span>
+  </nav>
+  <?= blFormHistoria(['proyecto' => $proyecto, 'miembros' => (new MiembroRepo())->mapa(), 'tareas' => (new TareaRepo())->delProyecto($pid),
+                      'puede' => $puede, 'historia' => $historia, 'sprint' => $sprint]) ?>
+</div>
+<script src="<?= asset('assets/backlog.js') ?>" defer></script>
+<?php UI::fin(); ?>

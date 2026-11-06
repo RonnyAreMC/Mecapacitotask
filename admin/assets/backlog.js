@@ -1,25 +1,19 @@
 /* =========================================================
-   Backlog estilo Jira (pestaña «Sprints» del proyecto, lib/backlog_ui.php):
-   abrir una historia en su asistente (nueva, para editar o solo para verla),
-   guardarla con sus diagramas y tareas, y arrastrar: en el backlog, entre
-   sprints o de posición; en el tablero, entre columnas (su estado).
+   Backlog estilo Jira (lib/backlog_ui.php): la pestaña «Sprints» del proyecto
+   y la pantalla de cada historia (historia.php).
+   - Historia: los escenarios Dado · Cuando · Entonces (sumar, quitar,
+     renumerar, que crezcan al escribir), las tareas con buscador y borrar.
+   - Pestaña: el release en una lista y arrastrar: en el backlog, entre
+     sprints o de posición; en el tablero, entre columnas (su estado).
    Las acciones son bl_* de actions.php; lo editan el PO, el SM y el admin.
    ========================================================= */
 (() => {
-  const raiz = document.querySelector('[data-bl]');
-  if (!raiz) return;
-  const puede = raiz.dataset.puede === '1';
-  const dlg = document.getElementById('bl-dlg');
-  const form = document.getElementById('bl-form');
-  let datos = {};
-  try { datos = JSON.parse((document.getElementById('bl-datos') || {}).textContent || '{}').historias || {}; } catch (_) { datos = {}; }
   const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const toast = (m, t) => { if (window.MC && MC.toast) MC.toast(m, t || 'success'); };
   const plano = (s) => String(s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-
-  async function post(datosPost) {
-    const fd = datosPost instanceof FormData ? datosPost : new FormData();
-    if (!(datosPost instanceof FormData)) Object.entries(datosPost).forEach(([k, v]) => fd.set(k, v == null ? '' : v));
+  async function post(datos) {
+    const fd = new FormData();
+    Object.entries(datos).forEach(([k, v]) => fd.set(k, v == null ? '' : v));
     fd.set('ajax', '1');
     let j = null;
     try {
@@ -29,50 +23,33 @@
     if (!j || !j.ok) throw new Error(j ? (j.error || 'No se pudo.') : 'No se pudo: revisa tu conexión.');
     return j;
   }
-  const recargar = () => setTimeout(() => location.reload(), 500);
 
-  /* ---------- El release elegido (lista de arriba): la pestaña se abre en él ---------- */
-  raiz.querySelector('[data-bl-rel]')?.addEventListener('change', (e) => {
-    const u = e.target.dataset.url || '';
-    if (u) location.href = u.replace('__R__', encodeURIComponent(e.target.value));
-  });
-
-  /* ---------- Criterios de aceptación: escenarios Dado · Cuando · Entonces ---------- */
+  /* ---------- La historia: escenarios Dado · Cuando · Entonces ---------- */
+  const form = document.querySelector('[data-bl-form]');
   const cajaEsc = form && form.querySelector('[data-bl-escenarios]');
-  // Que se vea todo lo escrito: medido si está a la vista; si el paso está oculto, por sus líneas
+  // Que se vea todo lo escrito (medido si está a la vista; si no, por sus líneas)
   const crecer = (t) => {
     t.rows = Math.min(8, Math.max(1, (t.value.match(/\n/g) || []).length + 1));
     if (!t.offsetParent) { t.style.height = ''; return; }
     t.style.height = 'auto';
     t.style.height = Math.min(t.scrollHeight + 2, 260) + 'px';
   };
-  const EJ = { dado: 'que el estudiante tiene la matrícula pagada', cuando: 'elige sus materias', entonces: 've solo las que puede tomar\ny le llega el comprobante al correo' };
-  function filaEsc(e, n) {
-    const campo = (k, lbl, en) => '<label class="bl-esc__fila"><span class="bl-esc__k">' + lbl + '<small>' + en + '</small></span>'
-      + '<textarea class="bl-esc__t" rows="1" maxlength="1500" data-k="' + k + '" placeholder="' + esc(n === 0 ? EJ[k] : '') + '">' + esc(e[k] || '') + '</textarea></label>';
-    return '<div class="bl-esc" data-bl-esc><div class="bl-esc__cab"><span class="bl-esc__n">Escenario ' + (n + 1) + '</span>'
-      + '<input class="bl-esc__nom" data-k="nombre" maxlength="160" placeholder="Nombre (opcional)" value="' + esc(e.nombre || '') + '">'
-      + '<button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-bl-esc-quitar aria-label="Quitar el escenario" data-ds-tip="Quitar el escenario">'
-      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
-      + campo('dado', 'Dado', 'Given') + campo('cuando', 'Cuando', 'When') + campo('entonces', 'Entonces', 'Then') + '</div>';
-  }
+  const filaEsc = (n) => '<div class="bl-esc" data-bl-esc><div class="bl-esc__cab"><span class="bl-esc__n">Escenario ' + (n + 1) + '</span>'
+    + '<input class="bl-esc__nom" data-k="nombre" maxlength="160" placeholder="Nombre (opcional)">'
+    + '<button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-bl-esc-quitar aria-label="Quitar el escenario" data-ds-tip="Quitar el escenario">'
+    + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
+    + [['dado', 'Dado', 'Given'], ['cuando', 'Cuando', 'When'], ['entonces', 'Entonces', 'Then']].map(([k, l, en]) =>
+      '<label class="bl-esc__fila"><span class="bl-esc__k">' + l + '<small>' + en + '</small></span><textarea class="bl-esc__t" rows="1" maxlength="1500" data-k="' + k + '"></textarea></label>').join('')
+    + '</div>';
   // Los nombres van por posición (escenarios[0][dado]…): se rehacen al sumar o quitar
-  function numerar() {
-    if (!cajaEsc) return;
-    cajaEsc.querySelectorAll('[data-bl-esc]').forEach((el, n) => {
-      el.querySelector('.bl-esc__n').textContent = 'Escenario ' + (n + 1);
-      el.querySelectorAll('[data-k]').forEach((c) => { c.name = 'escenarios[' + n + '][' + c.dataset.k + ']'; });
-    });
-  }
-  function pintarEsc(lista) {
-    if (!cajaEsc) return;
-    cajaEsc.innerHTML = (lista && lista.length ? lista : [{}]).map(filaEsc).join('');
-    numerar();
-    cajaEsc.querySelectorAll('textarea').forEach(crecer);
-  }
+  const numerar = () => cajaEsc.querySelectorAll('[data-bl-esc]').forEach((el, n) => {
+    el.querySelector('.bl-esc__n').textContent = 'Escenario ' + (n + 1);
+    el.querySelectorAll('[data-k]').forEach((c) => { c.name = 'escenarios[' + n + '][' + c.dataset.k + ']'; });
+  });
   if (cajaEsc) {
+    cajaEsc.querySelectorAll('textarea').forEach(crecer);
     form.querySelector('[data-bl-esc-mas]')?.addEventListener('click', () => {
-      cajaEsc.insertAdjacentHTML('beforeend', filaEsc({}, cajaEsc.children.length));
+      cajaEsc.insertAdjacentHTML('beforeend', filaEsc(cajaEsc.children.length));
       numerar();
       cajaEsc.lastElementChild.querySelector('textarea').focus();
     });
@@ -80,135 +57,60 @@
       const q = e.target.closest('[data-bl-esc-quitar]');
       if (!q) return;
       q.closest('[data-bl-esc]').remove();
-      if (!cajaEsc.children.length) pintarEsc([]); else numerar();
+      if (!cajaEsc.children.length) cajaEsc.insertAdjacentHTML('beforeend', filaEsc(0));
+      numerar();
     });
     cajaEsc.addEventListener('input', (e) => { if (e.target.matches('textarea')) crecer(e.target); });
-    // Al pasar de paso (el de criterios se ve recién ahí), se miden de nuevo
-    form.addEventListener('click', () => requestAnimationFrame(() => cajaEsc.querySelectorAll('textarea').forEach((t) => { if (t.offsetParent) crecer(t); })));
+    addEventListener('resize', () => cajaEsc.querySelectorAll('textarea').forEach(crecer));
   }
-
-  /* ---------- El asistente ---------- */
-  const fijarSelect = (name, valor) => {
-    const sel = form.querySelector('select[name="' + name + '"]');
-    if (!sel) return;
-    sel.value = String(valor);
-    if (sel.selectedIndex < 0) sel.selectedIndex = 0;
-    if (window.DS && DS.refrescar && sel.closest('.mc-select')) DS.refrescar(sel);
-  };
-  const fijarRadio = (name, valor) => {
-    const r = form.querySelector('input[name="' + name + '"][value="' + CSS.escape(String(valor)) + '"]') || form.querySelector('input[name="' + name + '"]');
-    if (r) r.checked = true;
-  };
-  function llenar(h, sprint) {
-    form.reset();
-    const nueva = !h;
-    h = h || { id: 0, titulo: '', como: '', quiero: '', para: '', escenarios: [], notas: '', item_id: 0, sprint: sprint || '', estimacion: '', prioridad: 'media', estado: 'por_hacer', responsable: 0, tareas: [], adjuntos: [], historial: [] };
-    form.querySelector('[name="id"]').value = h.id;
-    ['titulo', 'como', 'quiero', 'para'].forEach((k) => { const c = form.querySelector('[name="' + k + '"]'); if (c) c.value = h[k] || ''; });
-    pintarEsc(h.escenarios || []);
-    if (window.MecaRT) MecaRT.set('bl-notas', h.notas || '');
-    fijarSelect('item_id', h.item_id || 0);
-    // Un sprint que ya pasó no está en la lista: se agrega para no perderlo
-    const selS = form.querySelector('select[name="sprint"]');
-    if (selS && h.sprint && ![...selS.options].some((o) => o.value === h.sprint)) selS.insertAdjacentHTML('beforeend', '<option value="' + esc(h.sprint) + '">' + esc(h.sprint) + ' (ya pasó)</option>');
-    fijarSelect('sprint', h.sprint || '');
-    fijarSelect('estado', h.estado || 'por_hacer');
-    fijarSelect('responsable', h.responsable || 0);
-    fijarRadio('estimacion', h.estimacion || '');
-    fijarRadio('prioridad', h.prioridad || 'media');
-    const ts = new Set((h.tareas || []).map(Number));
-    form.querySelectorAll('input[name="tareas[]"][type="checkbox"]').forEach((c) => {
-      c.checked = ts.has(Number(c.value));
-      c.closest('.rl-multi__op')?.classList.toggle('is-on', c.checked);
-    });
-    const m = form.querySelector('[data-rl-multi]');
-    const n = m && m.querySelector('[data-rl-multi-n]');
-    if (n) n.textContent = ts.size + ' elegido(s)';
-    // Sus archivos: se abren en otra pestaña; quien edita puede quitarlos
-    const adj = form.querySelector('[data-bl-adj]');
-    adj.innerHTML = (h.adjuntos || []).map((a) => '<li class="bl-adj__item"><a href="' + esc(a.ruta) + '" target="_blank" rel="noopener">'
-      + (a.tipo === 'img' ? '<img src="' + esc(a.ruta) + '" alt="" loading="lazy">' : '<span class="bl-adj__doc">' + esc((a.nombre.split('.').pop() || 'doc').toUpperCase()) + '</span>')
-      + '<span>' + esc(a.nombre) + '</span></a>'
-      + (puede ? '<label class="bl-adj__quitar"><input type="checkbox" name="quitar_adjuntos[]" value="' + esc(a.ruta) + '"> Quitar</label>' : '') + '</li>').join('')
-      || '<li class="bl-adj__vacio">' + (puede ? 'Todavía no tiene diagramas ni documentos.' : 'Sin diagramas ni documentos.') + '</li>';
-    // Lo que pasó con ella
-    const caja = form.querySelector('[data-bl-hist-caja]');
-    const hist = form.querySelector('[data-bl-hist]');
-    if (caja && hist) {
-      caja.hidden = nueva || !(h.historial || []).length;
-      hist.innerHTML = (h.historial || []).map((ev) => '<li><b>' + esc(ev.texto) + '</b><small>' + esc([ev.fecha, ev.quien].filter(Boolean).join(' · ')) + '</small></li>').join('');
-    }
-    const ceja = form.querySelector('[data-bl-ceja]');
-    if (ceja) ceja.textContent = nueva ? 'Nueva historia' : h.codigo;
-    const borrar = form.querySelector('[data-bl-borrar]');
-    if (borrar) borrar.hidden = nueva;
+  if (form && form.dataset.puede !== '1') {
     // Quien no la gestiona, solo la ve (el editor con formato también queda quieto)
-    form.querySelectorAll('.bl-fs').forEach((fs) => { fs.disabled = !puede; });
-    form.querySelectorAll('.rt-area').forEach((a) => { a.contentEditable = puede ? 'true' : 'false'; });
-    form.querySelectorAll('.rt-barra, [data-bl-esc-mas], [data-bl-esc-quitar]').forEach((x) => { x.hidden = !puede; });
-    form.querySelectorAll('.bl-solo-edita').forEach((x) => { x.hidden = !puede; });
+    form.querySelectorAll('.rt-area').forEach((a) => { a.contentEditable = 'false'; });
+    form.querySelectorAll('.rt-barra').forEach((x) => { x.hidden = true; });
   }
-  const abrir = (h, sprint) => { if (!dlg) return; llenar(h, sprint); dlg.showModal(); };
-  document.addEventListener('click', (e) => {
-    const nueva = e.target.closest('[data-bl-nueva]');
-    if (nueva) { e.preventDefault(); abrir(null, nueva.dataset.sprint || ''); return; }
-    const ab = e.target.closest('[data-bl-abrir]');
-    if (ab) { e.preventDefault(); const h = datos[ab.dataset.blAbrir]; if (h) abrir(h); }
+  // Borrar la historia (sus tareas siguen en el proyecto)
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-bl-borrar-hu]');
+    if (!b) return;
+    if (!confirm('¿Borrar la historia ' + b.dataset.cod + '? Sus tareas siguen en el proyecto.')) return;
+    try { const j = await post({ accion: 'bl_historia_borrar', id: b.dataset.blBorrarHu }); toast(j.mensaje); setTimeout(() => { location.href = b.dataset.volver; }, 400); }
+    catch (err) { toast(err.message, 'error'); }
   });
-
-  if (form && puede) {
-    form.addEventListener('submit', async (e) => {
-      if (e.defaultPrevented) return;   // el asistente por pasos lo frenó (avanzar o un campo pendiente)
-      e.preventDefault();
-      const btn = e.submitter || form.querySelector('[type="submit"]');
-      if (btn) btn.disabled = true;
-      try {
-        const j = await post(new FormData(form));
-        toast(j.mensaje || 'Guardada.');
-        dlg.close();
-        recargar();
-      } catch (err) { toast(err.message, 'error'); if (btn) btn.disabled = false; }
-    });
-    form.querySelector('[data-bl-borrar]')?.addEventListener('click', async () => {
-      const id = form.querySelector('[name="id"]').value;
-      const h = datos[id];
-      if (!h || !confirm('¿Borrar la historia ' + h.codigo + ' «' + h.titulo + '»? Sus tareas siguen en el proyecto.')) return;
-      try { const j = await post({ accion: 'bl_historia_borrar', id }); toast(j.mensaje); dlg.close(); recargar(); } catch (err) { toast(err.message, 'error'); }
-    });
-  }
-
-  /* ---------- Listas de casillas con buscador (como las de Releases) ---------- */
+  // Las tareas: buscador y casillas (como en Releases)
   document.addEventListener('input', (e) => {
-    const q = e.target.closest && e.target.closest('#bl-form [data-rl-multi-q]');
+    const q = e.target.closest && e.target.closest('[data-bl-form] [data-rl-multi-q]');
     if (!q) return;
     const t = plano(q.value.trim());
     q.closest('[data-rl-multi]').querySelectorAll('.rl-multi__op').forEach((op) => { op.hidden = t !== '' && !plano(op.dataset.buscar).includes(t); });
   });
   document.addEventListener('change', (e) => {
     const c = e.target;
-    if (!(c instanceof HTMLInputElement) || c.type !== 'checkbox' || !c.closest('#bl-form .rl-multi__op')) return;
+    if (!(c instanceof HTMLInputElement) || c.type !== 'checkbox' || !c.closest('[data-bl-form] .rl-multi__op')) return;
     c.closest('.rl-multi__op').classList.toggle('is-on', c.checked);
     const m = c.closest('[data-rl-multi]');
     const n = m.querySelector('[data-rl-multi-n]');
     if (n) n.textContent = m.querySelectorAll('.rl-multi__op input:checked').length + ' elegido(s)';
   });
 
-  if (!puede) return;
+  /* ---------- La pestaña Sprints ---------- */
+  const raiz = document.querySelector('[data-bl]');
+  if (!raiz) return;
+  raiz.querySelector('[data-bl-rel]')?.addEventListener('change', (e) => {
+    const u = e.target.dataset.url || '';
+    if (u) location.href = u.replace('__R__', encodeURIComponent(e.target.value));
+  });
+  if (raiz.dataset.puede !== '1') return;
 
-  /* ---------- Arrastrar ---------- */
   let arrastrada = null;
-  const totales = (cont, cuenta, puntos, item) => {
-    const items = [...cont.querySelectorAll(item)];
+  const totales = (cont, sel) => {
+    const items = [...cont.querySelectorAll(sel)];
     const sec = cont.closest('[data-bl-sec], [data-bl-col]');
     if (!sec) return;
-    const n = sec.querySelector(cuenta);
-    const pts = sec.querySelector(puntos);
+    const n = sec.querySelector('[data-bl-n]');
+    const pts = sec.querySelector('[data-bl-pts]');
     const suma = items.reduce((s, x) => s + (parseInt(x.dataset.pts, 10) || 0), 0);
     if (n) n.textContent = sec.matches('[data-bl-col]') ? items.length : items.length + ' historia(s)';
-    if (pts) {
-      const b = pts.querySelector('b');
-      if (b) b.textContent = suma; else pts.textContent = suma + ' pts';
-    }
+    if (pts) { const b = pts.querySelector('b'); if (b) b.textContent = suma; else pts.textContent = suma + ' pts'; }
     const vacio = cont.querySelector('.bl-lista__vacio, .bl-col__vacio');
     if (vacio) vacio.hidden = items.length > 0;
   };
@@ -235,11 +137,9 @@
     e.preventDefault();
     document.querySelectorAll('.is-destino').forEach((x) => { if (x !== cont) x.classList.remove('is-destino'); });
     cont.classList.add('is-destino');
-    // Una sección plegada se abre al pasar por encima
     const det = cont.closest('details');
     if (det && !det.open) det.open = true;
-    const sel = esFila ? '.bl-fila' : '.bl-card';
-    const ref = despuesDe(cont, e.clientY, sel);
+    const ref = despuesDe(cont, e.clientY, esFila ? '.bl-fila' : '.bl-card');
     const vacio = cont.querySelector('.bl-lista__vacio, .bl-col__vacio');
     if (ref) cont.insertBefore(arrastrada, ref); else cont.insertBefore(arrastrada, vacio || null);
   });
@@ -251,7 +151,7 @@
     if (!cont) return;
     e.preventDefault();
     const sel = esFila ? '.bl-fila' : '.bl-card';
-    document.querySelectorAll(esFila ? '[data-bl-lista]' : '[data-bl-cards]').forEach((c) => totales(c, '[data-bl-n]', '[data-bl-pts]', sel));
+    document.querySelectorAll(esFila ? '[data-bl-lista]' : '[data-bl-cards]').forEach((c) => totales(c, sel));
     const d = { accion: 'bl_historia_mover', id: el.dataset.blId };
     if (esFila) {
       d.sprint = cont.dataset.sprint || '';
@@ -262,7 +162,7 @@
     } else {
       d.estado = cont.closest('[data-bl-col]').dataset.estado;
     }
-    try { const j = await post(d); toast(j.mensaje); if (datos[el.dataset.blId] && j.historia) Object.assign(datos[el.dataset.blId], { sprint: j.historia.sprint, estado: j.historia.estado }); }
-    catch (err) { toast(err.message, 'error'); recargar(); }
+    try { const j = await post(d); toast(j.mensaje); }
+    catch (err) { toast(err.message, 'error'); setTimeout(() => location.reload(), 600); }
   });
 })();

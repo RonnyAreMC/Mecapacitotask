@@ -4392,7 +4392,7 @@ switch ($accion) {
                 exit;
             }
             $volver = (string)($_POST['volver'] ?? '');
-            if (!preg_match('#^(proyecto\.php\?id=\d+|releases\.php)(\?[^\s<>"]*|[&\#][^\s<>"]*)?$#', $volver)) $volver = 'index.php';
+            if (!preg_match('#^(proyecto\.php\?id=\d+|releases\.php|historia\.php)(\?[^\s<>"]*|[&\#][^\s<>"]*)?$#', $volver)) $volver = 'index.php';
             redirigir($volver, $msg !== '' ? $msg : ($ok ? 'Listo.' : 'No se pudo.'), $ok ? 'success' : 'error');
         };
         if (!Releases::puedeVer()) $blFin(false, 'No tienes acceso a Releases.');
@@ -4470,6 +4470,8 @@ switch ($accion) {
                     if ($hBl['item_id'] && $hBl['tareas']) {
                         try { Releases::vincularTareas((int)$hBl['item_id'], $hBl['tareas'], $blYo, true); } catch (Throwable $e) { /* la historia ya quedó */ }
                     }
+                    // La pantalla de una historia nueva vuelve a la suya, ya con su número
+                    $_POST['volver'] = str_replace('__ID__', (string)(int)$hBl['id'], (string)($_POST['volver'] ?? ''));
                     $blFin(true, 'Historia ' . $hBl['codigo'] . ($idBl ? ' guardada' : ' creada') . ($creadasBl ? ', con ' . count($creadasBl) . ' tarea(s) nueva(s)' : '') . '.'
                         . ($rechBl ? ' No se subieron (tipo no permitido): ' . implode(', ', $rechBl) . '.' : ''), ['historia' => $hBl]);
             }
