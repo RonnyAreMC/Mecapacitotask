@@ -3791,7 +3791,7 @@ a.rl-tag:hover { background: var(--surface-hover); color: var(--primary-ink); }
 .rl-barra { position: relative; display: block; flex: 1 1 auto; min-width: 48px; height: 8px; border-radius: 999px; background: var(--progress-track); }
 .rl-barra__fill { position: absolute; inset: 0 auto 0 0; width: var(--p); border-radius: inherit; background: var(--primary);
   transform-origin: left center; animation: mc-data-fill .9s var(--mc-ease-out) .1s backwards; }
-.rl-barra__esp { position: absolute; top: -4px; bottom: -4px; left: var(--e); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); box-shadow: 0 0 0 2px var(--surface); }
+.rl-barra__esp { position: absolute; top: -4px; bottom: -4px; left: var(--e); width: 3px; margin-left: -1.5px; border-radius: 2px; background: var(--chart-1); box-shadow: 0 0 0 2px var(--surface); }
 .rl-barra--lg { height: 12px; }
 .rl-barra--lg .rl-barra__esp { top: -5px; bottom: -5px; }
 .rl-barra--kpi { height: 10px; margin-top: 2px; }
@@ -3800,7 +3800,7 @@ a.rl-tag:hover { background: var(--surface-hover); color: var(--primary-ink); }
 .rl-anillo svg { position: absolute; inset: 0; width: 100%; height: 100%; }
 .rl-anillo__pista { fill: none; stroke: var(--progress-track); stroke-width: 3.4; }
 .rl-anillo__fill { fill: none; stroke: var(--primary); stroke-width: 3.4; stroke-linecap: round; transition: stroke-dasharray .6s var(--mc-ease-out); }
-.rl-anillo__esp { stroke: var(--ink); stroke-width: 1.6; stroke-linecap: round; }
+.rl-anillo__esp { stroke: var(--chart-1); stroke-width: 1.6; stroke-linecap: round; }
 .rl-anillo b { position: relative; color: var(--ink); font: 700 calc(var(--sz) * .26)/1 var(--font-display); letter-spacing: -.02em; }
 .rl-anillo b small { margin-left: 1px; font-size: .55em; font-weight: 600; color: var(--ink-muted); }
 /* Pila de resultados (cumplido, parcial…) */
@@ -6249,3 +6249,6 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .rl-graf--tiempo [data-g-lienzo] { min-height: 230px; margin: 0 -6px; }
 .rl-graf .apexcharts-legend-text { color: var(--ink-muted) !important; font-family: var(--font-sans) !important; }
 .rl-graf .apexcharts-tooltip { font-family: var(--font-sans); }
+.rl-anillo.is-apex { width: var(--sz-apex); height: var(--sz-apex); }
+.rl-anillo.is-apex .apexcharts-datalabel-value { font-family: var(--font-display); letter-spacing: -.02em; }
+.rl-hero__lado:has(.rl-anillo.is-apex) .rl-hero__esp::before { content: ''; display: inline-block; width: 8px; height: 8px; margin-right: 6px; border-radius: 50%; background: var(--chart-1); vertical-align: 1px; }

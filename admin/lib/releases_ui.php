@@ -191,12 +191,16 @@ function rlDona(array $partes, string $centro, string $sub): string
     foreach ($partes as [$n, $k, $lbl]) $h .= '<li class="col-s-' . e($k) . '"><i></i><span>' . e($lbl) . '</span><b class="mc-num">' . (int)$n . '</b></li>';
     return $h . '</ul></div>';
 }
-/** Anillo del % con la marca del esperado (un trazo fino sobre el anillo). */
+/**
+ * Anillo del % con lo esperado hoy. Con ApexCharts (assets/rl-graficos.js) son dos
+ * anillos: lo real por fuera y lo esperado hoy por dentro; sin JS, el SVG con su marca.
+ */
 function rlAnillo(int $pct, int $esp, string $salud, int $px = 72): string
 {
     $pct = max(0, min(100, $pct));
     $esp = max(0, min(100, $esp));
-    return '<span class="rl-anillo rl-s--' . e($salud) . '" style="--sz:' . $px . 'px" role="img" aria-label="' . $pct . ' %; esperado ' . $esp . ' %">'
+    return '<span class="rl-anillo rl-s--' . e($salud) . '" style="--sz:' . $px . 'px" role="img" aria-label="' . $pct . ' %; esperado ' . $esp . ' %"'
+        . ' data-rl-anillo data-pct="' . $pct . '" data-esp="' . $esp . '" data-apex="' . e(asset('assets/apexcharts.min.js')) . '">'
         . '<svg viewBox="0 0 36 36" aria-hidden="true"><circle class="rl-anillo__pista" cx="18" cy="18" r="15.9155"/>'
         . '<circle class="rl-anillo__fill" cx="18" cy="18" r="15.9155" stroke-dasharray="' . $pct . ' 100" transform="rotate(-90 18 18)"/>'
         . ($esp > 0 && $esp < 100 ? '<line class="rl-anillo__esp" x1="18" y1="0.2" x2="18" y2="5.4" transform="rotate(' . round($esp * 3.6, 1) . ' 18 18)"/>' : '')

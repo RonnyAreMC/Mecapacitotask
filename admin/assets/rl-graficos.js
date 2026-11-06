@@ -6,6 +6,8 @@
  *   [data-g=bala]    lo real con la marca de lo esperado hoy (bullet)
  *   [data-g=tareas]  sus tareas: completadas · en curso · por hacer
  *   [data-g=tiempo]  el avance en el tiempo: real, plan y revisiones
+ * El anillo del % de un release ([data-rl-anillo], rlAnillo) pasa a dos anillos:
+ * lo real por fuera y lo esperado hoy por dentro.
  * Mientras no carga (o sin JS) se queda la barra de siempre. ApexCharts se pide
  * una sola vez y solo cuando una tarjeta se ve en pantalla (también si llega
  * después, dentro de un panel). Los colores salen de los tokens del panel, así
@@ -38,7 +40,34 @@
   function ts(f) { var p = f.split('-'); return Date.UTC(+p[0], +p[1] - 1, +p[2]); }
   function fecha(t) { var d = new Date(t); return d.getUTCDate() + ' de ' + MESES[d.getUTCMonth()] + ' de ' + d.getUTCFullYear(); }
 
+  // El anillo del % (cabecera del release): lo real por fuera y lo esperado hoy por dentro
+  function anillo(el) {
+    if (el.__rlGraf) return;
+    el.__rlGraf = true;
+    var pct = +el.getAttribute('data-pct') || 0, esp = +el.getAttribute('data-esp') || 0;
+    apex(el.getAttribute('data-apex')).then(function () {
+      var sz = parseInt(getComputedStyle(el).getPropertyValue('--sz'), 10) || 112, alto = Math.round(sz * 1.3);
+      var real = token(el, '--s', '#2970EB'), meta = token(el, '--chart-1', '#2970EB'), ink = token(el, '--ink', '#1F2A37'), track = token(el, '--progress-track', '#DCE8F0');
+      el.innerHTML = '';
+      el.classList.add('is-apex');
+      el.style.setProperty('--sz-apex', alto + 'px');
+      new ApexCharts(el, {
+        chart: { type: 'radialBar', height: alto, width: alto, sparkline: { enabled: true }, fontFamily: token(document.body, '--font-sans', 'Inter, system-ui, sans-serif'),
+          animations: { enabled: !matchMedia('(prefers-reduced-motion: reduce)').matches, speed: 600 } },
+        series: [pct, esp], labels: ['Real', 'Esperado hoy'], colors: [real, meta],
+        plotOptions: { radialBar: { startAngle: 0, endAngle: 360, hollow: { size: '52%' },
+          track: { background: track, strokeWidth: '100%', margin: 3 },
+          dataLabels: { name: { show: false }, value: { show: true, offsetY: 9, fontSize: Math.round(sz * .24) + 'px', fontWeight: 700, color: ink, formatter: function (v) { return Math.round(v) + '%'; } },
+            total: { show: true, formatter: function () { return pct + '%'; } } } } },
+        stroke: { lineCap: 'round' },
+        tooltip: { enabled: false },
+        states: { hover: { filter: { type: 'none' } } }
+      }).render();
+    }).catch(function () { el.__rlGraf = false; });
+  }
+
   function pintar(sec) {
+    if (sec.matches('[data-rl-anillo]')) return anillo(sec);
     if (sec.__rlGraf) return;
     sec.__rlGraf = true;
     var d;
@@ -47,7 +76,7 @@
       var c = {
         real: token(sec, '--s', '#2970EB'), ink: token(sec, '--ink', '#1F2A37'), muted: token(sec, '--ink-muted', '#64748B'),
         line: token(sec, '--line', '#E2E8F0'), track: token(sec, '--progress-track', '#DCE8F0'), surface: token(sec, '--surface', '#fff'),
-        ok: token(sec, '--chart-2', '#1E9E62'), meta: token(sec, '--chart-3', '#E07F0A'), azul: token(sec, '--primary', '#2970EB'), gris: token(sec, '--line-strong', '#CBD5E1'),
+        ok: token(sec, '--chart-2', '#1E9E62'), meta: token(sec, '--chart-1', '#2970EB'), azul: token(sec, '--primary', '#2970EB'), gris: token(sec, '--line-strong', '#CBD5E1'),
         fuente: token(document.body, '--font-sans', 'Inter, system-ui, sans-serif')
       };
       var base = function (alto) {
@@ -134,7 +163,7 @@
     es.forEach(function (e) { if (e.isIntersecting) { io.unobserve(e.target); pintar(e.target); } });
   }, { rootMargin: '120px' }) : null;
   function buscar(raiz) {
-    (raiz.querySelectorAll ? raiz.querySelectorAll('section[data-rl-graf]') : []).forEach(function (s) {
+    (raiz.querySelectorAll ? raiz.querySelectorAll('section[data-rl-graf], [data-rl-anillo]') : []).forEach(function (s) {
       if (s.__rlVisto) return;
       s.__rlVisto = true;
       io ? io.observe(s) : pintar(s);
@@ -143,7 +172,7 @@
   function iniciar() {
     buscar(document);
     new MutationObserver(function (ms) {
-      ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) { if (n.matches && n.matches('section[data-rl-graf]')) buscar(n.parentNode); else buscar(n); } }); });
+      ms.forEach(function (m) { m.addedNodes.forEach(function (n) { if (n.nodeType === 1) { if (n.matches && n.matches('section[data-rl-graf], [data-rl-anillo]')) buscar(n.parentNode); else buscar(n); } }); });
     }).observe(document.body, { childList: true, subtree: true });
   }
   document.readyState === 'loading' ? document.addEventListener('DOMContentLoaded', iniciar) : iniciar();
