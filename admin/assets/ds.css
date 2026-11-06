@@ -6236,3 +6236,16 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .bl-imp__tabla tr.is-fuera td { opacity: .45; }
 .bl-imp__tabla tr.is-fuera td.bl-imp__c-chk { opacity: 1; }
 @media (max-width: 980px) { .bl-imp__grid { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Avance del ítem con ApexCharts (assets/rl-graficos.js) ---------- */
+.rl-graf { min-width: 0; }
+.rl-graf.is-apex { margin: 0 -6px; }
+.rl-graf--bala.is-apex { min-height: 92px; }
+.rl-graf--tareas.is-apex { min-height: 64px; }
+.rl-graf--tiempo { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; padding-top: 14px; border-top: 1px solid var(--line); }
+.rl-graf--tiempo[hidden] { display: none; }
+.rl-graf__tit { display: flex; align-items: baseline; gap: 8px; margin: 0; color: var(--ink); font-size: .86rem; font-weight: 600; }
+.rl-graf__tit small { color: var(--ink-muted); font-size: .74rem; font-weight: 500; }
+.rl-graf--tiempo [data-g-lienzo] { min-height: 230px; margin: 0 -6px; }
+.rl-graf .apexcharts-legend-text { color: var(--ink-muted) !important; font-family: var(--font-sans) !important; }
+.rl-graf .apexcharts-tooltip { font-family: var(--font-sans); }

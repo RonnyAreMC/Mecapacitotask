@@ -118,6 +118,7 @@ $pintarItem = function (array $it, bool $panel) use ($eqs, $rels, $miembros, $ed
     $dt = (array)($it['tareas_resumen'] ?? []) + ['total' => 0, 'hechas' => 0, 'en_curso' => 0, 'pct' => 0];
     $fuente = (string)($it['fuente'] ?? ($dt['total'] ? 'tareas' : 'manual'));
     $base = (int)($it['avance_base'] ?? $it['avance']);
+    $graf = rlGrafAvance($it, $aps, $dt, $hoy);
     $porIA = array_flip(array_map('intval', (array)($it['tareas_ia'] ?? [])));
     $motivoBloqueo = '';
     foreach (array_reverse((array)($it['historial'] ?? [])) as $h) if (str_contains((string)$h['texto'], '→ Bloqueado')) { $motivoBloqueo = (string)($h['motivo'] ?? ''); break; }
@@ -145,23 +146,25 @@ $pintarItem = function (array $it, bool $panel) use ($eqs, $rels, $miembros, $ed
 
   <div class="rl-item__grid">
     <div class="rl-item__main">
-      <section class="rl-bloque rl-avance rl-s--<?= e($it['salud']) ?>">
+      <section class="rl-bloque rl-avance rl-s--<?= e($it['salud']) ?>" data-rl-graf="<?= e(json_encode($graf, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>" data-apex="<?= e(asset('assets/apexcharts.min.js')) ?>">
         <div class="rl-avance__nums">
           <div><span class="rl-avance__big mc-num font-display"><?= (int)$it['avance'] ?><small>%</small></span>
             <span class="rl-avance__lbl"><?= $fuente === 'tareas' ? rlIco('completar', 14) . ' Según sus tareas' : rlIco('editar', 14) . ($dt['total'] ? ' Puesto a mano' : ' Del Excel o la última revisión') ?></span></div>
           <div><span class="rl-avance__med mc-num"><?= (int)$it['esperado'] ?> %</span><span class="rl-avance__lbl">Esperado hoy</span></div>
           <div><span class="rl-avance__med"><?= e(rlF($it['inicio'])) ?> → <?= e(rlF($it['fin'], true)) ?></span><span class="rl-avance__lbl"><?= $origCambio ? 'Plan original: ' . e(rlF($it['inicio_original'])) . ' → ' . e(rlF($it['fin_original'], true)) : 'Fechas del plan' ?></span></div>
         </div>
-        <?= rlBarra((int)$it['avance'], (int)$it['esperado'], $it['salud'], 'rl-barra--lg') ?>
+        <?php /* Con ApexCharts (assets/rl-graficos.js): la barra con la marca de lo esperado hoy, las tareas y el avance en el tiempo. Sin JS queda la barra. */ ?>
+        <div class="rl-graf rl-graf--bala" data-g="bala"><?= rlBarra((int)$it['avance'], (int)$it['esperado'], $it['salud'], 'rl-barra--lg') ?></div>
         <?php if ($dt['total']): $porHacer = max(0, $dt['total'] - $dt['hechas'] - $dt['en_curso']); ?>
         <div class="rl-avance__tareas">
-          <span class="rl-pila rl-pila--tareas" aria-hidden="true"><?php if ($dt['hechas']): ?><i class="is-hecha" style="flex:<?= (int)$dt['hechas'] ?>"></i><?php endif; ?><?php if ($dt['en_curso']): ?><i class="is-curso" style="flex:<?= (int)$dt['en_curso'] ?>"></i><?php endif; ?><?php if ($porHacer): ?><i class="is-pend" style="flex:<?= $porHacer ?>"></i><?php endif; ?></span>
+          <div class="rl-graf rl-graf--tareas" data-g="tareas"><span class="rl-pila rl-pila--tareas" aria-hidden="true"><?php if ($dt['hechas']): ?><i class="is-hecha" style="flex:<?= (int)$dt['hechas'] ?>"></i><?php endif; ?><?php if ($dt['en_curso']): ?><i class="is-curso" style="flex:<?= (int)$dt['en_curso'] ?>"></i><?php endif; ?><?php if ($porHacer): ?><i class="is-pend" style="flex:<?= $porHacer ?>"></i><?php endif; ?></span></div>
           <p><b><?= (int)$dt['hechas'] ?> de <?= (int)$dt['total'] ?></b> completada<?= $dt['total'] === 1 ? '' : 's' ?><?= $dt['en_curso'] ? ' · ' . (int)$dt['en_curso'] . ' en curso' : '' ?><?= $porHacer ? ' · ' . $porHacer . ' por hacer' : '' ?>
             <span class="rl-avance__ayuda">Las tareas suman su avance: completada 100 %, en revisión 80 %, en progreso 50 %. <?php if ($fuente === 'tareas' && $base > (int)$dt['pct']): ?>Se mantiene lo verificado (<?= $base ?> %) hasta que las tareas lo pasen.<?php endif; ?></span></p>
         </div>
         <?php else: ?>
         <p class="rl-avance__ayuda"><?= rlIco('info', 15) ?> Sin tareas vinculadas: el avance es el del Excel o el de la última revisión. Cuando el equipo tenga tareas, vincúlalas o pide a la IA que las asocie y el avance saldrá solo del tablero.</p>
         <?php endif; ?>
+        <div class="rl-graf rl-graf--tiempo" data-g="tiempo" hidden><p class="rl-graf__tit">Avance en el tiempo <small>real · plan · revisiones</small></p><div data-g-lienzo></div></div>
       </section>
 
       <?php if ($it['estado'] === 'bloqueado'): ?>

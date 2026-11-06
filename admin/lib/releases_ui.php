@@ -131,6 +131,37 @@ function rlBarra(int $pct, int $esp, string $salud, string $cls = ''): string
         . ($esp > 0 ? '<span class="rl-barra__esp" style="--e:' . $esp . '%"></span>' : '') . '</span>';
 }
 /**
+ * Los datos de los gráficos del avance de un ítem (assets/rl-graficos.js, con
+ * ApexCharts): lo real y lo esperado hoy, sus tareas y el avance en el tiempo
+ * (lo real sale de su historial «40 % → 60 %», el plan de los días hábiles y
+ * las revisiones de lo que se registró en cada una).
+ */
+function rlGrafAvance(array $it, array $aps, array $dt, string $hoy): array
+{
+    $ini = (string)($it['inicio'] ?? '');
+    $fin = (string)($it['fin'] ?? '');
+    $real = [];
+    foreach ((array)($it['historial'] ?? []) as $ev) {
+        if (!preg_match('/(\d{1,3}) ?% → (\d{1,3}) ?%/u', (string)($ev['texto'] ?? ''), $m)) continue;
+        $f = substr((string)$ev['fecha'], 0, 10);
+        if (!$real && $ini !== '' && $f > $ini) $real[$ini] = min(100, (int)$m[1]);
+        $real[$f] = min(100, (int)$m[2]);
+    }
+    if ($ini === '' || $hoy >= $ini) $real[$hoy] = (int)$it['avance'];
+    ksort($real);
+    $plan = [];
+    if ($ini !== '' && $fin !== '' && $fin >= $ini) {
+        for ($d = $ini; $d < $fin; $d = date('Y-m-d', strtotime($d . ' +3 days'))) $plan[$d] = Releases::esperado($it, $d);
+        $plan[$fin] = 100;
+    }
+    $revs = [];
+    foreach ($aps as ['r' => $r, 'f' => $f]) if (($f['pct'] ?? null) !== null) $revs[] = [(string)$r['fecha'], (int)$f['pct'], trim((string)($f['tipo'] ?? '')) ?: 'Revisión'];
+    $par = fn(array $a) => array_map(fn($k, $v) => [$k, $v], array_keys($a), array_values($a));
+    return ['avance' => (int)$it['avance'], 'esperado' => (int)$it['esperado'], 'hoy' => $hoy, 'inicio' => $ini, 'fin' => $fin,
+            'tareas' => ['hechas' => (int)$dt['hechas'], 'curso' => (int)$dt['en_curso'], 'pend' => max(0, (int)$dt['total'] - (int)$dt['hechas'] - (int)$dt['en_curso'])],
+            'real' => $par($real), 'plan' => $par($plan), 'revisiones' => $revs];
+}
+/**
  * Barra de avance con el color de la colorimetría ($k: ok, warn, crit, none, done…)
  * y una marca gris fina en lo que el plan espera hoy.
  */
@@ -624,5 +655,6 @@ function rlRecursosJs(string $vista, bool $editor, array $miembros): string
     }
     return '<script type="application/json" id="rl-datos">' . $datos . '</script>'
         . '<template id="rl-iconos">' . $iconos . '</template>'
-        . '<script src="' . asset('assets/releases.js') . '" defer></script>';
+        . '<script src="' . asset('assets/releases.js') . '" defer></script>'
+        . '<script src="' . asset('assets/rl-graficos.js') . '" defer></script>';
 }
