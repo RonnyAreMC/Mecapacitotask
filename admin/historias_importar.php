@@ -98,17 +98,30 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
           <div class="rl-pan__cuerpo bl-imp__cuerpo">
             <label class="bl-imp__drop" data-bl-imp-drop>
               <input type="file" name="archivo" accept=".docx,.pdf,.md,.txt,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document" required data-bl-imp-archivo>
-              <span class="bl-imp__drop-ico" aria-hidden="true"><?= rlIco('documento', 28) ?></span>
+              <span class="bl-doc" data-bl-doc data-tipo="" aria-hidden="true"><svg class="bl-doc__hoja" viewBox="0 0 48 60"><path class="bl-doc__papel" d="M7 2h25l12 12v41a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3z"/><path class="bl-doc__dobles" d="M32 2v9a3 3 0 0 0 3 3h9"/><g class="bl-doc__lineas"><rect x="10" y="21" width="22" height="3" rx="1.5"/><rect x="10" y="28" width="28" height="3" rx="1.5"/><rect x="10" y="35" width="18" height="3" rx="1.5"/><rect x="10" y="42" width="25" height="3" rx="1.5"/></g></svg><span class="bl-doc__tipo" data-bl-doc-tipo>DOC</span><span class="bl-doc__scan"></span></span>
               <b data-bl-imp-nombre>Arrastra aquí el Word o el PDF, o haz clic para elegirlo</b>
-              <small>Word (.docx), PDF, Markdown o texto · hasta 15 MB</small>
+              <small data-bl-imp-meta>Word (.docx), PDF, Markdown o texto · hasta 15 MB</small>
             </label>
+            <?php /* Mientras se lee: el documento analizándose y los pasos (los arma el script de abajo) */ ?>
+            <div class="bl-lee" data-bl-lee hidden>
+              <div class="bl-lee__escena" aria-hidden="true">
+                <span class="bl-doc bl-doc--grande" data-bl-lee-doc data-tipo="" aria-hidden="true"><svg class="bl-doc__hoja" viewBox="0 0 48 60"><path class="bl-doc__papel" d="M7 2h25l12 12v41a3 3 0 0 1-3 3H7a3 3 0 0 1-3-3V5a3 3 0 0 1 3-3z"/><path class="bl-doc__dobles" d="M32 2v9a3 3 0 0 0 3 3h9"/><g class="bl-doc__lineas"><rect x="10" y="21" width="22" height="3" rx="1.5"/><rect x="10" y="28" width="28" height="3" rx="1.5"/><rect x="10" y="35" width="18" height="3" rx="1.5"/><rect x="10" y="42" width="25" height="3" rx="1.5"/></g></svg><span class="bl-doc__tipo" data-bl-lee-tipo>DOC</span><span class="bl-doc__scan"></span></span>
+                <span class="bl-lee__ficha" style="--i:0">Épica</span><span class="bl-lee__ficha" style="--i:1">HU</span><span class="bl-lee__ficha" style="--i:2">Dado</span><span class="bl-lee__ficha" style="--i:3">Entonces</span>
+                <span class="bl-lee__chispa" style="--i:0"></span><span class="bl-lee__chispa" style="--i:1"></span><span class="bl-lee__chispa" style="--i:2"></span>
+              </div>
+              <div class="bl-lee__txt">
+                <b class="bl-lee__tit" data-bl-lee-tit aria-live="polite">Analizando el documento…</b>
+                <small class="bl-lee__arch" data-bl-lee-arch></small>
+                <ol class="bl-lee__pasos" data-bl-lee-pasos></ol>
+                <span class="bl-lee__barra" aria-hidden="true"><i></i></span>
+              </div>
+            </div>
             <div class="bl-imp__ops" role="radiogroup" aria-label="Cómo leerlo">
               <label class="bl-imp-op"><input type="radio" name="lectura" value="directa" checked>
                 <span><b>Formato InnoTech</b><small>Se lee aquí mismo, exacto y sin costo. Si el Word no trae el formato, lo lee la IA<?= $conIA ? '' : ' (no está configurada)' ?>.</small></span></label>
               <label class="bl-imp-op<?= $conIA ? '' : ' is-off' ?>"><input type="radio" name="lectura" value="ia"<?= $conIA ? '' : ' disabled' ?>>
                 <span><b><?= UI::icono('ds-ia', 'ia-estrellas') ?> Con IA</b><small><?= $conIA ? 'Para un PDF o un documento con otro formato. Unos US$ 0,05 por documento de 20 páginas.' : 'La IA no está configurada en la consola.' ?></small></span></label>
             </div>
-            <p class="bl-imp__leyendo" data-bl-imp-leyendo hidden><span class="bl-imp__spin" aria-hidden="true"></span> Leyendo el documento… con IA puede tardar un minuto.</p>
           </div>
         </section>
       </div>
@@ -266,13 +279,50 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
   var subir = document.querySelector('[data-bl-imp-subir]');
   if (subir) {
     var inp = subir.querySelector('[data-bl-imp-archivo]'), drop = subir.querySelector('[data-bl-imp-drop]'),
-        nom = subir.querySelector('[data-bl-imp-nombre]'), btn = subir.querySelector('[data-bl-imp-leer]');
-    var pintar = function () { var f = inp.files && inp.files[0]; nom.textContent = f ? f.name : 'Arrastra aquí el Word o el PDF, o haz clic para elegirlo'; drop.classList.toggle('is-lleno', !!f); btn.disabled = !f; };
+        nom = subir.querySelector('[data-bl-imp-nombre]'), meta = subir.querySelector('[data-bl-imp-meta]'), btn = subir.querySelector('[data-bl-imp-leer]'),
+        doc = subir.querySelector('[data-bl-doc]'), lee = subir.querySelector('[data-bl-lee]');
+    // El ícono según el archivo: PDF, Word, Markdown o texto
+    var TIPOS = { pdf: ['PDF', 'PDF'], docx: ['DOCX', 'Word'], md: ['MD', 'Markdown'], txt: ['TXT', 'Texto'] };
+    var tipoDe = function (n) { var x = String(n || '').split('.').pop().toLowerCase(); return TIPOS[x] ? x : ''; };
+    var peso = function (b) { return b >= 1048576 ? (b / 1048576).toFixed(1).replace('.', ',') + ' MB' : Math.max(1, Math.round(b / 1024)) + ' KB'; };
+    var ponerTipo = function (el, t) { el.setAttribute('data-tipo', t); el.querySelector('.bl-doc__tipo').textContent = t ? TIPOS[t][0] : 'DOC'; };
+    var pintar = function () {
+      var f = inp.files && inp.files[0], t = f ? tipoDe(f.name) : '';
+      nom.textContent = f ? f.name : 'Arrastra aquí el Word o el PDF, o haz clic para elegirlo';
+      meta.textContent = f ? (t ? TIPOS[t][1] : 'Documento') + ' · ' + peso(f.size) + (t === 'pdf' || t === 'md' || t === 'txt' ? ' · lo lee la IA' : '') : 'Word (.docx), PDF, Markdown o texto · hasta 15 MB';
+      ponerTipo(doc, t);
+      drop.classList.toggle('is-lleno', !!f); btn.disabled = !f;
+    };
+    // Mientras el servidor lee: el documento analizándose y los pasos, uno tras otro
+    var PASOS = {
+      directa: [['Abrir el Word', 350], ['Encontrar las épicas', 450], ['Leer las historias de usuario', 600], ['Sacar reglas y criterios Dado · Cuando · Entonces', 700], ['Armar la vista previa', 0]],
+      ia: [['Preparar el documento', 1800], ['Enviarlo a la IA', 4000], ['La IA lee el documento', 14000], ['Sacar las historias y sus criterios', 12000], ['Revisar lo que devolvió', 8000], ['Armar la vista previa', 0]]
+    };
+    var analizar = function () {
+      var f = inp.files && inp.files[0], t = f ? tipoDe(f.name) : '';
+      var conIA = (subir.querySelector('[name=lectura]:checked') || {}).value === 'ia' || (t !== '' && t !== 'docx');
+      var pasos = PASOS[conIA ? 'ia' : 'directa'];
+      ponerTipo(subir.querySelector('[data-bl-lee-doc]'), t);
+      lee.classList.toggle('is-ia', conIA);
+      subir.querySelector('[data-bl-lee-arch]').textContent = f ? f.name + ' · ' + peso(f.size) : '';
+      var ol = subir.querySelector('[data-bl-lee-pasos]'), tit = subir.querySelector('[data-bl-lee-tit]');
+      ol.innerHTML = pasos.map(function (p) { return '<li><i aria-hidden="true"></i><span>' + p[0] + '</span></li>'; }).join('');
+      var lis = ol.querySelectorAll('li'), k = 0;
+      var avanzar = function () {
+        lis.forEach(function (li, i) { li.className = i < k ? 'is-hecho' : i === k ? 'is-actual' : ''; });
+        tit.textContent = (conIA ? 'La IA está analizando' : 'Analizando') + ' el documento… ' + pasos[k][0].toLowerCase();
+        if (pasos[k][1] && k < pasos.length - 1) setTimeout(function () { k++; avanzar(); }, pasos[k][1]);
+      };
+      avanzar();
+      drop.hidden = true;
+      subir.querySelector('.bl-imp__ops').classList.add('is-leyendo');
+      lee.hidden = false;
+    };
     inp.addEventListener('change', pintar);
     ['dragenter', 'dragover'].forEach(function (t) { drop.addEventListener(t, function (e) { e.preventDefault(); drop.classList.add('is-encima'); }); });
     ['dragleave', 'drop'].forEach(function (t) { drop.addEventListener(t, function () { drop.classList.remove('is-encima'); }); });
     drop.addEventListener('drop', function (e) { e.preventDefault(); if (e.dataTransfer.files.length) { inp.files = e.dataTransfer.files; pintar(); } });
-    subir.addEventListener('submit', function () { btn.disabled = true; subir.querySelector('[data-bl-imp-leyendo]').hidden = false; });
+    subir.addEventListener('submit', function () { btn.disabled = true; analizar(); });
     return;
   }
   var f = document.querySelector('[data-bl-imp]');

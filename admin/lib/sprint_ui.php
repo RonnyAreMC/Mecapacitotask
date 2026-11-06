@@ -300,52 +300,46 @@ function blSprintPagina(array $x): string
       </div>
     </section>
 
-    <section class="rl-pan rl-pan--12">
-      <header class="rl-pan__cab"><h3><?= rlIco('usuarios', 18) ?>Capacidad del equipo <small class="bl-hu__sub"><?= (int)$cap['dias'] ?> días hábiles en el sprint</small></h3></header>
+    <?php /* La capacidad del equipo: se lee aquí y se edita en un modal (por persona y los puntos por día).
+             Lo que se edita va en los campos ocultos de cada fila y se guarda con el formulario. */
+      $nf = fn($v) => str_replace('.', ',', rtrim(rtrim(number_format((float)$v, 2, '.', ''), '0'), '.'));
+      $ptsDia = rtrim(rtrim(number_format((float)$cap['pts_dia'], 2, '.', ''), '0'), '.'); ?>
+    <section class="rl-pan rl-pan--12 bls-cap-pan">
+      <header class="rl-pan__cab"><h3><?= rlIco('usuarios', 18) ?>Capacidad del equipo <small class="bl-hu__sub"><?= (int)$cap['dias'] ?> días hábiles · <span data-bls-ptsdia-txt><?= e($nf($cap['pts_dia'])) ?></span> pts por día</small></h3>
+        <?php if ($puede): ?><button type="button" class="rl-pan__btn" data-bls-abrir-pd aria-label="Puntos por día" data-ds-tip="Puntos por día"><?= rlIco('configuracion', 16) ?></button><?php endif; ?>
+      </header>
       <div class="rl-pan__cuerpo bls-cuerpo">
-        <div class="bls-captop">
-          <?php if ($puede): ?>
-          <div class="mc-field bls-ptsdia"><label class="mc-field__label" for="bls-ptsdia">Puntos por día</label>
-            <div class="mc-input mc-input--sm"><input id="bls-ptsdia" class="mc-input__control" type="number" name="pts_dia" min="0" max="20" step="0.25" inputmode="decimal" value="<?= e(rtrim(rtrim(number_format((float)$cap['pts_dia'], 2, '.', ''), '0'), '.')) ?>" data-bls-ptsdia><span class="mc-input__affix">pts</span></div></div>
-          <?php else: ?>
-          <p class="bls-ptsdia-txt"><b class="mc-num"><?= e(str_replace('.', ',', (string)$cap['pts_dia'])) ?></b> pts por día</p>
-          <?php endif; ?>
-          <p class="bl-hu__ayuda">Lo que rinde un día completo de una persona. La capacidad de cada uno es (días hábiles − días que falta) × su dedicación × esos puntos, o la que se ponga a mano. Lo asignado son los puntos de las historias del sprint que lleva.<?= $cap['heredada'] !== '' ? ' La dedicación viene del ' . e($cap['heredada']) . '.' : '' ?></p>
-        </div>
-        <div class="bls-tabla-caja"><table class="bls-tabla" data-bls-cap data-dias="<?= (int)$cap['dias'] ?>" data-horas="<?= (int)Backlog::HORAS_DIA ?>">
-          <thead><tr><th scope="col">Persona</th><th scope="col" class="bls-c">Cuenta</th><th scope="col">Días que falta</th><th scope="col">Dedicación</th><th scope="col">Le quedan</th><th scope="col">Capacidad</th><th scope="col">Asignado</th><th scope="col" class="bls-tabla__carga">Carga</th></tr></thead>
-          <tbody>
+        <?php if ($puede): ?><input type="hidden" name="pts_dia" value="<?= e($ptsDia) ?>" data-bls-ptsdia><?php endif; ?>
+        <div class="bls-cap" data-bls-cap data-dias="<?= (int)$cap['dias'] ?>" data-horas="<?= (int)Backlog::HORAS_DIA ?>" role="table" aria-label="Capacidad del equipo">
+          <div class="bls-cap__fila bls-cap__cab" role="row"><span role="columnheader">Persona</span><span role="columnheader">Disponible</span><span role="columnheader">Capacidad</span><span role="columnheader">Asignado</span><span role="columnheader">Carga</span><span role="columnheader" class="mc-sr-only">Editar</span></div>
           <?php foreach ($cap['gente'] as $g): $mG = $miembros[$g['miembro']] ?? null; $n = 'gente[' . (int)$g['miembro'] . ']'; ?>
-            <tr data-bls-fila data-asig="<?= (int)$g['asignado'] ?>"<?= $g['cuenta'] ? '' : ' class="is-fuera"' ?>>
-              <th scope="row"><span class="bls-persona"><?= UI::avatar($mG, 28) ?><span><b><?= e($g['nombre']) ?></b><small><?= $g['historias'] ? (int)$g['historias'] . ' historia(s)' : 'sin historias' ?></small></span></span></th>
-              <?php if ($puede): ?>
-              <td class="bls-c"><?= UI::checkDS($n . '[cuenta]', $g['cuenta'], 'Cuenta en este sprint', '', 'bls-solo') ?></td>
-              <td><div class="mc-input mc-input--sm bls-num"><input class="mc-input__control" type="number" name="<?= $n ?>[ausencias]" min="0" max="<?= (int)$cap['dias'] ?>" step="0.5" inputmode="decimal" aria-label="Días que falta" value="<?= e(str_replace('.0', '', (string)$g['ausencias'])) ?>" data-bls-aus><span class="mc-input__affix">días</span></div></td>
-              <td class="bls-ded"><?= UI::selectDS($n . '[dedicacion]', $opDed, (string)$g['dedicacion'], ['tam' => 'sm', 'aria' => 'Dedicación de ' . $g['nombre'], 'attrs' => 'data-bls-ded']) ?></td>
-              <td class="mc-num" data-bls-dias><?= $g['cuenta'] ? e(str_replace('.', ',', (string)$g['dias'])) . ' días · ' . e(str_replace('.', ',', (string)$g['horas'])) . ' h' : '—' ?></td>
-              <td><div class="mc-input mc-input--sm bls-num"><input class="mc-input__control" type="number" name="<?= $n ?>[puntos]" min="0" max="300" step="1" inputmode="numeric" aria-label="Capacidad en puntos (vacío: la calculada)" placeholder="<?= (int)$g['calculado'] ?>" value="<?= $g['manual'] !== null ? (int)$g['manual'] : '' ?>" data-bls-pts data-ds-tip="Vacío: la calculada. Escribe otra si la sabes."><span class="mc-input__affix">pts</span></div></td>
-              <?php else: ?>
-              <td class="bls-c"><?= $g['cuenta'] ? blsIco('ok') : '—' ?></td>
-              <td class="mc-num"><?= e(str_replace('.', ',', (string)$g['ausencias'])) ?> días</td>
-              <td class="mc-num"><?= (int)$g['dedicacion'] ?> %</td>
-              <td class="mc-num"><?= $g['cuenta'] ? e(str_replace('.', ',', (string)$g['dias'])) . ' días · ' . e(str_replace('.', ',', (string)$g['horas'])) . ' h' : '—' ?></td>
-              <td class="mc-num"><b><?= (int)$g['capacidad'] ?></b> pts</td>
-              <?php endif; ?>
-              <td class="mc-num"><b><?= (int)$g['asignado'] ?></b> pts</td>
-              <td class="bls-tabla__carga"><?= blsCarga((int)$g['asignado'], (int)$g['capacidad']) ?></td>
-            </tr>
+          <div class="bls-cap__fila<?= $g['cuenta'] ? '' : ' is-fuera' ?>" role="row" data-bls-fila data-asig="<?= (int)$g['asignado'] ?>" data-nombre="<?= e($g['nombre']) ?>">
+            <?php if ($puede): ?>
+            <input type="hidden" name="<?= $n ?>[cuenta]" value="<?= $g['cuenta'] ? '1' : '' ?>" data-bls-in="cuenta">
+            <input type="hidden" name="<?= $n ?>[ausencias]" value="<?= e(str_replace('.0', '', (string)$g['ausencias'])) ?>" data-bls-in="ausencias">
+            <input type="hidden" name="<?= $n ?>[dedicacion]" value="<?= (int)$g['dedicacion'] ?>" data-bls-in="dedicacion">
+            <input type="hidden" name="<?= $n ?>[puntos]" value="<?= $g['manual'] !== null ? (int)$g['manual'] : '' ?>" data-bls-in="puntos">
+            <?php endif; ?>
+            <span class="bls-persona" role="cell"><?= UI::avatar($mG, 30) ?><span><b><?= e($g['nombre']) ?></b><small data-bls-est><?= $g['cuenta'] ? ($g['historias'] ? (int)$g['historias'] . ' historia(s)' : 'Sin historias') : 'No cuenta en este sprint' ?></small></span></span>
+            <span class="bls-cap__dato" role="cell"><b data-bls-dias><?= $g['cuenta'] ? e($nf($g['dias'])) . ' días · ' . e($nf($g['horas'])) . ' h' : '—' ?></b>
+              <small data-bls-det><?= (int)$g['dedicacion'] ?> % · <?= (float)$g['ausencias'] > 0 ? 'falta ' . e($nf($g['ausencias'])) . ' día(s)' : 'sin ausencias' ?></small></span>
+            <span class="bls-cap__dato" role="cell"><b><span data-bls-pts><?= (int)$g['capacidad'] ?></span> pts</b><small data-bls-modo><?= $g['manual'] !== null ? 'Puesta a mano' : 'Calculada' ?></small></span>
+            <span class="bls-cap__dato" role="cell"><b><?= (int)$g['asignado'] ?> pts</b><small><?= $g['historias'] ? (int)$g['historias'] . ' historia(s)' : 'Nada asignado' ?></small></span>
+            <span class="bls-cap__carga" role="cell"><?= blsCarga((int)$g['asignado'], (int)$g['capacidad']) ?></span>
+            <span class="bls-cap__acc" role="cell"><?php if ($puede): ?><button type="button" class="rs-boton rs-boton--icono" data-bls-editar aria-label="Editar la capacidad de <?= e($g['nombre']) ?>" data-ds-tip="Editar"><?= rlIco('editar', 16) ?></button><?php endif; ?></span>
+          </div>
           <?php endforeach; ?>
-          <?php if (!$cap['gente']): ?><tr><td colspan="8" class="bls-tabla__vacio">El proyecto todavía no tiene gente.</td></tr><?php endif; ?>
-          </tbody>
-          <tfoot>
-            <?php if ($cap['sin_resp']): ?><tr class="is-sinresp"><th scope="row">Sin responsable</th><td colspan="5" class="bls-tabla__nota">Historias del sprint que nadie lleva todavía.</td><td class="mc-num"><b><?= (int)$cap['sin_resp'] ?></b> pts</td><td></td></tr><?php endif; ?>
-            <tr class="is-total"><th scope="row">Equipo</th><td></td><td></td><td></td>
-              <td class="mc-num" data-bls-tot-dias><?= e(str_replace('.', ',', (string)$cap['dias_persona'])) ?> días-persona</td>
-              <td class="mc-num"><b data-bls-tot-cap><?= (int)$cap['total'] ?></b> pts</td>
-              <td class="mc-num"><b><?= (int)$cap['comprometido'] ?></b> pts</td>
-              <td class="bls-tabla__carga" data-bls-tot-carga data-comp="<?= (int)$cap['comprometido'] ?>"><?= blsCarga((int)$cap['comprometido'], (int)$cap['total']) ?></td></tr>
-          </tfoot>
-        </table></div>
+          <?php if (!$cap['gente']): ?><p class="bls-tabla__vacio">El proyecto todavía no tiene gente.</p><?php endif; ?>
+          <?php if ($cap['sin_resp']): ?>
+          <div class="bls-cap__fila bls-cap__sinresp" role="row"><span role="cell"><b>Sin responsable</b><small>Historias del sprint que nadie lleva todavía</small></span><span role="cell"></span><span role="cell"></span>
+            <span class="bls-cap__dato" role="cell"><b><?= (int)$cap['sin_resp'] ?> pts</b></span><span role="cell"></span><span role="cell"></span></div>
+          <?php endif; ?>
+          <div class="bls-cap__fila bls-cap__total" role="row"><span role="cell"><b>Equipo</b><small data-bls-tot-dias><?= e($nf($cap['dias_persona'])) ?> días-persona</small></span><span role="cell"></span>
+            <span class="bls-cap__dato" role="cell"><b><span data-bls-tot-cap><?= (int)$cap['total'] ?></span> pts</b><small>de capacidad</small></span>
+            <span class="bls-cap__dato" role="cell"><b><?= (int)$cap['comprometido'] ?> pts</b><small>comprometidos</small></span>
+            <span class="bls-cap__carga" role="cell" data-bls-tot-carga data-comp="<?= (int)$cap['comprometido'] ?>"><?= blsCarga((int)$cap['comprometido'], (int)$cap['total']) ?></span><span role="cell"></span></div>
+        </div>
+        <p class="bl-hu__ayuda">La capacidad de cada uno es (días hábiles − días que falta) × su dedicación × los puntos por día, o la que se ponga a mano. Lo asignado son los puntos de las historias del sprint que lleva.</p>
       </div>
     </section>
 
@@ -381,6 +375,43 @@ function blSprintPagina(array $x): string
         <?php endif; ?>
       </div>
     </section>
+    <?php if ($puede): ?>
+    <dialog class="ds-modal ds-modal--chico bls-dlg" data-bls-dlg-cap aria-labelledby="bls-dlg-cap-t">
+      <div class="ds">
+        <header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('usuarios', 18) ?></span>
+          <div><h2 class="ds-modal__title" id="bls-dlg-cap-t" data-dlg-tit>Capacidad</h2><p class="ds-modal__sub"><?= e($cod) ?> · <?= (int)$cap['dias'] ?> días hábiles</p></div></header>
+        <div class="ds-modal__body bls-dlg__cuerpo">
+          <?= UI::checkDS('dlg_cuenta', true, 'Cuenta en este sprint', 'Si no está (vacaciones, otro proyecto), no suma capacidad.', 'bls-dlg__cuenta') ?>
+          <div class="mc-field"><label class="mc-field__label" for="bls-dlg-aus">Días que falta</label>
+            <div class="mc-input mc-input--md"><input class="mc-input__control" id="bls-dlg-aus" type="number" min="0" max="<?= (int)$cap['dias'] ?>" step="0.5" inputmode="decimal" data-dlg-aus><span class="mc-input__affix">días</span></div></div>
+          <div class="mc-field"><span class="mc-field__label">Dedicación</span>
+            <div class="bl-est-ops bls-dlg__ded" role="radiogroup" aria-label="Dedicación">
+              <?php foreach (Backlog::DEDICACIONES as $dd): ?><label class="bl-est-op"><input type="radio" name="dlg_ded" value="<?= $dd ?>"><span><?= $dd ?> %</span></label><?php endforeach; ?></div>
+            <div class="mc-field__foot"><span class="mc-field__hint">50 % es medio tiempo.</span></div></div>
+          <div class="mc-field"><label class="mc-field__label" for="bls-dlg-pts">Capacidad a mano</label>
+            <div class="mc-input mc-input--md"><input class="mc-input__control" id="bls-dlg-pts" type="number" min="0" max="300" step="1" inputmode="numeric" data-dlg-pts><span class="mc-input__affix">pts</span></div>
+            <div class="mc-field__foot"><span class="mc-field__hint" data-dlg-pts-ayuda>Vacío: la calculada.</span></div></div>
+          <div class="bls-dlg__res" data-dlg-res></div>
+        </div>
+        <footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-dlg-cerrar><span class="mc-btn__label">Cancelar</span></button>
+          <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-dlg-guardar><?= rlIco('check', 18) ?><span class="mc-btn__label">Guardar</span></button></footer>
+      </div>
+    </dialog>
+    <dialog class="ds-modal ds-modal--chico bls-dlg" data-bls-dlg-pd aria-labelledby="bls-dlg-pd-t">
+      <div class="ds">
+        <header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('configuracion', 18) ?></span>
+          <div><h2 class="ds-modal__title" id="bls-dlg-pd-t">Puntos por día</h2><p class="ds-modal__sub">Lo que rinde un día completo de una persona del equipo.</p></div></header>
+        <div class="ds-modal__body bls-dlg__cuerpo">
+          <div class="mc-field"><label class="mc-field__label" for="bls-dlg-pd">Puntos por día</label>
+            <div class="mc-input mc-input--md"><input class="mc-input__control" id="bls-dlg-pd" type="number" min="0" max="20" step="0.25" inputmode="decimal" data-dlg-pd><span class="mc-input__affix">pts</span></div>
+            <div class="mc-field__foot"><span class="mc-field__hint">Con 1 punto por día, una persona a tiempo completo da <?= (int)$cap['dias'] ?> pts en este sprint.</span></div></div>
+          <div class="bls-dlg__res" data-dlg-pd-res></div>
+        </div>
+        <footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-dlg-cerrar><span class="mc-btn__label">Cancelar</span></button>
+          <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-dlg-pd-guardar><?= rlIco('check', 18) ?><span class="mc-btn__label">Guardar</span></button></footer>
+      </div>
+    </dialog>
+    <?php endif; ?>
   </form>
 
 <?php elseif ($v === 'retro'):
