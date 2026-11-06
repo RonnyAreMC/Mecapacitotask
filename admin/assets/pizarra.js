@@ -75,13 +75,14 @@
   const TAMANOS = [16, 20, 28, 40, 56, 80];
   const GROSORES = [2, 3, 5, 8];
   const PUNTAS = ['fin', 'ambas', 'nada'];
+  const FORMAS_FLECHA = ['recta', 'curva', 'codo'];
   // Medidas del tablero Kanban (en unidades del mundo)
   const K = { cab: 56, colCab: 44, margen: 12, pad: 10, gap: 10, mas: 44, colMin: 200 };
   const Z_MIN = 0.1, Z_MAX = 4;
   const FUENTE = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 
   // Lo que cada quien prefiere (color de la próxima nota, del lápiz…): solo en su navegador
-  const pref = Object.assign({ notaColor: 'celeste', formaColor: 'celeste', flechaColor: 'gris', lapizColor: 'gris', lapizGrosor: 4 }, local.leer('pz-prefs', {}) || {});
+  const pref = Object.assign({ notaColor: 'celeste', formaColor: 'celeste', flechaColor: 'gris', flechaForma: 'recta', lapizColor: 'gris', lapizGrosor: 4 }, local.leer('pz-prefs', {}) || {});
   const guardarPref = () => local.poner('pz-prefs', pref);
 
   /* ---------- Estado ---------- */
@@ -134,9 +135,9 @@
       case 'hu': return { x: num(el.x), y: num(el.y), w: num(el.w, 1100), h: el._h || num(el.h, 600) };   // el alto, medido
       case 'ilu': return { x: num(el.x), y: num(el.y), w: num(el.w, 140), h: el._h || num(el.w, 140) };   // el dibujo y su pie
       case 'flecha': {
-        const [a, b] = extremos(el);
-        const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
-        return { x: x - 4, y: y - 4, w: Math.abs(a.x - b.x) + 8, h: Math.abs(a.y - b.y) + 8 };
+        const T = trazaFlecha(el), ps = T.asa ? T.puntos.concat([T.asa]) : T.puntos;
+        const xs = ps.map((q) => q.x), ys = ps.map((q) => q.y), x = Math.min(...xs), y = Math.min(...ys);
+        return { x: x - 4, y: y - 4, w: Math.max(...xs) - x + 8, h: Math.max(...ys) - y + 8 };
       }
     }
     return { x: num(el.x), y: num(el.y), w: num(el.w, 100), h: num(el.h, 100) };
@@ -167,7 +168,8 @@
     texto: () => ({ w: 320, h: 40, color: 'gris', texto: '', fs: 28 }),
     rect: () => ({ w: 200, h: 120, color: pref.formaColor, texto: '' }),
     elipse: () => ({ w: 190, h: 130, color: pref.formaColor, texto: '' }),
-    flecha: () => ({ color: pref.flechaColor, grosor: 3, punta: 'fin' }),
+    // forma: recta, curva (dobla: cuánto se curva) o en codo (codo: dónde va su tramo del medio). Sin forma, recta.
+    flecha: () => ({ color: pref.flechaColor, grosor: 3, punta: 'fin', forma: FORMAS_FLECHA.includes(pref.flechaForma) ? pref.flechaForma : 'recta' }),
     trazo: () => ({ color: pref.lapizColor, grosor: pref.lapizGrosor }),
     imagen: () => ({ w: 320, h: 200, src: '' }),
     enlace: () => ({ w: 360, h: 84, url: '', titulo: '' }),
@@ -435,7 +437,19 @@
   }
 
   /* ----- Flechas: se pegan al borde de lo que unen ----- */
-  function extremos(el) {
+  const unidad = (dx, dy) => { const L = Math.hypot(dx, dy); return L ? { x: dx / L, y: dy / L } : { x: 1, y: 0 }; };
+  /**
+   * La forma de una flecha, calculada cada vez (así sigue a lo que une):
+   * - recta: de borde a borde, como siempre (las que no dicen forma);
+   * - curva: una cuadrática que pasa por su asa del medio; dobla = cuánto se separa
+   *   de la recta, en proporción a su largo (signo: hacia qué lado);
+   * - codo: tramos rectos en ángulo, como un conector; sale por el lado que mira al
+   *   otro extremo y codo (0 a 1) dice dónde va el tramo del medio.
+   * Devuelve los extremos a y b, los puntos por donde pasa, su asa del medio (si
+   * tiene) y hacia dónde apunta cada punta (dirA, dirB).
+   */
+  function trazaFlecha(el) {
+    const forma = el.forma === 'curva' || el.forma === 'codo' ? el.forma : 'recta';
     const A = el.a || { x: 0, y: 0 }, B = el.b || { x: 0, y: 0 };
     const ea = A.el && A.el !== el.id ? vivo(A.el) : null;
     const eb = B.el && B.el !== el.id ? vivo(B.el) : null;
@@ -443,7 +457,56 @@
     const gb = eb && !SVG_TIPOS.has(eb.tipo) ? geo(eb) : null;
     const ca = ga ? { x: ga.x + ga.w / 2, y: ga.y + ga.h / 2 } : { x: num(A.x), y: num(A.y) };
     const cb = gb ? { x: gb.x + gb.w / 2, y: gb.y + gb.h / 2 } : { x: num(B.x), y: num(B.y) };
-    return [ga ? borde(ga, ea.tipo, cb) : ca, gb ? borde(gb, eb.tipo, ca) : cb];
+    if (forma === 'curva') {
+      const k = Number.isFinite(+el.dobla) ? limitar(+el.dobla, -2, 2) : 0.25;
+      const ctrl = (p, q) => {
+        const mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2, L = Math.hypot(q.x - p.x, q.y - p.y) || 1, n = { x: -(q.y - p.y) / L, y: (q.x - p.x) / L };
+        const M = { x: mx + n.x * k * L, y: my + n.y * k * L };
+        return { M, C: { x: 2 * M.x - mx, y: 2 * M.y - my }, mid: { x: mx, y: my }, n, L };
+      };
+      const c0 = ctrl(ca, cb);   // con los centros: hacia dónde sale de cada borde
+      const a = ga ? borde(ga, ea.tipo, c0.C) : ca, b = gb ? borde(gb, eb.tipo, c0.C) : cb;
+      const c = ctrl(a, b);
+      return { forma, a, b, C: c.C, asa: c.M, mid: c.mid, n: c.n, L: c.L, puntos: [a, c.M, b],
+        dirA: unidad(a.x - c.C.x, a.y - c.C.y), dirB: unidad(b.x - c.C.x, b.y - c.C.y) };
+    }
+    if (forma === 'codo') {
+      const dx = cb.x - ca.x, dy = cb.y - ca.y, horiz = Math.abs(dx) >= Math.abs(dy);
+      const f = Number.isFinite(+el.codo) ? limitar(+el.codo, -1, 2) : 0.5;
+      const lejos = (c, sx, sy) => ({ x: c.x + sx * 1e5, y: c.y + sy * 1e5 });
+      const sx = Math.sign(dx) || 1, sy = Math.sign(dy) || 1;
+      const a = ga ? borde(ga, ea.tipo, horiz ? lejos(ca, sx, 0) : lejos(ca, 0, sy)) : ca;
+      const b = gb ? borde(gb, eb.tipo, horiz ? lejos(cb, -sx, 0) : lejos(cb, 0, -sy)) : cb;
+      let puntos, asa;
+      if (horiz) { const mx = a.x + (b.x - a.x) * f; puntos = [a, { x: mx, y: a.y }, { x: mx, y: b.y }, b]; asa = { x: mx, y: (a.y + b.y) / 2 }; }
+      else { const my = a.y + (b.y - a.y) * f; puntos = [a, { x: a.x, y: my }, { x: b.x, y: my }, b]; asa = { x: (a.x + b.x) / 2, y: my }; }
+      // La punta apunta como su último tramo que no es nulo
+      const otro = (desde, paso) => { for (let i = desde + paso; i >= 0 && i < puntos.length; i += paso) { const q = puntos[i], p = puntos[desde]; if (Math.hypot(q.x - p.x, q.y - p.y) > 0.5) return q; } return puntos[desde - paso] || puntos[desde]; };
+      const pa = otro(0, 1), pb = otro(puntos.length - 1, -1);
+      return { forma, horiz, a, b, puntos, asa, dirA: unidad(a.x - pa.x, a.y - pa.y), dirB: unidad(b.x - pb.x, b.y - pb.y) };
+    }
+    const a = ga ? borde(ga, ea.tipo, cb) : ca, b = gb ? borde(gb, eb.tipo, ca) : cb;
+    return { forma, a, b, puntos: [a, b], asa: null, dirA: unidad(a.x - b.x, a.y - b.y), dirB: unidad(b.x - a.x, b.y - a.y) };
+  }
+  function extremos(el) { const T = trazaFlecha(el); return [T.a, T.b]; }
+  /** El camino SVG de una flecha; ri / rf: lo que se recorta en cada punta (para que la cabeza no tape la línea). */
+  function caminoFlecha(T, ri = 0, rf = 0) {
+    const p = T.puntos.map((q) => ({ x: q.x, y: q.y })), n = p.length;
+    if (ri) p[0] = { x: p[0].x - T.dirA.x * ri, y: p[0].y - T.dirA.y * ri };
+    if (rf) p[n - 1] = { x: p[n - 1].x - T.dirB.x * rf, y: p[n - 1].y - T.dirB.y * rf };
+    const P = (q) => `${r1(q.x)} ${r1(q.y)}`;
+    if (T.forma === 'curva') return `M${P(p[0])}Q${P(T.C)} ${P(p[2])}`;
+    if (T.forma !== 'codo') return `M${P(p[0])}L${P(p[n - 1])}`;
+    // En codo: las esquinas, apenas redondeadas
+    let d = `M${P(p[0])}`;
+    for (let i = 1; i < n - 1; i++) {
+      const a = p[i - 1], c = p[i], b = p[i + 1], l1 = Math.hypot(c.x - a.x, c.y - a.y), l2 = Math.hypot(b.x - c.x, b.y - c.y);
+      const r = Math.min(10, l1 / 2, l2 / 2);
+      if (r < 0.5) { d += `L${P(c)}`; continue; }
+      const q1 = { x: c.x - ((c.x - a.x) / l1) * r, y: c.y - ((c.y - a.y) / l1) * r }, q2 = { x: c.x + ((b.x - c.x) / l2) * r, y: c.y + ((b.y - c.y) / l2) * r };
+      d += `L${P(q1)}Q${P(c)} ${P(q2)}`;
+    }
+    return d + `L${P(p[n - 1])}`;
   }
   /** Punto del borde de la caja g (o de la elipse) en la dirección de «hacia», con un respiro. */
   function borde(g, tipo, hacia) {
@@ -464,20 +527,17 @@
   }
   function pintarFlecha(el, g) {
     g.dataset.color = colorDe(el);
-    const [a, b] = extremos(el);
+    const T = trazaFlecha(el);
     const gro = limitar(num(el.grosor, 3), 1, 16);
-    const dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L;
     const s = 7 + gro * 2.2;
     const fin = el.punta !== 'nada', ini = el.punta === 'ambas';
-    const a2 = ini ? { x: a.x + ux * s * 0.7, y: a.y + uy * s * 0.7 } : a;
-    const b2 = fin ? { x: b.x - ux * s * 0.7, y: b.y - uy * s * 0.7 } : b;
     const [golpe, linea, cb, ca] = g.children;
-    golpe.setAttribute('d', `M${r1(a.x)} ${r1(a.y)}L${r1(b.x)} ${r1(b.y)}`);
+    golpe.setAttribute('d', caminoFlecha(T));
     golpe.setAttribute('stroke-width', String(Math.max(16, gro + 12)));
-    linea.setAttribute('d', `M${r1(a2.x)} ${r1(a2.y)}L${r1(b2.x)} ${r1(b2.y)}`);
+    linea.setAttribute('d', caminoFlecha(T, ini ? s * 0.7 : 0, fin ? s * 0.7 : 0));
     linea.setAttribute('stroke-width', String(gro));
-    cb.setAttribute('d', fin ? cabeza(b, ux, uy, s) : '');
-    ca.setAttribute('d', ini ? cabeza(a, -ux, -uy, s) : '');
+    cb.setAttribute('d', fin ? cabeza(T.b, T.dirB.x, T.dirB.y, s) : '');
+    ca.setAttribute('d', ini ? cabeza(T.a, T.dirA.x, T.dirA.y, s) : '');
     cb.setAttribute('stroke-width', String(Math.max(1, gro * 0.5)));
     ca.setAttribute('stroke-width', String(Math.max(1, gro * 0.5)));
   }
@@ -648,7 +708,11 @@
     HU?.alElegir(sel);
   }
   function asasDe(el) {
-    if (el.tipo === 'flecha') { const [a, b] = extremos(el); return [['a', a.x, a.y], ['b', b.x, b.y]]; }
+    if (el.tipo === 'flecha') {
+      const T = trazaFlecha(el), l = [['a', T.a.x, T.a.y], ['b', T.b.x, T.b.y]];
+      if (T.asa) l.push(['m', T.asa.x, T.asa.y]);   // la del medio: dobla la curva o corre el codo
+      return l;
+    }
     if (el.tipo === 'nota' && enTablero(el)) return [];
     if (bloqueado(el)) return [];
     if (el.tipo === 'hu') { const g = geo(el); return [['w', g.x, g.y + g.h / 2], ['e', g.x + g.w, g.y + g.h / 2]]; }   // solo el ancho: el alto sale del contenido
@@ -1184,6 +1248,7 @@
     const t = cambio();
     t.tocar(el.id);
     if (asa === 'a' || asa === 'b') { gesto = { ...base, tipo: 'extremo', el, cual: asa, t }; return; }
+    if (asa === 'm') { gesto = { ...base, tipo: 'dobla', el, t }; return; }
     gesto = { ...base, tipo: 'asa', el, asa, t, g0: geo(el), el0: copia(el) };
   }
 
@@ -1252,7 +1317,7 @@
         break;
       }
       case 'colocar': ocultarCtx(); break;
-      case 'asa': case 'extremo': ocultarCtx(); break;
+      case 'asa': case 'extremo': case 'dobla': ocultarCtx(); break;
     }
   }
 
@@ -1349,6 +1414,21 @@
         break;
       }
       case 'asa': pasoAsa(g, p, e); break;
+      case 'dobla': {
+        // Curva: cuánto se separa de la recta (y hacia qué lado). Codo: dónde va su tramo del medio.
+        const f = g.el, T = trazaFlecha(f);
+        if (T.forma === 'curva') {
+          let k = ((p.x - T.mid.x) * T.n.x + (p.y - T.mid.y) * T.n.y) / (T.L || 1);
+          if (Math.abs(k) < 0.03) k = 0;   // casi recta: recta
+          f.dobla = Math.round(limitar(k, -2, 2) * 100) / 100;
+        } else if (T.forma === 'codo') {
+          const t = T.horiz ? (p.x - T.a.x) / ((T.b.x - T.a.x) || 1) : (p.y - T.a.y) / ((T.b.y - T.a.y) || 1);
+          f.codo = Math.round(limitar(t, -1, 2) * 100) / 100;
+        }
+        pintar(f);
+        pintarSel();
+        break;
+      }
       case 'trazo': g.g.firstChild.setAttribute('d', camino(g.pts.map(([x, y]) => [r1(x), r1(y)]))); break;
     }
   }
@@ -1515,7 +1595,7 @@
         pintarVacio();
         break;
       }
-      case 'extremo': case 'asa':
+      case 'extremo': case 'asa': case 'dobla':
         g.t.cerrar();
         programarRender({ acomodar: true, flechas: true, sel: true, ctx: true });
         break;
@@ -1865,7 +1945,7 @@
     if (!EDITAR || (gesto && gesto.movido) || !sel.size) { ocultarCtx(); return; }
     const lista = [...sel].map(vivo).filter(Boolean);
     if (!lista.length) { ocultarCtx(); return; }
-    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}${e.tipo === 'hu' ? e.texto + (e.dueno || '') : ''}`).join(',');
+    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}${e.tipo === 'hu' ? e.texto + (e.dueno || '') : ''}${e.forma || ''}`).join(',');
     if (ctxBar._firma !== firma) {
       ctxBar._firma = firma;
       const tipos = new Set(lista.map((e) => e.tipo));
@@ -1889,7 +1969,15 @@
       }
       let extra = '';
       if (tipos.has('texto')) extra += botonCtx('tamano', 'pz-tamano', 'Tamaño del texto');
-      if (tipos.has('flecha')) extra += botonCtx('punta', 'pz-punta', 'Puntas de la flecha');
+      if (tipos.has('flecha')) {
+        const fl = lista.filter((el) => el.tipo === 'flecha'), f0 = fl[0].forma || 'recta';
+        const actual = fl.every((el) => (el.forma || 'recta') === f0) ? f0 : '';
+        extra += '<span class="pz-ctx__grupo" role="group" aria-label="Forma de la flecha">'
+          + [['recta', 'pz-linea-recta', 'Recta'], ['curva', 'pz-linea-curva', 'Curva: arrastra su punto del medio'], ['codo', 'pz-linea-codo', 'En codo, como un conector']]
+            .map(([v, i, n]) => `<button type="button" class="pz-boton pz-boton--icono${v === actual ? ' is-activa' : ''}" data-ctx="forma" data-valor="${v}" data-tip="${n}" aria-label="Flecha: ${n}" aria-pressed="${v === actual}">${ico(i)}</button>`).join('')
+          + '</span>';
+        extra += botonCtx('punta', 'pz-punta', 'Puntas de la flecha');
+      }
       if (tipos.has('flecha') || tipos.has('trazo')) extra += botonCtx('grosor', 'pz-grosor', 'Grosor de la línea');
       if (lista.length === 1 && tipos.has('kanban')) extra += botonCtx('traer', 'pz-traer', 'Traer tareas del proyecto') + botonCtx('columna', 'pz-columna', 'Añadir columna');
       if (lista.length === 1 && tipos.has('enlace')) extra += botonCtx('abrir', 'ds-enlace', 'Abrir el enlace');
@@ -1942,6 +2030,17 @@
       }
       case 'tamano': cambiarTodos(lista.filter((el) => el.tipo === 'texto'), (el) => { el.fs = TAMANOS.find((t) => t > num(el.fs, 28) + 0.5) || TAMANOS[0]; }); break;
       case 'punta': cambiarTodos(lista.filter((el) => el.tipo === 'flecha'), (el) => { el.punta = siguiente(PUNTAS, el.punta || 'fin'); }); break;
+      case 'forma': {
+        const v = FORMAS_FLECHA.includes(b.dataset.valor) ? b.dataset.valor : 'recta';
+        cambiarTodos(lista.filter((el) => el.tipo === 'flecha'), (el) => {
+          el.forma = v;
+          if (v === 'curva' && !Number(el.dobla)) el.dobla = 0.25;   // que se note la curva
+          if (v === 'codo' && el.codo == null) el.codo = 0.5;
+        });
+        pref.flechaForma = v;   // la próxima sale igual
+        guardarPref();
+        break;
+      }
       case 'grosor': cambiarTodos(lista.filter((el) => SVG_TIPOS.has(el.tipo)), (el) => { el.grosor = GROSORES.find((g) => g > num(el.grosor, 3) + 0.1) || GROSORES[0]; }); break;
       case 'frente': cambiarTodos([...lista].sort((a, c) => num(a.z) - num(c.z)), (el) => { el.z = ++maxZ; }); break;
       case 'duplicar': duplicar(); break;
@@ -2759,17 +2858,14 @@
     x.save();
     x.strokeStyle = tinta; x.fillStyle = tinta; x.lineCap = 'round'; x.lineJoin = 'round';
     if (e.tipo === 'flecha') {
-      const [a, b] = extremos(e);
-      const gro = limitar(num(e.grosor, 3), 1, 16), dx = b.x - a.x, dy = b.y - a.y, L = Math.hypot(dx, dy) || 1, ux = dx / L, uy = dy / L, s = 7 + gro * 2.2;
+      const T = trazaFlecha(e);
+      const gro = limitar(num(e.grosor, 3), 1, 16), s = 7 + gro * 2.2;
       const fin = e.punta !== 'nada', ini = e.punta === 'ambas';
       x.lineWidth = gro;
-      x.beginPath();
-      x.moveTo(ini ? a.x + ux * s * 0.7 : a.x, ini ? a.y + uy * s * 0.7 : a.y);
-      x.lineTo(fin ? b.x - ux * s * 0.7 : b.x, fin ? b.y - uy * s * 0.7 : b.y);
-      x.stroke();
+      x.stroke(new Path2D(caminoFlecha(T, ini ? s * 0.7 : 0, fin ? s * 0.7 : 0)));
       x.lineWidth = Math.max(1, gro * 0.5);
-      if (fin) { const p = new Path2D(cabeza(b, ux, uy, s)); x.fill(p); x.stroke(p); }
-      if (ini) { const p = new Path2D(cabeza(a, -ux, -uy, s)); x.fill(p); x.stroke(p); }
+      if (fin) { const p = new Path2D(cabeza(T.b, T.dirB.x, T.dirB.y, s)); x.fill(p); x.stroke(p); }
+      if (ini) { const p = new Path2D(cabeza(T.a, T.dirA.x, T.dirA.y, s)); x.fill(p); x.stroke(p); }
     } else if (e.tipo === 'trazo') {
       const pw = Math.max(1, num(e.pw, e.w)), ph = Math.max(1, num(e.ph, e.h));
       const sx = Math.max(1, num(e.w)) / pw, sy = Math.max(1, num(e.h)) / ph;

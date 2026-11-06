@@ -301,6 +301,14 @@ html.dark .pz-col { background: rgb(255 255 255 / .035); }
 .pz-asa[data-asa="a"], .pz-asa[data-asa="b"] { cursor: crosshair; background: #0EA5E9; border-color: #fff; }
 html.dark .pz-asa { background: #0F2A38; }
 html.dark .pz-asa[data-asa="a"], html.dark .pz-asa[data-asa="b"] { background: #38BDF8; border-color: #0F2A38; }
+/* El asa del medio de una flecha curva o en codo: se arrastra para doblarla o correr el codo */
+.pz-asa[data-asa="m"] {
+  cursor: grab; border-radius: calc(4px * var(--pz-inv, 1)); background: #fff; border-color: #0EA5E9;
+  box-shadow: 0 0 0 calc(4px * var(--pz-inv, 1)) rgb(56 189 248 / .22), 0 calc(1px * var(--pz-inv, 1)) calc(4px * var(--pz-inv, 1)) rgb(2 132 199 / .35);
+}
+html.dark .pz-asa[data-asa="m"] { background: #0F2A38; border-color: #38BDF8; }
+/* La forma de la flecha (recta, curva, en codo) en la barra de lo elegido: un grupo junto */
+.pz-ctx__grupo { display: inline-flex; align-items: center; gap: 2px; padding: 0 2px; }
 .pz-seleccion-trazo { fill: none; stroke: rgb(56 189 248 / .35); stroke-linecap: round; stroke-linejoin: round; }
 .pz-recuadro {
   position: absolute; left: 0; top: 0;

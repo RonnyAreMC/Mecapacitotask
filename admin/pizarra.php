@@ -133,7 +133,7 @@ if ($editar && !$embed) {
 $iconosJs = ['ds-eliminar', 'ds-duplicar', 'ds-enlace', 'pz-traer', 'ds-mas', 'ds-check', 'ds-cerrar', 'ds-descargar',
              'pz-frente', 'pz-columna', 'pz-grosor', 'pz-punta', 'pz-tamano', 'pz-nube', 'pz-sin-red', 'pz-imagen', 'ds-alerta',
              'ds-notificaciones', 'ds-play', 'ds-pausa', 'ds-buscar', 'ds-chevron-abajo', 'ds-reintentar', 'ds-ayuda', 'ds-candado',
-             'pz-historia', 'pz-texto', 'pz-ilustracion'];
+             'pz-historia', 'pz-texto', 'pz-ilustracion', 'pz-linea-recta', 'pz-linea-curva', 'pz-linea-codo'];
 
 // Las herramientas: [clave, ícono, nombre, atajo]. El lector solo mira y se mueve.
 $herramientas = [
