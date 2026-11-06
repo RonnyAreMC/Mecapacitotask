@@ -6610,3 +6610,15 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .rl-pan__btn, .rl-pan__cab .mc-iconbtn { border: 0; background: transparent; box-shadow: none; color: var(--rl-pan-cab-fg); opacity: .88; transition: opacity .15s, transform .15s; }
 .rl-pan__btn:hover, .rl-pan__cab .mc-iconbtn:hover { background: transparent; color: var(--rl-pan-cab-fg); opacity: 1; transform: translateY(-1px); }
 .rl-pan__cab .mc-iconbtn .mc-icon, .rl-pan__btn .mc-icon, .rl-pan__btn svg { color: inherit; }
+/* Botones de la cabecera (historia y sprint): cerrados, solo el ícono y en celeste; con el hover
+   (o al llegar con el teclado) se abren y muestran su nombre */
+.bl-hu__acc { align-items: center; }
+.bl-cbtn { gap: 0; min-width: 40px; height: 40px; padding: 0 11px; overflow: hidden; border: 1px solid color-mix(in srgb, var(--primary) 22%, transparent); border-radius: 10px;
+  background: color-mix(in srgb, var(--primary) 12%, var(--surface)); color: var(--primary-ink); white-space: nowrap;
+  transition: gap .22s ease, padding .22s ease, background-color .15s, border-color .15s, color .15s; }
+.bl-cbtn > svg, .bl-cbtn > .mc-icon { flex: none; }
+.bl-cbtn__lbl { display: inline-block; max-width: 0; overflow: hidden; opacity: 0; transition: max-width .25s ease, opacity .2s ease; }
+.bl-cbtn:hover, .bl-cbtn:focus-visible { gap: 8px; padding: 0 14px; border-color: color-mix(in srgb, var(--primary) 45%, transparent); background: color-mix(in srgb, var(--primary) 20%, var(--surface)); color: var(--primary-ink); }
+.bl-cbtn:hover .bl-cbtn__lbl, .bl-cbtn:focus-visible .bl-cbtn__lbl { max-width: 240px; opacity: 1; }
+.bl-hu__cab .bl-cbtn--peligro:hover, .bl-hu__cab .bl-cbtn--peligro:focus-visible { border-color: color-mix(in srgb, var(--col-crit-solid, var(--danger)) 45%, transparent); background: var(--col-crit-bg, var(--danger-soft)); color: var(--col-crit-fg, var(--danger)); }
+@media (prefers-reduced-motion: reduce) { .bl-cbtn, .bl-cbtn__lbl { transition: none; } }
