@@ -150,7 +150,7 @@ final class Backlog
         $it = self::items()[(int)($h['item_id'] ?? 0)] ?? null;
         $h += ['codigo' => '', 'titulo' => '', 'como' => '', 'quiero' => '', 'para' => '', 'criterios' => '', 'notas' => '', 'proyecto_id' => 0, 'equipo' => '',
                'item_id' => 0, 'release' => '', 'sprint' => '', 'estimacion' => '', 'prioridad' => 'media', 'estado' => 'por_hacer',
-               'responsable' => 0, 'tareas' => [], 'adjuntos' => [], 'orden' => 0, 'historial' => [], 'hecho_en' => '', 'arrastres' => 0, 'escenarios' => []];
+               'responsable' => 0, 'tareas' => [], 'adjuntos' => [], 'orden' => 0, 'historial' => [], 'hecho_en' => '', 'arrastres' => 0, 'escenarios' => [], 'diagrama' => []];
         // Los criterios de antes (texto suelto) se ven como un escenario
         if (!$h['escenarios'] && trim((string)$h['criterios']) !== '') $h['escenarios'] = [['nombre' => '', 'dado' => '', 'cuando' => '', 'entonces' => (string)$h['criterios']]];
         $h['puntos'] = self::puntos((string)$h['estimacion']);
@@ -274,6 +274,16 @@ final class Backlog
             $c['tareas'] = array_values(array_unique(array_filter($ts, fn($x) => $x > 0)));
         }
         // Archivos: los que se suben se suman; los que se quitan se borran del disco
+        // El diagrama de la historia como imagen (lo guarda la pizarra; aquí solo se ve): uploads/hu_dg_*.png
+        if (array_key_exists('diagrama', $d)) {
+            $dg = (array)$d['diagrama'];
+            $ruta = (string)($dg['ruta'] ?? '');
+            $c['diagrama'] = preg_match('#^uploads/hu_dg_[A-Za-z0-9_.-]+\.png$#', $ruta) && is_file(__DIR__ . '/../' . $ruta)
+                ? ['ruta' => $ruta, 'fecha' => date('Y-m-d H:i'), 'por' => $quien, 'origen' => mb_substr((string)($dg['origen'] ?? ''), 0, 60)] : [];
+            // La imagen anterior ya no sirve
+            $vieja = (string)($antes['diagrama']['ruta'] ?? '');
+            if ($vieja !== '' && $vieja !== ($c['diagrama']['ruta'] ?? '') && preg_match('#^uploads/hu_dg_[A-Za-z0-9_.-]+\.png$#', $vieja)) @unlink(__DIR__ . '/../' . $vieja);
+        }
         $adj = (array)($antes['adjuntos'] ?? []);
         $quitar = array_flip(array_map('strval', (array)($d['quitar_adjuntos'] ?? [])));
         if ($quitar) {
