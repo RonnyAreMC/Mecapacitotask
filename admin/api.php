@@ -17,9 +17,9 @@
  *   POST ?r=tareas   {"tareas":[…], "validar":true}   el mismo JSON de Planificar
  */
 define('MCH_API', true);
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/ApiToken.php';
-if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/core/ApiToken.php';
+if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');

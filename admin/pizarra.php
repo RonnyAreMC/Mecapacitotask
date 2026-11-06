@@ -6,14 +6,14 @@
  * desde el escritorio) y tableros Kanban que pueden traer las tareas reales
  * del proyecto, ilustraciones para anotar (docente, PDF, nube…) y diagramas
  * de historia: se arrastra una historia de usuario
- * y se arma su explicación con dibujos (assets/pizarra-hu.js, lib/PizarraHU.php).
+ * y se arma su explicación con dibujos (assets/pizarra-hu.js, lib/whiteboard/PizarraHU.php).
  * Menos herramientas, mejor hechas.
  *
  * Esta página solo comprueba que la reunión exista y que quien entra pueda
  * verla, y pinta el armazón: la barra de arriba, la de herramientas y el
  * lienzo vacío. Todo lo demás lo hace assets/pizarra.js contra la API
  * (pizarra_api.php: estado, guardar, imagen y tareas; datos y permisos en
- * lib/Pizarra.php). Estilos: assets/pizarra.css.
+ * lib/whiteboard/Pizarra.php). Estilos: assets/pizarra.css.
  *
  * Es una página a pantalla completa, sin el menú lateral ni la cabecera del
  * panel: la pizarra necesita todo el ancho. Por eso arma su propio <head> y
@@ -30,8 +30,8 @@
  * nota_ver.php, la de una nota compartida por enlace (solo lectura, sin
  * sesión). Con &embed=1 es la vista previa que va dentro de la nota.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Pizarra.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
 
 $yo  = Auth::usuario();
 // «Mis notas» (?mia=1): la pizarra personal de quien tiene la sesión, no atada
@@ -113,7 +113,7 @@ $datos = [
 // Diagrama de historia (assets/pizarra-hu.js): en qué proyectos puede escribir de vuelta en la
 // historia («Guardar en la historia»: su PO, su Scrum Master y el administrador). Solo quien edita.
 if ($editar && !$embed) {
-    require_once __DIR__ . '/lib/PizarraHU.php';
+    require_once __DIR__ . '/lib/whiteboard/PizarraHU.php';
     $datos['hu'] = ['puede' => PizarraHU::proyectosQuePuede($pid > 0 ? [$pid] : array_column(PizarraHU::proyectosVisibles(), 'id'))];
     // «Generar diagrama» desde la historia (pizarra.php?mia=1&hu=ID, o ?reunion=R&hu=ID): al abrir se arma (o
     // se busca) el diagrama de esa historia. Solo si quien entra ve su proyecto; si no, el parámetro no hace nada.

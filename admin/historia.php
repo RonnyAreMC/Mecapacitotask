@@ -4,15 +4,15 @@
  * del proyecto): ?p=ID del proyecto (&id=ID de la historia; sin id, una nueva,
  * con &sprint=S23 si se creó desde un sprint). La arman su PO, su Scrum Master
  * y el administrador; los demás del proyecto la ven. El formulario está en
- * lib/backlog_ui.php (blFormHistoria) y se guarda con bl_historia_guardar.
+ * lib/backlog/backlog_ui.php (blFormHistoria) y se guarda con bl_historia_guardar.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Releases.php';
-require_once __DIR__ . '/lib/Backlog.php';
-require_once __DIR__ . '/lib/releases_ui.php';
-require_once __DIR__ . '/lib/backlog_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/lib/backlog/Backlog.php';
+require_once __DIR__ . '/lib/releases/releases_ui.php';
+require_once __DIR__ . '/lib/backlog/backlog_ui.php';
 // El diagrama vivo de la historia (solo para ver), si la pizarra está en el servidor
-foreach (['Pizarra', 'PizarraHU'] as $libPz) if (is_file(__DIR__ . '/lib/' . $libPz . '.php')) require_once __DIR__ . '/lib/' . $libPz . '.php';
+foreach (['whiteboard/Pizarra', 'whiteboard/PizarraHU'] as $libPz) if (is_file(__DIR__ . '/lib/' . $libPz . '.php')) require_once __DIR__ . '/lib/' . $libPz . '.php';
 
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);

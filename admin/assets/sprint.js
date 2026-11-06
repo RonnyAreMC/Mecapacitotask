@@ -1,5 +1,5 @@
 /* =========================================================
-   El sprint del proyecto (sprint.php, lib/sprint_ui.php).
+   El sprint del proyecto (sprint.php, lib/backlog/sprint_ui.php).
    - Planificación: la capacidad se lee en su tabla y se edita en un modal (si
      cuenta, días que falta, dedicación, a mano; y los puntos por día), se
      recalcula frente a lo asignado y se guarda;

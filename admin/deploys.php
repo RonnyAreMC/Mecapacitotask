@@ -9,7 +9,7 @@
  *
  * Quién entra aquí lo decide el administrador en Ajustes → Despliegues.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 exigirDeploys();
 
 $cfgDep    = configDeploys();
@@ -62,13 +62,13 @@ UI::cabecera(
 $dtFilas    = $filas;
 $dtMiembros = $miembros;
 $dtVolver   = 'deploys';
-require __DIR__ . '/lib/deploy_tira.php';
+require __DIR__ . '/lib/deploys/deploy_tira.php';
 
-// El horario de subidas (lib/Cronograma.php): la hora límite de cada proyecto con su cuenta
+// El horario de subidas (lib/deploys/Cronograma.php): la hora límite de cada proyecto con su cuenta
 // regresiva, y el último deploy que se vio en GitLab (esos se registran solos, abajo)
 $crono = false;
-if (is_file(__DIR__ . '/lib/Cronograma.php')) {
-    require_once __DIR__ . '/lib/Cronograma.php';
+if (is_file(__DIR__ . '/lib/deploys/Cronograma.php')) {
+    require_once __DIR__ . '/lib/deploys/Cronograma.php';
     $crono = Cronograma::activo();
 }
 if ($crono):

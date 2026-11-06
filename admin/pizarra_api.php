@@ -26,8 +26,8 @@
  * deben venir del propio panel (cabecera X-Requested-With y mismo origen):
  * un enlace o un formulario de otro sitio no puede escribir en la pizarra.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Pizarra.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -119,7 +119,7 @@ try {
         // proyecto de la pizarra. En «Mis notas» y en la de una nota no hay proyecto:
         // se elige entre los que la persona puede ver (&proyecto=ID).
         case 'historias':
-            require_once __DIR__ . '/lib/PizarraHU.php';
+            require_once __DIR__ . '/lib/whiteboard/PizarraHU.php';
             if (!PizarraHU::hayBacklog()) $responder(['ok' => true, 'sin_modulo' => true, 'historias' => [], 'proyectos' => [], 'proyecto' => 0, 'estados' => []]);
             $proyectos = $mia ? PizarraHU::proyectosVisibles() : [];
             $pidHu = $mia ? (int)($_GET['proyecto'] ?? 0) : (int)$reunion['proyecto_id'];
@@ -130,7 +130,7 @@ try {
 
         // Una sola (para rehacer un diagrama con lo que la historia dice ahora)
         case 'historia':
-            require_once __DIR__ . '/lib/PizarraHU.php';
+            require_once __DIR__ . '/lib/whiteboard/PizarraHU.php';
             $hu = PizarraHU::historia((int)($_GET['id'] ?? 0));
             if (!$hu) $responder(['ok' => false, 'error' => 'Esa historia ya no está o no es de tus proyectos.'], 404);
             $responder(['ok' => true, 'historia' => $hu]);
@@ -139,7 +139,7 @@ try {
         // historia del backlog. Solo su PO, su Scrum Master o el administrador (Backlog::puede).
         case 'guardar_hu':
             if (!$esPost) $responder(['ok' => false, 'error' => 'Usa POST.'], 405);
-            require_once __DIR__ . '/lib/PizarraHU.php';
+            require_once __DIR__ . '/lib/whiteboard/PizarraHU.php';
             $cuerpo = json_decode((string)file_get_contents('php://input'), true);
             $cuerpo = is_array($cuerpo) ? $cuerpo : [];
             $responder(['ok' => true, 'historia' => PizarraHU::guardarEnHistoria((int)($cuerpo['historia'] ?? 0), $cuerpo, $mid, $origenHu)]);
@@ -148,7 +148,7 @@ try {
         // historia=ID e «imagen» (archivo PNG) o «png» (dataURL). Mismo permiso. De dónde salió, lo dice el servidor.
         case 'guardar_hu_imagen':
             if (!$esPost) $responder(['ok' => false, 'error' => 'Usa POST.'], 405);
-            require_once __DIR__ . '/lib/PizarraHU.php';
+            require_once __DIR__ . '/lib/whiteboard/PizarraHU.php';
             $responder(['ok' => true] + PizarraHU::guardarImagen((int)($_POST['historia'] ?? 0), (array)($_FILES['imagen'] ?? []),
                 is_string($_POST['png'] ?? null) ? $_POST['png'] : '', $origenHu, $mid));
     }

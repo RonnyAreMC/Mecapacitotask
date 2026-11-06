@@ -9,7 +9,7 @@
  * Misma pantalla partida que el login: las ilustraciones a la izquierda y el
  * formulario a la derecha.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 if (Auth::usuario()) {
     header('Location: ' . urlPanel('index.php'));

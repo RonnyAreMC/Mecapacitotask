@@ -3,7 +3,7 @@
  * Detalle de proyecto: cabecera con avance + tablero de tareas en tabla.
  * Filtros por estado y asignado, edicion en linea del estado.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $proyectosRepo = new ProyectoRepo();
 $miembrosRepo  = new MiembroRepo();
@@ -384,8 +384,8 @@ $estadosCat = Catalogo::estadosTarea();
 $prioCat    = Catalogo::prioridades();
 // Trazabilidad con Releases: el ítem del release (R2-B04…) de cada tarea, para quien ve el módulo
 $relDeTarea = [];
-if (is_file(__DIR__ . '/lib/Releases.php')) {
-    require_once __DIR__ . '/lib/Releases.php';
+if (is_file(__DIR__ . '/lib/releases/Releases.php')) {
+    require_once __DIR__ . '/lib/releases/Releases.php';
     if (Releases::puedeVer()) $relDeTarea = Releases::vinculosDetalle();
 }
 // El PO o el SM amarra la tarea al ítem del release al crearla o editarla: los ítems
@@ -720,9 +720,9 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
   $totalTareas = array_sum($resumen);
   $portadaHero = UI::portadaDe($proyecto);
   // La salud del proyecto con la colorimetría: el tono de la barra de avance y su estado
-  if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+  if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
   $colP = Colorimetria::delProyecto($proyecto);
-  require_once __DIR__ . '/lib/colorimetria_ui.php';
+  require_once __DIR__ . '/lib/releases/colorimetria_ui.php';
   ?>
   <?= colModal($colP, 'dlg-col-proyecto', 'proyecto.php?id=' . (int)$proyecto['id']) ?>
   <div class="ph-main">
@@ -748,7 +748,7 @@ UI::inicio($proyecto['nombre'], 'proyecto-' . $id);
         <?php else: ?>
         <div class="ph-cifra-avance col-s-<?= e($colP['estado']) ?>"><dt>Avance</dt><dd><?= $avance ?>%</dd>
           <span class="ph-cifra-barra" aria-hidden="true"><span style="width:<?= $avance ?>%"></span></span>
-          <?php /* Su salud: el detalle por indicador y los valores del mes, en un modal aquí mismo (lib/colorimetria_ui.php) */ ?>
+          <?php /* Su salud: el detalle por indicador y los valores del mes, en un modal aquí mismo (lib/releases/colorimetria_ui.php) */ ?>
           <button type="button" class="ph-cifra-estado" onclick="document.getElementById('dlg-col-proyecto').showModal()" data-ds-tip="Cómo va y los valores del mes"><?= Colorimetria::estado($colP['estado']) ?></button><?= $colP['ev']['puntaje'] !== null && $colP['estado'] !== 'nm' && in_array($colP['estado'], ['ok', 'warn', 'crit'], true) ? '<small class="ph-cifra-nota">Puntaje ' . Colorimetria::num($colP['ev']['puntaje']) . ' de 100</small>' : '' ?></div>
         <?php endif; ?>
       </dl>
@@ -785,11 +785,11 @@ $radVistas = $esSupervisor ? '' : UI::menuRadial('Cómo ver las tareas', [
 ], 'Visualización', 'fa-layer-group');
 ?>
 <?php
-// Pestaña «Sprints» (lib/Backlog.php + lib/backlog_ui.php): sale si está Releases
-$conSprints = !$esSupervisor && class_exists('Releases') && is_file(__DIR__ . '/lib/Backlog.php');
+// Pestaña «Sprints» (lib/backlog/Backlog.php + lib/backlog/backlog_ui.php): sale si está Releases
+$conSprints = !$esSupervisor && class_exists('Releases') && is_file(__DIR__ . '/lib/backlog/Backlog.php');
 $nSprintHu = 0;
 if ($conSprints) {
-    require_once __DIR__ . '/lib/Backlog.php';
+    require_once __DIR__ . '/lib/backlog/Backlog.php';
     $actSp = Backlog::actual();
     $nSprintHu = count(Backlog::historias(['proyecto_id' => $id, 'sprint' => $actSp]));
 }
@@ -1533,9 +1533,9 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 </div>
 
 <?php if ($relPanel):
-    // La pestaña «Release» es la vista de Releases (lib/releases_ui.php), fija en el
+    // La pestaña «Release» es la vista de Releases (lib/releases/releases_ui.php), fija en el
     // equipo de este proyecto. Los filtros van con prefijo rl_ (aquí «estado» ya filtra tareas).
-    require_once __DIR__ . '/lib/releases_ui.php';
+    require_once __DIR__ . '/lib/releases/releases_ui.php';
     $eqRel = (string)($relPanel['equipos'][0] ?? '');
     $relsRel = Releases::releases();
     // rl_r puede traer varios releases, separados por comas
@@ -1561,8 +1561,8 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 <?php endif; ?>
 <!-- Vista Intercambios de tareas -->
 <?php if ($conSprints):
-    require_once __DIR__ . '/lib/releases_ui.php';
-    require_once __DIR__ . '/lib/backlog_ui.php';
+    require_once __DIR__ . '/lib/releases/releases_ui.php';
+    require_once __DIR__ . '/lib/backlog/backlog_ui.php';
     $urlSp = fn(array $q) => 'proyecto.php?' . http_build_query(['id' => $id] + array_filter($q, fn($v) => $v !== '' && $v !== null)) . '#vista-sprints'; ?>
 <!-- Vista Sprints: el backlog del proyecto por sprint y el tablero del sprint (assets/backlog.js) -->
 <div data-vista-panel="sprints" hidden>
@@ -1741,12 +1741,12 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 
 <!-- Vista Reuniones: las próximas por día y lo último que pasó, con solo
      botones de ícono (el mismo pintado de la suite reuniones.php, en
-     lib/reuniones_ui.php). Todo lo de cada una —la grabación, la
+     lib/meetings/reuniones_ui.php). Todo lo de cada una —la grabación, la
      transcripción, el acta con IA, editar y eliminar— está en su detalle
      (reunion.php); el historial entero, en reuniones.php?ver=historial. -->
 <div data-vista-panel="reuniones" hidden>
   <?php
-    require_once __DIR__ . '/lib/reuniones_ui.php';
+    require_once __DIR__ . '/lib/meetings/reuniones_ui.php';
     $ruAhora    = time();
     $ruProximas = ReunionesUI::proximas($reuniones, [$id => $proyecto], $ruAhora);
     $ruPasadas  = array_slice(ReunionesUI::pasadas($reuniones, [$id => $proyecto], $ruAhora), 0, 5);
@@ -1928,7 +1928,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
               <?php endif; ?>
             </div>
             <div class="campo ob-campo" data-ob-adjuntos data-resumen="Ninguno"><span>Adjuntos</span>
-              <?php /* La misma zona del correo (lib/correo_vista.php); los archivos los lleva
+              <?php /* La misma zona del correo (lib/mail/correo_vista.php); los archivos los lleva
                        initComposer, que también suma las capturas pegadas con Ctrl+V */ ?>
               <div class="ds-adjuntos ob-adj">
                 <input class="mc-sr-only oc-file" id="ob-adj-<?= $id ?>" type="file" name="adjuntos[]" multiple
@@ -1960,7 +1960,7 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
     </dialog>
     <?php endif; ?>
 
-    <?php require_once __DIR__ . '/lib/obs_item.php'; ?>
+    <?php require_once __DIR__ . '/lib/tasks/obs_item.php'; ?>
     <div class="obs-lista" id="obs-lista">
       <?php if (empty($observaciones)): ?>
         <?= UI::vacio('fa-clipboard-check', 'Sin observaciones', 'Aún no hay observaciones de revisión. Anota la primera con el compositor de arriba.') ?>

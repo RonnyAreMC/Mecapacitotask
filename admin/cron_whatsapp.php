@@ -13,10 +13,10 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde el cron.');
 }
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 cronCallado('whatsapp');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_whatsapp.log
-if (!is_file(__DIR__ . '/lib/Whatsapp.php')) exit("Falta lib/Whatsapp.php\n");
-require_once __DIR__ . '/lib/Whatsapp.php';
+if (!is_file(__DIR__ . '/lib/notifications/Whatsapp.php')) exit("Falta lib/notifications/Whatsapp.php\n");
+require_once __DIR__ . '/lib/notifications/Whatsapp.php';
 @set_time_limit(58);
 
 // Una sola vuelta a la vez (si una tarda más de un minuto, la siguiente espera su turno)

@@ -1,6 +1,6 @@
 /* =========================================================
    Mis notas (notas.php): la lista y la nota abierta, al estilo de las Notas
-   del iPhone. Habla con notas_api.php (datos y permisos en lib/Notas.php).
+   del iPhone. Habla con notas_api.php (datos y permisos en lib/whiteboard/Notas.php).
 
    - Se guarda sola: ~600 ms después de dejar de escribir, una vuelta a la vez.
      Si no hay red, lo escrito queda también en el navegador y se reintenta

@@ -5,7 +5,7 @@
  * Reemplaza los dos Excel de la gerencia («Cronograma General» y «Revisiones»):
  * qué ítems tiene cada release y de qué equipo son, cómo van frente a lo que
  * el plan espera hoy, las revisiones semanales por equipo y los hitos.
- * El modelo está en lib/Releases.php; las acciones (rel_*) en actions.php; el
+ * El modelo está en lib/releases/Releases.php; las acciones (rel_*) en actions.php; el
  * JavaScript en assets/releases.js y el estilo al final de assets/ds.css.
  *
  * Vistas (?v=):
@@ -21,8 +21,8 @@
  * Las fechas del release NO limitan las tareas que se crean desde aquí: el plan
  * tuvo reajustes; solo se avisa.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Releases.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
 if (!Releases::puedeVer()) redirigir('index.php', 'No tienes acceso a Releases.', 'error');
 
 $VISTAS = ['tablero', 'release', 'equipo', 'item', 'revisiones', 'revision', 'hitos', 'ajustes'];
@@ -58,8 +58,8 @@ $estadosTarea = Catalogo::estadosTarea();
 $finales = Catalogo::estadosFinales();
 
 // Las ayudas de pintado (rlChip, rlBarra, rlAnillo…) y la vista de un release viven en
-// lib/releases_ui.php: las usa también la pestaña «Release» del proyecto.
-require_once __DIR__ . '/lib/releases_ui.php';
+// lib/releases/releases_ui.php: las usa también la pestaña «Release» del proyecto.
+require_once __DIR__ . '/lib/releases/releases_ui.php';
 
 /* ============================== Datos de cada vista ============================== */
 
@@ -793,7 +793,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 
 <?php elseif ($v === 'release'):
 /* =========================================================================
-   RELEASE (lib/releases_ui.php · rlVistaRelease)
+   RELEASE (lib/releases/releases_ui.php · rlVistaRelease)
    ========================================================================= */
     // r y e pueden traer varios, separados por comas (R2,R3 · Alpha,Beta)
     $rcV = array_values(array_filter(explode(',', (string)($_GET['r'] ?? '')), fn($x) => isset($rels[$x]))) ?: [$relActual];
@@ -872,7 +872,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
        uno (salud, ítems, dailies, alertas, impedimentos, tareas e IA) se abre en su modal ---------- */
     $cerrarDet = '';   // el detalle es su propia pantalla: no lleva ×
     $colE = Colorimetria::delEquipo($en);
-    if ($colE) require_once __DIR__ . '/lib/colorimetria_ui.php';
+    if ($colE) require_once __DIR__ . '/lib/releases/colorimetria_ui.php';
     // Cada tema tiene su pantalla (?d=…); sin d, el tablero con el resumen de todos
     $DETALLES = ['salud' => ['Salud', 'progreso'], 'items' => ['Ítems', 'ruta'], 'dailies' => ['Reuniones diarias', 'video'], 'alertas' => ['Alertas', 'alerta'],
                  'impedimentos' => ['Impedimentos', 'bandera'], 'tareas' => ['Tareas', 'completar'], 'ia' => ['Asociación con IA', 'ia']];
@@ -2208,9 +2208,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <?php endforeach; ?>
   </div>
 
-  <?php elseif ($t === 'sprints'): /* el calendario global de sprints (lib/Backlog.php) */
-    require_once __DIR__ . '/lib/Backlog.php';
-    require_once __DIR__ . '/lib/backlog_ui.php'; ?>
+  <?php elseif ($t === 'sprints'): /* el calendario global de sprints (lib/backlog/Backlog.php) */
+    require_once __DIR__ . '/lib/backlog/Backlog.php';
+    require_once __DIR__ . '/lib/backlog/backlog_ui.php'; ?>
   <?= blAjustesSprints() ?>
 
   <?php elseif ($t === 'avisos'): $av = $conf['avisos']; ?>

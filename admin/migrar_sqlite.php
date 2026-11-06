@@ -15,7 +15,7 @@ if (PHP_SAPI !== 'cli') {
     exit("Este script solo se ejecuta por terminal.\n");
 }
 
-require_once __DIR__ . '/lib/Storage.php';
+require_once __DIR__ . '/lib/core/Storage.php';
 
 if (!JsonStore::disponible()) {
     fwrite(STDERR, "ERROR: este PHP no tiene el driver de SQLite (pdo_sqlite).\n");

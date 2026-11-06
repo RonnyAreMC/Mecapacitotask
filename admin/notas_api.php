@@ -14,9 +14,9 @@
  * Sin sesión: 401 con {ok:false, error}; las llamadas deben venir del propio
  * panel (cabecera X-Requested-With y mismo origen), como en pizarra_api.php.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Notas.php';
-if (is_file(__DIR__ . '/lib/Pizarra.php')) require_once __DIR__ . '/lib/Pizarra.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/whiteboard/Notas.php';
+if (is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');

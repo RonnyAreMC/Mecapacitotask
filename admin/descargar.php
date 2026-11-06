@@ -6,7 +6,7 @@
  * descarga funciona en cualquier navegador (incluido móvil, que ignora el
  * atributo download) y sin depender del MIME que configure el servidor.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 // Lista blanca: nada de rutas que vengan del usuario.
 $archivos = [

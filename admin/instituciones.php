@@ -6,7 +6,7 @@
  * con su nombre y, opcionalmente, un logo. Un requerimiento puede ser para una
  * o varias, y de ahí salen las métricas por institución.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 if (!esAdmin()) {
     redirigir('index.php', 'Solo el administrador gestiona el catálogo de instituciones.', 'error');

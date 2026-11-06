@@ -4,7 +4,7 @@
  * Solo para administradores. El admin pega (o sube) el JSON, puede validarlo
  * sin crear nada, y al importar se crean todas las tareas de una.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereGestor();   // admin (todo) o Scrum Master (sus proyectos)
 
 // El Scrum Master solo planifica en los proyectos donde participa.
@@ -72,8 +72,8 @@ $hoy    = date('Y-m-d');
 $mas7   = date('Y-m-d', strtotime('+7 day'));
 $mas14  = date('Y-m-d', strtotime('+14 day'));
 $ejItem = '';
-if (is_file(__DIR__ . '/lib/Releases.php')) {
-    require_once __DIR__ . '/lib/Releases.php';
+if (is_file(__DIR__ . '/lib/releases/Releases.php')) {
+    require_once __DIR__ . '/lib/releases/Releases.php';
     foreach ((new JsonStore('rel_items'))->all() as $itE) if (($itE['estado'] ?? '') !== 'cerrado') { $ejItem = (string)$itE['codigo']; break; }
 }
 $ejItemLinea = $ejItem !== '' ? ",\n      \"item_release\": \"$ejItem\"" : '';
@@ -290,7 +290,7 @@ UI::cabecera(
     $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id'])));
     // Para elegir a mano: la gente y los ítems del release de cada proyecto (assets/ia.js
     // cambia las listas al elegir otro proyecto)
-    if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+    if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
     $mapaM = [];
     foreach ($miembros as $m) $mapaM[(int)$m['id']] = $m;
     $datosIA = [];

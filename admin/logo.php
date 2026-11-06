@@ -9,7 +9,7 @@
  * Existe para no tener que adivinar donde queda la carpeta assets respecto a
  * la URL del panel: desde el correo se enlaza siempre a <panel>/logo.php.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $ruta = Mailer::logoArchivo();
 if ($ruta === '' || !is_file($ruta)) {

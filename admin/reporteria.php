@@ -2,7 +2,7 @@
 /**
  * Reportería: el resumen ejecutivo del portafolio, con los datos de hoy, en
  * PowerPoint, Word o PDF. Solo lo que sale del panel; no se edita nada aquí.
- * Ver lib/Reporte.php.
+ * Ver lib/reports/Reporte.php.
  *
  * ?documento            la vista del documento sola (la carga el iframe de aquí)
  * ?documento&imprimir   lo mismo, y abre el cuadro de impresión → PDF
@@ -11,10 +11,10 @@
  *
  * Solo administrador: lleva el estado de todos los proyectos.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 // Fuera de bootstrap a propósito: si al subir por FTP falta alguno de estos
 // archivos, falla solo Reportería y no el panel entero.
-require_once __DIR__ . '/lib/Reporte.php';
+require_once __DIR__ . '/lib/reports/Reporte.php';
 Auth::requiereAdmin();
 
 [$sel, $conReq] = Reporte::seleccion($_GET);
@@ -22,7 +22,7 @@ $rep = Reporte::desdePanel($sel, $conReq);
 
 if (isset($_GET['documento'])) {
     $imprimir = isset($_GET['imprimir']);
-    require __DIR__ . '/lib/reporte_documento.php';
+    require __DIR__ . '/lib/reports/reporte_documento.php';
     exit;
 }
 

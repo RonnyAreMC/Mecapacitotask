@@ -4,19 +4,19 @@
  *
  * Crear una cuenta, cambiarle la contraseña o el espacio, suspenderla o
  * reactivarla, borrarla y manejar los reenvíos, sin entrar al cPanel. Lo hace
- * lib/CPanel.php con la API oficial de cPanel y un token de API.
+ * lib/integrations/CPanel.php con la API oficial de cPanel y un token de API.
  *
  * Las contraseñas no se guardan: se mandan a cPanel y se muestran una sola vez
  * para copiarlas. Al cambiar una, la conexión de esa persona en el Correo del
  * panel se pone al día sola (si la tiene). Todo queda en la bitácora.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereAdmin();
 if (verComo()) redirigir('index.php', 'Sal de «ver como» para manejar las cuentas de correo.', 'info');
-foreach (['Correo', 'CPanel'] as $m) {
+foreach (['mail/Correo', 'integrations/CPanel'] as $m) {
     if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
 }
-if (!class_exists('CPanel')) redirigir('ajustes.php', 'Falta lib/CPanel.php en el servidor.', 'error');
+if (!class_exists('CPanel')) redirigir('ajustes.php', 'Falta lib/integrations/CPanel.php en el servidor.', 'error');
 
 /** Respuesta para el JS de la página */
 function bzJson(bool $ok, string $msg = '', array $extra = []): never

@@ -2,7 +2,7 @@
  * Gráficos de Releases con ApexCharts (assets/apexcharts.min.js).
  *
  * La tarjeta de avance de un ítem (releases.php, section[data-rl-graf]) trae sus
- * datos en JSON (rlGrafAvance en lib/releases_ui.php) y tres lugares:
+ * datos en JSON (rlGrafAvance en lib/releases/releases_ui.php) y tres lugares:
  *   [data-g=bala]    lo real con la marca de lo esperado hoy (bullet)
  *   [data-g=tareas]  sus tareas: completadas · en curso · por hacer
  *   [data-g=tiempo]  el avance en el tiempo: real, plan y revisiones

@@ -9,7 +9,7 @@
  * Lo que NO se toca aquí, a propósito: el nivel de acceso y el equipo. Los
  * decide un administrador desde Equipo (si no, cualquiera se daría permisos).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $yo = Auth::usuario();
 if (!$yo) {
@@ -62,7 +62,7 @@ UI::inicio('Mi perfil', 'perfil');
 
 <?php
 // Conectar Claude Code al panel (api.php): el token se ve una sola vez, recién creado
-require_once __DIR__ . '/lib/ApiToken.php';
+require_once __DIR__ . '/lib/core/ApiToken.php';
 $tk = ApiToken::estado($yo);
 $tkNuevo = (string)($_SESSION['api_token_nuevo'] ?? '');
 unset($_SESSION['api_token_nuevo']);

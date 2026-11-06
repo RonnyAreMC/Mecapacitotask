@@ -8,7 +8,7 @@
  * donde no se puede arrastrar, cada persona tiene su botón «Mover a…».
  * Después de cada cambio sale un aviso con «Deshacer».
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereAdmin();
 
 $equipos = Catalogo::equipos();

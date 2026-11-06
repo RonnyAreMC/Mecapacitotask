@@ -10,7 +10,7 @@
  * La lista viene de la cache del proveedor (una hora), asi que abrir el
  * desplegable varias veces no gasta cuota de la API.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

@@ -5,7 +5,7 @@
  * y ofrece la descarga en PDF y en MD (para pegar/guardar como CLAUDE.md).
  * La ven todos los colaboradores.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $docs = [
     [

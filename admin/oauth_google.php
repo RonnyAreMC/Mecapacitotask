@@ -8,7 +8,7 @@
  * única coincidencia y esa persona todavía no tiene correo, le asocia el suyo.
  * Nunca se crean colaboradores nuevos.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 if (!GoogleLogin::listo()) {
     redirigir('login.php', 'El acceso con Google no está configurado.', 'error');
@@ -53,9 +53,9 @@ if (!$r['ok']) {
 }
 
 // --- Conectar Google Drive para pasar ahí las grabaciones de Zoom (solo el administrador) ---
-if ($esDrive && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
+if ($esDrive && is_file(__DIR__ . '/lib/meetings/ZoomDrive.php')) {
     Auth::requiereAdmin();
-    require_once __DIR__ . '/lib/ZoomDrive.php';
+    require_once __DIR__ . '/lib/meetings/ZoomDrive.php';
     if (empty($r['refresh_token'])) {
         redirigir('zoom_drive.php', 'Google no devolvió el permiso esta vez. Entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a pulsar «Conectar Google Drive».', 'error');
     }
@@ -69,9 +69,9 @@ if ($esDrive && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
 }
 
 // --- Quien subió videos a mano con su cuenta autoriza pasarlos a la de grabaciones (zoom_drive.php) ---
-if ($esDueno && is_file(__DIR__ . '/lib/ZoomDrive.php')) {
+if ($esDueno && is_file(__DIR__ . '/lib/meetings/ZoomDrive.php')) {
     Auth::requiereAdmin();
-    require_once __DIR__ . '/lib/ZoomDrive.php';
+    require_once __DIR__ . '/lib/meetings/ZoomDrive.php';
     if (empty($r['refresh_token'])) {
         redirigir('zoom_drive.php', 'Google no devolvió el permiso esta vez. Entra a myaccount.google.com/permissions, quita el acceso a esta app y vuelve a intentarlo.', 'error');
     }

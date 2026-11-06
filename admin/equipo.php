@@ -4,7 +4,7 @@
  * Soporta varios equipos (Programacion, Analistas, ...) via ?e=<clave>.
  * Los equipos son un catalogo parametrizable en Ajustes.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $miembrosRepo = new MiembroRepo();
 $tareasRepo   = new TareaRepo();
@@ -393,7 +393,7 @@ UI::cabecera(
   </div>
 <?php endif; ?>
 
-<?php require_once __DIR__ . '/lib/campos_persona.php'; ?>
+<?php require_once __DIR__ . '/lib/team/campos_persona.php'; ?>
 
 <!-- Modal: cargar el equipo desde una hoja de cálculo -->
 <dialog id="dlg-importar" class="dlg-meca">

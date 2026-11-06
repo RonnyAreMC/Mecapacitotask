@@ -12,15 +12,15 @@
  *  - Lista para sprint: la Definición de «Lista» del proyecto.
  *
  * Lo arman su PO, su Scrum Master y el administrador (Backlog::puede); los demás
- * del proyecto lo ven. La pantalla está en lib/sprint_ui.php (blSprintPagina);
+ * del proyecto lo ven. La pantalla está en lib/backlog/sprint_ui.php (blSprintPagina);
  * se guarda con bl_sprint_plan, bl_sprint_retro, bl_sprint_accion y bl_dor_conf.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Releases.php';
-require_once __DIR__ . '/lib/Backlog.php';
-require_once __DIR__ . '/lib/releases_ui.php';
-require_once __DIR__ . '/lib/backlog_ui.php';
-require_once __DIR__ . '/lib/sprint_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/lib/backlog/Backlog.php';
+require_once __DIR__ . '/lib/releases/releases_ui.php';
+require_once __DIR__ . '/lib/backlog/backlog_ui.php';
+require_once __DIR__ . '/lib/backlog/sprint_ui.php';
 
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);

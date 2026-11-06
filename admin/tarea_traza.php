@@ -9,7 +9,7 @@
  * los intercambios aceptados, las observaciones, la fecha en que se completó y
  * los commits. Los cambios de responsable a mano anteriores no quedaron.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -99,7 +99,7 @@ if ($finReal === '' && in_array($t['estado'] ?? '', $finales, true)) $finReal = 
 
 /* ---------- Impedimentos y observaciones ---------- */
 // Los equipos de los que puede depender (los de Releases, menos el suyo, y las áreas), con su color
-if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
 $equiposImp = [];
 $colorEq = [];
 if (class_exists('Releases')) {

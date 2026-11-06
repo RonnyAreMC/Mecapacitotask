@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $repo   = new MiembroRepo();
 $equipo = $repo->todos();

@@ -41,7 +41,7 @@
      ven todos (rep sube). Con «menos movimiento», sin desplazamientos.
    - En la pizarra de una reunión, el diagrama queda a nombre de quien lo puso
      (dueno), si arma el backlog de ese proyecto: solo él y el administrador lo
-     cambian (lo hace cumplir también el servidor, lib/Pizarra.php). Los demás lo
+     cambian (lo hace cumplir también el servidor, lib/whiteboard/Pizarra.php). Los demás lo
      ven con su candado, lo reproducen y filtran sus casos, y leen su texto.
    - «Guardar en la historia» manda también su TEXTO (la historia lo muestra vivo)
      y su IMAGEN de respaldo (PNG a 2x, fondo blanco, sin los botones):

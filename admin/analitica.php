@@ -10,9 +10,9 @@
  * filtra (fechas, release, sprint, equipo) y los agrega en el navegador, así
  * los filtros cambian todos los gráficos al instante. Estilos: assets/analitica.css.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Releases.php';
-require_once __DIR__ . '/lib/Backlog.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/lib/backlog/Backlog.php';
 
 $id = (int)($_GET['id'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($id);
@@ -235,7 +235,7 @@ $pan = function (int $ancho, string $titulo, string $clave, int $alto = 280, str
 $kpiHtml = fn(string $clave, string $lbl, string $val, string $tono, string $pie = '') => '<div class="rl-kpi ' . ($tono === 'azul' ? 'rl-kpi--azul' : 'col-s-' . e($tono)) . '" data-an-kpi="' . e($clave) . '">'
     . '<small>' . e($lbl) . '</small><b class="mc-num">' . $val . '</b><em>' . $pie . '</em></div>';
 
-require_once __DIR__ . '/lib/colorimetria_ui.php';
+require_once __DIR__ . '/lib/releases/colorimetria_ui.php';
 UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
 ?>
 <link rel="stylesheet" href="<?= asset('assets/analitica.css') ?>">

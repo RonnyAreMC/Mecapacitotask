@@ -19,10 +19,10 @@
  *
  * Sin ?p= o sin permiso, a la única que tenga si ve un solo proyecto; si no,
  * al inicio con un aviso. Las grabaciones de todos los proyectos están en
- * videoteca.php (la entrada «Reuniones» del menú). Pintado: lib/reuniones_ui.php.
+ * videoteca.php (la entrada «Reuniones» del menú). Pintado: lib/meetings/reuniones_ui.php.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/reuniones_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/meetings/reuniones_ui.php';
 
 if (esSupervisor()) {
     // El supervisor, dentro de un proyecto, solo ve el Kanban: tampoco las reuniones

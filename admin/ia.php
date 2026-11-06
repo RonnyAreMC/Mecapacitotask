@@ -8,12 +8,12 @@
  * primeras son un solo formulario: cambiar de pestaña no pierde lo escrito.
  *
  * Solo administrador: aquí están las claves. Las funciones de IA las usan el
- * administrador y los Scrum Masters desde cada pantalla (ver lib/IA.php).
+ * administrador y los Scrum Masters desde cada pantalla (ver lib/ai/IA.php).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 // Fuera de bootstrap a propósito: si al subir por FTP falta, falla solo esto.
-require_once __DIR__ . '/lib/IA.php';
-if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
+require_once __DIR__ . '/lib/ai/IA.php';
+if (is_file(__DIR__ . '/lib/help/Tutoriales.php')) require_once __DIR__ . '/lib/help/Tutoriales.php';
 Auth::requiereAdmin();
 
 $cfg   = IA::config();

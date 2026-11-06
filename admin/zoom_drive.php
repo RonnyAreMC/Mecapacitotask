@@ -6,12 +6,12 @@
  * el panel van a su proyecto y con el nombre del panel; las demás, a «Otras». Las pasa a Drive:
  *   <Proyecto>/Videos|Audios|Textos/<AAAA-MM>/<fecha hora tema>.<ext>
  * Cuando una reunión está entera en Drive (mismo tamaño), se manda a la papelera
- * de Zoom para liberar espacio. El trabajo lo hace lib/ZoomDrive.php: esta página
+ * de Zoom para liberar espacio. El trabajo lo hace lib/meetings/ZoomDrive.php: esta página
  * lo avanza mientras está abierta y cron_zoom_drive.php, aunque esté cerrada.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereAdmin();
-foreach (['Correo', 'ZoomDrive'] as $m) {
+foreach (['mail/Correo', 'meetings/ZoomDrive'] as $m) {
     if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
 }
 

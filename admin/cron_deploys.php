@@ -1,6 +1,6 @@
 <?php
 /**
- * Horario de subidas (lib/Cronograma.php), solo: toma los builds de GitLab y,
+ * Horario de subidas (lib/deploys/Cronograma.php), solo: toma los builds de GitLab y,
  * a la hora de cada proyecto, registra la subida y avisa a todos.
  *
  * Normalmente NO hace falta: el cron de cada minuto (cron_correo.php) ya lo
@@ -13,10 +13,10 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde el cron.');
 }
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 cronCallado('deploys');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_deploys.log
-require_once __DIR__ . '/lib/Cronograma.php';
-if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/Notificaciones.php';
+require_once __DIR__ . '/lib/deploys/Cronograma.php';
+if (is_file(__DIR__ . '/lib/notifications/Notificaciones.php')) require_once __DIR__ . '/lib/notifications/Notificaciones.php';
 @set_time_limit(55);
 
 if (!Cronograma::activo()) exit("El horario de subidas está apagado (Ajustes → Despliegues).\n");

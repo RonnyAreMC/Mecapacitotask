@@ -1,12 +1,12 @@
 <?php
 /**
- * Calendario general: los feriados nacionales del Ecuador (lib/Feriados.php).
+ * Calendario general: los feriados nacionales del Ecuador (lib/releases/Feriados.php).
  * Esos días no son hábiles en todo el panel: no hay daily, no corren los
  * plazos ni el % esperado de Releases, las reuniones que se repiten no caen
  * ese día y no salen los avisos automáticos. Todos lo ven; el administrador
  * agrega, quita o trae los de un año desde la base pública.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereLogin();
 
 $esAdmin = Auth::esAdmin();

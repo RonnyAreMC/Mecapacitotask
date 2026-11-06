@@ -16,14 +16,14 @@
  *
  * La idea viene del inicio de EDCON (secciones que se pliegan y se recuerdan,
  * filas con su círculo o su fecha, cifras con su rótulo, una frase con «tu
- * siguiente paso»). Los datos: lib/ResumenPersona.php. Estilos: admin.css
+ * siguiente paso»). Los datos: lib/dashboard/ResumenPersona.php. Estilos: admin.css
  * (bloque «Resumen»); el plegado y los números que cuentan: admin.js.
  *
  * Con «ver como» activo es el resumen de esa persona (sin su correo).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/ResumenPersona.php';
-if (is_file(__DIR__ . '/lib/Cronograma.php')) require_once __DIR__ . '/lib/Cronograma.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/dashboard/ResumenPersona.php';
+if (is_file(__DIR__ . '/lib/deploys/Cronograma.php')) require_once __DIR__ . '/lib/deploys/Cronograma.php';
 
 $verComo  = verComo();
 $yo       = $verComo ?: Auth::usuario();

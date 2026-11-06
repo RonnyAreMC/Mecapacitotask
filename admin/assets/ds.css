@@ -2928,7 +2928,7 @@ dialog.ds-modal.ins-pasos { width: min(540px, calc(100vw - 32px)); }
 @media (max-width: 900px) { .correo-app__instalar .mc-btn__label { display: none; } }
 =======
 /* =========================================================
-   Requerimientos desde el correo (lib/ReqCorreo.php)
+   Requerimientos desde el correo (lib/requirements/ReqCorreo.php)
    ========================================================= */
 /* En el correo abierto */
 .correo-req:empty { display: none; }
@@ -2989,7 +2989,7 @@ dialog.ds-modal.req-correo-dlg { width: min(720px, calc(100vw - 32px)); }
   html.sb-collapsed .sidebar .sidebar-label * { display: none !important; }
 }
 
-/* La ventana del tutorial al entrar al panel («Avisar a todos», lib/Tutoriales.php) */
+/* La ventana del tutorial al entrar al panel («Avisar a todos», lib/help/Tutoriales.php) */
 .tut-aviso__txt { flex: 1; min-width: 0; }
 .tut-aviso__hola { margin: 0 0 2px; font: 600 .8125rem/1.3 var(--font-sans); color: var(--tone-azul-fg); }
 dialog.ds-modal.tut-aviso .ds-tutorial__cab .ds-modal__title { white-space: normal; overflow: visible; }
@@ -3249,7 +3249,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 }
 @media (prefers-reduced-motion: reduce) { .tc-opcion, .tc-opcion__punto, .tcw-listo__ir i { transition: none; } }
 
-/* Ficha del requerimiento (lib/req_ui.php): apaisada, a lo ancho. Lo que se lee a la izquierda;
+/* Ficha del requerimiento (lib/requirements/req_ui.php): apaisada, a lo ancho. Lo que se lee a la izquierda;
    las fechas, los responsables y los documentos a la derecha, en una columna más angosta. */
 .dlg-meca.dlg-ficha { width: min(1060px, calc(100vw - 40px)); }
 .dlg-ficha .fq-cols { display: grid; grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr); gap: var(--space-6); align-items: start; }
@@ -3263,7 +3263,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
   .dlg-ficha .fq-lado { position: static; }
 }
 
-/* A quién le llegó el correo (lib/correo_vista.php): cada destinatario como ficha; «Tú» resaltado */
+/* A quién le llegó el correo (lib/mail/correo_vista.php): cada destinatario como ficha; «Tú» resaltado */
 .correo-dest-fila { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; margin: 4px 0 0; }
 .correo-dest-tit { min-width: 30px; color: var(--ink-subtle); font-size: .74rem; font-weight: 600; }
 .correo-dest { display: inline-flex; align-items: center; gap: 6px; max-width: 280px; padding: 2px 10px 2px 2px; border: 1px solid var(--line); border-radius: 999px;
@@ -3277,7 +3277,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 /* Los adjuntos que se pueden ver (PDF e imágenes) abren el visor del panel */
 .correo-adjunto--ver { cursor: zoom-in; }
 
-/* Opciones de envío al redactar (lib/correo_vista.php): plegadas, como en Roundcube */
+/* Opciones de envío al redactar (lib/mail/correo_vista.php): plegadas, como en Roundcube */
 .correo-opciones { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
 .correo-opciones > summary { display: flex; align-items: center; gap: 8px; padding: var(--space-3) var(--space-4); color: var(--ink); font-size: var(--mc-fs-sm);
   font-weight: 600; list-style: none; cursor: pointer; }
@@ -3291,7 +3291,7 @@ html.sb-collapsed .sidebar .sidebar-link .ico.ico-equipo { width: 28px; height: 
 @media (max-width: 640px) { .correo-opciones > summary small { display: none; } }
 @media (prefers-reduced-motion: reduce) { .correo-opciones > summary::after { transition: none; } }
 
-/* La conversación de un correo (lib/correo_vista.php · correoHilo): en orden, el que lees marcado */
+/* La conversación de un correo (lib/mail/correo_vista.php · correoHilo): en orden, el que lees marcado */
 .correo-hilo { border: 1px solid var(--line); border-radius: var(--radius-lg); background: var(--surface); }
 .correo-hilo > summary { display: flex; align-items: center; gap: 8px; padding: var(--space-3) var(--space-4); color: var(--ink); font-size: var(--mc-fs-sm);
   font-weight: 600; list-style: none; cursor: pointer; }
@@ -3357,7 +3357,7 @@ a.correo-hilo__txt:hover { background: var(--surface-hover, var(--primary-soft))
 /* El «Sin resultados» del selector solo cuando la búsqueda no encuentra nada (display:flex le ganaba a [hidden]) */
 .mc-select__empty[hidden] { display: none; }
 
-/* Prioridad que puso quien lo mandó (lib/correo_vista.php · correoPrioridad): cápsula de color y el borde de la fila */
+/* Prioridad que puso quien lo mandó (lib/mail/correo_vista.php · correoPrioridad): cápsula de color y el borde de la fila */
 .correo-prio { display: inline-flex; align-items: center; gap: 5px; margin-left: 8px; padding: 1px 8px; border-radius: 999px; font: 600 .7rem/1.5 var(--font-sans);
   letter-spacing: 0; white-space: nowrap; vertical-align: 1px; }
 .correo-prio__punto { flex: none; width: 7px; height: 7px; border-radius: 50%; background: currentColor; }
@@ -3451,7 +3451,7 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
   .dlg-meca.dlg-wizard.dlg-tcw { transition: none; }
 }
 
-/* Horario de subidas (deploys.php · lib/Cronograma.php): la cuenta regresiva y la hora de cada proyecto */
+/* Horario de subidas (deploys.php · lib/deploys/Cronograma.php): la cuenta regresiva y la hora de cada proyecto */
 .dep-crono { display: flex; flex-direction: column; gap: var(--space-4); margin: 0 0 var(--space-5); padding: var(--space-5); }
 .dep-crono-cab { display: flex; align-items: flex-start; gap: var(--space-3); }
 .dep-crono-ico { flex: none; display: grid; place-items: center; width: 42px; height: 42px; border-radius: var(--radius-lg); background: var(--primary-soft); color: var(--primary); }
@@ -4977,7 +4977,7 @@ a.rl-celda--dl::after { display: none; }
 /* =========================================================
    Carpetas del correo plegadas (solo íconos). El botón del encabezado
    de las carpetas las pliega y las abre; se recuerda en este equipo
-   (lib/correo_vista.php). Solo en la computadora: en el celular ya son
+   (lib/mail/correo_vista.php). Solo en la computadora: en el celular ya son
    un cajón que sale de la izquierda.
    ========================================================= */
 .correo-lado__plegar { margin-left: auto; }
@@ -5039,7 +5039,7 @@ html.es-apple :is(.ds-enc__fila, .mc-bottomnav) { -webkit-backdrop-filter: blur(
 }
 
 /* =========================================================
-   Atajos del menú lateral (lib/UI.php): Pedidos, Despliegues y Planificar,
+   Atajos del menú lateral (lib/core/UI.php): Pedidos, Despliegues y Planificar,
    al final del menú como botones de ícono con su contador, fuera de
    «Equipos» (que ahora solo lista los equipos). Lo elegido lleva el canto
    de vidrio. Con el menú plegado se apilan.
@@ -5195,7 +5195,7 @@ html.dark .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:first-ch
 html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:first-child { margin: 0; width: 20px; height: 20px; }
 
 /* =========================================================
-   Correo: elegir varios con su casilla (lib/correo_vista.php) y marcarlos
+   Correo: elegir varios con su casilla (lib/mail/correo_vista.php) y marcarlos
    de una como leídos o no leídos. La casilla va a la izquierda de cada
    fila; al elegir, sale la barra (vidrio, fija arriba al bajar) con cuántos
    van. La fila elegida se tiñe de celeste.
@@ -5394,7 +5394,7 @@ html.sb-collapsed .sidebar :is(.sidebar-link, .nav-grupo-btn) > .ico.ico-equipo:
 @media (max-width: 520px) { .fcal-meses { grid-template-columns: minmax(0, 1fr); } }
 .fcal-d.is-feriado.is-hoy { color: var(--danger-ink); box-shadow: inset 0 0 0 1.5px var(--danger); }
 
-/* Colorimetría de proyectos (colorimetria.php · lib/Colorimetria.php): un solo tono por estado,
+/* Colorimetría de proyectos (colorimetria.php · lib/releases/Colorimetria.php): un solo tono por estado,
    con su ícono y su texto. Los tokens --col-<estado>-* los pinta la página según la configuración. */
 .col-s-ok   { --col-bg: var(--col-ok-bg);   --col-fg: var(--col-ok-fg);   --col-solid: var(--col-ok-solid);   --col-band: var(--col-ok-band); }
 .col-s-warn { --col-bg: var(--col-warn-bg); --col-fg: var(--col-warn-fg); --col-solid: var(--col-warn-solid); --col-band: var(--col-warn-band); }
@@ -5515,7 +5515,7 @@ html.dark .col-sw i { background: var(--sw-d); }
 @media (max-width: 640px) { .col-medir__fila { grid-template-columns: minmax(0, 1fr); } }
 
 /* =========================================================
-   Colorimetría en todo el panel (lib/Colorimetria.php): el estado va con su
+   Colorimetría en todo el panel (lib/releases/Colorimetria.php): el estado va con su
    ícono y su texto del color del estado (sin fondo, como el Design System
    Innotech 2.0), y las barras, anillos y el Gantt toman el tono de su estado.
    La salud de Releases y los resultados de las revisiones usan los mismos tonos.
@@ -5919,7 +5919,7 @@ html.dark { --rl-pan-cab: #1E3A7B; --rl-pan-cab-fg: #F1F5FF; }
 .col-pag .col-mes__form footer { justify-content: flex-end; }
 .col-pag .col-mes__form footer > button { flex: 0 1 320px; }
 
-/* ---------- Pestaña «Sprints» del proyecto: el backlog estilo Jira (lib/backlog_ui.php) ---------- */
+/* ---------- Pestaña «Sprints» del proyecto: el backlog estilo Jira (lib/backlog/backlog_ui.php) ---------- */
 .bl { display: flex; flex-direction: column; gap: 14px; }
 .bl-t--gris  { --bt-bg: var(--surface-sunken); --bt-fg: var(--ink-muted); --bt-solid: #94A3B8; }
 .bl-t--azul  { --bt-bg: var(--primary-soft); --bt-fg: var(--primary-ink); --bt-solid: var(--primary); }

@@ -8,7 +8,7 @@
  *  - Correo: notificaciones (SMTP o API de Gmail)
  * Todo se guarda junto en data/config.json con un solo boton.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereAdmin();
 
 $cfg = Config::all();
@@ -604,7 +604,7 @@ UI::cabecera(
       </section>
 
       <?php
-        // WhatsApp (lib/Whatsapp.php + la pasarela de servicios/whatsapp)
+        // WhatsApp (lib/notifications/Whatsapp.php + la pasarela de servicios/whatsapp)
         $waC = class_exists('Whatsapp') ? Whatsapp::conf() : array_replace(Config::defaults()['whatsapp'], (array)($cfg['whatsapp'] ?? []));
         $waCron = json_decode((string)@file_get_contents(__DIR__ . '/data/cron_whatsapp.json'), true);
         $waHace = is_array($waCron) ? time() - (int)($waCron['t'] ?? 0) : null;
@@ -752,7 +752,7 @@ UI::cabecera(
              sin esperar a guardar. Los ocultos siguen enviando su alias, así
              que desmarcar un proyecto un rato no borra lo que ya se escribió. -->
         <?php
-          // Horario de subidas (lib/Cronograma.php): la hora límite para dejar los cambios y los deploys de GitLab
+          // Horario de subidas (lib/deploys/Cronograma.php): la hora límite para dejar los cambios y los deploys de GitLab
           $cr = $dp['cronograma'];
           $diasCr = [1 => ['L', 'Lunes'], 2 => ['M', 'Martes'], 3 => ['X', 'Miércoles'], 4 => ['J', 'Jueves'], 5 => ['V', 'Viernes'], 6 => ['S', 'Sábado'], 7 => ['D', 'Domingo']];
         ?>

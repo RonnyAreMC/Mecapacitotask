@@ -9,9 +9,9 @@
  * La clave del enlace (t=…) es de la nota: si su dueño deja de compartirla,
  * todo esto deja de verse; si la vuelve a compartir, el enlace es otro.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-if (is_file(__DIR__ . '/lib/Notas.php')) require_once __DIR__ . '/lib/Notas.php';
-if (is_file(__DIR__ . '/lib/Pizarra.php')) require_once __DIR__ . '/lib/Pizarra.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+if (is_file(__DIR__ . '/lib/whiteboard/Notas.php')) require_once __DIR__ . '/lib/whiteboard/Notas.php';
+if (is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
 
 $tk = is_string($_GET['t'] ?? null) ? (string)$_GET['t'] : '';
 $n = class_exists('Notas') ? Notas::porToken($tk) : null;

@@ -10,13 +10,13 @@
  * selector con lo que YA tiene encima (tareas de proyecto abiertas +
  * requerimientos sin cerrar), ordenadas de la mas libre a la mas cargada.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/req_ui.php';
-// Requerimientos desde el correo (lib/ReqCorreo.php): si falta algo, solo no aparece
-foreach (['Correo', 'ReqCorreo', 'ReqSeguimiento'] as $modRc) {
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/requirements/req_ui.php';
+// Requerimientos desde el correo (lib/requirements/ReqCorreo.php): si falta algo, solo no aparece
+foreach (['mail/Correo', 'requirements/ReqCorreo', 'requirements/ReqSeguimiento'] as $modRc) {
     if (is_file(__DIR__ . '/lib/' . $modRc . '.php')) require_once __DIR__ . '/lib/' . $modRc . '.php';
 }
-if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
+if (is_file(__DIR__ . '/lib/mail/correo_vista.php')) require_once __DIR__ . '/lib/mail/correo_vista.php';
 Auth::requiereAdmin();
 
 // Con "ver como" activo el panel se mira con los ojos de otra persona, y esa

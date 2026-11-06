@@ -9,8 +9,8 @@
  *
  * Con "ver como" activo, el administrador ve la bandeja de esa persona.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/req_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/requirements/req_ui.php';
 
 $reqRepo  = new RequerimientoRepo();
 $miembros = new MiembroRepo();

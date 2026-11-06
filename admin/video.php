@@ -4,8 +4,8 @@
  * iniciar sesión y muestra solo ese video, con su título y su descripción. La
  * clave del enlace (v=…) es del tutorial: quitarlo del panel apaga el enlace.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+if (is_file(__DIR__ . '/lib/help/Tutoriales.php')) require_once __DIR__ . '/lib/help/Tutoriales.php';
 
 $t = class_exists('Tutoriales') ? Tutoriales::porToken((string)($_GET['v'] ?? '')) : null;
 if (!$t) http_response_code(404);

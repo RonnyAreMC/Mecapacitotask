@@ -4,14 +4,14 @@
  * y lo que tú pediste, cada uno con su conversación y su estado. El pedido
  * nuevo se hace desde el botón de la barra de arriba (UI::dialogPedido).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 // Fuera de bootstrap a propósito: si al subir por FTP falta, falla solo esto.
-require_once __DIR__ . '/lib/Pedidos.php';
-if (is_file(__DIR__ . '/lib/Notificaciones.php')) require_once __DIR__ . '/lib/Notificaciones.php';
-if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
+require_once __DIR__ . '/lib/tasks/Pedidos.php';
+if (is_file(__DIR__ . '/lib/notifications/Notificaciones.php')) require_once __DIR__ . '/lib/notifications/Notificaciones.php';
+if (is_file(__DIR__ . '/lib/help/Tutoriales.php')) require_once __DIR__ . '/lib/help/Tutoriales.php';
 Auth::requiereLogin();
 
-/** «hace 5 min» (con lib/Notificaciones.php); si no está, la fecha tal cual. */
+/** «hace 5 min» (con lib/notifications/Notificaciones.php); si no está, la fecha tal cual. */
 function haceTexto(string $f): string
 {
     return class_exists('Notif') ? Notif::hace($f) : substr($f, 0, 16);

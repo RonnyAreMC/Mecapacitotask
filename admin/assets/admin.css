@@ -9069,7 +9069,7 @@ html.dark .dep-ico:not(.dep-ico--subir) { background: rgba(255, 255, 255, .08); 
   100% { transform: translateY(-9px); opacity: 0; }
 }
 
-/* ---------- Tu resumen: la tira hecha carrusel (lib/resumen_tira.php) ----------
+/* ---------- Tu resumen: la tira hecha carrusel (lib/dashboard/resumen_tira.php) ----------
    Lo que importa va en grande y en mayúsculas («MAÑANA · 10:00 PM»).
    Las diapositivas se apilan en la misma celda (la tira toma la altura de la
    más alta y no salta); la activa entra con sus datos uno tras otro, desde el
@@ -10107,7 +10107,7 @@ html.dark .ia-btn .ia-estrellas, html.dark .ia-estrellas { color: #A5B4FC; }
 /* =========================================================
    Reuniones: la suite (reuniones.php), el detalle de una reunión
    (reunion.php) y la pestaña Reuniones del proyecto. El pintado es de
-   lib/reuniones_ui.php; el buscador y la pieza de las pestañas, admin.js.
+   lib/meetings/reuniones_ui.php; el buscador y la pieza de las pestañas, admin.js.
 
    Como el inicio de Zoom y de Meet: la hora grande en su baldosa, el
    tema y su renglón (plataforma, proyecto, duración), los invitados y

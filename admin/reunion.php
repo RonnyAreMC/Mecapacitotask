@@ -21,11 +21,11 @@
  *     el acta con IA (los mismos data-* que maneja assets/ia.js) y la pizarra.
  *   · Las observaciones ligadas a la reunión (en una serie, las de ese día).
  *
- * El pintado compartido está en lib/reuniones_ui.php; los estilos, en
+ * El pintado compartido está en lib/meetings/reuniones_ui.php; los estilos, en
  * admin.css («Reuniones: la suite…»).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/reuniones_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/meetings/reuniones_ui.php';
 
 $r = (new ReunionRepo())->buscar((int)($_GET['id'] ?? 0));
 if (!$r || !puedeVerProyecto((int)($r['proyecto_id'] ?? 0))) {
@@ -233,9 +233,9 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
     $grab = $paso && $plat === 'zoom' ? ReunionesUI::grabacion($r, $diaOc, $vez['fin'], $rastros) : null;
     $trans = $paso && $plat === 'zoom' ? ReunionesUI::transcripcion($r, $diaOc, $vez['fin'], $rastros) : '';
     $pizarraLlena = null;
-    if (ReunionesUI::hayPizarra() && is_file(__DIR__ . '/lib/Pizarra.php')) {
+    if (ReunionesUI::hayPizarra() && is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) {
         try {
-            require_once __DIR__ . '/lib/Pizarra.php';
+            require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
             if (method_exists('Pizarra', 'version')) $pizarraLlena = Pizarra::version((int)$r['id']) > 0;
         } catch (Throwable $e) { $pizarraLlena = null; }   // sin saberlo, la pizarra igual se abre
     }
@@ -251,7 +251,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
       </header>
       <ul class="ru-quedo">
         <?php
-        // Grabación y transcripción: solo Zoom las trae (de Drive, lib/ZoomDrive.php)
+        // Grabación y transcripción: solo Zoom las trae (de Drive, lib/meetings/ZoomDrive.php)
         if ($plat === 'zoom') {
             if (!$paso) {
                 echo $item('MonitorPlay', 'menta', 'Grabación y transcripción', 'Llegan aquí solas cuando termine (Drive las guarda cada hora).');
@@ -291,7 +291,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
 
   <?php
   /* ---------- Observaciones ligadas a la reunión ---------- */
-  require_once __DIR__ . '/lib/obs_item.php';
+  require_once __DIR__ . '/lib/tasks/obs_item.php';
   $todasObs = !empty($_GET['obs']);
   $hilos = array_values(array_filter((new ObservacionRepo())->hilosDelProyecto($pid), fn($o) => (int)($o['reunion_id'] ?? 0) === (int)$r['id']));
   $obsDia = $serie && !$todasObs ? array_values(array_filter($hilos, fn($o) => substr((string)($o['creado'] ?? ''), 0, 10) === $vez['dia'])) : $hilos;

@@ -12,14 +12,14 @@
  * activa los avisos desde aquí.
  *
  * Todos los enlaces y formularios del correo se quedan en esta página
- * (correoUrl() en lib/correo_vista.php, y actions.php vuelve aquí).
+ * (correoUrl() en lib/mail/correo_vista.php, y actions.php vuelve aquí).
  */
 define('CORREO_APP', true);
-require_once __DIR__ . '/lib/bootstrap.php';      // sin sesión va a login.php y, al entrar, vuelve aquí
-foreach (['Correo', 'Push', 'CorreoCopias'] as $m) {
+require_once __DIR__ . '/lib/core/bootstrap.php';      // sin sesión va a login.php y, al entrar, vuelve aquí
+foreach (['mail/Correo', 'notifications/Push', 'mail/CorreoCopias'] as $m) {
     if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
 }
-if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
+if (is_file(__DIR__ . '/lib/mail/correo_vista.php')) require_once __DIR__ . '/lib/mail/correo_vista.php';
 
 $yo  = Auth::usuario();
 $mid = (int)$yo['id'];

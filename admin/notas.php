@@ -11,12 +11,12 @@
  * (pizarra.php?nota=ID), que se ve en miniatura debajo del texto.
  *
  * Son SIEMPRE las de quien tiene la sesión: ni el administrador ni «ver como»
- * ven las de otro. Datos en lib/Notas.php, API en notas_api.php; lo que se
+ * ven las de otro. Datos en lib/whiteboard/Notas.php, API en notas_api.php; lo que se
  * mueve, en assets/notas.js y assets/notas.css.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Notas.php';
-if (is_file(__DIR__ . '/lib/Pizarra.php')) require_once __DIR__ . '/lib/Pizarra.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/whiteboard/Notas.php';
+if (is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
 
 $yo  = Auth::usuario();
 $mid = (int)($yo['id'] ?? 0);

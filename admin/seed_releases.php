@@ -10,12 +10,12 @@
  *
  * Sin --actualizar no pisa lo que ya se cambió en el panel: se puede repetir sin riesgo.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/Releases.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
 
 $args  = array_slice($argv, 1);
 $modo  = in_array('--actualizar', $args, true) ? 'actualizar' : 'agregar';

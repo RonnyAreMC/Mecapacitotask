@@ -438,8 +438,8 @@
      3c. Asistente «Analizar este correo» (solo el administrador), en tres pasos:
      1) qué es: lo elige él (tareas de un proyecto o requerimiento suelto);
      2) el proyecto y sus indicaciones, o las indicaciones del requerimiento;
-     3) revisar las tareas y crearlas (lib/TareasCorreo.php), o abrir el
-        formulario de Requerimientos ya lleno (lib/ReqCorreo.php).
+     3) revisar las tareas y crearlas (lib/mail/TareasCorreo.php), o abrir el
+        formulario de Requerimientos ya lleno (lib/requirements/ReqCorreo.php).
      La IA solo corre cuando él pulsa el botón. Sin responsable no se crea nada.
      ========================================================= */
   const marcaCheck = '<svg class="mc-draw-check" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';

@@ -1,6 +1,6 @@
 <?php
 /**
- * Configuración de la colorimetría (lib/Colorimetria.php), solo para el
+ * Configuración de la colorimetría (lib/releases/Colorimetria.php), solo para el
  * administrador: los nombres y colores de cada estado, los puntos y bandas del
  * puntaje, el escalamiento y los umbrales y pesos de cada indicador.
  *
@@ -9,7 +9,7 @@
  * del mes se ven y se anotan en su propia página (el estado bajo «Avance»), y
  * los de cada equipo, en su página de Releases.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 Auth::requiereLogin();
 if (!Auth::esAdmin()) redirigir('index.php', 'La configuración de la colorimetría la cambia el administrador.', 'error');
 

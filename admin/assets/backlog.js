@@ -1,5 +1,5 @@
 /* =========================================================
-   Backlog estilo Jira (lib/backlog_ui.php): la pestaña «Sprints» del proyecto
+   Backlog estilo Jira (lib/backlog/backlog_ui.php): la pestaña «Sprints» del proyecto
    y la pantalla de cada historia (historia.php).
    - Historia: los escenarios Dado · Cuando · Entonces (sumar, quitar,
      renumerar, que crezcan al escribir), las tareas con buscador y borrar.
@@ -167,7 +167,7 @@
   });
 })();
 
-/* ---------- «Lista para sprint» (DoR, lib/sprint_ui.php) ----------
+/* ---------- «Lista para sprint» (DoR, lib/backlog/sprint_ui.php) ----------
    - En la historia (historia.php): lo que el panel revisa solo (Como · Quiero ·
      Para, un escenario completo, la estimación) se repasa mientras se escribe,
      con el «n de m» y el aviso si va en un sprint sin estar lista.

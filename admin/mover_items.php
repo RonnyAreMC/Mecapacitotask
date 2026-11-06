@@ -11,12 +11,12 @@
  * parte si es una sola). --por: quién hace el cambio (nombre o correo de un
  * miembro). --seco: dice qué haría, sin escribir.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/Releases.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
 
 $opc = [];
 $libres = [];

@@ -5153,7 +5153,7 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
 
 /* =========================================================
    Cuenta regresiva a la próxima subida (Despliegues y la tira del
-   dashboard, lib/Cronograma.php). [data-cuenta-regresiva] lleva data-hasta y
+   dashboard, lib/deploys/Cronograma.php). [data-cuenta-regresiva] lleva data-hasta y
    data-ahora en segundos del SERVIDOR: así no importa si el reloj de
    la computadora está corrido. Con [data-corto]: «en 2 h 14 min»;
    sin él, el reloj «02:14:33». Al llegar a cero: «Subiendo…», y a
@@ -5191,7 +5191,7 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
 })();
 
 /* =========================================================
-   Tu resumen (lib/resumen_tira.php): un carrusel en la tira del dashboard.
+   Tu resumen (lib/dashboard/resumen_tira.php): un carrusel en la tira del dashboard.
    Las diapositivas están apiladas en la misma celda; la activa entra con
    sus datos uno tras otro y los números cuentan desde cero. Pasa sola: la
    barrita del punto activo se llena y, al llenarse (animationend), toca la
@@ -5549,7 +5549,7 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
 
 /* =========================================================
    Reuniones: la suite (reuniones.php), el detalle (reunion.php) y la
-   pestaña del proyecto (pintado: lib/reuniones_ui.php; estilos: admin.css,
+   pestaña del proyecto (pintado: lib/meetings/reuniones_ui.php; estilos: admin.css,
    «Reuniones: la suite…»).
    - Los asistentes por la URL: proyecto.php?nueva_reunion=1 abre «Nueva
      reunión», y ?editar_reunion=ID el de editar (proyecto.php deja un botón

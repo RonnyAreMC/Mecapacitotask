@@ -7,7 +7,7 @@
  * ilustraciones que se van turnando (UI::entradaArte + assets/entrada.js) y a
  * la derecha el formulario.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 if (Auth::usuario()) {
     header('Location: ' . urlPanel('index.php'));

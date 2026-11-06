@@ -3,10 +3,10 @@
  * Punto unico de entrada para todas las acciones POST del panel.
  * Cada accion valida, ejecuta sobre el repositorio y redirige con flash.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['Notificaciones', 'Pedidos', 'Correo', 'Push', 'Tutoriales', 'Whatsapp', 'ReqCorreo', 'CorreoCopias', 'TareasCorreo', 'ReqSeguimiento'] as $moduloNuevo) {
+foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -108,7 +108,7 @@ $tareas    = new TareaRepo();
 
 /**
  * Aviso en la campana de la barra de arriba, aparte del correo: sale aunque el
- * correo no esté configurado. Nadie se avisa a sí mismo. Si lib/Notificaciones.php
+ * correo no esté configurado. Nadie se avisa a sí mismo. Si lib/notifications/Notificaciones.php
  * no está en el servidor, no hace nada.
  */
 function avisoPanel(array $para, string $tipo, string $titulo, string $texto = '', string $url = '', int $de = -1): void
@@ -219,9 +219,9 @@ function relMoverReunion(array $antes, array $rev, ProyectoRepo $proyectos, Miem
  */
 function relAmarrar(int $tareaId, int $pid, array $post): string
 {
-    if (!array_key_exists('rel_item', $post) || !is_file(__DIR__ . '/lib/Releases.php')) return '';
+    if (!array_key_exists('rel_item', $post) || !is_file(__DIR__ . '/lib/releases/Releases.php')) return '';
     try {
-        require_once __DIR__ . '/lib/Releases.php';
+        require_once __DIR__ . '/lib/releases/Releases.php';
         $items = [];
         foreach (Releases::itemsDeProyecto($pid) as $it) $items[(int)$it['id']] = $it;
         $nuevo = (int)$post['rel_item'];
@@ -372,7 +372,7 @@ function reqObsGuardar(RequerimientoRepo $repo, int $reqId, string $html, Miembr
 
 /**
  * La transcripción de una reunión de Zoom, leída de Drive (las grabaciones ya no
- * se piden a Zoom: lib/ZoomDrive.php las pasa solas). Con $fecha, la de ese día
+ * se piden a Zoom: lib/meetings/ZoomDrive.php las pasa solas). Con $fecha, la de ese día
  * de una reunión que se repite. ['estado' => 'ok'|'espera'|'vacio'|'error', 'texto', 'msg']:
  * mientras no llega a Drive, «Esperando, aún no se ha guardado un respaldo» y nada más.
  */
@@ -381,8 +381,8 @@ function transcripcionReunion(array $reu, string $fecha = ''): array
     if (($reu['plataforma'] ?? 'zoom') !== 'zoom' || empty($reu['zoom_id'])) {
         return ['estado' => 'vacio', 'texto' => '', 'msg' => 'Esta reunión no trae transcripción automática.'];
     }
-    if (!class_exists('ZoomDrive') && is_file(__DIR__ . '/lib/ZoomDrive.php')) require_once __DIR__ . '/lib/ZoomDrive.php';
-    if (!class_exists('ZoomDrive')) return ['estado' => 'error', 'texto' => '', 'msg' => 'Falta lib/ZoomDrive.php.'];
+    if (!class_exists('ZoomDrive') && is_file(__DIR__ . '/lib/meetings/ZoomDrive.php')) require_once __DIR__ . '/lib/meetings/ZoomDrive.php';
+    if (!class_exists('ZoomDrive')) return ['estado' => 'error', 'texto' => '', 'msg' => 'Falta lib/meetings/ZoomDrive.php.'];
     $hora = substr((string)($reu['inicio'] ?? ''), 11, 5);
     $empieza = $fecha !== '' ? strtotime($fecha . ' ' . $hora) : (Reuniones::esRecurrente($reu) ? time() : strtotime((string)($reu['inicio'] ?? '')));
     $t = ZoomDrive::transcripcion((string)$reu['zoom_id'], $fecha, (int)$empieza + (int)($reu['duracion'] ?? 60) * 60);
@@ -948,7 +948,7 @@ switch ($accion) {
 
     /* ---------- Pedidos entre equipos ---------- */
     case 'pedido_crear':
-        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/Pedidos.php al servidor.', 'error');
+        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/tasks/Pedidos.php al servidor.', 'error');
         if (Auth::esSupervisor()) redirigir(paginaOrigen(), 'Un supervisor solo observa: no hace pedidos.', 'error');
         $yoPed = Auth::usuario();
         $equiposPed = Catalogo::equipos();
@@ -991,7 +991,7 @@ switch ($accion) {
 
     case 'pedido_responder':
     case 'pedido_estado':
-        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/Pedidos.php al servidor.', 'error');
+        if (!class_exists('PedidoRepo')) redirigir(paginaOrigen(), 'Falta subir lib/tasks/Pedidos.php al servidor.', 'error');
         if (Auth::esSupervisor()) redirigir('pedidos.php', 'Un supervisor solo observa los pedidos.', 'error');
         $pedRepo = new PedidoRepo();
         $yoPed = Auth::usuario();
@@ -1050,7 +1050,7 @@ switch ($accion) {
         $miembros->actualizar((int)$yoTel['id'], ['telefono' => $tel]);
         redirigir(paginaOrigen(), 'Listo, guardamos tu teléfono.');
 
-    /* ---------- Tutoriales en video (lib/Tutoriales.php): solo administrador ---------- */
+    /* ---------- Tutoriales en video (lib/help/Tutoriales.php): solo administrador ---------- */
     case 'tutorial_visto':
         header('Content-Type: application/json; charset=utf-8');
         if (class_exists('Tutoriales')) {
@@ -1059,12 +1059,12 @@ switch ($accion) {
         exit('{"ok":true}');
 
     case 'tutorial_crear':
-    /* ---------- Colorimetría de proyectos (lib/Colorimetria.php · colorimetria.php) ---------- */
+    /* ---------- Colorimetría de proyectos (lib/releases/Colorimetria.php · colorimetria.php) ---------- */
     case 'col_medir':
     case 'col_conf':
     case 'col_conf_reset':
-        require_once __DIR__ . '/lib/Colorimetria.php';
-        if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+        require_once __DIR__ . '/lib/releases/Colorimetria.php';
+        if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
         if ($accion === 'col_medir') {
             $tCol = ($_POST['t'] ?? '') === 'equipo' ? 'equipo' : 'proyecto';
             $rCol = (string)($_POST['r'] ?? '');
@@ -1093,7 +1093,7 @@ switch ($accion) {
             redirigir('colorimetria.php?v=config', $e->getMessage(), 'error');
         }
 
-    /* ---------- Calendario general: los feriados nacionales (lib/Feriados.php · calendario.php) ---------- */
+    /* ---------- Calendario general: los feriados nacionales (lib/releases/Feriados.php · calendario.php) ---------- */
     case 'feriado_agregar':
     case 'feriado_quitar':
     case 'feriado_traer':
@@ -1133,7 +1133,7 @@ switch ($accion) {
         if (is_string($tc)) redirigir('tutoriales.php', $tc, 'error');
         redirigir('tutoriales.php', 'Publicamos «' . $tc['titulo'] . '».' . (!empty($tc['avisar']) ? ' A cada persona le sale en una ventana al entrar al panel.' : ''));
 
-    /* ---------- Notificaciones nativas (lib/Push.php) ---------- */
+    /* ---------- Notificaciones nativas (lib/notifications/Push.php) ---------- */
     case 'push_suscribir':
     case 'push_quitar':
     case 'push_prefs':
@@ -1170,7 +1170,7 @@ switch ($accion) {
         redirigir($volverP, $nP ? 'Enviamos un aviso de prueba a ' . $nP . ($nP === 1 ? ' dispositivo.' : ' dispositivos.')
                                 : 'No llegó a ningún dispositivo: primero actívalo en el equipo donde quieras recibirlo.', $nP ? 'success' : 'error');
 
-    /* ---------- Correo InnoTech (lib/Correo.php) ---------- */
+    /* ---------- Correo InnoTech (lib/mail/Correo.php) ---------- */
     case 'correo_respuesta_ia':
         // La respuesta que armó la IA (assets/ia.js) va al formulario de responder, con la cita debajo
         if (!Auth::esAdmin()) redirigir('notificaciones.php', 'Responder con IA es solo para administradores.', 'error');
@@ -1881,7 +1881,7 @@ switch ($accion) {
         }
 
         if ($esAjax) {
-            require_once __DIR__ . '/lib/obs_item.php';
+            require_once __DIR__ . '/lib/tasks/obs_item.php';
             $res = $obsRepo->resumen($pid);
             header('Content-Type: application/json');
             echo json_encode([
@@ -2169,7 +2169,7 @@ switch ($accion) {
     case 'api_token_crear':
     case 'api_token_quitar':
         // El token de la API (api.php) para Claude Code: siempre el de quien entró, nunca el del «ver como»
-        require_once __DIR__ . '/lib/ApiToken.php';
+        require_once __DIR__ . '/lib/core/ApiToken.php';
         $yoTk = (int)(Auth::usuario()['id'] ?? 0);
         if ($yoTk <= 0) redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
         if ($accion === 'api_token_quitar') {
@@ -2182,11 +2182,11 @@ switch ($accion) {
 
     case 'contexto_tareas_json':
         // El formato de tareas con los releases, los equipos y los ítems de todos
-        // (lib/ContextoTareas.php), para dárselo al asistente de código. Mi perfil.
+        // (lib/tasks/ContextoTareas.php), para dárselo al asistente de código. Mi perfil.
         if (!Auth::usuario()) {
             redirigir('login.php', 'Tu sesión expiró. Entra de nuevo.', 'error');
         }
-        require_once __DIR__ . '/lib/ContextoTareas.php';
+        require_once __DIR__ . '/lib/tasks/ContextoTareas.php';
         header('Content-Type: application/json; charset=utf-8');
         header('Content-Disposition: attachment; filename="innotech-hub-tareas-y-releases.json"');
         header('Cache-Control: no-store');
@@ -2479,7 +2479,7 @@ switch ($accion) {
             ? 'Requerimiento registrado. Queda sin asignar hasta que le pongas responsables.'
             : 'Requerimiento registrado y asignado a ' . $avisoReq) . $notaObs . $notaCorreo);
 
-    /* ---------- Requerimientos desde el correo (lib/ReqCorreo.php) ---------- */
+    /* ---------- Requerimientos desde el correo (lib/requirements/ReqCorreo.php) ---------- */
     case 'req_correo_conf':
         if (!class_exists('ReqCorreo') || !class_exists('Correo')) redirigir('requerimientos.php', 'Falta el módulo del correo en el servidor.', 'error');
         $yoRc = (int)(Auth::usuario()['id'] ?? 0);
@@ -2765,7 +2765,7 @@ switch ($accion) {
         ]);
 
     case 'req_seguimiento_conf':
-        if (!class_exists('ReqSeguimiento')) redirigir('requerimientos.php', 'Falta lib/ReqSeguimiento.php en el servidor.', 'error');
+        if (!class_exists('ReqSeguimiento')) redirigir('requerimientos.php', 'Falta lib/requirements/ReqSeguimiento.php en el servidor.', 'error');
         ReqSeguimiento::guardar($_POST);
         redirigir('requerimientos.php', 'Listo: el seguimiento de requerimientos quedó guardado.');
 
@@ -2918,7 +2918,7 @@ switch ($accion) {
         $finTc = function (bool $ok, string $msg, array $extra = []): never {
             exit(json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg, 'mensaje' => $msg] + $extra, JSON_UNESCAPED_UNICODE));
         };
-        if (!class_exists('TareasCorreo')) $finTc(false, 'Falta lib/TareasCorreo.php en el servidor.');
+        if (!class_exists('TareasCorreo')) $finTc(false, 'Falta lib/mail/TareasCorreo.php en el servidor.');
         $pidTc = (int)($_POST['proyecto_id'] ?? 0);
         $pTc = $pidTc > 0 ? $proyectos->buscar($pidTc) : null;
         if (!$pTc) $finTc(false, 'Ese proyecto ya no existe.');
@@ -2926,7 +2926,7 @@ switch ($accion) {
         if (!is_array($listaTc) || !$listaTc) $finTc(false, 'Marca al menos una tarea.');
         $validosTc = array_column(TareasCorreo::gente($pTc), 'id');
         $origenTc = mb_substr(trim(strip_tags((string)($_POST['origen'] ?? ''))), 0, 300);
-        if (is_file(__DIR__ . '/lib/IA.php')) require_once __DIR__ . '/lib/IA.php';
+        if (is_file(__DIR__ . '/lib/ai/IA.php')) require_once __DIR__ . '/lib/ai/IA.php';
         $erroresTc = [];
         $listasTc = [];
         foreach (array_slice($listaTc, 0, 30) as $iTc => $tTc) {
@@ -3205,7 +3205,7 @@ switch ($accion) {
             'alias'      => array_intersect_key(
                 aliasDeploys($depPost['alias'] ?? []), array_flip($idsProy)
             ),
-            // Horario de subidas (lib/Cronograma.php): hora límite general, días, hora propia por
+            // Horario de subidas (lib/deploys/Cronograma.php): hora límite general, días, hora propia por
             // proyecto (vacía = la general), deploys de GitLab y aviso previo
             'cronograma' => (function () use ($depPost, $idsProy) {
                 $cr = (array)($depPost['cronograma'] ?? []);
@@ -3612,9 +3612,9 @@ switch ($accion) {
     case 'reporte_docx':
         // Reportería: el resumen ejecutivo con los datos de este momento. Solo
         // administrador (no está en las listas de acciones abiertas).
-        require_once __DIR__ . '/lib/Reporte.php';
-        require_once __DIR__ . '/lib/ReportePptx.php';
-        require_once __DIR__ . '/lib/ReporteDocx.php';
+        require_once __DIR__ . '/lib/reports/Reporte.php';
+        require_once __DIR__ . '/lib/reports/ReportePptx.php';
+        require_once __DIR__ . '/lib/reports/ReporteDocx.php';
         // La misma selección que se ve en la página (Configurar): ?p[]=…&req=0
         [$selDesc, $reqDesc] = Reporte::seleccion($_POST);
         $repDesc = Reporte::desdePanel($selDesc, $reqDesc);
@@ -3633,7 +3633,7 @@ switch ($accion) {
 
     case 'ia_clave_quitar':
         // Quitar una clave al instante (botón «Quitar» de la consola, con confirmación)
-        require_once __DIR__ . '/lib/IA.php';
+        require_once __DIR__ . '/lib/ai/IA.php';
         $provQ = (string)($_POST['proveedor'] ?? '');
         $idQ   = (string)($_POST['id'] ?? '');
         if (!isset(IA::PROVEEDORES[$provQ])) redirigir('ia.php#claves', 'Proveedor desconocido.', 'error');
@@ -3649,7 +3649,7 @@ switch ($accion) {
         redirigir('ia.php#claves', 'Quitamos la clave «' . $quitadaQ['etiqueta'] . '» de ' . IA::PROVEEDORES[$provQ]['nombre'] . '.');
 
     case 'ia_guardar':
-        require_once __DIR__ . '/lib/IA.php';
+        require_once __DIR__ . '/lib/ai/IA.php';
         $cfgIa  = IA::config();
         $postIa = (array)($_POST['ia'] ?? []);
         $num    = fn($v) => max(0, round((float)str_replace(',', '.', (string)$v), 4));
@@ -3724,7 +3724,7 @@ switch ($accion) {
         redirigir('ia.php#' . $tabIa, 'Consola de IA guardada.');
 
     case 'ia_probar':
-        require_once __DIR__ . '/lib/IA.php';
+        require_once __DIR__ . '/lib/ai/IA.php';
         header('Content-Type: application/json; charset=utf-8');
         try {
             echo json_encode(['ok' => true, 'resultados' => IA::probar((string)($_POST['modelo'] ?? ''))], JSON_UNESCAPED_UNICODE);
@@ -3758,8 +3758,8 @@ switch ($accion) {
     case 'ia_crear_tareas':
     case 'ia_deploy_notas':
     case 'ia_daily':
-        require_once __DIR__ . '/lib/IA.php';
-        require_once __DIR__ . '/lib/IAFunciones.php';
+        require_once __DIR__ . '/lib/ai/IA.php';
+        require_once __DIR__ . '/lib/ai/IAFunciones.php';
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
         $iaFin = function (array $d, int $st = 200): never {
@@ -4027,7 +4027,7 @@ switch ($accion) {
                 case 'rel_ia_revision':
                 case 'rel_ia_reorganizar':
                     // Las tareas de un ítem frente a su alcance, sus fechas y los ítems de todos los releases y equipos
-                    require_once __DIR__ . '/lib/Releases.php';
+                    require_once __DIR__ . '/lib/releases/Releases.php';
                     $itRo = Releases::item((int)($_POST['id'] ?? 0));
                     if (!$itRo) throw new IAError('Ese ítem ya no existe.');
                     $yoRo = (int)(Auth::usuario()['id'] ?? 0);
@@ -4053,9 +4053,9 @@ switch ($accion) {
 
                 case 'rel_ia_equipo':
                 case 'rel_ia_general':
-                    // Releases (lib/Releases.php): el resumen de una revisión, el cruce de
+                    // Releases (lib/releases/Releases.php): el resumen de una revisión, el cruce de
                     // las tareas de un equipo con sus ítems y el estado general.
-                    require_once __DIR__ . '/lib/Releases.php';
+                    require_once __DIR__ . '/lib/releases/Releases.php';
                     if (!Releases::puedeVer()) $iaFin(['ok' => false, 'error' => 'No tienes acceso a Releases.'], 403);
                     $yoRl = (int)(Auth::usuario()['id'] ?? 0);
                     $smRl = fn(string $eq) => Releases::puedeEditar() || ($yoRl > 0 && (int)(Releases::equipo($eq)['sm_id'] ?? 0) === $yoRl);
@@ -4099,7 +4099,7 @@ switch ($accion) {
 
 
 
-    /* ---------- Releases (lib/Releases.php · releases.php) ---------- */
+    /* ---------- Releases (lib/releases/Releases.php · releases.php) ---------- */
 
     case 'rel_importar':
     case 'rel_sembrar':
@@ -4121,7 +4121,7 @@ switch ($accion) {
     case 'rel_daily_registrar':
     case 'rel_daily_zoom':
     case 'rel_daily_reunion':
-        require_once __DIR__ . '/lib/Releases.php';
+        require_once __DIR__ . '/lib/releases/Releases.php';
         $relAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
         // Con fetch, JSON; con un formulario normal, de vuelta a la vista con el aviso
         $relFin = function (bool $ok, string $msg = '', array $extra = []) use ($relAjax): never {
@@ -4441,7 +4441,7 @@ switch ($accion) {
             $relFin(false, $e->getMessage());
         }
 
-    /* ---------- Backlog estilo Jira (lib/Backlog.php): historias de usuario y sprints ---------- */
+    /* ---------- Backlog estilo Jira (lib/backlog/Backlog.php): historias de usuario y sprints ---------- */
     case 'bl_historia_guardar':
     case 'bl_historia_mover':
     case 'bl_historia_borrar':
@@ -4453,8 +4453,8 @@ switch ($accion) {
     case 'bl_sprint_retro':
     case 'bl_sprint_accion':
     case 'bl_dor_conf':
-        require_once __DIR__ . '/lib/Releases.php';
-        require_once __DIR__ . '/lib/Backlog.php';
+        require_once __DIR__ . '/lib/releases/Releases.php';
+        require_once __DIR__ . '/lib/backlog/Backlog.php';
         $blAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
         $blFin = function (bool $ok, string $msg = '', array $extra = []) use ($blAjax): never {
             if ($blAjax) {
@@ -4483,9 +4483,9 @@ switch ($accion) {
                     $hIa = Backlog::historia((int)($_POST['id'] ?? 0));
                     if (!$hIa) throw new RuntimeException('Esa historia ya no existe.');
                     if (!Backlog::puede((int)$hIa['proyecto_id'])) $blFin(false, $blSinPermiso);
-                    if (!is_file(__DIR__ . '/lib/IA.php')) $blFin(false, 'La IA no está instalada en este servidor.');
-                    require_once __DIR__ . '/lib/IA.php';
-                    require_once __DIR__ . '/lib/IAFunciones.php';
+                    if (!is_file(__DIR__ . '/lib/ai/IA.php')) $blFin(false, 'La IA no está instalada en este servidor.');
+                    require_once __DIR__ . '/lib/ai/IA.php';
+                    require_once __DIR__ . '/lib/ai/IAFunciones.php';
                     if (!IA::lista()) $blFin(false, 'La IA todavía no está configurada (Consola de IA).');
                     // Lo que se está escribiendo en la pantalla manda sobre lo guardado
                     foreach (['titulo', 'como', 'quiero', 'para', 'notas'] as $kIa) if (isset($_POST[$kIa]) && trim((string)$_POST[$kIa]) !== '') $hIa[$kIa] = (string)$_POST[$kIa];
@@ -4528,7 +4528,7 @@ switch ($accion) {
                 case 'bl_importar':
                     // Las historias que se leyeron del documento (historias_importar.php las
                     // dejó en la sesión) y que se marcaron: al backlog, a su sprint o repartidas
-                    require_once __DIR__ . '/lib/BacklogImport.php';
+                    require_once __DIR__ . '/lib/backlog/BacklogImport.php';
                     $pidImp = (int)($_POST['proyecto_id'] ?? 0);
                     if (!$proyectos->buscar($pidImp)) throw new RuntimeException('Ese proyecto ya no existe.');
                     if (!Backlog::puede($pidImp)) $blFin(false, $blSinPermiso);
@@ -4554,7 +4554,7 @@ switch ($accion) {
                 case 'bl_sprint_retro':
                 case 'bl_sprint_accion':
                 case 'bl_dor_conf':
-                    // El sprint del proyecto (sprint.php, lib/sprint_ui.php): el objetivo y la capacidad, la
+                    // El sprint del proyecto (sprint.php, lib/backlog/sprint_ui.php): el objetivo y la capacidad, la
                     // retrospectiva y sus acciones, y la Definición de «Lista» (DoR) del proyecto
                     $pidSp = (int)($_POST['proyecto_id'] ?? 0);
                     $codSp = (string)($_POST['sprint'] ?? '');
@@ -4756,12 +4756,12 @@ switch ($accion) {
         }
         redirigir('ajustes.php', 'Configuración importada: ' . count($aplicadas) . ' bloque(s) actualizado(s) (' . implode(', ', $aplicadas) . ').');
 
-    /* ---------- WhatsApp (lib/Whatsapp.php): solo administrador ---------- */
+    /* ---------- WhatsApp (lib/notifications/Whatsapp.php): solo administrador ---------- */
     case 'whatsapp_estado':
         // Lo pide el modal «Ver estado y vincular» de Ajustes cada pocos segundos
         header('Content-Type: application/json; charset=utf-8');
         header('Cache-Control: no-store');
-        if (!class_exists('Whatsapp')) { echo json_encode(['ok' => false, 'error' => 'Falta subir lib/Whatsapp.php.']); exit; }
+        if (!class_exists('Whatsapp')) { echo json_encode(['ok' => false, 'error' => 'Falta subir lib/notifications/Whatsapp.php.']); exit; }
         $c = Whatsapp::conf();
         if ($c['url'] === '' || $c['token'] === '') {
             echo json_encode(['ok' => false, 'error' => 'Primero guarda la dirección de la pasarela y su token.'], JSON_UNESCAPED_UNICODE);
@@ -4773,7 +4773,7 @@ switch ($accion) {
 
     case 'whatsapp_prueba':
         $volverW = 'ajustes.php#tab-reuniones';
-        if (!class_exists('Whatsapp')) redirigir($volverW, 'Falta subir lib/Whatsapp.php al servidor.', 'error');
+        if (!class_exists('Whatsapp')) redirigir($volverW, 'Falta subir lib/notifications/Whatsapp.php al servidor.', 'error');
         $c = Whatsapp::conf();
         if ($c['url'] === '' || $c['token'] === '') redirigir($volverW, 'Primero guarda la dirección de la pasarela y su token.', 'error');
         $numW = Whatsapp::numeroDe(Auth::usuario() ?? []);
@@ -5217,9 +5217,9 @@ switch ($accion) {
                 'desplegada_en' => $nuevoDep['fecha'],
             ]);
         }
-        // Se lleva los builds de GitLab en cola de esos proyectos y avisa a todos (lib/Cronograma.php)
-        if (is_file(__DIR__ . '/lib/Cronograma.php')) {
-            require_once __DIR__ . '/lib/Cronograma.php';
+        // Se lleva los builds de GitLab en cola de esos proyectos y avisa a todos (lib/deploys/Cronograma.php)
+        if (is_file(__DIR__ . '/lib/deploys/Cronograma.php')) {
+            require_once __DIR__ . '/lib/deploys/Cronograma.php';
             try { Cronograma::alRegistrarAMano($nuevoDep); } catch (Throwable $e) { /* el registro ya quedó */ }
         }
         // El mensaje dice A QUÉ se registró, por su alias: "en 3 proyectos" no

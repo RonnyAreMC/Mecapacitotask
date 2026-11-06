@@ -3,7 +3,7 @@
  * Ficha del colaborador: datos, cuentas (git/correo) y todas sus tareas.
  * Pantalla propia a la que se llega desde la tabla de equipo.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $miembrosRepo = new MiembroRepo();
 $tareasRepo   = new TareaRepo();
@@ -387,7 +387,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
     </header>
     <?php
     // Reutiliza el mismo componente de campos del equipo
-    require_once __DIR__ . '/lib/campos_persona.php';
+    require_once __DIR__ . '/lib/team/campos_persona.php';
     camposPersona(true, $eq, Catalogo::equipos());
     ?>
     <footer>

@@ -5,7 +5,7 @@
  *   Apellidos ; Nombres ; Correo ; Proyecto (o Equipo)
  *
  * Es el mismo motor que usa el botón «Cargar equipo» de la pantalla de Equipo
- * (lib/ImportadorEquipo.php): acepta .xlsx y .csv, no duplica fichas y, si la
+ * (lib/team/ImportadorEquipo.php): acepta .xlsx y .csv, no duplica fichas y, si la
  * última columna trae el nombre de un proyecto que existe, deja a esa gente
  * vinculada a él.
  *
@@ -14,7 +14,7 @@
  *   php admin/seed_equipo.php ruta/al/archivo.xlsx  lee ese archivo
  *   php admin/seed_equipo.php equipo.csv --seco     enseña qué haría, sin escribir
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);

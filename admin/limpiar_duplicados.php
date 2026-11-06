@@ -14,7 +14,7 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $aplicar = in_array('--aplicar', $argv, true);
 $args    = array_values(array_filter(array_slice($argv, 1), fn($a) => !str_starts_with($a, '--')));

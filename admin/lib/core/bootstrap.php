@@ -1,0 +1,1088 @@
+<?php
+/**
+ * Bootstrap del panel: sesion, autocarga de clases, helpers
+ * y datos de ejemplo la primera vez que se abre.
+ */
+// Corta bucles de redirección. Si la URL trae una cola después del script
+// (p. ej. /admin/oauth_google.php/login.php, sea por PATH_INFO o por un CGI
+// que no la separó), los redirect relativos como "login.php" se resuelven
+// una y otra vez sobre esa cola y el navegador entra en ERR_TOO_MANY_REDIRECTS.
+// Se manda UNA vez a la URL limpia del script.
+if (PHP_SAPI !== 'cli') {
+    $sn = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (!empty($_SERVER['PATH_INFO']) || preg_match('#\.php/.+#i', $sn)) {
+        $limpio = preg_replace('#(\.php)/.*$#i', '$1', $sn);
+        $qs = $_SERVER['QUERY_STRING'] ?? '';
+        header('Location: ' . $limpio . ($qs !== '' ? '?' . $qs : ''), true, 302);
+        exit;
+    }
+}
+
+// Después de actualizar desde la terminal (php admin/actualizar.php deja la
+// marca data/opcache_limpiar.json), la primera visita vacía la caché de PHP de
+// la web (OPcache): la de la terminal es otra, y sin esto la web seguía con
+// los archivos viejos. Se pide otra vez la misma página para que salga entera
+// con los nuevos. Solo si la marca se pudo borrar: nunca en cada visita.
+if (PHP_SAPI !== 'cli' && is_file(__DIR__ . '/../../data/opcache_limpiar.json')
+    && @unlink(__DIR__ . '/../../data/opcache_limpiar.json') && function_exists('opcache_reset')) {
+    @opcache_reset();
+    if (($_SERVER['REQUEST_METHOD'] ?? '') === 'GET' && !headers_sent() && !defined('MCH_API')) {   // la API no se redirige
+        header('Location: ' . ($_SERVER['REQUEST_URI'] ?? 'index.php'), true, 302);
+        exit;
+    }
+}
+
+// Sesión pensada para que dure HASTA QUE EL USUARIO CIERRE SESIÓN y no se
+// pierda en cada deploy.
+// La API (api.php, para Claude Code) no usa sesión: entra con su token. Así una cookie
+// de sesión del navegador no sirve para llamarla, y no se crea un archivo por llamada.
+if (PHP_SAPI !== 'cli' && session_status() === PHP_SESSION_NONE && !defined('MCH_API')) {
+    $vidaSesion = 60 * 60 * 24 * 30;   // 30 días
+
+    // Las sesiones se guardan en el directorio PERSISTENTE de datos, no en el
+    // /tmp del sistema. Así:
+    //  - No se borran en cada deploy (el deploy reemplaza el código, pero data/
+    //    persiste — ahí vive también el SQLite).
+    //  - No las limpia el cron del sistema (en Debian borra /var/lib/php/sessions
+    //    a los ~24 min ignorando nuestro gc_maxlifetime, que era la causa de que
+    //    "se cerraran las cuentas" solas).
+    // data/ está fuera de git y bloqueado al web por su .htaccess.
+    $dirSesiones = __DIR__ . '/../../data/sessions';
+    if (!is_dir($dirSesiones)) @mkdir($dirSesiones, 0700, true);
+    if (is_dir($dirSesiones) && is_writable($dirSesiones)) {
+        session_save_path($dirSesiones);
+    }
+    ini_set('session.gc_maxlifetime', (string)$vidaSesion);
+
+    // Cookie endurecida (no accesible por JS, y solo por HTTPS si lo hay) y
+    // PERSISTENTE: sobrevive a cerrar el navegador (antes era de sesión y se
+    // perdía al salir).
+    $seguro = !empty($_SERVER['HTTPS']) || ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https';
+    session_set_cookie_params([
+        'lifetime' => $vidaSesion,
+        'httponly' => true,
+        'samesite' => 'Lax',
+        'secure'   => $seguro,
+    ]);
+    session_start();
+
+    // Expiración deslizante: cada visita de alguien con la sesión iniciada
+    // renueva la cookie otros 30 días, para que quien lo usa a diario nunca se
+    // desloguee salvo que pulse "Cerrar sesión".
+    if (!empty($_SESSION['uid'])) {
+        setcookie(session_name(), session_id(), [
+            'expires'  => time() + $vidaSesion,
+            'path'     => ini_get('session.cookie_path') ?: '/',
+            'httponly' => true,
+            'samesite' => 'Lax',
+            'secure'   => $seguro,
+        ]);
+    }
+}
+
+require_once __DIR__ . '/Storage.php';
+require_once __DIR__ . '/Models.php';
+require_once __DIR__ . '/../releases/Feriados.php';   // calendario general: los feriados no son días hábiles en ningún lado
+require_once __DIR__ . '/../releases/Colorimetria.php';   // un solo tono por estado en todo el panel (los avances y los estados)
+require_once __DIR__ . '/HtmlRico.php';
+require_once __DIR__ . '/../tasks/AutoEstado.php';
+require_once __DIR__ . '/UI.php';
+require_once __DIR__ . '/Auth.php';
+require_once __DIR__ . '/../integrations/GoogleLogin.php';
+require_once __DIR__ . '/../integrations/GoogleCalendar.php';
+require_once __DIR__ . '/../tasks/ImportadorTareas.php';
+require_once __DIR__ . '/../team/ImportadorEquipo.php';
+require_once __DIR__ . '/../mail/Mailer.php';
+require_once __DIR__ . '/../integrations/GitHub.php';
+require_once __DIR__ . '/../integrations/GitLab.php';
+require_once __DIR__ . '/../integrations/Repos.php';
+require_once __DIR__ . '/../meetings/Zoom.php';
+require_once __DIR__ . '/../meetings/Reuniones.php';
+
+// Zona horaria del equipo. Sin esto PHP usa la del servidor (normalmente UTC)
+// y las horas de reuniones y fechas salen corridas al compararlas o mostrarlas.
+date_default_timezone_set(Zoom::zona() ?: 'America/Guayaquil');
+
+/* ---------- Helpers ---------- */
+
+/**
+ * Crons callados: cPanel manda un correo («Cron Daemon») con todo lo que un cron
+ * escribe. Cuando corre solo (sin terminal), lo que iba a escribir, errores
+ * incluidos, se guarda en data/cron_<nombre>.log (las últimas 300 líneas) y no
+ * sale nada. A mano en la Terminal, o con --ver, se ve como siempre.
+ */
+function cronCallado(string $nombre): void
+{
+    if (PHP_SAPI !== 'cli' || in_array('--ver', (array)($_SERVER['argv'] ?? []), true)) return;
+    if (defined('STDOUT') && function_exists('stream_isatty') && @stream_isatty(STDOUT)) return;
+    @ini_set('display_errors', 'stdout');   // los errores también van al registro, no al correo
+    if ((string)ini_get('error_log') === '') @ini_set('log_errors', '0');   // si no, PHP los repite por la salida de errores
+    $log = __DIR__ . '/../../data/cron_' . preg_replace('/[^a-z0-9_]/', '', strtolower($nombre)) . '.log';
+    ob_start(function (string $salida) use ($log): string {
+        $nuevas = array_filter(array_map('trim', preg_split('/\R/', $salida) ?: []), fn($l) => $l !== '');
+        if ($nuevas) {
+            $lineas = @file($log, FILE_IGNORE_NEW_LINES) ?: [];
+            foreach ($nuevas as $l) $lineas[] = preg_match('/^\d{4}-\d\d-\d\d /', $l) ? $l : date('Y-m-d H:i:s') . ' · ' . $l;
+            @file_put_contents($log, implode("\n", array_slice($lineas, -300)) . "\n", LOCK_EX);
+        }
+        return '';
+    });
+}
+
+/** Escapa HTML. */
+function e(?string $s): string
+{
+    return htmlspecialchars($s ?? '', ENT_QUOTES, 'UTF-8');
+}
+
+/**
+ * Directorio del panel en el servidor (p. ej. "/admin"), a prueba de colas
+ * PATH_INFO: corta SCRIPT_NAME en el primer ".php" antes de sacar la carpeta.
+ */
+function rutaPanelBase(): string
+{
+    $sn = $_SERVER['SCRIPT_NAME'] ?? '/admin/index.php';
+    if (preg_match('#^(.*?\.php)#i', $sn, $m)) {
+        $sn = $m[1];
+    }
+    $dir = str_replace('\\', '/', dirname($sn));
+    return $dir === '/' || $dir === '.' ? '' : rtrim($dir, '/');
+}
+
+/**
+ * Convierte un destino en una URL absoluta dentro del panel. Los redirect
+ * relativos ("login.php") son frágiles: cualquier cola en la URL los enrosca
+ * en un bucle. Un destino ya absoluto (http… o que empieza por "/") se respeta.
+ */
+function urlPanel(string $destino): string
+{
+    if ($destino === '') {
+        return rutaPanelBase() . '/index.php';
+    }
+    if ($destino[0] === '/' || preg_match('#^https?://#i', $destino)) {
+        return $destino;
+    }
+    return rutaPanelBase() . '/' . ltrim($destino, '/');
+}
+
+/** Guarda un mensaje flash y redirige (siempre con URL absoluta del panel). */
+function redirigir(string $url, string $msg = '', string $tipo = 'success'): never
+{
+    if ($msg !== '') {
+        $_SESSION['flash'][] = [$tipo, $msg];
+    }
+    header('Location: ' . urlPanel($url));
+    exit;
+}
+
+/**
+ * Ruta de un asset con ?v=<fecha del archivo>. Evita que un cache del
+ * navegador (o del servidor) siga sirviendo una version vieja del CSS/JS
+ * despues de un despliegue.
+ */
+function asset(string $ruta): string
+{
+    $v = @filemtime(__DIR__ . '/../../' . $ruta) ?: 1;
+    return $ruta . '?v=' . $v;
+}
+
+/** Limite efectivo de subida en bytes (min de upload_max_filesize y post_max_size). */
+function limiteSubidaBytes(): int
+{
+    $aBytes = function (string $v): int {
+        $n = (int)$v;
+        return match (strtoupper(substr(trim($v), -1))) {
+            'G' => $n << 30, 'M' => $n << 20, 'K' => $n << 10, default => (int)$v,
+        };
+    };
+    return min($aBytes((string)ini_get('upload_max_filesize')), $aBytes((string)ini_get('post_max_size')));
+}
+
+/**
+ * Destino de vuelta que manda un formulario en el campo 'volver'.
+ *
+ * Solo se acepta una pagina del propio panel ("proyecto.php?id=3&estado=..."):
+ * asi conserva los filtros de la vista sin abrir la puerta a que alguien
+ * redirija a un sitio externo colando una URL absoluta.
+ */
+function volverAqui(string $defecto): string
+{
+    $v = trim((string)($_POST['volver'] ?? ''));
+    return preg_match('#^[\w.-]+\.php(\?[\w=&%.,+-]*)?$#', $v) ? $v : $defecto;
+}
+
+/** Pagina desde la que se envio el formulario (para volver con un error). */
+function paginaOrigen(): string
+{
+    $ref = $_SERVER['HTTP_REFERER'] ?? '';
+    return $ref !== '' ? $ref : 'index.php';
+}
+
+/**
+ * Procesa la foto subida de un miembro; devuelve la ruta relativa o ''.
+ * Si la subida fallo (tamano, formato), redirige con un error claro
+ * en vez de guardar en silencio sin foto.
+ */
+function guardarFoto(string $campo, string $prefijo = 'foto_', string $etiqueta = 'foto'): string
+{
+    $err = $_FILES[$campo]['error'] ?? UPLOAD_ERR_NO_FILE;
+    if ($err === UPLOAD_ERR_NO_FILE) {
+        return '';
+    }
+    if ($err === UPLOAD_ERR_INI_SIZE || $err === UPLOAD_ERR_FORM_SIZE) {
+        redirigir(paginaOrigen(), 'La ' . $etiqueta . ' pesa demasiado (límite del servidor: ' . ini_get('upload_max_filesize') . '). Intenta con una más liviana.', 'error');
+    }
+    if ($err !== UPLOAD_ERR_OK || empty($_FILES[$campo]['tmp_name'])) {
+        redirigir(paginaOrigen(), 'No se pudo subir la ' . $etiqueta . ' (código ' . $err . '). Intenta de nuevo.', 'error');
+    }
+    $permitidos = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp', 'image/gif' => 'gif'];
+    $mime = mime_content_type($_FILES[$campo]['tmp_name']);
+    if (!isset($permitidos[$mime])) {
+        redirigir(paginaOrigen(), 'Formato no soportado para la ' . $etiqueta . '. Usa JPG, PNG, WebP o GIF.', 'error');
+    }
+    $nombre = 'uploads/' . uniqid($prefijo) . '.' . $permitidos[$mime];
+    $destino = __DIR__ . '/../../' . $nombre;
+    if (!move_uploaded_file($_FILES[$campo]['tmp_name'], $destino)) {
+        redirigir(paginaOrigen(), 'No se pudo guardar la ' . $etiqueta . ' en el servidor.', 'error');
+    }
+    return $nombre;
+}
+
+/** Ruta del logo del panel: la imagen subida en Ajustes o el logo por defecto. */
+function logoPanel(): string
+{
+    $logo = trim((string)(Config::get('logo') ?? ''));
+    if ($logo !== '' && is_file(__DIR__ . '/../../' . $logo)) {
+        return $logo;
+    }
+    // Marca de esta instancia: si está el logo de InnoTech Hub (SVG preferido,
+    // luego PNG), se usa por defecto sin tener que subirlo en Ajustes.
+    foreach (['innotech-hub-logo.svg', 'innotech-hub-logo.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
+    }
+    return '../assets/mecapacito-logo.png';
+}
+
+/**
+ * Icono para la pestaña del navegador. NO sirve el logo del panel: ese es el
+ * wordmark (281x59), y a 16px el texto se aplasta hasta volverse ilegible.
+ * Se usa el icono cuadrado, que es lo que se lee a ese tamaño.
+ * Si en Ajustes subieron un logo propio, ese manda: es una decisión explícita.
+ */
+function faviconPanel(): string
+{
+    $logo = trim((string)(Config::get('logo') ?? ''));
+    if ($logo !== '' && is_file(__DIR__ . '/../../' . $logo)) {
+        return $logo;
+    }
+    foreach (['innotech-hub-icon.svg', 'innotech-hub-icon.png'] as $arch) {
+        if (is_file(__DIR__ . '/../../../assets/' . $arch)) {
+            return '../assets/' . $arch;
+        }
+    }
+    return logoPanel();          // sin icono propio, mejor el logo que nada
+}
+
+/** Tipo MIME de una imagen del panel, para el atributo type del favicon. */
+function logoMime(string $ruta = ''): string
+{
+    $ruta = $ruta !== '' ? $ruta : logoPanel();
+    return str_ends_with(strtolower($ruta), '.svg') ? 'image/svg+xml' : 'image/png';
+}
+
+/**
+ * Formatos admitidos como adjunto: extension => tipos reales aceptables.
+ *
+ * Se comprueban los dos. Solo por extension seria confiar en el nombre que
+ * manda el navegador; solo por tipo real no funciona con Office moderno,
+ * porque un .docx es un ZIP por dentro y muchos servidores lo reportan como
+ * application/zip (asi se descartaban en silencio archivos legitimos).
+ */
+const ADJUNTOS_PERMITIDOS = [
+    'jpg'  => ['image/jpeg'],
+    'jpeg' => ['image/jpeg'],
+    'png'  => ['image/png'],
+    'webp' => ['image/webp'],
+    'gif'  => ['image/gif'],
+    'pdf'  => ['application/pdf'],
+    'txt'  => ['text/plain'],
+    'csv'  => ['text/plain', 'text/csv', 'application/csv'],
+    'doc'  => ['application/msword', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'xls'  => ['application/vnd.ms-excel', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'ppt'  => ['application/vnd.ms-powerpoint', 'application/vnd.ms-office', 'application/x-ole-storage'],
+    'docx' => ['application/vnd.openxmlformats-officedocument.wordprocessingml.document', 'application/zip'],
+    'xlsx' => ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'application/zip'],
+    'pptx' => ['application/vnd.openxmlformats-officedocument.presentationml.presentation', 'application/zip'],
+];
+
+/**
+ * Sube varios adjuntos de un input múltiple.
+ * Devuelve [ ['ruta'=>, 'nombre'=>, 'tipo'=>'img'|'doc', 'ext'=>], ... ].
+ * Los que no se pudieron subir salen por $rechazados, para poder decirlo en
+ * pantalla en vez de perderlos sin avisar.
+ */
+function guardarAdjuntos(string $campo, string $prefijo = 'obs_', array &$rechazados = []): array
+{
+    $out = [];
+    if (empty($_FILES[$campo]) || empty($_FILES[$campo]['name'])) {
+        return $out;
+    }
+    $f = $_FILES[$campo];
+    $nombres = is_array($f['name']) ? $f['name'] : [$f['name']];
+    for ($i = 0, $n = count($nombres); $i < $n; $i++) {
+        $error    = is_array($f['error']) ? $f['error'][$i] : $f['error'];
+        $tmp      = is_array($f['tmp_name']) ? $f['tmp_name'][$i] : $f['tmp_name'];
+        $original = (string)(is_array($f['name']) ? $f['name'][$i] : $f['name']);
+        if ($error === UPLOAD_ERR_NO_FILE || $original === '') {
+            continue;                       // hueco del input, no es un fallo
+        }
+        if ($error !== UPLOAD_ERR_OK || $tmp === '') {
+            $rechazados[] = $original;
+            continue;
+        }
+        $ext   = strtolower(pathinfo($original, PATHINFO_EXTENSION));
+        $mime  = (string)mime_content_type($tmp);
+        $tipos = ADJUNTOS_PERMITIDOS[$ext] ?? null;
+        if (!$tipos || !in_array($mime, $tipos, true)) {
+            $rechazados[] = $original;
+            continue;
+        }
+        $ruta = 'uploads/' . uniqid($prefijo) . '.' . $ext;
+        if (!move_uploaded_file($tmp, __DIR__ . '/../../' . $ruta)) {
+            $rechazados[] = $original;
+            continue;
+        }
+        $out[] = [
+            'ruta'   => $ruta,
+            'nombre' => mb_substr($original, 0, 80),
+            'tipo'   => str_starts_with($mime, 'image/') ? 'img' : 'doc',
+            'ext'    => $ext,
+        ];
+    }
+    return $out;
+}
+
+/**
+ * Borra del disco los archivos de una lista de adjuntos. Solo toca lo que
+ * vive en uploads/ y sin barras: una ruta manipulada no puede sacar el borrado
+ * de esa carpeta.
+ */
+function borrarAdjuntos(array $adjuntos): void
+{
+    foreach ($adjuntos as $a) {
+        $ruta = (string)($a['ruta'] ?? '');
+        if (!preg_match('#^uploads/[\w.-]+$#', $ruta)) {
+            continue;
+        }
+        $archivo = __DIR__ . '/../../' . $ruta;
+        if (is_file($archivo)) {
+            @unlink($archivo);
+        }
+    }
+}
+
+/**
+ * Añade al mensaje de vuelta los adjuntos que no se pudieron guardar, y lo
+ * marca como error: perder un documento en silencio es peor que un aviso.
+ * Devuelve [mensaje, tipo].
+ */
+function avisoAdjuntos(array $rechazados, string $msg = '', string $tipo = 'success'): array
+{
+    if (!$rechazados) {
+        return [$msg, $tipo];
+    }
+    $nombres = implode(', ', array_map(fn($n) => mb_substr((string)$n, 0, 40), $rechazados));
+    return [
+        $msg . ' No se pudo adjuntar: ' . $nombres
+             . '. Se admiten imágenes, PDF, Word, Excel, PowerPoint, TXT y CSV.',
+        'error',
+    ];
+}
+
+/** Icono de Font Awesome para un adjunto, segun su extension. */
+function iconoAdjunto(string $ext): string
+{
+    return match (strtolower($ext)) {
+        'pdf'                        => 'fa-file-pdf',
+        'doc', 'docx'                => 'fa-file-word',
+        'xls', 'xlsx', 'csv'         => 'fa-file-excel',
+        'ppt', 'pptx'                => 'fa-file-powerpoint',
+        'txt'                        => 'fa-file-lines',
+        'jpg', 'jpeg', 'png', 'webp', 'gif' => 'fa-file-image',
+        default                      => 'fa-paperclip',
+    };
+}
+
+/* ---------- Control de acceso ---------- */
+// Todas las páginas exigen sesión, salvo el login y actions.php
+// (actions.php aplica su propia guarda por acción).
+// logo.php sirve la imagen de marca a los correos: los clientes la piden sin
+// sesión, así que no puede exigir login (no expone nada privado). video.php es el
+// enlace para compartir un tutorial: solo muestra el video de esa clave.
+// pizarra_api.php contesta en JSON y comprueba la sesión ella misma (un 401, no
+// una redirección al login que luego devolvería a la persona a la API); igual notas_api.php.
+// nota_ver.php es el enlace para compartir una nota: solo muestra la nota de esa clave.
+$scriptActual = basename($_SERVER['SCRIPT_NAME'] ?? '');
+if (PHP_SAPI !== 'cli' && !defined('MCH_API') && !in_array($scriptActual, ['login.php', 'registro.php', 'actions.php', 'oauth_google.php', 'logo.php', 'video.php', 'nota_ver.php', 'pizarra_api.php', 'notas_api.php'], true)) {
+    Auth::requiereLogin();
+}
+
+/** Atajo para plantillas: ¿el usuario actual puede editar? */
+function esAdmin(): bool
+{
+    return Auth::esAdmin();
+}
+
+/** Atajos de plantilla para el rol Scrum Master. */
+function esScrum(): bool  { return Auth::esScrum(); }
+function esGestor(): bool { return Auth::esGestor(); }   // admin o scrum
+function esSupervisor(): bool { return Auth::esSupervisor(); }
+
+/**
+ * ¿Puede GESTIONAR este proyecto (planificar, reuniones, métricas)?
+ * El admin en todos; el Scrum Master solo en los suyos; el lector en ninguno.
+ */
+function puedeGestionar(int $proyectoId): bool
+{
+    if (Auth::esAdmin()) return true;
+    return Auth::esScrum() && puedeVerProyecto($proyectoId);
+}
+
+/**
+ * ¿Es el Scrum Master DE ESTE proyecto (o el administrador)?
+ *
+ * Distinto de puedeGestionar(): aquel se conforma con "tiene el rol scrum y
+ * participa aqui", que es demasiado ancho para lo que manda de verdad —con una
+ * tarea suelta en otro proyecto ya podia tocarlo. Esto exige estar puesto como
+ * Scrum Master de ese proyecto.
+ */
+/** ¿Es el Product Owner de este proyecto? ("ver como" contesta por esa persona) */
+/**
+ * ¿Es Product Owner de ese proyecto? Cuenta el principal y el de relevo:
+ * el de relevo cubre al principal, así que tiene los mismos permisos.
+ */
+function esPOde(array $p, int $id): bool
+{
+    return $id > 0 && (ProyectoRepo::poDe($p) === $id || (int)($p['po_relevo'] ?? 0) === $id);
+}
+
+function esPODelProyecto(int $proyectoId): bool
+{
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p !== null && esPOde($p, (int)$yo['id']);
+}
+
+/**
+ * ¿Puede crear y editar las REUNIONES de este proyecto (las de Zoom/Meet)?
+ *
+ * Lo de siempre —el administrador y el Scrum Master— más el Product Owner del
+ * proyecto: convoca al equipo tanto como el SM, y tenía que pedirle a otro que
+ * agendara sus propias reuniones. Se suma a puedeGestionar() en vez de
+ * sustituirlo para no quitarle permiso a nadie que ya lo tuviera.
+ */
+function puedeReunionesDelProyecto(int $proyectoId): bool
+{
+    return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
+}
+
+function puedeHorarioDelProyecto(int $proyectoId): bool
+{
+    // Con "ver como" activo se contesta por ESA persona. Si no, el panel
+    // enseñaba lo que puede el administrador mientras dice estar mirando con
+    // los ojos de otro, y parecía que la restricción no existía.
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    if (MiembroRepo::tieneAcceso($yo, 'admin')) return true;
+
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    if ($p === null) return false;
+    // Manda quien LLEVA el proyecto: su Scrum Master y su Product Owner. Son
+    // los dos que convocan al equipo, así que los dos ponen el horario. Basta
+    // con estar puesto como tal: el rol ya se valida al guardar el proyecto.
+    $id = (int)$yo['id'];
+    return ProyectoRepo::scrumDe($p) === $id || esPOde($p, $id);
+}
+
+
+/* Cambiar el estado de una tarea: lo usan actions.php (tablero) y api.php (Claude Code). */
+/**
+ * Campos para registrar CUÁNDO se completó una tarea. Se guarda al entrar a un
+ * estado final y se limpia al salir. Con esa fecha, las completadas se ocultan
+ * del tablero una semana después (pero siguen guardadas).
+ */
+function completadaEn(string $nuevo, string $antes): array
+{
+    $finales  = Catalogo::estadosFinales();
+    $esFinal  = in_array($nuevo, $finales, true);
+    $eraFinal = in_array($antes, $finales, true);
+    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d')];
+    if (!$esFinal && $eraFinal) return ['completada_en' => ''];
+    return [];
+}
+
+/**
+ * Releases: el ítem del release de esa tarea queda al día con lo que marcó el
+ * equipo (avance y estado según sus tareas). Si el módulo no está, no hace nada.
+ */
+function relAlDia(array $tareaIds): void
+{
+    $tareaIds = array_values(array_filter(array_map('intval', $tareaIds)));
+    if (!$tareaIds || !is_file(__DIR__ . '/../releases/Releases.php')) return;
+    try {
+        require_once __DIR__ . '/../releases/Releases.php';
+        Releases::sincronizarTareas($tareaIds);
+    } catch (Throwable $e) {
+        // El tablero no se frena por Releases
+    }
+}
+
+function chequearEntrega(int $proyectoId, ProyectoRepo $proyectos, TareaRepo $tareas): void
+{
+    $p = $proyectos->buscar($proyectoId);
+    if (!$p) return;
+    $total = array_sum($tareas->resumen($proyectoId));
+    $completo = $total > 0 && $tareas->avance($proyectoId) === 100;
+    $yaAvisado = !empty($p['entrega_notificada']);
+
+    if ($completo && !$yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 1]);
+        Mailer::notificarProyectoCompleto($p, $total);
+    } elseif (!$completo && $yaAvisado) {
+        $proyectos->actualizar($proyectoId, ['entrega_notificada' => 0]);
+    }
+}
+
+/**
+ * Avisa por correo al Scrum Master del proyecto de que una tarea acaba de darse
+ * por TERMINADA. (El Product Owner NO recibe este aviso, a propósito.)
+ *
+ * Solo dispara en el paso a terminada: si ya lo estaba (se reedita, se vuelve
+ * a guardar) no se avisa otra vez, que si no cada retoque manda un correo.
+ *
+ * A quien la termina no se le avisa de lo que acaba de hacer: si el propio
+ * Scrum Master cierra su tarea, ya lo sabe.
+ *
+ * $quienId es quien la cerro (0 = la cerro un commit, sin sesion detras).
+ * Devuelve la coletilla para el flash ('' si no habia a quien avisar).
+ */
+function avisarTareaTerminada(array $tarea, string $antes, string $ahora, int $quienId = 0): string
+{
+    $finales = Catalogo::estadosFinales();
+    if (!in_array($ahora, $finales, true) || in_array($antes, $finales, true)) {
+        return '';
+    }
+    $proyecto = (new ProyectoRepo())->buscar((int)($tarea['proyecto_id'] ?? 0));
+    if (!$proyecto) {
+        return '';
+    }
+
+    // Solo el Scrum Master del proyecto. El Product Owner NO recibe el aviso de
+    // tarea terminada (decisión del equipo).
+    $roles = [];
+    if (($sm = ProyectoRepo::scrumDe($proyecto)) > 0) $roles[$sm][] = 'Scrum Master';
+    unset($roles[$quienId]);
+    if (!$roles) {
+        return '';
+    }
+
+    $miembros = new MiembroRepo();
+    $quien    = $quienId > 0 ? $miembros->buscar($quienId) : null;
+    // Campana del panel (si lib/notifications/Notificaciones.php está cargado: desde actions.php)
+    if (class_exists('Notif')) {
+        Notif::crear(array_keys($roles), 'tarea_hecha', 'Terminaron una tarea',
+            '«' . ($tarea['titulo'] ?? '') . '» · ' . ($proyecto['nombre'] ?? '') . ($quien ? ' · ' . $quien['nombre'] : ''),
+            'proyecto.php?id=' . (int)$proyecto['id'] . '#vista-kanban', $quienId);
+    }
+    $avisados = [];
+    $sinCorreo = [];
+    $fallo = '';
+    foreach ($roles as $mid => $comoQue) {
+        $m = $miembros->buscar((int)$mid);
+        if (!$m) continue;
+        $r = Mailer::notificarTareaTerminada($tarea, $proyecto, $quien, $m, implode(' y ', $comoQue));
+        if ($r === true) {
+            $avisados[] = explode(' ', trim($m['nombre']))[0];
+        } else {
+            $sinCorreo[] = explode(' ', trim($m['nombre']))[0];
+            if (is_string($r)) $fallo = $r;
+        }
+    }
+    // Callar que el aviso no salio deja al equipo pensando que ya se enteraron.
+    // Las ramas van con (bool) a proposito: match compara en ESTRICTO, y un
+    // array no es === true, asi que sin el casteo nunca entrarian.
+    $motivo = $fallo ?: 'no tiene correo registrado, o el correo del panel no está configurado';
+    return match (true) {
+        (bool)$avisados && !$sinCorreo => ' Avisamos a ' . implode(' y ', $avisados) . '.',
+        (bool)$avisados                => ' Avisamos a ' . implode(' y ', $avisados) . '; a ' . implode(' y ', $sinCorreo) . ' no (' . $motivo . ').',
+        (bool)$sinCorreo               => ' No salió el aviso a ' . implode(' y ', $sinCorreo) . ' (' . $motivo . ').',
+        default                        => '',
+    };
+}
+
+/**
+ * ¿Puede CREAR y EDITAR las tareas de este proyecto? Solo el admin, el Scrum
+ * Master del proyecto y su Product Owner. Los demás participantes ejecutan
+ * (mueven sus tareas por el tablero) pero no arman el backlog.
+ */
+function puedeGestionarTareas(int $proyectoId): bool
+{
+    if (puedeGestionar($proyectoId)) return true;   // admin o Scrum del proyecto
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    $p = (new ProyectoRepo())->buscar($proyectoId);
+    return $p && esPOde($p, $yo);
+}
+
+/* ---------- Deploys: quien sube los cambios y quien lo ve ---------- */
+
+/** Config del modulo de deploys, ya normalizada. */
+function configDeploys(): array
+{
+    $d = (array)(Config::get('deploys') ?? []);
+    return [
+        'activo'     => !isset($d['activo']) || !empty($d['activo']),
+        'entorno'    => trim((string)($d['entorno'] ?? '')) ?: 'Servidor de pruebas',
+        // Enlace del servidor (para abrirlo desde Despliegues); solo http(s)
+        'url'        => preg_match('#^https?://\S+$#i', $u = trim((string)($d['url'] ?? 'https://shell-frontend-build-mhlej2pikq-uk.a.run.app/auth/sign-in'))) ? $u : '',
+        'encargados' => array_values(array_filter(array_map('intval', (array)($d['encargados'] ?? [])))),
+        'visores'    => array_values(array_filter(array_map('intval', (array)($d['visores'] ?? [])))),
+        'ver_po'     => !isset($d['ver_po']) || !empty($d['ver_po']),
+        // Proyectos que se siguen. Vacio = todos: no todos los proyectos se
+        // suben a un servidor de pruebas, y los que no, solo hacen ruido.
+        'proyectos'  => array_values(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])))),
+        // Equipos cuyos miembros ven el modulo y la tira del dashboard.
+        'equipos'    => array_values(array_filter(array_map('strval', (array)($d['equipos'] ?? [])))),
+        // Alias tecnico por proyecto ("ms-academico"). Es con lo que reconoce
+        // lo que sube quien lo sube: el nombre del proyecto en el panel
+        // ("Equipo Delta") no es el de la carpeta ni el del microservicio.
+        'alias'      => aliasDeploys($d['alias'] ?? []),
+        // La hora límite y los días (lib/deploys/Cronograma.php), y si se toman solos los deploys de GitLab
+        'cronograma' => cronogramaDeploys($d['cronograma'] ?? []),
+    ];
+}
+
+/** El cronograma de subidas ya normalizado: activo, hora 'HH:MM', días ISO (1 = lunes … 7 = domingo), gitlab, aviso (min antes). */
+function cronogramaDeploys($c): array
+{
+    $c = (array)$c;
+    $hora = (string)($c['hora'] ?? '');
+    // De fábrica: lunes y jueves a las 22:00 (las subidas son de noche)
+    $dias = array_values(array_unique(array_filter(array_map('intval', (array)($c['dias'] ?? [1, 4])), fn($n) => $n >= 1 && $n <= 7)));
+    sort($dias);
+    // Hora propia de algún proyecto (p. ej. la Agraria sube a las 15:00); los demás, la general
+    $horas = [];
+    foreach ((array)($c['horas'] ?? []) as $pid => $h) {
+        if ((int)$pid > 0 && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$h)) $horas[(int)$pid] = (string)$h;
+    }
+    return [
+        'activo' => !isset($c['activo']) || !empty($c['activo']),
+        'hora'   => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) ? $hora : '22:00',
+        'dias'   => $dias ?: [1, 4],
+        'horas'  => $horas,
+        'gitlab' => !isset($c['gitlab']) || !empty($c['gitlab']),
+        'aviso'  => in_array((int)($c['aviso'] ?? 30), [0, 15, 30, 60], true) ? (int)($c['aviso'] ?? 30) : 30,
+    ];
+}
+
+/** [proyecto_id => alias], sin vacios ni espacios de mas. */
+function aliasDeploys($crudo): array
+{
+    $out = [];
+    foreach ((array)$crudo as $pid => $a) {
+        $pid = (int)$pid;
+        $a   = trim(preg_replace('/\s+/', ' ', (string)$a));
+        if ($pid > 0 && $a !== '') $out[$pid] = mb_substr($a, 0, 60);
+    }
+    return $out;
+}
+
+/** El alias de un proyecto, o '' si no se le puso ninguno. */
+function aliasDeploy(int $proyectoId): string
+{
+    return configDeploys()['alias'][$proyectoId] ?? '';
+}
+
+/**
+ * Proyectos en los que ESTA persona participa, sea cual sea su rol
+ * (administrador incluido): esta en su equipo, lo lleva como PO o Scrum, tiene
+ * una tarea, esta invitada a una reunion o escribio una observacion.
+ *
+ * No es lo mismo que alcanceProyectos(), que para el administrador devuelve
+ * null porque los VE todos. Aqui la pregunta es otra: en cuales esta metido.
+ * La tira de despliegues del dashboard se apoya en esto — al administrador le
+ * salian los ocho proyectos del panel, incluidos los que no toca.
+ *
+ * Devuelve un set [proyecto_id => true].
+ */
+function misProyectosIds(): array
+{
+    static $cache = null;
+    if ($cache !== null) return $cache;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return $cache = [];
+
+    // El supervisor no "participa": ve los que el administrador le asigno.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
+    $ids = [];
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        $pid = (int)$p['id'];
+        $suEquipo = ProyectoRepo::miembrosDe($p);
+        if ($suEquipo !== null && in_array($yo, $suEquipo, true)) $ids[$pid] = true;
+        if (esPOde($p, $yo))                   $ids[$pid] = true;
+        if (ProyectoRepo::scrumDe($p) === $yo) $ids[$pid] = true;
+    }
+    foreach ((new TareaRepo())->todas() as $t) {
+        if (TareaRepo::tieneAsignado($t, $yo)) $ids[(int)$t['proyecto_id']] = true;
+    }
+    foreach ((new JsonStore('reuniones'))->all() as $r) {
+        if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+            $ids[(int)$r['proyecto_id']] = true;
+        }
+    }
+    foreach ((new JsonStore('observaciones'))->all() as $o) {
+        if ((int)($o['autor_id'] ?? 0) === $yo) $ids[(int)$o['proyecto_id']] = true;
+    }
+    return $cache = $ids;
+}
+
+/**
+ * Los proyectos que el modulo sigue Y en los que ESTA persona participa. Es lo
+ * que sale en el dashboard: si no estoy en SIGE, lo de SIGE no es asunto mio.
+ * El registro completo esta en el modulo (deploys.php).
+ */
+function misProyectosDeploys(array $proyectos): array
+{
+    $mios = misProyectosIds();
+    return array_values(array_filter(
+        proyectosDeploys($proyectos),
+        fn($p) => isset($mios[(int)$p['id']])
+    ));
+}
+
+/**
+ * Deja de una lista de proyectos solo los que el modulo sigue (y que la
+ * persona puede ver). Si el administrador no eligio ninguno, se siguen todos.
+ */
+function proyectosDeploys(array $proyectos): array
+{
+    $cfg = configDeploys();
+    $proyectos = soloProyectosVisibles($proyectos);
+    if (!$cfg['proyectos']) return array_values($proyectos);
+    return array_values(array_filter($proyectos, fn($p) => in_array((int)$p['id'], $cfg['proyectos'], true)));
+}
+
+/** ¿Este proyecto se sigue en el modulo de despliegues? */
+function proyectoConDeploys(int $proyectoId): bool
+{
+    $cfg = configDeploys();
+    return $cfg['activo'] && (!$cfg['proyectos'] || in_array($proyectoId, $cfg['proyectos'], true));
+}
+
+/**
+ * ¿Puede REGISTRAR un deploy? El administrador y quien el administrador haya
+ * puesto como encargado. A nadie mas: el registro es el sello de "esto ya
+ * esta arriba" y tiene que responder alguien.
+ */
+function puedeDesplegar(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+    if (Auth::esSupervisor()) return false;   // el supervisor solo observa
+    return in_array((int)(Auth::usuario()['id'] ?? 0), $cfg['encargados'], true);
+}
+
+/**
+ * ¿Puede VER el modulo de deploys? El administrador, los encargados, los
+ * visores que designe el administrador y —si esta marcado en Ajustes— quien
+ * lleva un proyecto (Product Owner o Scrum Master), que es justamente para
+ * quien se hizo esto.
+ */
+function puedeVerDeploys(): bool
+{
+    $cfg = configDeploys();
+    if (!$cfg['activo']) return false;
+    if (Auth::esAdmin()) return true;
+
+    $yo = (int)(Auth::usuario()['id'] ?? 0);
+    if ($yo <= 0) return false;
+    if (in_array($yo, $cfg['encargados'], true)) return true;
+    if (in_array($yo, $cfg['visores'], true)) return true;
+
+    // Equipos completos: el administrador marca "Analistas" y todos los
+    // analistas lo ven, sin ir persona por persona.
+    if ($cfg['equipos']) {
+        $miEquipo = MiembroRepo::equipoDe((array)(Auth::usuario() ?? []));
+        if (in_array($miEquipo, $cfg['equipos'], true)) return true;
+    }
+    if (!$cfg['ver_po']) return false;
+
+    if (Auth::esScrum()) return true;
+    foreach ((new ProyectoRepo())->todos() as $p) {
+        if (esPOde($p, $yo) || ProyectoRepo::scrumDe($p) === $yo) return true;
+    }
+    return false;
+}
+
+/**
+ * Estado de despliegue de cada proyecto: su ultimo deploy y cuantas tareas
+ * completadas siguen sin subir. Ordenado por el deploy mas reciente.
+ *
+ * Se calcula aqui y no en cada pantalla porque lo pintan el dashboard y el
+ * modulo, y tienen que decir lo mismo.
+ */
+function resumenDeploys(array $proyectos): array
+{
+    $repo       = new DeployRepo();
+    $tareasRepo = new TareaRepo();
+    $finales    = Catalogo::estadosFinales();
+    $ultimos    = $repo->ultimoPorProyecto();
+
+    $filas = [];
+    foreach ($proyectos as $p) {
+        $pid  = (int)$p['id'];
+        $pend = [];
+        foreach ($tareasRepo->delProyecto($pid) as $t) {
+            if (!in_array($t['estado'] ?? '', $finales, true)) continue;
+            if ((int)($t['deploy_id'] ?? 0) > 0) continue;
+            $pend[] = $t;
+        }
+        $filas[$pid] = [
+            'proyecto'   => $p,
+            'ultimo'     => $ultimos[$pid] ?? null,
+            'pendientes' => $pend,
+        ];
+    }
+    // El que subio hace menos rato, primero; los que nunca subieron, al final
+    uasort($filas, fn($a, $b) => strcmp((string)($b['ultimo']['fecha'] ?? ''), (string)($a['ultimo']['fecha'] ?? '')));
+    return $filas;
+}
+
+/** Corta la pagina si el modulo de deploys no es para esta persona. */
+function exigirDeploys(): void
+{
+    if (!puedeVerDeploys()) {
+        redirigir('index.php', 'El módulo de despliegues no está habilitado para tu cuenta.', 'error');
+    }
+}
+
+/* ---------- Alcance: que proyectos puede ver cada quien ---------- */
+
+/**
+ * Proyectos visibles para el usuario con la sesion iniciada.
+ *
+ * Devuelve null si los ve todos (administrador) o un set
+ * [proyecto_id => true] con aquellos en los que participa.
+ *
+ * Se participa en un proyecto si se figura en su equipo, si se tiene una
+ * tarea asignada, si se esta invitado a alguna de sus reuniones o si se
+ * escribio una observacion.
+ */
+function alcanceProyectos(): ?array
+{
+    static $cache = false;
+    if ($cache !== false) return $cache;
+    if (Auth::esAdmin()) {
+        return $cache = null;
+    }
+
+    $yo  = (int)(Auth::usuario()['id'] ?? 0);
+
+    // Supervisor: ve EXCLUSIVAMENTE los proyectos que el admin le asignó. No
+    // hereda visibilidad por tareas, reuniones ni observaciones.
+    if (Auth::esSupervisor()) {
+        $ids = [];
+        foreach ((array)(Auth::usuario()['proyectos_sup'] ?? []) as $pid) {
+            if ((int)$pid > 0) $ids[(int)$pid] = true;
+        }
+        return $cache = $ids;
+    }
+
+    $ids = [];
+    if ($yo > 0) {
+        foreach ((new ProyectoRepo())->todos() as $p) {
+            $suEquipo = ProyectoRepo::miembrosDe($p);
+            if ($suEquipo !== null && in_array($yo, $suEquipo, true)) {
+                $ids[(int)$p['id']] = true;
+            }
+            if (esPOde($p, $yo)) {   // el Product Owner (o el de relevo) también ve su proyecto
+                $ids[(int)$p['id']] = true;
+            }
+            if (ProyectoRepo::scrumDe($p) === $yo) {   // y el Scrum Master que lo lleva
+                $ids[(int)$p['id']] = true;
+            }
+        }
+        foreach ((new TareaRepo())->todas() as $t) {
+            if (TareaRepo::tieneAsignado($t, $yo)) {
+                $ids[(int)$t['proyecto_id']] = true;
+            }
+        }
+        foreach ((new JsonStore('reuniones'))->all() as $r) {
+            if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+                $ids[(int)$r['proyecto_id']] = true;
+            }
+        }
+        foreach ((new JsonStore('observaciones'))->all() as $o) {
+            if ((int)($o['autor_id'] ?? 0) === $yo) {
+                $ids[(int)$o['proyecto_id']] = true;
+            }
+        }
+    }
+    return $cache = $ids;
+}
+
+/** ¿El usuario actual puede abrir este proyecto? */
+function puedeVerProyecto(int $proyectoId): bool
+{
+    $alcance = alcanceProyectos();
+    return $alcance === null || isset($alcance[$proyectoId]);
+}
+
+/** Deja de una lista de proyectos solo los que el usuario puede ver. */
+function soloProyectosVisibles(array $proyectos): array
+{
+    $alcance = alcanceProyectos();
+    if ($alcance === null) {
+        return $proyectos;
+    }
+    return array_values(array_filter($proyectos, fn($p) => isset($alcance[(int)$p['id']])));
+}
+
+/** Corta la pagina si el proyecto no es de los suyos. */
+function exigirProyecto(int $proyectoId): void
+{
+    if (!puedeVerProyecto($proyectoId)) {
+        redirigir('index.php', 'Ese proyecto no es tuyo: solo ves los proyectos en los que participas.', 'error');
+    }
+}
+
+/* ---------- "Ver como": filtro global por persona (transversal) ---------- */
+
+/**
+ * Solo el administrador puede mirar el panel "como" otra persona.
+ * Para un colaborador de solo lectura no tendria sentido: ya ve
+ * unicamente lo suyo, y le dejaria espiar el resto del equipo.
+ */
+function puedeVerComo(): bool
+{
+    return Auth::esAdmin();
+}
+
+/** Miembro seleccionado en "Ver como", o null si se ve todo el equipo. */
+function verComo(): ?array
+{
+    static $cache = false;
+    if ($cache !== false) return $cache;
+    if (!puedeVerComo()) {
+        return $cache = null;
+    }
+    $id = (int)($_SESSION['ver_como'] ?? 0);
+    return $cache = ($id > 0 ? (new MiembroRepo())->buscar($id) : null);
+}
+
+/** URL actual con el parametro ver_como (para los enlaces del selector). */
+function urlConVerComo(int $id): string
+{
+    $qs = $_GET;
+    $qs['ver_como'] = $id;
+    return '?' . http_build_query($qs);
+}
+
+// ?ver_como=N en cualquier pagina: fija la sesion y limpia la URL.
+// Si quien lo pide no es administrador, el filtro se descarta sin más.
+if (isset($_GET['ver_como'])) {
+    if (puedeVerComo()) {
+        $_SESSION['ver_como'] = max(0, (int)$_GET['ver_como']);
+    } else {
+        unset($_SESSION['ver_como']);
+    }
+    $qs = $_GET;
+    unset($qs['ver_como']);
+    redirigir(strtok($_SERVER['REQUEST_URI'], '?') . ($qs ? '?' . http_build_query($qs) : ''));
+}
+
+/* ---------- Datos de ejemplo (solo primera vez) ---------- */
+
+function sembrarDatos(): void
+{
+    $flag = __DIR__ . '/../../data/.seeded';
+    if (file_exists($flag)) return;
+    touch($flag);
+
+    $miembros = new MiembroRepo();
+    $proyectos = new ProyectoRepo();
+    $tareas = new TareaRepo();
+
+    if (count($miembros->todos()) > 0 || count($proyectos->todos()) > 0) return;
+
+    // Equipo de programadores (InnoTech Académico), ya con su correo institucional.
+    $dominio = '@innotech-solutions.com.ec';
+    $eder    = $miembros->crear(['nombre' => 'Eder Ordoñez',    'rol' => 'Developer',            'git_user' => 'ederordonez',    'color' => 1,  'equipo' => 'programacion', 'email' => 'elordonezg' . $dominio]);
+    $jaione  = $miembros->crear(['nombre' => 'Jaione Cherres',  'rol' => 'Full Stack Developer', 'git_user' => 'jaionecherres',  'color' => 8,  'equipo' => 'programacion', 'email' => 'jecherresc' . $dominio]);
+    $miller  = $miembros->crear(['nombre' => 'Miller Moran',    'rol' => 'Developer',            'git_user' => 'millermoran',    'color' => 2,  'equipo' => 'programacion', 'email' => 'mrmorana' . $dominio]);
+    // Vanessa: su correo institucional aún no está confirmado (no hay "murillo"
+    // en el listado de cPanel), así que queda sin vincular por ahora.
+    $vanessa = $miembros->crear(['nombre' => 'Vanessa Murillo', 'rol' => 'Developer',            'git_user' => 'vanessamurillo', 'color' => 12, 'equipo' => 'programacion']);
+    $carlos  = $miembros->crear(['nombre' => 'Carlos Rodriguez','rol' => 'Developer',            'git_user' => 'carlosrodriguez','color' => 5,  'equipo' => 'programacion', 'email' => 'clrodriguezn' . $dominio]);
+    // Ronny mantiene su Gmail como correo de acceso (a pedido), no el institucional.
+    $ronny   = $miembros->crear(['nombre' => 'Ronny Arellano',  'rol' => 'Tech Lead',            'git_user' => 'ronnyarellano',  'color' => 0,  'equipo' => 'programacion']);
+
+    // Ronny es el administrador del panel (queda fijo en el seed), con acceso
+    // por correo+contraseña listo desde el primer arranque (sin usar la shell).
+    $miembros->actualizar((int)$ronny['id'], [
+        'acceso'    => 'admin',
+        'email'     => 'ronnyareu22@gmail.com',
+        'pass_hash' => Auth::hash('academico2026'),
+    ]);
+
+    // Equipo de analistas
+    $felipe  = $miembros->crear(['nombre' => 'Felipe Arevalo',  'rol' => 'Analista Funcional',  'git_user' => 'felipearevalo',  'color' => 3,  'equipo' => 'analistas', 'email' => 'fearevaloc' . $dominio]);
+    $gabriel = $miembros->crear(['nombre' => 'Gabriel Alavera', 'rol' => 'Analista Funcional',  'git_user' => 'gabrielalavera', 'color' => 7,  'equipo' => 'analistas', 'email' => 'jgalaverac' . $dominio]);
+
+    // Único proyecto: SIGE Académico (lo ve todo el equipo por no fijar miembros).
+    $proyectos->crear([
+        'nombre' => 'SIGE Académico', 'icono' => 'fa-graduation-cap', 'color' => 0, 'estado' => 'activo',
+        'descripcion' => 'Sistema integrado de gestión educativa — módulo académico.',
+    ]);
+
+    // Catálogo de correos institucionales de InnoTech (cPanel). Los de las
+    // fichas quedan vinculados (miembro_id); el resto disponibles (null).
+    // Dominio innotech-solutions.com.ec.
+    $correos = new JsonStore('correos_innotech');
+    $vinculos = [
+        'elordonezg'  => (int)$eder['id'],
+        'jecherresc'  => (int)$jaione['id'],
+        'mrmorana'    => (int)$miller['id'],
+        'clrodriguezn'=> (int)$carlos['id'],
+        'fearevaloc'  => (int)$felipe['id'],
+        'jgalaverac'  => (int)$gabriel['id'],
+    ];
+    $usuarios = [
+        'aamariduenal', 'aavilesn', 'admin.claude1', 'admin.claude2', 'bavitev',
+        'bgbarcom', 'celockem', 'clrodriguezn', 'contacto', 'crm-uniebec',
+        'cscoelloa', 'dsuarezs', 'elordonezg', 'evramirezc', 'fearevaloc',
+        'fwbravor', 'gasalazarc', 'htramireza', 'info', 'innotech',
+        'its.itb', 'its.ube', 'jdbrioness', 'jdpincaym', 'jecherresc',
+        'jgalaverac', 'jjcaverog', 'kbastudilloc', 'mrmorana', 'nsolmedom',
+        'oaguzmana', 'pgnoboar', 'prueba.unidadeducativa', 'regonzalezr',
+        'requerimiento', 'reramirezc', 'riarellanou', 'riramireza', 'safreirel',
+        'slsalanc', 'vmgomezd', 'wlvelezd',
+    ];
+    foreach ($usuarios as $u) {
+        $correos->insert(['email' => $u . $dominio, 'miembro_id' => $vinculos[$u] ?? null]);
+    }
+}
+
+sembrarDatos();

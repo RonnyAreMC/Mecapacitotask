@@ -2,10 +2,10 @@
 /**
  * Tutoriales en video: cualquiera los ve en el reproductor del panel; el
  * administrador los publica pegando un enlace de YouTube o de Google Drive
- * (lib/Tutoriales.php) y elige si además aparecen en alguna pantalla.
+ * (lib/help/Tutoriales.php) y elige si además aparecen en alguna pantalla.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+if (is_file(__DIR__ . '/lib/help/Tutoriales.php')) require_once __DIR__ . '/lib/help/Tutoriales.php';
 Auth::requiereLogin();
 if (!class_exists('Tutoriales')) {
     header('Location: index.php');

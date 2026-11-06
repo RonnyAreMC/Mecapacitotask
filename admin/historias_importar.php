@@ -12,12 +12,12 @@
  *     nuevas o ya estaban (por su código) y a qué sprint va cada una.
  *  3. Se importa con bl_importar (actions.php → BacklogImport::aplicar).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Releases.php';
-require_once __DIR__ . '/lib/Backlog.php';
-require_once __DIR__ . '/lib/BacklogImport.php';
-require_once __DIR__ . '/lib/releases_ui.php';
-require_once __DIR__ . '/lib/backlog_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/lib/backlog/Backlog.php';
+require_once __DIR__ . '/lib/backlog/BacklogImport.php';
+require_once __DIR__ . '/lib/releases/releases_ui.php';
+require_once __DIR__ . '/lib/backlog/backlog_ui.php';
 
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);
@@ -27,9 +27,9 @@ $aqui = 'historias_importar.php?p=' . $pid;
 
 // ¿Hay IA para leer lo que no trae el formato?
 $conIA = false;
-if (is_file(__DIR__ . '/lib/IA.php') && is_file(__DIR__ . '/lib/IAFunciones.php')) {
-    require_once __DIR__ . '/lib/IA.php';
-    require_once __DIR__ . '/lib/IAFunciones.php';
+if (is_file(__DIR__ . '/lib/ai/IA.php') && is_file(__DIR__ . '/lib/ai/IAFunciones.php')) {
+    require_once __DIR__ . '/lib/ai/IA.php';
+    require_once __DIR__ . '/lib/ai/IAFunciones.php';
     $conIA = IA::lista() && !empty(IA::config()['asignaciones']['bl_historias']['activa']);
 }
 

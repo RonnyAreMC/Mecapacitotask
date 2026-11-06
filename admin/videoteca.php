@@ -19,11 +19,11 @@
  *     observaciones de esa reunión, con su visor) y «Pizarra». En el celular,
  *     el video arriba y el panel abajo.
  *
- * Pintado compartido: lib/reuniones_ui.php; estilos: admin.css («Reuniones ›
+ * Pintado compartido: lib/meetings/reuniones_ui.php; estilos: admin.css («Reuniones ›
  * la videoteca»); las pestañas del panel: admin.js.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/reuniones_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/meetings/reuniones_ui.php';
 
 if (esSupervisor()) {
     redirigir('index.php', 'Las reuniones no son parte de tu vista de supervisión.', 'error');
@@ -81,9 +81,9 @@ if ($verId) {
     $mas = array_slice(array_values(array_filter($grabadas, fn($v) => (int)$v['p']['id'] === $pid && !($v['id'] === $vez['id'] && $v['dia'] === $vez['dia']))), 0, 4);
 
     $pizarraLlena = null;
-    if (ReunionesUI::hayPizarra() && is_file(__DIR__ . '/lib/Pizarra.php')) {
+    if (ReunionesUI::hayPizarra() && is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) {
         try {
-            require_once __DIR__ . '/lib/Pizarra.php';
+            require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
             if (method_exists('Pizarra', 'version')) $pizarraLlena = Pizarra::version((int)$r['id']) > 0;
         } catch (Throwable $e) { $pizarraLlena = null; }
     }

@@ -9,8 +9,8 @@
  * Aquí solo se preparan los números; la forma de cada gráfico y la paleta
  * están en el bloque "Panel de requerimientos" de admin.js.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/req_ui.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/requirements/req_ui.php';
 Auth::requiereAdmin();
 
 if ($verComo = verComo()) {

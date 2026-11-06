@@ -7,7 +7,7 @@
  * cuenta quien entró desde el panel en la hora de la reunión, además de lo que
  * diga Zoom cuando deja ver a los participantes.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $reu = (new ReunionRepo())->buscar((int)($_GET['id'] ?? 0));
 if (!$reu || !puedeVerProyecto((int)$reu['proyecto_id'])) {

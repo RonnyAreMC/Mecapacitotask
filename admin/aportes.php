@@ -4,7 +4,7 @@
  * el gráfico de aportes. Lo llama el panel por AJAX al cambiar de rama, así no
  * hace falta recargar toda la página.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 header('Content-Type: application/json; charset=utf-8');
 

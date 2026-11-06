@@ -2,7 +2,7 @@
 /**
  * Dashboard: resumen general y grid de proyectos.
  */
-require_once __DIR__ . '/lib/bootstrap.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $proyectosRepo = new ProyectoRepo();
 $miembrosRepo  = new MiembroRepo();
@@ -132,7 +132,7 @@ foreach ($proyectos as $p) $resumenes[(int)$p['id']] = $tareasRepo->resumen((int
 // Solo los proyectos en los que participo: aquí salían los ocho del panel, y
 // a quien no está en SIGE no le importa cuándo subió SIGE. El registro
 // completo sigue en el módulo.
-// Va como la primera diapositiva de «tu resumen» (lib/resumen_tira.php), que
+// Va como la primera diapositiva de «tu resumen» (lib/dashboard/resumen_tira.php), que
 // suma tus tareas, lo que tienes por revisar, tu próxima reunión y lo pendiente.
 $rtSlides = [];
 if (puedeVerDeploys()) {
@@ -141,12 +141,12 @@ if (puedeVerDeploys()) {
         $dtMiembros = $miembros;
         $dtVolver   = 'index';
         $dtCarrusel = true;
-        require __DIR__ . '/lib/deploy_tira.php';
+        require __DIR__ . '/lib/deploys/deploy_tira.php';
     }
-} elseif (configDeploys()['activo'] && is_file(__DIR__ . '/lib/Cronograma.php')) {
+} elseif (configDeploys()['activo'] && is_file(__DIR__ . '/lib/deploys/Cronograma.php')) {
     // Quien no entra a Despliegues (los dev) igual ve hasta cuándo puede subir los cambios de
-    // sus proyectos, con la cuenta regresiva (lib/Cronograma.php): para eso es el horario
-    require_once __DIR__ . '/lib/Cronograma.php';
+    // sus proyectos, con la cuenta regresiva (lib/deploys/Cronograma.php): para eso es el horario
+    require_once __DIR__ . '/lib/deploys/Cronograma.php';
     if (Cronograma::activo()) {
         $proxSub = 0;
         $quienesSub = [];
@@ -174,7 +174,7 @@ if (puedeVerDeploys()) {
 }
 $rtYo     = verComo() ?: Auth::usuario();
 $rtTareas = $todasTareas;
-require __DIR__ . '/lib/resumen_tira.php';
+require __DIR__ . '/lib/dashboard/resumen_tira.php';
 ?>
 
 <?php if (empty($proyectos)): ?>
@@ -188,7 +188,7 @@ require __DIR__ . '/lib/resumen_tira.php';
 <?php else: ?>
 <?php
 // La salud de cada proyecto con la colorimetría: su barra de avance va con el tono de su estado
-if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
 $colorimetria = [];
 foreach (Colorimetria::proyectos() as $fCol) $colorimetria[(int)$fCol['ref']] = $fCol['estado'];
 ?>
@@ -350,6 +350,6 @@ foreach (Colorimetria::proyectos() as $fCol) $colorimetria[(int)$fCol['ref']] = 
   </form>
 </dialog>
 
-<?php require __DIR__ . '/lib/modal_dailies.php'; ?>
+<?php require __DIR__ . '/lib/meetings/modal_dailies.php'; ?>
 
 <?php UI::fin(); ?>

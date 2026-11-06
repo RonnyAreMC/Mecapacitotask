@@ -7,7 +7,7 @@
    van en una capa SVG encima. Lo elegido, las asas y las guías, en otra capa
    arriba de todo (su grosor no cambia con el zoom: --pz-inv = 1 / zoom).
 
-   Guardado y en vivo (pizarra_api.php, datos en lib/Pizarra.php):
+   Guardado y en vivo (pizarra_api.php, datos en lib/whiteboard/Pizarra.php):
    - Cada elemento lleva su id (lo genera el cliente) y el servidor le pone la
      versión v al guardarlo. Gana la última escritura por elemento.
    - Lo que se cambia se junta y se manda en tandas cortas (~400 ms). Cada

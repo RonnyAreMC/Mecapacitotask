@@ -17,9 +17,9 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde la terminal.');
 }
-require_once __DIR__ . '/lib/bootstrap.php';
-if (!is_file(__DIR__ . '/lib/Correo.php')) exit("Falta lib/Correo.php\n");
-require_once __DIR__ . '/lib/Correo.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+if (!is_file(__DIR__ . '/lib/mail/Correo.php')) exit("Falta lib/mail/Correo.php\n");
+require_once __DIR__ . '/lib/mail/Correo.php';
 
 $seco = in_array('--seco', $argv, true);
 // Tabla => campos que no se tocan (identificadores, llaves, rutas)

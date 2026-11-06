@@ -4,20 +4,20 @@
  *   ?json=1&desde=ID  lo que pide la campana cada minuto (JSON).
  *   ?abrir=ID         la marca leída y lleva a donde apunta.
  *   sin parámetros    la lista completa, para ver las viejas.
- *   ?tab=correo       el correo InnoTech de la persona (lib/correo_vista.php).
+ *   ?tab=correo       el correo InnoTech de la persona (lib/mail/correo_vista.php).
  *   ?correo=adjunto   descarga un adjunto de su correo.
- *   ?tab=dispositivos dónde le llegan los avisos nativos (Web Push, lib/Push.php).
+ *   ?tab=dispositivos dónde le llegan los avisos nativos (Web Push, lib/notifications/Push.php).
  */
-require_once __DIR__ . '/lib/bootstrap.php';
-require_once __DIR__ . '/lib/Notificaciones.php';
+require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/lib/notifications/Notificaciones.php';
 // El correo dentro del panel: si al subir por FTP falta, solo no aparece.
-if (is_file(__DIR__ . '/lib/Correo.php')) require_once __DIR__ . '/lib/Correo.php';
-if (is_file(__DIR__ . '/lib/correo_vista.php')) require_once __DIR__ . '/lib/correo_vista.php';
-if (is_file(__DIR__ . '/lib/Push.php')) require_once __DIR__ . '/lib/Push.php';
-if (is_file(__DIR__ . '/lib/Tutoriales.php')) require_once __DIR__ . '/lib/Tutoriales.php';
-if (is_file(__DIR__ . '/lib/ReqCorreo.php')) require_once __DIR__ . '/lib/ReqCorreo.php';
-if (is_file(__DIR__ . '/lib/CorreoCopias.php')) require_once __DIR__ . '/lib/CorreoCopias.php';
-if (is_file(__DIR__ . '/lib/TareasCorreo.php')) require_once __DIR__ . '/lib/TareasCorreo.php';   // tareas desde un correo (admin)
+if (is_file(__DIR__ . '/lib/mail/Correo.php')) require_once __DIR__ . '/lib/mail/Correo.php';
+if (is_file(__DIR__ . '/lib/mail/correo_vista.php')) require_once __DIR__ . '/lib/mail/correo_vista.php';
+if (is_file(__DIR__ . '/lib/notifications/Push.php')) require_once __DIR__ . '/lib/notifications/Push.php';
+if (is_file(__DIR__ . '/lib/help/Tutoriales.php')) require_once __DIR__ . '/lib/help/Tutoriales.php';
+if (is_file(__DIR__ . '/lib/requirements/ReqCorreo.php')) require_once __DIR__ . '/lib/requirements/ReqCorreo.php';
+if (is_file(__DIR__ . '/lib/mail/CorreoCopias.php')) require_once __DIR__ . '/lib/mail/CorreoCopias.php';
+if (is_file(__DIR__ . '/lib/mail/TareasCorreo.php')) require_once __DIR__ . '/lib/mail/TareasCorreo.php';   // tareas desde un correo (admin)
 Auth::requiereLogin();
 
 $yo  = Auth::usuario();
