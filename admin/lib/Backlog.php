@@ -289,9 +289,12 @@ final class Backlog
         if ($estAhora !== 'hecho' && $estAntes === 'hecho') $c['hecho_en'] = '';
 
         if (!$antes) {
+            // El código del documento (R2-D01-HU01) si viene de una importación y no está usado en el proyecto; si no, HU-001…
+            $codDoc = strtoupper(trim((string)($d['codigo'] ?? '')));
+            $usado = $codDoc !== '' && (bool)array_filter($repo->all(), fn($x) => (int)($x['proyecto_id'] ?? 0) === $pid && strtoupper((string)($x['codigo'] ?? '')) === $codDoc);
             $n = 0;
             foreach ($repo->all() as $h) if (preg_match('/^HU-(\d+)$/', (string)($h['codigo'] ?? ''), $m)) $n = max($n, (int)$m[1]);
-            $c['codigo'] = 'HU-' . str_pad((string)($n + 1), 3, '0', STR_PAD_LEFT);
+            $c['codigo'] = preg_match('/^[A-Z0-9][A-Z0-9-]{2,39}$/', $codDoc) && !$usado ? $codDoc : 'HU-' . str_pad((string)($n + 1), 3, '0', STR_PAD_LEFT);
             $c['orden'] = self::ordenFinal((string)($c['sprint'] ?? ''), $pid);
             $c += ['estado' => 'por_hacer', 'prioridad' => 'media', 'sprint' => '', 'estimacion' => '', 'tareas' => [], 'adjuntos' => []];
             $c['historial'] = [self::evento($quien, 'Creó la historia' . ($c['sprint'] !== '' ? ' en el ' . $c['sprint'] : ' en el backlog'))];

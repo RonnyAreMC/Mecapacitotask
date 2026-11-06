@@ -163,6 +163,7 @@ function blPestana(array $x): string
     <div class="bl-cab__acc">
       <?php if (Releases::puedeEditar()): ?><a class="rs-boton rs-boton--icono" href="releases.php?v=ajustes&amp;t=sprints" aria-label="Calendario de sprints" data-ds-tip="Calendario de sprints (Releases → Ajustes)"><?= UI::icono('ds-agenda') ?></a><?php endif; ?>
       <?php if ($puede): ?><a class="rs-boton rs-boton--icono rs-boton--primario" href="<?= e(blUrlHistoria($pid)) ?>" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></a><?php endif; ?>
+      <?php if ($puede): ?><a class="rs-boton rs-boton--icono" href="historias_importar.php?p=<?= $pid ?>" aria-label="Importar historias" data-ds-tip="Importar historias desde un documento (Word o PDF)"><?= rlIco('importar', 18) ?></a><?php endif; ?>
       <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
         <span class="rs-vista__pieza" aria-hidden="true"></span>
         <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>

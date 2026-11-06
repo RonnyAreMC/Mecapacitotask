@@ -89,7 +89,7 @@ $accionesDeCualquiera = [
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
-    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf',
+    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -4380,6 +4380,7 @@ switch ($accion) {
     case 'bl_historia_mover':
     case 'bl_historia_borrar':
     case 'bl_sprints_conf':
+    case 'bl_importar':
         require_once __DIR__ . '/lib/Releases.php';
         require_once __DIR__ . '/lib/Backlog.php';
         $blAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
@@ -4404,6 +4405,31 @@ switch ($accion) {
                     if (!Releases::puedeEditar()) $blFin(false, 'Los sprints los configuran los editores de Releases.');
                     Backlog::guardarConf($_POST);
                     $blFin(true, 'Sprints guardados: el calendario se rehízo solo.');
+
+                case 'bl_importar':
+                    // Las historias que se leyeron del documento (historias_importar.php las
+                    // dejó en la sesión) y que se marcaron: al backlog, a su sprint o repartidas
+                    require_once __DIR__ . '/lib/BacklogImport.php';
+                    $pidImp = (int)($_POST['proyecto_id'] ?? 0);
+                    if (!$proyectos->buscar($pidImp)) throw new RuntimeException('Ese proyecto ya no existe.');
+                    if (!Backlog::puede($pidImp)) $blFin(false, $blSinPermiso);
+                    $_POST['volver'] = 'historias_importar.php?p=' . $pidImp;
+                    $leidoImp = $_SESSION['bl_imp'][$pidImp] ?? null;
+                    if (!is_array($leidoImp) || empty($leidoImp['datos']['historias'])) $blFin(false, 'Se perdió el documento leído: súbelo otra vez.');
+                    $selImp = array_flip(array_map('intval', (array)($_POST['hu'] ?? [])));
+                    $husImp = array_values(array_filter($leidoImp['datos']['historias'], fn($i) => isset($selImp[$i]), ARRAY_FILTER_USE_KEY));
+                    if (!$husImp) $blFin(false, 'Marca al menos una historia para importar.');
+                    $modoImp = in_array($_POST['modo'] ?? '', ['documento', 'repartir', 'backlog'], true) ? (string)$_POST['modo'] : 'documento';
+                    $rImp = BacklogImport::aplicar($pidImp, $husImp, $modoImp, max(1, min(300, (int)($_POST['capacidad'] ?? 0))), $blYo);
+                    unset($_SESSION['bl_imp'][$pidImp]);
+                    // Se vuelve al release de esas historias
+                    $relImp = '';
+                    foreach (Backlog::epicas($pidImp) as $itImp) if ((string)$itImp['codigo'] === (string)($husImp[0]['epica'] ?? '')) { $relImp = (string)$itImp['release']; break; }
+                    $_POST['volver'] = 'proyecto.php?id=' . $pidImp . ($relImp !== '' ? '&sp_r=' . rawurlencode($relImp) : '') . '#vista-sprints';
+                    $msgImp = 'Importadas: ' . $rImp['creadas'] . ' nueva(s)' . ($rImp['actualizadas'] ? ' y ' . $rImp['actualizadas'] . ' puesta(s) al día' : '')
+                        . ' · ' . $rImp['en_sprint'] . ' en sprints y ' . $rImp['en_backlog'] . ' en el backlog.';
+                    if ($rImp['sin_epica']) $msgImp .= ' Sin ítem del release en este proyecto: ' . implode(', ', array_slice($rImp['sin_epica'], 0, 8)) . ' (quedaron sin épica).';
+                    $blFin(true, $msgImp);
 
                 case 'bl_historia_borrar':
                     $hBl = Backlog::historia((int)($_POST['id'] ?? 0));
