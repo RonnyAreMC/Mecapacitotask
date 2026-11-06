@@ -101,7 +101,7 @@ solo abre la suya; el administrador las abre todas.
 
 El selector **«Ver como»** es exclusivo del administrador: no aparece en el menú
 y, si alguien fuerza `?ver_como=N` en la URL, el filtro se descarta. Todo esto se
-decide en `alcanceProyectos()` / `puedeVerProyecto()` (`admin/lib/bootstrap.php`).
+decide en `alcanceProyectos()` / `puedeVerProyecto()` (`admin/lib/core/bootstrap.php`).
 
 Para dar acceso a alguien: **Equipo → editar la persona → Acceso + Contraseña**.
 Siempre debe quedar al menos un administrador (el sistema lo impide).
