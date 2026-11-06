@@ -90,6 +90,8 @@ $accionesDeCualquiera = [
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
     'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar',
+    // El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y DoR; también su PO, su SM o el admin
+    'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -4381,6 +4383,10 @@ switch ($accion) {
     case 'bl_historia_borrar':
     case 'bl_sprints_conf':
     case 'bl_importar':
+    case 'bl_sprint_plan':
+    case 'bl_sprint_retro':
+    case 'bl_sprint_accion':
+    case 'bl_dor_conf':
         require_once __DIR__ . '/lib/Releases.php';
         require_once __DIR__ . '/lib/Backlog.php';
         $blAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
@@ -4430,6 +4436,73 @@ switch ($accion) {
                         . ' · ' . $rImp['en_sprint'] . ' en sprints y ' . $rImp['en_backlog'] . ' en el backlog.';
                     if ($rImp['sin_epica']) $msgImp .= ' Sin ítem del release en este proyecto: ' . implode(', ', array_slice($rImp['sin_epica'], 0, 8)) . ' (quedaron sin épica).';
                     $blFin(true, $msgImp);
+
+                case 'bl_sprint_plan':
+                case 'bl_sprint_retro':
+                case 'bl_sprint_accion':
+                case 'bl_dor_conf':
+                    // El sprint del proyecto (sprint.php, lib/sprint_ui.php): el objetivo y la capacidad, la
+                    // retrospectiva y sus acciones, y la Definición de «Lista» (DoR) del proyecto
+                    $pidSp = (int)($_POST['proyecto_id'] ?? 0);
+                    $codSp = (string)($_POST['sprint'] ?? '');
+                    $volverSp = (string)($_POST['volver'] ?? '');
+                    // Se vuelve a la pantalla del sprint (la lista de $blFin no la conoce)
+                    $finSp = function (bool $ok, string $msg, array $extra = []) use ($blAjax, $blFin, $volverSp): never {
+                        if ($blAjax || !preg_match('#^sprint\.php\?[^\s<>"\']*$#', $volverSp)) $blFin($ok, $msg, $extra);
+                        redirigir($volverSp, $msg, $ok ? 'success' : 'error');
+                    };
+                    try {
+                        if (!$proyectos->buscar($pidSp)) throw new RuntimeException('Ese proyecto ya no existe.');
+                        if (!Backlog::puede($pidSp)) $finSp(false, $blSinPermiso);
+                        if ($accion === 'bl_dor_conf') {
+                            $dorSp = Backlog::guardarDor($pidSp, !empty($_POST['restaurar']) ? Backlog::DOR_DEFECTO : (array)($_POST['dor'] ?? []), $blYo);
+                            $finSp(true, (!empty($_POST['restaurar']) ? 'Volvió la lista de siempre' : 'Definición de «Lista» guardada') . ': ' . count($dorSp) . ' condición(es).');
+                        }
+                        if (!isset(Backlog::sprints()[$codSp])) throw new RuntimeException('Ese sprint no existe.');
+                        // Una acción de la retro como tarea del proyecto: para su responsable y con las
+                        // fechas del sprint que sigue a esa retro (o del que va, si ese ya pasó)
+                        $tareaSp = function (array $a, string $spOrigen) use ($pidSp, $tareas, $proyectos, $miembros): int {
+                            $spsT = Backlog::sprints();
+                            $codsT = array_keys($spsT);
+                            $iT = array_search($spOrigen, $codsT, true);
+                            $sigT = $iT !== false && isset($codsT[$iT + 1]) ? $spsT[$codsT[$iT + 1]] : null;
+                            if (!$sigT || $sigT['fin'] < date('Y-m-d')) $sigT = $spsT[Backlog::actual()] ?? null;
+                            $flT = $sigT ? Backlog::ultimoHabil($sigT) : '';
+                            $fiT = $sigT ? min($flT, max(date('Y-m-d'), $sigT['inicio'])) : '';
+                            $tT = $tareas->crear(['proyecto_id' => $pidSp, 'titulo' => mb_substr((string)$a['texto'], 0, 250),
+                                'descripcion' => HtmlRico::limpiar('<p>Acción de la retrospectiva del ' . e($spOrigen) . '.</p>'),
+                                'prioridad' => 'media', 'fecha_inicio' => $fiT, 'fecha_limite' => $flT,
+                                'asignados' => (int)$a['responsable'] > 0 ? [(int)$a['responsable']] : [], 'origen' => '']);
+                            try {
+                                notificarSiAsignada($tT, TareaRepo::asignadosDe($tT), [], $proyectos, $miembros);
+                                sincronizarCalendario($tareas->buscar((int)$tT['id']), $proyectos, $miembros, $tareas);
+                            } catch (Throwable $e) { /* la tarea ya quedó creada */ }
+                            return (int)$tT['id'];
+                        };
+                        if ($accion === 'bl_sprint_plan') {
+                            Backlog::guardarPlan($pidSp, $codSp, array_intersect_key($_POST, array_flip(['objetivo', 'pts_dia', 'gente'])), $blYo);
+                            $finSp(true, 'Planificación del ' . $codSp . ' guardada.');
+                        }
+                        if ($accion === 'bl_sprint_retro') {
+                            $fSp = Backlog::guardarRetro($pidSp, $codSp, $_POST, $blYo, $tareaSp);
+                            $finSp(true, 'Retrospectiva del ' . $codSp . ' guardada' . ($fSp['tareas_nuevas'] ? ', con ' . $fSp['tareas_nuevas'] . ' tarea(s) nueva(s)' : '') . '.');
+                        }
+                        // bl_sprint_accion (planificación del sprint siguiente): cerrar o reabrir una acción, o volverla tarea
+                        $aidSp = (string)($_POST['accion_id'] ?? '');
+                        $aSp = Backlog::accion($pidSp, $codSp, $aidSp);
+                        if (!$aSp) throw new RuntimeException('Esa acción ya no existe.');
+                        $queSp = (string)($_POST['que'] ?? '');
+                        if ($queSp === 'tarea') {
+                            if ((int)($aSp['tarea_id'] ?? 0) > 0) throw new RuntimeException('Esa acción ya tiene su tarea (#' . (int)$aSp['tarea_id'] . ').');
+                            $aSp = Backlog::cambiarAccion($pidSp, $codSp, $aidSp, ['tarea_id' => $tareaSp($aSp, $codSp)], $blYo);
+                            $finSp(true, 'Tarea #' . (int)$aSp['tarea_id'] . ' creada con la acción.', ['accion_sp' => $aSp]);
+                        }
+                        if (!in_array($queSp, ['hecha', 'abierta'], true)) throw new RuntimeException('No se entendió qué hacer con la acción.');
+                        $aSp = Backlog::cambiarAccion($pidSp, $codSp, $aidSp, ['estado' => $queSp], $blYo);
+                        $finSp(true, $queSp === 'hecha' ? 'Acción cerrada.' : 'Acción abierta otra vez.', ['accion_sp' => $aSp]);
+                    } catch (RuntimeException $e) {
+                        $finSp(false, $e->getMessage());
+                    }
 
                 case 'bl_historia_borrar':
                     $hBl = Backlog::historia((int)($_POST['id'] ?? 0));

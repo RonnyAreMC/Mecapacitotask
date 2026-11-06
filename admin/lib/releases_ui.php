@@ -155,7 +155,7 @@ function rlGrafAvance(array $it, array $aps, array $dt, string $hoy): array
         $plan[$fin] = 100;
     }
     $revs = [];
-    foreach ($aps as ['r' => $r, 'f' => $f]) if (($f['pct'] ?? null) !== null) $revs[] = [(string)$r['fecha'], (int)$f['pct'], trim((string)($f['tipo'] ?? '')) ?: 'Revisión'];
+    foreach ($aps as ['r' => $r, 'f' => $f]) if (($f['pct'] ?? null) !== null) $revs[] = [(string)$r['fecha'], (int)$f['pct'], trim((string)($f['tipo'] ?? '')) ?: 'Revisión', (string)($f['estado'] ?? '')];
     $par = fn(array $a) => array_map(fn($k, $v) => [$k, $v], array_keys($a), array_values($a));
     return ['avance' => (int)$it['avance'], 'esperado' => (int)$it['esperado'], 'hoy' => $hoy, 'inicio' => $ini, 'fin' => $fin,
             'tareas' => ['hechas' => (int)$dt['hechas'], 'curso' => (int)$dt['en_curso'], 'pend' => max(0, (int)$dt['total'] - (int)$dt['hechas'] - (int)$dt['en_curso'])],

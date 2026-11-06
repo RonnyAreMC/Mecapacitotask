@@ -166,3 +166,71 @@
     catch (err) { toast(err.message, 'error'); setTimeout(() => location.reload(), 600); }
   });
 })();
+
+/* ---------- «Lista para sprint» (DoR, lib/sprint_ui.php) ----------
+   - En la historia (historia.php): lo que el panel revisa solo (Como · Quiero ·
+     Para, un escenario completo, la estimación) se repasa mientras se escribe,
+     con el «n de m» y el aviso si va en un sprint sin estar lista.
+   - En la pestaña Sprints: al arrastrar a un sprint una historia que no está
+     lista, avisa (no lo impide). */
+(() => {
+  const toast = (m, t, ms, o) => { if (window.MC && MC.toast) MC.toast(m, t || 'success', ms || 4500, o || {}); };
+  const form = document.querySelector('[data-bl-form]');
+  const pan = form && form.querySelector('[data-bl-dor]');
+  if (pan) {
+    const valor = (sel) => { const c = form.querySelector(sel); return c ? String(c.value || '').trim() : ''; };
+    const auto = {
+      historia: () => ['como', 'quiero', 'para'].every((k) => valor('[name="' + k + '"]') !== ''),
+      criterios: () => [...form.querySelectorAll('[data-bl-esc]')].some((esc) => ['dado', 'cuando', 'entonces'].every((k) => {
+        const t = esc.querySelector('[data-k="' + k + '"]');
+        return t && t.value.trim() !== '';
+      })),
+      estimada: () => { const r = form.querySelector('input[name="estimacion"]:checked'); return !!r && r.value !== '' && r.value !== '?'; },
+    };
+    const repasar = () => {
+      let ok = 0;
+      let tot = 0;
+      pan.querySelectorAll('.bls-dori').forEach((li) => {
+        tot++;
+        let si = false;
+        if (li.dataset.auto) { si = auto[li.dataset.auto] ? auto[li.dataset.auto]() : false; li.classList.toggle('is-ok', si); }
+        else { const c = li.querySelector('input[type="checkbox"]'); si = !!(c && c.checked); }
+        if (si) ok++;
+      });
+      const lista = tot > 0 && ok === tot;
+      const est = pan.querySelector('[data-bl-dor-estado]');
+      if (est) {
+        est.classList.toggle('col-s-ok', lista);
+        est.classList.toggle('col-s-warn', !lista);
+        const t = est.querySelector('[data-bl-dor-txt]');
+        if (t) t.textContent = lista ? 'Lista' : ok + ' de ' + tot;
+      }
+      const aviso = pan.querySelector('[data-bl-dor-aviso]');
+      if (aviso) aviso.hidden = !(valor('select[name="sprint"]') !== '' && !lista && valor('select[name="estado"]') !== 'hecho');
+    };
+    form.addEventListener('input', repasar);
+    form.addEventListener('change', repasar);
+    // Al sumar o quitar escenarios
+    form.addEventListener('click', (e) => { if (e.target.closest('[data-bl-esc-quitar], [data-bl-esc-mas]')) setTimeout(repasar, 0); });
+  }
+
+  const raiz = document.querySelector('[data-bl]');
+  if (!raiz || raiz.dataset.puede !== '1') return;
+  let fila = null;
+  let desde = null;
+  document.addEventListener('dragstart', (e) => {
+    fila = (e.target.closest && e.target.closest('.bl-fila[draggable]')) || null;
+    const l = fila && fila.closest('[data-bl-lista]');
+    desde = l ? (l.dataset.sprint || '') : null;
+  });
+  document.addEventListener('drop', () => {
+    const el = fila;
+    fila = null;
+    if (!el || el.dataset.dor !== '0') return;
+    const l = el.closest('[data-bl-lista]');
+    const a = l ? (l.dataset.sprint || '') : '';
+    if (a === '' || a === desde) return;
+    setTimeout(() => toast((el.dataset.cod || 'La historia') + ' no está lista para sprint', 'warning', 8000,
+      { desc: 'Se pasó igual al ' + a + '. Falta: ' + (el.dataset.dorFalta || '') }), 350);
+  });
+})();

@@ -9,8 +9,12 @@
    compartir la misma vista.
 
    Criterios en todos los gráficos:
-   - Los colores salen de las variables CSS del tema (los de la
-     colorimetría para el estado y la salud; --primary para lo neutro),
+   - Los colores son SOLO los de la colorimetría (--col-*-solid, los que
+     se eligen en Colorimetría): hecho = Cumple, en curso = Finalizado
+     (azul), en revisión o en riesgo = Alerta, vencido o bloqueado =
+     Crítico, por hacer = Sin iniciar y lo de referencia (plan, ideal,
+     comprometido, esperado) = Sin medición; lo real, según su salud.
+     Ejes, rejilla y fondo: los tokens neutros del tema,
      leídas con getComputedStyle: por eso siguen al modo oscuro. Al
      cambiar de tema (evento meca:tema) se vuelven a dibujar.
    - Fechas siempre como texto 'AAAA-MM-DD' (se comparan como texto) y,
@@ -421,17 +425,17 @@
     pintar('vel', base(T, anim, {
       chart: { type: 'bar', height: 300 },
       series: [{ name: 'Comprometido', data: l.map((x) => x.comp) }, { name: 'Hecho', data: l.map((x) => x.hecho) }],
-      colors: [T.primary, T.col.ok],
+      colors: [T.col.nm, T.col.ok],
       plotOptions: { bar: { columnWidth: l.length <= 3 ? '38%' : '64%', borderRadius: 4, borderRadiusApplication: 'end' } },
       stroke: { show: true, width: 2, colors: ['transparent'] },
       xaxis: { categories: l.map((x) => x.s.c) },
       yaxis: ejeEntero(T, Math.max(...l.map((x) => Math.max(x.comp, x.hecho)), media || 0)),
-      annotations: { yaxis: media != null ? [linea(T, media, 'Velocidad media ' + n1(media) + ' pts', T.col.ok)] : [] },
+      annotations: { yaxis: media != null ? [linea(T, media, 'Velocidad media ' + n1(media) + ' pts', T.col.nm)] : [] },
       tooltip: { shared: true, intersect: false, x: { formatter: (v, o) => (l[o.dataPointIndex] ? etiquetaSprint(l[o.dataPointIndex].s) : v) }, y: { formatter: (v) => pl(v, 'punto', 'puntos') } },
     }));
   };
 
-  const COLOR_HU = (T) => ({ por_hacer: T.col.none, en_curso: T.primary, en_revision: T.col.warn, hecho: T.col.ok });
+  const COLOR_HU = (T) => ({ por_hacer: T.col.none, en_curso: T.col.done, en_revision: T.col.warn, hecho: T.col.ok });
   const huEstado = (T, C, anim) => {
     const c = COLOR_HU(T);
     const filas = D.huEstados.map((e) => ({ n: e.n, v: C.hu.filter((h) => h.e === e.k).length, c: c[e.k] || T.col.nm })).filter((f) => f.v);
@@ -460,10 +464,14 @@
     const ideal = b.dias.map((_, i) => (n === 1 ? b.total : Math.round(b.total * (1 - i / (n - 1)) * 10) / 10));
     const cats = b.dias.map(([f]) => DIAS[dsem(f)] + ' ' + (+f.slice(8, 10)));
     const iHoy = b.dias.findIndex(([f]) => f === HOY);
+    // Lo real, con el tono de la colorimetría según cuánto le falta frente a lo ideal (en el último día medido)
+    const iUlt = iHoy >= 0 ? iHoy : (b.dias[n - 1][0] < HOY ? n - 1 : 0);
+    const exceso = b.total ? (b.dias[iUlt][1] - ideal[iUlt]) / b.total : 0;
+    const tonoReal = exceso <= 0.05 ? T.col.ok : exceso <= 0.2 ? T.col.warn : T.col.crit;
     pintar('burn', base(T, anim, {
       chart: { type: 'line', height: 300 },
       series: [{ name: 'Real', data: b.dias.map(([, v]) => v) }, { name: 'Ideal', data: ideal }],
-      colors: [T.primary, T.muted],
+      colors: [tonoReal, T.col.nm],
       stroke: { width: [3, 2], dashArray: [0, 6], curve: 'straight' },
       markers: { size: [4, 0], strokeWidth: 0, hover: { sizeOffset: 2 } },
       xaxis: { categories: cats },
@@ -612,7 +620,7 @@
     pintar('items', base(T, anim, {
       chart: { type: 'bar', height: alto },
       series: [{ name: 'Avance', data: l.map((it) => ({
-        x: it.c, y: it.av, fillColor: T.col[it.k] || T.primary,
+        x: it.c, y: it.av, fillColor: T.col[it.k] || T.col.nm,
         goals: [{ name: 'Esperado hoy', value: it.esp, strokeHeight: 16, strokeWidth: 3, strokeLineCap: 'round', strokeColor: T.ink }],
       })) }],
       plotOptions: { bar: { horizontal: true, barHeight: '56%', borderRadius: 3, borderRadiusApplication: 'end' } },
@@ -631,7 +639,7 @@
     const hoyVisible = en(HOY, C.desde, C.hasta);
     pintar('gantt', base(T, anim, {
       chart: { type: 'rangeBar', height: alto },
-      series: [{ name: 'Plan', data: l.map((it) => ({ x: it.c, y: [ms(it.ini), ms(it.fin) + DIA_MS - 1], fillColor: T.col[it.k] || T.primary })) }],
+      series: [{ name: 'Plan', data: l.map((it) => ({ x: it.c, y: [ms(it.ini), ms(it.fin) + DIA_MS - 1], fillColor: T.col[it.k] || T.col.nm })) }],
       plotOptions: { bar: { horizontal: true, barHeight: '58%', borderRadius: 3, rangeBarGroupRows: false } },
       xaxis: { type: 'datetime', min: ms(C.desde), max: ms(C.hasta) + DIA_MS, labels: { datetimeUTC: true, datetimeFormatter: { year: 'yyyy', month: "MMM 'yy", day: 'd MMM' } } },
       yaxis: { labels: { style: { colors: T.ink, fontSize: '11.5px', fontWeight: 600 }, maxWidth: 120 } },
@@ -727,9 +735,10 @@
   };
 
   const dlAsistencia = (T, C, anim) => {
-    const pal = [T.primary, T.col.done, T.col.hold, T.col.warn];
+    // Cada equipo con su color de identidad; si no tiene, uno de la colorimetría
+    const pal = [T.col.done, T.col.hold, T.col.ok, T.col.warn];
     const series = C.dls.map((d, i) => ({
-      name: 'Equipo ' + d.eq, color: C.dls.length > 1 ? (d.color || pal[i % pal.length]) : T.primary,
+      name: 'Equipo ' + d.eq, color: C.dls.length > 1 ? (d.color || pal[i % pal.length]) : T.col.done,
       data: d.dias.filter((x) => en(x.f, C.desde, C.fin) && x.as != null && (x.e === 'cumplida' || x.e === 'incompleta')).map((x) => ({ x: ms(x.f), y: x.as })),
     })).filter((s) => s.data.length);
     const todos = series.flatMap((s) => s.data.map((p) => p.y));
@@ -741,7 +750,10 @@
       const d = series[0].data;
       series[0].name = 'Cada día';
       series[0].color = T.col.nm;
-      series.push({ name: 'Tendencia (5 días)', color: T.primary, data: d.map((p, i) => ({ x: p.x, y: Math.round(prom(d.slice(Math.max(0, i - 4), i + 1).map((q) => q.y))) })) });
+      const tend = d.map((p, i) => ({ x: p.x, y: Math.round(prom(d.slice(Math.max(0, i - 4), i + 1).map((q) => q.y))) }));
+      // La tendencia, con el tono de la colorimetría frente al mínimo de asistencia
+      const ult = tend.length ? tend[tend.length - 1].y : 0;
+      series.push({ name: 'Tendencia (5 días)', color: ult >= D.umbral ? T.col.ok : ult >= D.umbral - 10 ? T.col.warn : T.col.crit, data: tend });
     }
     pintar('dl-asis', base(T, anim, {
       chart: { type: 'line', height: 280 },
@@ -786,14 +798,14 @@
   /* ---------- Tareas ---------- */
   const colorEstado = (T, k, i) => {
     const e = D.estados.find((x) => x.k === k);
-    if (e && e.fin) return T.col.ok;
+    if (e && e.fin) return T.col.ok;   // terminada: Cumple
     if (D.estados[0] && D.estados[0].k === k) return T.col.none;
     if (/rev/i.test(k)) return T.col.warn;
     if (/bloq|deten/i.test(k)) return T.col.crit;
-    if (/prog|curso/i.test(k)) return T.primary;
+    if (/prog|curso/i.test(k)) return T.col.done;
     return [T.col.done, T.col.hold, T.col.nm][i % 3];
   };
-  const colorPrio = (T, k) => (/alta|urg|crit/i.test(k) ? T.col.crit : /media/i.test(k) ? T.col.warn : /baja/i.test(k) ? T.primary : T.col.nm);
+  const colorPrio = (T, k) => (/alta|urg|crit/i.test(k) ? T.col.crit : /media/i.test(k) ? T.col.warn : /baja/i.test(k) ? T.col.done : T.col.nm);
   const ejeTiempo = (semanal) => ({
     type: 'datetime',
     labels: { datetimeUTC: true, datetimeFormatter: { year: 'yyyy', month: semanal ? 'd MMM' : "MMM 'yy", day: 'd MMM' } },
@@ -809,7 +821,7 @@
     pintar('t-sem', base(T, anim, {
       chart: { type: 'area', height: 300 },
       series: [{ name: 'Creadas', data: l.map((b, i) => ({ x: ms(b.ini), y: creadas[i] })) }, { name: 'Terminadas', data: l.map((b, i) => ({ x: ms(b.ini), y: hechas[i] })) }],
-      colors: [T.primary, T.col.ok],
+      colors: [T.col.none, T.col.ok],
       stroke: { width: 2.5, curve: 'smooth' },
       fill: { type: 'gradient', gradient: { shadeIntensity: 0, opacityFrom: 0.28, opacityTo: 0.03, stops: [0, 100] } },
       markers: { size: l.length > 30 ? 0 : 3.5, strokeWidth: 0, hover: { sizeOffset: 2 } },
@@ -907,7 +919,8 @@
         { name: 'Días promedio', type: 'line', data: datos.map(({ x, y }) => ({ x, y })) },
         { name: 'Terminadas', type: 'column', data: datos.map(({ x, n }) => ({ x, y: n })) },
       ],
-      colors: [T.primary, T.col.none],
+      // Los días promedio con el tono de la colorimetría frente a la meta del ciclo
+      colors: [(() => { const pr = prom(todos); return pr <= D.metaCiclo ? T.col.ok : pr <= D.metaCiclo * 1.25 ? T.col.warn : T.col.crit; })(), T.col.none],
       fill: { opacity: [1, 0.32] },
       stroke: { width: [2.5, 0], curve: 'straight' },
       markers: { size: [l.length > 30 ? 0 : 4, 0], strokeWidth: 0 },

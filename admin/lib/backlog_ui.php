@@ -14,6 +14,8 @@
  * El modelo es lib/Backlog.php; las acciones (bl_*) están en actions.php y el
  * JavaScript en assets/backlog.js. Usa las ayudas de lib/releases_ui.php.
  */
+// El sprint del proyecto (objetivo, capacidad, retrospectiva y «Lista para sprint»): lib/sprint_ui.php
+if (is_file(__DIR__ . '/sprint_ui.php')) require_once __DIR__ . '/sprint_ui.php';
 
 /** Chip del estado de una historia. */
 function blEstado(string $k): string
@@ -56,11 +58,11 @@ function blFila(array $h, array $x): string
 {
     $nAdj = count((array)$h['adjuntos']);
     $nT = count($h['tareas']);
-    return '<li class="bl-fila" data-bl-id="' . (int)$h['id'] . '" data-pts="' . (int)$h['puntos'] . '" data-hecho="' . ($h['estado'] === 'hecho' ? 1 : 0) . '"' . ($x['puede'] ? ' draggable="true"' : '') . '>'
+    return '<li class="bl-fila" data-bl-id="' . (int)$h['id'] . '" data-pts="' . (int)$h['puntos'] . '" data-hecho="' . ($h['estado'] === 'hecho' ? 1 : 0) . '"' . (function_exists('blDorAttr') ? blDorAttr($h) : '') . ($x['puede'] ? ' draggable="true"' : '') . '>'
         . ($x['puede'] ? '<span class="bl-fila__asa" aria-hidden="true">' . rlIco('arrastrar', 16) . '</span>' : '')
         . '<a class="bl-fila__abrir" href="' . e(blUrlHistoria((int)$h['proyecto_id'], (int)$h['id'])) . '" draggable="false"><span class="bl-cod">' . e($h['codigo']) . '</span>'
         . '<span class="bl-fila__tit">' . e($h['titulo']) . '</span></a>'
-        . '<span class="bl-fila__meta">' . blEpica($h, $x['rels'])
+        . '<span class="bl-fila__meta">' . (function_exists('blDorChip') ? blDorChip($h) : '') . blEpica($h, $x['rels'])
         . ($nAdj ? '<span class="bl-mini" data-ds-tip="' . $nAdj . ' diagrama(s) o documento(s)">' . rlIco('documento', 14) . $nAdj . '</span>' : '')
         . ($nT ? '<span class="bl-mini" data-ds-tip="' . $nT . ' tarea(s)">' . rlIco('completar', 14) . $nT . '</span>' : '')
         . ((int)$h['arrastres'] ? '<span class="bl-mini is-arrastre" data-ds-tip="Pasó sola de sprint ' . (int)$h['arrastres'] . ' vez/veces por no terminarse">' . rlIco('reintentar', 14) . (int)$h['arrastres'] . '</span>' : '')
@@ -74,7 +76,7 @@ function blTarjeta(array $h, array $x): string
     $hechas = count(array_filter($ts, fn($t) => in_array($t['estado'] ?? '', $x['finales'], true)));
     return '<article class="bl-card" data-bl-id="' . (int)$h['id'] . '" data-pts="' . (int)$h['puntos'] . '"' . ($x['puede'] ? ' draggable="true"' : '') . '>'
         . '<a class="bl-card__abrir" href="' . e(blUrlHistoria((int)$h['proyecto_id'], (int)$h['id'])) . '" draggable="false"><span class="bl-card__tit">' . e($h['titulo']) . '</span></a>'
-        . '<div class="bl-card__meta">' . blEpica($h, $x['rels']) . ($ts ? '<span class="bl-mini" data-ds-tip="Tareas terminadas">' . rlIco('completar', 14) . $hechas . '/' . count($ts) . '</span>' : '') . '</div>'
+        . '<div class="bl-card__meta">' . (function_exists('blDorChip') ? blDorChip($h) : '') . blEpica($h, $x['rels']) . ($ts ? '<span class="bl-mini" data-ds-tip="Tareas terminadas">' . rlIco('completar', 14) . $hechas . '/' . count($ts) . '</span>' : '') . '</div>'
         . '<footer class="bl-card__pie"><span class="bl-cod">' . e($h['codigo']) . '</span>' . blPrio($h['prioridad']) . blPts($h) . blResp($h, $x['miembros']) . '</footer></article>';
 }
 
@@ -94,7 +96,11 @@ function blBurndown(array $bd): string
     $ult = array_key_last($dias);
     $conValor = array_values(array_filter($dias, fn($v) => $v !== null));
     $restan = $conValor ? (int)$conValor[count($conValor) - 1] : (int)$bd['total'];
-    return '<svg class="bl-bd" viewBox="0 0 ' . $W . ' ' . $H . '" role="img" aria-label="Burndown: de ' . (int)$bd['total'] . ' puntos, quedan ' . $restan . '">'
+    // Lo real con el tono de la colorimetría: cuánto le falta frente a lo ideal en el último día medido
+    $k = max(0, count($conValor) - 1);
+    $exceso = ($restan - $tot * (1 - ($n > 1 ? $k / ($n - 1) : 1))) / $tot;
+    $tono = $exceso <= 0.05 ? 'ok' : ($exceso <= 0.2 ? 'warn' : 'crit');
+    return '<svg class="bl-bd col-s-' . $tono . '" viewBox="0 0 ' . $W . ' ' . $H . '" role="img" aria-label="Burndown: de ' . (int)$bd['total'] . ' puntos, quedan ' . $restan . '">'
         . '<line class="bl-bd__eje" x1="' . $pl . '" y1="' . ($H - $pb) . '" x2="' . ($W - $pr) . '" y2="' . ($H - $pb) . '"/>'
         . '<line class="bl-bd__eje" x1="' . $pl . '" y1="' . $pt . '" x2="' . $pl . '" y2="' . ($H - $pb) . '"/>'
         . '<text class="bl-bd__txt" x="' . ($pl - 4) . '" y="' . ($pt + 4) . '" text-anchor="end">' . (int)$bd['total'] . '</text>'
@@ -199,6 +205,7 @@ function blPestana(array $x): string
         <span class="bl-sec__pts" data-bl-pts data-cap="<?= (int)$cap ?>"><b class="mc-num"><?= (int)$pts ?></b> pts<?= $cap ? ' de ' . (int)$cap : '' ?></span>
         <span class="bl-sec__barra<?= $cap && $pts > $cap ? ' is-pasa' : '' ?>" aria-hidden="true"><i style="width:<?= $pts ? (int)round($hechos * 100 / $pts) : 0 ?>%"></i></span>
         <?php if ($puede && $mom !== 'pasado'): ?><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(blUrlHistoria($pid, 0, $cod)) ?>" aria-label="Nueva historia en el <?= e($cod) ?>" data-ds-tip="Nueva historia aquí"><?= rlIco('mas', 16) ?></a><?php endif; ?>
+      <?= function_exists('blSprintCab') ? blSprintCab($pid, $cod) : '' ?>
       </summary>
       <ol class="bl-lista" data-bl-lista data-sprint="<?= e($cod) ?>">
         <?php foreach ($lista as $h) echo blFila($h, $ctx); ?>
@@ -246,6 +253,7 @@ function blPestana(array $x): string
       <?= Backlog::momento($sp, $hoy) === 'actual' ? '<span class="bl-badge bl-badge--actual">En curso</span>' : (Backlog::momento($sp, $hoy) === 'pasado' ? '<span class="bl-badge">Terminó</span>' : '<span class="bl-badge">Por venir</span>') ?></div>
     <a class="mc-iconbtn mc-iconbtn--tinte<?= $iTab < count($codsR) - 1 ? '' : ' is-off' ?>" href="<?= $iTab < count($codsR) - 1 ? e($url(['sp_r' => $r, 'sp_v' => 'tablero', 'sp_s' => $codsR[$iTab + 1]])) : '#' ?>" aria-label="Sprint siguiente" data-ds-tip="Sprint siguiente"><?= rlIco('chevron-der', 18) ?></a>
   </div>
+  <?= function_exists('blSprintObjetivo') ? blSprintObjetivo($pid, $sTab, $puede) : '' ?>
   <div class="rl-tab bl-tabres">
     <section class="rl-pan rl-pan--8">
       <header class="rl-pan__cab"><h3>Resumen del <?= e($sTab) ?></h3></header>
@@ -413,6 +421,7 @@ function blFormHistoria(array $x): string
           <?= rlCampo('Responsable', UI::selectDS('responsable', $gente, (string)(int)$h['responsable'], ['tam' => 'md', 'buscar' => true])) ?>
         </div>
       </section>
+      <?= function_exists('blDorPanel') ? blDorPanel($h, $pid, $puede) : '' ?>
       <section class="rl-pan">
         <header class="rl-pan__cab"><h3>Diagramas y documentos</h3></header>
         <div class="rl-pan__cuerpo bl-hu__cuerpo">

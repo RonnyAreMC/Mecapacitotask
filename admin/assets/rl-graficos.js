@@ -11,7 +11,10 @@
  * Mientras no carga (o sin JS) se queda la barra de siempre. ApexCharts se pide
  * una sola vez y solo cuando una tarjeta se ve en pantalla (también si llega
  * después, dentro de un panel). Los colores salen de los tokens del panel, así
- * que siguen el modo oscuro.
+ * que siguen el modo oscuro. Todo con la colorimetría (--col-*-solid): lo real
+ * según su salud, lo esperado y el plan en «Sin medición» (la marca gris de la
+ * colorimetría), las tareas hechas «Cumple», en curso «Finalizado» (azul) y por
+ * hacer «Sin iniciar», y cada revisión con el tono de su resultado.
  */
 (function () {
   'use strict';
@@ -47,7 +50,7 @@
     var pct = +el.getAttribute('data-pct') || 0, esp = +el.getAttribute('data-esp') || 0;
     apex(el.getAttribute('data-apex')).then(function () {
       var sz = parseInt(getComputedStyle(el).getPropertyValue('--sz'), 10) || 112, alto = Math.round(sz * 1.3);
-      var real = token(el, '--s', '#2970EB'), meta = token(el, '--chart-1', '#2970EB'), ink = token(el, '--ink', '#1F2A37'), track = token(el, '--progress-track', '#DCE8F0');
+      var real = token(el, '--s', '#2970EB'), meta = token(el, '--col-nm-solid', '#76839A'), ink = token(el, '--ink', '#1F2A37'), track = token(el, '--progress-track', '#DCE8F0');
       el.innerHTML = '';
       el.classList.add('is-apex');
       el.style.setProperty('--sz-apex', alto + 'px');
@@ -76,7 +79,9 @@
       var c = {
         real: token(sec, '--s', '#2970EB'), ink: token(sec, '--ink', '#1F2A37'), muted: token(sec, '--ink-muted', '#64748B'),
         line: token(sec, '--line', '#E2E8F0'), track: token(sec, '--progress-track', '#DCE8F0'), surface: token(sec, '--surface', '#fff'),
-        ok: token(sec, '--chart-2', '#1E9E62'), meta: token(sec, '--chart-1', '#2970EB'), azul: token(sec, '--primary', '#2970EB'), gris: token(sec, '--line-strong', '#CBD5E1'),
+        ok: token(sec, '--col-ok-solid', '#1E9E62'), meta: token(sec, '--col-nm-solid', '#76839A'), azul: token(sec, '--col-done-solid', '#2970EB'), gris: token(sec, '--col-none-solid', '#98A2B3'),
+        res: { cumplido: token(sec, '--col-ok-solid', '#1E9E62'), parcial: token(sec, '--col-warn-solid', '#E59A0B'), no_cumplido: token(sec, '--col-crit-solid', '#D92D20'),
+               reprogramado: token(sec, '--col-hold-solid', '#7A5AF8'), no_aplica: token(sec, '--col-nm-solid', '#76839A') },
         fuente: token(document.body, '--font-sans', 'Inter, system-ui, sans-serif')
       };
       var base = function (alto) {
@@ -138,11 +143,11 @@
           { name: 'Real', type: 'area', data: d.real.map(function (p) { return [ts(p[0]), p[1]]; }) },
           { name: 'Plan', type: 'line', data: d.plan.map(function (p) { return [ts(p[0]), p[1]]; }) }
         ];
-        if (d.revisiones.length) serie.push({ name: 'Revisiones', type: 'scatter', data: d.revisiones.map(function (p) { return { x: ts(p[0]), y: p[1], tipo: p[2] }; }) });
+        if (d.revisiones.length) serie.push({ name: 'Revisiones', type: 'scatter', data: d.revisiones.map(function (p) { return { x: ts(p[0]), y: p[1], tipo: p[2], fillColor: c.res[p[3]] || c.meta }; }) });
         var min = Math.min(ts(d.inicio), ts(d.hoy)), max = Math.max(ts(d.fin), ts(d.hoy));
         new ApexCharts(tie.querySelector('[data-g-lienzo]'), {
           chart: Object.assign(base(230), { type: 'line' }), theme: tema, series: serie,
-          colors: [c.real, c.muted, c.azul],
+          colors: [c.real, c.meta, c.meta],
           stroke: { curve: ['stepline', 'straight', 'straight'], width: [2.5, 2, 0], dashArray: [0, 6, 0] },
           fill: { type: ['gradient', 'solid', 'solid'], gradient: { shadeIntensity: 0, opacityFrom: .28, opacityTo: .02, stops: [0, 100] } },
           markers: { size: [0, 0, 6], strokeColors: c.surface, strokeWidth: 2, hover: { sizeOffset: 2 } },

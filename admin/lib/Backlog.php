@@ -239,6 +239,8 @@ final class Backlog
             $c['criterios'] = mb_substr(implode("\n\n", array_map(fn($e) => trim(($e['nombre'] !== '' ? 'Escenario: ' . $e['nombre'] . "\n" : '')
                 . ($e['dado'] !== '' ? 'Dado ' . $e['dado'] . "\n" : '') . ($e['cuando'] !== '' ? 'Cuando ' . $e['cuando'] . "\n" : '') . ($e['entonces'] !== '' ? 'Entonces ' . $e['entonces'] : '')), $esc)), 0, 8000);
         }
+        // «Lista para sprint» (DoR): las condiciones que se marcan a mano en historia.php (las automáticas se calculan)
+        if (array_key_exists('dor', $d)) $c['dor'] = array_values(array_unique(array_filter(array_map(fn($k) => preg_replace('/[^a-z0-9_]/', '', strtolower((string)$k)), (array)$d['dor']))));
         if (($c['titulo'] ?? ($antes['titulo'] ?? '')) === '') throw new RuntimeException('Ponle un título a la historia.');
         $pid = (int)($antes['proyecto_id'] ?? ($d['proyecto_id'] ?? 0));
         if ($pid <= 0 || !(new ProyectoRepo())->buscar($pid)) throw new RuntimeException('Ese proyecto ya no existe.');
@@ -420,5 +422,322 @@ final class Backlog
             $dias[$f] = $f <= $hoy ? $total - $hechos : null;
         }
         return ['dias' => $dias, 'total' => $total];
+    }
+
+    /* ========= El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y «Lista para sprint» ========= */
+
+    /**
+     * La Definición de «Lista» (Definition of Ready) que trae cada proyecto mientras
+     * no la cambie. auto: la revisa el panel con los datos de la historia; '' = se
+     * marca a mano en la pantalla de la historia.
+     */
+    public const DOR_DEFECTO = [
+        ['clave' => 'historia',     'texto' => 'Tiene «Como… quiero… para…»',             'auto' => 'historia'],
+        ['clave' => 'criterios',    'texto' => 'Tiene criterios Dado · Cuando · Entonces', 'auto' => 'criterios'],
+        ['clave' => 'estimada',     'texto' => 'Está estimada',                            'auto' => 'estimada'],
+        ['clave' => 'dependencias', 'texto' => 'No tiene dependencias que la bloqueen',    'auto' => ''],
+        ['clave' => 'refinada',     'texto' => 'El equipo la conversó y la entiende',      'auto' => ''],
+        ['clave' => 'po',           'texto' => 'El PO la aprobó',                          'auto' => ''],
+    ];
+    /** Lo que el panel sabe revisar solo (el resto se marca a mano). */
+    public const DOR_AUTO = ['historia' => 'Revisa que tenga Como, Quiero y Para', 'criterios' => 'Revisa que un escenario tenga Dado, Cuando y Entonces', 'estimada' => 'Revisa que tenga estimación'];
+    /** La dedicación de cada persona al proyecto en el sprint (hay gente a medio tiempo). */
+    public const DEDICACIONES = [100, 80, 75, 60, 50, 40, 25, 20, 10];
+    /** Horas de un día completo, para pasar los días a horas. */
+    public const HORAS_DIA = 8;
+    /** ¿Se cumplió el objetivo del sprint? [nombre, estado de la colorimetría] */
+    public const LOGRADO = ['si' => ['Sí', 'ok'], 'parcial' => ['En parte', 'warn'], 'no' => ['No', 'crit']];
+
+    /** Los registros de 'bl_sprints' de cada proyecto (una vez por petición): [sprint => registro]; '' es el del proyecto (su DoR). */
+    private static array $regs = [];
+    private static array $dorCache = [];
+
+    private static function repoSp(): JsonStore { return new JsonStore('bl_sprints'); }
+
+    private static function registro(int $pid, string $sprint): ?array
+    {
+        if (!isset(self::$regs[$pid])) {
+            self::$regs[$pid] = [];
+            foreach (self::repoSp()->where('proyecto_id', $pid) as $r) self::$regs[$pid][(string)($r['sprint'] ?? '')] ??= $r;
+        }
+        return self::$regs[$pid][$sprint] ?? null;
+    }
+
+    private static function guardarRegistro(int $pid, string $sprint, array $c, int $quien, string $que): void
+    {
+        $r = self::registro($pid, $sprint);
+        $hist = (array)($r['historial'] ?? []);
+        $hist[] = self::evento($quien, $que);
+        $c += ['actualizado' => date('Y-m-d H:i'), 'actualizado_por' => $quien, 'historial' => array_slice($hist, -40)];
+        if ($r) self::repoSp()->update((int)$r['id'], $c);
+        else self::repoSp()->insert(['proyecto_id' => $pid, 'sprint' => $sprint] + $c);
+        unset(self::$regs[$pid], self::$dorCache[$pid]);
+    }
+
+    /** El número del sprint (S22 → 22), para compararlos. */
+    private static function nSprint(string $cod): int { return (int)substr($cod, 1); }
+
+    /**
+     * La ficha del sprint en el proyecto: el objetivo (Sprint Goal) y si se logró,
+     * la capacidad de la gente y la retrospectiva (bien, mal y acciones).
+     */
+    public static function ficha(int $pid, string $sprint): array
+    {
+        return (self::registro($pid, $sprint) ?? []) + ['id' => 0, 'proyecto_id' => $pid, 'sprint' => $sprint, 'objetivo' => '', 'logrado' => '',
+            'pts_dia' => null, 'gente' => [], 'bien' => [], 'mal' => [], 'acciones' => [], 'retro_en' => '', 'historial' => []];
+    }
+
+    /** La ficha más reciente de un sprint anterior que ya tenga la gente anotada (de ahí se hereda la dedicación). */
+    private static function fichaAnterior(int $pid, string $sprint): ?array
+    {
+        self::registro($pid, $sprint);
+        $mejor = null;
+        foreach (self::$regs[$pid] ?? [] as $cod => $r) {
+            if ($cod === '' || self::nSprint((string)$cod) >= self::nSprint($sprint) || empty($r['gente'])) continue;
+            if (!$mejor || self::nSprint((string)$cod) > self::nSprint((string)$mejor['sprint'])) $mejor = $r;
+        }
+        return $mejor;
+    }
+
+    /**
+     * Guarda lo que se planifica: el objetivo, los puntos por día y, por persona,
+     * si cuenta, los días que falta, su dedicación (%) y sus puntos a mano ('' = calculados).
+     */
+    public static function guardarPlan(int $pid, string $sprint, array $d, int $quien): array
+    {
+        if (!isset(self::sprints()[$sprint])) throw new RuntimeException('Ese sprint no existe.');
+        $num = fn($v, float $max) => max(0.0, min($max, (float)str_replace(',', '.', trim((string)$v))));
+        $antes = self::ficha($pid, $sprint);
+        $c = [];
+        if (array_key_exists('objetivo', $d)) $c['objetivo'] = mb_substr(trim((string)preg_replace('/[ \t]+/', ' ', (string)$d['objetivo'])), 0, 600);
+        if (array_key_exists('pts_dia', $d)) $c['pts_dia'] = round($num($d['pts_dia'], 20), 2);
+        if (isset($d['gente']) && is_array($d['gente'])) {
+            $g = [];
+            foreach (array_slice($d['gente'], 0, 80, true) as $mid => $x) {
+                if ((int)$mid <= 0 || !is_array($x)) continue;
+                $pts = trim((string)($x['puntos'] ?? ''));
+                $ded = (int)($x['dedicacion'] ?? 100);
+                $g[] = ['miembro' => (int)$mid, 'cuenta' => !empty($x['cuenta']), 'ausencias' => round($num($x['ausencias'] ?? 0, 30) * 2) / 2,
+                        'dedicacion' => in_array($ded, self::DEDICACIONES, true) ? $ded : 100, 'puntos' => $pts === '' ? null : (int)round($num($pts, 300))];
+            }
+            $c['gente'] = $g;
+        }
+        $obj = $c['objetivo'] ?? $antes['objetivo'];
+        $que = $obj !== $antes['objetivo'] ? ($obj === '' ? 'Quitó el objetivo del sprint' : 'Objetivo del sprint: ' . $obj) : 'Planificó la capacidad del sprint';
+        self::guardarRegistro($pid, $sprint, $c, $quien, $que);
+        return self::ficha($pid, $sprint);
+    }
+
+    /**
+     * La capacidad del equipo en el sprint frente a lo comprometido. Por persona:
+     * si cuenta, los días que falta, su dedicación, los días y horas que le quedan,
+     * su capacidad en puntos (días × dedicación × puntos por día, o la que se puso
+     * a mano) y lo asignado (los puntos de las historias del sprint que lleva).
+     * Sin nada guardado sale la gente del proyecto (sin su PO) con la dedicación
+     * del sprint anterior; quien lleva una historia del sprint sale siempre.
+     */
+    public static function capacidad(array $p, string $sprint, array $miembros, ?array $historias = null): array
+    {
+        $pid = (int)$p['id'];
+        $s = self::sprints()[$sprint] ?? null;
+        $dias = $s ? (int)self::dias($s, '0000-00-00')['total'] : 0;
+        $f = self::ficha($pid, $sprint);
+        $ant = self::fichaAnterior($pid, $sprint);
+        $ptsDia = $f['pts_dia'] !== null ? (float)$f['pts_dia'] : (float)($ant['pts_dia'] ?? 1);
+        $historias ??= self::historias(['proyecto_id' => $pid, 'sprint' => $sprint]);
+        $asig = []; $nHu = []; $sinResp = 0; $comp = 0;
+        foreach ($historias as $h) {
+            $comp += (int)$h['puntos'];
+            $r = (int)$h['responsable'];
+            if ($r > 0) { $asig[$r] = ($asig[$r] ?? 0) + (int)$h['puntos']; $nHu[$r] = ($nHu[$r] ?? 0) + 1; }
+            else $sinResp += (int)$h['puntos'];
+        }
+        $guard = []; foreach ((array)$f['gente'] as $g) if ((int)($g['miembro'] ?? 0) > 0) $guard[(int)$g['miembro']] = $g;
+        $prev = []; foreach ((array)($ant['gente'] ?? []) as $g) if ((int)($g['miembro'] ?? 0) > 0) $prev[(int)$g['miembro']] = $g;
+        $ids = array_values(array_unique(array_merge(array_keys($guard), array_keys($prev), self::equipoBase($p, $miembros), array_keys($asig))));
+        $gente = [];
+        foreach ($ids as $mid) {
+            if (!isset($miembros[$mid])) continue;
+            $g = $guard[$mid] ?? ['ausencias' => 0, 'dedicacion' => (int)($prev[$mid]['dedicacion'] ?? 100), 'puntos' => null];
+            // Lo guardado manda; quien no estaba en lo guardado no cuenta; sin nada guardado, lo del sprint anterior (o sí)
+            $cuenta = isset($guard[$mid]) ? !empty($g['cuenta']) : ($guard ? false : (isset($prev[$mid]) ? !empty($prev[$mid]['cuenta']) : true));
+            $aus = min((float)$dias, max(0.0, (float)($g['ausencias'] ?? 0)));
+            $ded = max(0, min(100, (int)($g['dedicacion'] ?? 100)));
+            $diasEf = $cuenta ? round(($dias - $aus) * $ded / 100, 1) : 0.0;
+            $calc = (int)round($diasEf * $ptsDia);
+            $man = ($g['puntos'] ?? null) === null || ($g['puntos'] ?? '') === '' ? null : max(0, (int)$g['puntos']);
+            $cap = $cuenta ? ($man ?? $calc) : 0;
+            $a = (int)($asig[$mid] ?? 0);
+            $gente[] = ['miembro' => $mid, 'nombre' => (string)($miembros[$mid]['nombre'] ?? ''), 'cuenta' => $cuenta, 'ausencias' => $aus, 'dedicacion' => $ded,
+                'dias' => $diasEf, 'horas' => round($diasEf * self::HORAS_DIA, 1), 'calculado' => $calc, 'manual' => $man, 'capacidad' => $cap,
+                'asignado' => $a, 'historias' => (int)($nHu[$mid] ?? 0), 'pct' => $cap > 0 ? (int)round($a * 100 / $cap) : null, 'tono' => self::tonoCarga($a, $cap)];
+        }
+        usort($gente, fn($x, $y) => strnatcasecmp($x['nombre'], $y['nombre']));
+        $total = (int)array_sum(array_column($gente, 'capacidad'));
+        return ['dias' => $dias, 'pts_dia' => $ptsDia, 'gente' => $gente, 'total' => $total, 'comprometido' => $comp, 'sin_resp' => $sinResp,
+                'asignado' => (int)array_sum(array_column($gente, 'asignado')), 'dias_persona' => round(array_sum(array_column($gente, 'dias')), 1),
+                'personas' => count(array_filter($gente, fn($g) => $g['cuenta'])), 'pct' => $total > 0 ? (int)round($comp * 100 / $total) : null,
+                'tono' => self::tonoCarga($comp, $total), 'guardada' => (bool)$guard, 'heredada' => !$guard && $ant ? (string)$ant['sprint'] : ''];
+    }
+
+    /** El tono (colorimetría) de lo asignado frente a la capacidad: hasta el 100 % cumple, hasta el 115 % alerta y más es crítico. */
+    public static function tonoCarga(int $asignado, int $capacidad): string
+    {
+        if ($capacidad <= 0) return $asignado > 0 ? 'crit' : 'nm';
+        $p = $asignado * 100 / $capacidad;
+        return $p <= 100 ? 'ok' : ($p <= 115 ? 'warn' : 'crit');
+    }
+
+    /** La gente que suele contar para la capacidad: los miembros del proyecto (o todos), sin su PO ni quien solo supervisa. */
+    public static function equipoBase(array $p, array $miembros): array
+    {
+        $ids = ProyectoRepo::miembrosDe($p) ?? array_keys($miembros);
+        $fuera = array_filter([ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0)]);
+        return array_values(array_filter(array_unique(array_map('intval', $ids)), fn($id) => isset($miembros[$id]) && !in_array($id, $fuera, true)
+            && MiembroRepo::accesosDe($miembros[$id]) !== ['supervisor']));
+    }
+
+    /**
+     * Guarda la retrospectiva: qué salió bien y qué salió mal (una idea por línea),
+     * si se logró el objetivo y las acciones (texto, responsable, abierta o hecha).
+     * $crearTarea(acción, sprint) devuelve el id de la tarea nueva de las que se
+     * marcaron «crear tarea» (una sola vez por acción).
+     */
+    public static function guardarRetro(int $pid, string $sprint, array $d, int $quien, ?callable $crearTarea = null): array
+    {
+        if (!isset(self::sprints()[$sprint])) throw new RuntimeException('Ese sprint no existe.');
+        $f = self::ficha($pid, $sprint);
+        $lineas = fn(string $k) => array_slice(array_values(array_filter(array_map(fn($l) => mb_substr(trim((string)$l), 0, 300), preg_split('/\R/', (string)($d[$k] ?? '')) ?: []), fn($l) => $l !== '')), 0, 40);
+        $c = ['bien' => $lineas('bien'), 'mal' => $lineas('mal')];
+        if (array_key_exists('logrado', $d)) $c['logrado'] = isset(self::LOGRADO[(string)$d['logrado']]) ? (string)$d['logrado'] : '';
+        $antes = [];
+        foreach ((array)$f['acciones'] as $a) $antes[(string)($a['id'] ?? '')] = $a;
+        $acc = [];
+        $nuevasT = 0;
+        foreach (array_slice(array_values((array)($d['acciones'] ?? [])), 0, 40) as $x) {
+            if (!is_array($x)) continue;
+            $txt = mb_substr(trim((string)($x['texto'] ?? '')), 0, 300);
+            if ($txt === '') continue;
+            $id = (string)preg_replace('/[^a-z0-9]/', '', (string)($x['id'] ?? ''));
+            $prev = $antes[$id] ?? null;
+            if (!$prev) $id = 'a' . bin2hex(random_bytes(4));
+            $est = ($x['estado'] ?? '') === 'hecha' ? 'hecha' : 'abierta';
+            $a = ['id' => $id, 'texto' => $txt, 'responsable' => max(0, (int)($x['responsable'] ?? 0)), 'estado' => $est, 'tarea_id' => (int)($prev['tarea_id'] ?? 0),
+                  'creada' => (string)($prev['creada'] ?? date('Y-m-d')), 'cerrada' => $est === 'hecha' ? (((string)($prev['cerrada'] ?? '')) ?: date('Y-m-d')) : ''];
+            if (!empty($x['tarea']) && !$a['tarea_id'] && $crearTarea) { $a['tarea_id'] = (int)$crearTarea($a, $sprint); $nuevasT++; }
+            $acc[] = $a;
+        }
+        $c['acciones'] = $acc;
+        if ((string)$f['retro_en'] === '') $c['retro_en'] = date('Y-m-d');
+        self::guardarRegistro($pid, $sprint, $c, $quien, 'Anotó la retrospectiva' . ($nuevasT ? ' (' . $nuevasT . ' tarea(s) nueva(s))' : ''));
+        return self::ficha($pid, $sprint) + ['tareas_nuevas' => $nuevasT];
+    }
+
+    /** Una acción de la retrospectiva de un sprint por su id (con su sprint), o null. */
+    public static function accion(int $pid, string $sprint, string $aid): ?array
+    {
+        foreach ((array)self::ficha($pid, $sprint)['acciones'] as $a) if ((string)($a['id'] ?? '') === $aid) return $a + ['sprint' => $sprint];
+        return null;
+    }
+
+    /** Cambia una acción de la retrospectiva: su estado ('abierta' | 'hecha') o su tarea (tarea_id). */
+    public static function cambiarAccion(int $pid, string $sprint, string $aid, array $cambios, int $quien): array
+    {
+        $acc = (array)self::ficha($pid, $sprint)['acciones'];
+        foreach ($acc as $i => $a) {
+            if ((string)($a['id'] ?? '') !== $aid) continue;
+            if (isset($cambios['estado'])) {
+                $acc[$i]['estado'] = $cambios['estado'] === 'hecha' ? 'hecha' : 'abierta';
+                $acc[$i]['cerrada'] = $acc[$i]['estado'] === 'hecha' ? date('Y-m-d') : '';
+            }
+            if (isset($cambios['tarea_id'])) $acc[$i]['tarea_id'] = (int)$cambios['tarea_id'];
+            $que = isset($cambios['tarea_id']) ? 'Creó la tarea de la acción: ' : ($acc[$i]['estado'] === 'hecha' ? 'Cerró la acción: ' : 'Reabrió la acción: ');
+            self::guardarRegistro($pid, $sprint, ['acciones' => array_values($acc)], $quien, $que . (string)($a['texto'] ?? ''));
+            return $acc[$i] + ['sprint' => $sprint];
+        }
+        throw new RuntimeException('Esa acción ya no existe.');
+    }
+
+    /** Las acciones que siguen abiertas de las retrospectivas de los sprints anteriores a este (la más reciente primero). */
+    public static function accionesAbiertas(int $pid, string $sprint): array
+    {
+        self::registro($pid, $sprint);
+        $out = [];
+        foreach (self::$regs[$pid] ?? [] as $cod => $r) {
+            if ($cod === '' || self::nSprint((string)$cod) >= self::nSprint($sprint)) continue;
+            foreach ((array)($r['acciones'] ?? []) as $a) if (($a['estado'] ?? '') !== 'hecha') $out[] = $a + ['sprint' => (string)$cod];
+        }
+        usort($out, fn($a, $b) => self::nSprint($b['sprint']) <=> self::nSprint($a['sprint']));
+        return $out;
+    }
+
+    /** La Definición de «Lista» del proyecto: [[clave, texto, auto]] (la suya o la de siempre). */
+    public static function dorLista(int $pid): array
+    {
+        if (isset(self::$dorCache[$pid])) return self::$dorCache[$pid];
+        $r = self::registro($pid, '');
+        $out = [];
+        foreach (is_array($r['dor'] ?? null) && $r['dor'] ? $r['dor'] : self::DOR_DEFECTO as $i) {
+            $i = ['clave' => (string)($i['clave'] ?? ''), 'texto' => (string)($i['texto'] ?? ''), 'auto' => (string)($i['auto'] ?? '')];
+            if (!isset(self::DOR_AUTO[$i['auto']])) $i['auto'] = '';
+            if ($i['clave'] !== '' && $i['texto'] !== '') $out[] = $i;
+        }
+        return self::$dorCache[$pid] = $out;
+    }
+
+    /** ¿El proyecto cambió su DoR? (si no, usa la de siempre) */
+    public static function dorPropia(int $pid): bool
+    {
+        return !empty(self::registro($pid, '')['dor']);
+    }
+
+    /** Guarda la DoR del proyecto. $items: [[clave, texto, auto]] en su orden (a las nuevas se les pone clave). */
+    public static function guardarDor(int $pid, array $items, int $quien): array
+    {
+        $out = [];
+        $vistas = [];
+        foreach (array_slice(array_values($items), 0, 20) as $i) {
+            if (!is_array($i)) continue;
+            $txt = mb_substr(trim((string)($i['texto'] ?? '')), 0, 160);
+            if ($txt === '') continue;
+            $auto = isset(self::DOR_AUTO[(string)($i['auto'] ?? '')]) ? (string)$i['auto'] : '';
+            $clave = $auto !== '' ? $auto : (string)preg_replace('/[^a-z0-9_]/', '', strtolower((string)($i['clave'] ?? '')));
+            if ($clave === '' || isset($vistas[$clave]) || ($auto === '' && isset(self::DOR_AUTO[$clave]))) $clave = 'c' . substr(md5($txt . random_bytes(4)), 0, 8);
+            $vistas[$clave] = true;
+            $out[] = ['clave' => $clave, 'texto' => $txt, 'auto' => $auto];
+        }
+        if (!$out) throw new RuntimeException('Deja al menos una condición en la lista.');
+        self::guardarRegistro($pid, '', ['dor' => $out], $quien, 'Cambió la Definición de «Lista»');
+        return self::dorLista($pid);
+    }
+
+    /**
+     * ¿La historia cumple la Definición de «Lista» de su proyecto? Sus condiciones
+     * (con ok), cuántas cumple, si está «Lista» y lo que le falta.
+     */
+    public static function dor(array $h, ?array $lista = null): array
+    {
+        $lista ??= self::dorLista((int)($h['proyecto_id'] ?? 0));
+        $marcadas = array_flip(array_map('strval', (array)($h['dor'] ?? [])));
+        $items = [];
+        $falta = [];
+        foreach ($lista as $i) {
+            $ok = $i['auto'] !== '' ? self::dorAuto($i['auto'], $h) : isset($marcadas[$i['clave']]);
+            $items[] = $i + ['ok' => $ok];
+            if (!$ok) $falta[] = $i['texto'];
+        }
+        $n = count($items);
+        return ['items' => $items, 'hechos' => $n - count($falta), 'total' => $n, 'lista' => $n > 0 && !$falta, 'falta' => $falta];
+    }
+
+    private static function dorAuto(string $k, array $h): bool
+    {
+        $t = fn($x) => trim((string)$x) !== '';
+        return match ($k) {
+            'historia'  => $t($h['como'] ?? '') && $t($h['quiero'] ?? '') && $t($h['para'] ?? ''),
+            'criterios' => (bool)array_filter((array)($h['escenarios'] ?? []), fn($e) => $t($e['dado'] ?? '') && $t($e['cuando'] ?? '') && $t($e['entonces'] ?? '')),
+            'estimada'  => !in_array(trim((string)($h['estimacion'] ?? '')), ['', '?'], true),
+            default     => false,
+        };
     }
 }

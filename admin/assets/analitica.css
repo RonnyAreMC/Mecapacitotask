@@ -53,7 +53,7 @@
 /* Leyendas propias (la del mapa de calor y la de las barras de avance) */
 .rl-pan__nota .an-ley + .an-ley { margin-left: 14px; }
 .an-ley { display: inline-flex; align-items: center; gap: 6px; }
-.an-ley i { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--x, var(--primary)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); }
+.an-ley i { display: inline-block; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--x, var(--col-nm-solid)); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--ink) 14%, transparent); }
 .an-ley i.an-ley__barra { width: 18px; height: 8px; border-radius: 999px; background: linear-gradient(90deg, var(--col-ok-solid) 0 33%, var(--col-warn-solid) 33% 66%, var(--col-crit-solid) 66%); }
 .an-ley i.an-ley__marca { width: 3px; height: 14px; border-radius: 2px; background: var(--ink); }
 .an-leyendas { display: flex; flex-wrap: wrap; gap: 6px 14px; }
