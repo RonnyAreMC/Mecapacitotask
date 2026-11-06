@@ -160,12 +160,15 @@ function blPestana(array $x): string
       foreach ($relsP as $c) $optRel[$c] = [$c . ' · ' . (string)($rels[$c]['nombre'] ?? ''), rlF((string)($rels[$c]['inicio'] ?? ''), true) . ' → ' . rlF((string)($rels[$c]['fin'] ?? ''), true)]; ?>
     <div class="bl-rel"><span class="bl-rel__rot">Release</span>
       <?= UI::selectDS('sp_r', $optRel, $r, ['tam' => 'md', 'aria' => 'Release', 'attrs' => 'data-bl-rel data-url="' . e($url(['sp_r' => '__R__', 'sp_v' => $vista === 'tablero' ? 'tablero' : ''])) . '"']) ?></div>
+    <?php /* Solo íconos, como la cabecera del dashboard: el nombre va en la ayuda */ ?>
     <div class="bl-cab__acc">
-      <nav class="mc-tabs mc-tabs--segmented bl-vistas" aria-label="Qué ver">
-        <a class="mc-tab<?= $vista === 'backlog' ? ' is-active' : '' ?>" href="<?= e($url(['sp_r' => $r])) ?>"><?= rlIco('lista-espera', 16) ?><span>Backlog</span></a>
-        <a class="mc-tab<?= $vista === 'tablero' ? ' is-active' : '' ?>" href="<?= e($url(['sp_r' => $r, 'sp_v' => 'tablero'])) ?>"><?= rlIco('dashboard', 16) ?><span>Tablero del sprint</span></a>
+      <?php if (Releases::puedeEditar()): ?><a class="rs-boton rs-boton--icono" href="releases.php?v=ajustes&amp;t=sprints" aria-label="Calendario de sprints" data-ds-tip="Calendario de sprints (Releases → Ajustes)"><?= UI::icono('ds-agenda') ?></a><?php endif; ?>
+      <?php if ($puede): ?><button type="button" class="rs-boton rs-boton--icono rs-boton--primario" data-bl-nueva data-sprint="" aria-label="Nueva historia" data-ds-tip="Nueva historia"><?= UI::icono('ds-mas') ?></button><?php endif; ?>
+      <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
+        <span class="rs-vista__pieza" aria-hidden="true"></span>
+        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
+        <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r, 'sp_v' => 'tablero'])) ?>" data-vista-op="tablero" aria-label="Tablero del sprint" data-ds-tip="Tablero del sprint"<?= $vista === 'tablero' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-dashboard') ?></a>
       </nav>
-      <?php if ($puede): ?><button type="button" class="mc-btn mc-btn--primary" data-bl-nueva data-sprint=""><?= rlIco('mas', 18) ?><span class="mc-btn__label">Nueva historia</span></button><?php endif; ?>
     </div>
   </div>
 
@@ -347,10 +350,8 @@ function blDialogo(array $x, array $todas, array $epicas, array $sps, array $rel
         <?= rlCampo('Notas', rlTexto('notas', '', 3, 'Reglas del negocio, enlaces, dudas por resolver…')) ?>
       </fieldset></section>
       <section class="wz-panel"><fieldset class="bl-fs">
-        <div class="rl-form-grid rl-form-grid--2">
-          <?= rlCampo('Épica (ítem del release)', UI::selectDS('item_id', $optEpica, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="item_id"'])) ?>
-          <?= rlCampo('Sprint', UI::selectDS('sprint', $optSprint, '', ['tam' => 'md', 'attrs' => 'data-bl-campo="sprint"'])) ?>
-        </div>
+        <?php /* La épica en su fila: su nombre se lee entero */ ?>
+        <?= rlCampo('Épica (ítem del release)', UI::selectDS('item_id', $optEpica, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="item_id"'])) ?>
         <div class="mc-field"><span class="mc-field__label">Estimación <small>(<?= $conf['escala'] === 'camisa' ? 'talla de camisa' : 'puntos de Fibonacci' ?>)</small></span>
           <div class="bl-est-ops" role="radiogroup" aria-label="Estimación">
             <label class="bl-est-op"><input type="radio" name="estimacion" value="" checked><span>—</span></label>
@@ -364,9 +365,10 @@ function blDialogo(array $x, array $todas, array $epicas, array $sps, array $rel
             <?php endforeach; ?>
           </div></div>
         <div class="rl-form-grid rl-form-grid--2">
+          <?= rlCampo('Sprint', UI::selectDS('sprint', $optSprint, '', ['tam' => 'md', 'attrs' => 'data-bl-campo="sprint"'])) ?>
           <?= rlCampo('Estado', UI::selectDS('estado', $optEstado, 'por_hacer', ['tam' => 'md', 'attrs' => 'data-bl-campo="estado"'])) ?>
-          <?= rlCampo('Responsable', UI::selectDS('responsable', $gente, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="responsable"'])) ?>
         </div>
+        <?= rlCampo('Responsable', UI::selectDS('responsable', $gente, '0', ['tam' => 'md', 'buscar' => true, 'attrs' => 'data-bl-campo="responsable"'])) ?>
       </fieldset></section>
       <section class="wz-panel"><fieldset class="bl-fs">
         <div class="mc-field"><span class="mc-field__label">Diagramas de proceso y documentos</span>

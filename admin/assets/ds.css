@@ -6083,3 +6083,21 @@ details.bl-sec[open] > .bl-sec__cab .mc-icon:first-child { transform: rotate(90d
 .rl-det-antes p { margin: 0; color: var(--ink); line-height: 1.5; }
 .rl-revdet__pie { position: sticky; bottom: 0; z-index: 2; padding: 12px 0; background: linear-gradient(to top, var(--bg, var(--surface-sunken)) 70%, transparent); }
 @media (max-width: 980px) { .rl-rfila--detalle .rl-rfila__cuerpo { grid-template-columns: minmax(0, 1fr); } }
+
+/* El asistente de la historia (HU): las listas como en el DS de Figma: 44 px, texto de 14 px,
+   borde suave y el anillo azul al abrirlas */
+.bl-dlg .mc-select > .mc-select__trigger.mc-input { height: 44px; min-height: 44px; padding: 0 14px 0 16px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); box-shadow: none; }
+.bl-dlg .mc-select > .mc-select__trigger .mc-select__text,
+.bl-dlg .mc-select > .mc-select__trigger .mc-select__placeholder { font-size: .875rem; }
+.bl-dlg .mc-select > .mc-select__trigger .mc-select__text { color: var(--ink); font-weight: 400; }
+.bl-dlg .mc-select > .mc-select__trigger.mc-input:hover { border-color: color-mix(in srgb, var(--primary) 40%, var(--line-strong)); }
+.bl-dlg .mc-select > .mc-select__trigger.mc-input.is-open,
+.bl-dlg .mc-select > .mc-select__trigger.mc-input:focus-visible { border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent); outline: none; }
+.bl-dlg .mc-select > .mc-select__trigger .mc-select__chev { width: 16px; height: 16px; }
+.bl-dlg .bl-fs[disabled] .mc-select > .mc-select__trigger.mc-input { background: var(--surface-sunken); }
+
+/* Cabecera de la pestaña Sprints: solo íconos (los de vidrio del dashboard) */
+.bl-cab__acc { gap: 10px; }
+.bl-vista[data-activa="tablero"] .rs-vista__pieza { transform: translateX(100%); }
+.bl-vista[data-activa="backlog"] [data-vista-op="backlog"],
+.bl-vista[data-activa="tablero"] [data-vista-op="tablero"] { color: #fff; }
