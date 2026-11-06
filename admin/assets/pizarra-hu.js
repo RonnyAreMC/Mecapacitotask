@@ -46,6 +46,9 @@
    - «Guardar en la historia» manda también su TEXTO (la historia lo muestra vivo)
      y su IMAGEN de respaldo (PNG a 2x, fondo blanco, sin los botones):
      pizarra_api.php?accion=guardar_hu y ?accion=guardar_hu_imagen.
+   - «Ilustraciones» (D): los mismos dibujos (y más) para anotar sueltos en la
+     pizarra. Cada uno es un elemento «ilu» que guarda solo su clave de esta
+     biblioteca, su pie de texto y su color de fondo: no se sube nada.
    - Fuera de la pizarra, vista(contenedor, texto, {soloVista}) arma el mismo
      diagrama solo para ver (▶ y escenarios): lo usa historia.php con
      PizarraHU::vista($historia), que deja un [data-pz-hu-vista] con su JSON.
@@ -162,13 +165,117 @@
       + `<path d="M18 56h8M30 56h8M42 56h8" stroke="#BFDBFE" stroke-width="3" stroke-linecap="round"/>`
       + `<circle cx="66" cy="62" r="16" fill="#FBBF24" stroke="${C.ambar}" stroke-width="3"/>`
       + `<text x="66" y="68.5" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="18" fill="#92400E">$</text>`),
+    // ----- Más para anotar en la pizarra (panel «Ilustraciones») -----
+    proceso: S(`<path d="M14 34h24l12 14-12 14H14l12-14z" fill="${C.celeste}"/><path d="M44 34h24l12 14-12 14H44l12-14z" fill="${C.azul}"/>`),
+    nube: S(`<circle cx="36" cy="56" r="12" fill="${C.blanco}"/><circle cx="51" cy="46" r="16" fill="${C.blanco}"/><circle cx="66" cy="56" r="11" fill="${C.blanco}"/><rect x="36" y="52" width="30" height="16" rx="2" fill="${C.blanco}"/>`
+      + `<path d="M51 63V49m-6 6 6-6 6 6" fill="none" stroke="${C.celeste}" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"/>`),
+    basedatos: S(`<path d="M26 28v40c0 6 10 10 22 10s22-4 22-10V28" fill="${C.azul}"/><ellipse cx="48" cy="28" rx="22" ry="9" fill="${C.azulC}"/>`
+      + `<path d="M26 42c0 6 10 10 22 10s22-4 22-10M26 55c0 6 10 10 22 10s22-4 22-10" fill="none" stroke="#93C5FD" stroke-width="2.5"/>`),
+    celular: S(`<rect x="32" y="14" width="32" height="64" rx="7" fill="${C.tinta}"/><rect x="35.5" y="21" width="25" height="46" rx="3" fill="#E0F2FE"/>`
+      + `<rect x="43" y="16.5" width="10" height="2" rx="1" fill="#64748B"/><circle cx="48" cy="72" r="2.6" fill="${C.grisM}"/>`
+      + `<rect x="39" y="26" width="18" height="7" rx="2" fill="${C.celeste}"/><rect x="39" y="37" width="18" height="4" rx="2" fill="#BAE6FD"/><rect x="39" y="45" width="12" height="4" rx="2" fill="#BAE6FD"/>`),
+    laptop: S(`<rect x="20" y="22" width="56" height="40" rx="5" fill="${C.tinta}"/><rect x="24" y="26" width="48" height="32" rx="2" fill="#E0F2FE"/>`
+      + `<rect x="28" y="30" width="15" height="24" rx="2" fill="${C.celeste}"/><rect x="47" y="30" width="21" height="6" rx="2" fill="${C.azul}"/><rect x="47" y="40" width="21" height="4" rx="2" fill="#BAE6FD"/><rect x="47" y="48" width="14" height="4" rx="2" fill="#BAE6FD"/>`
+      + `<path d="M12 64h72l-4 8H16z" fill="${C.grisM}"/><rect x="42" y="64" width="12" height="3" rx="1.5" fill="#64748B"/>`),
+    dinero: S(`<rect x="12" y="28" width="56" height="32" rx="5" fill="#22C55E"/><rect x="17" y="33" width="46" height="22" rx="3" fill="none" stroke="#BBF7D0" stroke-width="2"/>`
+      + `<circle cx="40" cy="44" r="8" fill="#BBF7D0"/><text x="40" y="48.5" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="12" fill="#15803D">$</text>`
+      + `<ellipse cx="66" cy="72" rx="13" ry="5" fill="${C.ambar}"/><rect x="53" y="62" width="26" height="10" fill="#FBBF24"/><ellipse cx="66" cy="62" rx="13" ry="5" fill="#FDE68A"/>`),
+    calendario: S(`<rect x="18" y="22" width="60" height="56" rx="8" fill="${C.blanco}" stroke="${C.gris}" stroke-width="2"/><path d="M18 30a8 8 0 0 1 8-8h44a8 8 0 0 1 8 8v8H18z" fill="${C.rosa}"/>`
+      + `<rect x="31" y="16" width="5" height="12" rx="2.5" fill="${C.tinta}"/><rect x="60" y="16" width="5" height="12" rx="2.5" fill="${C.tinta}"/>`
+      + `<text x="48" y="69" text-anchor="middle" font-family="Inter, Arial, sans-serif" font-weight="800" font-size="24" fill="${C.tinta}">12</text>`),
+    reunion: S(`<rect x="42" y="56" width="10" height="9" rx="4" fill="${C.pielS}"/>`
+      + `<path d="M12 78c0-11 7-18 15-18s15 7 15 18z" fill="${C.lilaC}"/><circle cx="27" cy="46" r="9" fill="${C.piel}"/><path d="M18 45c0-7 4-11 9-11s9 4 9 10c-4 0-7-2-9-5-2 3-5 6-9 6z" fill="${C.pelo2}"/>`
+      + `<path d="M54 78c0-11 7-18 15-18s15 7 15 18z" fill="${C.menta}"/><circle cx="69" cy="46" r="9" fill="${C.piel}"/><path d="M60 45c0-7 4-11 9-11s9 4 9 10c-4 0-7-2-9-5-2 3-5 6-9 6z" fill="${C.pelo}"/>`
+      + `<path d="M28 86c0-14 9-22 20-22s20 8 20 22z" fill="${C.celeste}"/><circle cx="48" cy="44" r="12" fill="${C.piel}"/><path d="M36 43c0-9 5-15 12-15s12 6 12 14c-5 0-10-2-12-7-2 4-7 8-12 8z" fill="${C.pelo}"/>`
+      + `<circle cx="44" cy="46" r="1.5" fill="${C.tinta}"/><circle cx="52" cy="46" r="1.5" fill="${C.tinta}"/><path d="M45 50.5q3 2.2 6 0" fill="none" stroke="${C.tinta}" stroke-width="1.5" stroke-linecap="round"/>`
+      + `<rect x="18" y="78" width="60" height="7" rx="3.5" fill="${C.grisM}"/>`),
+    idea: S(`<path d="M17 36h-6M79 36h6M23 16l-4-4M73 16l4-4" stroke="${C.ambar}" stroke-width="3" stroke-linecap="round"/>`
+      + `<path d="M48 14a22 22 0 0 0-13 40c3 2 5 6 5 9v3h16v-3c0-3 2-7 5-9a22 22 0 0 0-13-40z" fill="${C.vainilla}"/>`
+      + `<path d="M37 31a12 12 0 0 1 9-7" stroke="${C.blanco}" stroke-width="3" fill="none" stroke-linecap="round"/>`
+      + `<rect x="39" y="68" width="18" height="6" rx="2" fill="${C.grisM}"/><rect x="41" y="75" width="14" height="5" rx="2" fill="#64748B"/>`),
+    alerta: S(`<path d="M48 18 82 74H14z" fill="${C.vainilla}" stroke="${C.vainilla}" stroke-width="6" stroke-linejoin="round"/>`
+      + `<path d="M48 40v17" stroke="${C.tinta}" stroke-width="6" stroke-linecap="round"/><circle cx="48" cy="66" r="3.6" fill="${C.tinta}"/>`),
+    ok: S(`<circle cx="48" cy="48" r="30" fill="#22C55E"/><path d="M34 49l9 9 19-20" fill="none" stroke="${C.blanco}" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/>`),
+    error: S(`<circle cx="48" cy="48" r="30" fill="${C.rosa}"/><path d="M37 37l22 22M59 37 37 59" stroke="${C.blanco}" stroke-width="7" stroke-linecap="round"/>`),
+    candado: S(`<path d="M34 42v-8a14 14 0 0 1 28 0v8" fill="none" stroke="#64748B" stroke-width="7"/><rect x="24" y="42" width="48" height="36" rx="8" fill="${C.ambar}"/>`
+      + `<circle cx="48" cy="56" r="5" fill="#92400E"/><path d="M48 59v8" stroke="#92400E" stroke-width="4" stroke-linecap="round"/>`),
+    carpeta: S(`<path d="M14 30a6 6 0 0 1 6-6h18l6 7h32a6 6 0 0 1 6 6v33a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="${C.ambar}"/>`
+      + `<rect x="24" y="32" width="42" height="14" rx="2" fill="${C.blanco}"/><path d="M14 42h68v28a6 6 0 0 1-6 6H20a6 6 0 0 1-6-6z" fill="#FBBF24"/>`),
+    grafico: S(`<circle cx="44" cy="50" r="26" fill="${C.celeste}"/><path d="M44 50h26a26 26 0 0 1-7.6 18.4z" fill="${C.menta}"/>`
+      + `<path d="M48 46V20a26 26 0 0 1 26 26z" fill="${C.vainilla}"/>`),
+    aula: S(`<rect x="16" y="18" width="64" height="38" rx="4" fill="#166534"/><rect x="20" y="22" width="56" height="30" rx="2" fill="#15803D"/>`
+      + `<path d="M26 30h20M26 37h28M26 44h14" stroke="#BBF7D0" stroke-width="2.5" stroke-linecap="round"/><path d="M24 56v8M72 56v8" stroke="${C.grisM}" stroke-width="3"/>`
+      + `<rect x="18" y="66" width="26" height="6" rx="2" fill="${C.ambar}"/><rect x="52" y="66" width="26" height="6" rx="2" fill="${C.ambar}"/>`
+      + `<path d="M22 72v8M40 72v8M56 72v8M74 72v8" stroke="#B45309" stroke-width="3" stroke-linecap="round"/>`),
+    graduado: S(cuello + cuerpo(C.tinta) + `<path d="M40 66l-4 30M56 66l4 30" stroke="${C.vainilla}" stroke-width="6"/>` + cabeza + cara
+      + `<path d="M34 29v6c0 3 6 5 14 5s14-2 14-5v-6l-14 5z" fill="#334155"/><path d="M22 24 48 14l26 10-26 10z" fill="${C.tinta}"/>`
+      + `<path d="M74 24v14" stroke="${C.vainilla}" stroke-width="2.5"/><circle cx="74" cy="40" r="3" fill="${C.vainilla}"/>`),
+    familia: S(`<rect x="34" y="44" width="8" height="12" rx="3.5" fill="${C.pielS}"/><path d="M14 94c1-16 11-27 24-27s23 11 24 27z" fill="${C.lila}"/>`
+      + `<circle cx="38" cy="34" r="13" fill="${C.piel}"/><path d="M25 33c-1-10 6-16 13-16s14 6 13 16c-3-5-8-8-13-8s-10 3-13 8z" fill="${C.pelo2}"/>`
+      + `<circle cx="34" cy="36" r="1.6" fill="${C.tinta}"/><circle cx="42" cy="36" r="1.6" fill="${C.tinta}"/><path d="M35 41q3 2.2 6 0" fill="none" stroke="${C.tinta}" stroke-width="1.5" stroke-linecap="round"/>`
+      + `<rect x="63" y="59" width="6" height="8" rx="2.5" fill="${C.pielS}"/><path d="M50 94c1-12 7-20 16-20s15 8 16 20z" fill="${C.menta}"/>`
+      + `<circle cx="66" cy="54" r="10" fill="${C.piel}"/><path d="M56 53c0-7 4-11 10-11s10 4 10 10c-4 0-8-2-10-5-2 3-5 6-10 6z" fill="${C.pelo}"/>`
+      + `<circle cx="63" cy="56" r="1.4" fill="${C.tinta}"/><circle cx="69" cy="56" r="1.4" fill="${C.tinta}"/>`),
+    buscar: S(`<circle cx="42" cy="42" r="20" fill="#E0F2FE" stroke="${C.azul}" stroke-width="7"/><path d="M57 57l16 16" stroke="${C.tinta}" stroke-width="9" stroke-linecap="round"/>`
+      + `<path d="M33 37a11 11 0 0 1 8-7" stroke="${C.blanco}" stroke-width="3" fill="none" stroke-linecap="round"/>`),
+    chat: S(`<path d="M20 24h52a8 8 0 0 1 8 8v26a8 8 0 0 1-8 8H42l-14 11V66h-8a8 8 0 0 1-8-8V32a8 8 0 0 1 8-8z" fill="${C.blanco}" stroke="${C.gris}" stroke-width="2"/>`
+      + `<circle cx="34" cy="45" r="4" fill="${C.celeste}"/><circle cx="46" cy="45" r="4" fill="${C.azul}"/><circle cx="58" cy="45" r="4" fill="${C.celeste}"/>`),
   };
   // El fondo suave de cada dibujo: uno de los papeles de la pizarra ([data-color] en pizarra.css)
   const TINTE = {
     estudiante: 'celeste', docente: 'lila', medico: 'menta', administrativo: 'vainilla', persona: 'durazno', empresa: 'gris', sistema: 'celeste',
     escuela: 'celeste', biblioteca: 'vainilla', tarea: 'menta', subir: 'celeste', pdf: 'rosa', excel: 'menta', reporte: 'lila', horario: 'celeste',
     filtro: 'celeste', correo: 'rosa', certificado: 'vainilla', pago: 'celeste',
+    proceso: 'celeste', nube: 'celeste', basedatos: 'lila', celular: 'gris', laptop: 'gris', dinero: 'menta', calendario: 'rosa', reunion: 'lila',
+    idea: 'vainilla', alerta: 'durazno', ok: 'menta', error: 'rosa', candado: 'vainilla', carpeta: 'vainilla', grafico: 'lila', aula: 'menta',
+    graduado: 'lila', familia: 'durazno', buscar: 'celeste', chat: 'celeste',
   };
+  /**
+   * Las ilustraciones que se ponen sueltas en la pizarra (panel «Ilustraciones»):
+   * [clave, nombre, categoría, palabras para buscarla]. Las mismas del diagrama.
+   */
+  const CATEGORIAS = [['personas', 'Personas'], ['lugares', 'Lugares'], ['sistema', 'Sistema'], ['documentos', 'Documentos y resultados'], ['acciones', 'Acciones']];
+  const CATALOGO = [
+    ['estudiante', 'Estudiante', 'personas', 'alumno aspirante postulante joven'],
+    ['docente', 'Docente', 'personas', 'profesor maestro tutor clase'],
+    ['medico', 'Médico', 'personas', 'doctor salud paciente enfermera'],
+    ['administrativo', 'Administrativo', 'personas', 'secretaria coordinador oficina atención'],
+    ['persona', 'Usuario', 'personas', 'persona cliente ciudadano visitante'],
+    ['graduado', 'Graduado', 'personas', 'egresado título grado birrete'],
+    ['familia', 'Padres de familia', 'personas', 'papá mamá representante hijo niño'],
+    ['reunion', 'Reunión', 'personas', 'equipo grupo junta personas'],
+    ['escuela', 'Escuela', 'lugares', 'universidad colegio institución campus'],
+    ['aula', 'Aula', 'lugares', 'clase salón pizarrón curso'],
+    ['biblioteca', 'Biblioteca', 'lugares', 'libros lectura estante'],
+    ['empresa', 'Empresa', 'lugares', 'proveedor oficina edificio negocio'],
+    ['sistema', 'Computadora', 'sistema', 'sistema pc pantalla web escritorio'],
+    ['laptop', 'Laptop', 'sistema', 'portátil computadora'],
+    ['celular', 'Celular', 'sistema', 'móvil app teléfono'],
+    ['nube', 'Nube', 'sistema', 'cloud servidor internet subir'],
+    ['basedatos', 'Base de datos', 'sistema', 'datos bd almacenamiento tabla'],
+    ['candado', 'Candado', 'sistema', 'seguridad contraseña acceso login'],
+    ['buscar', 'Buscar', 'sistema', 'lupa búsqueda consulta'],
+    ['pdf', 'PDF', 'documentos', 'documento imprimir descargar acta'],
+    ['excel', 'Excel', 'documentos', 'hoja de cálculo xls csv exportar tabla'],
+    ['reporte', 'Reporte', 'documentos', 'informe estadística barras dashboard'],
+    ['grafico', 'Gráfico', 'documentos', 'pastel torta porcentaje'],
+    ['horario', 'Horario', 'documentos', 'reloj hora semana'],
+    ['calendario', 'Calendario', 'documentos', 'fecha día agenda'],
+    ['certificado', 'Certificado', 'documentos', 'diploma constancia título'],
+    ['correo', 'Correo', 'documentos', 'email notificación aviso mensaje'],
+    ['chat', 'Chat', 'documentos', 'mensaje conversación comentario'],
+    ['carpeta', 'Carpeta', 'documentos', 'archivos documentos expediente'],
+    ['tarea', 'Tarea', 'documentos', 'checklist lista pendientes registro'],
+    ['subir', 'Subir archivo', 'documentos', 'adjuntar cargar evidencia documento'],
+    ['pago', 'Pago', 'documentos', 'tarjeta cobro factura'],
+    ['dinero', 'Dinero', 'documentos', 'efectivo billete monedas presupuesto'],
+    ['proceso', 'Proceso', 'acciones', 'flujo pasos siguiente flecha'],
+    ['filtro', 'Filtrar', 'acciones', 'filtro embudo seleccionar'],
+    ['idea', 'Idea', 'acciones', 'bombilla propuesta mejora'],
+    ['alerta', 'Alerta', 'acciones', 'aviso advertencia riesgo cuidado'],
+    ['ok', 'Listo', 'acciones', 'correcto aprobado éxito check'],
+    ['error', 'Error', 'acciones', 'rechazado falla incorrecto'],
+  ];
   const PAPEL = { celeste: '#DCEFFD', menta: '#D4F3E3', lila: '#E9E1FC', rosa: '#FCE1EC', durazno: '#FFE6D5', vainilla: '#FFF3C9', gris: '#EBEFF5' };
 
   /* ---------- Quién la usa y lo que obtiene ---------- */
@@ -1637,6 +1744,7 @@
     if (!panel.el || !api?.EDITAR) return;
     if (abrir === undefined) abrir = panel.el.hidden;
     armarPanel();
+    if (abrir) alternarIlus(false);
     panel.el.hidden = !abrir;
     const b = api.raiz.querySelector('[data-hu-panel]');
     b?.classList.toggle('is-abierta', abrir);
@@ -1828,7 +1936,8 @@
   function areaLibre(conTexto = leerLocal(CLAVE_ED) !== 0) {
     const W = window.innerWidth;
     if (W < 760) return { izq: 16, der: W - 16 };
-    const r = panel.el && !panel.el.hidden ? panel.el.getBoundingClientRect() : null;
+    const izqEl = [panel.el, ilus.el].find((x) => x && !x.hidden);
+    const r = izqEl ? izqEl.getBoundingClientRect() : null;
     const ed = editor.el && !editor.el.hidden ? editor.el.getBoundingClientRect().left : (conTexto ? W - 12 - Math.min(420, W - 24) : W);
     return { izq: (r ? r.right : 0) + 24, der: ed - 24 };
   }
@@ -1852,6 +1961,139 @@
   }
 
   /* =========================================================
+     Ilustraciones sueltas (panel «Ilustraciones», tecla D)
+     Para anotar con dibujos: con un clic se pone una en el centro de lo que se
+     ve; arrastrándola, donde se suelte. En el lienzo es un elemento «ilu»
+     (pizarra.js lo pinta, lo mueve, lo agranda en proporción y le pega
+     flechas) que guarda solo su clave, su pie de texto y su color de fondo.
+     ========================================================= */
+  const ilus = { el: null, cat: '', q: '', ultimo: null };
+  const svgIlu = (k) => ILU[k] || ILU.persona;
+  const tinteIlu = (k) => TINTE[k] || 'celeste';
+  const nombreIlu = (k) => (CATALOGO.find((c) => c[0] === k) || [k, 'Ilustración'])[1];
+  const $i = (q) => ilus.el.querySelector(q);
+
+  function armarIlus() {
+    if (ilus.el || !api) return;
+    const a = document.createElement('aside');
+    a.className = 'pz-hu-panel pz-ilu-panel pz-vidrio';
+    a.id = 'pz-ilu-panel';
+    a.hidden = true;
+    a.setAttribute('aria-label', 'Ilustraciones');
+    a.innerHTML = '<header class="pz-hu-panel__cab">'
+      + `<span class="pz-hu-panel__ico" aria-hidden="true">${icoApi('pz-ilustracion')}</span>`
+      + '<span class="pz-hu-panel__t"><b>Ilustraciones</b><small>Clic: al centro · arrástrala a su lugar</small></span>'
+      + `<button type="button" class="pz-boton pz-boton--icono" data-il="cerrar" data-tip="Cerrar" data-tecla="D" aria-label="Cerrar las ilustraciones">${icoApi('ds-cerrar')}</button></header>`
+      + '<div class="pz-hu-panel__filtros">'
+      + `<label class="pz-hu-buscar">${icoApi('ds-buscar')}<input type="search" data-il-q placeholder="Buscar: docente, PDF, nube…" autocomplete="off" spellcheck="false" aria-label="Buscar ilustraciones"></label>`
+      + '<div class="pz-ilu-cats" role="group" aria-label="Categorías">'
+      + [['', 'Todas']].concat(CATEGORIAS).map(([c, t]) => `<button type="button" class="pz-ilu-cat${c === ilus.cat ? ' is-activa' : ''}" data-il-cat="${c}" aria-pressed="${c === ilus.cat}">${escHtml(t)}</button>`).join('')
+      + '</div></div>'
+      + '<div class="pz-hu-panel__lista pz-ilu-lista" data-il-lista></div>'
+      + '<p class="pz-hu-panel__pie">Con doble clic le pones un pie de texto («Docente revisa»). Se une con flechas como cualquier forma.</p>';
+    api.raiz.appendChild(a);
+    ilus.el = a;
+    $i('[data-il-q]').addEventListener('input', (e) => { ilus.q = e.target.value; pintarIlus(); });
+    a.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-il], [data-il-cat]');
+      if (!b) return;
+      if (b.dataset.il === 'cerrar') { alternarIlus(false); return; }
+      if (b.dataset.ilCat != null) {
+        ilus.cat = b.dataset.ilCat;
+        a.querySelectorAll('[data-il-cat]').forEach((x) => { const on = x.dataset.ilCat === ilus.cat; x.classList.toggle('is-activa', on); x.setAttribute('aria-pressed', String(on)); });
+        pintarIlus();
+      }
+    });
+    a.addEventListener('keydown', (e) => { if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); alternarIlus(false); } });
+    // Arrastrar una al lienzo (o clic: al centro de lo que se ve)
+    let arr = null, suprimir = false;
+    const fin = (e, soltar) => {
+      const x = arr;
+      arr = null;
+      if (!x) return;
+      x.c.removeEventListener('pointermove', mover);
+      x.c.removeEventListener('pointerup', alzar);
+      x.c.removeEventListener('pointercancel', cancelar);
+      x.f?.remove();
+      api.raiz.classList.remove('is-soltando');
+      if (!x.movido) return;
+      suprimir = true;
+      if (!soltar) return;
+      const sobre = document.elementFromPoint(e.clientX, e.clientY);
+      if (sobre && api.lienzo.contains(sobre)) ponerIlu(x.k, { x: e.clientX, y: e.clientY });
+    };
+    const mover = (e) => {
+      if (!arr || e.pointerId !== arr.pid) return;
+      if (!arr.movido) {
+        if (Math.hypot(e.clientX - arr.sx, e.clientY - arr.sy) < 6) return;
+        arr.movido = true;
+        try { arr.c.setPointerCapture(arr.pid); } catch (er) { /* nada */ }
+        arr.f = document.createElement('div');
+        arr.f.className = 'pz-ilu-fantasma';
+        arr.f.innerHTML = ilu(arr.k, 'pz-ilu-fantasma__ilu');
+        api.raiz.appendChild(arr.f);
+      }
+      arr.f.style.transform = `translate(${Math.round(e.clientX - 36)}px,${Math.round(e.clientY - 36)}px)`;
+      const sobre = document.elementFromPoint(e.clientX, e.clientY), ok = !!sobre && api.lienzo.contains(sobre);
+      arr.f.classList.toggle('is-fuera', !ok);
+      api.raiz.classList.toggle('is-soltando', ok);
+    };
+    const alzar = (e) => fin(e, true), cancelar = (e) => fin(e, false);
+    a.addEventListener('pointerdown', (e) => {
+      const c = e.target.closest('.pz-ilu-op');
+      if (!c || e.button !== 0) return;
+      arr = { c, k: c.dataset.ilu, sx: e.clientX, sy: e.clientY, pid: e.pointerId, movido: false, f: null };
+      c.addEventListener('pointermove', mover);
+      c.addEventListener('pointerup', alzar);
+      c.addEventListener('pointercancel', cancelar);
+    });
+    a.addEventListener('click', (e) => {
+      const c = e.target.closest('.pz-ilu-op');
+      if (!c) return;
+      if (suprimir) { suprimir = false; return; }
+      ponerIlu(c.dataset.ilu, null);
+    });
+  }
+  function pintarIlus() {
+    const lista = $i('[data-il-lista]'), q = plano(ilus.q).trim();
+    const hay = CATALOGO.filter(([k, n, c, w]) => (!ilus.cat || c === ilus.cat) && (!q || plano(`${n} ${w} ${k}`).includes(q)));
+    if (!hay.length) { lista.innerHTML = `<div class="pz-hu-vacio">${ilu('buscar', 'pz-hu-vacio__ilu')}<b>Ninguna se llama así</b><span>Prueba con otra palabra: docente, PDF, nube, pago…</span></div>`; return; }
+    const op = ([k, n]) => `<button type="button" class="pz-ilu-op" data-ilu="${k}" aria-label="${escHtml(n)}: arrástrala o pulsa para ponerla">${ilu(k, 'pz-ilu-op__ilu')}<span>${escHtml(n)}</span></button>`;
+    // Con «Todas» y sin buscar, por grupos con su título; si no, una sola cuadrícula
+    lista.innerHTML = !ilus.cat && !q
+      ? CATEGORIAS.map(([c, t]) => `<b class="pz-ilu-grupo">${escHtml(t)}</b><div class="pz-ilu-grid">${hay.filter((x) => x[2] === c).map(op).join('')}</div>`).join('')
+      : `<div class="pz-ilu-grid">${hay.map(op).join('')}</div>`;
+  }
+  function alternarIlus(abrir) {
+    if (!api?.EDITAR || !api.crearIlu) return;
+    if (abrir === undefined) abrir = !ilus.el || ilus.el.hidden;
+    if (!abrir && !ilus.el) return;
+    armarIlus();
+    if (abrir && panel.el && !panel.el.hidden) alternarPanel(false);
+    ilus.el.hidden = !abrir;
+    const b = api.raiz.querySelector('[data-ilu-panel]');
+    b?.classList.toggle('is-abierta', abrir);
+    b?.setAttribute('aria-pressed', abrir ? 'true' : 'false');
+    if (!abrir) { if (ilus.el.contains(document.activeElement)) api.lienzo.focus({ preventScroll: true }); return; }
+    pintarIlus();
+    requestAnimationFrame(() => $i('[data-il-q]')?.focus({ preventScroll: true }));
+  }
+  /** Una ilustración en el lienzo: donde se soltó, o al centro (las que siguen, un poco corridas). */
+  function ponerIlu(k, pantalla) {
+    if (!ILU[k]) return;
+    let sx, sy;
+    if (pantalla) { sx = pantalla.x; sy = pantalla.y; ilus.ultimo = null; }
+    else {
+      const a = areaLibre(false), ahora = Date.now(), u = ilus.ultimo;
+      ilus.ultimo = u && ahora - u.t < 8000 ? { n: u.n + 1, t: ahora } : { n: 0, t: ahora };
+      // Las que siguen, en fila (4 por fila) para que no queden una encima de otra
+      const n = ilus.ultimo.n % 12;
+      sx = (a.izq + a.der) / 2 + ((n % 4) - 1.5) * 170; sy = window.innerHeight / 2 + (Math.floor(n / 4) - 0.5) * 190;
+    }
+    api.crearIlu(k, api.aMundo(sx, sy));
+  }
+
+  /* =========================================================
      Exportar el PNG: el diagrama se dibuja en el canvas tal como se ve
      (las medidas salen del propio nodo), en tema claro.
      ========================================================= */
@@ -1865,7 +2107,7 @@
     return IMG[k];
   }
   function precargar(siempre = false) {
-    const hay = siempre || (api ? api.vivos().some((e) => e.tipo === 'hu') : false);
+    const hay = siempre || (api ? api.vivos().some((e) => e.tipo === 'hu' || e.tipo === 'ilu') : false);
     if (!hay) return Promise.resolve();
     return Promise.all(Object.keys(ILU).map((k) => { const i = imagen(k); return i.complete ? null : (i.decode ? i.decode().catch(() => {}) : null); }));
   }
@@ -2011,6 +2253,7 @@
   function escape() {
     if (cerrarMenu(true)) return true;
     if (panel.el && !panel.el.hidden) { alternarPanel(false); return true; }
+    if (ilus.el && !ilus.el.hidden) { alternarIlus(false); return true; }
     return false;
   }
 
@@ -2074,7 +2317,7 @@
   window.PizarraHU = {
     vista, armarVistas,
     ILU, ACTORES, Texto, montar, pintar, reproducir, detener, botonesCtx, accionCtx, ponerCampo, alTerminar, alElegir, ocupado,
-    alternarPanel, escape, precargar, dibujar, cerrarMenu, pareceHistoria, enBlanco, alCargar,
+    alternarPanel, escape, precargar, dibujar, alternarIlus, svgIlu, tinteIlu, nombreIlu, imagen, CATALOGO, cerrarMenu, pareceHistoria, enBlanco, alCargar,
     // Para las pruebas: lo que se detecta y lo que se dibuja, sin pizarra
     imagenDe,
     _prueba: { parse, serializar, vistaDe, narrar, fraseAuto, textoDe, tercera, partirQuiero, detectarActor, detectarRes, resultadosDe, pasosDe },

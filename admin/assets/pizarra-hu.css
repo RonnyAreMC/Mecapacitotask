@@ -12,10 +12,10 @@
 html.dark .pz-herr--hu.is-abierta { color: #BAE6FD; background: rgb(56 189 248 / .16); }
 
 /* ----- Los dibujos: siempre en su círculo o su baldosa, con el papel de su color ----- */
-.pz-hu__ilu, .pz-hu__pico, .pz-hu__rilu, .pz-hu__ficha-ilu, .pz-menu__ilu, .pz-hu-carta__ilu, .pz-hu-ctx-ilu, .pz-hu-vacio__ilu {
+.pz-hu__ilu, .pz-hu__pico, .pz-hu__rilu, .pz-hu__ficha-ilu, .pz-menu__ilu, .pz-hu-carta__ilu, .pz-hu-ctx-ilu, .pz-hu-vacio__ilu, .pz-ilu-op__ilu, .pz-ilu-fantasma__ilu {
   display: block; flex: none; overflow: hidden; background: var(--papel, #DCEFFD);
 }
-:is(.pz-hu__ilu, .pz-hu__pico, .pz-hu__rilu, .pz-hu__ficha-ilu, .pz-menu__ilu, .pz-hu-carta__ilu, .pz-hu-ctx-ilu, .pz-hu-vacio__ilu) svg { display: block; width: 100%; height: 100%; }
+:is(.pz-hu__ilu, .pz-hu__pico, .pz-hu__rilu, .pz-hu__ficha-ilu, .pz-menu__ilu, .pz-hu-carta__ilu, .pz-hu-ctx-ilu, .pz-hu-vacio__ilu, .pz-ilu-op__ilu, .pz-ilu-fantasma__ilu) svg { display: block; width: 100%; height: 100%; }
 .pz-hu__pico svg, .pz-hu__rilu svg { padding: 5px; box-sizing: border-box; }
 
 /* =========================================================
@@ -484,3 +484,61 @@ html.dark .pz-hu-vista [data-color="gris"]     { --papel: #DCE2EA; }
 }
 /* En la tarjeta, el paso que se ilumina no se corre (no empuja el ancho) */
 .pz-hu-vista .pz-hu.is-jugando .pz-hu__paso.is-luz { transform: none; }
+
+/* =========================================================
+   Ilustraciones sueltas (panel «Ilustraciones», tecla D)
+   En el lienzo: el dibujo en su círculo de papel (el color se elige como en
+   una nota) y, debajo, su pie de texto, que crece con el dibujo (--fs).
+   ========================================================= */
+.pz-ilu { display: flex; flex-direction: column; align-items: center; }
+.pz-ilu__fondo {
+  width: 100%; aspect-ratio: 1 / 1; border-radius: 50%; overflow: hidden; background: var(--papel, #DCEFFD);
+  box-shadow: 0 1px 2px rgb(15 23 42 / .06), 0 12px 24px -18px rgb(15 40 80 / .55);
+}
+.pz-ilu__fondo svg { display: block; width: 100%; height: 100%; }
+.pz-ilu__pie {
+  max-width: 100%; margin-top: .45em; text-align: center; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 650 var(--fs, 16px)/1.3 var(--pz-font); color: var(--pz-ink); outline: none;
+}
+.pz-ilu__pie:empty:not([contenteditable]) { display: none; }
+.pz-ilu__pie:empty::before { content: attr(data-vacio); color: var(--pz-ink-suave); font-weight: 500; }
+.pz-ilu__pie[contenteditable] { min-width: 5em; border-radius: 5px; outline: 2px solid color-mix(in srgb, #0EA5E9 50%, transparent); outline-offset: 3px; }
+
+/* El panel (mismo armazón que el de historias) */
+.pz-ilu-cats { display: flex; flex-wrap: wrap; gap: 6px; }
+.pz-ilu-cat {
+  height: 30px; padding: 0 11px; border: 1px solid var(--pz-linea); border-radius: 999px; cursor: pointer;
+  background: var(--pz-surface); color: var(--pz-ink-muted); font: 600 12.5px/1 var(--pz-font) !important; white-space: nowrap;
+}
+.pz-ilu-cat:hover { color: var(--pz-ink); }
+.pz-ilu-cat.is-activa {
+  color: #0369A1; border-color: transparent;
+  background: linear-gradient(var(--pz-elegido-bg), var(--pz-elegido-bg)) padding-box, var(--pz-canto) border-box; box-shadow: var(--pz-elegido-luz);
+}
+html.dark .pz-ilu-cat.is-activa { color: #BAE6FD; }
+.pz-ilu-cat:focus-visible, .pz-ilu-op:focus-visible { outline: 2px solid #2565D4; outline-offset: 1px; }
+.pz-ilu-lista { gap: 2px; }
+.pz-ilu-grupo { display: block; margin: 8px 4px 2px; font: 750 11.5px/1.2 var(--pz-font); letter-spacing: .05em; text-transform: uppercase; color: var(--pz-ink-suave); }
+.pz-ilu-grupo:first-child { margin-top: 2px; }
+.pz-ilu-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(84px, 1fr)); gap: 4px; }
+.pz-ilu-op {
+  min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 8px 4px 9px;
+  border: 1px solid transparent; border-radius: 13px; background: transparent; color: var(--pz-ink); cursor: grab;
+  touch-action: pan-y; user-select: none; -webkit-user-select: none; text-align: center;
+  font: 600 12px/1.25 var(--pz-font) !important; transition: background-color .15s ease, border-color .15s ease;
+}
+.pz-ilu-op:hover { background: var(--pz-surface); border-color: var(--pz-linea); }
+.pz-ilu-op:active { cursor: grabbing; }
+.pz-ilu-op span { max-width: 100%; overflow-wrap: break-word; hyphens: auto; -webkit-hyphens: auto; }
+.pz-ilu-op__ilu { width: 58px; height: 58px; border-radius: 50%; }
+/* Lo que se arrastra del panel al lienzo */
+.pz-ilu-fantasma { position: fixed; z-index: 80; left: 0; top: 0; width: 72px; height: 72px; pointer-events: none; filter: drop-shadow(0 12px 18px rgb(15 40 80 / .35)); transition: opacity .12s ease; }
+.pz-ilu-fantasma__ilu { width: 72px; height: 72px; border-radius: 50%; }
+.pz-ilu-fantasma.is-fuera { opacity: .5; }
+.pz-herr--ilu.is-abierta { color: #0369A1; background: color-mix(in srgb, #0EA5E9 14%, transparent); }
+html.dark .pz-herr--ilu.is-abierta { color: #BAE6FD; background: rgb(56 189 248 / .16); }
+/* Celular: abajo y a media pantalla, para ver dónde cae */
+@media (max-width: 760px) {
+  .pz-ilu-panel { top: auto; height: min(48vh, 420px); }
+  .pz-ilu-grid { grid-template-columns: repeat(auto-fill, minmax(76px, 1fr)); }
+}

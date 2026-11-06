@@ -67,11 +67,11 @@
   // Las tarjetas que vienen de una tarea, con el color de su estado
   const COLOR_ESTADO = { pendiente: 'gris', progreso: 'celeste', revision: 'lila', hecho: 'menta' };
   const CON_TEXTO = new Set(['nota', 'texto', 'rect', 'elipse']);
-  const CON_COLOR = new Set(['nota', 'texto', 'rect', 'elipse', 'flecha', 'trazo']);
+  const CON_COLOR = new Set(['nota', 'texto', 'rect', 'elipse', 'flecha', 'trazo', 'ilu']);   // en la ilustración, el papel de su fondo
   const TINTA = new Set(['texto', 'flecha', 'trazo']);   // su color es el de la tinta, no el del papel
   const SVG_TIPOS = new Set(['flecha', 'trazo']);
   const TIPOS = new Set(['nota', 'texto', 'rect', 'elipse', 'flecha', 'trazo', 'imagen', 'enlace', 'kanban']);
-  if (HU) TIPOS.add('hu');
+  if (HU) { TIPOS.add('hu'); TIPOS.add('ilu'); }   // ilu: una ilustración de la biblioteca de pizarra-hu.js (solo su clave)
   const TAMANOS = [16, 20, 28, 40, 56, 80];
   const GROSORES = [2, 3, 5, 8];
   const PUNTAS = ['fin', 'ambas', 'nada'];
@@ -132,6 +132,7 @@
       case 'texto': return { x: num(el.x), y: num(el.y), w: num(el.w, 300), h: el._h || num(el.h, 40) };
       case 'kanban': return { x: num(el.x), y: num(el.y), w: num(el.w, 900), h: Math.max(num(el.h, 400), el._hc || 0) };
       case 'hu': return { x: num(el.x), y: num(el.y), w: num(el.w, 1100), h: el._h || num(el.h, 600) };   // el alto, medido
+      case 'ilu': return { x: num(el.x), y: num(el.y), w: num(el.w, 140), h: el._h || num(el.w, 140) };   // el dibujo y su pie
       case 'flecha': {
         const [a, b] = extremos(el);
         const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
@@ -172,6 +173,8 @@
     enlace: () => ({ w: 360, h: 84, url: '', titulo: '' }),
     // Diagrama de historia: su texto es la fuente (pizarra-hu.js lo lee y lo dibuja); el modelo va al lado
     hu: () => ({ w: 1100, h: 600, texto: '', modelo: null, hu: null, esc: -1, rep: 0 }),
+    // Ilustración suelta: la clave del dibujo (pizarra-hu.js), su pie de texto y el papel de su fondo
+    ilu: () => ({ w: 140, h: 140, ilu: 'persona', pie: '', color: 'celeste' }),
     kanban: () => ({
       w: 960, h: 560, titulo: 'Tablero',
       columnas: [
@@ -195,6 +198,7 @@
     if (el.tipo === 'flecha') { el.a = el.a || { x: el.x, y: el.y }; el.b = el.b || { x: el.x + 100, y: el.y }; }
     if (el.tipo === 'trazo' && !Array.isArray(el.puntos)) el.puntos = [];
     if (el.tipo === 'hu' && typeof el.texto !== 'string') el.texto = '';
+    if (el.tipo === 'ilu') { if (typeof el.ilu !== 'string') el.ilu = 'persona'; if (typeof el.pie !== 'string') el.pie = ''; }
     return el;
   }
 
@@ -219,6 +223,7 @@
     if (el.tipo === 'nota') n.innerHTML = '<div class="pz-txt"></div><div class="pz-nota__tarea" hidden></div>';
     else if (CON_TEXTO.has(el.tipo)) n.innerHTML = '<div class="pz-txt"></div>';
     else if (el.tipo === 'imagen') n.innerHTML = '<img alt="" draggable="false" decoding="async">';
+    else if (el.tipo === 'ilu') n.innerHTML = '<div class="pz-ilu__fondo"></div><div class="pz-ilu__pie pz-campo"></div>';
     else if (el.tipo === 'enlace') {
       n.innerHTML = `<span class="pz-enlace__ico">${ico('ds-enlace')}</span><span class="pz-enlace__txt"><b></b><small></small></span>`
         + '<a class="pz-enlace__abrir" target="_blank" rel="noopener noreferrer" data-abrir>Abrir</a>';
@@ -314,6 +319,16 @@
       n.querySelector('small').textContent = url.replace(/^https?:\/\//i, '');
       const a = n.querySelector('a');
       if (url) a.href = url; else a.removeAttribute('href');
+    } else if (el.tipo === 'ilu') {
+      mover(n, num(el.x), num(el.y));
+      const w = num(el.w, 140);
+      n.style.width = w + 'px';
+      n.style.setProperty('--fs', limitar(Math.round(w * 0.12), 11, 72) + 'px');
+      const fondo = n.firstElementChild, pie = n.lastElementChild;
+      if (fondo._ilu !== el.ilu) { fondo._ilu = el.ilu; fondo.innerHTML = HU.svgIlu(el.ilu); n.setAttribute('aria-label', HU.nombreIlu(el.ilu)); }
+      if (!escribiendo && pie.textContent !== (el.pie || '')) pie.textContent = el.pie || '';
+      pend.medir.add(el.id);
+      programarRender({});
     } else if (el.tipo === 'hu') {
       mover(n, num(el.x), num(el.y));
       n.style.width = num(el.w, 1100) + 'px';
@@ -587,7 +602,7 @@
   function radioDe(el) {
     if (el.tipo === 'elipse') return '50%';
     if (el.tipo === 'nota') return enTablero(el) || el._suelta ? '12px' : '8px';
-    return { kanban: '20px', rect: '16px', imagen: '12px', enlace: '16px', trazo: '10px', hu: '22px' }[el.tipo] || '8px';
+    return { kanban: '20px', rect: '16px', imagen: '12px', enlace: '16px', trazo: '10px', hu: '22px', ilu: '18px' }[el.tipo] || '8px';
   }
   function pintarSel() {
     for (const id of [...sel]) if (!vivo(id)) sel.delete(id);
@@ -956,7 +971,7 @@
 
   // El portapapeles propio: lo copiado de la pizarra (sirve también entre pizarras)
   function textoDeCopia(lista) {
-    const t = lista.map((e) => e.texto || e.titulo || e.url || '').filter(Boolean).join('\n').trim();
+    const t = lista.map((e) => e.texto || e.titulo || e.url || e.pie || '').filter(Boolean).join('\n').trim();
     return t || `Pizarra · ${lista.length} elemento${lista.length === 1 ? '' : 's'}`;
   }
 
@@ -972,6 +987,7 @@
     if (bloqueado(el)) { avisoBloqueo(el); return; }
     let txt = null, unaLinea = false;
     if (el.tipo === 'hu') { op.campo = op.campo || 'titulo'; txt = n.querySelector(`[data-k="${CSS.escape(op.k || 'titulo')}"]`); unaLinea = true; }
+    else if (el.tipo === 'ilu') { op.campo = 'pie'; txt = n.querySelector('.pz-ilu__pie'); txt.dataset.vacio = 'Escribe un pie…'; }
     else if (op.campo === 'col') { txt = n.querySelector(`[data-col-id="${CSS.escape(op.col)}"]`); unaLinea = true; }
     else if (op.campo === 'titulo' || el.tipo === 'kanban') { txt = n.querySelector('.pz-kanban__titulo'); unaLinea = true; op.campo = 'titulo'; }
     else if (CON_TEXTO.has(el.tipo)) txt = n.querySelector('.pz-txt');
@@ -1014,6 +1030,7 @@
   function ponerCampo(ed, v) {
     const el = ed.el;
     if (el.tipo === 'hu') { HU.ponerCampo(el, ed.op, v); return; }   // pasa por su modelo: cambia su texto
+    if (el.tipo === 'ilu') { el.pie = v; return; }
     if (ed.op.campo === 'titulo') el.titulo = v;
     else if (ed.op.campo === 'col') { const c = (el.columnas || []).find((x) => x.id === ed.op.col); if (c) c.titulo = v; }
     else if (ed.op.campo === 'enlace') el.titulo = v;
@@ -1026,7 +1043,7 @@
     ponerCampo(ed, leerTexto(ed.txt, ed.unaLinea));
     if (el.tipo === 'nota' && enTablero(el)) programarRender({ acomodar: true });
     else if (el.tipo === 'nota' || el.tipo === 'rect' || el.tipo === 'elipse') ajustarFuente(el, ed.nodo);
-    else if (el.tipo === 'texto' || el.tipo === 'hu') { pend.medir.add(el.id); programarRender({}); }
+    else if (el.tipo === 'texto' || el.tipo === 'hu' || el.tipo === 'ilu') { pend.medir.add(el.id); programarRender({}); }
     marcar(el);
     marcarSucio(el.id, true);
   });
@@ -1365,11 +1382,20 @@
     const izq = a.includes('w'), der = a.includes('e'), arr = a.includes('n'), aba = a.includes('s');
     const ax = izq ? g0.x + g0.w : g0.x, ay = arr ? g0.y + g0.h : g0.y;
     const ncols = (el.columnas || []).length || 1;
-    const minW = { kanban: K.colMin * ncols + K.margen, texto: 40, nota: 60, imagen: 24, enlace: 200, hu: 820 }[el.tipo] || 16;
+    const minW = { kanban: K.colMin * ncols + K.margen, texto: 40, nota: 60, imagen: 24, enlace: 200, hu: 820, ilu: 40 }[el.tipo] || 16;
     const minH = { kanban: 220, nota: 60, enlace: 64 }[el.tipo] || 12;
     let w = izq || der ? Math.max(minW, izq ? ax - p.x : p.x - ax) : g0.w;
     let h = arr || aba ? Math.max(minH, arr ? ay - p.y : p.y - ay) : g0.h;
     const esquina = (izq || der) && (arr || aba);
+    if (el.tipo === 'ilu') {
+      // En proporción: manda el ancho; el pie de texto va debajo y conserva su alto
+      const pie = Math.max(0, g0.h - g0.w), nw = r1(limitar(w, minW, 2000));
+      el.w = nw; el.h = nw;
+      el.x = r1(izq ? ax - nw : g0.x);
+      el.y = r1(arr ? ay - nw - pie : g0.y);
+      pintar(el); repintarFlechas(); pintarSel();
+      return;
+    }
     if (el.tipo === 'texto') {
       if (esquina) {
         // Esquina: crece todo el texto (letra y ancho a la vez)
@@ -1621,7 +1647,7 @@
       return;
     }
     if (el && el.tipo !== 'kanban') {
-      if (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace') editar(el.id, { x: e.clientX, y: e.clientY });
+      if (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace' || el.tipo === 'ilu') editar(el.id, { x: e.clientX, y: e.clientY });
       return;
     }
     // En lo vacío (o en el cuerpo de un tablero): una nota nueva, y a escribir
@@ -1803,6 +1829,7 @@
     if (!b) return;
     if (b.hasAttribute('data-calc')) alternarCalc();   // la calculadora no es una herramienta: se abre al lado
     else if (b.hasAttribute('data-hu-panel')) HU?.alternarPanel();   // tampoco las historias: un panel al lado
+    else if (b.hasAttribute('data-ilu-panel')) HU?.alternarIlus();   // ni las ilustraciones
     else elegirHerr(b.dataset.herr);
   });
   // La lente de vidrio: sigue al mouse por la barra (solo con transform)
@@ -1866,6 +1893,7 @@
       if (tipos.has('flecha') || tipos.has('trazo')) extra += botonCtx('grosor', 'pz-grosor', 'Grosor de la línea');
       if (lista.length === 1 && tipos.has('kanban')) extra += botonCtx('traer', 'pz-traer', 'Traer tareas del proyecto') + botonCtx('columna', 'pz-columna', 'Añadir columna');
       if (lista.length === 1 && tipos.has('enlace')) extra += botonCtx('abrir', 'ds-enlace', 'Abrir el enlace');
+      if (lista.length === 1 && tipos.has('ilu')) extra += botonCtx('pie', 'pz-texto', lista[0].pie ? 'Cambiar su pie de texto' : 'Ponerle un pie de texto', 'Enter');
       if (lista.length === 1 && tipos.has('hu') && HU) extra += HU.botonesCtx(lista[0], botonCtx);
       if (lista.length === 1 && (tipos.has('nota') || tipos.has('texto'))) {
         // El recordatorio: a su hora le llega un aviso (campana, notificación y correo) a quien lo puso
@@ -1921,6 +1949,7 @@
       case 'traer': traerTareas(lista[0].id); break;
       case 'columna': agregarColumna(lista[0].id); break;
       case 'abrir': if (/^https?:\/\//i.test(lista[0].url || '')) window.open(lista[0].url, '_blank', 'noopener'); break;
+      case 'pie': editar(lista[0].id, { todo: true }); return;
       case 'aviso': abrirAviso(lista[0].id); return;
     }
     ctxBar._firma = '';
@@ -2047,7 +2076,7 @@
     }
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t?.isContentEditable) return;
-    if (t?.closest?.('#pz-calc, .pz-pop, .pz-hu-panel, .pz-hu-texto, .pz-menu')) return;   // la calculadora y los cuadros tienen su propio teclado
+    if (t?.closest?.('#pz-calc, .pz-pop, .pz-hu-panel, .pz-ilu-panel, .pz-hu-texto, .pz-menu')) return;   // la calculadora y los cuadros tienen su propio teclado
     const mod = e.ctrlKey || e.metaKey;
     if (e.code === 'Space' && !mod) {
       e.preventDefault();
@@ -2084,7 +2113,7 @@
         return;
       case 'Enter': {
         const el = sel.size === 1 ? vivo([...sel][0]) : null;
-        if (EDITAR && el && (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace' || el.tipo === 'kanban' || el.tipo === 'hu')) { e.preventDefault(); editar(el.id, el.tipo === 'hu' ? { campo: 'titulo', k: 'titulo' } : {}); }
+        if (EDITAR && el && (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace' || el.tipo === 'kanban' || el.tipo === 'hu' || el.tipo === 'ilu')) { e.preventDefault(); editar(el.id, el.tipo === 'hu' ? { campo: 'titulo', k: 'titulo' } : {}); }
         return;
       }
       case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
@@ -2109,6 +2138,7 @@
     }
     if (e.key.toLowerCase() === 'c') { e.preventDefault(); alternarCalc(); return; }
     if (e.key.toLowerCase() === 'u' && EDITAR && HU) { e.preventDefault(); HU.alternarPanel(); return; }
+    if (e.key.toLowerCase() === 'd' && EDITAR && HU) { e.preventDefault(); HU.alternarIlus(); return; }
     const herr = ATAJOS[e.key.toLowerCase()];
     if (herr && (EDITAR || herr === 'seleccionar' || herr === 'mano')) { e.preventDefault(); elegirHerr(herr); }
   });
@@ -2687,6 +2717,14 @@
       else { x.fillStyle = '#E2E8F0'; x.fillRect(g.x, g.y, g.w, g.h); }
     } else if (e.tipo === 'hu') {
       HU?.dibujar(x, e, g, n, { rr, envolver, FUENTE });
+    } else if (e.tipo === 'ilu' && HU) {
+      // El dibujo en su círculo de papel y, debajo, su pie
+      const w = g.w, cx = g.x + w / 2, cy = g.y + w / 2, img = HU.imagen(e.ilu);
+      x.beginPath(); x.arc(cx, cy, w / 2, 0, Math.PI * 2); x.fillStyle = papel; x.fill();
+      x.save(); x.clip();
+      if (img.complete && img.naturalWidth) x.drawImage(img, g.x, g.y, w, w);
+      x.restore();
+      if (e.pie) textoEn(x, e.pie, { x: g.x, y: g.y + w + 8, w, h: Math.max(10, g.h - w - 8) }, { fs: limitar(Math.round(w * 0.12), 11, 72), peso: 650, lh: 1.3, arriba: true, color: '#1F2A37' });
     } else if (e.tipo === 'enlace') {
       rr(x, g.x, g.y, g.w, g.h, 14); x.fillStyle = '#FFFFFF'; x.fill(); x.lineWidth = 1; x.strokeStyle = '#DFE9F0'; x.stroke();
       rr(x, g.x + 16, g.y + (g.h - 44) / 2, 44, 44, 12); x.fillStyle = '#E0F2FE'; x.fill();
@@ -3248,8 +3286,20 @@
     pintarSel(); pintarCtx();
     return el.id;
   }
+  /** Una ilustración de la biblioteca en p (su centro), del tamaño cómodo para el zoom de ahora. */
+  function crearIlu(key, p) {
+    if (!EDITAR || !HU) return null;
+    if (editando) terminarEdicion();
+    const w = Math.round(140 * factor());
+    const el = nuevoEl('ilu', { ilu: key, color: HU.tinteIlu(key), w, h: w, x: r1(p.x - w / 2), y: r1(p.y - w / 2) });
+    crear([el]);
+    elegirHerr('seleccionar');
+    ocultarPista(true);
+    return el.id;
+  }
   if (HU) {
     HU.montar({
+      crearIlu,
       CFG, EDITAR, YO, raiz, lienzo, ico, toast, pedir, aMundo, vivos, vivo, ajustarA, bloqueado,
       dibujo: { rr, envolver, FUENTE },   // para la imagen del diagrama que va a la historia
       crear: crearHU,

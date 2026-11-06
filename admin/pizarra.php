@@ -4,7 +4,8 @@
  * usarlo EN la reunión, entre varios a la vez. Notas adhesivas, texto, formas,
  * flechas que se pegan a lo que unen, lápiz, imágenes (Ctrl+V o arrastrando
  * desde el escritorio) y tableros Kanban que pueden traer las tareas reales
- * del proyecto, y diagramas de historia: se arrastra una historia de usuario
+ * del proyecto, ilustraciones para anotar (docente, PDF, nube…) y diagramas
+ * de historia: se arrastra una historia de usuario
  * y se arma su explicación con dibujos (assets/pizarra-hu.js, lib/PizarraHU.php).
  * Menos herramientas, mejor hechas.
  *
@@ -132,7 +133,7 @@ if ($editar && !$embed) {
 $iconosJs = ['ds-eliminar', 'ds-duplicar', 'ds-enlace', 'pz-traer', 'ds-mas', 'ds-check', 'ds-cerrar', 'ds-descargar',
              'pz-frente', 'pz-columna', 'pz-grosor', 'pz-punta', 'pz-tamano', 'pz-nube', 'pz-sin-red', 'pz-imagen', 'ds-alerta',
              'ds-notificaciones', 'ds-play', 'ds-pausa', 'ds-buscar', 'ds-chevron-abajo', 'ds-reintentar', 'ds-ayuda', 'ds-candado',
-             'pz-historia', 'pz-texto'];
+             'pz-historia', 'pz-texto', 'pz-ilustracion'];
 
 // Las herramientas: [clave, ícono, nombre, atajo]. El lector solo mira y se mueve.
 $herramientas = [
@@ -238,7 +239,9 @@ if ($editar) {
               data-tip="<?= e($h[2]) ?>" data-tecla="<?= $h[3] ?>" aria-label="<?= e($h[2]) ?> (<?= $h[3] ?>)"
               aria-pressed="<?= $h[0] === 'seleccionar' ? 'true' : 'false' ?>"><?= UI::icono($h[1]) ?></button>
     <?php endforeach; ?>
-    <?php if ($editar): /* Diagrama de historia: abre al lado las historias del proyecto; se arrastran al lienzo */ ?>
+    <?php if ($editar): /* Ilustraciones (assets/pizarra-hu.js): dibujos para anotar, al lado; se arrastran al lienzo */ ?>
+    <button type="button" class="pz-herr pz-herr--ilu" data-ilu-panel data-tip="Ilustraciones" data-tecla="D" aria-label="Ilustraciones (D)" aria-pressed="false"><?= UI::icono('pz-ilustracion') ?></button>
+    <?php /* Diagrama de historia: abre al lado las historias del proyecto; se arrastran al lienzo */ ?>
     <button type="button" class="pz-herr pz-herr--hu" data-hu-panel data-tip="Diagrama de historia: arrastra una historia de usuario" data-tecla="U" aria-label="Diagrama de historia (U)" aria-pressed="false"><?= UI::icono('pz-historia') ?></button>
     <?php endif; ?>
     <?php /* La calculadora no es una herramienta del lienzo: se abre al lado y es de cada quien */ ?>
@@ -290,6 +293,7 @@ if ($editar) {
       <dt>R · O · A</dt><dd>Rectángulo · Elipse · Flecha</dd>
       <dt>P · K · I</dt><dd>Lápiz · Kanban · Imagen</dd>
       <dt>L</dt><dd>Enlace (o pégalo con Ctrl V)</dd>
+      <dt>D</dt><dd>Ilustraciones para anotar (docente, PDF, nube…)</dd>
       <dt>U</dt><dd>Diagrama de una historia de usuario</dd>
       <dt>Doble clic</dt><dd>Escribir en lo elegido (o Enter)</dd>
       <dt>Ctrl V</dt><dd>Pegar imagen, texto o enlace</dd>
