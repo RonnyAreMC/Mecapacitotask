@@ -88,6 +88,8 @@ $accionesDeCualquiera = [
     'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar', 'rel_revision_externo',
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
+    // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
+    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -4371,6 +4373,108 @@ switch ($accion) {
             }
         } catch (RuntimeException $e) {
             $relFin(false, $e->getMessage());
+        }
+
+    /* ---------- Backlog estilo Jira (lib/Backlog.php): historias de usuario y sprints ---------- */
+    case 'bl_historia_guardar':
+    case 'bl_historia_mover':
+    case 'bl_historia_borrar':
+    case 'bl_sprints_conf':
+        require_once __DIR__ . '/lib/Releases.php';
+        require_once __DIR__ . '/lib/Backlog.php';
+        $blAjax = !empty($_POST['ajax']) || ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '') === 'fetch';
+        $blFin = function (bool $ok, string $msg = '', array $extra = []) use ($blAjax): never {
+            if ($blAjax) {
+                header('Content-Type: application/json; charset=utf-8');
+                header('Cache-Control: no-store');
+                if (!$ok) http_response_code(400);
+                echo json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg, 'mensaje' => $ok ? $msg : ''] + $extra, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+                exit;
+            }
+            $volver = (string)($_POST['volver'] ?? '');
+            if (!preg_match('#^(proyecto\.php\?id=\d+|releases\.php)(\?[^\s<>"]*|[&\#][^\s<>"]*)?$#', $volver)) $volver = 'index.php';
+            redirigir($volver, $msg !== '' ? $msg : ($ok ? 'Listo.' : 'No se pudo.'), $ok ? 'success' : 'error');
+        };
+        if (!Releases::puedeVer()) $blFin(false, 'No tienes acceso a Releases.');
+        $blYo = (int)(Auth::usuario()['id'] ?? 0);
+        $blSinPermiso = 'El backlog lo arman el PO del proyecto, su Scrum Master o el administrador.';
+        try {
+            switch ($accion) {
+                case 'bl_sprints_conf':
+                    if (!Releases::puedeEditar()) $blFin(false, 'Los sprints los configuran los editores de Releases.');
+                    Backlog::guardarConf($_POST);
+                    $blFin(true, 'Sprints guardados: el calendario se rehízo solo.');
+
+                case 'bl_historia_borrar':
+                    $hBl = Backlog::historia((int)($_POST['id'] ?? 0));
+                    if (!$hBl) throw new RuntimeException('Esa historia ya no existe.');
+                    if (!Backlog::puede((int)$hBl['proyecto_id'])) $blFin(false, $blSinPermiso);
+                    Backlog::borrar((int)$hBl['id']);
+                    $blFin(true, 'Historia ' . $hBl['codigo'] . ' borrada.');
+
+                case 'bl_historia_mover':
+                    // Arrastrar en el backlog (otro sprint o posición) o en el tablero (otro estado)
+                    $hBl = Backlog::historia((int)($_POST['id'] ?? 0));
+                    if (!$hBl) throw new RuntimeException('Esa historia ya no existe.');
+                    if (!Backlog::puede((int)$hBl['proyecto_id'])) $blFin(false, $blSinPermiso);
+                    $dBl = array_intersect_key($_POST, array_flip(['sprint', 'estado', 'antes_de', 'despues_de']));
+                    if (isset($dBl['estado']) && !isset(Backlog::ESTADOS[$dBl['estado']])) throw new RuntimeException('Ese estado no existe.');
+                    if (($dBl['sprint'] ?? '') !== '' && !isset(Backlog::sprints()[$dBl['sprint']])) throw new RuntimeException('Ese sprint no existe.');
+                    $hBl = Backlog::mover((int)$hBl['id'], $dBl, $blYo);
+                    $blFin(true, isset($dBl['estado']) ? $hBl['codigo'] . ': ' . Backlog::ESTADOS[$hBl['estado']][0] . '.'
+                        : $hBl['codigo'] . ($hBl['sprint'] !== '' ? ' va en el ' . $hBl['sprint'] . '.' : ' quedó en el backlog.'), ['historia' => $hBl]);
+
+                case 'bl_historia_guardar':
+                    $idBl = (int)($_POST['id'] ?? 0);
+                    $antesBl = $idBl > 0 ? Backlog::historia($idBl) : null;
+                    if ($idBl > 0 && !$antesBl) throw new RuntimeException('Esa historia ya no existe.');
+                    $pidHu = $antesBl ? (int)$antesBl['proyecto_id'] : (int)($_POST['proyecto_id'] ?? 0);
+                    if (!$proyectos->buscar($pidHu)) throw new RuntimeException('Ese proyecto ya no existe.');
+                    if (!Backlog::puede($pidHu)) $blFin(false, $blSinPermiso);
+                    // Los diagramas de proceso y documentos que se suben
+                    $rechBl = [];
+                    $adjBl = guardarAdjuntos('adjuntos', 'hu_', $rechBl);
+                    // Tareas nuevas (una por línea) en el proyecto: para quien lleva la historia y con las fechas del sprint
+                    $creadasBl = [];
+                    $lineasBl = array_values(array_filter(array_map('trim', preg_split('/\R/', (string)($_POST['tareas_nuevas'] ?? '')) ?: [])));
+                    if ($lineasBl) {
+                        $pidBl = $pidHu;
+                        $spBl = Backlog::sprints()[(string)($_POST['sprint'] ?? '')] ?? null;
+                        $flBl = $spBl ? Backlog::ultimoHabil($spBl) : '';
+                        $fiBl = $spBl ? min($flBl, max(date('Y-m-d'), $spBl['inicio'])) : '';
+                        $prioBl = (string)($_POST['prioridad'] ?? 'media');
+                        if (!isset(Catalogo::prioridades()[$prioBl])) $prioBl = 'media';
+                        $respBl = (int)($_POST['responsable'] ?? 0);
+                        $tituloHu = trim((string)($_POST['titulo'] ?? ($antesBl['titulo'] ?? '')));
+                        foreach (array_slice($lineasBl, 0, 20) as $titBl) {
+                            $tBl = $tareas->crear(['proyecto_id' => $pidBl, 'titulo' => mb_substr($titBl, 0, 250),
+                                'descripcion' => HtmlRico::limpiar('<p>Para la historia ' . e(($antesBl['codigo'] ?? '') !== '' ? $antesBl['codigo'] . ' · ' : '') . e(mb_substr($tituloHu, 0, 200)) . '</p>'),
+                                'prioridad' => $prioBl, 'fecha_inicio' => $fiBl, 'fecha_limite' => $flBl,
+                                'asignados' => $respBl > 0 ? [$respBl] : [], 'origen' => '']);
+                            try {
+                                notificarSiAsignada($tBl, TareaRepo::asignadosDe($tBl), [], $proyectos, $miembros);
+                                sincronizarCalendario($tareas->buscar((int)$tBl['id']), $proyectos, $miembros, $tareas);
+                            } catch (Throwable $e) { /* la tarea ya quedó creada */ }
+                            $creadasBl[] = (int)$tBl['id'];
+                        }
+                    }
+                    $dBl = $_POST;
+                    unset($dBl['tareas_nuevas'], $dBl['id'], $dBl['accion'], $dBl['ajax'], $dBl['volver']);
+                    $dBl['proyecto_id'] = $pidHu;
+                    // Solo las tareas de este proyecto
+                    if (isset($dBl['tareas'])) $dBl['tareas'] = array_values(array_filter(array_map('intval', (array)$dBl['tareas']), fn($tid) => ($tt = $tareas->buscar($tid)) && (int)$tt['proyecto_id'] === $pidHu));
+                    $dBl['adjuntos_nuevos'] = $adjBl;
+                    $dBl['tareas_creadas'] = $creadasBl;
+                    $hBl = Backlog::guardar($dBl, $idBl, $blYo);
+                    // Sus tareas también suman a la épica (el ítem del release): su avance sale de ahí
+                    if ($hBl['item_id'] && $hBl['tareas']) {
+                        try { Releases::vincularTareas((int)$hBl['item_id'], $hBl['tareas'], $blYo, true); } catch (Throwable $e) { /* la historia ya quedó */ }
+                    }
+                    $blFin(true, 'Historia ' . $hBl['codigo'] . ($idBl ? ' guardada' : ' creada') . ($creadasBl ? ', con ' . count($creadasBl) . ' tarea(s) nueva(s)' : '') . '.'
+                        . ($rechBl ? ' No se subieron (tipo no permitido): ' . implode(', ', $rechBl) . '.' : ''), ['historia' => $hBl]);
+            }
+        } catch (RuntimeException $e) {
+            $blFin(false, $e->getMessage());
         }
 
     /* ---------- Respaldo de la configuracion ---------- */

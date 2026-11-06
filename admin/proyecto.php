@@ -776,6 +776,16 @@ $radVistas = $esSupervisor ? '' : UI::menuRadial('Cómo ver las tareas', [
     ['texto' => 'Flujo',  'icono' => 'fa-diagram-project', 'attrs' => 'data-subvista="flujo"'],
 ], 'Visualización', 'fa-layer-group');
 ?>
+<?php
+// Pestaña «Sprints» (lib/Backlog.php + lib/backlog_ui.php): sale si está Releases
+$conSprints = !$esSupervisor && class_exists('Releases') && is_file(__DIR__ . '/lib/Backlog.php');
+$nSprintHu = 0;
+if ($conSprints) {
+    require_once __DIR__ . '/lib/Backlog.php';
+    $actSp = Backlog::actual();
+    $nSprintHu = count(Backlog::historias(['proyecto_id' => $id, 'sprint' => $actSp]));
+}
+?>
 <?php if (!$esSupervisor): /* el supervisor solo ve el Kanban: sin pestañas ni tabla */ ?>
 <div class="vista-fila">
   <div class="vista-toggle">
@@ -788,6 +798,11 @@ $radVistas = $esSupervisor ? '' : UI::menuRadial('Cómo ver las tareas', [
     </button>
     <?php if ($relPanel): ?>
     <button type="button" class="tab-btn" data-vista="release" data-tip="Release del equipo"><i class="fa-solid fa-route"></i> <span class="tab-txt">Release</span></button>
+    <?php endif; ?>
+    <?php if ($conSprints): /* el backlog estilo Jira: lo arman el PO, el SM y el admin; los demás lo ven */ ?>
+    <button type="button" class="tab-btn" data-vista="sprints" data-tip="Sprints y backlog"><?= UI::iconoDS('reloj', 18) ?> <span class="tab-txt">Sprints</span>
+      <?php if ($nSprintHu): ?><span class="tab-badge tab-badge-neutro" title="Historias en el sprint en curso"><?= $nSprintHu ?></span><?php endif; ?>
+    </button>
     <?php endif; ?>
     <?php /* Intercambios: la pestaña solo sale cuando hay solicitudes por responder; si no, se llega desde «Acciones» */ ?>
     <button type="button" class="tab-btn" data-vista="intercambios" data-tip="Intercambios"<?= $interPendientes > 0 ? '' : ' hidden' ?>><i class="fa-solid fa-right-left"></i> <span class="tab-txt">Intercambios</span>
@@ -1537,6 +1552,18 @@ $pmEditarAttr = fn(array $t) => e(json_encode([
 </div>
 <?php endif; ?>
 <!-- Vista Intercambios de tareas -->
+<?php if ($conSprints):
+    require_once __DIR__ . '/lib/releases_ui.php';
+    require_once __DIR__ . '/lib/backlog_ui.php';
+    $urlSp = fn(array $q) => 'proyecto.php?' . http_build_query(['id' => $id] + array_filter($q, fn($v) => $v !== '' && $v !== null)) . '#vista-sprints'; ?>
+<!-- Vista Sprints: el backlog del proyecto por sprint y el tablero del sprint (assets/backlog.js) -->
+<div data-vista-panel="sprints" hidden>
+  <div class="ds">
+  <?= blPestana(['proyecto' => $proyecto, 'miembros' => $miembros, 'tareas' => $tareasTodas, 'puede' => Backlog::puede($id), 'url' => $urlSp]) ?>
+  </div>
+</div>
+<?php endif; ?>
+
 <div data-vista-panel="intercambios" hidden>
   <section class="card-base tabla-card" style="--pc:<?= $color ?>">
     <div class="tabla-toolbar">
@@ -2800,4 +2827,5 @@ $tAbrir = (int)($_GET['tarea'] ?? 0) > 0 ? (new TareaRepo())->buscar((int)$_GET[
 </dialog>
 
 <?php if ($relPanel) echo rlRecursosJs('release', Releases::puedeEditar(), $miembros); /* el panel del ítem y el Gantt (assets/releases.js) */ ?>
+<?php if ($conSprints): ?><script src="<?= asset('assets/backlog.js') ?>" defer></script><?php endif; ?>
 <?php UI::fin(); ?>

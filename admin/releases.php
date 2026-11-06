@@ -16,7 +16,7 @@
  *   revisiones   ?s=AAAA-MM-DD (&e): agenda de la semana y cumplimiento
  *   revision     ?id=N: registrar lo revisado fila por fila
  *   hitos        línea de tiempo de los hitos
- *   ajustes      ?t=equipos|releases|avisos|importar (solo editores)
+ *   ajustes      ?t=equipos|releases|sprints|avisos|importar (solo editores)
  *
  * Las fechas del release NO limitan las tareas que se crean desde aquí: el plan
  * tuvo reajustes; solo se avisa.
@@ -1993,7 +1993,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
    AJUSTES (solo editores)
    ========================================================================= */
     $t = (string)($_GET['t'] ?? 'equipos');
-    if (!in_array($t, ['equipos', 'releases', 'avisos', 'importar'], true)) $t = 'equipos';
+    if (!in_array($t, ['equipos', 'releases', 'sprints', 'avisos', 'importar'], true)) $t = 'equipos';
     $opsM = [];
     foreach ($miembros as $m) $opsM[(int)$m['id']] = [$m['nombre'], (string)($m['rol'] ?? '')];
     uasort($opsM, fn($a, $b) => strnatcasecmp($a[0], $b[0]));
@@ -2005,7 +2005,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     $dias = ['' => 'Sin día fijo', 'lunes' => 'Lunes', 'martes' => 'Martes', 'miércoles' => 'Miércoles', 'jueves' => 'Jueves', 'viernes' => 'Viernes'];
 ?>
   <nav class="mc-tabs mc-tabs--segmented rl-subtabs" aria-label="Ajustes de Releases">
-    <?php foreach (['equipos' => ['Equipos', 'usuarios'], 'releases' => ['Releases', 'ruta'], 'avisos' => ['Avisos y acceso', 'notificaciones'], 'importar' => ['Importar Excel', 'importar']] as $k => [$lbl, $ico]): ?>
+    <?php foreach (['equipos' => ['Equipos', 'usuarios'], 'releases' => ['Releases', 'ruta'], 'sprints' => ['Sprints', 'reloj'], 'avisos' => ['Avisos y acceso', 'notificaciones'], 'importar' => ['Importar Excel', 'importar']] as $k => [$lbl, $ico]): ?>
     <a class="mc-tab<?= $t === $k ? ' is-active' : '' ?>" href="<?= e(rlUrl(['v' => 'ajustes', 't' => $k])) ?>"<?= $t === $k ? ' aria-current="page"' : '' ?>><?= rlIco($ico, 16) ?><span><?= e($lbl) ?></span></a>
     <?php endforeach; ?>
   </nav>
@@ -2115,6 +2115,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     </form>
     <?php endforeach; ?>
   </div>
+
+  <?php elseif ($t === 'sprints'): /* el calendario global de sprints (lib/Backlog.php) */
+    require_once __DIR__ . '/lib/Backlog.php';
+    require_once __DIR__ . '/lib/backlog_ui.php'; ?>
+  <?= blAjustesSprints() ?>
 
   <?php elseif ($t === 'avisos'): $av = $conf['avisos']; ?>
   <form class="rl-avisos" method="post" action="actions.php" data-rl-form="rel_conf_guardar">
