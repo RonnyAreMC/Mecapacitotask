@@ -367,6 +367,8 @@ function blFormHistoria(array $x): string
     <a class="rs-boton rs-boton--icono" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
     <div class="bl-hu__tit"><span class="bl-dlg__cod"><?= $nueva ? 'Nueva historia' : e($h['codigo']) ?></span>
       <span class="bl-hu__proy"><?= e((string)$p['nombre']) ?><?= !$nueva ? ' · ' . blEstado((string)$h['estado']) : '' ?></span></div>
+    <?php /* Cada acción una sola vez, aquí arriba (la cabecera queda fija al bajar): volver, borrar y guardar */ ?>
+    <?php if ($puede && !$nueva): ?><button type="button" class="rs-boton rs-boton--icono bl-borrar" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>" aria-label="Borrar la historia" data-ds-tip="Borrar la historia"><?= rlIco('eliminar', 18) ?></button><?php endif; ?>
     <?php if ($puede): ?><button type="submit" class="rs-boton rs-boton--primario"><?= UI::icono('ds-check') ?><span><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
   </header>
   <fieldset class="bl-fs bl-hu__grid"<?= $puede ? '' : ' disabled' ?>>
@@ -458,13 +460,6 @@ function blFormHistoria(array $x): string
       <?php endif; ?>
     </div>
   </fieldset>
-  <?php if ($puede): ?>
-  <footer class="bl-hu__pie">
-    <a class="mc-btn mc-btn--ghost" href="<?= e($urlProy) ?>"><span class="mc-btn__label">Volver</span></a>
-    <?php if (!$nueva): ?><button type="button" class="mc-btn mc-btn--ghost rl-btn-peligro" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>"><?= rlIco('eliminar', 18) ?><span class="mc-btn__label">Borrar</span></button><?php endif; ?>
-    <button type="submit" class="mc-btn mc-btn--primary"><?= rlIco('check', 18) ?><span class="mc-btn__label"><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button>
-  </footer>
-  <?php endif; ?>
 </form>
     <?php
     return (string)ob_get_clean();

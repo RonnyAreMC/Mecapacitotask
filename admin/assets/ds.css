@@ -6496,3 +6496,5 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .bls-dlg__res small { color: var(--ink-muted); font-size: .72rem; }
 .bls-dlg__res b { color: var(--ink); font-size: .9rem; }
 .bls-dlg__res .bls-carga, .bls-dlg__res p { grid-column: 1 / -1; margin: 0; color: var(--ink-muted); font-size: .82rem; }
+.bl-hu__cab .bl-borrar { color: var(--col-crit-fg, var(--danger)); }
+.bl-hu__cab .bl-borrar:hover { color: var(--col-crit-solid, var(--danger)); }

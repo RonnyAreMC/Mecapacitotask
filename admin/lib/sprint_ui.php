@@ -227,7 +227,9 @@ function blSprintPagina(array $x): string
       <a class="mc-iconbtn mc-iconbtn--tinte<?= $antCod !== '' ? '' : ' is-off' ?>" href="<?= $antCod !== '' ? e(blUrlSprint($pid, $antCod, $v)) : '#' ?>" aria-label="Sprint anterior" data-ds-tip="<?= $antCod !== '' ? 'Sprint anterior (' . e($antCod) . ')' : 'Sprint anterior' ?>"><?= rlIco('chevron-izq', 18) ?></a>
       <a class="mc-iconbtn mc-iconbtn--tinte<?= $sigCod !== '' ? '' : ' is-off' ?>" href="<?= $sigCod !== '' ? e(blUrlSprint($pid, $sigCod, $v)) : '#' ?>" aria-label="Sprint siguiente" data-ds-tip="<?= $sigCod !== '' ? 'Sprint siguiente (' . e($sigCod) . ')' : 'Sprint siguiente' ?>"><?= rlIco('chevron-der', 18) ?></a>
       <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e($urlTablero) ?>" aria-label="Tablero del sprint" data-ds-tip="Tablero del <?= e($cod) ?>"><?= rlIco('dashboard', 18) ?></a>
-      <?php if ($puede): ?><button type="submit" form="bls-form" class="rs-boton rs-boton--icono rs-boton--primario" aria-label="Guardar" data-ds-tip="Guardar"><?= UI::icono('ds-check') ?></button><?php endif; ?>
+      <?php /* Cada acción una sola vez, aquí arriba (fija al bajar) */ ?>
+      <?php if ($puede && $v === 'dor' && Backlog::dorPropia($pid)): ?><button type="submit" form="bls-form" name="restaurar" value="1" class="rs-boton rs-boton--icono" formnovalidate data-bls-restaurar aria-label="Volver a la lista de siempre" data-ds-tip="Volver a la lista de siempre"><?= rlIco('reintentar', 18) ?></button><?php endif; ?>
+      <?php if ($puede): ?><button type="submit" form="bls-form" class="rs-boton rs-boton--primario"><?= UI::icono('ds-check') ?><span><?= ['plan' => 'Guardar la planificación', 'retro' => 'Guardar la retrospectiva', 'dor' => 'Guardar la lista'][$v] ?></span></button><?php endif; ?>
     </div>
   </header>
   <nav class="rl-subnav" aria-label="Qué ver del sprint">
@@ -543,13 +545,6 @@ function blSprintPagina(array $x): string
   </form>
 <?php endif; ?>
 
-  <?php if ($puede): ?>
-  <footer class="bl-hu__pie bls-pie">
-    <?php if ($v === 'dor' && Backlog::dorPropia($pid)): ?><button type="submit" form="bls-form" name="restaurar" value="1" class="mc-btn mc-btn--ghost bls-pie__izq" formnovalidate data-bls-restaurar><?= rlIco('reintentar', 18) ?><span class="mc-btn__label">Volver a la de siempre</span></button><?php endif; ?>
-    <a class="mc-btn mc-btn--ghost" href="<?= e($urlProy) ?>"><span class="mc-btn__label">Volver</span></a>
-    <button type="submit" form="bls-form" class="mc-btn mc-btn--primary"><?= rlIco('check', 18) ?><span class="mc-btn__label"><?= ['plan' => 'Guardar la planificación', 'retro' => 'Guardar la retrospectiva', 'dor' => 'Guardar la lista'][$v] ?></span></button>
-  </footer>
-  <?php endif; ?>
 </div>
     <?php
     return (string)ob_get_clean();
