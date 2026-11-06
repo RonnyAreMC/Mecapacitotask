@@ -87,9 +87,12 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
 <?php if (!$imp): /* ======================= Subir el documento ======================= */ ?>
   <form class="bl-hu" method="post" action="<?= e($aqui) ?>" enctype="multipart/form-data" data-bl-imp-subir>
     <header class="bl-hu__cab">
-      <a class="rs-boton rs-boton--icono" href="<?= e($urlSprints) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
-      <div class="bl-hu__tit"><span class="bl-dlg__cod">Importar historias</span><span class="bl-hu__proy"><?= e((string)$proyecto['nombre']) ?> · desde el documento de planificación</span></div>
-      <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-leer disabled><?= rlIco('importar', 18) ?><span>Leer documento</span></button>
+      <div class="bl-hu__tit"><h1 class="bl-hu__h">Importar historias</h1>
+        <p class="bl-hu__proy"><span class="bl-hu__lbl">Proyecto:</span> <b><?= e((string)$proyecto['nombre']) ?></b> <span class="bl-hu__sep">·</span> desde el documento de planificación</p></div>
+      <div class="bl-hu__acc">
+        <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-leer disabled><?= rlIco('importar', 18) ?><span>Leer documento</span></button>
+        <?= UI::volver($urlSprints, 'Volver a los sprints') ?>
+      </div>
     </header>
     <div class="bl-hu__grid">
       <div class="bl-hu__col">
@@ -178,13 +181,15 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
   <form class="bl-hu" method="post" action="actions.php" data-bl-imp data-imp="<?= e(json_encode($js, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)) ?>">
     <input type="hidden" name="accion" value="bl_importar"><input type="hidden" name="proyecto_id" value="<?= $pid ?>">
     <header class="bl-hu__cab">
-      <a class="rs-boton rs-boton--icono" href="<?= e($urlSprints) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
-      <div class="bl-hu__tit"><span class="bl-dlg__cod">Importar historias</span>
-        <span class="bl-hu__proy"><?= e($imp['nombre']) ?> · <?= $imp['lectura'] === 'ia'
+      <div class="bl-hu__tit"><h1 class="bl-hu__h">Importar historias</h1>
+        <p class="bl-hu__proy"><?= e($imp['nombre']) ?> · <?= $imp['lectura'] === 'ia'
             ? 'leído con IA' . ($imp['ia']['modelo'] ? ' (' . e($imp['ia']['modelo']) . ($imp['ia']['costo'] > 0 ? ' · US$ ' . number_format($imp['ia']['costo'], 3) : '') . ')' : '')
-            : 'leído sin IA (formato InnoTech)' ?></span></div>
-      <a class="rs-boton rs-boton--icono" href="<?= e($aqui . '&otro=1') ?>" aria-label="Subir otro documento" data-ds-tip="Subir otro documento"><?= rlIco('reintentar', 18) ?></a>
-      <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-ir><?= UI::icono('ds-check') ?><span>Importar <b data-bl-imp-n><?= count($hus) ?></b></span></button>
+            : 'leído sin IA (formato InnoTech)' ?></p></div>
+      <div class="bl-hu__acc">
+        <a class="rs-boton rs-boton--icono" href="<?= e($aqui . '&otro=1') ?>" aria-label="Subir otro documento" data-ds-tip="Subir otro documento"><?= rlIco('reintentar', 18) ?></a>
+        <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-ir><?= UI::icono('ds-check') ?><span>Importar <b data-bl-imp-n><?= count($hus) ?></b></span></button>
+        <?= UI::volver($urlSprints, 'Volver a los sprints') ?>
+      </div>
     </header>
 
     <div class="rl-kpis bl-kpis">

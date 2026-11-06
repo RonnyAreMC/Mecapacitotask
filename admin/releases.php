@@ -171,6 +171,75 @@ $pintarItem = function (array $it, bool $panel) use ($eqs, $rels, $miembros, $ed
       <?= UI::alertaDS('danger', 'Este ítem está bloqueado', $motivoBloqueo !== '' ? '«' . e($motivoBloqueo) . '»' : 'Mientras siga bloqueado, sus tareas no mueven el estado.') ?>
       <?php endif; ?>
 
+      <section class="rl-bloque" data-rl-tareas-bloque data-rl-tareas="<?= e(json_encode($it['tareas'])) ?>">
+        <div class="rl-bloque__cab">
+          <h3 class="rl-bloque__tit"><?= rlIco('completar', 18) ?> Tareas que lo cubren <span class="rl-n"><?= count($vinculadas) ?></span></h3>
+          <?php if ($marca): ?>
+          <div class="rl-bloque__acc">
+            <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-vincular-abrir aria-expanded="false"><?= rlIco('relacionar', 16) ?><span class="mc-btn__label">Vincular tareas</span></button>
+            <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-rl-crear-tarea><?= rlIco('mas', 16) ?><span class="mc-btn__label">Crear tarea</span></button>
+          </div>
+          <?php endif; ?>
+        </div>
+        <?php if ($vinculadas): ?>
+        <ul class="rl-tareas">
+          <?php foreach ($vinculadas as $t):
+              $fin = in_array($t['estado'] ?? '', $finales, true);
+              $fueraFecha = !$fin && ($t['fecha_limite'] ?? '') !== '' && $it['fin'] !== '' && $t['fecha_limite'] > $it['fin'];
+              $asig = array_values(array_filter(array_map(fn($id) => $miembros[$id] ?? null, TareaRepo::asignadosDe($t)))); ?>
+          <li class="rl-tarea rl-te--<?= e(preg_replace('/[^a-z_]/', '', (string)($t['estado'] ?? ''))) ?><?= $fin ? ' is-hecha' : '' ?>">
+            <span class="rl-tarea__check" aria-hidden="true"><?= $fin ? UI::checkDibujado(12) : '' ?></span>
+            <span class="rl-tarea__txt">
+              <a href="proyecto.php?id=<?= (int)$t['proyecto_id'] ?>&amp;tarea=<?= (int)$t['id'] ?>"><b>#<?= (int)$t['id'] ?></b> <?= e($t['titulo']) ?></a>
+              <small><span class="rl-tarea__estado"><?= e($estadosTarea[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? '')) ?></span><?php if (isset($porIA[(int)$t['id']])): ?> <span class="rl-chip-ia" data-ds-tip="La vinculó la IA. Si no corresponde, quítala: no la volverá a poner."><?= rlIco('ia', 12) ?>IA</span><?php endif; ?> · <?= e($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? 'Proyecto') ?>
+                <?php if (($t['fecha_limite'] ?? '') !== ''): ?> · límite <?= e(rlF($t['fecha_limite'])) ?><?php endif; ?>
+                <?php if ($fueraFecha): ?> <span class="rl-aviso-fecha" data-ds-tip="Termina después del fin del ítem (<?= e(rlF($it['fin'])) ?>). No es un error: solo un aviso."><?= rlIco('alerta', 13) ?> después del fin del ítem</span><?php endif; ?>
+              </small>
+            </span>
+            <span class="rl-tarea__gente"><?= $asig ? UI::avatarStack($asig, 3, 24) : '' ?></span>
+            <?php if ($marca): ?>
+            <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm rl-btn-quitar" data-rl-desvincular="<?= (int)$t['id'] ?>" aria-label="Quitar la tarea #<?= (int)$t['id'] ?> de este ítem"><?= rlIco('cerrar', 14) ?><span class="mc-btn__label">Quitar</span></button>
+            <?php endif; ?>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+        <?php else: ?>
+        <p class="rl-vacio-txt"><?= rlIco('info', 16) ?> Ninguna tarea del panel cubre este ítem todavía. <?= $marca ? 'Vincula las que ya existen o crea una nueva: las fechas del release no la limitan.' : '' ?></p>
+        <?php endif; ?>
+        <?php if ($marca): ?>
+        <div class="rl-vincular" data-rl-vincular hidden>
+          <div class="mc-input mc-input--sm"><?= UI::iconoDS('buscar', 16, 'mc-input__icon') ?>
+            <input class="mc-input__control" type="search" placeholder="Buscar entre las tareas del equipo…" data-rl-vincular-q aria-label="Buscar tareas"></div>
+          <div class="rl-vincular__lista">
+            <?php foreach ($paraVincular as $t): $fin = in_array($t['estado'] ?? '', $finales, true); ?>
+            <label class="rl-vincular__op" data-buscar="<?= e(mb_strtolower('#' . $t['id'] . ' ' . $t['titulo'] . ' ' . ($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? ''))) ?>">
+              <input type="checkbox" value="<?= (int)$t['id'] ?>">
+              <span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span>
+              <span class="rl-multi__txt"><b>#<?= (int)$t['id'] ?> <?= e($t['titulo']) ?></b>
+                <small><?= e($estadosTarea[$t['estado'] ?? ''][0] ?? '') ?> · <?= e($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? '') ?><?= ($t['fecha_limite'] ?? '') !== '' ? ' · límite ' . e(rlF($t['fecha_limite'])) : '' ?><?= $fin ? ' · ya completada' : '' ?></small></span>
+            </label>
+            <?php endforeach; ?>
+            <?php if (!$paraVincular): ?><p class="rl-multi__vacio">No hay más tareas en los proyectos del equipo. Revisa en Ajustes qué proyectos tiene el equipo.</p><?php endif; ?>
+          </div>
+          <div class="rl-vincular__pie">
+            <span data-rl-vincular-n>0 elegidas</span>
+            <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-vincular-cerrar>Cancelar</button>
+            <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-rl-vincular-ok disabled><?= rlIco('relacionar', 16) ?><span class="mc-btn__label">Vincular</span></button>
+          </div>
+        </div>
+        <?php endif; ?>
+      </section>
+    </div>
+
+    <aside class="rl-item__lado">
+      <?php /* Reorganizar con IA: cada tarea vinculada frente al alcance, las fechas y los ítems de todos los releases y equipos */
+        if ($marca && $vinculadas && UI::ia('rel_reorganizar')): $nIa = count(array_filter($vinculadas, fn($t) => isset($porIA[(int)$t['id']]))); ?>
+      <section class="rl-bloque rl-reorg">
+        <h3 class="rl-bloque__tit"><?= UI::icono('ds-ia', 'ia-estrellas') ?> Reorganizar tareas con IA</h3>
+        <p class="rl-reorg__txt">Revisa las <b><?= count($vinculadas) ?></b> tareas vinculadas<?= $nIa ? ' (<b>' . $nIa . '</b> las puso la IA)' : '' ?> frente al alcance de <?= e($it['codigo']) ?>, sus fechas y los ítems de todos los releases y equipos. Te propone cuáles quedan, cuáles quitar y a qué ítem mover las demás; si son de otro equipo, quienes las hicieron quedan como colaboradores.</p>
+        <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-rl-reorg="<?= (int)$it['id'] ?>" data-codigo="<?= e($it['codigo']) ?>"><?= UI::icono('ds-ia', 'ia-estrellas') ?><span class="mc-btn__label">Reorganizar con IA</span></button>
+      </section>
+      <?php endif; ?>
       <?php if ($marca): ?>
       <section class="rl-bloque rl-sm">
         <div class="rl-bloque__cab">
@@ -274,68 +343,6 @@ $pintarItem = function (array $it, bool $panel) use ($eqs, $rels, $miembros, $ed
         </dl>
       </section>
       <?php endif; ?>
-
-      <section class="rl-bloque" data-rl-tareas-bloque data-rl-tareas="<?= e(json_encode($it['tareas'])) ?>">
-        <div class="rl-bloque__cab">
-          <h3 class="rl-bloque__tit"><?= rlIco('completar', 18) ?> Tareas que lo cubren <span class="rl-n"><?= count($vinculadas) ?></span></h3>
-          <?php if ($marca): ?>
-          <div class="rl-bloque__acc">
-            <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-vincular-abrir aria-expanded="false"><?= rlIco('relacionar', 16) ?><span class="mc-btn__label">Vincular tareas</span></button>
-            <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-rl-crear-tarea><?= rlIco('mas', 16) ?><span class="mc-btn__label">Crear tarea</span></button>
-          </div>
-          <?php endif; ?>
-        </div>
-        <?php if ($vinculadas): ?>
-        <ul class="rl-tareas">
-          <?php foreach ($vinculadas as $t):
-              $fin = in_array($t['estado'] ?? '', $finales, true);
-              $fueraFecha = !$fin && ($t['fecha_limite'] ?? '') !== '' && $it['fin'] !== '' && $t['fecha_limite'] > $it['fin'];
-              $asig = array_values(array_filter(array_map(fn($id) => $miembros[$id] ?? null, TareaRepo::asignadosDe($t)))); ?>
-          <li class="rl-tarea rl-te--<?= e(preg_replace('/[^a-z_]/', '', (string)($t['estado'] ?? ''))) ?><?= $fin ? ' is-hecha' : '' ?>">
-            <span class="rl-tarea__check" aria-hidden="true"><?= $fin ? UI::checkDibujado(12) : '' ?></span>
-            <span class="rl-tarea__txt">
-              <a href="proyecto.php?id=<?= (int)$t['proyecto_id'] ?>&amp;tarea=<?= (int)$t['id'] ?>"><b>#<?= (int)$t['id'] ?></b> <?= e($t['titulo']) ?></a>
-              <small><span class="rl-tarea__estado"><?= e($estadosTarea[$t['estado'] ?? ''][0] ?? ($t['estado'] ?? '')) ?></span><?php if (isset($porIA[(int)$t['id']])): ?> <span class="rl-chip-ia" data-ds-tip="La vinculó la IA. Si no corresponde, quítala: no la volverá a poner."><?= rlIco('ia', 12) ?>IA</span><?php endif; ?> · <?= e($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? 'Proyecto') ?>
-                <?php if (($t['fecha_limite'] ?? '') !== ''): ?> · límite <?= e(rlF($t['fecha_limite'])) ?><?php endif; ?>
-                <?php if ($fueraFecha): ?> <span class="rl-aviso-fecha" data-ds-tip="Termina después del fin del ítem (<?= e(rlF($it['fin'])) ?>). No es un error: solo un aviso."><?= rlIco('alerta', 13) ?> después del fin del ítem</span><?php endif; ?>
-              </small>
-            </span>
-            <span class="rl-tarea__gente"><?= $asig ? UI::avatarStack($asig, 3, 24) : '' ?></span>
-            <?php if ($marca): ?>
-            <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm rl-btn-quitar" data-rl-desvincular="<?= (int)$t['id'] ?>" aria-label="Quitar la tarea #<?= (int)$t['id'] ?> de este ítem"><?= rlIco('cerrar', 14) ?><span class="mc-btn__label">Quitar</span></button>
-            <?php endif; ?>
-          </li>
-          <?php endforeach; ?>
-        </ul>
-        <?php else: ?>
-        <p class="rl-vacio-txt"><?= rlIco('info', 16) ?> Ninguna tarea del panel cubre este ítem todavía. <?= $marca ? 'Vincula las que ya existen o crea una nueva: las fechas del release no la limitan.' : '' ?></p>
-        <?php endif; ?>
-        <?php if ($marca): ?>
-        <div class="rl-vincular" data-rl-vincular hidden>
-          <div class="mc-input mc-input--sm"><?= UI::iconoDS('buscar', 16, 'mc-input__icon') ?>
-            <input class="mc-input__control" type="search" placeholder="Buscar entre las tareas del equipo…" data-rl-vincular-q aria-label="Buscar tareas"></div>
-          <div class="rl-vincular__lista">
-            <?php foreach ($paraVincular as $t): $fin = in_array($t['estado'] ?? '', $finales, true); ?>
-            <label class="rl-vincular__op" data-buscar="<?= e(mb_strtolower('#' . $t['id'] . ' ' . $t['titulo'] . ' ' . ($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? ''))) ?>">
-              <input type="checkbox" value="<?= (int)$t['id'] ?>">
-              <span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span>
-              <span class="rl-multi__txt"><b>#<?= (int)$t['id'] ?> <?= e($t['titulo']) ?></b>
-                <small><?= e($estadosTarea[$t['estado'] ?? ''][0] ?? '') ?> · <?= e($proyMapa[(int)$t['proyecto_id']]['nombre'] ?? '') ?><?= ($t['fecha_limite'] ?? '') !== '' ? ' · límite ' . e(rlF($t['fecha_limite'])) : '' ?><?= $fin ? ' · ya completada' : '' ?></small></span>
-            </label>
-            <?php endforeach; ?>
-            <?php if (!$paraVincular): ?><p class="rl-multi__vacio">No hay más tareas en los proyectos del equipo. Revisa en Ajustes qué proyectos tiene el equipo.</p><?php endif; ?>
-          </div>
-          <div class="rl-vincular__pie">
-            <span data-rl-vincular-n>0 elegidas</span>
-            <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-vincular-cerrar>Cancelar</button>
-            <button type="button" class="mc-btn mc-btn--primary mc-btn--sm" data-rl-vincular-ok disabled><?= rlIco('relacionar', 16) ?><span class="mc-btn__label">Vincular</span></button>
-          </div>
-        </div>
-        <?php endif; ?>
-      </section>
-    </div>
-
-    <aside class="rl-item__lado">
       <section class="rl-bloque">
         <h3 class="rl-bloque__tit"><?= rlIco('agenda', 18) ?> En las revisiones <span class="rl-n"><?= count($aps) ?></span></h3>
         <?php if ($aps): ?>
@@ -1629,7 +1636,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 
   <?php if ($filaDet >= 0): $fD = (array)$rev['filas'][$filaDet]; ?>
   <header class="rl-revdet" style="--rc:<?= e(rlColorEq($eqs, $rev['equipo'])) ?>">
-    <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e($urlRev) ?>" aria-label="Volver a la revisión" data-ds-tip="Volver a la revisión"><?= rlIco('chevron-izq', 18) ?></a>
+    <?= UI::volver($urlRev, 'Volver a la revisión') ?>
     <div class="rl-revdet__txt">
       <p class="rl-revdet__kicker">Revisión <?= e($rev['equipo']) ?> · <?= e(ucfirst(rlFL($rev['fecha'], true))) ?> · <?= e((string)$rev['hora']) ?> · ítem <?= $filaDet + 1 ?> de <?= $nFilas ?></p>
       <h2 class="font-display"><?= e((string)($fD['titulo'] ?: $fD['codigo'])) ?></h2>

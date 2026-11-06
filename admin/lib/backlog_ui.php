@@ -396,7 +396,7 @@ function blFormHistoria(array $x): string
       <?php if (!$nueva && $h['historial']): ?><button type="button" class="bl-cbtn" data-bl-hist aria-label="Historial de la historia"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 12a8.5 8.5 0 1 0 2.6-6.1M3.5 4.5v4h4"/><path d="M12 7.5V12l3 2"/></svg><span class="bl-cbtn__lbl">Historial</span></button><?php endif; ?>
       <?php if ($puede && !$nueva): ?><button type="button" class="bl-cbtn bl-cbtn--peligro" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>" aria-label="Borrar la historia"><?= rlIco('eliminar', 18) ?><span class="bl-cbtn__lbl">Borrar</span></button><?php endif; ?>
       <?php if ($puede): ?><button type="submit" class="bl-cbtn"><?= rlIco('check', 18) ?><span class="bl-cbtn__lbl"><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
-      <a class="bl-cbtn" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span class="bl-cbtn__lbl">Volver</span></a>
+      <?= UI::volver($urlProy, 'Volver a los sprints') ?>
     </div>
   </header>
   <fieldset class="bl-fs bl-hu__grid"<?= $puede ? '' : ' disabled' ?>>

@@ -252,7 +252,7 @@ UI::inicio('Analítica · ' . $proyecto['nombre'], 'proyecto-' . $id);
       <p>Sprints, release, reuniones diarias y tareas en un solo lugar, ordenados por fecha. Los filtros cambian todos los gráficos al instante.</p>
     </div>
     <div class="an-cab__acc">
-      <a class="mc-iconbtn mc-iconbtn--tinte" href="proyecto.php?id=<?= $id ?>" aria-label="Volver al proyecto" data-ds-tip="Volver al proyecto"><?= UI::iconoDS('chevron-izq', 20) ?></a>
+      <?= UI::volver('proyecto.php?id=' . $id, 'Volver al proyecto') ?>
     </div>
   </header>
 

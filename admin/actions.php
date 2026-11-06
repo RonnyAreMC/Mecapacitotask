@@ -86,7 +86,7 @@ $accionesDeCualquiera = [
     // por dentro quién puede qué (Releases::puedeVer, puedeEditar o SM del equipo).
     'rel_importar', 'rel_item_guardar', 'rel_item_tareas', 'rel_item_borrar', 'rel_tarea_crear', 'rel_equipo_guardar',
     'rel_release_guardar', 'rel_hito_guardar', 'rel_hito_borrar', 'rel_revision_guardar', 'rel_revision_borrar', 'rel_revision_externo',
-    'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
+    'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_ia_reorganizar', 'rel_reorganizar_aplicar', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
     'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
@@ -3743,6 +3743,7 @@ switch ($accion) {
     case 'ia_acta_hay':
     case 'ia_req_texto':
     case 'rel_ia_revision':
+    case 'rel_ia_reorganizar':
     case 'rel_ia_equipo':
     case 'rel_ia_general':
     case 'ia_req_correo':
@@ -4024,6 +4025,32 @@ switch ($accion) {
                     break;
 
                 case 'rel_ia_revision':
+                case 'rel_ia_reorganizar':
+                    // Las tareas de un ítem frente a su alcance, sus fechas y los ítems de todos los releases y equipos
+                    require_once __DIR__ . '/lib/Releases.php';
+                    $itRo = Releases::item((int)($_POST['id'] ?? 0));
+                    if (!$itRo) throw new IAError('Ese ítem ya no existe.');
+                    $yoRo = (int)(Auth::usuario()['id'] ?? 0);
+                    if (!Releases::puedeEditar() && !($yoRo > 0 && (int)(Releases::equipo((string)$itRo['equipo'])['sm_id'] ?? 0) === $yoRo)) {
+                        $iaFin(['ok' => false, 'error' => 'Solo los editores o el Scrum Master del equipo.'], 403);
+                    }
+                    $tsRo = Releases::tareasDe($itRo);
+                    $otrosRo = array_values(array_filter(Releases::items([]), fn($o) => (int)$o['id'] !== (int)$itRo['id']));
+                    $rRo = IAFunciones::reorganizarItem($itRo, $tsRo, $otrosRo);
+                    // Lo que necesita el modal: la tarea, a dónde iría y si es de otro equipo
+                    $porTRo = array_column($tsRo, null, 'id');
+                    $porCRo = array_column($otrosRo, null, 'codigo');
+                    $mapaRo = $miembros->mapa();
+                    $resIa = ['resumen' => $rRo['resumen'], 'costo' => $rRo['costo'] ?? 0, 'equipo' => (string)$itRo['equipo'], 'tareas' => array_map(function ($x) use ($porTRo, $porCRo, $itRo, $mapaRo) {
+                        $t = $porTRo[$x['id']] ?? [];
+                        $dst = $x['destino'] !== '' ? ($porCRo[$x['destino']] ?? null) : null;
+                        return $x + ['titulo' => (string)($t['titulo'] ?? ''), 'estado' => (string)($t['estado'] ?? ''),
+                            'quien' => implode(', ', array_map(fn($id) => explode(' ', (string)($mapaRo[(int)$id]['nombre'] ?? ''))[0], TareaRepo::asignadosDe($t))),
+                            'destino_titulo' => $dst ? (string)$dst['titulo'] : '', 'destino_equipo' => $dst ? (string)$dst['equipo'] : '',
+                            'otro_equipo' => $dst && (string)$dst['equipo'] !== (string)$itRo['equipo']];
+                    }, $rRo['tareas'])];
+                    break;
+
                 case 'rel_ia_equipo':
                 case 'rel_ia_general':
                     // Releases (lib/Releases.php): el resumen de una revisión, el cruce de
@@ -4088,6 +4115,7 @@ switch ($accion) {
     case 'rel_revision_guardar':
     case 'rel_revision_borrar':
     case 'rel_revision_externo':
+    case 'rel_reorganizar_aplicar':
     case 'rel_ia_aplicar':
     case 'rel_conf_guardar':
     case 'rel_daily_registrar':
@@ -4337,6 +4365,42 @@ switch ($accion) {
                     $relSoloEditor();
                     Releases::borrarRevision((int)($_POST['id'] ?? 0));
                     $relFin(true, 'Revisión borrada.');
+
+                case 'rel_reorganizar_aplicar':
+                    // Lo que se aprobó de la reorganización: quitar tareas del ítem y moverlas a otro ítem.
+                    // Si el otro ítem es de otro equipo, quienes la hicieron quedan como colaboradores de ese trabajo.
+                    $itRl = Releases::item((int)($_POST['id'] ?? 0));
+                    if (!$itRl) throw new RuntimeException('Ese ítem ya no existe.');
+                    if (!$relSmDe((string)$itRl['equipo'])) $relFin(false, 'Solo los editores o el Scrum Master del equipo.');
+                    $cambiosRl = json_decode((string)($_POST['cambios'] ?? '[]'), true);
+                    if (!is_array($cambiosRl) || !$cambiosRl) $relFin(false, 'Marca al menos un cambio.');
+                    $actuales = array_map('intval', (array)$itRl['tareas']);
+                    $salen = [];
+                    $movidas = 0; $colabs = 0;
+                    foreach (array_slice($cambiosRl, 0, 200) as $cRl) {
+                        $tidRl = (int)($cRl['id'] ?? 0);
+                        if (!in_array($tidRl, $actuales, true)) continue;
+                        $accRl = (string)($cRl['accion'] ?? '');
+                        if ($accRl === 'quitar') { $salen[] = $tidRl; continue; }
+                        if ($accRl !== 'mover') continue;
+                        $dstRl = Releases::itemPorCodigo((string)($cRl['destino'] ?? ''));
+                        if (!$dstRl || (int)$dstRl['id'] === (int)$itRl['id']) continue;
+                        $salen[] = $tidRl;
+                        Releases::vincularTareas((int)$dstRl['id'], [$tidRl], $relYo, true);
+                        $movidas++;
+                        if ((string)$dstRl['equipo'] !== (string)$itRl['equipo'] && ($tRl = $tareas->buscar($tidRl))) {
+                            $colRl = (array)($tRl['colaboradores'] ?? []);
+                            foreach (TareaRepo::asignadosDe($tRl) as $midRl) {
+                                if (isset($colRl[(string)$midRl])) continue;
+                                $colRl[(string)$midRl] = ['por' => $relYo, 'en' => date('Y-m-d H:i'), 'nota' => mb_substr('Colabora con el equipo ' . $dstRl['equipo'] . ' en ' . $dstRl['codigo'] . ' · ' . $dstRl['titulo'], 0, 500)];
+                                $colabs++;
+                            }
+                            $tareas->actualizar($tidRl, ['colaboradores' => $colRl]);
+                        }
+                    }
+                    if ($salen) $itRl = Releases::vincularTareas((int)$itRl['id'], array_values(array_diff($actuales, $salen)), $relYo);
+                    $relFin(true, 'Listo: ' . (count($salen) - $movidas) . ' quitada(s) y ' . $movidas . ' movida(s) a su ítem'
+                        . ($colabs ? '; ' . $colabs . ' persona(s) quedaron como colaboradoras del otro equipo' : '') . '.', ['item' => $itRl]);
 
                 case 'rel_ia_aplicar':
                     $codRl = (string)($_POST['codigo'] ?? '');

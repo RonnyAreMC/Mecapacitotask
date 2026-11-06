@@ -391,7 +391,7 @@ final class ReunionesUI
     {
         echo '<header class="page-head ru-cab">'
             . '<div class="ru-cab__main">'
-            . ($volver !== '' ? '<a class="rs-boton rs-boton--icono ru-cab__volver" href="' . e($volver) . '" aria-label="' . e($volverTip) . '" data-ds-tip="' . e($volverTip) . '">' . UI::icono('ds-chevron-izq') . '</a>' : '')
+            . ($volver !== '' ? UI::volver($volver, $volverTip, 'ru-cab__volver') : '')
             . '<div class="ru-cab__txt"><h1 class="page-title font-display">' . $titulo . '</h1>'
             . ($sub !== '' ? '<p class="page-sub ru-cab__sub">' . $sub . '</p>' : '') . '</div></div>'
             . ($acciones !== '' ? '<div class="page-actions ru-cab__acc">' . $acciones . '</div>' : '')

@@ -230,7 +230,7 @@ function blSprintPagina(array $x): string
       <?php /* Cada acción una sola vez, aquí arriba (fija al bajar) */ ?>
       <?php if ($puede && $v === 'dor' && Backlog::dorPropia($pid)): ?><button type="submit" form="bls-form" name="restaurar" value="1" class="bl-cbtn" formnovalidate data-bls-restaurar aria-label="Volver a la lista de siempre"><?= rlIco('reintentar', 18) ?><span class="bl-cbtn__lbl">Lista de siempre</span></button><?php endif; ?>
       <?php if ($puede): ?><button type="submit" form="bls-form" class="bl-cbtn"><?= rlIco('check', 18) ?><span class="bl-cbtn__lbl"><?= ['plan' => 'Guardar la planificación', 'retro' => 'Guardar la retrospectiva', 'dor' => 'Guardar la lista'][$v] ?></span></button><?php endif; ?>
-      <a class="bl-cbtn" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints"><svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg><span class="bl-cbtn__lbl">Volver</span></a>
+      <?= UI::volver($urlProy, 'Volver a los sprints') ?>
     </div>
   </header>
   <nav class="rl-subnav" aria-label="Qué ver del sprint">

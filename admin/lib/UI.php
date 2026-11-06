@@ -787,6 +787,18 @@ if (is_file(__DIR__ . '/Tutoriales.php') && Auth::usuario() && !verComo()) {
     }
 
     /**
+     * El «regresar» de todas las pantallas: el botón ↩ celeste, cerrado, que con el
+     * hover se abre y dice a dónde vuelve (.bl-cbtn en assets/ds.css). $texto: «Volver»,
+     * «Volver al proyecto»…
+     */
+    public static function volver(string $url, string $texto = 'Volver', string $clase = ''): string
+    {
+        return '<a class="bl-cbtn bl-volver' . ($clase !== '' ? ' ' . e($clase) : '') . '" href="' . e($url) . '" aria-label="' . e($texto) . '">'
+            . '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>'
+            . '<span class="bl-cbtn__lbl">' . e($texto) . '</span></a>';
+    }
+
+    /**
      * Ícono del design system (iconos/DS, trazo 1.6) con su tamaño, para los
      * componentes .mc-*: 20 px en botones y menú, 16 en etiquetas, 24 en
      * encabezados. Hereda el color del texto.

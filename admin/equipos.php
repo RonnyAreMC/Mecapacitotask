@@ -36,7 +36,7 @@ UI::cabecera(
     'Organizar <span class="text-secondary">equipos</span>',
     'Arrastra a cada persona a la columna de su equipo: se guarda al soltarla.',
     $desde !== ''
-        ? '<a class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--md" href="equipo.php?e=' . e($desde) . '">' . UI::iconoDS('chevron-izq', 18) . '<span class="mc-btn__label">Volver a ' . e($equipos[$desde][0]) . '</span></a>'
+        ? UI::volver('equipo.php?e=' . $desde, 'Volver a ' . $equipos[$desde][0])
         : '',
     'entrada-equipo'
 );

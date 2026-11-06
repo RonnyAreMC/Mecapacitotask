@@ -95,7 +95,7 @@ if ($verId) {
     ?>
 <div class="ru vt vt--ver">
   <div class="vt-barra">
-    <a class="rs-boton rs-boton--icono ru-cab__volver" href="<?= e($volverLista) ?>" aria-label="Volver a las grabaciones" data-ds-tip="Volver a las grabaciones"><?= UI::icono('ds-chevron-izq') ?></a>
+    <?= UI::volver($volverLista, 'Volver a las grabaciones', 'ru-cab__volver') ?>
     <span class="vt-barra__t">Videos</span>
     <span class="ru-sep" aria-hidden="true">·</span>
     <?= ReunionesUI::chipProyecto($p, 'reuniones.php?p=' . $pid) ?>

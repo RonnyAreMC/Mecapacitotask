@@ -1567,4 +1567,78 @@
     const u = new URL(location.href);
     if (!u.searchParams.get('d')) { u.searchParams.set('d', hashDet); u.hash = ''; location.replace(u.toString()); }
   }
+
+  /* ---------- Reorganizar las tareas de un ítem con IA ----------
+     La IA (rel_ia_reorganizar) revisa cada tarea vinculada frente al alcance, las fechas y
+     los ítems de todos los releases y equipos; aquí se aprueba qué se aplica
+     (rel_reorganizar_aplicar): quitar del ítem o moverla a su ítem (si es de otro equipo,
+     quienes la hicieron quedan como colaboradores). Lo que «queda» no se toca. */
+  let dlgRo = null;
+  const armarRo = () => {
+    if (dlgRo) return dlgRo;
+    dlgRo = document.createElement('dialog');
+    dlgRo.className = 'ds-modal rl-reorg-dlg';
+    dlgRo.setAttribute('aria-labelledby', 'rl-ro-t');
+    dlgRo.innerHTML = '<div class="ds"><header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul">' + ico('ia', 18) + '</span>'
+      + '<div><h2 class="ds-modal__title" id="rl-ro-t" data-ro-tit>Reorganizar tareas</h2><p class="ds-modal__sub">La IA propone; tú eliges qué se aplica. Lo que queda no se toca.</p></div></header>'
+      + '<div class="ds-modal__body"><div class="rl-ro__cargando" data-ro-cargando><span class="rl-ro__spin" aria-hidden="true"></span><b>La IA está revisando cada tarea frente al alcance, las fechas y los ítems de los demás releases y equipos…</b></div>'
+      + '<p class="rl-ro__error" data-ro-error hidden></p><div data-ro-cuerpo hidden></div></div>'
+      + '<footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-ro-cerrar><span class="mc-btn__label">Cancelar</span></button>'
+      + '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-ro-aplicar disabled>' + ico('check', 18) + '<span class="mc-btn__label" data-ro-n>Aplicar</span></button></footer></div>';
+    document.body.appendChild(dlgRo);
+    dlgRo.addEventListener('click', (e) => { if (e.target === dlgRo || e.target.closest('[data-ro-cerrar]')) dlgRo.close(); });
+    dlgRo.addEventListener('change', () => contarRo());
+    return dlgRo;
+  };
+  const contarRo = () => {
+    const n = dlgRo.querySelectorAll('[data-ro-op]:checked').length;
+    dlgRo.querySelector('[data-ro-n]').textContent = n ? 'Aplicar ' + n + ' cambio' + (n === 1 ? '' : 's') : 'Marca al menos un cambio';
+    dlgRo.querySelector('[data-ro-aplicar]').disabled = !n;
+  };
+  let roItem = 0;
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-rl-reorg]');
+    if (!b) return;
+    const d = armarRo();
+    roItem = +b.dataset.rlReorg;
+    d.querySelector('[data-ro-tit]').textContent = 'Reorganizar las tareas de ' + (b.dataset.codigo || 'este ítem');
+    const carg = d.querySelector('[data-ro-cargando]'), err = d.querySelector('[data-ro-error]'), cuerpo = d.querySelector('[data-ro-cuerpo]');
+    carg.hidden = false; err.hidden = true; cuerpo.hidden = true;
+    d.querySelector('[data-ro-aplicar]').disabled = true;
+    d.showModal();
+    let j;
+    try { j = await post('rel_ia_reorganizar', { id: roItem }); } catch (ex) { carg.hidden = true; err.textContent = ex.message; err.hidden = false; return; }
+    carg.hidden = true;
+    const ts = j.tareas || [];
+    const grupo = (acc, tit, txt) => {
+      const l = ts.filter((t) => t.accion === acc);
+      if (!l.length) return '';
+      return '<section class="rl-ro__grupo is-' + acc + '"><h3>' + tit + ' <span class="rl-n">' + l.length + '</span></h3><p>' + txt + '</p><ul>'
+        + l.map((t) => '<li class="rl-ro__op">'
+          + (acc !== 'queda' ? '<label class="rl-ro__chk"><input type="checkbox" checked data-ro-op data-id="' + t.id + '" data-accion="' + acc + '" data-destino="' + esc(t.destino) + '"><span class="rl-multi__caja" aria-hidden="true">' + ico('check', 12) + '</span></label>' : '<span class="rl-ro__ok" aria-hidden="true">' + ico('check', 14) + '</span>')
+          + '<div class="rl-ro__txt"><b>#' + t.id + ' ' + esc(t.titulo) + '</b><small>' + esc(t.motivo) + (t.quien ? ' · ' + esc(t.quien) : '') + '</small>'
+          + (acc === 'mover' ? '<span class="rl-ro__dest">' + ico('ruta', 14) + ' a <b>' + esc(t.destino) + '</b> · ' + esc(t.destino_titulo) + (t.otro_equipo ? ' · <em>equipo ' + esc(t.destino_equipo) + ': quedan como colaboradores</em>' : '') + '</span>' : '')
+          + '</div></li>').join('') + '</ul></section>';
+    };
+    cuerpo.innerHTML = (j.resumen ? '<p class="rl-ro__resumen">' + esc(j.resumen) + '</p>' : '')
+      + grupo('quitar', 'Quitar del ítem', 'No son de ningún ítem del plan.')
+      + grupo('mover', 'Mover a su ítem', 'Son de otro ítem (de otro release o de otro equipo).')
+      + grupo('queda', 'Se quedan', 'Tratan de verdad este ítem.');
+    cuerpo.hidden = false;
+    contarRo();
+  });
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-ro-aplicar]');
+    if (!b || !dlgRo) return;
+    const cambios = [...dlgRo.querySelectorAll('[data-ro-op]:checked')].map((c) => ({ id: +c.dataset.id, accion: c.dataset.accion, destino: c.dataset.destino }));
+    if (!cambios.length) return;
+    b.disabled = true;
+    try {
+      const j = await post('rel_reorganizar_aplicar', { id: roItem, cambios: JSON.stringify(cambios) });
+      toast(j.mensaje || 'Listo.');
+      dlgRo.close();
+      setTimeout(() => location.reload(), 900);
+    } catch (ex) { b.disabled = false; toast(ex.message, 'error'); }
+  });
+
 })();
