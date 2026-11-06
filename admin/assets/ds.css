@@ -6054,3 +6054,32 @@ details.bl-sec[open] > .bl-sec__cab .mc-icon:first-child { transform: rotate(90d
 .bl-rel { display: flex; align-items: center; gap: 10px; min-width: min(100%, 380px); }
 .bl-rel__rot { color: var(--ink-muted); font-size: .82rem; font-weight: 600; }
 .bl-rel .mc-select { flex: 1; min-width: 0; }
+
+/* ---------- Revisión: cada ítem en su pantalla (&fila=N), con todo el espacio para revisarlo ---------- */
+.rl-revdet { display: flex; align-items: center; gap: 14px; padding: 16px 18px; border-radius: 14px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); }
+.rl-revdet__txt { flex: 1; min-width: 0; }
+.rl-revdet__kicker { margin: 0 0 2px; color: var(--ink-muted); font-size: .8rem; }
+.rl-revdet__txt h2 { margin: 0; color: var(--ink); font-size: 1.25rem; font-weight: 700; line-height: 1.3; }
+.rl-revdet__nav { display: flex; gap: 6px; }
+.rl-rev--detalle { grid-template-columns: minmax(0, 1fr); }
+.rl-rev--detalle .rl-rev__guia { display: none; }
+.rl-rfila--detalle .rl-rfila__cab { cursor: default; }
+.rl-rfila--detalle .rl-rfila__cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(400px, 1.05fr); gap: 20px; align-items: start; }
+.rl-rfila--detalle .rl-rfila__revisar { display: flex; flex-direction: column; gap: 10px; }
+.rl-rfila--detalle .rl-rfila__txt { font-size: .9rem; line-height: 1.55; white-space: pre-line; }
+.rl-rfila--detalle .rl-rfila__obs textarea { min-height: 180px; font-size: .92rem; line-height: 1.55; }
+.rl-rfila__nada { margin: 0; color: var(--ink-subtle); font-size: .82rem; }
+.rl-det-tareas, .rl-det-antes { display: flex; flex-direction: column; gap: 6px; margin: 0; padding: 0; list-style: none; }
+.rl-det-tareas a { display: flex; align-items: flex-start; gap: 10px; padding: 8px 10px; border-radius: 10px; background: var(--surface); color: inherit; text-decoration: none; box-shadow: 0 0 0 1px var(--line); }
+.rl-det-tareas a:hover { background: var(--surface-hover); }
+.rl-det-tareas__est { display: inline-grid; place-items: center; flex: none; width: 24px; height: 24px; border-radius: 50%; background: var(--surface-sunken); color: var(--ink-muted); }
+.rl-det-tareas li.is-hecha .rl-det-tareas__est { background: var(--col-ok-bg); color: var(--col-ok-fg); }
+.rl-det-tareas__txt { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.rl-det-tareas__txt b { color: var(--ink); font-size: .84rem; font-weight: 600; }
+.rl-det-tareas__txt small { color: var(--ink-muted); font-size: .76rem; }
+.rl-det-antes li { display: flex; flex-direction: column; gap: 4px; padding: 10px 12px; border-radius: 10px; background: var(--surface); box-shadow: 0 0 0 1px var(--line); font-size: .82rem; }
+.rl-det-antes a { color: var(--ink); text-decoration: none; }
+.rl-det-antes a:hover { color: var(--primary-ink); text-decoration: underline; }
+.rl-det-antes p { margin: 0; color: var(--ink); line-height: 1.5; }
+.rl-revdet__pie { position: sticky; bottom: 0; z-index: 2; padding: 12px 0; background: linear-gradient(to top, var(--bg, var(--surface-sunken)) 70%, transparent); }
+@media (max-width: 980px) { .rl-rfila--detalle .rl-rfila__cuerpo { grid-template-columns: minmax(0, 1fr); } }

@@ -1607,12 +1607,36 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             $comoVan[in_array($t, ['vencido', 'bloqueado'], true) ? 'atrasado' : ($t === 'sin_fecha' ? 'futuro' : $t)]++;
         }
         $externos = (array)($rev['externos'] ?? []);
+        // Un ítem de la sesión en su propia pantalla (&fila=N): todo su detalle y el espacio para revisarlo
+        $nFilas = count((array)$rev['filas']);
+        $filaDet = isset($_GET['fila']) && ctype_digit((string)$_GET['fila']) && (int)$_GET['fila'] < $nFilas ? (int)$_GET['fila'] : -1;
+        $urlRev = rlUrl(['v' => 'revision', 'id' => (int)$rev['id']]);
+        $urlFila = fn(int $n) => rlUrl(['v' => 'revision', 'id' => (int)$rev['id'], 'fila' => (string)$n]);
 ?>
   <nav class="mc-crumbs rl-migas" aria-label="Estás en">
     <a class="mc-crumbs__link" href="<?= e(rlUrl(['v' => 'revisiones', 's' => $lunesR])) ?>">Revisiones</a><span class="mc-crumbs__sep">/</span>
     <a class="mc-crumbs__link" href="<?= e(rlUrl(['v' => 'revisiones', 's' => $lunesR])) ?>">Semana del <?= e(rlF($lunesR)) ?></a><span class="mc-crumbs__sep">/</span>
+    <?php if ($filaDet >= 0): ?>
+    <a class="mc-crumbs__link" href="<?= e($urlRev) ?>"><?= e($rev['equipo']) ?> · <?= e(rlF($rev['fecha'])) ?></a><span class="mc-crumbs__sep">/</span>
+    <span class="mc-crumbs__cur"><?= e((string)$rev['filas'][$filaDet]['codigo']) ?></span>
+    <?php else: ?>
     <span class="mc-crumbs__cur"><?= e($rev['equipo']) ?> · <?= e(rlF($rev['fecha'])) ?></span>
+    <?php endif; ?>
   </nav>
+
+  <?php if ($filaDet >= 0): $fD = (array)$rev['filas'][$filaDet]; ?>
+  <header class="rl-revdet" style="--rc:<?= e(rlColorEq($eqs, $rev['equipo'])) ?>">
+    <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e($urlRev) ?>" aria-label="Volver a la revisión" data-ds-tip="Volver a la revisión"><?= rlIco('chevron-izq', 18) ?></a>
+    <div class="rl-revdet__txt">
+      <p class="rl-revdet__kicker">Revisión <?= e($rev['equipo']) ?> · <?= e(ucfirst(rlFL($rev['fecha'], true))) ?> · <?= e((string)$rev['hora']) ?> · ítem <?= $filaDet + 1 ?> de <?= $nFilas ?></p>
+      <h2 class="font-display"><?= e((string)($fD['titulo'] ?: $fD['codigo'])) ?></h2>
+    </div>
+    <nav class="rl-revdet__nav" aria-label="Otros ítems de la sesión">
+      <a class="mc-iconbtn mc-iconbtn--tinte<?= $filaDet > 0 ? '' : ' is-off' ?>" href="<?= $filaDet > 0 ? e($urlFila($filaDet - 1)) : '#' ?>" aria-label="Ítem anterior" data-ds-tip="Ítem anterior"><?= rlIco('chevron-arriba', 18) ?></a>
+      <a class="mc-iconbtn mc-iconbtn--tinte<?= $filaDet < $nFilas - 1 ? '' : ' is-off' ?>" href="<?= $filaDet < $nFilas - 1 ? e($urlFila($filaDet + 1)) : '#' ?>" aria-label="Ítem siguiente" data-ds-tip="Ítem siguiente"><?= rlIco('chevron-abajo', 18) ?></a>
+    </nav>
+  </header>
+  <?php else: ?>
 
   <section class="mc-card rl-hero rl-hero--rev" style="--rc:<?= e(rlColorEq($eqs, $rev['equipo'])) ?>">
     <div class="rl-hero__main">
@@ -1672,22 +1696,22 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
   <div class="rl-ia-slot" data-rl-resumen>
     <?php if (!empty($rev['resumen_ia'])): ?><script type="application/json" data-rl-resumen-datos><?= json_encode($rev['resumen_ia'], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script><?php endif; ?>
   </div>
+  <?php endif; ?>
 
-  <div class="rl-rev">
+  <div class="rl-rev<?= $filaDet >= 0 ? ' rl-rev--detalle' : '' ?>">
     <form class="rl-rev__main" method="post" action="actions.php" data-rl-rev-form data-feriados="<?= e(json_encode(array_keys(Feriados::mapa()))) ?>">
       <input type="hidden" name="accion" value="rel_revision_guardar">
       <input type="hidden" name="id" value="<?= (int)$rev['id'] ?>">
-      <input type="hidden" name="volver" value="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$rev['id']])) ?>">
+      <input type="hidden" name="volver" value="<?= e($filaDet >= 0 ? $urlFila($filaDet) : $urlRev) ?>">
       <div class="rl-rev__filas">
       <?php
-        // Acordeón: abre la primera fila sin revisar (o la primera); las demás, plegadas
-        $abiertaRl = 0;
-        foreach ((array)$rev['filas'] as $iA => $fA) { if (($fA['estado'] ?? 'pendiente') === 'pendiente') { $abiertaRl = $iA; break; } }
-        foreach ((array)$rev['filas'] as $i => $f):
+        // Cada ítem de la sesión: en la lista, plegado (tocarlo abre su pantalla; la flecha, la
+        // edición rápida aquí mismo), o en su propia pantalla (&fila=N), con todo el espacio
+        $abiertaRl = -1;
+        $pintarFila = function (int $i, array $f, bool $detalle) use ($itemsF, $fechasF, $rels, $rev, $hoy, $puedeReg, $abiertaRl, $tareas, $estadosTarea, $finales, $miembros, $apariciones, $proyMapa): string {
           $it = $itemsF[$i];
           $fx = $fechasF[$i];
-          $tipoCorto = preg_replace('/\s*\(.*$/', '', (string)$f['tipo']) ?: 'Revisión'; ?>
-        <?php
+          $tipoCorto = preg_replace('/\s*\(.*$/', '', (string)$f['tipo']) ?: 'Revisión';
           // Lo que hay que mirar de este ítem y lo que ya se sabe de él (lo esperado, cómo va, sus tareas)
           $estadoF  = isset(Releases::RESULTADOS[$f['estado'] ?? '']) ? $f['estado'] : 'pendiente';
           $esperado = $fx['esperado'];
@@ -1701,9 +1725,9 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               ['check', 'Evidencia', (string)($f['evidencia'] ?? '')],
           ], fn($x) => trim($x[2]) !== '');
           $pctF = $f['pct'] === null ? '' : (int)$f['pct'];
-        ?>
-        <article class="rl-rfila rl-r--<?= e($estadoF) ?><?= $i === $abiertaRl ? ' is-abierta' : '' ?>" data-rl-rfila data-esperado="<?= $esperado === null ? '' : (int)$esperado ?>"<?= $esCierre ? ' data-cierre' : '' ?>>
-          <header class="rl-rfila__cab" data-rl-acordeon>
+          ob_start(); ?>
+        <article class="rl-rfila rl-r--<?= e($estadoF) ?><?= $detalle || $i === $abiertaRl ? ' is-abierta' : '' ?><?= $detalle ? ' rl-rfila--detalle' : '' ?>" data-rl-rfila data-esperado="<?= $esperado === null ? '' : (int)$esperado ?>"<?= $esCierre ? ' data-cierre' : '' ?>>
+          <header class="rl-rfila__cab"<?= $detalle ? '' : ' data-rl-acordeon data-rl-ir="' . e(rlUrl(['v' => 'revision', 'id' => (int)$rev['id'], 'fila' => (string)$i])) . '" data-ds-tip="Abrir para revisarlo con todo el detalle"' ?>>
             <?= rlCode((string)$f['codigo'], rlColorRel($rels, (string)$f['codigo'])) ?>
             <div class="rl-rfila__tit">
               <?php if ($it): ?><a href="<?= e(rlUrl(['v' => 'item', 'id' => (int)$it['id']])) ?>" data-rl-item="<?= (int)$it['id'] ?>"><?= e($f['titulo'] ?: $it['titulo']) ?></a><?php else: ?><b><?= e($f['titulo'] ?: $f['codigo']) ?></b><?php endif; ?>
@@ -1718,25 +1742,67 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             </span>
             <span class="rl-rfila__acc">
               <?php if ($puedeReg): ?><button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-rl-quitar="<?= (int)$i ?>" aria-label="Quitar de la sesión" data-ds-tip="Quitar de la sesión"><?= rlIco('eliminar', 15) ?></button><?php endif; ?>
-              <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte rl-rfila__abrir" data-rl-abrir-fila aria-expanded="<?= $i === $abiertaRl ? 'true' : 'false' ?>" aria-controls="rl-rf-<?= (int)$i ?>" aria-label="Abrir o cerrar <?= e((string)$f['codigo']) ?>"><?= rlIco('chevron-abajo', 18) ?></button>
+              <?php if (!$detalle): ?>
+              <a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte" href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$rev['id'], 'fila' => (string)$i])) ?>" aria-label="Revisar <?= e((string)$f['codigo']) ?> en su pantalla" data-ds-tip="Revisar con todo el detalle"><?= rlIco('expandir', 16) ?></a>
+              <button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte rl-rfila__abrir" data-rl-abrir-fila aria-expanded="<?= $i === $abiertaRl ? 'true' : 'false' ?>" aria-controls="rl-rf-<?= (int)$i ?>" aria-label="Edición rápida de <?= e((string)$f['codigo']) ?>" data-ds-tip="Edición rápida aquí"><?= rlIco('chevron-abajo', 18) ?></button>
+              <?php endif; ?>
             </span>
           </header>
           <?= rlFechasFila($fx, (string)$rev['fecha'], $hoy) ?>
           <div class="rl-rfila__cuerpo" id="rl-rf-<?= (int)$i ?>">
-            <?php if ($revisar || $integra): ?>
+            <?php if ($revisar || $integra || $detalle): ?>
             <div class="rl-rfila__revisar">
               <p class="rl-rfila__rot">Qué revisar</p>
               <ul class="rl-rfila__lista">
                 <?php foreach ($revisar as [$ico, $lbl, $txt]): ?>
                 <li><span class="rl-rfila__ico" aria-hidden="true"><?= rlIco($ico, 14) ?></span>
-                  <div><span class="rl-rfila__lbl"><?= e($lbl) ?></span><p class="rl-rfila__txt" data-rl-recorte><?= e($txt) ?></p></div></li>
+                  <div><span class="rl-rfila__lbl"><?= e($lbl) ?></span><p class="rl-rfila__txt"<?= $detalle ? '' : ' data-rl-recorte' ?>><?= e($txt) ?></p></div></li>
                 <?php endforeach; ?>
                 <?php if ($integra): ?>
                 <li><span class="rl-rfila__ico" aria-hidden="true"><?= rlIco('relacionar', 14) ?></span>
                   <div><span class="rl-rfila__lbl">Integraciones a verificar</span>
                     <span class="rl-rfila__chips"><?php foreach ($integra as $x): ?><span class="rl-chipi"><?= e($x) ?></span><?php endforeach; ?></span></div></li>
                 <?php endif; ?>
+                <?php if ($detalle && !$revisar && !$integra): ?><li class="rl-rfila__nada">El cronograma no dice qué revisar en esta sesión.</li><?php endif; ?>
               </ul>
+              <?php if ($detalle && $it):
+                // En su pantalla: lo que es el ítem, sus tareas y lo que se dijo en las revisiones anteriores
+                $mapaTd = $tareas();
+                $tsD = array_values(array_filter(array_map(fn($id) => $mapaTd[(int)$id] ?? null, (array)$it['tareas'])));
+                $antes = array_values(array_filter($apariciones($it), fn($a) => (int)$a['r']['id'] !== (int)$rev['id'] && $a['r']['fecha'] <= $rev['fecha']));
+                usort($antes, fn($a, $b) => strcmp($b['r']['fecha'], $a['r']['fecha']));
+                $del = array_filter([['ruta', 'Alcance', (string)($it['alcance'] ?? '')], ['exito', 'Qué debe demostrarse', (string)($it['demostrar'] ?? '')],
+                                     ['relacionar', 'Depende de', (string)($it['dependencias'] ?? '')], ['microservicios', 'Microservicio', (string)($it['microservicio'] ?? '')]], fn($x) => trim($x[2]) !== ''); ?>
+              <?php if ($del): ?>
+              <p class="rl-rfila__rot">Del ítem</p>
+              <ul class="rl-rfila__lista">
+                <?php foreach ($del as [$ico, $lbl, $txt]): ?>
+                <li><span class="rl-rfila__ico" aria-hidden="true"><?= rlIco($ico, 14) ?></span><div><span class="rl-rfila__lbl"><?= e($lbl) ?></span><p class="rl-rfila__txt"><?= nl2br(e($txt)) ?></p></div></li>
+                <?php endforeach; ?>
+              </ul>
+              <?php endif; ?>
+              <p class="rl-rfila__rot">Sus tareas <span class="rl-n"><?= count($tsD) ?></span></p>
+              <?php if ($tsD): ?>
+              <ul class="rl-det-tareas">
+                <?php foreach ($tsD as $tD): $finD = in_array($tD['estado'] ?? '', $finales, true); ?>
+                <li class="<?= $finD ? 'is-hecha' : '' ?>"><a href="proyecto.php?id=<?= (int)$tD['proyecto_id'] ?>&amp;tarea=<?= (int)$tD['id'] ?>">
+                  <span class="rl-det-tareas__est"><?= $finD ? rlIco('check', 14) : rlIco('reloj', 14) ?></span>
+                  <span class="rl-det-tareas__txt"><b>#<?= (int)$tD['id'] ?> <?= e((string)$tD['titulo']) ?></b>
+                    <small><?= e((string)($estadosTarea[$tD['estado'] ?? ''][0] ?? '')) ?><?= ($n = implode(', ', array_filter(array_map(fn($m) => (string)($miembros[(int)$m]['nombre'] ?? ''), TareaRepo::asignadosDe($tD))))) !== '' ? ' · ' . e($n) : '' ?><?= ($tD['fecha_limite'] ?? '') !== '' ? ' · límite ' . e(rlF($tD['fecha_limite'])) : '' ?><?= isset($proyMapa[(int)$tD['proyecto_id']]) ? ' · ' . e($proyMapa[(int)$tD['proyecto_id']]['nombre']) : '' ?></small></span></a></li>
+                <?php endforeach; ?>
+              </ul>
+              <?php else: ?><p class="rl-rfila__nada">No tiene tareas del panel vinculadas.</p><?php endif; ?>
+              <p class="rl-rfila__rot">En revisiones anteriores <span class="rl-n"><?= count($antes) ?></span></p>
+              <?php if ($antes): ?>
+              <ol class="rl-det-antes">
+                <?php foreach (array_slice($antes, 0, 8) as $a): $kA = isset(Releases::RESULTADOS[$a['f']['estado'] ?? '']) ? $a['f']['estado'] : 'pendiente'; ?>
+                <li><a href="<?= e(rlUrl(['v' => 'revision', 'id' => (int)$a['r']['id']])) ?>"><b><?= e(rlFL($a['r']['fecha'], false)) ?></b> · <?= e((string)$a['f']['tipo']) ?></a>
+                  <span class="rl-rfila__res rl-r--<?= e($kA) ?>"><i aria-hidden="true"></i><b><?= e(Releases::RESULTADOS[$kA][0]) ?></b><?= ($a['f']['pct'] ?? null) !== null ? ' · ' . (int)$a['f']['pct'] . ' %' : '' ?></span>
+                  <?php if (trim((string)($a['f']['obs'] ?? '')) !== ''): ?><p><?= nl2br(e((string)$a['f']['obs'])) ?></p><?php endif; ?></li>
+                <?php endforeach; ?>
+              </ol>
+              <?php else: ?><p class="rl-rfila__nada">Es la primera vez que se revisa.</p><?php endif; ?>
+              <?php endif; ?>
             </div>
             <?php endif; ?>
             <div class="rl-rfila__resultado">
@@ -1797,7 +1863,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
               </div>
               <div class="rl-rfila__obs">
                 <label class="rl-rfila__lbl" for="rl-obs-<?= (int)$i ?>">Observaciones</label>
-                <div class="mc-input mc-input--multiline mc-input--sm"><textarea class="mc-input__control rl-textarea" id="rl-obs-<?= (int)$i ?>" name="filas[<?= (int)$i ?>][obs]" rows="2" data-rl-crece placeholder="• Qué se vio y qué falta…"<?= $puedeReg ? '' : ' disabled' ?>><?= e((string)($f['obs'] ?? '')) ?></textarea></div>
+                <div class="mc-input mc-input--multiline mc-input--sm"><textarea class="mc-input__control rl-textarea" id="rl-obs-<?= (int)$i ?>" name="filas[<?= (int)$i ?>][obs]" rows="<?= $detalle ? 8 : 2 ?>" data-rl-crece placeholder="• Qué se vio y qué falta…"<?= $puedeReg ? '' : ' disabled' ?>><?= e((string)($f['obs'] ?? '')) ?></textarea></div>
                 <?php if ($puedeReg): ?>
                 <div class="rl-frases" aria-label="Frases rápidas">
                   <?php foreach (['Falta evidencia', 'Falta de requerimientos', 'Falta integrar', 'Bloqueado por UBE'] as $fr): ?>
@@ -1809,10 +1875,25 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             </div>
           </div>
         </article>
-      <?php endforeach; ?>
+        <?php return (string)ob_get_clean();
+        };
+        if ($filaDet >= 0) echo $pintarFila($filaDet, (array)$rev['filas'][$filaDet], true);
+        else foreach ((array)$rev['filas'] as $i => $f) echo $pintarFila((int)$i, (array)$f, false); ?>
       <?php if (!$rev['filas']): ?><p class="rl-vacio-txt"><?= rlIco('info', 16) ?> Esta sesión todavía no tiene ítems. Agrégalos abajo.</p><?php endif; ?>
       </div>
 
+      <?php if ($filaDet >= 0): /* en la pantalla del ítem: guardar solo este ítem y seguir con el siguiente */ ?>
+      <?php if ($puedeReg): ?>
+      <div class="rl-rev__pie rl-revdet__pie">
+        <span class="rl-rev__aviso" data-rl-rev-sucio hidden><?= rlIco('info', 16) ?> Hay cambios sin guardar</span>
+        <a class="mc-btn mc-btn--ghost" href="<?= e($urlRev) ?>"><span class="mc-btn__label">Volver a la revisión</span></a>
+        <button type="submit" class="mc-btn mc-btn--secondary"><?= rlIco('check', 18) ?><span class="mc-btn__label">Guardar</span></button>
+        <button type="button" class="mc-btn mc-btn--primary" data-rl-guardar-ir="<?= e($filaDet < $nFilas - 1 ? $urlFila($filaDet + 1) : $urlRev) ?>"><span class="mc-btn__label"><?= $filaDet < $nFilas - 1 ? 'Guardar y seguir con el siguiente' : 'Guardar y volver a la revisión' ?></span><?= rlIco('chevron-der', 18) ?></button>
+      </div>
+      <?php else: ?>
+      <div class="rl-rev__pie rl-revdet__pie"><a class="mc-btn mc-btn--secondary" href="<?= e($urlRev) ?>"><?= rlIco('chevron-izq', 18) ?><span class="mc-btn__label">Volver a la revisión</span></a></div>
+      <?php endif; ?>
+      <?php else: ?>
       <?php if ($puedeReg && $paraAgregar): ?>
       <div class="rl-agregar">
         <span class="rl-filtros__rot">Agregar ítem a la sesión</span>
@@ -1875,6 +1956,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       </div>
       <p class="rl-rev__nota"><?= rlIco('info', 15) ?> Al registrarla, el % real pasa al avance de cada ítem, un «Cumplido» en un cierre termina el ítem y se avisa al equipo.</p>
       <?php endif; ?>
+      <?php endif; /* fin de la lista de la sesión */ ?>
     </form>
 
     <?php if ($puedeReg): ?>

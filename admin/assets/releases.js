@@ -850,6 +850,8 @@
       if (!cab) return;
       cab.addEventListener('click', (e) => {
         if (e.target.closest('a, [data-rl-quitar]')) return;
+        // Tocar el ítem abre su pantalla (con todo el espacio); la flecha, la edición rápida aquí
+        if (cab.dataset.rlIr && !e.target.closest('[data-rl-abrir-fila]')) { location.href = cab.dataset.rlIr; return; }
         alternar(fila);
       });
     });
@@ -992,6 +994,12 @@
       try { const j = await guardar(revForm.querySelector('[type="submit"]')); if (j) { marcar(false); toast(j.mensaje || 'Revisión guardada.'); } } catch (err) { toast(err.message, 'error'); }
     });
     revForm.addEventListener('click', async (e) => {
+      // En la pantalla de un ítem: guardar solo ese ítem y pasar al siguiente (o volver a la revisión)
+      const gi = e.target.closest('[data-rl-guardar-ir]');
+      if (gi) {
+        try { const j = await guardar(gi); if (j) { marcar(false); toast(j.mensaje || 'Guardado.'); setTimeout(() => { location.href = gi.dataset.rlGuardarIr; }, 350); } } catch (err) { toast(err.message, 'error'); }
+        return;
+      }
       const reg = e.target.closest('[data-rl-registrar]');
       if (reg) {
         const pend = [...revForm.querySelectorAll('[data-rl-rfila]')].filter((f) => !f.querySelector('input[type="radio"]:checked') || f.querySelector('input[type="radio"]:checked').value === 'pendiente').length;
