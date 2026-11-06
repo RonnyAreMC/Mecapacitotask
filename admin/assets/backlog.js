@@ -312,3 +312,41 @@
   }
   if (rep) rep.addEventListener('click', (e) => { if (e.target === rep) rep.close(); });
 })();
+
+/* ---------- Listas largas de la historia (sus tareas): por páginas, para que no crezcan sin fin ----------
+   El mismo paginador que Releases (.rl-pag): las páginas cerca de la actual, la primera y la última. */
+(() => {
+  const IZQ = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+  const DER = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+  document.querySelectorAll('ul[data-bl-paginar]').forEach((ul) => {
+    const por = Math.max(1, parseInt(ul.dataset.blPaginar, 10) || 5);
+    const items = [...ul.children];
+    if (items.length <= por) return;
+    const total = Math.ceil(items.length / por);
+    const nav = document.createElement('nav');
+    nav.className = 'rl-pag bl-pag';
+    nav.setAttribute('aria-label', 'Páginas de tareas');
+    ul.after(nav);
+    const ir = (p) => {
+      items.forEach((li, i) => { li.hidden = i < p * por || i >= (p + 1) * por; });
+      const nums = [...new Set([0, total - 1, p - 1, p, p + 1].filter((x) => x >= 0 && x < total))].sort((x, y) => x - y);
+      let h = '<span class="rl-pag__info">' + (p * por + 1) + '–' + Math.min(items.length, (p + 1) * por) + ' de ' + items.length + '</span><span class="rl-pag__btns">'
+        + '<a href="#" role="button" class="mc-iconbtn mc-iconbtn--sm' + (p === 0 ? ' is-off' : '') + '" data-p="' + (p - 1) + '"' + (p === 0 ? ' aria-disabled="true"' : '') + ' aria-label="Página anterior">' + IZQ + '</a>';
+      nums.forEach((x, i) => {
+        if (i && x - nums[i - 1] > 1) h += '<span class="rl-pag__sep">…</span>';
+        h += '<a href="#" role="button" class="rl-pag__n' + (x === p ? ' is-on' : '') + '" data-p="' + x + '"' + (x === p ? ' aria-current="page"' : '') + '>' + (x + 1) + '</a>';
+      });
+      nav.innerHTML = h + '<a href="#" role="button" class="mc-iconbtn mc-iconbtn--sm' + (p === total - 1 ? ' is-off' : '') + '" data-p="' + (p + 1) + '"' + (p === total - 1 ? ' aria-disabled="true"' : '') + ' aria-label="Página siguiente">' + DER + '</a></span>';
+    };
+    nav.addEventListener('click', (e) => {
+      // Enlaces y no botones: dentro de un formulario de solo lectura (fieldset deshabilitado) siguen andando
+      const b = e.target.closest('[data-p]');
+      if (!b) return;
+      e.preventDefault();
+      if (b.getAttribute('aria-disabled') === 'true') return;
+      ir(Math.max(0, Math.min(total - 1, +b.dataset.p)));
+      ul.scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'nearest' });
+    });
+    ir(0);
+  });
+})();

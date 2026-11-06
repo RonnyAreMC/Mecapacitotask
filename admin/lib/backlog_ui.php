@@ -461,9 +461,12 @@ function blFormHistoria(array $x): string
         </header>
         <div class="rl-pan__cuerpo bl-hu__cuerpo">
           <?php if ($puede && !$nueva): ?><input type="hidden" name="ia_tareas" value="" data-bl-ia-campo><?php endif; ?>
-          <?php $deHu = array_values(array_filter(array_map(fn($tid) => $porId[(int)$tid] ?? null, (array)$h['tareas']))); ?>
+          <?php $deHu = array_values(array_filter(array_map(fn($tid) => $porId[(int)$tid] ?? null, (array)$h['tareas'])));
+            // Primero las abiertas (por fecha límite), al final las terminadas; 5 por página (assets/backlog.js)
+            usort($deHu, fn($a, $b) => [in_array($a['estado'] ?? '', $finales, true), ($a['fecha_limite'] ?? '') ?: '9999', (int)$a['id']]
+                                      <=> [in_array($b['estado'] ?? '', $finales, true), ($b['fecha_limite'] ?? '') ?: '9999', (int)$b['id']]); ?>
           <?php if ($deHu): ?>
-          <ul class="bl-ht">
+          <ul class="bl-ht" data-bl-paginar="5">
             <?php foreach ($deHu as $t):
                 $fin = in_array($t['estado'] ?? '', $finales, true);
                 $lim = (string)($t['fecha_limite'] ?? '');

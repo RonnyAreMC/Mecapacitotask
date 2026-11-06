@@ -6563,3 +6563,6 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .bl-dg__vacio { display: flex; flex-wrap: wrap; align-items: center; gap: 14px 18px; padding: 18px 20px; border-radius: 10px; background: var(--surface-sunken); color: var(--primary); }
 .bl-dg__vacio p { flex: 1; min-width: 240px; margin: 0; color: var(--ink-muted); font-size: .86rem; line-height: 1.5; }
 .bl-dg__vacio p b { color: var(--ink); }
+.bl-pag a.rl-pag__n { display: inline-grid; place-items: center; text-decoration: none; }
+.bl-pag a.mc-iconbtn { text-decoration: none; }
+.bl-pag .is-off { opacity: .4; pointer-events: none; }
