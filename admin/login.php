@@ -94,7 +94,7 @@ if ($recuperar === 'codigo' && empty($_SESSION['recup'])) $recuperar = '1';
 
       <?php else: ?>
       <?php if ($primerUso): ?>
-      <?= UI::alertaDS('warning', 'Este panel todavía no tiene administrador', 'Créalo por terminal: <code>php admin/crear_admin.php</code>', false, 'ent-alerta') ?>
+      <?= UI::alertaDS('warning', 'Este panel todavía no tiene administrador', 'Créalo por terminal: <code>php admin/scripts/crear_admin.php</code>', false, 'ent-alerta') ?>
       <?php endif; ?>
 
       <?php if (GoogleLogin::listo()): ?>

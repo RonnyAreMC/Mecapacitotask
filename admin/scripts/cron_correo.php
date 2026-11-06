@@ -2,7 +2,7 @@
 /**
  * Avisos al instante de los correos InnoTech nuevos (notificación nativa).
  * Pensado para correr CADA MINUTO con un cron de cPanel:
- *   * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_correo.php
+ *   * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/scripts/cron_correo.php
  *
  * Revisa solo los buzones sincronizados de quienes tienen algún dispositivo
  * con los avisos de correo encendidos. Por cada correo nuevo sin leer manda
@@ -16,18 +16,18 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde el cron.');
 }
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 cronCallado('correo');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_correo.log
 foreach (['mail/Correo', 'notifications/Push'] as $m) {
-    if (!is_file(__DIR__ . '/lib/' . $m . '.php')) exit("Falta lib/$m.php\n");
-    require_once __DIR__ . '/lib/' . $m . '.php';
+    if (!is_file(__DIR__ . '/../lib/' . $m . '.php')) exit("Falta lib/$m.php\n");
+    require_once __DIR__ . '/../lib/' . $m . '.php';
 }
 // Para el número del ícono (avisos + correos sin leer); si falta, solo los correos
-if (is_file(__DIR__ . '/lib/notifications/Notificaciones.php')) require_once __DIR__ . '/lib/notifications/Notificaciones.php';
+if (is_file(__DIR__ . '/../lib/notifications/Notificaciones.php')) require_once __DIR__ . '/../lib/notifications/Notificaciones.php';
 @set_time_limit(55);
 
 // Una sola revisión a la vez (si una tarda más de un minuto, la siguiente espera su turno)
-$candado = fopen(__DIR__ . '/data/cron_correo.lock', 'c');
+$candado = fopen(__DIR__ . '/../data/cron_correo.lock', 'c');
 if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) exit("Ya hay una revisión en curso.\n");
 
 // 0) «Tu reunión empieza en 10 minutos» (lib/meetings/Reuniones.php): a los invitados, en la campana,
@@ -40,8 +40,8 @@ try {
     echo 'Recordatorios de reunión: ' . $e->getMessage() . "\n";
 }
 // Los recordatorios que cada quien puso en una nota de su pizarra (lib/whiteboard/Pizarra.php)
-if (is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) {
-    require_once __DIR__ . '/lib/whiteboard/Pizarra.php';
+if (is_file(__DIR__ . '/../lib/whiteboard/Pizarra.php')) {
+    require_once __DIR__ . '/../lib/whiteboard/Pizarra.php';
     try {
         $nNotas = Pizarra::avisarRecordatorios();
         if ($nNotas) echo date('Y-m-d H:i:s') . ' · recordatorios de notas: ' . $nNotas . "\n";
@@ -50,8 +50,8 @@ if (is_file(__DIR__ . '/lib/whiteboard/Pizarra.php')) {
     }
 }
 // Los recordatorios de «Mis notas» (lib/whiteboard/Notas.php): en la campana, en sus dispositivos y por correo
-if (is_file(__DIR__ . '/lib/whiteboard/Notas.php')) {
-    require_once __DIR__ . '/lib/whiteboard/Notas.php';
+if (is_file(__DIR__ . '/../lib/whiteboard/Notas.php')) {
+    require_once __DIR__ . '/../lib/whiteboard/Notas.php';
     try {
         $nMisNotas = Notas::avisarRecordatorios();
         if ($nMisNotas) echo date('Y-m-d H:i:s') . ' · recordatorios de Mis notas: ' . $nMisNotas . "\n";
@@ -63,12 +63,12 @@ if (is_file(__DIR__ . '/lib/whiteboard/Notas.php')) {
 // El horario de subidas (lib/deploys/Cronograma.php): toma los builds de GitLab y, a la hora de cada proyecto,
 // registra la subida y avisa a todos. Va al final de cada vuelta, y también si el correo está apagado.
 $cronograma = function (): string {
-    if (!is_file(__DIR__ . '/lib/deploys/Cronograma.php')) return '';
-    require_once __DIR__ . '/lib/deploys/Cronograma.php';
+    if (!is_file(__DIR__ . '/../lib/deploys/Cronograma.php')) return '';
+    require_once __DIR__ . '/../lib/deploys/Cronograma.php';
     // Releases (lib/releases/Releases.php): una vez al día, lo que vence pronto, lo atrasado, las revisiones de hoy y el resumen del lunes
     $rel = '';
-    if (is_file(__DIR__ . '/lib/releases/Releases.php')) {
-        require_once __DIR__ . '/lib/releases/Releases.php';
+    if (is_file(__DIR__ . '/../lib/releases/Releases.php')) {
+        require_once __DIR__ . '/../lib/releases/Releases.php';
         try {
             $sRel = Releases::pasoRapido();   // los ítems al día con lo que el equipo marcó en sus tareas
             $nRel = Releases::paso();
@@ -79,8 +79,8 @@ $cronograma = function (): string {
         }
     }
     // Requerimientos (lib/requirements/ReqSeguimiento.php): una vez al día, los que se pasaron de fecha, a quien da seguimiento
-    if (is_file(__DIR__ . '/lib/requirements/ReqSeguimiento.php')) {
-        require_once __DIR__ . '/lib/requirements/ReqSeguimiento.php';
+    if (is_file(__DIR__ . '/../lib/requirements/ReqSeguimiento.php')) {
+        require_once __DIR__ . '/../lib/requirements/ReqSeguimiento.php';
         try {
             $nSeg = ReqSeguimiento::paso();
             if ($nSeg) $rel .= ' · avisos de requerimientos vencidos: ' . $nSeg;
@@ -116,7 +116,7 @@ foreach ((Push::activo() ? Push::interesados('correo') : []) as $mid) {
     // El número del ícono: revisarNuevos ya dejó al día los correos sin leer
     $pend = class_exists('Notif') ? Notif::pendientes($mid) : (int)(Correo::noLeidos($mid) ?? 0);
     // Al tocarlo se abre la app del correo (correo.php); si aún no se subió, el correo dentro del panel
-    $appCorreo = is_file(__DIR__ . '/correo.php');
+    $appCorreo = is_file(__DIR__ . '/../correo.php');
     $urlUno = fn(int $uid) => $appCorreo ? 'correo.php?uid=' . $uid : 'notificaciones.php?tab=correo&uid=' . $uid;
     if (count($nuevos) > 3) {
         $avisos += Push::enviar([$mid], [
@@ -143,9 +143,9 @@ foreach ((Push::activo() ? Push::interesados('correo') : []) as $mid) {
 // 2) Requerimientos desde el correo (lib/requirements/ReqCorreo.php): los correos nuevos que
 // cumplen las reglas de cada administrador se analizan con IA y quedan
 // registrados (o listos para revisar). Pocos por vuelta: la IA tarda.
-if (is_file(__DIR__ . '/lib/requirements/ReqCorreo.php') && is_file(__DIR__ . '/lib/ai/IA.php') && is_file(__DIR__ . '/lib/ai/IAFunciones.php')) {
+if (is_file(__DIR__ . '/../lib/requirements/ReqCorreo.php') && is_file(__DIR__ . '/../lib/ai/IA.php') && is_file(__DIR__ . '/../lib/ai/IAFunciones.php')) {
     foreach (['requirements/ReqCorreo', 'ai/IA', 'ai/IAFunciones', 'notifications/Notificaciones'] as $m) {
-        if (is_file(__DIR__ . '/lib/' . $m . '.php')) require_once __DIR__ . '/lib/' . $m . '.php';
+        if (is_file(__DIR__ . '/../lib/' . $m . '.php')) require_once __DIR__ . '/../lib/' . $m . '.php';
     }
     foreach (ReqCorreo::cuentasActivas() as $mid) {
         if (time() - $inicio > 42) break;
@@ -162,8 +162,8 @@ if (is_file(__DIR__ . '/lib/requirements/ReqCorreo.php') && is_file(__DIR__ . '/
 // buzones sincronizados: así queda guardado aunque otro programa (Gmail por POP, un
 // celular con POP) lo saque del servidor después.
 $copiados = 0;
-if (is_file(__DIR__ . '/lib/mail/CorreoCopias.php')) {
-    require_once __DIR__ . '/lib/mail/CorreoCopias.php';
+if (is_file(__DIR__ . '/../lib/mail/CorreoCopias.php')) {
+    require_once __DIR__ . '/../lib/mail/CorreoCopias.php';
     foreach (array_keys(Correo::correosSincronizados()) as $mid) {
         if (time() - $inicio > 48) break;
         try {
@@ -175,5 +175,5 @@ if (is_file(__DIR__ . '/lib/mail/CorreoCopias.php')) {
 }
 
 // Para que Notificaciones → Tus dispositivos muestre que el cron está corriendo
-@file_put_contents(__DIR__ . '/data/cron_correo.json', json_encode(['t' => time(), 'avisos' => $avisos, 'requerimientos' => $reqAnalizados, 'copiados' => $copiados]));
+@file_put_contents(__DIR__ . '/../data/cron_correo.json', json_encode(['t' => time(), 'avisos' => $avisos, 'requerimientos' => $reqAnalizados, 'copiados' => $copiados]));
 echo date('Y-m-d H:i:s') . " · avisos enviados: $avisos · correos analizados para requerimientos: $reqAnalizados · copias guardadas: $copiados" . $cronograma() . "\n";

@@ -3,7 +3,7 @@
  * Migra los datos de los .json viejos a SQLite. Se ejecuta UNA vez por terminal
  * despues de actualizar (git pull). Es idempotente: si ya se migro, no repite.
  *
- *   php admin/migrar_sqlite.php
+ *   php admin/scripts/migrar_sqlite.php
  *
  * En realidad la migracion tambien ocurre sola la primera vez que se abre el
  * panel (JsonStore importa el .json al crear cada tabla). Este script sirve
@@ -15,7 +15,7 @@ if (PHP_SAPI !== 'cli') {
     exit("Este script solo se ejecuta por terminal.\n");
 }
 
-require_once __DIR__ . '/lib/core/Storage.php';
+require_once __DIR__ . '/../lib/core/Storage.php';
 
 if (!JsonStore::disponible()) {
     fwrite(STDERR, "ERROR: este PHP no tiene el driver de SQLite (pdo_sqlite).\n");
@@ -23,7 +23,7 @@ if (!JsonStore::disponible()) {
     exit(1);
 }
 
-$dir = __DIR__ . '/data';
+$dir = __DIR__ . '/../data';
 $colecciones = [];
 foreach (glob($dir . '/*.json') ?: [] as $ruta) {
     $nombre = basename($ruta, '.json');

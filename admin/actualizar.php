@@ -87,21 +87,21 @@ function actualizarPanel(array $opc): void
         'lib/reporteria/logo-color.png', 'lib/reporteria/logo-blanco.png',
         'iconos/OfficeEditing/Reporteria.svg', 'iconos/DS/ds-requerimiento.svg',
         'lib/mail/Correo.php', 'lib/mail/correo_vista.php', 'assets/entrada.js',
-        'lib/notifications/Push.php', 'sw.js', 'manifest.webmanifest', 'cron_correo.php',
+        'lib/notifications/Push.php', 'sw.js', 'manifest.webmanifest', 'scripts/cron_correo.php', 'scripts/.htaccess',
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
-        'tutoriales.php', 'lib/help/Tutoriales.php', 'lib/requirements/ReqCorreo.php', 'lib/requirements/ReqSeguimiento.php', 'arreglar_tildes.php', 'lib/releases/releases_ui.php', 'lib/integrations/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/mail/CorreoCopias.php',
+        'tutoriales.php', 'lib/help/Tutoriales.php', 'lib/requirements/ReqCorreo.php', 'lib/requirements/ReqSeguimiento.php', 'scripts/arreglar_tildes.php', 'lib/releases/releases_ui.php', 'lib/integrations/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/mail/CorreoCopias.php',
         'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg', 'iconos/ilustraciones/procesos.svg',
-        'lib/notifications/Whatsapp.php', 'cron_whatsapp.php',
+        'lib/notifications/Whatsapp.php', 'scripts/cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
         'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg', 'iconos/ilustraciones/ia-mascota.svg',
         'iconos/ilustraciones/equipo-programadores.svg', 'iconos/ilustraciones/equipo-analistas.svg',
         'equipos.php', 'iconos/DS/ds-disenadores.svg', 'iconos/ilustraciones/equipo-disenadores.svg',
         'iconos/Equipos/eq-programacion.svg', 'iconos/Equipos/eq-analistas.svg', 'iconos/Equipos/eq-disenadores.svg',
         'iconos/Archivos/adj-pdf.svg', 'iconos/Archivos/adj-excel.svg', 'iconos/Archivos/adj-word.svg', 'iconos/Archivos/adj-ppt.svg', 'iconos/Archivos/adj-imagen.svg', 'iconos/Archivos/adj-otro.svg', 'iconos/ilustraciones/correo-bandeja.svg',
-        'lib/meetings/ZoomDrive.php', 'zoom_drive.php', 'cron_zoom_drive.php', 'lib/mail/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/core/ApiToken.php', 'lib/tasks/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
-        'lib/releases/Releases.php', 'releases.php', 'assets/releases.js', 'assets/rl-graficos.js', 'assets/apexcharts.min.js', 'lib/backlog/Backlog.php', 'lib/backlog/backlog_ui.php', 'assets/backlog.js', 'historia.php', 'lib/backlog/BacklogImport.php', 'historias_importar.php', 'analitica.php', 'assets/analitica.js', 'assets/analitica.css', 'sprint.php', 'lib/backlog/sprint_ui.php', 'assets/sprint.js', 'lib/whiteboard/PizarraHU.php', 'assets/pizarra-hu.js', 'assets/pizarra-hu.css', 'iconos/Pizarra/pz-historia.svg', 'iconos/Pizarra/pz-ilustracion.svg', 'iconos/Pizarra/pz-linea-recta.svg', 'iconos/Pizarra/pz-linea-curva.svg', 'iconos/Pizarra/pz-linea-codo.svg', 'seed_releases.php', 'mover_items.php', 'calendario.php', 'lib/releases/Feriados.php', 'colorimetria.php', 'lib/releases/Colorimetria.php', 'lib/releases/colorimetria_ui.php', 'iconos/DS/ds-estado-alerta.svg', 'iconos/DS/ds-estado-critico.svg', 'iconos/DS/ds-estado-insignia-alerta.svg', 'iconos/DS/ds-estado-pregunta.svg', 'iconos/DS/ds-estado-pausado.svg', 'iconos/DS/ds-estado-cumple.svg', 'iconos/DS/ds-estado-check-cuadro.svg', 'iconos/DS/ds-estado-check-octagono.svg', 'iconos/DS/ds-estado-finalizado.svg', 'iconos/DS/ds-estado-sin-medicion.svg', 'iconos/DS/ds-estado-sin-iniciar.svg', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
-        'lib/deploys/Cronograma.php', 'cron_deploys.php', 'lib/integrations/GitLab.php', 'lib/deploys/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/dashboard/resumen_tira.php', 'resumen.php', 'lib/dashboard/ResumenPersona.php', 'lib/whiteboard/Pizarra.php', 'pizarra_api.php', 'pizarra.php', 'assets/pizarra.js', 'assets/pizarra.css', 'iconos/Pizarra/pz-pizarra.svg', 'iconos/Pizarra/pz-traer.svg', 'iconos/Pizarra/pz-calculadora.svg', 'iconos/Pizarra/pz-atras.svg', 'reuniones.php', 'reunion.php', 'lib/meetings/reuniones_ui.php', 'videoteca.php', 'notas.php', 'notas_api.php', 'nota_ver.php', 'lib/whiteboard/Notas.php', 'assets/notas.js', 'assets/notas.css', 'iconos/Notas/nt-fijar.svg', 'iconos/Notas/nt-color.svg', 'iconos/Notas/nt-compartir.svg', 'iconos/Notas/nt-nueva.svg',
+        'lib/meetings/ZoomDrive.php', 'zoom_drive.php', 'scripts/cron_zoom_drive.php', 'lib/mail/TareasCorreo.php', 'tarea_traza.php', 'reunion_entrar.php', 'api.php', 'lib/core/ApiToken.php', 'lib/tasks/ContextoTareas.php', 'video.php', 'assets/codex.svg', 'assets/copilot.svg',
+        'lib/releases/Releases.php', 'releases.php', 'assets/releases.js', 'assets/rl-graficos.js', 'assets/apexcharts.min.js', 'lib/backlog/Backlog.php', 'lib/backlog/backlog_ui.php', 'assets/backlog.js', 'historia.php', 'lib/backlog/BacklogImport.php', 'historias_importar.php', 'analitica.php', 'assets/analitica.js', 'assets/analitica.css', 'sprint.php', 'lib/backlog/sprint_ui.php', 'assets/sprint.js', 'lib/whiteboard/PizarraHU.php', 'assets/pizarra-hu.js', 'assets/pizarra-hu.css', 'iconos/Pizarra/pz-historia.svg', 'iconos/Pizarra/pz-ilustracion.svg', 'iconos/Pizarra/pz-linea-recta.svg', 'iconos/Pizarra/pz-linea-curva.svg', 'iconos/Pizarra/pz-linea-codo.svg', 'scripts/seed_releases.php', 'scripts/mover_items.php', 'calendario.php', 'lib/releases/Feriados.php', 'colorimetria.php', 'lib/releases/Colorimetria.php', 'lib/releases/colorimetria_ui.php', 'iconos/DS/ds-estado-alerta.svg', 'iconos/DS/ds-estado-critico.svg', 'iconos/DS/ds-estado-insignia-alerta.svg', 'iconos/DS/ds-estado-pregunta.svg', 'iconos/DS/ds-estado-pausado.svg', 'iconos/DS/ds-estado-cumple.svg', 'iconos/DS/ds-estado-check-cuadro.svg', 'iconos/DS/ds-estado-check-octagono.svg', 'iconos/DS/ds-estado-finalizado.svg', 'iconos/DS/ds-estado-sin-medicion.svg', 'iconos/DS/ds-estado-sin-iniciar.svg', 'semillas/releases-siau-ube-v08.1.json', 'semillas/.htaccess',
+        'lib/deploys/Cronograma.php', 'scripts/cron_deploys.php', 'lib/integrations/GitLab.php', 'lib/deploys/deploy_tira.php', 'deploys.php', 'assets/sonidos/correo.mp3', 'assets/sonidos/reunion.mp3', 'lib/dashboard/resumen_tira.php', 'resumen.php', 'lib/dashboard/ResumenPersona.php', 'lib/whiteboard/Pizarra.php', 'pizarra_api.php', 'pizarra.php', 'assets/pizarra.js', 'assets/pizarra.css', 'iconos/Pizarra/pz-pizarra.svg', 'iconos/Pizarra/pz-traer.svg', 'iconos/Pizarra/pz-calculadora.svg', 'iconos/Pizarra/pz-atras.svg', 'reuniones.php', 'reunion.php', 'lib/meetings/reuniones_ui.php', 'videoteca.php', 'notas.php', 'notas_api.php', 'nota_ver.php', 'lib/whiteboard/Notas.php', 'assets/notas.js', 'assets/notas.css', 'iconos/Notas/nt-fijar.svg', 'iconos/Notas/nt-color.svg', 'iconos/Notas/nt-compartir.svg', 'iconos/Notas/nt-nueva.svg',
     ];
     $faltan = array_values(array_filter($archivos, fn($f) => !is_file($dir . '/' . $f)));
     $faltan ? nota('error', 'Faltan por subir: ' . implode(', ', $faltan) . '.') : nota('ok', count($archivos) . ' archivos principales en su lugar');
@@ -125,15 +125,15 @@ function actualizarPanel(array $opc): void
         'lib/notifications/Notificaciones.php' => ["'recordatorio'", "'reunion_pronto'", 'Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/notifications/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
-        'cron_correo.php'   => ['recordatorios de Mis notas', 'avisarRecordatorios', 'recordarProximas', 'Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso', 'ReqSeguimiento::paso'],
-        'cron_zoom_drive.php' => ['cronCallado'],
+        'scripts/cron_correo.php'   => ['recordatorios de Mis notas', 'avisarRecordatorios', 'recordarProximas', 'Notif::pendientes', 'ReqCorreo', 'CorreoCopias', 'Cronograma::paso', 'cronCallado', 'Releases::paso', 'ReqSeguimiento::paso'],
+        'scripts/cron_zoom_drive.php' => ['cronCallado'],
         'tarea_traza.php'   => ['equipos_imp', 'impedimentos', 'inicio_real', 'commits_api'],
         'reunion_entrar.php' => ['reunion_ingresos'],
         'api.php'            => ['MCH_API', 'r=commit'],
         'lib/core/ApiToken.php'   => ['function miembro', 'function anotarUso'],
-        'cron_whatsapp.php' => ['cronCallado'],
-        'cron_deploys.php' => ['cronCallado'],
-        'cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado'],
+        'scripts/cron_whatsapp.php' => ['cronCallado'],
+        'scripts/cron_deploys.php' => ['cronCallado'],
+        'scripts/cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado'],
         'lib/core/Models.php'    => ["'impedimento']", 'function correosAvisos', 'function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code'],
         'lib/tasks/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
         'lib/core/bootstrap.php' => ['/Colorimetria.php', '/Feriados.php', "'notas_api.php'", "'pizarra_api.php'", 'function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
@@ -406,7 +406,7 @@ function actualizarPanel(array $opc): void
         $haceC = is_array($cronC) ? time() - (int)($cronC['t'] ?? 0) : null;
         ($haceC !== null && $haceC < 300)
             ? nota('ok', 'Cron de correos nuevos corriendo (última revisión hace ' . max(1, (int)round($haceC / 60)) . ' min)')
-            : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_correo.php (avisa los correos al instante).');
+            : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/scripts/cron_correo.php (avisa los correos al instante).');
     }
     // Correo InnoTech: a qué servidor se conecta y cuántos ya lo sincronizaron
     if (is_file($dir . '/lib/mail/Correo.php')) {
@@ -566,7 +566,7 @@ function actualizarPanel(array $opc): void
             $haceZ = is_array($cronZ) ? time() - (int)($cronZ['t'] ?? 0) : null;
             ($haceZ !== null && $haceZ < 900)
                 ? nota('ok', 'Cron de grabaciones corriendo (última vuelta hace ' . max(1, (int)round($haceZ / 60)) . ' min)')
-                : nota('aviso', 'Para que las grabaciones pasen solas a Drive, en cPanel → Cron Jobs, cada 5 minutos: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_zoom_drive.php');
+                : nota('aviso', 'Para que las grabaciones pasen solas a Drive, en cPanel → Cron Jobs, cada 5 minutos: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/scripts/cron_zoom_drive.php');
         }
     }
 
@@ -604,7 +604,7 @@ function actualizarPanel(array $opc): void
             } else {
                 $tRel = Releases::tablero();
                 nota('ok', $nRel . ' ítems · avance general ' . $tRel['total']['pct'] . ' % (esperado ' . $tRel['total']['esperado'] . ' %) · '
-                    . $tRel['total']['atrasados'] . ' atrasados' . ($semRel ? ' · para volver a cargar la semilla: php admin/seed_releases.php' : ''));
+                    . $tRel['total']['atrasados'] . ' atrasados' . ($semRel ? ' · para volver a cargar la semilla: php admin/scripts/seed_releases.php' : ''));
             }
         } catch (Throwable $e) {
             nota('error', 'Releases: ' . $e->getMessage());
@@ -625,7 +625,7 @@ function actualizarPanel(array $opc): void
             } elseif (!(new JsonStore('rel_items'))->all()) {
                 nota('info', 'Sin ítems todavía: nada que pasar a Beta.');
             } elseif (!Releases::equipo('Beta')) {
-                nota('error', 'No hay un equipo «Beta»: no se movieron R1-A04, R2-A01, R2-A06 ni R3-A07. Usa php admin/mover_items.php con el nombre del equipo académico.');
+                nota('error', 'No hay un equipo «Beta»: no se movieron R1-A04, R2-A01, R2-A06 ni R3-A07. Usa php admin/scripts/mover_items.php con el nombre del equipo académico.');
             } else {
                 $quienAc = 0;
                 foreach ((new MiembroRepo())->todos() as $mAc) {
@@ -703,7 +703,7 @@ function actualizarPanel(array $opc): void
             $waHace = is_array($waCron) ? time() - (int)($waCron['t'] ?? 0) : null;
             ($waHace !== null && $waHace < 300)
                 ? nota('ok', 'Cron de WhatsApp corriendo (última vuelta hace ' . max(1, (int)round($waHace / 60)) . ' min)')
-                : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/cron_whatsapp.php (manda los avisos y los recordatorios).');
+                : nota('aviso', 'Programa en cPanel → Cron Jobs, cada minuto: /usr/local/bin/php ' . str_replace('\\', '/', $dir) . '/scripts/cron_whatsapp.php (manda los avisos y los recordatorios).');
             if (!$seco) {
                 $waCola = Whatsapp::resumenCola();
                 if ($waCola['pendientes'] || $waCola['fallidos']) nota('info', 'Mensajes de WhatsApp en cola: ' . $waCola['pendientes'] . ' · fallidos en 24 h: ' . $waCola['fallidos']);
@@ -732,6 +732,36 @@ function actualizarPanel(array $opc): void
     }
     if (!in_array(true, $cred, true) && $respA) {
         nota('aviso', 'No hay ninguna credencial guardada pero sí respaldos: es probable que la configuración se haya reiniciado.');
+    }
+
+    /* Tareas programadas: los cron_*.php pasaron a admin/scripts/ (6/11/2026). Si el crontab de
+       este usuario todavía llama a los de antes, se corrigen SOLO esas rutas y se dice cuáles. */
+    paso('Tareas programadas (cron)');
+    $cronViejos = ['cron_correo', 'cron_deploys', 'cron_recordatorios', 'cron_whatsapp', 'cron_zoom_drive'];
+    $sinShell = !function_exists('shell_exec') || in_array('shell_exec', array_map('trim', explode(',', (string)ini_get('disable_functions'))), true);
+    if ($sinShell) {
+        nota('aviso', 'No se pudo revisar el crontab desde PHP. En cPanel → Cron Jobs cambia admin/cron_… por admin/scripts/cron_… si quedó alguno.');
+    } else {
+        $tabAntes = (string)@shell_exec('crontab -l 2>/dev/null');
+        if (trim($tabAntes) === '') {
+            nota('info', 'Este usuario no tiene tareas programadas en el crontab.');
+        } else {
+            $nCron = 0;
+            $tabNuevo = preg_replace_callback('#/admin/(' . implode('|', $cronViejos) . ')\.php#', function ($m) use (&$nCron) { $nCron++; return '/admin/scripts/' . $m[1] . '.php'; }, $tabAntes);
+            if (!$nCron) {
+                nota('ok', 'El crontab ya llama a admin/scripts/.');
+            } elseif ($seco) {
+                nota('aviso', 'Se corregirían ' . $nCron . ' ruta(s) del crontab a admin/scripts/.');
+            } else {
+                $tmpCron = $dir . '/data/crontab.nuevo';
+                @file_put_contents($tmpCron, $tabNuevo);
+                @shell_exec('crontab ' . escapeshellarg($tmpCron) . ' 2>&1');
+                @unlink($tmpCron);
+                $ok = (string)@shell_exec('crontab -l 2>/dev/null') === $tabNuevo;
+                $ok ? nota('ok', 'Crontab: ' . $nCron . ' ruta(s) ahora llaman a admin/scripts/ (los avisos, recordatorios y WhatsApp siguen solos).')
+                    : nota('error', 'No se pudo corregir el crontab: en cPanel → Cron Jobs cambia admin/cron_… por admin/scripts/cron_….');
+            }
+        }
     }
 
     /* 7. Caché de PHP */

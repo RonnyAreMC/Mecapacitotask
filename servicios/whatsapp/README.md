@@ -30,7 +30,7 @@ recibe reportes de spam. Usa un número propio de InnoTech (no el de una persona
    número (WhatsApp → Dispositivos vinculados → Vincular un dispositivo).
 6. **Cron** (cPanel → Cron Jobs, cada minuto). Manda la cola, los recordatorios y mantiene despierta la app:
 
-       * * * * *  /usr/local/bin/php ~/innotech-hub/admin/cron_whatsapp.php
+       * * * * *  /usr/local/bin/php ~/innotech-hub/admin/scripts/cron_whatsapp.php
 
 Sin subdominio también funciona en una subcarpeta (Application URL `panel.innotech-solutions.com.ec/whatsapp`): en ese
 caso agrega la variable `BAILEYS_BASE=/whatsapp` y en el panel pon `https://panel.innotech-solutions.com.ec/whatsapp`.

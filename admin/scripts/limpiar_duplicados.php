@@ -3,9 +3,9 @@
  * Borra tareas duplicadas (mismo proyecto + mismo título), dejando UNA.
  * Solo por terminal. Por defecto muestra qué haría; borra con --aplicar.
  *
- *   php admin/limpiar_duplicados.php                 (vista previa, no borra)
- *   php admin/limpiar_duplicados.php --aplicar        (borra de verdad)
- *   php admin/limpiar_duplicados.php --aplicar CONTABILIDAD   (solo ese proyecto)
+ *   php admin/scripts/limpiar_duplicados.php                 (vista previa, no borra)
+ *   php admin/scripts/limpiar_duplicados.php --aplicar        (borra de verdad)
+ *   php admin/scripts/limpiar_duplicados.php --aplicar CONTABILIDAD   (solo ese proyecto)
  *
  * De cada grupo de repetidas conserva la más reciente (la del último import)
  * y elimina las anteriores.
@@ -14,7 +14,7 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 
 $aplicar = in_array('--aplicar', $argv, true);
 $args    = array_values(array_filter(array_slice($argv, 1), fn($a) => !str_starts_with($a, '--')));
@@ -63,7 +63,7 @@ if (!$aBorrar) {
 echo "\n" . count($aBorrar) . " tarea(s) duplicada(s).\n";
 if (!$aplicar) {
     echo "Esto es solo una vista previa. Para borrarlas de verdad, corre:\n";
-    echo "  php admin/limpiar_duplicados.php --aplicar" . ($filtroProyecto ? " $filtroProyecto" : '') . "\n";
+    echo "  php admin/scripts/limpiar_duplicados.php --aplicar" . ($filtroProyecto ? " $filtroProyecto" : '') . "\n";
     exit(0);
 }
 

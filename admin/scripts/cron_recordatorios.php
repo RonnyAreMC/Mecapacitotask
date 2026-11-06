@@ -2,13 +2,13 @@
 /**
  * Recordatorios de tareas próximas a vencer.
  * Pensado para ejecutarse UNA VEZ AL DÍA con un cron de cPanel:
- *   /usr/local/bin/php ~/mchub.mecapacito.com/admin/cron_recordatorios.php
+ *   /usr/local/bin/php ~/mchub.mecapacito.com/admin/scripts/cron_recordatorios.php
  *
  * Envía un correo al asignado por cada tarea (no completada) cuya fecha
  * límite cae exactamente dentro de los "días antes" configurados en Ajustes.
  * Sin duplicados: cada tarea recuerda el día en que ya avisó.
  */
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 cronCallado('recordatorios');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_recordatorios.log
 
 if (!Mailer::listo()) { echo "Correo no configurado.\n"; exit; }

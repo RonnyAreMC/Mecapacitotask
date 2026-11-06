@@ -3,9 +3,9 @@
  * Crea o actualiza un ADMINISTRADOR del panel. Solo por terminal:
  * asi nadie puede darse acceso desde la web.
  *
- *   php admin/crear_admin.php                          (modo guiado)
- *   php admin/crear_admin.php "Ronny" correo@x.com clave123
- *   php admin/crear_admin.php --listar
+ *   php admin/scripts/crear_admin.php                          (modo guiado)
+ *   php admin/scripts/crear_admin.php "Ronny" correo@x.com clave123
+ *   php admin/scripts/crear_admin.php --listar
  *
  * Si la persona ya existe, le actualiza el correo, la contrasena y el acceso.
  */
@@ -13,7 +13,7 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 
 $repo   = new MiembroRepo();
 $equipo = $repo->todos();
@@ -72,7 +72,7 @@ if (ctype_digit($quien)) {
     $miembro = $hallados[0] ?? null;
 }
 if (!$miembro) {
-    exit("No encontré a «{$quien}» en el equipo. Corre: php admin/crear_admin.php --listar\n");
+    exit("No encontré a «{$quien}» en el equipo. Corre: php admin/scripts/crear_admin.php --listar\n");
 }
 
 if ($mail === '') {

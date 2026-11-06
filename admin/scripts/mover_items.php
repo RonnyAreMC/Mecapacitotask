@@ -5,18 +5,18 @@
  * cualquier cambio de equipo) y los ítems salen de las revisiones que el
  * equipo de antes todavía no hace, si ahí seguían sin revisar.
  *
- *   php admin/mover_items.php Académico R1-A04 R2-A01 --motivo="Por orden de Felipe" [--por=Ronny] [--seco]
+ *   php admin/scripts/mover_items.php Académico R1-A04 R2-A01 --motivo="Por orden de Felipe" [--por=Ronny] [--seco]
  *
  * El equipo se busca por nombre, sin importar tildes ni mayúsculas (basta una
  * parte si es una sola). --por: quién hace el cambio (nombre o correo de un
  * miembro). --seco: dice qué haría, sin escribir.
  */
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/../lib/releases/Releases.php';
 
 $opc = [];
 $libres = [];
@@ -27,7 +27,7 @@ foreach (array_slice($argv, 1) as $a) {
 $seco = !empty($opc['seco']);
 $motivo = trim((string)($opc['motivo'] ?? ''));
 $destino = array_shift($libres);
-if ($destino === null || !$libres) exit("Uso: php admin/mover_items.php <equipo> <código> [<código>…] --motivo=\"…\" [--por=nombre] [--seco]\n");
+if ($destino === null || !$libres) exit("Uso: php admin/scripts/mover_items.php <equipo> <código> [<código>…] --motivo=\"…\" [--por=nombre] [--seco]\n");
 
 $parecidos = Releases::buscarEquipo($destino);
 if (count($parecidos) !== 1) {

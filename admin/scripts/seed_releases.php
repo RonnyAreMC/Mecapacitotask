@@ -3,19 +3,19 @@
  * Semilla de Releases por terminal: carga el plan (releases, equipos, ítems,
  * hitos y revisiones) desde la semilla del repo o desde los dos Excel.
  *
- *   php admin/seed_releases.php                      la semilla de admin/semillas/ (la más nueva)
- *   php admin/seed_releases.php --actualizar         lo de la semilla manda sobre lo que ya está (fechas, estado, equipo)
- *   php admin/seed_releases.php --seco               dice qué haría, sin escribir
- *   php admin/seed_releases.php cronograma.xlsx revisiones.xlsx   desde los Excel (sin --actualizar solo agrega lo nuevo y lo vacío)
+ *   php admin/scripts/seed_releases.php                      la semilla de admin/semillas/ (la más nueva)
+ *   php admin/scripts/seed_releases.php --actualizar         lo de la semilla manda sobre lo que ya está (fechas, estado, equipo)
+ *   php admin/scripts/seed_releases.php --seco               dice qué haría, sin escribir
+ *   php admin/scripts/seed_releases.php cronograma.xlsx revisiones.xlsx   desde los Excel (sin --actualizar solo agrega lo nuevo y lo vacío)
  *
  * Sin --actualizar no pisa lo que ya se cambió en el panel: se puede repetir sin riesgo.
  */
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit("Este script solo se ejecuta por terminal.\n");
 }
-require_once __DIR__ . '/lib/releases/Releases.php';
+require_once __DIR__ . '/../lib/releases/Releases.php';
 
 $args  = array_slice($argv, 1);
 $modo  = in_array('--actualizar', $args, true) ? 'actualizar' : 'agregar';

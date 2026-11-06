@@ -40,8 +40,8 @@ La app arranca con la base vacía. Abre una terminal del contenedor
 (**servicio → … → Shell**, o `railway ssh`) y corre:
 
 ```bash
-php admin/crear_admin.php --listar         # ver el equipo (si sembraste roster)
-php admin/crear_admin.php "Nombre" correo@dominio.com TuClaveSegura
+php admin/scripts/crear_admin.php --listar         # ver el equipo (si sembraste roster)
+php admin/scripts/crear_admin.php "Nombre" correo@dominio.com TuClaveSegura
 ```
 
 Luego entra en `/admin/login.php`.

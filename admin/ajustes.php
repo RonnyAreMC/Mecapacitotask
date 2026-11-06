@@ -617,7 +617,7 @@ UI::cabecera(
           teléfono válido le sigue llegando por correo, y la campana del panel avisa igual.
           <b>Apagado:</b> todo va por correo, como siempre.
           <br>Necesita la pasarela de <code>servicios/whatsapp</code> encendida en cPanel (Setup Node.js App) y el cron
-          <code>cron_whatsapp.php</code> cada minuto. Los pasos están en <code>servicios/whatsapp/README.md</code>.
+          <code>scripts/cron_whatsapp.php</code> cada minuto. Los pasos están en <code>servicios/whatsapp/README.md</code>.
         </p>
 
         <label class="chk-linea">
@@ -648,7 +648,7 @@ UI::cabecera(
             <?php if ($waHace !== null && $waHace < 300): ?>
               Cron de WhatsApp corriendo (hace <?= max(1, (int)round($waHace / 60)) ?> min)<?= !empty($waCron['error']) ? ' · ' . e($waCron['error']) : '' ?>.
             <?php else: ?>
-              Guarda primero. Falta el cron (cPanel → Cron Jobs, cada minuto): <code>/usr/local/bin/php <?= e(str_replace('\\', '/', __DIR__)) ?>/cron_whatsapp.php</code>
+              Guarda primero. Falta el cron (cPanel → Cron Jobs, cada minuto): <code>/usr/local/bin/php <?= e(str_replace('\\', '/', __DIR__)) ?>/scripts/cron_whatsapp.php</code>
             <?php endif; ?>
           </span>
           <button type="button" class="btn-outline btn-meca btn-azul btn-sm" data-wa-estado>

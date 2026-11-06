@@ -2,8 +2,8 @@
 /**
  * Arregla las tildes rotas que ya quedaron guardadas («AcadÃ©mico», «dÃas»).
  *
- *   php admin/arreglar_tildes.php            arregla y dice cuántos cambió
- *   php admin/arreglar_tildes.php --seco     solo dice qué cambiaría
+ *   php admin/scripts/arreglar_tildes.php            arregla y dice cuántos cambió
+ *   php admin/scripts/arreglar_tildes.php --seco     solo dice qué cambiaría
  *
  * Los correos del respaldo se guardan enteros y se vuelven a leer al abrirlos,
  * así que ya se ven bien solos. Lo que quedó escrito con la tilde rota es lo
@@ -17,9 +17,9 @@ if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde la terminal.');
 }
-require_once __DIR__ . '/lib/core/bootstrap.php';
-if (!is_file(__DIR__ . '/lib/mail/Correo.php')) exit("Falta lib/mail/Correo.php\n");
-require_once __DIR__ . '/lib/mail/Correo.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
+if (!is_file(__DIR__ . '/../lib/mail/Correo.php')) exit("Falta lib/mail/Correo.php\n");
+require_once __DIR__ . '/../lib/mail/Correo.php';
 
 $seco = in_array('--seco', $argv, true);
 // Tabla => campos que no se tocan (identificadores, llaves, rutas)

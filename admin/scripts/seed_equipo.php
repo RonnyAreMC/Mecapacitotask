@@ -10,11 +10,11 @@
  * vinculada a él.
  *
  * Uso:
- *   php admin/seed_equipo.php                       lee admin/data/equipo.csv
- *   php admin/seed_equipo.php ruta/al/archivo.xlsx  lee ese archivo
- *   php admin/seed_equipo.php equipo.csv --seco     enseña qué haría, sin escribir
+ *   php admin/scripts/seed_equipo.php                       lee admin/data/equipo.csv
+ *   php admin/scripts/seed_equipo.php ruta/al/archivo.xlsx  lee ese archivo
+ *   php admin/scripts/seed_equipo.php equipo.csv --seco     enseña qué haría, sin escribir
  */
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
@@ -28,7 +28,7 @@ foreach ($argumentos as $a) {
     if (!str_starts_with($a, '--')) { $archivo = $a; break; }
 }
 if ($archivo === '') {
-    $archivo = __DIR__ . '/data/equipo.csv';
+    $archivo = __DIR__ . '/../data/equipo.csv';
 }
 if (!is_file($archivo)) {
     exit("No encuentro el archivo: $archivo\n"

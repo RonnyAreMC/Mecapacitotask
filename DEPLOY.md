@@ -63,11 +63,11 @@ puede darse acceso.
 
 ```bash
 cd ~/mchub.mecapacito.com
-php admin/crear_admin.php --listar          # ver el equipo con sus ids
-php admin/crear_admin.php "Ronny" tucorreo@gmail.com TuClaveSegura
+php admin/scripts/crear_admin.php --listar          # ver el equipo con sus ids
+php admin/scripts/crear_admin.php "Ronny" tucorreo@gmail.com TuClaveSegura
 ```
 
-Sin argumentos (`php admin/crear_admin.php`) va preguntando paso a paso y
+Sin argumentos (`php admin/scripts/crear_admin.php`) va preguntando paso a paso y
 oculta la contraseña mientras la escribes. El mismo comando sirve para cambiarle
 la clave a un admin que la olvidó. Los siguientes administradores ya se agregan
 desde el panel: **Equipo → editar la persona → Acceso: Administrador**.
@@ -295,7 +295,7 @@ Web Push de los navegadores: gratis, sin servicios de pago; el texto va cifrado.
   pantalla de inicio: Safari → Compartir → **Agregar a inicio**, y entrar desde ese ícono.
 - **Correos al minuto — cron (cPanel → Cron Jobs), cada minuto:**
 
-      * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_correo.php
+      * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/scripts/cron_correo.php
 
   Revisa solo los buzones sincronizados de quienes tienen avisos de correo encendidos.
   Notificaciones → Tus dispositivos (como administrador) y `php admin/actualizar.php`
@@ -313,7 +313,7 @@ Con el interruptor de **Ajustes → Reuniones → WhatsApp**:
 Necesita la pasarela de Node (Baileys, la misma del SIGC) corriendo en cPanel → **Setup Node.js App** con Node 22,
 y un cron más, cada minuto:
 
-    * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_whatsapp.php
+    * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/scripts/cron_whatsapp.php
 
 Los pasos completos (subdominio, token, QR, cuánto consume) están en `servicios/whatsapp/README.md`. La carpeta
 `servicios/` está cerrada a la web: ni el código, ni el `.env`, ni la sesión de WhatsApp se pueden abrir desde el
@@ -333,7 +333,7 @@ los usuarios:
 ```bash
 cd ~/public_html/panel.tudominio.com
 git pull
-php admin/migrar_sqlite.php
+php admin/scripts/migrar_sqlite.php
 ```
 
 Verás cuántos registros se migraron de cada colección. Los `.json` viejos quedan

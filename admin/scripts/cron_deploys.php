@@ -6,17 +6,17 @@
  * Normalmente NO hace falta: el cron de cada minuto (cron_correo.php) ya lo
  * corre al final de cada vuelta. Sirve para probarlo a mano o si se quiere un
  * cron aparte:
- *   * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/cron_deploys.php
+ *   * * * * *  /usr/local/bin/php ~/RUTA-DEL-PANEL/admin/scripts/cron_deploys.php
  * Solo desde la terminal, nunca desde la web.
  */
 if (PHP_SAPI !== 'cli') {
     http_response_code(403);
     exit('Solo desde el cron.');
 }
-require_once __DIR__ . '/lib/core/bootstrap.php';
+require_once __DIR__ . '/../lib/core/bootstrap.php';
 cronCallado('deploys');   // sin correos de «Cron Daemon»: lo que escribe va a data/cron_deploys.log
-require_once __DIR__ . '/lib/deploys/Cronograma.php';
-if (is_file(__DIR__ . '/lib/notifications/Notificaciones.php')) require_once __DIR__ . '/lib/notifications/Notificaciones.php';
+require_once __DIR__ . '/../lib/deploys/Cronograma.php';
+if (is_file(__DIR__ . '/../lib/notifications/Notificaciones.php')) require_once __DIR__ . '/../lib/notifications/Notificaciones.php';
 @set_time_limit(55);
 
 if (!Cronograma::activo()) exit("El horario de subidas está apagado (Ajustes → Despliegues).\n");
