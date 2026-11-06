@@ -37,6 +37,56 @@
     if (u) location.href = u.replace('__R__', encodeURIComponent(e.target.value));
   });
 
+  /* ---------- Criterios de aceptación: escenarios Dado · Cuando · Entonces ---------- */
+  const cajaEsc = form && form.querySelector('[data-bl-escenarios]');
+  // Que se vea todo lo escrito: medido si está a la vista; si el paso está oculto, por sus líneas
+  const crecer = (t) => {
+    t.rows = Math.min(8, Math.max(1, (t.value.match(/\n/g) || []).length + 1));
+    if (!t.offsetParent) { t.style.height = ''; return; }
+    t.style.height = 'auto';
+    t.style.height = Math.min(t.scrollHeight + 2, 260) + 'px';
+  };
+  const EJ = { dado: 'que el estudiante tiene la matrícula pagada', cuando: 'elige sus materias', entonces: 've solo las que puede tomar\ny le llega el comprobante al correo' };
+  function filaEsc(e, n) {
+    const campo = (k, lbl, en) => '<label class="bl-esc__fila"><span class="bl-esc__k">' + lbl + '<small>' + en + '</small></span>'
+      + '<textarea class="bl-esc__t" rows="1" maxlength="1500" data-k="' + k + '" placeholder="' + esc(n === 0 ? EJ[k] : '') + '">' + esc(e[k] || '') + '</textarea></label>';
+    return '<div class="bl-esc" data-bl-esc><div class="bl-esc__cab"><span class="bl-esc__n">Escenario ' + (n + 1) + '</span>'
+      + '<input class="bl-esc__nom" data-k="nombre" maxlength="160" placeholder="Nombre (opcional)" value="' + esc(e.nombre || '') + '">'
+      + '<button type="button" class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--tinte mc-iconbtn--danger" data-bl-esc-quitar aria-label="Quitar el escenario" data-ds-tip="Quitar el escenario">'
+      + '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>'
+      + campo('dado', 'Dado', 'Given') + campo('cuando', 'Cuando', 'When') + campo('entonces', 'Entonces', 'Then') + '</div>';
+  }
+  // Los nombres van por posición (escenarios[0][dado]…): se rehacen al sumar o quitar
+  function numerar() {
+    if (!cajaEsc) return;
+    cajaEsc.querySelectorAll('[data-bl-esc]').forEach((el, n) => {
+      el.querySelector('.bl-esc__n').textContent = 'Escenario ' + (n + 1);
+      el.querySelectorAll('[data-k]').forEach((c) => { c.name = 'escenarios[' + n + '][' + c.dataset.k + ']'; });
+    });
+  }
+  function pintarEsc(lista) {
+    if (!cajaEsc) return;
+    cajaEsc.innerHTML = (lista && lista.length ? lista : [{}]).map(filaEsc).join('');
+    numerar();
+    cajaEsc.querySelectorAll('textarea').forEach(crecer);
+  }
+  if (cajaEsc) {
+    form.querySelector('[data-bl-esc-mas]')?.addEventListener('click', () => {
+      cajaEsc.insertAdjacentHTML('beforeend', filaEsc({}, cajaEsc.children.length));
+      numerar();
+      cajaEsc.lastElementChild.querySelector('textarea').focus();
+    });
+    cajaEsc.addEventListener('click', (e) => {
+      const q = e.target.closest('[data-bl-esc-quitar]');
+      if (!q) return;
+      q.closest('[data-bl-esc]').remove();
+      if (!cajaEsc.children.length) pintarEsc([]); else numerar();
+    });
+    cajaEsc.addEventListener('input', (e) => { if (e.target.matches('textarea')) crecer(e.target); });
+    // Al pasar de paso (el de criterios se ve recién ahí), se miden de nuevo
+    form.addEventListener('click', () => requestAnimationFrame(() => cajaEsc.querySelectorAll('textarea').forEach((t) => { if (t.offsetParent) crecer(t); })));
+  }
+
   /* ---------- El asistente ---------- */
   const fijarSelect = (name, valor) => {
     const sel = form.querySelector('select[name="' + name + '"]');
@@ -52,9 +102,11 @@
   function llenar(h, sprint) {
     form.reset();
     const nueva = !h;
-    h = h || { id: 0, titulo: '', como: '', quiero: '', para: '', criterios: '', notas: '', item_id: 0, sprint: sprint || '', estimacion: '', prioridad: 'media', estado: 'por_hacer', responsable: 0, tareas: [], adjuntos: [], historial: [] };
+    h = h || { id: 0, titulo: '', como: '', quiero: '', para: '', escenarios: [], notas: '', item_id: 0, sprint: sprint || '', estimacion: '', prioridad: 'media', estado: 'por_hacer', responsable: 0, tareas: [], adjuntos: [], historial: [] };
     form.querySelector('[name="id"]').value = h.id;
-    ['titulo', 'como', 'quiero', 'para', 'criterios', 'notas'].forEach((k) => { const c = form.querySelector('[name="' + k + '"]'); if (c) c.value = h[k] || ''; });
+    ['titulo', 'como', 'quiero', 'para'].forEach((k) => { const c = form.querySelector('[name="' + k + '"]'); if (c) c.value = h[k] || ''; });
+    pintarEsc(h.escenarios || []);
+    if (window.MecaRT) MecaRT.set('bl-notas', h.notas || '');
     fijarSelect('item_id', h.item_id || 0);
     // Un sprint que ya pasó no está en la lista: se agrega para no perderlo
     const selS = form.querySelector('select[name="sprint"]');
@@ -90,8 +142,10 @@
     if (ceja) ceja.textContent = nueva ? 'Nueva historia' : h.codigo;
     const borrar = form.querySelector('[data-bl-borrar]');
     if (borrar) borrar.hidden = nueva;
-    // Quien no la gestiona, solo la ve
+    // Quien no la gestiona, solo la ve (el editor con formato también queda quieto)
     form.querySelectorAll('.bl-fs').forEach((fs) => { fs.disabled = !puede; });
+    form.querySelectorAll('.rt-area').forEach((a) => { a.contentEditable = puede ? 'true' : 'false'; });
+    form.querySelectorAll('.rt-barra, [data-bl-esc-mas], [data-bl-esc-quitar]').forEach((x) => { x.hidden = !puede; });
     form.querySelectorAll('.bl-solo-edita').forEach((x) => { x.hidden = !puede; });
   }
   const abrir = (h, sprint) => { if (!dlg) return; llenar(h, sprint); dlg.showModal(); };

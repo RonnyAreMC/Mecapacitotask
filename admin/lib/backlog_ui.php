@@ -318,14 +318,17 @@ function blDialogo(array $x, array $todas, array $epicas, array $sps, array $rel
     $datos = [];
     foreach ($todas as $h) {
         $datos[(int)$h['id']] = ['id' => (int)$h['id'], 'codigo' => $h['codigo'], 'titulo' => $h['titulo'], 'como' => $h['como'], 'quiero' => $h['quiero'], 'para' => $h['para'],
-            'criterios' => $h['criterios'], 'notas' => $h['notas'], 'item_id' => (int)$h['item_id'], 'sprint' => $h['sprint'], 'estimacion' => $h['estimacion'],
+            'escenarios' => array_values((array)$h['escenarios']),
+            // El detalle con formato; el de antes (texto suelto) se pasa a párrafos
+            'notas' => str_contains((string)$h['notas'], '<') ? (string)$h['notas'] : (trim((string)$h['notas']) !== '' ? '<p>' . nl2br(e((string)$h['notas'])) . '</p>' : ''),
+            'item_id' => (int)$h['item_id'], 'sprint' => $h['sprint'], 'estimacion' => $h['estimacion'],
             'prioridad' => $h['prioridad'], 'estado' => $h['estado'], 'responsable' => (int)$h['responsable'], 'tareas' => $h['tareas'],
             'adjuntos' => array_map(fn($a) => ['ruta' => (string)$a['ruta'], 'nombre' => (string)$a['nombre'], 'tipo' => (string)($a['tipo'] ?? 'doc')], (array)$h['adjuntos']),
             'historial' => array_map(fn($ev) => ['fecha' => (string)$ev['fecha'], 'quien' => (string)($miembros[(int)($ev['quien'] ?? 0)]['nombre'] ?? ''), 'texto' => (string)$ev['texto']], array_reverse((array)$h['historial']))];
     }
     $pasos = [
         ['Historia', 'Qué se quiere', 'El título y la historia: como quién, qué quiere y para qué.', 'ds-requerimiento'],
-        ['Criterios', 'Cuándo está lista', 'Los criterios de aceptación y lo que haya que saber.', 'ds-check-doble'],
+        ['Criterios', 'Cuándo está lista', 'Los escenarios en Dado · Cuando · Entonces y el detalle con formato.', 'ds-check-doble'],
         ['Planificación', 'Cuándo y cuánto', 'Su épica, el sprint, la estimación, la prioridad y quién la lleva.', 'ds-reloj'],
         ['Diagramas y tareas', 'Con qué se hace', 'Sus diagramas de proceso y documentos, y las tareas del proyecto que la cumplen.', 'ds-documento'],
     ];
@@ -337,7 +340,7 @@ function blDialogo(array $x, array $todas, array $epicas, array $sps, array $rel
     <input type="hidden" name="volver" value="<?= e(($x['url'])([])) ?>"><input type="hidden" name="tareas[]" value="">
     <?= UI::wizardRiel('ds-requerimiento', 'Historia de usuario', 'Del backlog de ' . (string)$p['nombre'], $pasos) ?>
     <div class="wz-cuerpo">
-      <header><div><span class="wz-ceja"></span><span class="bl-dlg__cod" data-bl-ceja></span><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>
+      <header><div><p class="bl-dlg__kick"><span class="bl-dlg__cod" data-bl-ceja></span></p><h4 class="wz-titulo-paso"></h4><p class="wz-ayuda-paso"></p></div>
         <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><?= rlIco('cerrar', 18) ?></button></header>
       <section class="wz-panel"><fieldset class="bl-fs">
         <?= rlCampo('Título', rlInput('name="titulo" maxlength="200" required placeholder="Ej.: Matricularse en línea"')) ?>
@@ -346,8 +349,12 @@ function blDialogo(array $x, array $todas, array $epicas, array $sps, array $rel
         <?= rlCampo('Para…', rlTexto('para', '', 2, 'no tener que ir a la secretaría')) ?>
       </fieldset></section>
       <section class="wz-panel"><fieldset class="bl-fs">
-        <?= rlCampo('Criterios de aceptación', rlTexto('criterios', '', 6, "Uno por línea. Ej.:\nSolo muestra las materias que puede tomar\nAl pagar llega el comprobante al correo"), 'Cuando todos se cumplen, la historia está hecha.') ?>
-        <?= rlCampo('Notas', rlTexto('notas', '', 3, 'Reglas del negocio, enlaces, dudas por resolver…')) ?>
+        <div class="mc-field"><span class="mc-field__label">Criterios de aceptación <small>Dado · Cuando · Entonces (Given · When · Then)</small></span>
+          <div class="bl-escs" data-bl-escenarios></div>
+          <button type="button" class="bl-escs__mas" data-bl-esc-mas><?= rlIco('mas', 16) ?> Agregar escenario</button>
+          <div class="mc-field__foot"><span class="mc-field__hint">Cuando todos los escenarios se cumplen, la historia está hecha. Para un «y…», sigue en otra línea del mismo campo.</span></div></div>
+        <div class="mc-field"><span class="mc-field__label">Detalle <small>(reglas del negocio, ejemplos, tablas, enlaces)</small></span>
+          <?= UI::editorRico(['name' => 'notas', 'id' => 'bl-notas', 'placeholder' => 'Escribe o pega aquí: reglas, ejemplos, tablas…']) ?></div>
       </fieldset></section>
       <section class="wz-panel"><fieldset class="bl-fs">
         <?php /* La épica en su fila: su nombre se lee entero */ ?>

@@ -6101,3 +6101,33 @@ details.bl-sec[open] > .bl-sec__cab .mc-icon:first-child { transform: rotate(90d
 .bl-vista[data-activa="tablero"] .rs-vista__pieza { transform: translateX(100%); }
 .bl-vista[data-activa="backlog"] [data-vista-op="backlog"],
 .bl-vista[data-activa="tablero"] [data-vista-op="tablero"] { color: #fff; }
+
+/* El asistente de la historia, con menos alto arriba: el código y el paso en una línea,
+   el título más chico y más espacio para el detalle */
+.dlg-meca.dlg-wizard.bl-dlg { width: min(1140px, calc(100vw - 32px)); }
+.dlg-wizard.bl-dlg .wz-cuerpo > header { padding-top: 18px; }
+.dlg-wizard.bl-dlg .wz-cuerpo > header > div:first-child { padding-bottom: 10px; padding-right: 40px; }
+.bl-dlg__kick { display: inline; margin: 0; }
+.bl-dlg .bl-dlg__kick .bl-dlg__cod { display: inline; margin: 0 10px 0 0; }
+/* «Paso n/N» (lo pone el asistente antes del título) en la misma línea que el código */
+.dlg-wizard.bl-dlg .wz-cuerpo > header .wz-ceja { display: inline-block; margin: 0 0 2px; font-size: .74rem; }
+.dlg-wizard.bl-dlg .wz-titulo-paso { font-size: 1.12rem; line-height: 1.3; }
+.dlg-wizard.bl-dlg .wz-ayuda-paso { margin-top: 2px; font-size: .8rem; line-height: 1.4; }
+.dlg-wizard.bl-dlg .wz-cuerpo > header .dlg-close { top: 12px; right: 12px; }
+.dlg-wizard.bl-dlg .wz-panel.activo { padding-top: 14px; }
+/* Criterios: cada escenario en su tarjeta con Dado · Cuando · Entonces */
+.bl-escs { display: flex; flex-direction: column; gap: 10px; }
+.bl-esc { display: flex; flex-direction: column; gap: 6px; padding: 10px 12px 12px; border-radius: 10px; background: var(--surface); box-shadow: 0 0 0 1px var(--line-strong); }
+.bl-esc__cab { display: flex; align-items: center; gap: 10px; }
+.bl-esc__n { flex: none; color: var(--primary-ink); font-size: .78rem; font-weight: 700; }
+.bl-esc__nom { flex: 1; min-width: 0; height: 30px; padding: 0 10px; border: 0; border-radius: 6px; background: var(--surface-sunken); color: var(--ink); font: inherit; font-size: .84rem; }
+.bl-esc__nom:focus { outline: none; box-shadow: 0 0 0 2px color-mix(in srgb, var(--primary) 40%, transparent); }
+.bl-esc__fila { display: grid; grid-template-columns: 92px minmax(0, 1fr); align-items: start; gap: 10px; }
+.bl-esc__k { display: flex; flex-direction: column; padding-top: 8px; color: var(--ink); font-size: .84rem; font-weight: 700; }
+.bl-esc__k small { color: var(--ink-subtle); font-size: .68rem; font-weight: 500; }
+.bl-esc__t { field-sizing: content; max-height: 260px; width: 100%; min-height: 38px; padding: 8px 12px; border: 1px solid var(--line-strong); border-radius: 8px; background: var(--surface); color: var(--ink); font: inherit; font-size: .875rem; line-height: 1.45; resize: none; overflow: hidden; }
+.bl-esc__t:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px color-mix(in srgb, var(--primary) 16%, transparent); }
+.bl-esc__t:disabled, .bl-esc__nom:disabled { background: var(--surface-sunken); }
+.bl-escs__mas { display: inline-flex; align-items: center; gap: 6px; align-self: flex-start; margin-top: 8px; padding: 7px 12px; border: 1px dashed color-mix(in srgb, var(--primary) 45%, var(--line)); border-radius: 8px; background: var(--primary-soft); color: var(--primary-ink); cursor: pointer; font: inherit; font-size: .82rem; font-weight: 600; }
+.bl-escs__mas[hidden] { display: none; }
+.bl-dlg .rt .rt-area { min-height: 140px; }

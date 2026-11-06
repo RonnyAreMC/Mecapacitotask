@@ -150,7 +150,9 @@ final class Backlog
         $it = self::items()[(int)($h['item_id'] ?? 0)] ?? null;
         $h += ['codigo' => '', 'titulo' => '', 'como' => '', 'quiero' => '', 'para' => '', 'criterios' => '', 'notas' => '', 'proyecto_id' => 0, 'equipo' => '',
                'item_id' => 0, 'release' => '', 'sprint' => '', 'estimacion' => '', 'prioridad' => 'media', 'estado' => 'por_hacer',
-               'responsable' => 0, 'tareas' => [], 'adjuntos' => [], 'orden' => 0, 'historial' => [], 'hecho_en' => '', 'arrastres' => 0];
+               'responsable' => 0, 'tareas' => [], 'adjuntos' => [], 'orden' => 0, 'historial' => [], 'hecho_en' => '', 'arrastres' => 0, 'escenarios' => []];
+        // Los criterios de antes (texto suelto) se ven como un escenario
+        if (!$h['escenarios'] && trim((string)$h['criterios']) !== '') $h['escenarios'] = [['nombre' => '', 'dado' => '', 'cuando' => '', 'entonces' => (string)$h['criterios']]];
         $h['puntos'] = self::puntos((string)$h['estimacion']);
         $h['item'] = $it ? ['id' => (int)$it['id'], 'codigo' => (string)$it['codigo'], 'titulo' => (string)$it['titulo'], 'release' => (string)$it['release']] : null;
         if ($it) $h['release'] = (string)$it['release'];
@@ -219,8 +221,23 @@ final class Backlog
         if ($id > 0 && !$antes) throw new RuntimeException('Esa historia ya no existe.');
         $txt = fn(string $k, int $max) => mb_substr(trim((string)($d[$k] ?? '')), 0, $max);
         $c = [];
-        foreach (['titulo' => 200, 'como' => 160, 'quiero' => 800, 'para' => 800, 'criterios' => 4000, 'notas' => 4000] as $k => $max) {
+        foreach (['titulo' => 200, 'como' => 160, 'quiero' => 800, 'para' => 800, 'criterios' => 4000] as $k => $max) {
             if (array_key_exists($k, $d)) $c[$k] = $txt($k, $max);
+        }
+        // El detalle, con formato (el editor del panel): se sanea siempre aquí
+        if (array_key_exists('notas', $d)) $c['notas'] = class_exists('HtmlRico') ? mb_substr(HtmlRico::limpiar((string)$d['notas']), 0, 30000) : $txt('notas', 4000);
+        // Criterios de aceptación como escenarios: Dado · Cuando · Entonces (Given · When · Then)
+        if (array_key_exists('escenarios', $d)) {
+            $esc = [];
+            foreach (array_slice(array_values((array)$d['escenarios']), 0, 20) as $e) {
+                $e = ['nombre' => mb_substr(trim((string)($e['nombre'] ?? '')), 0, 160), 'dado' => mb_substr(trim((string)($e['dado'] ?? '')), 0, 1500),
+                      'cuando' => mb_substr(trim((string)($e['cuando'] ?? '')), 0, 1500), 'entonces' => mb_substr(trim((string)($e['entonces'] ?? '')), 0, 1500)];
+                if ($e['dado'] !== '' || $e['cuando'] !== '' || $e['entonces'] !== '') $esc[] = $e;
+            }
+            $c['escenarios'] = $esc;
+            // Y en texto, para buscar y exportar
+            $c['criterios'] = mb_substr(implode("\n\n", array_map(fn($e) => trim(($e['nombre'] !== '' ? 'Escenario: ' . $e['nombre'] . "\n" : '')
+                . ($e['dado'] !== '' ? 'Dado ' . $e['dado'] . "\n" : '') . ($e['cuando'] !== '' ? 'Cuando ' . $e['cuando'] . "\n" : '') . ($e['entonces'] !== '' ? 'Entonces ' . $e['entonces'] : '')), $esc)), 0, 8000);
         }
         if (($c['titulo'] ?? ($antes['titulo'] ?? '')) === '') throw new RuntimeException('Ponle un título a la historia.');
         $pid = (int)($antes['proyecto_id'] ?? ($d['proyecto_id'] ?? 0));
