@@ -4,7 +4,9 @@
  * usarlo EN la reunión, entre varios a la vez. Notas adhesivas, texto, formas,
  * flechas que se pegan a lo que unen, lápiz, imágenes (Ctrl+V o arrastrando
  * desde el escritorio) y tableros Kanban que pueden traer las tareas reales
- * del proyecto. Menos herramientas, mejor hechas.
+ * del proyecto, y diagramas de historia: se arrastra una historia de usuario
+ * y se arma su explicación con dibujos (assets/pizarra-hu.js, lib/PizarraHU.php).
+ * Menos herramientas, mejor hechas.
  *
  * Esta página solo comprueba que la reunión exista y que quien entra pueda
  * verla, y pinta el armazón: la barra de arriba, la de herramientas y el
@@ -104,12 +106,25 @@ $datos = [
     'titulo'   => $titulo,
     'api'      => $api,
 ];
+// Diagrama de historia (assets/pizarra-hu.js): en qué proyectos puede escribir de vuelta en la
+// historia («Guardar en la historia»: su PO, su Scrum Master y el administrador). Solo quien edita.
+if ($editar && !$embed) {
+    require_once __DIR__ . '/lib/PizarraHU.php';
+    $datos['hu'] = ['puede' => PizarraHU::proyectosQuePuede($pid > 0 ? [$pid] : array_column(PizarraHU::proyectosVisibles(), 'id'))];
+    // «Generar diagrama» desde la historia (pizarra.php?mia=1&hu=ID): en «Mis notas» se arma (o se busca) el
+    // diagrama de esa historia al abrir. Solo si quien entra ve su proyecto; si no, el parámetro no hace nada.
+    if ($mia && !$idNota && !$publica && (int)($_GET['hu'] ?? 0) > 0) {
+        $huAbrir = PizarraHU::historia((int)$_GET['hu']);
+        if ($huAbrir) $datos['hu']['abrir'] = $huAbrir;
+    }
+}
 
 // Íconos que el JS pinta (barra contextual, tablero, tarjetas): SVG del set,
 // guardados una vez en un <template> para clonarlos sin pedir nada más.
 $iconosJs = ['ds-eliminar', 'ds-duplicar', 'ds-enlace', 'pz-traer', 'ds-mas', 'ds-check', 'ds-cerrar', 'ds-descargar',
              'pz-frente', 'pz-columna', 'pz-grosor', 'pz-punta', 'pz-tamano', 'pz-nube', 'pz-sin-red', 'pz-imagen', 'ds-alerta',
-             'ds-notificaciones'];
+             'ds-notificaciones', 'ds-play', 'ds-pausa', 'ds-buscar', 'ds-chevron-abajo', 'ds-reintentar', 'ds-ayuda',
+             'pz-historia', 'pz-texto'];
 
 // Las herramientas: [clave, ícono, nombre, atajo]. El lector solo mira y se mueve.
 $herramientas = [
@@ -156,12 +171,13 @@ if ($editar) {
 <?php if ($embed): ?>
 <style>
   /* Vista previa (&embed=1): solo el lienzo, quieto. Tocarla la abre entera (lo hace la página que la inserta). */
-  .pz-body--embed :is(.pz-arriba, .pz-barra, .pz-sub, .pz-zoom, .pz-ctx, .pz-vacio, .pz-ayuda, .pz-pista, .pz-pop, .pz-calc, .pz-toast, .pz-tip) { display: none !important; }
+  .pz-body--embed :is(.pz-arriba, .pz-barra, .pz-sub, .pz-zoom, .pz-ctx, .pz-vacio, .pz-ayuda, .pz-pista, .pz-pop, .pz-calc, .pz-toast, .pz-tip, .pz-hu-panel, .pz-menu) { display: none !important; }
   .pz-body--embed .pz-lienzo { pointer-events: none; }
 </style>
 <?php endif; ?>
 <link rel="preload" href="<?= asset('assets/fonts/Inter-Variable.woff2') ?>" as="font" type="font/woff2" crossorigin>
 <link rel="stylesheet" href="<?= asset('assets/pizarra.css') ?>">
+<link rel="stylesheet" href="<?= asset('assets/pizarra-hu.css') ?>">
 </head>
 <body class="pz-body<?= $embed ? ' pz-body--embed' : '' ?>">
 <div class="pz<?= $editar ? ' pz--editar' : ' pz--lector' ?>" id="pz">
@@ -214,6 +230,9 @@ if ($editar) {
               data-tip="<?= e($h[2]) ?>" data-tecla="<?= $h[3] ?>" aria-label="<?= e($h[2]) ?> (<?= $h[3] ?>)"
               aria-pressed="<?= $h[0] === 'seleccionar' ? 'true' : 'false' ?>"><?= UI::icono($h[1]) ?></button>
     <?php endforeach; ?>
+    <?php if ($editar): /* Diagrama de historia: abre al lado las historias del proyecto; se arrastran al lienzo */ ?>
+    <button type="button" class="pz-herr pz-herr--hu" data-hu-panel data-tip="Diagrama de historia: arrastra una historia de usuario" data-tecla="U" aria-label="Diagrama de historia (U)" aria-pressed="false"><?= UI::icono('pz-historia') ?></button>
+    <?php endif; ?>
     <?php /* La calculadora no es una herramienta del lienzo: se abre al lado y es de cada quien */ ?>
     <span class="pz-barra__sep" aria-hidden="true"></span>
     <button type="button" class="pz-herr pz-herr--calc" data-calc data-tip="Calculadora (solo para ti)" data-tecla="C" aria-label="Calculadora (C)" aria-pressed="false"><?= UI::icono('pz-calculadora') ?></button>
@@ -263,6 +282,7 @@ if ($editar) {
       <dt>R · O · A</dt><dd>Rectángulo · Elipse · Flecha</dd>
       <dt>P · K · I</dt><dd>Lápiz · Kanban · Imagen</dd>
       <dt>L</dt><dd>Enlace (o pégalo con Ctrl V)</dd>
+      <dt>U</dt><dd>Diagrama de una historia de usuario</dd>
       <dt>Doble clic</dt><dd>Escribir en lo elegido (o Enter)</dd>
       <dt>Ctrl V</dt><dd>Pegar imagen, texto o enlace</dd>
       <dt>Campana</dt><dd>Recordatorio en una nota (en lo elegido)</dd>
@@ -350,6 +370,11 @@ if ($editar) {
     <?php endif; ?>
   </section>
 
+  <?php if ($editar): ?>
+  <!-- Diagrama de historia: las historias del proyecto, para arrastrarlas al lienzo (lo arma assets/pizarra-hu.js) -->
+  <aside class="pz-hu-panel pz-vidrio" id="pz-hu-panel" aria-label="Historias de usuario" hidden></aside>
+  <?php endif; ?>
+
   <div class="pz-toast" id="pz-toast" role="status" aria-live="polite"></div>
   <div class="pz-tip" id="pz-tip" role="tooltip"></div>
   <input type="file" id="pz-archivo" accept="image/png,image/jpeg,image/webp,image/gif" multiple hidden>
@@ -359,6 +384,7 @@ if ($editar) {
   </template>
   <script type="application/json" id="pz-datos"><?= json_encode($datos, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </div>
+<script src="<?= asset('assets/pizarra-hu.js') ?>" defer></script>
 <script src="<?= asset('assets/pizarra.js') ?>" defer></script>
 <script>
 // La pizarra se abre en otra pestaña (ds.js): ahí «Volver» la cierra y se vuelve a la

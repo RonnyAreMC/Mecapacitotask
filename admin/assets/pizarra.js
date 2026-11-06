@@ -35,6 +35,8 @@
   const toastEl = $('#pz-toast'), estadoEl = $('#pz-estado'), otrosEl = $('#pz-otros'), vacioEl = $('#pz-vacio');
   const archivo = $('#pz-archivo'), ayuda = $('#pz-ayuda'), pctEl = $('#pz-pct');
   const SVGNS = 'http://www.w3.org/2000/svg';
+  // Diagrama de historia (assets/pizarra-hu.js): si no cargó, sus elementos se guardan tal cual y no se pintan
+  const HU = window.PizarraHU || null;
   const movReducido = window.matchMedia('(prefers-reduced-motion: reduce)');
   const MAC = /Mac|iPhone|iPad/i.test(navigator.platform || navigator.userAgent || '');
 
@@ -69,6 +71,7 @@
   const TINTA = new Set(['texto', 'flecha', 'trazo']);   // su color es el de la tinta, no el del papel
   const SVG_TIPOS = new Set(['flecha', 'trazo']);
   const TIPOS = new Set(['nota', 'texto', 'rect', 'elipse', 'flecha', 'trazo', 'imagen', 'enlace', 'kanban']);
+  if (HU) TIPOS.add('hu');
   const TAMANOS = [16, 20, 28, 40, 56, 80];
   const GROSORES = [2, 3, 5, 8];
   const PUNTAS = ['fin', 'ambas', 'nada'];
@@ -124,6 +127,7 @@
         break;
       case 'texto': return { x: num(el.x), y: num(el.y), w: num(el.w, 300), h: el._h || num(el.h, 40) };
       case 'kanban': return { x: num(el.x), y: num(el.y), w: num(el.w, 900), h: Math.max(num(el.h, 400), el._hc || 0) };
+      case 'hu': return { x: num(el.x), y: num(el.y), w: num(el.w, 1100), h: el._h || num(el.h, 600) };   // el alto, medido
       case 'flecha': {
         const [a, b] = extremos(el);
         const x = Math.min(a.x, b.x), y = Math.min(a.y, b.y);
@@ -162,6 +166,8 @@
     trazo: () => ({ color: pref.lapizColor, grosor: pref.lapizGrosor }),
     imagen: () => ({ w: 320, h: 200, src: '' }),
     enlace: () => ({ w: 360, h: 84, url: '', titulo: '' }),
+    // Diagrama de historia: su texto es la fuente (pizarra-hu.js lo lee y lo dibuja); el modelo va al lado
+    hu: () => ({ w: 1100, h: 600, texto: '', modelo: null, hu: null, esc: -1, rep: 0 }),
     kanban: () => ({
       w: 960, h: 560, titulo: 'Tablero',
       columnas: [
@@ -184,6 +190,7 @@
     if (el.tipo === 'kanban' && !(Array.isArray(el.columnas) && el.columnas.length)) el.columnas = base.columnas;
     if (el.tipo === 'flecha') { el.a = el.a || { x: el.x, y: el.y }; el.b = el.b || { x: el.x + 100, y: el.y }; }
     if (el.tipo === 'trazo' && !Array.isArray(el.puntos)) el.puntos = [];
+    if (el.tipo === 'hu' && typeof el.texto !== 'string') el.texto = '';
     return el;
   }
 
@@ -303,6 +310,12 @@
       n.querySelector('small').textContent = url.replace(/^https?:\/\//i, '');
       const a = n.querySelector('a');
       if (url) a.href = url; else a.removeAttribute('href');
+    } else if (el.tipo === 'hu') {
+      mover(n, num(el.x), num(el.y));
+      n.style.width = num(el.w, 1100) + 'px';
+      if (!escribiendo) HU.pintar(el, n);
+      pend.medir.add(el.id);
+      programarRender({});
     } else if (el.tipo === 'kanban') {
       mover(n, num(el.x), num(el.y));
       n.style.width = num(el.w) + 'px';
@@ -570,7 +583,7 @@
   function radioDe(el) {
     if (el.tipo === 'elipse') return '50%';
     if (el.tipo === 'nota') return enTablero(el) || el._suelta ? '12px' : '8px';
-    return { kanban: '20px', rect: '16px', imagen: '12px', enlace: '16px', trazo: '10px' }[el.tipo] || '8px';
+    return { kanban: '20px', rect: '16px', imagen: '12px', enlace: '16px', trazo: '10px', hu: '22px' }[el.tipo] || '8px';
   }
   function pintarSel() {
     for (const id of [...sel]) if (!vivo(id)) sel.delete(id);
@@ -613,10 +626,12 @@
       a.style.transform = `translate(${d[1]}px,${d[2]}px)`;
     });
     if (sUI.hoverId && (sel.has(sUI.hoverId) || !vivo(sUI.hoverId))) pintarHover(null);
+    HU?.alElegir(sel);
   }
   function asasDe(el) {
     if (el.tipo === 'flecha') { const [a, b] = extremos(el); return [['a', a.x, a.y], ['b', b.x, b.y]]; }
     if (el.tipo === 'nota' && enTablero(el)) return [];
+    if (el.tipo === 'hu') { const g = geo(el); return [['w', g.x, g.y + g.h / 2], ['e', g.x + g.w, g.y + g.h / 2]]; }   // solo el ancho: el alto sale del contenido
     const g = geo(el), x1 = g.x, y1 = g.y, x2 = g.x + g.w, y2 = g.y + g.h;
     const l = [['nw', x1, y1], ['ne', x2, y1], ['sw', x1, y2], ['se', x2, y2]];
     if (el.tipo === 'texto') l.push(['w', x1, y1 + g.h / 2], ['e', x2, y1 + g.h / 2]);
@@ -949,7 +964,8 @@
     const el = vivo(id), n = nodos.get(id);
     if (!el || !n) return;
     let txt = null, unaLinea = false;
-    if (op.campo === 'col') { txt = n.querySelector(`[data-col-id="${CSS.escape(op.col)}"]`); unaLinea = true; }
+    if (el.tipo === 'hu') { op.campo = op.campo || 'titulo'; txt = n.querySelector(`[data-k="${CSS.escape(op.k || 'titulo')}"]`); unaLinea = true; }
+    else if (op.campo === 'col') { txt = n.querySelector(`[data-col-id="${CSS.escape(op.col)}"]`); unaLinea = true; }
     else if (op.campo === 'titulo' || el.tipo === 'kanban') { txt = n.querySelector('.pz-kanban__titulo'); unaLinea = true; op.campo = 'titulo'; }
     else if (CON_TEXTO.has(el.tipo)) txt = n.querySelector('.pz-txt');
     else if (el.tipo === 'enlace') { txt = n.querySelector('.pz-enlace__txt b'); unaLinea = true; op.campo = 'enlace'; }
@@ -990,6 +1006,7 @@
   }
   function ponerCampo(ed, v) {
     const el = ed.el;
+    if (el.tipo === 'hu') { HU.ponerCampo(el, ed.op, v); return; }   // pasa por su modelo: cambia su texto
     if (ed.op.campo === 'titulo') el.titulo = v;
     else if (ed.op.campo === 'col') { const c = (el.columnas || []).find((x) => x.id === ed.op.col); if (c) c.titulo = v; }
     else if (ed.op.campo === 'enlace') el.titulo = v;
@@ -1002,7 +1019,7 @@
     ponerCampo(ed, leerTexto(ed.txt, ed.unaLinea));
     if (el.tipo === 'nota' && enTablero(el)) programarRender({ acomodar: true });
     else if (el.tipo === 'nota' || el.tipo === 'rect' || el.tipo === 'elipse') ajustarFuente(el, ed.nodo);
-    else if (el.tipo === 'texto') { pend.medir.add(el.id); programarRender({}); }
+    else if (el.tipo === 'texto' || el.tipo === 'hu') { pend.medir.add(el.id); programarRender({}); }
     marcar(el);
     marcarSucio(el.id, true);
   });
@@ -1017,9 +1034,10 @@
     raiz.classList.remove('is-editando');
     const el = vivo(ed.id);
     if (!el) return;
-    // Títulos vacíos: vuelven al que tenían
-    if (ed.op.campo === 'titulo' && !el.titulo.trim()) el.titulo = ed.antes?.titulo || 'Tablero';
-    if (ed.op.campo === 'col') { const c = el.columnas.find((x) => x.id === ed.op.col); if (c && !c.titulo.trim()) c.titulo = ed.antes?.columnas?.find((x) => x.id === ed.op.col)?.titulo || 'Columna'; }
+    // Títulos vacíos: vuelven al que tenían (en el diagrama de historia, lo decide su modelo)
+    if (el.tipo === 'hu') HU.alTerminar(el, ed.op, ed.antes);
+    else if (ed.op.campo === 'titulo' && !el.titulo.trim()) el.titulo = ed.antes?.titulo || 'Tablero';
+    if (el.tipo !== 'hu' && ed.op.campo === 'col') { const c = el.columnas.find((x) => x.id === ed.op.col); if (c && !c.titulo.trim()) c.titulo = ed.antes?.columnas?.find((x) => x.id === ed.op.col)?.titulo || 'Columna'; }
     const ultimaEsCreacion = ed.entrada && pasado[pasado.length - 1] === ed.entrada;
     if (el.tipo === 'texto' && !(el.texto || '').trim()) {
       // Un texto que quedó vacío no se guarda
@@ -1337,7 +1355,7 @@
     const izq = a.includes('w'), der = a.includes('e'), arr = a.includes('n'), aba = a.includes('s');
     const ax = izq ? g0.x + g0.w : g0.x, ay = arr ? g0.y + g0.h : g0.y;
     const ncols = (el.columnas || []).length || 1;
-    const minW = { kanban: K.colMin * ncols + K.margen, texto: 40, nota: 60, imagen: 24, enlace: 200 }[el.tipo] || 16;
+    const minW = { kanban: K.colMin * ncols + K.margen, texto: 40, nota: 60, imagen: 24, enlace: 200, hu: 820 }[el.tipo] || 16;
     const minH = { kanban: 220, nota: 60, enlace: 64 }[el.tipo] || 12;
     let w = izq || der ? Math.max(minW, izq ? ax - p.x : p.x - ax) : g0.w;
     let h = arr || aba ? Math.max(minH, arr ? ay - p.y : p.y - ay) : g0.h;
@@ -1587,7 +1605,11 @@
     const n = e.target.closest('[data-id]');
     const el = n ? vivo(n.dataset.id) : null;
     const campo = e.target.closest('[data-campo]');
-    if (el && campo) { editar(el.id, { campo: campo.dataset.campo, col: campo.dataset.colId, x: e.clientX, y: e.clientY }); return; }
+    if (el && campo) {
+      // En el diagrama de historia, el campo dice qué parte de su texto es (data-k, data-l…)
+      editar(el.id, el.tipo === 'hu' ? Object.assign({}, campo.dataset, { x: e.clientX, y: e.clientY }) : { campo: campo.dataset.campo, col: campo.dataset.colId, x: e.clientX, y: e.clientY });
+      return;
+    }
     if (el && el.tipo !== 'kanban') {
       if (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace') editar(el.id, { x: e.clientX, y: e.clientY });
       return;
@@ -1770,6 +1792,7 @@
     const b = e.target.closest('.pz-herr');
     if (!b) return;
     if (b.hasAttribute('data-calc')) alternarCalc();   // la calculadora no es una herramienta: se abre al lado
+    else if (b.hasAttribute('data-hu-panel')) HU?.alternarPanel();   // tampoco las historias: un panel al lado
     else elegirHerr(b.dataset.herr);
   });
   // La lente de vidrio: sigue al mouse por la barra (solo con transform)
@@ -1805,7 +1828,7 @@
     if (!EDITAR || (gesto && gesto.movido) || !sel.size) { ocultarCtx(); return; }
     const lista = [...sel].map(vivo).filter(Boolean);
     if (!lista.length) { ocultarCtx(); return; }
-    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}`).join(',');
+    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}${e.tipo === 'hu' ? e.texto : ''}`).join(',');
     if (ctxBar._firma !== firma) {
       ctxBar._firma = firma;
       const tipos = new Set(lista.map((e) => e.tipo));
@@ -1823,6 +1846,7 @@
       if (tipos.has('flecha') || tipos.has('trazo')) extra += botonCtx('grosor', 'pz-grosor', 'Grosor de la línea');
       if (lista.length === 1 && tipos.has('kanban')) extra += botonCtx('traer', 'pz-traer', 'Traer tareas del proyecto') + botonCtx('columna', 'pz-columna', 'Añadir columna');
       if (lista.length === 1 && tipos.has('enlace')) extra += botonCtx('abrir', 'ds-enlace', 'Abrir el enlace');
+      if (lista.length === 1 && tipos.has('hu') && HU) extra += HU.botonesCtx(lista[0], botonCtx);
       if (lista.length === 1 && (tipos.has('nota') || tipos.has('texto'))) {
         // El recordatorio: a su hora le llega un aviso (campana, notificación y correo) a quien lo puso
         const av = lista[0].aviso ? etiquetaAviso(lista[0].aviso) : '';
@@ -1856,6 +1880,7 @@
     const b = e.target.closest('[data-ctx]');
     if (!b) return;
     const lista = [...sel].map(vivo).filter(Boolean);
+    if (b.dataset.ctx.startsWith('hu-')) { if (HU && lista[0]) HU.accionCtx(b.dataset.ctx, lista[0], b); return; }
     const siguiente = (lista, v) => lista[(lista.indexOf(v) + 1) % lista.length] ?? lista[0];
     switch (b.dataset.ctx) {
       case 'color': {
@@ -2001,7 +2026,7 @@
     }
     const t = e.target;
     if (t instanceof HTMLInputElement || t instanceof HTMLTextAreaElement || t?.isContentEditable) return;
-    if (t?.closest?.('#pz-calc, .pz-pop')) return;   // la calculadora y los cuadros tienen su propio teclado
+    if (t?.closest?.('#pz-calc, .pz-pop, .pz-hu-panel, .pz-hu-texto, .pz-menu')) return;   // la calculadora y los cuadros tienen su propio teclado
     const mod = e.ctrlKey || e.metaKey;
     if (e.code === 'Space' && !mod) {
       e.preventDefault();
@@ -2025,6 +2050,7 @@
     if (e.shiftKey && e.code === 'Digit2' && sel.size) { e.preventDefault(); ajustarA([...sel]); return; }
     switch (e.key) {
       case 'Escape':
+        if (HU?.escape()) return;
         if (!ayuda.hidden) { ayuda.hidden = true; return; }
         if (popAviso && !popAviso.hidden) { cerrarAviso(); return; }
         if (popEnlace && !popEnlace.hidden) { cerrarEnlace(); return; }
@@ -2037,7 +2063,7 @@
         return;
       case 'Enter': {
         const el = sel.size === 1 ? vivo([...sel][0]) : null;
-        if (EDITAR && el && (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace' || el.tipo === 'kanban')) { e.preventDefault(); editar(el.id, {}); }
+        if (EDITAR && el && (CON_TEXTO.has(el.tipo) || el.tipo === 'enlace' || el.tipo === 'kanban' || el.tipo === 'hu')) { e.preventDefault(); editar(el.id, el.tipo === 'hu' ? { campo: 'titulo', k: 'titulo' } : {}); }
         return;
       }
       case 'ArrowLeft': case 'ArrowRight': case 'ArrowUp': case 'ArrowDown': {
@@ -2061,17 +2087,20 @@
       case '?': ayuda.hidden = !ayuda.hidden; return;
     }
     if (e.key.toLowerCase() === 'c') { e.preventDefault(); alternarCalc(); return; }
+    if (e.key.toLowerCase() === 'u' && EDITAR && HU) { e.preventDefault(); HU.alternarPanel(); return; }
     const herr = ATAJOS[e.key.toLowerCase()];
     if (herr && (EDITAR || herr === 'seleccionar' || herr === 'mano')) { e.preventDefault(); elegirHerr(herr); }
   });
   document.addEventListener('keyup', (e) => { if (e.code === 'Space') { espacio = false; raiz.classList.remove('is-espacio'); } });
   window.addEventListener('blur', () => { espacio = false; raiz.classList.remove('is-espacio'); });
-  function ajustarA(ids) {
+  /** Encuadra lo elegido. libre: {izq, der} el hueco de la pantalla que dejan los paneles abiertos (diagrama de historia). */
+  function ajustarA(ids, libre) {
     const c = union(ids.map(vivo).filter(Boolean).map(geo));
     if (!c.w) return;
-    const ah = window.innerHeight - 180, aw = window.innerWidth - 80;
+    const izq = libre ? libre.izq : 40, der = libre ? libre.der : window.innerWidth - 40;
+    const ah = window.innerHeight - 180, aw = Math.max(200, der - izq);
     const z = limitar(Math.min(aw / c.w, ah / c.h), Z_MIN, 2);
-    animarVista({ z, x: window.innerWidth / 2 - (c.x + c.w / 2) * z, y: 84 + ah / 2 - (c.y + c.h / 2) * z });
+    animarVista({ z, x: izq + aw / 2 - (c.x + c.w / 2) * z, y: 84 + ah / 2 - (c.y + c.h / 2) * z });
   }
 
   /* =========================================================
@@ -2134,6 +2163,7 @@
   function pegarTexto(texto, p) {
     texto = String(texto || '').trim();
     if (!texto) return;
+    if (HU && HU.pareceHistoria(texto)) { HU.enBlanco(texto, p); return; }   // «Como… Quiero… Cuando…»: su diagrama
     const f = factor();
     if (/^https?:\/\/\S+$/i.test(texto)) {
       crear([nuevoEl('enlace', { x: r1(p.x - 180 * f), y: r1(p.y - 42 * f), w: Math.round(360 * f), h: Math.round(84 * f), url: texto.slice(0, 2000) })]);
@@ -2370,6 +2400,7 @@
       if (!vistaGuardada) ajustar(false);
       pintarVacio();
       if (!vivos().length) mostrarPista();   // la primera vez, en una pizarra vacía: cómo se pega
+      HU?.alCargar();   // pizarra.php?mia=1&hu=ID: el diagrama de esa historia, armado o encontrado
     }
   }
 
@@ -2420,6 +2451,7 @@
   }
   function ocupado(id) {
     if (editando?.id === id) return true;
+    if (HU?.ocupado(id)) return true;
     const g = gesto;
     if (!g) return false;
     return !!(g.ids?.has(id) || g.el?.id === id);
@@ -2584,6 +2616,7 @@
     const lista = vivos();
     if (!lista.length) { toast('La pizarra está vacía: todavía no hay nada que exportar.'); return; }
     try { await document.fonts?.ready; } catch (e) { /* sin fuentes, igual */ }
+    try { await HU?.precargar(); } catch (e) { /* sin dibujos, igual */ }
     const caja = union(lista.map(geo)), pad = 48;
     const X = caja.x - pad, Y = caja.y - pad, W = caja.w + pad * 2, H = caja.h + pad * 2;
     let s = Math.min(2, 8000 / W, 8000 / H);
@@ -2631,6 +2664,8 @@
       rr(x, g.x, g.y, g.w, g.h, 10); x.clip();
       if (img?.complete && img.naturalWidth) x.drawImage(img, g.x, g.y, g.w, g.h);
       else { x.fillStyle = '#E2E8F0'; x.fillRect(g.x, g.y, g.w, g.h); }
+    } else if (e.tipo === 'hu') {
+      HU?.dibujar(x, e, g, n, { rr, envolver, FUENTE });
     } else if (e.tipo === 'enlace') {
       rr(x, g.x, g.y, g.w, g.h, 14); x.fillStyle = '#FFFFFF'; x.fill(); x.lineWidth = 1; x.strokeStyle = '#DFE9F0'; x.stroke();
       rr(x, g.x + 16, g.y + (g.h - 44) / 2, 44, 44, 12); x.fillStyle = '#E0F2FE'; x.fill();
@@ -3177,6 +3212,45 @@
     document.querySelectorAll('#pz kbd[data-mod]').forEach((k) => { k.textContent = '⌘'; });
     document.querySelectorAll('#pz-ayuda dt').forEach((dt) => { dt.textContent = dt.textContent.replace(/\bCtrl\b/g, '⌘'); });
   }
+  /** Diagrama de historia: crea uno (datos: texto, modelo, hu) en p; centro: p es su centro; ajustar: la vista va a él. */
+  function crearHU(datos, p, op = {}) {
+    if (!EDITAR || !HU) return null;
+    if (editando) terminarEdicion();
+    const w = 1100;
+    const el = nuevoEl('hu', Object.assign({}, datos, { w, x: r1(p.x - (op.centro ? w / 2 : 220)), y: r1(p.y - (op.centro ? 280 : 40)) }));
+    crear([el]);
+    elegirHerr('seleccionar');
+    sel.clear(); sel.add(el.id);
+    render();
+    ocultarPista(true);
+    if (op.ajustar) ajustarA([el.id], op.libre);
+    pintarSel(); pintarCtx();
+    return el.id;
+  }
+  if (HU) {
+    HU.montar({
+      CFG, EDITAR, raiz, lienzo, ico, toast, pedir, aMundo, vivos, vivo, ajustarA,
+      crear: crearHU,
+      nodo: (id) => nodos.get(id),
+      pintar: (el) => { pintar(el); programarRender({ flechas: true, sel: true }); },
+      // Un cambio con su entrada en el historial (unir: los que llegan seguidos van en una sola)
+      cambiar(el, fn, unir) {
+        const t = cambio();
+        t.tocar(el.id);
+        fn(el);
+        pintar(el);
+        t.cerrar(unir ? { unir } : {});
+        programarRender({ flechas: true, sel: true, ctx: true });
+        ctxBar._firma = '';
+      },
+      // Sin historial ni deshacer (▶ reproducir para todos)
+      sinHistoria(el, fn) { if (!EDITAR) return; fn(el); marcar(el); marcarSucio(el.id); pintar(el); },
+      editar: (id, op) => { render(); editar(id, op); },
+      elegir(ids) { sel.clear(); ids.forEach((id) => sel.add(id)); pintarSel(); pintarCtx(); },
+      retomar: () => retomarSaltados(),
+      refrescarCtx: () => { ctxBar._firma = ''; pintarCtx(); },
+    });
+  }
   raiz.dataset.herr = herramienta;
   aplicarVista();
   colocarPieza();
@@ -3193,7 +3267,7 @@
 
   // Para las pruebas: una mirada al estado (no cambia nada)
   window.__pizarra = {
-    els, sel, vista, sync, exportarPNG, ajustar,
+    els, sel, vista, sync, exportarPNG, ajustar, hu: HU,
     get herramienta() { return herramienta; },
     get editando() { return editando && editando.id; },
     fijarVista(x, y, z) { vista.x = x; vista.y = y; vista.z = z; aplicarVista(); },

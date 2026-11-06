@@ -7,6 +7,11 @@
  *   POST ?reunion=ID&accion=guardar          {cambios:[elemento | {id, borrado:true}]}
  *   POST ?reunion=ID&accion=imagen           multipart, campo «imagen»
  *   GET  ?reunion=ID&accion=tareas           las tareas del proyecto (para el kanban)
+ *   GET  ?reunion=ID&accion=historias        las historias de usuario del proyecto (diagrama de historia);
+ *                                            en «Mis notas», &proyecto=ID entre los que la persona ve
+ *   GET  ?reunion=ID&accion=historia&id=H    una sola (rehacer su diagrama)
+ *   POST ?reunion=ID&accion=guardar_hu       {historia:H, como, quiero, para, escenarios[]} → a la historia
+ *                                            (solo su PO, su Scrum Master o el administrador)
  *
  * Con ?mia=1 en vez de ?reunion=ID: «Mis notas», la pizarra personal de quien
  * tiene la sesión (y «tareas» trae sus tareas abiertas de todos sus proyectos).
@@ -104,6 +109,35 @@ try {
 
         case 'tareas':
             $responder(['ok' => true, 'tareas' => $mia ? Pizarra::tareasDe($mid) : Pizarra::tareas((int)$reunion['proyecto_id'])]);
+
+        // Diagrama de historia (assets/pizarra-hu.js): las historias de usuario del
+        // proyecto de la pizarra. En «Mis notas» y en la de una nota no hay proyecto:
+        // se elige entre los que la persona puede ver (&proyecto=ID).
+        case 'historias':
+            require_once __DIR__ . '/lib/PizarraHU.php';
+            if (!PizarraHU::hayBacklog()) $responder(['ok' => true, 'sin_modulo' => true, 'historias' => [], 'proyectos' => [], 'proyecto' => 0, 'estados' => []]);
+            $proyectos = $mia ? PizarraHU::proyectosVisibles() : [];
+            $pidHu = $mia ? (int)($_GET['proyecto'] ?? 0) : (int)$reunion['proyecto_id'];
+            if ($mia && $pidHu > 0 && !puedeVerProyecto($pidHu)) $pidHu = 0;
+            $responder(['ok' => true, 'proyecto' => $pidHu, 'proyectos' => $proyectos, 'estados' => PizarraHU::estados(),
+                        'puede' => $pidHu > 0 && PizarraHU::puede($pidHu),
+                        'historias' => $pidHu > 0 && puedeVerProyecto($pidHu) ? PizarraHU::historias($pidHu) : []]);
+
+        // Una sola (para rehacer un diagrama con lo que la historia dice ahora)
+        case 'historia':
+            require_once __DIR__ . '/lib/PizarraHU.php';
+            $hu = PizarraHU::historia((int)($_GET['id'] ?? 0));
+            if (!$hu) $responder(['ok' => false, 'error' => 'Esa historia ya no está o no es de tus proyectos.'], 404);
+            $responder(['ok' => true, 'historia' => $hu]);
+
+        // «Guardar en la historia»: Como, Quiero, Para y los escenarios del diagrama vuelven a la
+        // historia del backlog. Solo su PO, su Scrum Master o el administrador (Backlog::puede).
+        case 'guardar_hu':
+            if (!$esPost) $responder(['ok' => false, 'error' => 'Usa POST.'], 405);
+            require_once __DIR__ . '/lib/PizarraHU.php';
+            $cuerpo = json_decode((string)file_get_contents('php://input'), true);
+            $cuerpo = is_array($cuerpo) ? $cuerpo : [];
+            $responder(['ok' => true, 'historia' => PizarraHU::guardarEnHistoria((int)($cuerpo['historia'] ?? 0), $cuerpo, $mid)]);
     }
     $responder(['ok' => false, 'error' => 'Acción desconocida.'], 400);
 } catch (RuntimeException $e) {
