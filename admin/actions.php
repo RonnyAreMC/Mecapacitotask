@@ -89,7 +89,7 @@ $accionesDeCualquiera = [
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
-    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar',
+    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
     // El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y DoR; también su PO, su SM o el admin
     'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
 ];
@@ -4383,6 +4383,8 @@ switch ($accion) {
     case 'bl_historia_borrar':
     case 'bl_sprints_conf':
     case 'bl_importar':
+    case 'bl_ia_tareas':
+    case 'bl_tareas_repartir':
     case 'bl_sprint_plan':
     case 'bl_sprint_retro':
     case 'bl_sprint_accion':
@@ -4411,6 +4413,53 @@ switch ($accion) {
                     if (!Releases::puedeEditar()) $blFin(false, 'Los sprints los configuran los editores de Releases.');
                     Backlog::guardarConf($_POST);
                     $blFin(true, 'Sprints guardados: el calendario se rehízo solo.');
+
+                case 'bl_ia_tareas':
+                    // La IA propone las tareas de una historia; se revisan en el modal y se crean al guardarla
+                    $hIa = Backlog::historia((int)($_POST['id'] ?? 0));
+                    if (!$hIa) throw new RuntimeException('Esa historia ya no existe.');
+                    if (!Backlog::puede((int)$hIa['proyecto_id'])) $blFin(false, $blSinPermiso);
+                    if (!is_file(__DIR__ . '/lib/IA.php')) $blFin(false, 'La IA no está instalada en este servidor.');
+                    require_once __DIR__ . '/lib/IA.php';
+                    require_once __DIR__ . '/lib/IAFunciones.php';
+                    if (!IA::lista()) $blFin(false, 'La IA todavía no está configurada (Consola de IA).');
+                    // Lo que se está escribiendo en la pantalla manda sobre lo guardado
+                    foreach (['titulo', 'como', 'quiero', 'para', 'notas'] as $kIa) if (isset($_POST[$kIa]) && trim((string)$_POST[$kIa]) !== '') $hIa[$kIa] = (string)$_POST[$kIa];
+                    $escIa = json_decode((string)($_POST['escenarios_json'] ?? ''), true);
+                    if (is_array($escIa) && $escIa) $hIa['escenarios'] = $escIa;
+                    $yaIa = array_values(array_filter(array_map(fn($tid) => (string)($tareas->buscar((int)$tid)['titulo'] ?? ''), (array)$hIa['tareas'])));
+                    try {
+                        $rIa = IAFunciones::tareasHistoria($proyectos->buscar((int)$hIa['proyecto_id']), $hIa, $yaIa);
+                    } catch (IAError $e) {
+                        $blFin(false, $e->getMessage());
+                    }
+                    $smIa = ProyectoRepo::scrumDe($proyectos->buscar((int)$hIa['proyecto_id']) ?? []);
+                    $blFin(true, count($rIa['tareas']) . ' tarea(s) propuestas.', ['tareas' => array_map(fn($t) => ['titulo' => $t['titulo'], 'descripcion' => (string)($t['descripcion'] ?? ''), 'prioridad' => $t['prioridad']], $rIa['tareas']),
+                        'sm' => $smIa ? (string)($miembros->buscar($smIa)['nombre'] ?? '') : '', 'costo' => (float)($rIa['costo'] ?? 0), 'modelo' => (string)($rIa['modelo'] ?? '')]);
+
+                case 'bl_tareas_repartir':
+                    // El SM (o el PO o el admin) reparte las tareas de la historia a su equipo
+                    $hRep = Backlog::historia((int)($_POST['id'] ?? 0));
+                    if (!$hRep) throw new RuntimeException('Esa historia ya no existe.');
+                    $pidRep = (int)$hRep['proyecto_id'];
+                    if (!Backlog::puede($pidRep)) $blFin(false, $blSinPermiso);
+                    $_POST['volver'] = 'historia.php?p=' . $pidRep . '&id=' . (int)$hRep['id'];
+                    $pRep = $proyectos->buscar($pidRep);
+                    $genteRep = ProyectoRepo::miembrosDe($pRep);
+                    $genteRep = array_flip(array_map('intval', $genteRep === null ? array_keys($miembros->mapa()) : array_merge($genteRep, [ProyectoRepo::poDe($pRep), ProyectoRepo::scrumDe($pRep)])));
+                    $nRep = 0;
+                    foreach ((array)($_POST['rep'] ?? []) as $tidRep => $midRep) {
+                        $tidRep = (int)$tidRep; $midRep = (int)$midRep;
+                        if (!in_array($tidRep, array_map('intval', (array)$hRep['tareas']), true) || !isset($genteRep[$midRep])) continue;
+                        $tRep = $tareas->buscar($tidRep);
+                        if (!$tRep || (int)$tRep['proyecto_id'] !== $pidRep) continue;
+                        $antesRep = TareaRepo::asignadosDe($tRep);
+                        if ($antesRep === [$midRep]) continue;
+                        $tareas->actualizar($tidRep, ['asignados' => [$midRep]]);
+                        try { notificarSiAsignada($tareas->buscar($tidRep), [$midRep], $antesRep, $proyectos, $miembros); } catch (Throwable $e) { /* ya quedó asignada */ }
+                        $nRep++;
+                    }
+                    $blFin(true, $nRep ? 'Repartidas ' . $nRep . ' tarea(s): a cada quien le llegó el aviso.' : 'No cambió a quién va ninguna tarea.');
 
                 case 'bl_importar':
                     // Las historias que se leyeron del documento (historias_importar.php las
@@ -4557,8 +4606,38 @@ switch ($accion) {
                             $creadasBl[] = (int)$tBl['id'];
                         }
                     }
+                    // Las que propuso la IA (y se dejaron marcadas en el modal): para el Scrum Master, que las reparte
+                    $iaBl = json_decode((string)($_POST['ia_tareas'] ?? ''), true);
+                    $smAvisoBl = 0;
+                    if (is_array($iaBl) && $iaBl) {
+                        $pBl = $proyectos->buscar($pidHu);
+                        $smBl = ProyectoRepo::scrumDe($pBl ?? []);
+                        $paraBl = $smBl ?: (int)($_POST['responsable'] ?? 0);
+                        $spIa = Backlog::sprints()[(string)($_POST['sprint'] ?? '')] ?? null;
+                        $flIa = $spIa ? Backlog::ultimoHabil($spIa) : '';
+                        $fiIa = $spIa ? min($flIa, max(date('Y-m-d'), $spIa['inicio'])) : '';
+                        $codHu = (string)($antesBl['codigo'] ?? '');
+                        $titHu = trim((string)($_POST['titulo'] ?? ($antesBl['titulo'] ?? '')));
+                        foreach (array_slice($iaBl, 0, 20) as $tIa) {
+                            $titIa = mb_substr(trim((string)($tIa['titulo'] ?? '')), 0, 250);
+                            if ($titIa === '') continue;
+                            $prIa = (string)($tIa['prioridad'] ?? 'media');
+                            $tBl = $tareas->crear(['proyecto_id' => $pidHu, 'titulo' => $titIa,
+                                'descripcion' => HtmlRico::limpiar(mb_substr((string)($tIa['descripcion'] ?? ''), 0, 3000) . '<p><em>Para la historia ' . e($codHu !== '' ? $codHu . ' · ' : '') . e(mb_substr($titHu, 0, 200)) . '</em></p>'),
+                                'prioridad' => isset(Catalogo::prioridades()[$prIa]) ? $prIa : 'media', 'fecha_inicio' => $fiIa, 'fecha_limite' => $flIa,
+                                'asignados' => $paraBl > 0 ? [$paraBl] : [], 'origen' => 'ia']);
+                            try { sincronizarCalendario($tareas->buscar((int)$tBl['id']), $proyectos, $miembros, $tareas); } catch (Throwable $e) { /* la tarea ya quedó creada */ }
+                            $creadasBl[] = (int)$tBl['id'];
+                            $smAvisoBl++;
+                        }
+                        // Un solo aviso al SM (no uno por tarea): que las reparta a su equipo
+                        if ($smAvisoBl && $paraBl > 0 && $paraBl !== $blYo) {
+                            avisoPanel([$paraBl], 'tarea', 'Hay ' . $smAvisoBl . ' tarea(s) para repartir', ($codHu !== '' ? $codHu . ' · ' : '') . mb_substr($titHu, 0, 120) . ' · ' . (string)($pBl['nombre'] ?? '')
+                                . ' · Las armó la IA desde la historia: repártelas a tu equipo.', 'historia.php?p=' . $pidHu . '&id=' . (int)$idBl, $blYo);
+                        }
+                    }
                     $dBl = $_POST;
-                    unset($dBl['tareas_nuevas'], $dBl['id'], $dBl['accion'], $dBl['ajax'], $dBl['volver']);
+                    unset($dBl['tareas_nuevas'], $dBl['ia_tareas'], $dBl['escenarios_json'], $dBl['id'], $dBl['accion'], $dBl['ajax'], $dBl['volver']);
                     $dBl['proyecto_id'] = $pidHu;
                     // Solo las tareas de este proyecto
                     if (isset($dBl['tareas'])) $dBl['tareas'] = array_values(array_filter(array_map('intval', (array)$dBl['tareas']), fn($tid) => ($tt = $tareas->buscar($tid)) && (int)$tt['proyecto_id'] === $pidHu));
@@ -4572,6 +4651,7 @@ switch ($accion) {
                     // La pantalla de una historia nueva vuelve a la suya, ya con su número
                     $_POST['volver'] = str_replace('__ID__', (string)(int)$hBl['id'], (string)($_POST['volver'] ?? ''));
                     $blFin(true, 'Historia ' . $hBl['codigo'] . ($idBl ? ' guardada' : ' creada') . ($creadasBl ? ', con ' . count($creadasBl) . ' tarea(s) nueva(s)' : '') . '.'
+                        . ($smAvisoBl ? ' Las ' . $smAvisoBl . ' de la IA quedaron para ' . (($smNomBl = (string)($miembros->buscar($paraBl)['nombre'] ?? '')) !== '' ? explode(' ', $smNomBl)[0] : 'el Scrum Master') . ', que las reparte.' : '')
                         . ($rechBl ? ' No se subieron (tipo no permitido): ' . implode(', ', $rechBl) . '.' : ''), ['historia' => $hBl]);
             }
         } catch (RuntimeException $e) {

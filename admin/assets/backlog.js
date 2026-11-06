@@ -234,3 +234,81 @@
       { desc: 'Se pasó igual al ' + a + '. Falta: ' + (el.dataset.dorFalta || '') }), 350);
   });
 })();
+
+/* ---------- Las tareas de la historia: la IA las propone (van al Scrum Master) y el SM las reparte ----------
+   El modal de la IA pide bl_ia_tareas con lo que hay escrito en la pantalla; las marcadas
+   (con su título editado) van en ia_tareas y se crean al guardar la historia, así no se
+   pierde nada de lo escrito. Repartir es su propio formulario (bl_tareas_repartir). */
+(() => {
+  const form = document.querySelector('[data-bl-form]');
+  if (!form) return;
+  const dlg = document.querySelector('[data-bl-ia-dlg]');
+  const rep = document.querySelector('[data-bl-rep-dlg]');
+  let sucio = false;
+  form.addEventListener('input', () => { sucio = true; });
+  const esc = (s) => String(s == null ? '' : s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+  const PRIO = { urgente: 'Urgente', alta: 'Alta', media: 'Media', baja: 'Baja' };
+  let propuestas = [];
+  const contar = () => {
+    const n = dlg.querySelectorAll('[data-bl-iat-op]:checked').length;
+    dlg.querySelector('[data-bl-iat-n]').textContent = n ? 'Crear ' + n + ' tarea' + (n === 1 ? '' : 's') : 'Marca al menos una';
+    dlg.querySelector('[data-bl-iat-crear]').disabled = !n;
+  };
+  const pedir = async () => {
+    const carg = dlg.querySelector('[data-bl-iat-cargando]'), lista = dlg.querySelector('[data-bl-iat-lista]'), err = dlg.querySelector('[data-bl-iat-error]');
+    carg.hidden = false; lista.hidden = true; err.hidden = true;
+    dlg.querySelector('[data-bl-iat-crear]').disabled = true;
+    const fd = new FormData();
+    fd.set('accion', 'bl_ia_tareas'); fd.set('ajax', '1'); fd.set('id', form.querySelector('[name="id"]').value);
+    ['titulo', 'como', 'quiero', 'para'].forEach((k) => { const el = form.querySelector('[name="' + k + '"]'); if (el) fd.set(k, el.value); });
+    const area = form.querySelector('[name="notas"]') && form.querySelector('[name="notas"]').closest('.rt');
+    if (area && area.querySelector('.rt-area')) fd.set('notas', area.querySelector('.rt-area').innerHTML);
+    // Los escenarios tal como están escritos
+    const escs = {};
+    form.querySelectorAll('[name^="escenarios["]').forEach((el) => {
+      const m = el.name.match(/^escenarios\[(\d+)\]\[(\w+)\]$/);
+      if (m) (escs[m[1]] = escs[m[1]] || {})[m[2]] = el.value;
+    });
+    fd.set('escenarios_json', JSON.stringify(Object.values(escs).filter((e) => (e.dado || e.cuando || e.entonces))));
+    let j = null;
+    try {
+      const r = await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin', headers: { 'X-Requested-With': 'fetch' } });
+      j = await r.json();
+    } catch (_) { j = null; }
+    carg.hidden = true;
+    if (!j || !j.ok) { err.textContent = j ? (j.error || 'No se pudo.') : 'No se pudo: revisa tu conexión.'; err.hidden = false; return; }
+    propuestas = j.tareas || [];
+    lista.innerHTML = propuestas.map((t, i) => '<li class="bl-iat__op">'
+      + '<label class="bl-iat__chk"><input type="checkbox" checked data-bl-iat-op value="' + i + '"><span class="rl-multi__caja" aria-hidden="true"><svg viewBox="0 0 12 12" width="11" height="11"><path d="M2.5 6.2l2.3 2.3 4.7-5" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg></span></label>'
+      + '<div class="bl-iat__txt"><input class="bl-iat__tit" type="text" maxlength="200" value="' + esc(t.titulo) + '" data-bl-iat-tit="' + i + '" aria-label="Título de la tarea ' + (i + 1) + '">'
+      + '<small>' + esc(String(t.descripcion || '').replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim()) + '</small></div>'
+      + '<span class="bl-iat__prio bl-iat__prio--' + esc(t.prioridad) + '">' + esc(PRIO[t.prioridad] || t.prioridad || 'Media') + '</span></li>').join('');
+    lista.hidden = false;
+    contar();
+  };
+  document.addEventListener('click', (e) => {
+    if (dlg && e.target.closest('[data-bl-ia-tareas]')) { dlg.showModal(); pedir(); return; }
+    if (rep && e.target.closest('[data-bl-repartir]')) {
+      if (sucio && !confirm('Tienes cambios sin guardar en la historia y se perderán al repartir. ¿Repartir igual?')) return;
+      rep.showModal(); return;
+    }
+    const c = e.target.closest('[data-dlg-cerrar]');
+    if (c && c.closest('dialog')) c.closest('dialog').close();
+  });
+  if (dlg) {
+    dlg.addEventListener('change', (e) => { if (e.target.matches('[data-bl-iat-op]')) contar(); });
+    dlg.addEventListener('click', (e) => { if (e.target === dlg) dlg.close(); });
+    dlg.querySelector('[data-bl-iat-crear]').addEventListener('click', () => {
+      const marcadas = [...dlg.querySelectorAll('[data-bl-iat-op]:checked')].map((c) => {
+        const i = +c.value, t = propuestas[i] || {};
+        const tit = (dlg.querySelector('[data-bl-iat-tit="' + i + '"]') || {}).value || t.titulo;
+        return { titulo: String(tit).trim(), descripcion: t.descripcion || '', prioridad: t.prioridad || 'media' };
+      }).filter((t) => t.titulo);
+      if (!marcadas.length) return;
+      form.querySelector('[data-bl-ia-campo]').value = JSON.stringify(marcadas);
+      dlg.close();
+      form.requestSubmit ? form.requestSubmit() : form.submit();
+    });
+  }
+  if (rep) rep.addEventListener('click', (e) => { if (e.target === rep) rep.close(); });
+})();

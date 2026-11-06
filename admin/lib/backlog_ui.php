@@ -358,6 +358,17 @@ function blFormHistoria(array $x): string
     foreach (array_slice($ts, 0, 400) as $t) $tareasOps[(int)$t['id']] = ['#' . (int)$t['id'] . ' ' . mb_strimwidth((string)$t['titulo'], 0, 90, '…'), (string)(Catalogo::estadosTarea()[$t['estado'] ?? ''][0] ?? '')];
     $est = Backlog::opcionesEstimacion();
     $urlProy = 'proyecto.php?id=' . $pid . '#vista-sprints';
+    // Las tareas de la historia: la IA las propone (van al Scrum Master) y el SM las reparte a su equipo
+    $conIA = false;
+    if ($puede && !$nueva && is_file(__DIR__ . '/IA.php')) {
+        require_once __DIR__ . '/IA.php';
+        $conIA = IA::lista() && !empty(IA::config()['asignaciones']['bl_tareas_hu']['activa']);
+    }
+    $smP = ProyectoRepo::scrumDe($p);
+    $smNom = $smP && isset($miembros[$smP]) ? (string)$miembros[$smP]['nombre'] : '';
+    $porId = [];
+    foreach ($ts as $t) $porId[(int)$t['id']] = $t;
+    $abiertasHu = array_values(array_filter(array_map(fn($tid) => $porId[(int)$tid] ?? null, (array)$h['tareas']), fn($t) => $t && !in_array($t['estado'] ?? '', $finales, true)));
     $volver = $nueva ? blUrlHistoria($pid) . '&id=__ID__' : blUrlHistoria($pid, (int)$h['id']);
     ob_start(); ?>
 <form class="bl-hu" method="post" action="actions.php" enctype="multipart/form-data" data-bl-form data-puede="<?= $puede ? '1' : '' ?>">
@@ -367,7 +378,8 @@ function blFormHistoria(array $x): string
     <a class="rs-boton rs-boton--icono" href="<?= e($urlProy) ?>" aria-label="Volver a los sprints" data-ds-tip="Volver a los sprints"><?= UI::icono('ds-chevron-izq') ?></a>
     <div class="bl-hu__tit"><span class="bl-dlg__cod"><?= $nueva ? 'Nueva historia' : e($h['codigo']) ?></span>
       <span class="bl-hu__proy"><?= e((string)$p['nombre']) ?><?= !$nueva ? ' · ' . blEstado((string)$h['estado']) : '' ?></span></div>
-    <?php /* Cada acción una sola vez, aquí arriba (la cabecera queda fija al bajar): volver, borrar y guardar */ ?>
+    <?php /* Cada acción una sola vez, aquí arriba (la cabecera queda fija al bajar): diagrama, borrar y guardar */ ?>
+    <?php if (!$nueva): ?><a class="rs-boton rs-boton--icono" href="pizarra.php?mia=1&amp;hu=<?= (int)$h['id'] ?>" aria-label="Generar el diagrama de la historia" data-ds-tip="Generar diagrama (en tu pizarra)"><?= rlIco('ruta', 18) ?></a><?php endif; ?>
     <?php if ($puede && !$nueva): ?><button type="button" class="rs-boton rs-boton--icono bl-borrar" data-bl-borrar-hu="<?= (int)$h['id'] ?>" data-volver="<?= e($urlProy) ?>" data-cod="<?= e($h['codigo']) ?>" aria-label="Borrar la historia" data-ds-tip="Borrar la historia"><?= rlIco('eliminar', 18) ?></button><?php endif; ?>
     <?php if ($puede): ?><button type="submit" class="rs-boton rs-boton--primario"><?= UI::icono('ds-check') ?><span><?= $nueva ? 'Crear historia' : 'Guardar' ?></span></button><?php endif; ?>
   </header>
@@ -441,9 +453,17 @@ function blFormHistoria(array $x): string
         </div>
       </section>
       <section class="rl-pan">
-        <header class="rl-pan__cab"><h3>Tareas que la cumplen</h3></header>
+        <header class="rl-pan__cab"><h3>Tareas que la cumplen<?= $h['tareas'] ? ' <small class="bl-hu__sub">' . count((array)$h['tareas']) . ' · ' . count($abiertasHu) . ' abiertas</small>' : '' ?></h3>
+          <?php if ($conIA): ?><button type="button" class="rl-pan__btn" data-bl-ia-tareas aria-label="Generar tareas con IA" data-ds-tip="Generar tareas con IA<?= $smNom !== '' ? ' (van a ' . e(explode(' ', $smNom)[0]) . ', el SM)' : '' ?>"><?= UI::icono('ds-ia') ?></button><?php endif; ?>
+          <?php if ($puede && $abiertasHu): ?><button type="button" class="rl-pan__btn" data-bl-repartir aria-label="Repartir las tareas al equipo" data-ds-tip="Repartir al equipo"><?= rlIco('usuarios', 16) ?></button><?php endif; ?>
+        </header>
         <div class="rl-pan__cuerpo bl-hu__cuerpo">
+          <?php if ($puede && !$nueva): ?><input type="hidden" name="ia_tareas" value="" data-bl-ia-campo><?php endif; ?>
+          <?php if ($tareasOps): ?>
           <?= rlMulti('tareas[]', $tareasOps, (array)$h['tareas'], 'Buscar tarea…', !$puede) ?>
+          <?php else: ?>
+          <p class="bl-vacio bl-hu__sintareas"><?= rlIco('info', 16) ?> El proyecto todavía no tiene tareas.<?= $conIA ? ' Genéralas con la IA desde la historia (botón de arriba) o escríbelas aquí abajo.' : ($puede ? ' Escríbelas aquí abajo, una por línea.' : '') ?></p>
+          <?php endif; ?>
           <?php if ($puede): ?><?= rlCampo('Crear tareas nuevas', rlTexto('tareas_nuevas', '', 3, "Una por línea. Ej.:\nPantalla de selección de materias\nIntegrar el pago con el banco"),
             'Se crean en este proyecto para el responsable de la historia, con las fechas de su sprint.') ?><?php endif; ?>
         </div>
@@ -461,6 +481,44 @@ function blFormHistoria(array $x): string
     </div>
   </fieldset>
 </form>
+<?php if ($conIA): ?>
+<dialog class="ds-modal bl-iat" data-bl-ia-dlg aria-labelledby="bl-iat-t">
+  <div class="ds">
+    <header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::icono('ds-ia') ?></span>
+      <div><h2 class="ds-modal__title" id="bl-iat-t">Tareas de <?= e($h['codigo']) ?></h2>
+        <p class="ds-modal__sub">La IA las arma desde el Como, el Quiero, los escenarios y el detalle. <?= $smNom !== '' ? 'Van a <b>' . e($smNom) . '</b>, el Scrum Master, para que las reparta.' : 'El proyecto no tiene Scrum Master: van a quien lleva la historia.' ?></p></div></header>
+    <div class="ds-modal__body">
+      <div class="bl-iat__cargando" data-bl-iat-cargando><span class="bl-iat__spin" aria-hidden="true"></span><b>La IA está leyendo la historia…</b><span class="bl-iat__esq" aria-hidden="true"><i></i><i></i><i></i></span></div>
+      <p class="bl-iat__error" data-bl-iat-error hidden></p>
+      <ol class="bl-iat__lista" data-bl-iat-lista hidden></ol>
+    </div>
+    <footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-dlg-cerrar><span class="mc-btn__label">Cancelar</span></button>
+      <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-bl-iat-crear disabled><?= rlIco('check', 18) ?><span class="mc-btn__label" data-bl-iat-n>Crear tareas</span></button></footer>
+  </div>
+</dialog>
+<?php endif; ?>
+<?php if ($puede && $abiertasHu): $genteRep = array_filter($gente, fn($k) => (int)$k > 0, ARRAY_FILTER_USE_KEY); ?>
+<dialog class="ds-modal bl-rep" data-bl-rep-dlg aria-labelledby="bl-rep-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="bl_tareas_repartir"><input type="hidden" name="id" value="<?= (int)$h['id'] ?>">
+    <header class="ds-modal__head"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('usuarios', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="bl-rep-t">Repartir al equipo</h2><p class="ds-modal__sub">Elige quién hace cada tarea de <?= e($h['codigo']) ?>. A cada uno le llega el aviso.</p></div></header>
+    <div class="ds-modal__body bl-rep__lista">
+      <?php foreach ($abiertasHu as $t): $ya = TareaRepo::asignadosDe($t)[0] ?? 0; ?>
+      <div class="bl-rep__fila">
+        <div class="bl-rep__tarea"><b>#<?= (int)$t['id'] ?> <?= e(mb_strimwidth((string)$t['titulo'], 0, 90, '…')) ?></b>
+          <small><?= e((string)(Catalogo::estadosTarea()[$t['estado'] ?? ''][0] ?? '')) ?><?= !empty($t['fecha_limite']) ? ' · para el ' . e(rlF((string)$t['fecha_limite'])) : '' ?><?= $ya && isset($miembros[$ya]) ? ' · ahora: ' . e(explode(' ', (string)$miembros[$ya]['nombre'])[0]) : ' · sin asignar' ?></small></div>
+        <div class="bl-rep__gente" role="radiogroup" aria-label="Quién hace #<?= (int)$t['id'] ?>">
+          <?php foreach ($genteRep as $mid => [$nomG]): ?><label class="bl-rep__op" data-ds-tip="<?= e($nomG) ?>"><input type="radio" name="rep[<?= (int)$t['id'] ?>]" value="<?= (int)$mid ?>"<?= (int)$mid === (int)$ya ? ' checked' : '' ?>><span><?= UI::avatar($miembros[(int)$mid] ?? null, 32) ?></span><span class="mc-sr-only"><?= e($nomG) ?></span></label><?php endforeach; ?>
+        </div>
+      </div>
+      <?php endforeach; ?>
+    </div>
+    <footer class="ds-modal__foot"><button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-dlg-cerrar><span class="mc-btn__label">Cancelar</span></button>
+      <button type="submit" class="mc-btn mc-btn--primary mc-btn--md"><?= rlIco('check', 18) ?><span class="mc-btn__label">Repartir</span></button></footer>
+  </form>
+</dialog>
+<?php endif; ?>
     <?php
     return (string)ob_get_clean();
 }
