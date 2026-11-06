@@ -207,6 +207,24 @@
     if (dlgPlan) dlgPlan.addEventListener('close', quitarError);
     const conDesc = fPlan.dataset.conDescripcion === '1';
     const conDoc = fPlan.dataset.conDocumento === '1';
+    // Al elegir otro proyecto, su gente y sus ítems del release (planificar.php los deja en #ia-plan-datos)
+    let datosPlan = {};
+    try { datosPlan = JSON.parse((document.getElementById('ia-plan-datos') || {}).textContent || '{}'); } catch (_) { datosPlan = {}; }
+    const selProy = fPlan.querySelector('[data-ia-plan-proy]');
+    const llenar = (sel, primera, opciones) => {
+      if (!sel) return;
+      sel.innerHTML = primera + opciones.join('');
+      if (window.DS && DS.refrescar && sel.closest('.mc-select')) DS.refrescar(sel);
+    };
+    if (selProy) selProy.addEventListener('change', () => {
+      const d = datosPlan[selProy.value] || { gente: [], items: [] };
+      llenar(fPlan.querySelector('[data-ia-plan-gente]'), '<option value="" data-desc="Por el rol y la carga de cada uno">Que lo elija la IA</option>',
+        (d.gente || []).map((m) => '<option value="' + (+m.id) + '"' + (m.r ? ' data-desc="' + esc(m.r) + '"' : '') + '>' + esc(m.n) + '</option>'));
+      llenar(fPlan.querySelector('[data-ia-plan-items]'), '<option value="" data-desc="Por el tema de cada tarea">Que lo elija la IA</option>',
+        (d.items || []).map((x) => '<option value="' + esc(x.c) + '" data-desc="' + esc(x.t) + '">' + esc(x.c) + '</option>'));
+      const campoItem = fPlan.querySelector('[data-ia-plan-item-campo]');
+      if (campoItem) campoItem.hidden = !(d.items || []).length;
+    });
 
     fPlan.addEventListener('submit', (e) => {
       e.preventDefault();
@@ -215,6 +233,9 @@
       const doc = fPlan.querySelector('input[type="file"][name="archivo"]');
       const hayDesc = conDesc && !!desc && desc.value.trim() !== '';
       const hayDoc = !!doc && doc.files.length > 0;
+      const fi = (fPlan.querySelector('[name="fecha_inicio"]') || {}).value || '';
+      const fl = (fPlan.querySelector('[name="fecha_limite"]') || {}).value || '';
+      if (fi && fl && fl < fi) { avisarError(btn, 'La fecha de entrega no puede ser antes de la de inicio.'); return; }
       if (!hayDesc && !(conDoc && hayDoc)) {
         if (conDesc) { avisarError(btn, 'Describe de qué va el trabajo.'); if (desc) desc.focus(); return; }
         // Solo documento: el aviso va en el propio campo de subida (UI::archivo)

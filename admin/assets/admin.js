@@ -1156,6 +1156,14 @@ document.querySelectorAll('.nav-grupo').forEach((grupo) => {
     btn.setAttribute('aria-expanded', 'false');
   };
   const abrir = () => {
+    // Uno a la vez: al abrir este, se cierra el que estaba abierto (el clic del botón no
+    // llega al documento, así que los otros grupos no se enteraban)
+    document.querySelectorAll('.nav-grupo.abierto').forEach((otro) => {
+      if (otro === grupo) return;
+      otro.classList.remove('abierto');
+      const b = otro.querySelector('.nav-grupo-btn');
+      if (b) b.setAttribute('aria-expanded', 'false');
+    });
     grupo.classList.add('abierto');
     btn.setAttribute('aria-expanded', 'true');
     colocar();

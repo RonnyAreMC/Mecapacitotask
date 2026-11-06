@@ -10765,3 +10765,18 @@ html.dark .vt-pizarra-card { background: rgba(255, 255, 255, .03); }
   .dt-imp-cab { flex-direction: column; align-items: stretch; }
   .dt-imp-form__pie > .btn-meca { flex: 1 1 0; justify-content: center; }
 }
+
+/* Generar tareas con IA (planificar.php): lo que se elige en dos columnas y el documento, plegado */
+.dlg-ia .ia-plan-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.dlg-ia .ia-plan-grid > [hidden] { display: none; }
+/* Sin ítems del release, la prioridad usa toda la fila; las fechas van juntas en la suya */
+.dlg-ia .ia-plan-grid > .ia-plan-prio:has(+ [hidden]) { grid-column: 1 / -1; }
+.dlg-ia .ia-plan-fechas { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; grid-column: 1 / -1; }
+.dlg-ia .campo .mc-select { width: 100%; }
+.dlg-ia .campo > span small { color: var(--ink-muted); font-weight: 400; }
+.ia-plan-doc { border-radius: 10px; background: var(--surface-sunken, #F1F5F9); }
+.ia-plan-doc > summary { display: flex; align-items: center; gap: 8px; padding: 11px 12px; color: var(--primary-ink, #1D4ED8); font-size: .86rem; font-weight: 600; cursor: pointer; list-style: none; }
+.ia-plan-doc > summary::-webkit-details-marker { display: none; }
+.ia-plan-doc > summary small { color: var(--ink-muted); font-weight: 400; }
+.ia-plan-doc > :not(summary) { margin: 0 12px 12px; }
+@media (max-width: 560px) { .dlg-ia .ia-plan-grid { grid-template-columns: minmax(0, 1fr); } }

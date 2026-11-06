@@ -3809,8 +3809,12 @@ switch ($accion) {
                     if ($descPd === '') throw new IAError('Describe de qué va el trabajo.');
                     $fPd = $_FILES['archivo'] ?? null;
                     $conDocPd = $fPd && ($fPd['error'] ?? 1) === UPLOAD_ERR_OK && is_uploaded_file((string)$fPd['tmp_name']);
+                    // Lo que eligió en el modal (cuántas, quién, prioridad, ítem y fechas); vacío = lo decide la IA
+                    $opcPd = ['cantidad' => (int)($_POST['cantidad'] ?? 0), 'responsable' => (int)($_POST['responsable'] ?? 0),
+                              'prioridad' => (string)($_POST['prioridad'] ?? ''), 'item_release' => (string)($_POST['item_release'] ?? ''),
+                              'fecha_inicio' => (string)($_POST['fecha_inicio'] ?? ''), 'fecha_limite' => (string)($_POST['fecha_limite'] ?? '')];
                     $resIa = IAFunciones::planDescripcion($proyIa, $descPd,
-                        $conDocPd ? IA::leerArchivo((string)$fPd['name'], (string)$fPd['tmp_name']) : null, $conDocPd ? (string)$fPd['name'] : '');
+                        $conDocPd ? IA::leerArchivo((string)$fPd['name'], (string)$fPd['tmp_name']) : null, $conDocPd ? (string)$fPd['name'] : '', $opcPd);
                     break;
 
                 case 'ia_plan_documento':

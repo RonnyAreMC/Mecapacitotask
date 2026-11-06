@@ -176,9 +176,12 @@ final class IAFunciones
      * que pide y por la carga de cada uno), fechas en días hábiles, dependencias
      * y el ítem del release al que suma. Lo que ya existe en el proyecto no se
      * repite: se avisa. Un documento de apoyo es opcional.
+     * $opc: lo que eligió quien planifica en el modal (cantidad, responsable = id,
+     * prioridad, item_release, fecha_inicio, fecha_limite); lo vacío lo decide la IA
+     * y lo elegido se aplica a todas las tareas aunque la IA diga otra cosa.
      * → ['json', 'n', 'notas', 'repetidas' => [['id','titulo']]] + meta
      */
-    public static function planDescripcion(array $proyecto, string $descripcion, ?array $leido = null, string $nombreArchivo = ''): array
+    public static function planDescripcion(array $proyecto, string $descripcion, ?array $leido = null, string $nombreArchivo = '', array $opc = []): array
     {
         $pid = (int)$proyecto['id'];
         $dias = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
@@ -216,11 +219,21 @@ final class IAFunciones
             $mid = (int)$m['id'];
             if ($ids !== null && !in_array($mid, $ids, true)) continue;
             $eq = MiembroRepo::equipoDe($m);
-            $gente[] = ['nombre' => trim((string)$m['nombre']), 'rol' => trim((string)($m['rol'] ?? '')),
+            $gente[] = ['id' => $mid, 'nombre' => trim((string)$m['nombre']), 'rol' => trim((string)($m['rol'] ?? '')),
                         'equipo' => (string)($equipos[$eq][0] ?? $eq), 'abiertas' => (int)($carga[$mid]['n'] ?? 0),
                         'hasta' => (string)($carga[$mid]['hasta'] ?? '')];
         }
         $nombres = array_column($gente, 'nombre');
+        // Lo elegido a mano (validado: la persona es del equipo, el ítem es de sus releases…)
+        $nCant = max(0, min(20, (int)($opc['cantidad'] ?? 0)));
+        $resp = '';
+        foreach ($gente as $g) if ($g['id'] === (int)($opc['responsable'] ?? 0)) $resp = $g['nombre'];
+        $prioFija = isset(self::prioridades()[(string)($opc['prioridad'] ?? '')]) ? (string)$opc['prioridad'] : '';
+        $itemFijo = strtoupper(trim((string)($opc['item_release'] ?? '')));
+        if (!isset($items[$itemFijo])) $itemFijo = '';
+        $fiFija = self::fecha($opc['fecha_inicio'] ?? '') ?: '';
+        $flFija = self::fecha($opc['fecha_limite'] ?? '') ?: '';
+        if ($fiFija !== '' && $flFija !== '' && $flFija < $fiFija) throw new IAError('La fecha de entrega no puede ser antes de la de inicio.');
         // Lo que ya tiene el proyecto, para no repetirlo
         $existentes = self::tareasDe($pid, 200);
         // Los días que no se trabaja en las próximas semanas
@@ -233,16 +246,24 @@ final class IAFunciones
 
         $ins = "Armas el tablero de un equipo de desarrollo. Quien planifica describe un trabajo del proyecto «" . self::txt($proyecto['nombre'], 120) . "» "
             . "y tú lo conviertes en las tareas listas para importar.\n"
-            . "- Normalmente es UNA tarea. Divídela solo si la descripción pide trabajos claramente distintos o si es grande (más de tres días): entonces tareas de medio día a tres días, encadenadas con depende_de cuando una necesita a la otra.\n"
+            . ($nCant > 0
+                ? "- Crea EXACTAMENTE {$nCant} " . ($nCant === 1 ? 'tarea' : 'tareas') . ($nCant > 1 ? ': reparte el trabajo en partes con sentido, encadenadas con depende_de cuando una necesita a la otra' : '') . ".\n"
+                : "- Normalmente es UNA tarea. Divídela solo si la descripción pide trabajos claramente distintos o si es grande (más de tres días): entonces tareas de medio día a tres días, encadenadas con depende_de cuando una necesita a la otra.\n")
             . "- titulo: empieza con un verbo en infinitivo, claro, de máximo 100 caracteres.\n"
             . "- descripcion: qué hay que hacer, con los datos concretos que da la descripción, y cuándo se da por terminada. De 2 a 6 líneas, texto plano; puedes usar viñetas con «- ».\n"
-            . "- asignados: nombres EXACTOS de la lista «Equipo». Si la descripción nombra a alguien (aunque sea por su nombre de pila), es esa persona. Si no nombra a nadie, elige por el rol "
-            . "(programar → desarrollo; requerimientos, pruebas o documentos → analista; pantallas y diseño → diseño) y, entre los que encajan, al que tenga menos carga. Una persona; dos solo si el trabajo es de dos.\n"
+            . ($resp !== ''
+                ? "- asignados: [\"{$resp}\"] en todas (lo eligió quien planifica).\n"
+                : "- asignados: nombres EXACTOS de la lista «Equipo». Si la descripción nombra a alguien (aunque sea por su nombre de pila), es esa persona. Si no nombra a nadie, elige por el rol "
+                  . "(programar → desarrollo; requerimientos, pruebas o documentos → analista; pantallas y diseño → diseño) y, entre los que encajan, al que tenga menos carga. Una persona; dos solo si el trabajo es de dos.\n")
+            . ($fiFija !== '' ? "- Ninguna empieza antes del {$fiFija} (lo eligió quien planifica).\n" : '')
+            . ($flFija !== '' ? "- Todas terminan a más tardar el {$flFija} (lo eligió quien planifica); si son varias, repártelas en días hábiles hasta esa fecha.\n" : '')
             . "- fecha_inicio (AAAA-MM-DD): la que diga la descripción. Si no dice, el primer día hábil desde hoy en que esa persona pueda empezar: si está ocupada «hasta» una fecha cercana (menos de una semana), el día hábil siguiente; si no, hoy o el próximo día hábil.\n"
             . "- fecha_limite (AAAA-MM-DD): el plazo que dé la descripción (calcula «el viernes», «en dos días»… desde hoy). Si no da plazo, estima de 1 a 3 días hábiles desde fecha_inicio según el tamaño. "
             . "Las fechas siempre en días hábiles: nunca sábado, domingo ni los días de la lista «No se trabaja».\n"
-            . ($items ? "- item_release: el código del ítem de la lista «Ítems del release» al que suma la tarea por su tema; \"\" si ninguno encaja (no fuerces uno). Si la fecha_limite pasa del fin de ese ítem, dilo en notas.\n" : '')
-            . '- prioridad: una de ' . implode(', ', array_keys(self::prioridades())) . " según la urgencia que se exprese.\n"
+            . ($itemFijo !== '' ? "- item_release: \"{$itemFijo}\" en todas (lo eligió quien planifica). Si la fecha_limite pasa del fin de ese ítem, dilo en notas.\n"
+                : ($items ? "- item_release: el código del ítem de la lista «Ítems del release» al que suma la tarea por su tema; \"\" si ninguno encaja (no fuerces uno). Si la fecha_limite pasa del fin de ese ítem, dilo en notas.\n" : ''))
+            . ($prioFija !== '' ? "- prioridad: \"{$prioFija}\" en todas (la eligió quien planifica).\n"
+                : '- prioridad: una de ' . implode(', ', array_keys(self::prioridades())) . " según la urgencia que se exprese.\n")
             . "- ref: identificador corto único (t1, t2…). depende_de: la ref de la tarea que tiene que estar hecha antes (una sola) o \"\".\n"
             . "- ya_existe: el #id de una tarea de «Tareas que ya tiene el proyecto» que ya cubre ese mismo trabajo, aunque su título sea otro; 0 si es nueva.\n"
             . "- notas: una a tres frases con lo que supusiste (a quién asignaste y por qué, fechas, ítem) o lo que no estaba claro.\n"
@@ -273,12 +294,23 @@ final class IAFunciones
             if ($ya > 0 && isset($porId[$ya])) { $repetidas[] = ['id' => $ya, 'titulo' => (string)$porId[$ya]['titulo']]; continue; }
             $crudas[] = $t;
         }
-        $tareas = self::lote($crudas, (string)$proyecto['nombre'], 30, array_keys($items), $nombres);
-        // Fechas: en día hábil y la límite nunca antes del inicio
+        $tareas = self::lote($crudas, (string)$proyecto['nombre'], $nCant > 0 ? $nCant : 30, array_keys($items), $nombres);
+        // Si pidió cuántas, no más que esas (y sin depender de una que quedó fuera)
+        $refsOk = array_flip(array_column($tareas, 'ref'));
         foreach ($tareas as &$f) {
+            if (isset($f['depende_de']) && !isset($refsOk[$f['depende_de']])) unset($f['depende_de']);
+            // Lo elegido a mano manda sobre lo que dijo la IA
+            if ($resp !== '') $f['asignados'] = [$resp];
+            if ($prioFija !== '') $f['prioridad'] = $prioFija;
+            if ($itemFijo !== '') $f['item_release'] = $itemFijo;
+            // Fechas en día hábil, dentro de lo elegido, y la límite nunca antes del inicio
             if (!empty($f['fecha_inicio'])) $f['fecha_inicio'] = self::habil($f['fecha_inicio']);
             if (!empty($f['fecha_limite'])) $f['fecha_limite'] = self::habil($f['fecha_limite']);
-            if (!empty($f['fecha_inicio']) && !empty($f['fecha_limite']) && $f['fecha_limite'] < $f['fecha_inicio']) $f['fecha_limite'] = $f['fecha_inicio'];
+            if ($fiFija !== '' && (empty($f['fecha_inicio']) || $f['fecha_inicio'] < $fiFija)) $f['fecha_inicio'] = self::habil($fiFija);
+            if ($flFija !== '' && (empty($f['fecha_limite']) || $f['fecha_limite'] > $flFija)) $f['fecha_limite'] = $flFija;
+            if (!empty($f['fecha_inicio']) && !empty($f['fecha_limite']) && $f['fecha_limite'] < $f['fecha_inicio']) {
+                if ($flFija !== '') $f['fecha_inicio'] = $f['fecha_limite']; else $f['fecha_limite'] = $f['fecha_inicio'];
+            }
         }
         unset($f);
         if (!$tareas && !$repetidas) throw new IAError('La IA no pudo armar tareas con esa descripción. Cuéntale un poco más de qué va el trabajo.');

@@ -183,7 +183,7 @@ UI::cabecera(
         <li><b>prioridad</b>: baja · media · alta. <b>fechas</b>: AAAA-MM-DD.</li>
         <li>Para encadenar, ponle <b>ref</b> a una tarea y <b>depende_de</b> con esa ref en otra.</li>
         <li>Para amarrarla al release, <b>item_release</b> con el código del ítem (<b>R2-B04</b>) o una lista de códigos. Su avance sale de sus tareas.</li>
-        <?php if ($conIADesc): ?><li>Con <b>Generar tareas con IA</b> solo describes de qué va: la IA elige a quién le toca, pone fechas en días hábiles, el orden y el ítem del release, y deja el JSON aquí ya validado.</li><?php endif; ?>
+        <?php if ($conIADesc): ?><li>Con <b>Generar tareas con IA</b> describes el trabajo y eliges cuántas tareas, el responsable, la prioridad, el ítem y las fechas (o lo dejas a la IA); el JSON queda aquí ya validado.</li><?php endif; ?>
         <li>Primero <b>Validar</b> para ver qué se va a crear; si algo falla, no se crea nada.</li>
       </ul>
       <p class="plan-nota">Proyectos disponibles:
@@ -287,45 +287,85 @@ UI::cabecera(
 
 <?php if ($conIAPlan):
     // Solo los proyectos que esta persona gestiona (el Scrum Master, los suyos).
-    $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id']))); ?>
-<!-- Modal: extraer las tareas de un documento con IA. Lo envía assets/ia.js
-     (accion ia_plan_documento) y deja el JSON en el editor; no crea nada. -->
+    $proyIA = array_values(array_filter($proyectos, fn($p) => puedeGestionar((int)$p['id'])));
+    // Para elegir a mano: la gente y los ítems del release de cada proyecto (assets/ia.js
+    // cambia las listas al elegir otro proyecto)
+    if (is_file(__DIR__ . '/lib/Releases.php')) require_once __DIR__ . '/lib/Releases.php';
+    $mapaM = [];
+    foreach ($miembros as $m) $mapaM[(int)$m['id']] = $m;
+    $datosIA = [];
+    foreach ($proyIA as $p) {
+        $idsP = ProyectoRepo::miembrosDe($p);
+        $idsP = $idsP === null ? array_keys($mapaM) : array_merge($idsP, [ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)]);
+        $genteP = [];
+        foreach (array_unique(array_map('intval', $idsP)) as $mid) {
+            if (isset($mapaM[$mid])) $genteP[] = ['id' => $mid, 'n' => (string)$mapaM[$mid]['nombre'], 'r' => (string)($mapaM[$mid]['rol'] ?? '')];
+        }
+        usort($genteP, fn($a, $b) => strcmp($a['n'], $b['n']));
+        $itemsP = [];
+        if (class_exists('Releases')) foreach (Releases::itemsDeProyecto((int)$p['id']) as $it) {
+            if (($it['estado'] ?? '') !== 'cerrado') $itemsP[] = ['c' => (string)$it['codigo'], 't' => mb_strimwidth((string)$it['titulo'], 0, 70, '…')];
+        }
+        $datosIA[(int)$p['id']] = ['gente' => $genteP, 'items' => $itemsP];
+    }
+    $p0 = $proyIA[0] ?? null;
+    $d0 = $p0 ? $datosIA[(int)$p0['id']] : ['gente' => [], 'items' => []];
+    $optsGente = ['' => ['Que lo elija la IA', 'Por el rol y la carga de cada uno']];
+    foreach ($d0['gente'] as $g) $optsGente[(string)$g['id']] = [$g['n'], $g['r']];
+    $optsItems = ['' => ['Que lo elija la IA', 'Por el tema de cada tarea']];
+    foreach ($d0['items'] as $x) $optsItems[$x['c']] = [$x['c'], $x['t']];
+    $optsCant = ['' => ['Las que hagan falta', 'La IA divide el trabajo si es grande']];
+    foreach (range(1, 10) as $nC) $optsCant[(string)$nC] = $nC === 1 ? '1 tarea' : $nC . ' tareas';
+    $optsPrio = ['' => ['Según la urgencia', 'La decide la IA']] + array_map(fn($v) => $v[0], Catalogo::prioridades()); ?>
+<!-- Modal: generar las tareas con IA. Lo envía assets/ia.js (ia_plan_descripcion o, solo con
+     el documento, ia_plan_documento) y deja el JSON en el editor ya validado; no crea nada. -->
 <dialog id="dlg-ia-plan" class="dlg-meca dlg-ia">
   <form id="ia-plan-form" class="dlg-form" enctype="multipart/form-data" data-con-descripcion="<?= $conIADesc ? '1' : '' ?>" data-con-documento="<?= $conIADoc ? '1' : '' ?>">
     <header>
-      <h3 class="font-display"><?= UI::icono('ds-ia', 'ia-estrellas text-secondary') ?> Generar tareas con IA</h3>
-      <button type="button" class="dlg-close" title="Cerrar" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      <h3 class="font-display"><?= UI::iconoDS('ia', 20) ?> Generar tareas con IA<small><?= $conIADesc
+          ? 'Describe el trabajo y elige lo que ya tengas claro; lo demás lo decide la IA. Nada se crea hasta que pulses «Importar tareas».'
+          : 'Sube el plan (Excel, PDF, Word o CSV): la IA lo desglosa en tareas con su orden y las deja en el editor. Nada se crea hasta que valides e importes.' ?></small></h3>
+      <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
     </header>
 
     <div class="ia-cuerpo">
-      <p class="ajuste-ayuda"><?= $conIADesc
-          ? 'Describe el trabajo: la IA arma las tareas con quién las hace, sus fechas en días hábiles, el orden y el ítem del release, y las deja en el editor ya validadas. Nada se crea hasta que pulses «Importar tareas».'
-          : 'Sube el plan (Excel, PDF, Word o CSV): la IA lo desglosa en tareas con su orden y las deja en el editor. Nada se crea hasta que valides e importes.' ?></p>
-      <label class="campo"><span>Proyecto</span>
-        <select class="input-meca" name="proyecto_id" required>
-          <?php foreach ($proyIA as $p): ?><option value="<?= (int)$p['id'] ?>"><?= e($p['nombre']) ?></option><?php endforeach; ?>
-        </select>
+      <div class="campo"><span>Proyecto</span>
+        <?= UI::selectDS('proyecto_id', array_column(array_map(fn($p) => ['k' => (string)(int)$p['id'], 'v' => (string)$p['nombre']], $proyIA), 'v', 'k'), $p0 ? (string)(int)$p0['id'] : '',
+            ['tam' => 'md', 'aria' => 'Proyecto', 'attrs' => 'required data-ia-plan-proy']) ?></div>
+      <label class="campo"><span><?= $conIADesc ? '¿Qué hay que hacer?' : 'Indicaciones (opcional)' ?></span>
+        <span class="mc-input mc-input--multiline"><textarea class="mc-input__control" name="descripcion" rows="<?= $conIADesc ? 5 : 3 ?>" maxlength="8000"
+          placeholder="<?= $conIADesc ? 'Ej.: Agregar el filtro por carrera al reporte de matrículas y probarlo con los datos de octubre.' : 'Ej.: solo la hoja «Estudiante»; agrupa por módulo…' ?>"></textarea></span>
       </label>
-      <label class="campo"><span><?= $conIADesc ? '¿De qué va el trabajo?' : 'Indicaciones (opcional)' ?></span>
-        <textarea class="input-meca" name="descripcion" rows="<?= $conIADesc ? 6 : 3 ?>" maxlength="8000"
-          placeholder="<?= $conIADesc
-              ? 'Ej.: Agregar el filtro por carrera al reporte de matrículas; lo hace Kevin para el viernes y después Dulce lo prueba con los datos de octubre.'
-              : 'Ej.: solo la hoja «Estudiante»; agrupa por módulo; empieza el 3 de noviembre…' ?>"></textarea>
-        <?php if ($conIADesc): ?><small class="campo-ayuda">Si nombras a alguien o das un plazo, se respeta; si no, la IA elige por rol y carga, y estima las fechas.</small><?php endif; ?>
-      </label>
-      <?php if ($conIADoc || $conIADesc): ?>
-      <div class="campo"><span><?= $conIADesc ? 'Documento de apoyo (opcional)' : 'Documento del plan' ?></span>
+      <?php if ($conIADesc): ?>
+      <div class="ia-plan-grid">
+        <div class="campo"><span>¿Cuántas tareas?</span><?= UI::selectDS('cantidad', $optsCant, '', ['tam' => 'md', 'aria' => 'Cuántas tareas']) ?></div>
+        <div class="campo"><span>Responsable</span><?= UI::selectDS('responsable', $optsGente, '', ['tam' => 'md', 'aria' => 'Responsable', 'buscar' => true, 'attrs' => 'data-ia-plan-gente']) ?></div>
+        <div class="campo ia-plan-prio"><span>Prioridad</span><?= UI::selectDS('prioridad', $optsPrio, '', ['tam' => 'md', 'aria' => 'Prioridad']) ?></div>
+        <div class="campo" data-ia-plan-item-campo<?= $d0['items'] ? '' : ' hidden' ?>><span>Ítem del release</span><?= UI::selectDS('item_release', $optsItems, '', ['tam' => 'md', 'aria' => 'Ítem del release', 'buscar' => true, 'attrs' => 'data-ia-plan-items']) ?></div>
+        <div class="ia-plan-fechas">
+          <label class="campo"><span>Empieza <small>(opcional)</small></span><input class="input-meca" type="date" name="fecha_inicio"></label>
+          <label class="campo"><span>Para cuándo <small>(opcional)</small></span><input class="input-meca" type="date" name="fecha_limite"></label>
+        </div>
+      </div>
+      <?php if ($conIADoc): ?>
+      <details class="ia-plan-doc"><summary><?= UI::iconoDS('documento', 16) ?> Agregar un documento de apoyo <small>(opcional)</small></summary>
         <?= UI::archivo(['name' => 'archivo', 'variante' => 'zona', 'accept' => '.xlsx,.docx,.pdf,.csv,.txt,.md,application/pdf',
-                         'ayuda' => ($conIADesc && $conIADoc ? 'Solo el documento, sin descripción: la IA desglosa el plan entero. ' : '') . 'Excel, PDF, Word o CSV · máx 15 MB', 'maxMB' => 15]) ?>
+                         'ayuda' => 'Solo el documento, sin descripción: la IA desglosa el plan entero. Excel, PDF, Word o CSV · máx 15 MB', 'maxMB' => 15]) ?>
+      </details>
+      <?php endif; ?>
+      <?php else: ?>
+      <div class="campo"><span>Documento del plan</span>
+        <?= UI::archivo(['name' => 'archivo', 'variante' => 'zona', 'accept' => '.xlsx,.docx,.pdf,.csv,.txt,.md,application/pdf', 'ayuda' => 'Excel, PDF, Word o CSV · máx 15 MB', 'maxMB' => 15]) ?>
       </div>
       <?php endif; ?>
     </div>
 
     <footer>
-      <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cancelar</button>
-      <button type="submit" class="btn-primary btn-meca"><?= UI::icono('ds-ia', 'ia-estrellas') ?> Generar tareas con IA</button>
+      <button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button>
+      <button type="submit" class="btn-primary btn-meca"><?= UI::iconoDS('ia', 18) ?> Generar tareas</button>
     </footer>
   </form>
+  <script type="application/json" id="ia-plan-datos"><?= json_encode($datosIA, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP) ?></script>
 </dialog>
 <?php endif; ?>
 
