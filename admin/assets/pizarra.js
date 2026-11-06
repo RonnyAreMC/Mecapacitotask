@@ -113,6 +113,10 @@
   const aPantalla = (x, y) => ({ x: x * vista.z + vista.x, y: y * vista.z + vista.y });
   // Lo nuevo sale de un tamaño cómodo para el zoom en que se está
   const factor = () => limitar(1 / vista.z, 0.5, 4);
+  // Un diagrama de historia con dueño (en la pizarra de una reunión): solo lo cambian su dueño y el administrador.
+  // Los demás lo ven, lo reproducen y filtran sus escenarios (eso no lo cambia). El servidor también lo hace cumplir.
+  const bloqueado = (el) => !!(el && el.tipo === 'hu' && !CFG.mia && Number(el.dueno) > 0 && Number(el.dueno) !== YO && !CFG.admin);
+  const avisoBloqueo = (el) => toast(`Solo lo edita ${el.dueno_nombre || 'quien lo puso'}: tú lo ves, lo reproduces y filtras sus casos.`);
   const enTablero = (el) => el.tipo === 'nota' && !el._suelta && !!el.marco && vivo(el.marco)?.tipo === 'kanban';
   const dentro = (p, g) => p.x >= g.x && p.x <= g.x + g.w && p.y >= g.y && p.y <= g.y + g.h;
   const cruza = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
@@ -631,6 +635,7 @@
   function asasDe(el) {
     if (el.tipo === 'flecha') { const [a, b] = extremos(el); return [['a', a.x, a.y], ['b', b.x, b.y]]; }
     if (el.tipo === 'nota' && enTablero(el)) return [];
+    if (bloqueado(el)) return [];
     if (el.tipo === 'hu') { const g = geo(el); return [['w', g.x, g.y + g.h / 2], ['e', g.x + g.w, g.y + g.h / 2]]; }   // solo el ancho: el alto sale del contenido
     const g = geo(el), x1 = g.x, y1 = g.y, x2 = g.x + g.w, y2 = g.y + g.h;
     const l = [['nw', x1, y1], ['ne', x2, y1], ['sw', x1, y2], ['se', x2, y2]];
@@ -849,7 +854,8 @@
   function borrarSeleccion() {
     if (!EDITAR || !sel.size) return;
     if (editando) terminarEdicion();
-    const ids = new Set(sel);
+    const ids = new Set([...sel].filter((id) => !bloqueado(vivo(id))));
+    if (!ids.size) { const b = vivo([...sel][0]); if (b) avisoBloqueo(b); return; }
     // El tablero se lleva sus tarjetas
     for (const id of sel) if (vivo(id)?.tipo === 'kanban') for (const n of vivos()) if (n.tipo === 'nota' && n.marco === id) ids.add(n.id);
     const t = cambio();
@@ -870,7 +876,7 @@
 
   /* ----- Copiar, pegar y duplicar elementos ----- */
   function copiarSeleccion() {
-    const ids = new Set(sel);
+    const ids = new Set([...sel].filter((id) => !bloqueado(vivo(id))));   // lo que tiene dueño no se copia
     for (const id of sel) if (vivo(id)?.tipo === 'kanban') for (const n of vivos()) if (n.tipo === 'nota' && n.marco === id) ids.add(n.id);
     // Las flechas que unen dos cosas copiadas viajan con ellas
     for (const f of vivos()) if (f.tipo === 'flecha' && f.a?.el && f.b?.el && ids.has(f.a.el) && ids.has(f.b.el)) ids.add(f.id);
@@ -963,6 +969,7 @@
     if (!EDITAR) return;
     const el = vivo(id), n = nodos.get(id);
     if (!el || !n) return;
+    if (bloqueado(el)) { avisoBloqueo(el); return; }
     let txt = null, unaLinea = false;
     if (el.tipo === 'hu') { op.campo = op.campo || 'titulo'; txt = n.querySelector(`[data-k="${CSS.escape(op.k || 'titulo')}"]`); unaLinea = true; }
     else if (op.campo === 'col') { txt = n.querySelector(`[data-col-id="${CSS.escape(op.col)}"]`); unaLinea = true; }
@@ -1241,12 +1248,15 @@
       sel.clear(); ids.forEach((id) => sel.add(id));
     }
     const ids = new Set();
+    let quieto = null;
     for (const id of sel) {
       const el = vivo(id);
       if (!el) continue;
       if (el.tipo === 'nota' && el.marco && sel.has(el.marco)) continue;   // va con su tablero
+      if (bloqueado(el)) { quieto = el; continue; }   // tiene dueño: no se mueve
       ids.add(id);
     }
+    if (quieto && !ids.size) avisoBloqueo(quieto);
     g.ids = ids;
     g.ini = new Map();
     g.tableros = new Set();
@@ -1828,11 +1838,21 @@
     if (!EDITAR || (gesto && gesto.movido) || !sel.size) { ocultarCtx(); return; }
     const lista = [...sel].map(vivo).filter(Boolean);
     if (!lista.length) { ocultarCtx(); return; }
-    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}${e.tipo === 'hu' ? e.texto : ''}`).join(',');
+    const firma = [...sel].join(',') + '|' + lista.map((e) => `${e.color}${e.grosor}${e.punta}${e.fs}${e.aviso || ''}${e.tipo === 'hu' ? e.texto + (e.dueno || '') : ''}`).join(',');
     if (ctxBar._firma !== firma) {
       ctxBar._firma = firma;
       const tipos = new Set(lista.map((e) => e.tipo));
       const partes = [];
+      if (lista.every(bloqueado)) {
+        // Un diagrama de historia de otro: reproducir, filtrar y leer su texto, nada más
+        if (lista.length === 1 && HU) ctxBar.innerHTML = HU.botonesCtx(lista[0], botonCtx);
+        else { ocultarCtx(); return; }
+        ctxBar._w = 0;
+        ctxBar.hidden = false;
+        ctxBar._w = ctxBar.offsetWidth; ctxBar._h = ctxBar.offsetHeight;
+        posicionarCtx();
+        return;
+      }
       const conColor = lista.filter((e) => CON_COLOR.has(e.tipo));
       if (conColor.length) {
         const tinta = conColor.every((e) => TINTA.has(e.tipo));
@@ -1907,6 +1927,7 @@
     pintarCtx();
   });
   function cambiarTodos(lista, fn) {
+    lista = lista.filter((el) => !bloqueado(el));
     if (!lista.length) return;
     const t = cambio();
     lista.forEach((el) => { t.tocar(el.id); fn(el); pintar(el); });
@@ -2074,7 +2095,7 @@
         const tr = cambio();
         for (const id of sel) {
           const el = vivo(id);
-          if (!el || enTablero(el)) continue;
+          if (!el || enTablero(el) || bloqueado(el)) continue;
           tr.tocar(id);
           if (el.tipo === 'flecha') { if (!el.a.el) { el.a.x += dx; el.a.y += dy; } if (!el.b.el) { el.b.x += dx; el.b.y += dy; } }
           else { el.x = r1(num(el.x) + dx); el.y = r1(num(el.y) + dy); }
@@ -3229,7 +3250,8 @@
   }
   if (HU) {
     HU.montar({
-      CFG, EDITAR, raiz, lienzo, ico, toast, pedir, aMundo, vivos, vivo, ajustarA,
+      CFG, EDITAR, YO, raiz, lienzo, ico, toast, pedir, aMundo, vivos, vivo, ajustarA, bloqueado,
+      dibujo: { rr, envolver, FUENTE },   // para la imagen del diagrama que va a la historia
       crear: crearHU,
       nodo: (id) => nodos.get(id),
       pintar: (el) => { pintar(el); programarRender({ flechas: true, sel: true }); },

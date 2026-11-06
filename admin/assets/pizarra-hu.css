@@ -373,3 +373,114 @@ html.dark .pz-hu-vacio__b--suave { background: transparent; }
   .pz-hu-panel { left: 8px; right: 8px; width: auto; top: calc(max(8px, env(safe-area-inset-top)) + 64px); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px); }
   .pz-hu-texto { left: 8px; right: 8px; width: auto; top: auto; height: min(46vh, 420px); bottom: calc(max(10px, env(safe-area-inset-bottom)) + 122px); }
 }
+
+/* =========================================================
+   Con dueño (pizarra de una reunión): solo lo edita quien lo puso
+   ========================================================= */
+.pz-hu__candado {
+  flex: none; display: grid; place-items: center; width: 30px; height: 30px; margin-top: 5px; border-radius: 50%;
+  background: color-mix(in srgb, var(--pz-ink) 6%, transparent); color: var(--pz-ink-muted);
+}
+.pz-hu__candado .ico { width: 15px; height: 15px; }
+.pz-hu__candado.is-ajeno { background: #FFF3C9; color: #8A6100; }
+html.dark .pz-hu__candado.is-ajeno { background: rgb(241 211 122 / .16); color: #F1D37A; }
+/* Lo ajeno no se arrastra: el cursor no lo promete */
+.pz--editar[data-herr="seleccionar"] .pz-hu.is-bloqueado { cursor: default; }
+.pz-hu-ctx-dueno {
+  display: inline-flex; align-items: center; gap: 6px; height: 34px; padding: 0 12px 0 10px; margin-left: 2px; border-radius: 10px;
+  background: #FFF3C9; color: #8A6100; font: 650 12.5px/1 var(--pz-font); white-space: nowrap;
+}
+.pz-hu-ctx-dueno .ico { width: 15px; height: 15px; }
+html.dark .pz-hu-ctx-dueno { background: rgb(241 211 122 / .16); color: #F1D37A; }
+.pz-hu-texto.is-lectura .pz-hu-texto__ta { color: var(--pz-ink-muted); cursor: default; }
+.pz-hu-texto.is-lectura .pz-hu-texto__caja:focus-within { outline-color: color-mix(in srgb, var(--pz-ink) 25%, transparent); }
+
+/* =========================================================
+   Visor de solo lectura (historia.php · PizarraHU::vista)
+   Fuera de la pizarra no está pizarra.css: sus tokens se ponen aquí, dentro
+   del contenedor, con los del panel (ds.css: --surface, --ink, --line,
+   --primary…), así siguen el modo oscuro (html.dark) y no chocan con nada.
+   Ocupa el ancho de la tarjeta y se reacomoda con su ancho (container query):
+   de 1200 px al celular, sin scroll de lado.
+   ========================================================= */
+.pz-hu-vista {
+  --pz-surface: var(--surface, #FFFFFF);
+  --pz-surface-alt: var(--surface-alt, #F5FAFD);
+  --pz-ink: var(--ink, #2D3E50);
+  --pz-ink-muted: var(--ink-muted, #5A6B7E);
+  --pz-ink-suave: var(--ink-subtle, #627285);
+  --pz-linea: var(--line, #DFE9F0);
+  --pz-celeste: #0EA5E9;
+  --pz-celeste-fuerte: var(--primary-ink, #0284C7);
+  --pz-rosa: #E11D48;
+  --pz-font: var(--font-sans, Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif);
+  --pz-font-display: var(--font-display, var(--pz-font));
+  --pz-ease: cubic-bezier(.2, .7, .2, 1);
+  --pz-canto: var(--elegido-canto, linear-gradient(125deg, rgb(64 207 255 / .95), rgb(37 99 235 / .55) 38%, rgb(255 255 255 / 0) 56%, rgb(34 197 94 / .85)));
+  --pz-elegido-bg: var(--elegido-bg, color-mix(in srgb, #0EA5E9 16%, var(--pz-surface)));
+  --pz-elegido-luz: var(--elegido-luz, inset 0 1px 0 rgb(255 255 255 / .9), 0 4px 12px -6px rgb(11 143 191 / .55));
+  container-type: inline-size;
+  display: block; width: 100%; max-width: 100%; min-width: 0; color: var(--pz-ink);
+}
+html.dark .pz-hu-vista {
+  --pz-elegido-bg: var(--elegido-bg, color-mix(in srgb, #0EA5E9 22%, var(--pz-surface)));
+  --pz-elegido-luz: var(--elegido-luz, inset 0 1px 0 rgb(255 255 255 / .1), 0 4px 14px -6px rgb(64 207 255 / .45));
+}
+.pz-hu-vista, .pz-hu-vista *, .pz-hu-vista *::before, .pz-hu-vista *::after { box-sizing: border-box; }
+.pz-hu-vista button { font: inherit; color: inherit; }
+.pz-hu-vista__espera { margin: 0; padding: 18px 0; color: var(--pz-ink-muted); font: 500 13.5px/1.4 var(--pz-font); }
+/* Los papeles de los dibujos (en la pizarra los pone pizarra.css) */
+.pz-hu-vista [data-color="celeste"]  { --papel: #DCEFFD; }
+.pz-hu-vista [data-color="menta"]    { --papel: #D4F3E3; }
+.pz-hu-vista [data-color="lila"]     { --papel: #E9E1FC; }
+.pz-hu-vista [data-color="rosa"]     { --papel: #FCE1EC; }
+.pz-hu-vista [data-color="durazno"]  { --papel: #FFE6D5; }
+.pz-hu-vista [data-color="vainilla"] { --papel: #FFF3C9; }
+.pz-hu-vista [data-color="gris"]     { --papel: #EBEFF5; }
+html.dark .pz-hu-vista [data-color="celeste"]  { --papel: #C9E4FA; }
+html.dark .pz-hu-vista [data-color="menta"]    { --papel: #C4EBD7; }
+html.dark .pz-hu-vista [data-color="lila"]     { --papel: #DCD1F7; }
+html.dark .pz-hu-vista [data-color="rosa"]     { --papel: #F5D0DF; }
+html.dark .pz-hu-vista [data-color="durazno"]  { --papel: #F7D7C2; }
+html.dark .pz-hu-vista [data-color="vainilla"] { --papel: #F2E5B5; }
+html.dark .pz-hu-vista [data-color="gris"]     { --papel: #DCE2EA; }
+/* Dentro de la tarjeta de la historia: sin otra tarjeta encima */
+.pz-hu-vista .pz-hu { position: relative; width: 100%; padding: 4px 0 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; gap: 14px; }
+.pz-hu-vista .pz-hu__titulo { font-size: 20px; }
+.pz-hu-vista .pz-hu__codigo { background: var(--primary-soft, #E0F2FE); color: var(--primary-ink, #0369A1); }
+.pz-hu-vista .pz-hu__play, .pz-hu-vista .pz-hu__num { background: var(--primary-soft, #E0F2FE); color: var(--primary-ink, #0369A1); }
+.pz-hu-vista .pz-hu__mira { color: var(--primary-ink, #0369A1); }
+.pz-hu-vista .pz-hu__bocadillo { color: var(--pz-ink); }
+.pz-hu-vista .pz-hu__esc.is-activa { color: var(--primary-ink, #0369A1); }
+.pz-hu-vista .pz-hu__play:focus-visible, .pz-hu-vista .pz-hu__esc:focus-visible { outline: 2px solid var(--primary, #2970EB); outline-offset: 2px; }
+
+/* Mediano (hasta ~900 px de tarjeta): el actor a la izquierda; lo que obtiene, debajo y en fila */
+@container (max-width: 900px) {
+  .pz-hu-vista .pz-hu__flujo { grid-template-columns: 150px minmax(0, 1fr); column-gap: 18px; row-gap: 16px; }
+  .pz-hu-vista .pz-hu__flecha { display: none; }
+  .pz-hu-vista .pz-hu__ilu { width: 124px; height: 124px; }
+  .pz-hu-vista .pz-hu__res { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); gap: 10px; }
+  .pz-hu-vista .pz-hu__rt, .pz-hu-vista .pz-hu__para { grid-column: 1 / -1; }
+}
+/* Celular: una sola columna; el actor, en línea con su nombre */
+@container (max-width: 560px) {
+  .pz-hu-vista .pz-hu__cab { flex-wrap: wrap; }
+  .pz-hu-vista .pz-hu__titulo { flex-basis: calc(100% - 52px); font-size: 18px; }
+  .pz-hu-vista .pz-hu__meta { order: 3; flex-basis: 100%; margin-top: -4px; }
+  .pz-hu-vista .pz-hu__bocadillo { font-size: 15px; padding: 12px 14px; }
+  .pz-hu-vista .pz-hu__bocadillo::after { left: 38px; }
+  .pz-hu-vista .pz-hu__flujo { grid-template-columns: minmax(0, 1fr); }
+  .pz-hu-vista .pz-hu__actor { flex-direction: row; flex-wrap: wrap; justify-content: flex-start; align-items: center; column-gap: 12px; row-gap: 0; text-align: left; padding-top: 0; }
+  .pz-hu-vista .pz-hu__ilu { width: 72px; height: 72px; }
+  .pz-hu-vista .pz-hu__actor small { flex-basis: 100%; margin: -2px 0 0 84px; }
+  .pz-hu-vista .pz-hu__paso { grid-template-columns: 26px 38px minmax(0, 1fr); gap: 10px; padding: 9px; }
+  .pz-hu-vista .pz-hu__pico { width: 38px; height: 38px; }
+  .pz-hu-vista .pz-hu__num { margin-top: 6px; }
+  .pz-hu-vista .pz-hu__pt { font-size: 14.5px; }
+  .pz-hu-vista .pz-hu__res { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+  .pz-hu-vista .pz-hu__rilu { width: 44px; height: 44px; }
+  .pz-hu-vista .pz-hu__esc { max-width: 100%; }
+  .pz-hu-vista .pz-hu__ficha { display: none; }
+}
+/* En la tarjeta, el paso que se ilumina no se corre (no empuja el ancho) */
+.pz-hu-vista .pz-hu.is-jugando .pz-hu__paso.is-luz { transform: none; }

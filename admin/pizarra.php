@@ -105,17 +105,25 @@ $datos = [
     'yo'       => (int)($yo['id'] ?? 0),
     'titulo'   => $titulo,
     'api'      => $api,
+    // Diagrama de historia con dueño (en la pizarra de una reunión): quién soy y si soy administrador
+    'yoNombre' => explode(' ', trim((string)($yo['nombre'] ?? '')))[0],
+    'admin'    => Auth::esAdmin(),
 ];
 // Diagrama de historia (assets/pizarra-hu.js): en qué proyectos puede escribir de vuelta en la
 // historia («Guardar en la historia»: su PO, su Scrum Master y el administrador). Solo quien edita.
 if ($editar && !$embed) {
     require_once __DIR__ . '/lib/PizarraHU.php';
     $datos['hu'] = ['puede' => PizarraHU::proyectosQuePuede($pid > 0 ? [$pid] : array_column(PizarraHU::proyectosVisibles(), 'id'))];
-    // «Generar diagrama» desde la historia (pizarra.php?mia=1&hu=ID): en «Mis notas» se arma (o se busca) el
-    // diagrama de esa historia al abrir. Solo si quien entra ve su proyecto; si no, el parámetro no hace nada.
-    if ($mia && !$idNota && !$publica && (int)($_GET['hu'] ?? 0) > 0) {
+    // «Generar diagrama» desde la historia (pizarra.php?mia=1&hu=ID, o ?reunion=R&hu=ID): al abrir se arma (o
+    // se busca) el diagrama de esa historia. Solo si quien entra ve su proyecto; si no, el parámetro no hace nada.
+    // En la de una reunión queda a nombre de quien lo pone, si arma el backlog de ese proyecto (lo comprueba el
+    // servidor al guardarlo: Pizarra::guardar).
+    if (!$idNota && !$publica && (int)($_GET['hu'] ?? 0) > 0) {
         $huAbrir = PizarraHU::historia((int)$_GET['hu']);
-        if ($huAbrir) $datos['hu']['abrir'] = $huAbrir;
+        if ($huAbrir) {
+            $datos['hu']['abrir'] = $huAbrir;
+            if (PizarraHU::puede($huAbrir['proyecto_id'])) $datos['hu']['puede'] = array_values(array_unique(array_merge($datos['hu']['puede'], [$huAbrir['proyecto_id']])));
+        }
     }
 }
 
@@ -123,7 +131,7 @@ if ($editar && !$embed) {
 // guardados una vez en un <template> para clonarlos sin pedir nada más.
 $iconosJs = ['ds-eliminar', 'ds-duplicar', 'ds-enlace', 'pz-traer', 'ds-mas', 'ds-check', 'ds-cerrar', 'ds-descargar',
              'pz-frente', 'pz-columna', 'pz-grosor', 'pz-punta', 'pz-tamano', 'pz-nube', 'pz-sin-red', 'pz-imagen', 'ds-alerta',
-             'ds-notificaciones', 'ds-play', 'ds-pausa', 'ds-buscar', 'ds-chevron-abajo', 'ds-reintentar', 'ds-ayuda',
+             'ds-notificaciones', 'ds-play', 'ds-pausa', 'ds-buscar', 'ds-chevron-abajo', 'ds-reintentar', 'ds-ayuda', 'ds-candado',
              'pz-historia', 'pz-texto'];
 
 // Las herramientas: [clave, ícono, nombre, atajo]. El lector solo mira y se mueve.

@@ -502,18 +502,27 @@ function blFormHistoria(array $x): string
       <?php endif; ?>
     </div>
   </fieldset>
-  <?php if (!$nueva): $dg = (array)($h['diagrama'] ?? []); $conDg = ($dg['ruta'] ?? '') !== '' && is_file(__DIR__ . '/../' . $dg['ruta']); ?>
-  <?php /* El diagrama de la historia: se dibuja en la pizarra y aquí se ve como imagen (nadie lo mueve sin querer) */ ?>
+  <?php if (!$nueva):
+      $dg = (array)($h['diagrama'] ?? []);
+      $conImg = ($dg['ruta'] ?? '') !== '' && is_file(__DIR__ . '/../' . $dg['ruta']);
+      $conTexto = trim((string)($dg['texto'] ?? '')) !== '';
+      // El diagrama vivo, solo para ver (▶ y escenarios; nadie lo mueve): lo arma lib/PizarraHU.php
+      $vistaDg = class_exists('PizarraHU') && method_exists('PizarraHU', 'vista') ? PizarraHU::vista($h) : '';
+      $conDg = $conTexto || $conImg; ?>
+  <?php /* El diagrama de la historia: se ajusta en la pizarra y aquí se ve vivo, solo para ver */ ?>
   <section class="rl-pan bl-dg">
     <header class="rl-pan__cab"><h3><?= rlIco('ruta', 18) ?>Diagrama de la historia<?= $conDg ? ' <small class="bl-hu__sub">actualizado el ' . e(rlF(substr((string)$dg['fecha'], 0, 10))) . (isset($miembros[(int)($dg['por'] ?? 0)]) ? ' por ' . e(explode(' ', (string)$miembros[(int)$dg['por']]['nombre'])[0]) : '') . '</small>' : '' ?></h3>
       <?php if ($puede): ?><a class="rl-pan__btn" href="pizarra.php?mia=1&amp;hu=<?= (int)$h['id'] ?>" aria-label="Editar el diagrama en la pizarra" data-ds-tip="Editar en la pizarra"><?= rlIco('editar', 16) ?></a><?php endif; ?>
-      <?php if ($conDg): ?><a class="rl-pan__btn" href="<?= e((string)$dg['ruta']) ?>" target="_blank" rel="noopener" aria-label="Ver el diagrama en grande" data-ds-tip="Ver en grande"><?= rlIco('ver', 16) ?></a><?php endif; ?>
+      <?php if ($conImg): ?><a class="rl-pan__btn" href="<?= e((string)$dg['ruta']) ?>" target="_blank" rel="noopener" aria-label="Ver la imagen del diagrama" data-ds-tip="Ver como imagen"><?= rlIco('ver', 16) ?></a><?php endif; ?>
     </header>
     <div class="rl-pan__cuerpo bl-dg__cuerpo">
-      <?php if ($conDg): ?>
+      <?php if ($vistaDg !== ''): ?>
+      <?= $vistaDg ?>
+      <?php if (!$conTexto): ?><p class="bl-hu__ayuda"><?= rlIco('info', 14) ?> Se armó solo desde la historia<?= $puede ? ': ajústalo en la pizarra y pulsa «Guardar en la historia» para dejarlo así.' : '; el PO todavía no lo ajustó.' ?></p><?php endif; ?>
+      <?php elseif ($conImg): ?>
       <a class="bl-dg__img" href="<?= e((string)$dg['ruta']) ?>" target="_blank" rel="noopener"><img src="<?= e((string)$dg['ruta']) ?>?v=<?= e(preg_replace('/\D/', '', (string)$dg['fecha'])) ?>" alt="Diagrama de <?= e($h['codigo']) ?>: quién entra al sistema, qué hace y qué obtiene" loading="lazy"></a>
       <?php elseif ($puede): ?>
-      <div class="bl-dg__vacio"><?= rlIco('ruta', 28) ?><p><b>Todavía no tiene diagrama.</b> Ábrelo en la pizarra: se arma solo desde la historia. Ajústalo y pulsa «Guardar en la historia»: aquí se ve como imagen y nadie lo mueve.</p>
+      <div class="bl-dg__vacio"><?= rlIco('ruta', 28) ?><p><b>Todavía no tiene diagrama.</b> Ábrelo en la pizarra: se arma solo desde la historia. Ajústalo y pulsa «Guardar en la historia»: aquí lo ve el equipo vivo (con ▶), solo para mirar.</p>
         <a class="mc-btn mc-btn--primary mc-btn--md" href="pizarra.php?mia=1&amp;hu=<?= (int)$h['id'] ?>"><?= rlIco('ruta', 18) ?><span class="mc-btn__label">Generar diagrama</span></a></div>
       <?php else: ?>
       <div class="bl-dg__vacio"><?= rlIco('ruta', 28) ?><p>El PO todavía no dibujó el diagrama de esta historia.</p></div>

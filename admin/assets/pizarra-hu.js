@@ -39,6 +39,16 @@
      Como, Quiero, Para y los escenarios.
    - «Reproducir» anima el recorrido paso a paso; si lo pulsa quien edita, lo
      ven todos (rep sube). Con «menos movimiento», sin desplazamientos.
+   - En la pizarra de una reunión, el diagrama queda a nombre de quien lo puso
+     (dueno), si arma el backlog de ese proyecto: solo él y el administrador lo
+     cambian (lo hace cumplir también el servidor, lib/Pizarra.php). Los demás lo
+     ven con su candado, lo reproducen y filtran sus casos, y leen su texto.
+   - «Guardar en la historia» manda también su TEXTO (la historia lo muestra vivo)
+     y su IMAGEN de respaldo (PNG a 2x, fondo blanco, sin los botones):
+     pizarra_api.php?accion=guardar_hu y ?accion=guardar_hu_imagen.
+   - Fuera de la pizarra, vista(contenedor, texto, {soloVista}) arma el mismo
+     diagrama solo para ver (▶ y escenarios): lo usa historia.php con
+     PizarraHU::vista($historia), que deja un [data-pz-hu-vista] con su JSON.
    - Los dibujos son SVG propios, planos, en la paleta de la pizarra.
 
    pizarra.js lo usa por window.PizarraHU: montar(api), pintar(el, nodo),
@@ -913,21 +923,29 @@
      Pintar el diagrama (un solo elemento de la pizarra)
      ========================================================= */
   let api = null;   // lo que pizarra.js presta en montar()
+  let edActual = false;   // ¿el diagrama que se está armando se puede escribir? (htmlDe lo pone)
+  const esAjeno = (el) => !!api?.bloqueado(el);
+  const editable = (el) => !!api?.EDITAR && !esAjeno(el) && !el._soloVista;
+  /** ¿Puede ponerlo a su nombre? (pizarra de una reunión y arma el backlog de ese proyecto). */
+  const puedeBloquear = (pid) => !!api && !api.CFG.mia && (api.CFG.admin || (api.CFG.hu?.puede || []).map(Number).includes(Number(pid || api.CFG.proyecto)));
+  const conDueno = (d, pid) => (puedeBloquear(pid) ? Object.assign(d, { dueno: api.YO, dueno_nombre: api.CFG.yoNombre || '' }) : d);
   const icoApi = (n) => (api ? api.ico(n) : '');
   const FLECHA = '<svg viewBox="0 0 34 24" aria-hidden="true" focusable="false"><path d="M3 12h24M20 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const FLECHITA = '<svg viewBox="0 0 16 16" aria-hidden="true" focusable="false"><path d="M3 4v3.5a2 2 0 0 0 2 2h7M9.5 6.5l3 3-3 3" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>';
   const ilu = (k, clase) => `<span class="${clase}" data-color="${TINTE[k] || 'celeste'}" data-ilu="${ILU[k] ? k : 'tarea'}">${ILU[k] || ILU.tarea}</span>`;
   // Lo que se escribe en el diagrama: data-k lo encuentra; el resto dice qué parte del modelo es
   const campo = (campoN, k, extra, texto, clase = '') => {
-    const ed = api?.EDITAR;
+    const ed = edActual;
     const attrs = Object.entries(extra || {}).filter(([, v]) => v !== '' && v != null).map(([a, v]) => ` data-${a}="${escHtml(String(v))}"`).join('');
     return `<span class="pz-campo${clase ? ' ' + clase : ''}"${ed ? ` data-campo="${campoN}" data-k="${escHtml(k)}"${attrs}` : ''}>${escHtml(texto)}</span>`;
   };
   const deLinea = (it, texto) => ({ l: it.l, parte: it.parte, minus: /^[a-záéíóúñü]/.test(it.v) ? '1' : '' });
-  const quitarBtn = (it, tip) => (api?.EDITAR ? `<button type="button" class="pz-hu__quitar" data-hu="quitar" data-l="${it.l}"${it.parte ? ` data-parte="${it.parte}"` : ''} data-tip="${escHtml(tip)}" aria-label="${escHtml(tip)}" data-solo-editar>${icoApi('ds-cerrar')}</button>` : '');
+  const quitarBtn = (it, tip) => (edActual ? `<button type="button" class="pz-hu__quitar" data-hu="quitar" data-l="${it.l}"${it.parte ? ` data-parte="${it.parte}"` : ''} data-tip="${escHtml(tip)}" aria-label="${escHtml(tip)}" data-solo-editar>${icoApi('ds-cerrar')}</button>` : '');
 
-  function htmlDe(el, n, V) {
-    const m = V.m, k = escDe(V, el, n), ed = !!api?.EDITAR;
+  /** El diagrama. limpio: para la imagen (sin botones ni avisos, todo legible). */
+  function htmlDe(el, n, V, limpio = false) {
+    const m = V.m, k = escDe(V, el, n), ed = !limpio && editable(el);
+    edActual = ed;
     const pasos = pasosDe(V, k), res = resultadosDe(V, k), hu = el.hu || {};
     const escs = m.escenarios;
     const meta = [hu.id ? (hu.sprint || 'Backlog') : '', hu.estado_txt, hu.puntos ? hu.puntos + (hu.puntos === 1 ? ' punto' : ' puntos') : ''].filter(Boolean);
@@ -941,7 +959,8 @@
       + campo('titulo', 'titulo', {}, m.titulo || 'Historia de usuario', 'pz-hu__titulo')
       + (meta.length ? `<span class="pz-hu__meta">${escHtml(meta.join(' · '))}</span>` : '')
       + (m.errores.length && ed ? `<span class="pz-hu__aviso" data-tip="Hay líneas que no se entienden: míralas en el texto">${m.errores.length === 1 ? '1 línea por revisar' : m.errores.length + ' líneas por revisar'}</span>` : '')
-      + `<button type="button" class="pz-hu__play${jugando ? ' is-jugando' : ''}" data-hu="play" data-tip="${jugando ? 'Detener' : 'Reproducir el recorrido'}" aria-label="${jugando ? 'Detener' : 'Reproducir el recorrido'}">${icoApi(jugando ? 'ds-pausa' : 'ds-play')}</button></header>`;
+      + (!limpio && Number(el.dueno) > 0 && !api?.CFG.mia ? `<span class="pz-hu__candado${esAjeno(el) ? ' is-ajeno' : ''}" data-tip="${escHtml(Number(el.dueno) === api.YO ? 'Solo tú lo editas: los demás lo ven y lo reproducen' : `Solo lo edita ${el.dueno_nombre || 'quien lo puso'}`)}" aria-label="Bloqueado">${icoApi('ds-candado')}</span>` : '')
+      + (limpio ? '' : `<button type="button" class="pz-hu__play${jugando ? ' is-jugando' : ''}" data-hu="play" data-tip="${jugando ? 'Detener' : 'Reproducir el recorrido'}" aria-label="${jugando ? 'Detener' : 'Reproducir el recorrido'}">${icoApi(jugando ? 'ds-pausa' : 'ds-play')}</button>`) + '</header>';
     if (formal) h += `<p class="pz-hu__formal">${formal}</p>`;
     h += `<div class="pz-hu__bocadillo"><b class="pz-hu__mira">Mira:</b> ${campo('mira', 'mira', {}, frase, 'pz-hu__frase')}</div>`;
     if (escs.length > 1) {
@@ -992,17 +1011,19 @@
         + (r.fijo ? `<b class="pz-campo">${escHtml(r.texto)}</b>` : campo('res', 'r' + r.i, { i: r.i }, r.texto, 'pz-hu__rnombre')) + '</div>').join('')
       + (m.para.length ? `<div class="pz-hu__para"><b>Para qué</b><span>${escHtml(capital(unir(m.para.map((p) => sinPunto(p.v)))))}</span></div>` : '')
       + '</div></div>'
-      + `<span class="pz-hu__ficha" aria-hidden="true">${ilu(V.actor, 'pz-hu__ficha-ilu')}</span>`;
+      + (limpio ? '' : `<span class="pz-hu__ficha" aria-hidden="true">${ilu(V.actor, 'pz-hu__ficha-ilu')}</span>`);
+    edActual = false;
     return h;
   }
 
   /** Pinta (o deja como está) el nodo de un «hu». Reproduce si alguien pulsó ▶ (rep subió). */
   function pintar(el, n) {
     // El filtro de quien solo mira es suyo; si quien edita cambia el de todos, manda el de todos
-    if (n._escRemoto !== el.esc) { if (n._escVisto) n._escLocal = null; n._escRemoto = el.esc; }
+    if (n._escRemoto !== el.esc) { if (n._escVisto && editable(el)) n._escLocal = null; n._escRemoto = el.esc; }
     n._escVisto = true;
     const V = vistaDe(modelo(el.texto));
-    const firma = JSON.stringify([el.texto, el.hu, escDe(V, el, n), !!api?.EDITAR]);
+    const firma = JSON.stringify([el.texto, el.hu, escDe(V, el, n), editable(el), el.dueno || 0]);
+    n.classList.toggle('is-bloqueado', esAjeno(el));
     if (n._firma !== firma) {
       if (n._anim) detener(n, false);
       n._firma = firma;
@@ -1153,12 +1174,13 @@
   function alternarPlay(el, n) {
     if (n._anim) { detener(n); return; }
     // Quien edita lo reproduce para todos (rep sube y cada pizarra lo anima); quien mira, solo para sí
-    if (api.EDITAR) api.sinHistoria(el, (x) => { x.rep = Math.max(Date.now(), (Number(x.rep) || 0) + 1); });
+    if (editable(el)) api.sinHistoria(el, (x) => { x.rep = Math.max(Date.now(), (Number(x.rep) || 0) + 1); });
     else reproducir(n);
   }
   function elegirEscenario(el, n, k) {
-    if (api.EDITAR) { api.cambiar(el, (x) => { x.esc = k; }); return; }
+    if (editable(el)) { api.cambiar(el, (x) => { x.esc = k; }); return; }
     n._escLocal = k;
+    if (el._soloVista) { pintar(el, n); return; }
     api.pintar(el);
   }
   function agregarPaso(el) {
@@ -1187,11 +1209,23 @@
   function botonesCtx(el, boton) {
     const V = vistaDe(modelo(el.texto));
     const abierto = editor.id === el.id && editor.el && !editor.el.hidden;
+    const textoBtn = `<button type="button" class="pz-boton pz-boton--icono${abierto ? ' is-activa' : ''}" data-ctx="hu-texto" data-tip="${abierto ? 'Cerrar el texto' : (esAjeno(el) ? 'Leer el texto' : 'Ver y escribir el texto')}" aria-label="Texto de la historia" aria-pressed="${abierto}">${icoApi('pz-texto')}</button>`;
+    if (esAjeno(el)) {
+      // De otro: reproducirlo (solo para mí), leer su texto y quién lo edita
+      return boton('hu-play', 'ds-play', 'Reproducir (solo para ti)') + textoBtn
+        + `<span class="pz-hu-ctx-dueno" data-tip="Solo lo edita ${escHtml(el.dueno_nombre || 'quien lo puso')}">${icoApi('ds-candado')}<span>${escHtml(el.dueno_nombre || 'Bloqueado')}</span></span>`;
+    }
     let h = boton('hu-play', 'ds-play', 'Reproducir para todos')
       + `<button type="button" class="pz-boton pz-boton--icono pz-hu-ctx-actor" data-ctx="hu-actor" data-tip="Quién la usa: ${escHtml(V.actorNombre)}" aria-label="Cambiar quién la usa" aria-haspopup="menu">${ilu(V.actor, 'pz-hu-ctx-ilu')}</button>`
       + boton('hu-res', 'ds-descargar', 'Lo que obtiene (PDF, Excel…)')
-      + `<button type="button" class="pz-boton pz-boton--icono${abierto ? ' is-activa' : ''}" data-ctx="hu-texto" data-tip="${abierto ? 'Cerrar el texto' : 'Ver y escribir el texto'}" aria-label="Texto de la historia" aria-pressed="${abierto}">${icoApi('pz-texto')}</button>`;
+      + textoBtn;
     if (el.hu?.id) h += boton('hu-rehacer', 'ds-reintentar', 'Volver a lo que dice la historia del backlog');
+    // El candado: en la pizarra de una reunión, quien arma el backlog lo deja solo para sí (o lo suelta)
+    if (puedeBloquear(el.hu?.proyecto_id) && (!Number(el.dueno) || Number(el.dueno) === api.YO || api.CFG.admin)) {
+      const puesto = Number(el.dueno) > 0;
+      const tip = puesto ? 'Bloqueado: solo tú lo editas. Pulsa para que el equipo también pueda' : 'Que solo yo lo edite (los demás lo ven y lo reproducen)';
+      h += `<button type="button" class="pz-boton pz-boton--icono${puesto ? ' is-activa' : ''}" data-ctx="hu-candado" data-tip="${escHtml(tip)}" aria-label="${escHtml(tip)}" aria-pressed="${puesto}">${icoApi('ds-candado')}</button>`;
+    }
     return h;
   }
   function accionCtx(accion, el, b) {
@@ -1223,6 +1257,15 @@
         break;
       }
       case 'hu-rehacer': volverAHistoria(el, b); break;
+      case 'hu-candado':
+        if (esAjeno(el)) return;
+        api.cambiar(el, (x) => {
+          if (Number(x.dueno) > 0) { delete x.dueno; delete x.dueno_nombre; }
+          else { x.dueno = api.YO; x.dueno_nombre = api.CFG.yoNombre || ''; }
+        });
+        api.toast(Number(el.dueno) > 0 ? 'Bloqueado: solo tú lo editas. Los demás lo ven, lo reproducen y filtran sus casos.' : 'Listo: ahora el equipo también puede editarlo.');
+        api.refrescarCtx();
+        break;
     }
   }
   async function volverAHistoria(el, b) {
@@ -1234,7 +1277,7 @@
     const actual = api.vivo(el.id);
     if (!actual || !j.historia) return;
     const d = datosDe(j.historia);
-    api.cambiar(actual, (x) => { x.texto = d.texto; x.modelo = d.modelo; x.hu = d.hu; x.esc = -1; });
+    api.cambiar(actual, (x) => { x.texto = d.texto; x.modelo = d.modelo; x.hu = d.hu; x.esc = -1; });   // el dueño se queda
     api.toast('Listo: el diagrama volvió a lo que dice la historia del backlog. Ctrl Z lo deshace.');
   }
 
@@ -1395,11 +1438,20 @@
     clearTimeout(editor.reloj);
     editor.reloj = 0;
     const el = editor.id ? api.vivo(editor.id) : null;
-    if (!el) return;
+    if (!el || esAjeno(el)) return;
     const t = editor.ta.value;
     if (t !== (el.texto || '')) conTexto(el, t, 'hu-texto');
   }
+  /** De otro (tiene dueño): el texto se lee, no se escribe. */
+  function ponerLectura(el) {
+    const ajeno = esAjeno(el);
+    editor.ta.readOnly = ajeno;
+    editor.el.classList.toggle('is-lectura', ajeno);
+    const sub = editor.el.querySelector('.pz-hu-texto__t small');
+    if (sub) sub.textContent = ajeno ? `Solo lo edita ${el.dueno_nombre || 'quien lo puso'}: aquí lo lees` : 'Escribe aquí y el diagrama se dibuja solo';
+  }
   function sincronizarEditor(el) {
+    if (editor.el && !editor.el.hidden) ponerLectura(el);
     if (!editor.el || editor.el.hidden || editor.foco || editor.reloj) return;
     if (editor.ta.value !== (el.texto || '')) { editor.ta.value = el.texto || ''; pintarAyudas(); }
     pintarPie();
@@ -1412,6 +1464,7 @@
     editor.id = id;
     editor.confirmar = false;
     editor.ta.value = el.texto || '';
+    ponerLectura(el);
     editor.el.hidden = false;
     api.raiz.classList.add('con-hu-texto');
     pintarAyudas();
@@ -1442,7 +1495,7 @@
   const ocupado = (id) => editor.id === id && (editor.foco || !!editor.reloj);
 
   /* ----- «Guardar en la historia»: Como, Quiero, Para y los escenarios, de vuelta al backlog ----- */
-  const puedeGuardar = (el) => !!(el?.hu?.id && (api.CFG.hu?.puede || []).map(Number).includes(Number(el.hu.proyecto_id)));
+  const puedeGuardar = (el) => !!(el?.hu?.id && !esAjeno(el) && (api.CFG.hu?.puede || []).map(Number).includes(Number(el.hu.proyecto_id)));
   function pintarPie() {
     const el = editor.id ? api.vivo(editor.id) : null;
     if (!editor.pie) return;
@@ -1450,8 +1503,8 @@
     const cod = escHtml(el.hu.codigo || 'la historia');
     editor.pie.hidden = false;
     const html = editor.confirmar
-      ? `<span>Se reemplazan Como, Quiero, Para y los escenarios de <b>${cod}</b>.</span><span class="pz-hu-texto__botones"><button type="button" class="pz-pop__b" data-ed="no">Cancelar</button><button type="button" class="pz-pop__b pz-pop__b--si" data-ed="si">Guardar</button></span>`
-      : `<span>Viene de <b>${cod}</b> del backlog.</span><button type="button" class="pz-hu-texto__guardar" data-ed="guardar">${icoApi('ds-check')} Guardar en la historia</button>`;
+      ? `<span>Se reemplazan Como, Quiero, Para, los escenarios y la imagen del diagrama de <b>${cod}</b>.</span><span class="pz-hu-texto__botones"><button type="button" class="pz-pop__b" data-ed="no">Cancelar</button><button type="button" class="pz-pop__b pz-pop__b--si" data-ed="si">Guardar</button></span>`
+      : `<span>Viene de <b>${cod}</b> del backlog.</span><button type="button" class="pz-hu-texto__guardar" data-ed="guardar">${icoApi('ds-check')} Guardar en la historia (con su imagen)</button>`;
     if (editor.pie._html !== html) { editor.pie._html = html; editor.pie.innerHTML = html; }
   }
   async function guardarEnHistoria() {
@@ -1460,20 +1513,67 @@
     if (!el || !puedeGuardar(el)) return;
     const m = modelo(el.texto), juntar = (xs) => unir(xs.map((x) => sinPunto(x.v)));
     const cuerpo = {
-      historia: Number(el.hu.id), como: sinPunto(m.como), quiero: juntar(m.quiero), para: juntar(m.para),
+      historia: Number(el.hu.id), como: sinPunto(m.como), quiero: juntar(m.quiero), para: juntar(m.para), texto: el.texto || '',
       escenarios: m.escenarios.map((e, k) => ({ nombre: e.nombre || `Caso ${k + 1}`, dado: juntar(e.dado), cuando: juntar(e.cuando), entonces: juntar(e.entonces) })),
     };
     const b = editor.pie.querySelector('[data-ed="si"]');
     b?.classList.add('is-cargando');
+    const cod = el.hu.codigo || 'la historia';
     try {
       await api.pedir('guardar_hu', { metodo: 'POST', cuerpo });
-      editor.confirmar = false;
-      pintarPie();
-      api.toast(`Listo: ${el.hu.codigo || 'la historia'} quedó con lo que dice el diagrama.`);
-      panel.cuando = 0;   // el panel la vuelve a traer al abrirse
     } catch (err) {
       b?.classList.remove('is-cargando');
       api.toast(err.red ? 'Sin conexión: no se pudo guardar en la historia.' : (err.message || 'No se pudo guardar en la historia.'), true);
+      return;
+    }
+    panel.cuando = 0;   // el panel la vuelve a traer al abrirse
+    // El texto ya está; ahora su imagen (si falla, se dice: el texto igual quedó)
+    try {
+      const png = await imagenDe(el);
+      const fd = new FormData();
+      fd.append('historia', String(Number(el.hu.id)));
+      fd.append('imagen', png, 'diagrama.png');
+      await api.pedir('guardar_hu_imagen', { metodo: 'POST', cuerpo: fd });
+      api.toast(`Listo: ${cod} quedó con lo que dice el diagrama y con su imagen.`);
+    } catch (err) {
+      api.toast(`El texto quedó en ${cod}, pero la imagen no se pudo subir: ${err.red ? 'sin conexión' : (err.message || 'inténtalo de nuevo')}.`, true);
+    }
+    editor.confirmar = false;
+    pintarPie();
+  }
+
+  /**
+   * La imagen del diagrama para la historia: el mismo dibujo del PNG exportado, a 2x,
+   * con fondo blanco, todos los casos y sin botones (se arma aparte, fuera de la vista).
+   * Si pasara de ~3,8 MB, se achica. Devuelve un Blob PNG.
+   */
+  async function imagenDe(el) {
+    try { await document.fonts?.ready; } catch (e) { /* sin fuentes, igual */ }
+    await precargar(true);
+    const V = vistaDe(modelo(el.texto));
+    const n = document.createElement('div');
+    n.className = 'pz-el pz-hu pz-hu--foto';
+    n.setAttribute('aria-hidden', 'true');
+    n.style.cssText = `position:fixed;left:-40000px;top:0;width:${Math.max(820, Number(el.w) || 1100)}px;transform:none;visibility:hidden;`;
+    api.raiz.appendChild(n);
+    try {
+      n.innerHTML = htmlDe(Object.assign({}, el, { esc: -1 }), n, V, true);
+      const g = { x: 0, y: 0, w: n.offsetWidth, h: n.offsetHeight }, m = 32;
+      for (const s of [2, 1.5, 1]) {
+        const c = document.createElement('canvas');
+        c.width = Math.round((g.w + m * 2) * s); c.height = Math.round((g.h + m * 2) * s);
+        const x = c.getContext('2d');
+        x.scale(s, s);
+        x.fillStyle = '#FFFFFF'; x.fillRect(0, 0, g.w + m * 2, g.h + m * 2);
+        x.translate(m, m);
+        dibujar(x, el, g, n, api.dibujo);
+        const blob = await new Promise((r) => c.toBlob(r, 'image/png'));
+        if (!blob) throw new Error('No se pudo dibujar la imagen.');
+        if (blob.size <= 3.8 * 1024 * 1024 || s === 1) return blob;
+      }
+      throw new Error('La imagen salió demasiado grande.');
+    } finally {
+      n.remove();
     }
   }
 
@@ -1486,14 +1586,14 @@
 
   /** Lo que se guarda en el elemento para una historia del backlog. */
   function datosDe(h) {
-    const texto = textoDe(h);
-    return {
+    const texto = limpio(h.diagrama_texto) ? String(h.diagrama_texto) : textoDe(h);   // el que se guardó en la historia, si hay
+    return conDueno({
       texto, modelo: resumen(modelo(texto)), esc: -1, rep: 0,
       hu: { id: Number(h.id) || 0, proyecto_id: Number(h.proyecto_id) || 0, codigo: String(h.codigo || ''), sprint: String(h.sprint || ''),
             estado_txt: String(h.estado_txt || ''), puntos: Number(h.puntos) || 0 },
-    };
+    }, h.proyecto_id);
   }
-  const datosDeTexto = (texto) => ({ texto, modelo: resumen(modelo(texto)), esc: -1, rep: 0, hu: null });
+  const datosDeTexto = (texto) => conDueno({ texto, modelo: resumen(modelo(texto)), esc: -1, rep: 0, hu: null }, 0);
 
   function armarPanel() {
     if (panel.armado || !panel.el) return;
@@ -1764,8 +1864,8 @@
     }
     return IMG[k];
   }
-  function precargar() {
-    const hay = api ? api.vivos().some((e) => e.tipo === 'hu') : false;
+  function precargar(siempre = false) {
+    const hay = siempre || (api ? api.vivos().some((e) => e.tipo === 'hu') : false);
     if (!hay) return Promise.resolve();
     return Promise.all(Object.keys(ILU).map((k) => { const i = imagen(k); return i.complete ? null : (i.decode ? i.decode().catch(() => {}) : null); }));
   }
@@ -1787,7 +1887,9 @@
       if (ls.length > max) { ls = ls.slice(0, max); ls[max - 1] = ls[max - 1].replace(/\s*\S*$/, '') + '…'; }
       // Lo de una sola línea en una pastilla (código, escenarios), centrado de alto
       if (o.centro && ls.length === 1) { x.fillText(ls[0], c.x + pl, c.y + c.h / 2 + 0.5); return; }
-      ls.forEach((l, i) => x.fillText(l, c.x + pl, c.y + pt + fs * lh * (i + 0.5)));
+      const centrado = cs.textAlign === 'center';   // el nombre del actor, bajo su dibujo
+      if (centrado) x.textAlign = 'center';
+      ls.forEach((l, i) => x.fillText(l, centrado ? c.x + c.w / 2 : c.x + pl, c.y + pt + fs * lh * (i + 0.5)));
     };
     const fondo = (nodo, color, radio, borde) => {
       if (!nodo || !nodo.offsetWidth) return;
@@ -1844,7 +1946,7 @@
       dibujo(p.querySelector('.pz-hu__pico'), 12);
       p.querySelectorAll('.pz-hu__si').forEach((s) => texto(s, { color: '#7A8898', peso: 550 }));
       texto(p.querySelector('.pz-hu__pt'), { color: '#1F2A37', peso: 600 });
-      p.querySelectorAll('.pz-hu__det').forEach((d) => texto(d.querySelector('.pz-campo') || d, { color: '#5A6B7E', peso: 500, texto: '→ ' + d.textContent }));
+      p.querySelectorAll('.pz-hu__det').forEach((d) => texto(d, { color: '#5A6B7E', peso: 500, texto: '→ ' + d.textContent }));
     });
     n.querySelectorAll('.pz-hu__pista').forEach((p) => texto(p, { color: '#7A8898', peso: 500 }));
     texto(n.querySelector('.pz-hu__rt'), { color: '#7A8898', peso: 750 });
@@ -1873,7 +1975,7 @@
       if (b.dataset.huEsc != null) { elegirEscenario(el, n, Number(b.dataset.huEsc)); return; }
       const acc = b.dataset.hu;
       if (acc === 'play') { alternarPlay(el, n); return; }
-      if (!api.EDITAR) return;
+      if (!editable(el)) return;
       if (acc === 'paso') agregarPaso(el);
       else if (acc === 'escenario') agregarEscenario(el);
       else if (acc === 'quitar') quitarPaso(el, Number(b.dataset.l), b.dataset.parte || '');
@@ -1912,10 +2014,69 @@
     return false;
   }
 
+  /* =========================================================
+     Visor de solo lectura (fuera de la pizarra: historia.php)
+     El mismo diagrama, vivo: ▶ Reproducir y los escenarios. Sin escribir, mover,
+     el texto ni los menús. Sin pizarra, se presta lo mínimo (los íconos los deja
+     PizarraHU::vista en un <template id="pz-hu-iconos">).
+     ========================================================= */
+  const VISTAS = new Map();
+  let nVista = 0;
+  function apiVista() {
+    const ICO = {};
+    document.getElementById('pz-hu-iconos')?.content.querySelectorAll('[data-ico]').forEach((x) => { ICO[x.dataset.ico] = x.innerHTML; });
+    return {
+      EDITAR: false, YO: 0, CFG: { mia: true, hu: {} }, raiz: document.body, lienzo: document.body,
+      ico: (k) => ICO[k] || '', bloqueado: () => false, vivos: () => [], vivo: (id) => VISTAS.get(id)?.el || null,
+      nodo: (id) => VISTAS.get(id)?.n || null, pintar: (el) => { const v = VISTAS.get(el.id); if (v) pintar(v.el, v.n); },
+      toast() {}, cambiar() {}, sinHistoria() {}, editar() {}, elegir() {}, ajustarA() {}, refrescarCtx() {}, retomar() {},
+    };
+  }
+  /**
+   * Arma en «cont» el diagrama de «texto», solo para ver. op.historia: los campos de la
+   * historia, para armarlo como al arrastrarla si el texto viene vacío.
+   * Devuelve {el, nodo, reproducir()}.
+   */
+  function vista(cont, texto, op = {}) {
+    if (!cont) return null;
+    if (!api) api = apiVista();
+    const t = limpio(texto) ? String(texto) : (op.historia ? textoDe(op.historia) : '');
+    const el = { id: 'pz-hu-vista-' + (++nVista), tipo: 'hu', texto: t, hu: null, esc: -1, rep: 0, _soloVista: true };
+    const n = document.createElement('div');
+    n.className = 'pz-hu pz-hu--vista';
+    n.dataset.id = el.id;
+    cont.classList.add('pz-hu-vista');
+    cont.querySelectorAll(':scope > :not(script)').forEach((x) => x.remove());
+    cont.appendChild(n);
+    VISTAS.set(el.id, { el, n });
+    pintar(el, n);
+    // ▶ y los escenarios (lo único que se toca: no cambia nada)
+    n.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-hu], [data-hu-esc]');
+      if (!b) return;
+      if (b.dataset.huEsc != null) elegirEscenario(el, n, Number(b.dataset.huEsc));
+      else if (b.dataset.hu === 'play') alternarPlay(el, n);
+    });
+    return { el, nodo: n, reproducir: () => reproducir(n) };
+  }
+  // Los visores que dejó la página (PizarraHU::vista): se arman al cargar
+  function armarVistas() {
+    document.querySelectorAll('[data-pz-hu-vista]:not([data-armado])').forEach((cont) => {
+      cont.dataset.armado = '1';
+      let d = {};
+      try { d = JSON.parse(cont.querySelector(':scope > script[type="application/json"]')?.textContent || '{}'); } catch (e) { d = {}; }
+      vista(cont, d.texto || '', { historia: d.historia || null });
+    });
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', armarVistas);
+  else armarVistas();
+
   window.PizarraHU = {
+    vista, armarVistas,
     ILU, ACTORES, Texto, montar, pintar, reproducir, detener, botonesCtx, accionCtx, ponerCampo, alTerminar, alElegir, ocupado,
     alternarPanel, escape, precargar, dibujar, cerrarMenu, pareceHistoria, enBlanco, alCargar,
     // Para las pruebas: lo que se detecta y lo que se dibuja, sin pizarra
+    imagenDe,
     _prueba: { parse, serializar, vistaDe, narrar, fraseAuto, textoDe, tercera, partirQuiero, detectarActor, detectarRes, resultadosDe, pasosDe },
   };
 })();

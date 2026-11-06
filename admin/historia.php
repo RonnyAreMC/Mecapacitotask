@@ -11,6 +11,8 @@ require_once __DIR__ . '/lib/Releases.php';
 require_once __DIR__ . '/lib/Backlog.php';
 require_once __DIR__ . '/lib/releases_ui.php';
 require_once __DIR__ . '/lib/backlog_ui.php';
+// El diagrama vivo de la historia (solo para ver), si la pizarra está en el servidor
+foreach (['Pizarra', 'PizarraHU'] as $libPz) if (is_file(__DIR__ . '/lib/' . $libPz . '.php')) require_once __DIR__ . '/lib/' . $libPz . '.php';
 
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);

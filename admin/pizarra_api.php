@@ -10,8 +10,11 @@
  *   GET  ?reunion=ID&accion=historias        las historias de usuario del proyecto (diagrama de historia);
  *                                            en «Mis notas», &proyecto=ID entre los que la persona ve
  *   GET  ?reunion=ID&accion=historia&id=H    una sola (rehacer su diagrama)
- *   POST ?reunion=ID&accion=guardar_hu       {historia:H, como, quiero, para, escenarios[]} → a la historia
+ *   POST ?reunion=ID&accion=guardar_hu       {historia:H, como, quiero, para, escenarios[], texto} → a la historia
+ *                                            (texto: el del diagrama, que la historia muestra vivo)
  *                                            (solo su PO, su Scrum Master o el administrador)
+ *   POST ?reunion=ID&accion=guardar_hu_imagen multipart: historia=H + imagen (PNG ≤ 4 MB) o png (dataURL)
+ *                                            → uploads/hu_dg_H_….png en la historia (mismo permiso)
  *
  * Con ?mia=1 en vez de ?reunion=ID: «Mis notas», la pizarra personal de quien
  * tiene la sesión (y «tareas» trae sus tareas abiertas de todos sus proyectos).
@@ -81,6 +84,8 @@ if ($idNota > 0) {
     $editar = Pizarra::puedeEditar($reunion);
 }
 $esPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
+// De qué pizarra sale un diagrama que se guarda en su historia (lo anota Backlog en diagrama.origen)
+$origenHu = $idNota > 0 ? 'nota:' . $idNota : ($mia ? 'mia' : 'reunion:' . $rid);
 
 try {
     switch ((string)($_GET['accion'] ?? '')) {
@@ -137,7 +142,15 @@ try {
             require_once __DIR__ . '/lib/PizarraHU.php';
             $cuerpo = json_decode((string)file_get_contents('php://input'), true);
             $cuerpo = is_array($cuerpo) ? $cuerpo : [];
-            $responder(['ok' => true, 'historia' => PizarraHU::guardarEnHistoria((int)($cuerpo['historia'] ?? 0), $cuerpo, $mid)]);
+            $responder(['ok' => true, 'historia' => PizarraHU::guardarEnHistoria((int)($cuerpo['historia'] ?? 0), $cuerpo, $mid, $origenHu)]);
+
+        // …y la imagen del diagrama (el PNG que arma la pizarra), a la misma historia. Multipart:
+        // historia=ID e «imagen» (archivo PNG) o «png» (dataURL). Mismo permiso. De dónde salió, lo dice el servidor.
+        case 'guardar_hu_imagen':
+            if (!$esPost) $responder(['ok' => false, 'error' => 'Usa POST.'], 405);
+            require_once __DIR__ . '/lib/PizarraHU.php';
+            $responder(['ok' => true] + PizarraHU::guardarImagen((int)($_POST['historia'] ?? 0), (array)($_FILES['imagen'] ?? []),
+                is_string($_POST['png'] ?? null) ? $_POST['png'] : '', $origenHu, $mid));
     }
     $responder(['ok' => false, 'error' => 'Acción desconocida.'], 400);
 } catch (RuntimeException $e) {

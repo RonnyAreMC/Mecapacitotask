@@ -276,10 +276,15 @@ final class Backlog
         // Archivos: los que se suben se suman; los que se quitan se borran del disco
         // El diagrama de la historia como imagen (lo guarda la pizarra; aquí solo se ve): uploads/hu_dg_*.png
         if (array_key_exists('diagrama', $d)) {
+            // Su texto (de donde la pizarra arma el diagrama: la historia lo muestra vivo, solo para ver)
+            // y, si viene, su imagen. Lo que no venga se conserva de antes.
             $dg = (array)$d['diagrama'];
-            $ruta = (string)($dg['ruta'] ?? '');
-            $c['diagrama'] = preg_match('#^uploads/hu_dg_[A-Za-z0-9_.-]+\.png$#', $ruta) && is_file(__DIR__ . '/../' . $ruta)
-                ? ['ruta' => $ruta, 'fecha' => date('Y-m-d H:i'), 'por' => $quien, 'origen' => mb_substr((string)($dg['origen'] ?? ''), 0, 60)] : [];
+            $prev = (array)($antes['diagrama'] ?? []);
+            $ruta = array_key_exists('ruta', $dg) ? (string)$dg['ruta'] : (string)($prev['ruta'] ?? '');
+            if (!preg_match('#^uploads/hu_dg_[A-Za-z0-9_.-]+\.png$#', $ruta) || !is_file(__DIR__ . '/../' . $ruta)) $ruta = '';
+            $texto = array_key_exists('texto', $dg) ? mb_substr(str_replace("\r", '', (string)$dg['texto']), 0, 20000) : (string)($prev['texto'] ?? '');
+            $c['diagrama'] = ($ruta !== '' || trim($texto) !== '')
+                ? ['texto' => $texto, 'ruta' => $ruta, 'fecha' => date('Y-m-d H:i'), 'por' => $quien, 'origen' => mb_substr((string)($dg['origen'] ?? ($prev['origen'] ?? '')), 0, 60)] : [];
             // La imagen anterior ya no sirve
             $vieja = (string)($antes['diagrama']['ruta'] ?? '');
             if ($vieja !== '' && $vieja !== ($c['diagrama']['ruta'] ?? '') && preg_match('#^uploads/hu_dg_[A-Za-z0-9_.-]+\.png$#', $vieja)) @unlink(__DIR__ . '/../' . $vieja);

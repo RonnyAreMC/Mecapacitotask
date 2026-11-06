@@ -26,6 +26,12 @@
  *
  * Una nota puede llevar un recordatorio (aviso: 'Y-m-d H:i', aviso_por): se
  * indexa en piz_avisos al guardar y cron_correo.php lo avisa a su hora.
+ *
+ * El diagrama de una historia (tipo «hu», assets/pizarra-hu.js) en la pizarra de
+ * una reunión puede tener dueño (dueno = id de quien lo puso, si arma el backlog
+ * de ese proyecto: Backlog::puede). Entonces solo su dueño o el administrador lo
+ * cambian o lo borran: si llega cambiado por otro, se queda el del servidor (y
+ * se le devuelve a quien lo cambió, con una versión nueva).
  */
 final class Pizarra
 {
@@ -168,7 +174,7 @@ final class Pizarra
         try {
             $v = self::version($reunion);
             $vivos = (int)$db->query('SELECT COUNT(*) FROM piz_elementos WHERE borrado = 0 AND reunion = ' . $reunion)->fetchColumn();
-            $existe = $db->prepare('SELECT borrado FROM piz_elementos WHERE reunion = ? AND eid = ?');
+            $existe = $db->prepare('SELECT borrado, datos, por FROM piz_elementos WHERE reunion = ? AND eid = ?');
             $poner = $db->prepare('INSERT INTO piz_elementos (reunion, eid, v, borrado, datos, por) VALUES (?, ?, ?, ?, ?, ?)
                 ON CONFLICT (reunion, eid) DO UPDATE SET v = excluded.v, borrado = excluded.borrado, datos = excluded.datos, por = excluded.por');
             $ponerAviso = $db->prepare('INSERT INTO piz_avisos (reunion, eid, cuando, para, texto) VALUES (?, ?, ?, ?, ?)
@@ -180,8 +186,19 @@ final class Pizarra
                 $eid = preg_replace('/[^A-Za-z0-9_-]/', '', (string)($c['id'] ?? ''));
                 if ($eid === '' || strlen($eid) > 64) continue;
                 $existe->execute([$reunion, $eid]);
-                $antes = $existe->fetchColumn();         // false: no existía; '0' vivo; '1' borrado
+                $fila = $existe->fetch(PDO::FETCH_ASSOC);
                 $existe->closeCursor();
+                $antes = $fila === false ? false : (string)$fila['borrado'];   // false: no existía; '0' vivo; '1' borrado
+                // Un diagrama de historia con dueño: si no es su dueño (ni el administrador), queda el del
+                // servidor. Sube su versión para que a quien lo cambió le vuelva el bueno en el próximo sondeo.
+                $viejo = null;
+                if ($reunion > 0 && $antes === '0') {
+                    $viejo = json_decode((string)$fila['datos'], true) ?: [];
+                    if (self::bloqueadoPara($viejo, $por)) {
+                        $poner->execute([$reunion, $eid, ++$v, 0, (string)$fila['datos'], (int)$fila['por']]);
+                        continue;
+                    }
+                }
                 if (!empty($c['borrado'])) {
                     if ($antes === false) continue;
                     $poner->execute([$reunion, $eid, ++$v, 1, '{}', $por]);
@@ -190,6 +207,7 @@ final class Pizarra
                     continue;
                 }
                 unset($c['id'], $c['v'], $c['borrado']);
+                if ($reunion > 0 && ($c['tipo'] ?? '') === 'hu') $c = self::conDueno($c, $viejo, $por, $reunion);
                 $json = json_encode($c, JSON_UNESCAPED_UNICODE | JSON_PRESERVE_ZERO_FRACTION);
                 if ($json === false || strlen($json) > self::MAX_BYTES_ELEMENTO) continue;
                 $nuevo = $antes === false || (string)$antes === '1';
@@ -215,6 +233,48 @@ final class Pizarra
             $db->exec('ROLLBACK');
             throw $e;
         }
+    }
+
+    /* ---------- Diagramas de historia con dueño ---------- */
+
+    /** ¿Este diagrama tiene dueño y quien guarda no es él ni el administrador? */
+    public static function bloqueadoPara(array $el, int $por): bool
+    {
+        $dueno = (int)($el['dueno'] ?? 0);
+        return ($el['tipo'] ?? '') === 'hu' && $dueno > 0 && $dueno !== $por && !Auth::esAdmin();
+    }
+
+    /**
+     * El dueño que puede llevar un diagrama de historia al guardarse: el que ya tenía
+     * (lo cambia su dueño o el administrador), ninguno (lo soltó su dueño) o quien lo
+     * guarda, si arma el backlog del proyecto de la historia (o del de la reunión, si
+     * el diagrama no viene de una historia). Nadie lo pone a nombre de otro.
+     */
+    private static function conDueno(array $c, ?array $viejo, int $por, int $reunion): array
+    {
+        $antes = (int)($viejo['dueno'] ?? 0);
+        $nuevo = (int)($c['dueno'] ?? 0);
+        if ($antes > 0 && $nuevo === $antes) {
+            $c['dueno_nombre'] = (string)($viejo['dueno_nombre'] ?? '');
+            return $c;
+        }
+        if ($nuevo > 0 && $nuevo === $por && self::puedeBloquear($c, $reunion)) {
+            $m = (new MiembroRepo())->buscar($por);
+            $c['dueno_nombre'] = $m ? explode(' ', trim((string)$m['nombre']))[0] : '';
+            return $c;
+        }
+        unset($c['dueno'], $c['dueno_nombre']);
+        return $c;
+    }
+
+    private static function puedeBloquear(array $c, int $reunion): bool
+    {
+        static $deReunion = [];
+        $pid = (int)($c['hu']['proyecto_id'] ?? 0);
+        if ($pid <= 0) $pid = $deReunion[$reunion] ??= (int)(((new ReunionRepo())->buscar($reunion) ?? [])['proyecto_id'] ?? 0);
+        if ($pid <= 0 || !is_file(__DIR__ . '/PizarraHU.php')) return false;
+        require_once __DIR__ . '/PizarraHU.php';
+        return PizarraHU::puede($pid);
     }
 
     /* ---------- Quién está ---------- */
