@@ -248,7 +248,7 @@ function blSprintPagina(array $x): string
     $pend = array_values(array_filter($hus, fn($h) => $h['estado'] !== 'hecho'));
     $noListas = array_values(array_filter($pend, fn($h) => !$dors[(int)$h['id']]['lista']));
     // El backlog del proyecto (sin sprint) de los releases de este sprint: las listas primero
-    $bl = array_values(array_filter(Backlog::historias(['proyecto_id' => $pid, 'sprint' => '']), fn($h) => $h['release'] === '' || in_array($h['release'], $s['releases'], true)));
+    $bl = array_values(array_filter(Backlog::historias(['proyecto_id' => $pid, 'sprint' => '']), fn($h) => $h['release'] === '' || !$s['releases'] || in_array($h['release'], $s['releases'], true)));
     $dorBl = [];
     foreach ($bl as $h) $dorBl[(int)$h['id']] = Backlog::dor($h, $dorL);
     usort($bl, fn($a, $b) => [!$dorBl[(int)$a['id']]['lista'], (float)$a['orden']] <=> [!$dorBl[(int)$b['id']]['lista'], (float)$b['orden']]);

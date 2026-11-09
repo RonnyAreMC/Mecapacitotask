@@ -89,6 +89,7 @@ foreach ([true, false] as $soloConItems) {   // primero uno en curso donde el pr
 }
 
 /* ---------- Sprints e historias del backlog ---------- */
+Backlog::usarProyecto($id);   // su calendario: el general o el de su planificación aparte
 $sprints = Backlog::sprints();
 $spActual = Backlog::actual($hoy);
 $hist = Backlog::historias(['proyecto_id' => $id]);

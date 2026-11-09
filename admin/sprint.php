@@ -25,6 +25,7 @@ require_once __DIR__ . '/lib/backlog/sprint_ui.php';
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);
 if (!$proyecto || !puedeVerProyecto($pid) || Auth::esSupervisor()) redirigir('index.php', 'Ese proyecto no está disponible.', 'error');
+Backlog::usarProyecto($pid);   // su calendario: el general o el de su planificación aparte
 Backlog::arrastrar();   // lo no terminado de un sprint que ya pasó, al sprint en curso (como en la pestaña)
 $sprint = (string)($_GET['s'] ?? '');
 if (!isset(Backlog::sprints()[$sprint])) $sprint = Backlog::actual();

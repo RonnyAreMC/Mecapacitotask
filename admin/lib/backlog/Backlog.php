@@ -30,8 +30,21 @@ final class Backlog
 
     /* ============================== Ajustes ============================== */
 
-    /** Inicio del S01, semanas por sprint (1 o 2), escala de estimación, capacidad por equipo y si se arrastra lo no terminado. */
+    /**
+     * Inicio del S01, semanas por sprint (1 o 2), escala de estimación, capacidad por equipo y si
+     * se arrastra lo no terminado. Si el proyecto en pantalla (usarProyecto) está en una
+     * planificación aparte, el inicio y las semanas son los de ella; 'plan' dice cuál (o null).
+     */
     public static function conf(): array
+    {
+        $c = self::confGeneral();
+        $plan = self::planDe();
+        if ($plan) { $c['inicio'] = $plan['inicio']; $c['semanas'] = $plan['semanas']; }
+        return $c + ['plan' => $plan];
+    }
+
+    /** Lo de Releases → Ajustes → Sprints: el calendario general (el de los releases). */
+    public static function confGeneral(): array
     {
         $c = (array)(((array)(Config::get('releases') ?? []))['sprints'] ?? []);
         $primero = '';
@@ -71,19 +84,143 @@ final class Backlog
         return ctype_digit($est) ? (int)$est : 0;
     }
 
+    /* ============================== Planificaciones aparte ============================== */
+
+    /** El proyecto en pantalla: si está en una planificación aparte, el calendario es el de ella. */
+    private static int $ctx = 0;
+
+    /** Lo llama cada pantalla o acción de un proyecto antes de mirar sus sprints. */
+    public static function usarProyecto(int $pid): void
+    {
+        self::$ctx = max(0, $pid);
+    }
+
+    /**
+     * Planificaciones aparte: proyectos que no siguen los releases (y su calendario de
+     * sprints) llevan el suyo, con su propio inicio y duración. Una vale para uno o
+     * varios proyectos; un proyecto está en una sola. Se guardan en la configuración
+     * de Releases. [id => ['id', 'nombre', 'inicio', 'semanas', 'proyectos']]
+     */
+    public static function planificaciones(): array
+    {
+        $out = [];
+        foreach ((array)(((array)(Config::get('releases') ?? []))['planificaciones'] ?? []) as $p) {
+            $id = (string)($p['id'] ?? '');
+            $ini = Releases::fecha((string)($p['inicio'] ?? ''));
+            if ($id === '' || $ini === '') continue;
+            $out[$id] = ['id' => $id, 'nombre' => trim((string)($p['nombre'] ?? '')) ?: 'Planificación', 'inicio' => $ini,
+                         'semanas' => in_array((int)($p['semanas'] ?? 2), [1, 2], true) ? (int)$p['semanas'] : 2,
+                         'proyectos' => array_values(array_unique(array_filter(array_map('intval', (array)($p['proyectos'] ?? [])))))];
+        }
+        uasort($out, fn($a, $b) => strcasecmp($a['nombre'], $b['nombre']));
+        return $out;
+    }
+
+    /** La planificación aparte de un proyecto, o null si sigue el calendario general (-1: el proyecto en pantalla). */
+    public static function planDe(int $pid = -1): ?array
+    {
+        $pid = $pid < 0 ? self::$ctx : $pid;
+        if ($pid <= 0) return null;
+        foreach (self::planificaciones() as $p) if (in_array($pid, $p['proyectos'], true)) return $p;
+        return null;
+    }
+
+    /**
+     * Crea o cambia una planificación. Un proyecto que estaba en otra sale de ahí.
+     * Las historias de los proyectos a los que les cambia el calendario pasan al
+     * sprint del calendario nuevo que cae en las fechas de su sprint de antes.
+     */
+    public static function guardarPlanificacion(array $d, int $quien = 0): array
+    {
+        $nombre = mb_substr(trim((string)($d['nombre'] ?? '')), 0, 80);
+        if ($nombre === '') throw new RuntimeException('Ponle un nombre a la planificación (el del proyecto o del cliente, por ejemplo).');
+        $ini = Releases::fecha((string)($d['inicio'] ?? ''));
+        if ($ini === '') throw new RuntimeException('Elige la fecha en que empieza su primer sprint.');
+        $sem = (int)($d['semanas'] ?? 2);
+        if (!in_array($sem, [1, 2], true)) throw new RuntimeException('Un sprint dura una o dos semanas, no más.');
+        $existen = [];
+        foreach ((new ProyectoRepo())->todos() as $pr) $existen[(int)$pr['id']] = true;
+        $proys = array_values(array_unique(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])), fn($i) => isset($existen[$i]))));
+        if (!$proys) throw new RuntimeException('Elige al menos un proyecto que lleve esta planificación.');
+        $lista = self::planificaciones();
+        $id = (string)($d['id'] ?? '');
+        if ($id !== '' && !isset($lista[$id])) throw new RuntimeException('Esa planificación ya no existe.');
+        $tocados = array_merge($proys, $id !== '' ? $lista[$id]['proyectos'] : []);
+        if ($id === '') $id = 'p' . bin2hex(random_bytes(4));
+        $viejos = self::calendariosDe($tocados);
+        foreach ($lista as $k => $pl) if ($k !== $id) $lista[$k]['proyectos'] = array_values(array_diff($pl['proyectos'], $proys));
+        $lista[$id] = ['id' => $id, 'nombre' => $nombre, 'inicio' => $ini, 'semanas' => $sem, 'proyectos' => $proys];
+        Releases::guardarConf(['planificaciones' => array_values($lista)]);
+        self::reubicar($viejos, $quien);
+        return $lista[$id];
+    }
+
+    /** Quita una planificación: sus proyectos vuelven al calendario general. */
+    public static function borrarPlanificacion(string $id, int $quien = 0): void
+    {
+        $lista = self::planificaciones();
+        if (!isset($lista[$id])) throw new RuntimeException('Esa planificación ya no existe.');
+        $viejos = self::calendariosDe($lista[$id]['proyectos']);
+        unset($lista[$id]);
+        Releases::guardarConf(['planificaciones' => array_values($lista)]);
+        self::reubicar($viejos, $quien);
+    }
+
+    /** El calendario que lleva cada uno de esos proyectos ahora. [pid => sprints] */
+    private static function calendariosDe(array $pids): array
+    {
+        $out = [];
+        foreach (array_unique(array_map('intval', $pids)) as $pid) if ($pid > 0) $out[$pid] = self::calendario(self::planDe($pid));
+        return $out;
+    }
+
+    /** Las historias con sprint de esos proyectos, al sprint del calendario nuevo que cae en las fechas del de antes (o al backlog). */
+    private static function reubicar(array $viejos, int $quien): int
+    {
+        $nuevos = self::calendariosDe(array_keys($viejos));
+        $n = 0;
+        foreach (self::repo()->all() as $h) {
+            $pid = (int)($h['proyecto_id'] ?? 0);
+            $s = (string)($h['sprint'] ?? '');
+            if ($s === '' || !isset($viejos[$pid])) continue;
+            $ref = $viejos[$pid][$s]['inicio'] ?? '';
+            $nuevo = '';
+            if ($ref !== '') foreach ($nuevos[$pid] as $cod => $sp) if ($sp['inicio'] <= $ref && $sp['fin'] >= $ref) { $nuevo = (string)$cod; break; }
+            // Lo terminado antes de que empiece el calendario nuevo queda en su primer sprint
+            if ($nuevo === '' && ($h['estado'] ?? '') === 'hecho' && $nuevos[$pid]) $nuevo = (string)array_key_first($nuevos[$pid]);
+            if ($nuevo === $s) continue;
+            $hist = (array)($h['historial'] ?? []);
+            $hist[] = self::evento($quien, 'Cambió el calendario de sprints del proyecto: ' . ($nuevo !== '' ? 'pasó del ' . $s . ' al ' . $nuevo : 'del ' . $s . ' volvió al backlog'));
+            self::repo()->update((int)$h['id'], ['sprint' => $nuevo, 'historial' => array_slice($hist, -60)]);
+            $n++;
+        }
+        return $n;
+    }
+
     /* ============================== Sprints ============================== */
 
     /**
-     * El calendario de sprints: [S01 => [codigo, n, inicio, fin, releases]], desde el
-     * inicio del S01 hasta el fin del último release (y al menos doce semanas desde hoy).
+     * El calendario de sprints del proyecto en pantalla (usarProyecto): el general o el
+     * de su planificación aparte. [S01 => [codigo, n, inicio, fin, releases]]
      */
     public static function sprints(): array
     {
-        static $cache = null;
-        if ($cache !== null) return $cache;
-        $c = self::conf();
+        return self::calendario(self::planDe());
+    }
+
+    /**
+     * Un calendario: el general, desde el inicio del S01 hasta el fin del último release
+     * (y al menos doce semanas desde hoy), cada sprint con los releases de sus fechas;
+     * o el de una planificación aparte, que no va con los releases.
+     */
+    public static function calendario(?array $plan): array
+    {
+        static $cache = [];
+        $c = $plan ?: self::confGeneral();
+        $k = ($plan['id'] ?? '') . '|' . $c['inicio'] . '|' . $c['semanas'];
+        if (isset($cache[$k])) return $cache[$k];
         $hasta = date('Y-m-d', strtotime('+84 days'));
-        $rels = Releases::releases();
+        $rels = $plan ? [] : Releases::releases();
         foreach ($rels as $r) if (($r['fin'] ?? '') > $hasta) $hasta = $r['fin'];
         $out = [];
         $ini = $c['inicio'];
@@ -95,14 +232,19 @@ final class Backlog
             $out[$cod] = ['codigo' => $cod, 'n' => $n, 'inicio' => $ini, 'fin' => $fin, 'releases' => $deRel];
             $ini = date('Y-m-d', strtotime($fin . ' +1 day'));
         }
-        return $cache = $out;
+        return $cache[$k] = $out;
     }
 
     /** El sprint de hoy (o el próximo, o el último). */
     public static function actual(?string $hoy = null): string
     {
+        return self::actualEn(self::sprints(), $hoy);
+    }
+
+    /** El sprint de hoy (o el próximo, o el último) en un calendario. */
+    public static function actualEn(array $sp, ?string $hoy = null): string
+    {
         $hoy ??= date('Y-m-d');
-        $sp = self::sprints();
         foreach ($sp as $cod => $s) if ($s['inicio'] <= $hoy && $s['fin'] >= $hoy) return $cod;
         foreach ($sp as $cod => $s) if ($s['inicio'] > $hoy) return $cod;
         return (string)(array_key_last($sp) ?? '');
@@ -259,7 +401,7 @@ final class Backlog
         }
         if (array_key_exists('sprint', $d)) {
             $sp = (string)$d['sprint'];
-            if ($sp !== '' && !isset(self::sprints()[$sp])) throw new RuntimeException('Ese sprint no existe.');
+            if ($sp !== '' && !isset(self::calendario(self::planDe($pid))[$sp])) throw new RuntimeException('Ese sprint no existe.');
             $c['sprint'] = $sp;
         }
         if (array_key_exists('estimacion', $d)) {
@@ -387,15 +529,19 @@ final class Backlog
      */
     public static function arrastrar(?string $hoy = null): int
     {
-        if (!self::conf()['arrastrar']) return 0;
+        if (!self::confGeneral()['arrastrar']) return 0;
         $hoy ??= date('Y-m-d');
-        $sp = self::sprints();
-        $act = self::actual($hoy);
-        if ($act === '' || ($sp[$act]['inicio'] ?? '') > $hoy) return 0;
         $n = 0;
+        $cals = [];   // cada historia con el calendario de su proyecto (el general o el de su planificación)
         foreach (self::repo()->all() as $h) {
             $s = (string)($h['sprint'] ?? '');
-            if ($s === '' || ($h['estado'] ?? '') === 'hecho' || !isset($sp[$s]) || $sp[$s]['fin'] >= $hoy) continue;
+            if ($s === '' || ($h['estado'] ?? '') === 'hecho') continue;
+            $plan = self::planDe((int)($h['proyecto_id'] ?? 0));
+            $kc = $plan['id'] ?? '';
+            if (!isset($cals[$kc])) { $spC = self::calendario($plan); $cals[$kc] = [$spC, self::actualEn($spC, $hoy)]; }
+            [$sp, $act] = $cals[$kc];
+            if ($act === '' || ($sp[$act]['inicio'] ?? '') > $hoy) continue;
+            if (!isset($sp[$s]) || $sp[$s]['fin'] >= $hoy) continue;
             $hist = (array)($h['historial'] ?? []);
             $hist[] = self::evento(0, 'No se terminó en el ' . $s . ': pasó sola al ' . $act);
             self::repo()->update((int)$h['id'], ['sprint' => $act, 'arrastres' => (int)($h['arrastres'] ?? 0) + 1, 'historial' => array_slice($hist, -60)]);
@@ -408,7 +554,7 @@ final class Backlog
     public static function velocidad(int $proyectoId, int $cuantos = 3, ?string $hoy = null): array
     {
         $hoy ??= date('Y-m-d');
-        $pasados = array_filter(self::sprints(), fn($s) => $s['fin'] < $hoy);
+        $pasados = array_filter(self::calendario(self::planDe($proyectoId)), fn($s) => $s['fin'] < $hoy);
         $pasados = array_slice($pasados, -$cuantos, null, true);
         $por = array_fill_keys(array_keys($pasados), 0);
         foreach (self::historias(['proyecto_id' => $proyectoId]) as $h) {

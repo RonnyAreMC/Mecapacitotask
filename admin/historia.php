@@ -17,6 +17,7 @@ foreach (['whiteboard/Pizarra', 'whiteboard/PizarraHU'] as $libPz) if (is_file(_
 $pid = (int)($_GET['p'] ?? 0);
 $proyecto = (new ProyectoRepo())->buscar($pid);
 if (!$proyecto || !puedeVerProyecto($pid)) redirigir('index.php', 'Ese proyecto no está disponible.', 'error');
+Backlog::usarProyecto($pid);   // su calendario: el general o el de su planificación aparte
 $id = (int)($_GET['id'] ?? 0);
 $historia = $id > 0 ? Backlog::historia($id) : null;
 if ($id > 0 && (!$historia || (int)$historia['proyecto_id'] !== $pid)) redirigir('proyecto.php?id=' . $pid . '#vista-sprints', 'Esa historia ya no existe.', 'error');

@@ -124,7 +124,10 @@ function blPestana(array $x): string
     $p = $x['proyecto'];
     $pid = (int)$p['id'];
     $hoy = date('Y-m-d');
+    Backlog::usarProyecto($pid);
     $conf = Backlog::conf();
+    // Planificación aparte: su propio calendario, sin releases (Releases → Ajustes → Sprints)
+    $plan = $conf['plan'];
     Backlog::arrastrar($hoy);   // lo no terminado de un sprint que ya pasó, al sprint en curso
     $sps = Backlog::sprints();
     $act = Backlog::actual($hoy);
@@ -133,7 +136,9 @@ function blPestana(array $x): string
     // Los releases del proyecto (los de sus ítems); sin ítems, todos
     $relsP = array_values(array_filter(array_keys($rels), fn($c) => in_array((string)$c, array_column($epicas, 'release'), true))) ?: array_map('strval', array_keys($rels));
     $r = (string)($_GET['sp_r'] ?? '');
-    if (!in_array($r, $relsP, true)) {
+    if ($plan) {
+        $r = '';
+    } elseif (!in_array($r, $relsP, true)) {
         $r = '';
         foreach ($relsP as $c) if (($rels[$c]['inicio'] ?? '') <= $hoy && ($rels[$c]['fin'] ?? '') >= $hoy) { $r = $c; break; }
         if ($r === '') foreach ($relsP as $c) if (($rels[$c]['fin'] ?? '') >= $hoy) { $r = $c; break; }
@@ -143,10 +148,10 @@ function blPestana(array $x): string
     $url = $x['url'];
     $puede = $x['puede'];
     $todas = Backlog::historias(['proyecto_id' => $pid]);
-    $delRel = array_values(array_filter($todas, fn($h) => $h['release'] === $r || ($h['release'] === '' && $h['sprint'] !== '' && in_array($r, $sps[$h['sprint']]['releases'] ?? [], true))));
+    $delRel = $plan ? $todas : array_values(array_filter($todas, fn($h) => $h['release'] === $r || ($h['release'] === '' && $h['sprint'] !== '' && in_array($r, $sps[$h['sprint']]['releases'] ?? [], true))));
     $porSprint = [];
     foreach ($todas as $h) $porSprint[$h['sprint']][] = $h;
-    $spsR = array_filter($sps, fn($s) => in_array($r, $s['releases'], true));
+    $spsR = $plan ? $sps : array_filter($sps, fn($s) => in_array($r, $s['releases'], true));
     $tareasPorId = [];
     foreach ($x['tareas'] as $t) $tareasPorId[(int)$t['id']] = $t;
     $ctx = ['puede' => $puede, 'rels' => $rels, 'miembros' => $x['miembros'], 'tareasPorId' => $tareasPorId, 'finales' => Catalogo::estadosFinales()];
@@ -166,8 +171,12 @@ function blPestana(array $x): string
     <?php // El release, en una lista (no regado a lo largo): al elegir otro, la pestaña se abre en él
       $optRel = [];
       foreach ($relsP as $c) $optRel[$c] = [$c . ' · ' . (string)($rels[$c]['nombre'] ?? ''), rlF((string)($rels[$c]['inicio'] ?? ''), true) . ' → ' . rlF((string)($rels[$c]['fin'] ?? ''), true)]; ?>
+    <?php if ($plan): ?>
+    <div class="bl-rel"><span class="bl-rel__rot">Planificación</span><span class="bl-plan-chip"><?= rlIco('reloj', 15) ?> <?= e($plan['nombre']) ?></span></div>
+    <?php else: ?>
     <div class="bl-rel"><span class="bl-rel__rot">Release</span>
       <?= UI::selectDS('sp_r', $optRel, $r, ['tam' => 'md', 'aria' => 'Release', 'attrs' => 'data-bl-rel data-url="' . e($url(['sp_r' => '__R__', 'sp_v' => $vista === 'tablero' ? 'tablero' : ''])) . '"']) ?></div>
+    <?php endif; ?>
     <?php /* Solo íconos, como la cabecera del dashboard: el nombre va en la ayuda */ ?>
     <div class="bl-cab__acc">
       <?php if (Releases::puedeEditar()): ?><a class="rs-boton rs-boton--icono" href="releases.php?v=ajustes&amp;t=sprints" aria-label="Calendario de sprints" data-ds-tip="Calendario de sprints (Releases → Ajustes)"><?= UI::icono('ds-agenda') ?></a><?php endif; ?>
@@ -180,16 +189,18 @@ function blPestana(array $x): string
   <div class="rl-kpis bl-kpis">
     <?= $sAct ? $kpi('Sprint en curso', e($act), 'azul', e(rlF($sAct['inicio']) . ' → ' . rlF($sAct['fin'])) . ' · quedan ' . (int)$dAct['quedan'] . ' día(s) hábiles') : $kpi('Sprint en curso', '—', 'nm') ?>
     <?= $kpi('Velocidad', $vel['promedio'] !== null ? (int)$vel['promedio'] . '<small> pts</small>' : '—', 'azul', 'por sprint, en los últimos ' . count($vel['sprints'])) ?>
-    <?= $kpi('En ' . $r, count($delRel) . '<small> historias</small>', 'azul', (int)$ptsRel . ' pts') ?>
+    <?= $kpi($plan ? 'En el proyecto' : 'En ' . $r, count($delRel) . '<small> historias</small>', 'azul', (int)$ptsRel . ' pts') ?>
     <?= $kpi('Hecho', $pctHecho !== null ? $pctHecho . '<small>%</small>' : '—', $pctHecho === null ? 'nm' : ($pctHecho >= 80 ? 'ok' : ($pctHecho >= 40 ? 'warn' : 'crit')), (int)$ptsHechos . ' de ' . (int)$ptsRel . ' pts') ?>
     <?= $kpi('Sin estimar', (string)$sinEst, $sinEst ? 'warn' : 'ok', $conf['escala'] === 'camisa' ? 'Talla de camisa' : 'Fibonacci') ?>
   </div>
-  <p class="bl-nota"><?= rlIco('reloj', 14) ?> Sprints de <?= $conf['semanas'] === 1 ? 'una semana' : 'dos semanas' ?>, desde el <?= e(rlFL($conf['inicio'], false, true)) ?>: el calendario se calcula solo<?= $conf['arrastrar'] ? ' y lo que no se termina pasa al sprint siguiente' : '' ?>.
-    <?php if (Releases::puedeEditar()): ?><a href="releases.php?v=ajustes&amp;t=sprints">Cambiarlo en Releases → Ajustes</a><?php endif; ?></p>
+  <p class="bl-nota"><?= rlIco('reloj', 14) ?> Sprints de <?= $conf['semanas'] === 1 ? 'una semana' : 'dos semanas' ?>, desde el <?= e(rlFL($conf['inicio'], false, true)) ?><?= $plan ? ', con la planificación «' . e($plan['nombre']) . '», aparte de los releases' : '' ?>: el calendario se calcula solo<?= $conf['arrastrar'] ? ' y lo que no se termina pasa al sprint siguiente' : '' ?>.
+    <?php if (Releases::puedeEditar()): ?><?= $plan
+        ? '<a href="releases.php?v=ajustes&amp;t=sprints#bl-planes">Cambiar la planificación</a>'
+        : '<a href="releases.php?v=ajustes&amp;t=sprints">Cambiarlo en Releases → Ajustes</a> · <a href="releases.php?v=ajustes&amp;t=sprints&amp;plan_nueva=' . $pid . '#bl-planes">¿Este proyecto va con otra planificación?</a>' ?><?php endif; ?></p>
 
   <?php /* Qué ver (Backlog o Tablero), junto al encabezado de la lista */ ?>
   <div class="bl-barra">
-    <h3 class="bl-barra__tit"><?= $vista === 'tablero' ? 'Tablero del sprint' : 'Historias de ' . e($r) . ' por sprint' ?></h3>
+    <h3 class="bl-barra__tit"><?= $vista === 'tablero' ? 'Tablero del sprint' : ($plan ? 'Historias por sprint' : 'Historias de ' . e($r) . ' por sprint') ?></h3>
     <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
         <span class="rs-vista__pieza" aria-hidden="true"></span>
         <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
@@ -222,7 +233,7 @@ function blPestana(array $x): string
       </ol>
     </details>
     <?php endforeach; ?>
-    <?php $bl = array_values(array_filter($porSprint[''] ?? [], fn($h) => $h['release'] === $r || $h['release'] === ''));
+    <?php $bl = array_values(array_filter($porSprint[''] ?? [], fn($h) => $plan || $h['release'] === $r || $h['release'] === ''));
       $ptsBl = array_sum(array_column($bl, 'puntos')); ?>
     <section class="bl-sec bl-sec--backlog" data-bl-sec>
       <header class="bl-sec__cab">
@@ -254,7 +265,7 @@ function blPestana(array $x): string
     $dS = $sp ? Backlog::dias($sp, $hoy) : ['total' => 0, 'quedan' => 0];
     $pctS = $comp ? (int)round($hecho * 100 / $comp) : null; ?>
   <?php if (!$sp): ?>
-  <p class="bl-vacio"><?= rlIco('info', 16) ?> Este release todavía no tiene sprints en el calendario.</p>
+  <p class="bl-vacio"><?= rlIco('info', 16) ?> <?= $plan ? 'Esta planificación todavía no tiene sprints.' : 'Este release todavía no tiene sprints en el calendario.' ?></p>
   <?php else: ?>
   <div class="bl-tabcab">
     <a class="mc-iconbtn mc-iconbtn--tinte<?= $iTab > 0 ? '' : ' is-off' ?>" href="<?= $iTab > 0 ? e($url(['sp_r' => $r, 'sp_v' => 'tablero', 'sp_s' => $codsR[$iTab - 1]])) : '#' ?>" aria-label="Sprint anterior" data-ds-tip="Sprint anterior"><?= rlIco('chevron-izq', 18) ?></a>
@@ -335,6 +346,7 @@ function blFormHistoria(array $x): string
     $miembros = $x['miembros'];
     $h = $x['historia'];
     $nueva = !$h;
+    Backlog::usarProyecto($pid);
     $conf = Backlog::conf();
     $hoy = date('Y-m-d');
     $sps = Backlog::sprints();
@@ -356,7 +368,7 @@ function blFormHistoria(array $x): string
     foreach ($epicas as $it) $optEpica[(string)(int)$it['id']] = [$it['codigo'] . ' · ' . (string)$it['titulo'], $it['release'] . ' · equipo ' . $it['equipo']];
     $optSprint = ['' => ['Backlog', 'Sin sprint todavía']];
     foreach ($sps as $cod => $s) {
-        if (($s['fin'] < $hoy && $cod !== $h['sprint']) || !array_intersect($s['releases'], $relsP)) continue;
+        if (($s['fin'] < $hoy && $cod !== $h['sprint']) || (!$conf['plan'] && !array_intersect($s['releases'], $relsP))) continue;
         $optSprint[$cod] = [$cod . ' · ' . rlF($s['inicio']) . ' → ' . rlF($s['fin']), ($cod === $act ? 'En curso · ' : '') . implode(', ', $s['releases'])];
     }
     if ($h['sprint'] !== '' && !isset($optSprint[$h['sprint']])) $optSprint[$h['sprint']] = [$h['sprint'] . ' (ya pasó)', ''];
@@ -602,16 +614,17 @@ function blFormHistoria(array $x): string
  */
 function blAjustesSprints(): string
 {
+    Backlog::usarProyecto(0);
     $c = Backlog::conf();
     $sps = Backlog::sprints();
     $hoy = date('Y-m-d');
     $act = Backlog::actual($hoy);
     ob_start(); ?>
-  <p class="ds-ayuda">Los sprints son uno solo para todos los proyectos: se calculan desde el inicio del S01 con la duración que elijas (dos semanas como máximo) y cada uno cae en el release de sus fechas. Si cambias algo, el calendario se rehace solo. Los PO, Scrum Masters y el administrador arman el backlog en la pestaña «Sprints» de cada proyecto.</p>
-  <div class="rl-ajustes-grid">
+  <p class="ds-ayuda">El calendario general vale para los proyectos que van con los releases: se calcula desde el inicio del S01 con la duración que elijas (dos semanas como máximo) y cada sprint cae en el release de sus fechas. Los proyectos que llevan otra planificación tienen la suya más abajo. Si cambias algo, el calendario se rehace solo. Los PO, Scrum Masters y el administrador arman el backlog en la pestaña «Sprints» de cada proyecto.</p>
+  <div class="bl-aj-grid">
     <form class="mc-card rl-card" method="post" action="actions.php" data-rl-form="bl_sprints_conf" data-rl-tras="recargar">
       <input type="hidden" name="accion" value="bl_sprints_conf"><input type="hidden" name="volver" value="releases.php?v=ajustes&amp;t=sprints">
-      <header class="rl-card__cab"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('reloj', 20) ?></span><div><h2 class="rl-card__tit">Calendario de sprints</h2><p class="rl-card__sub">Para todos los proyectos.</p></div></header>
+      <header class="rl-card__cab"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('reloj', 20) ?></span><div><h2 class="rl-card__tit">Calendario general</h2><p class="rl-card__sub">Para los proyectos que van con los releases.</p></div></header>
       <div class="rl-form-grid rl-form-grid--2">
         <?= rlCampo('Empieza el S01', '<input class="input-meca" type="date" name="inicio" value="' . e($c['inicio']) . '" required>') ?>
         <div class="mc-field"><span class="mc-field__label">Cada sprint dura</span>
@@ -642,6 +655,94 @@ function blAjustesSprints(): string
         </tbody></table></div>
     </section>
   </div>
+  <?= blAjustesPlanes() ?>
+    <?php
+    return (string)ob_get_clean();
+}
+
+/**
+ * Planificaciones aparte (Releases → Ajustes → Sprints): los proyectos que no van con
+ * los releases llevan su propio calendario de sprints. Una vale para uno o varios
+ * proyectos. Con ?plan_nueva=ID (desde la pestaña Sprints de ese proyecto) se abre
+ * la nueva con el proyecto marcado.
+ */
+function blAjustesPlanes(): string
+{
+    $planes = Backlog::planificaciones();
+    $proys = (new ProyectoRepo())->todos();
+    usort($proys, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
+    $nombreP = [];
+    foreach ($proys as $pr) $nombreP[(int)$pr['id']] = (string)$pr['nombre'];
+    $enPlan = [];
+    foreach ($planes as $pl) foreach ($pl['proyectos'] as $pid) $enPlan[$pid] = $pl['nombre'];
+    $hoy = date('Y-m-d');
+    $nueva = (int)($_GET['plan_nueva'] ?? 0);
+    $ops = function (string $propio) use ($proys, $enPlan): array {
+        $o = [];
+        foreach ($proys as $pr) {
+            $pid = (int)$pr['id'];
+            $o[$pid] = [(string)$pr['nombre'], isset($enPlan[$pid]) ? ($enPlan[$pid] === $propio ? 'En esta' : 'Ahora en «' . $enPlan[$pid] . '»: se pasa aquí') : 'Calendario general'];
+        }
+        return $o;
+    };
+    $form = function (?array $pl, string $idDlg, array $marcados) use ($ops): string {
+        ob_start(); ?>
+  <dialog id="<?= e($idDlg) ?>" class="dlg-meca rl-dlg">
+    <form class="dlg-form" method="post" action="actions.php" data-rl-form="bl_planificacion" data-rl-tras="recargar">
+      <input type="hidden" name="id" value="<?= e((string)($pl['id'] ?? '')) ?>">
+      <header><h3 class="font-display"><?= rlIco('reloj', 18) ?> <?= $pl ? 'Planificación «' . e($pl['nombre']) . '»' : 'Nueva planificación' ?><small>Su propio calendario de sprints, aparte de los releases</small></h3>
+        <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
+      <?= rlCampo('Nombre', '<input class="input-meca" name="nombre" maxlength="80" required placeholder="Ej. Buinco, o Proyectos de consultoría" value="' . e((string)($pl['nombre'] ?? '')) . '">') ?>
+      <div class="rl-form-grid rl-form-grid--2">
+        <?= rlCampo('Empieza el S01', '<input class="input-meca" type="date" name="inicio" required value="' . e((string)($pl['inicio'] ?? date('Y-m-d', strtotime('monday this week')))) . '">') ?>
+        <div class="mc-field"><span class="mc-field__label">Cada sprint dura</span>
+          <div class="rl-seg" role="radiogroup" aria-label="Duración">
+            <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="1"<?= (int)($pl['semanas'] ?? 2) === 1 ? ' checked' : '' ?>><span>1 semana</span></label>
+            <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="2"<?= (int)($pl['semanas'] ?? 2) === 2 ? ' checked' : '' ?>><span>2 semanas</span></label>
+          </div></div>
+      </div>
+      <?= rlCampo('Proyectos que la llevan', rlMulti('proyectos[]', $ops((string)($pl['nombre'] ?? '')), $marcados, 'Buscar proyecto…'), 'Un proyecto va con una sola planificación. Sus historias pasan al sprint que cae en las mismas fechas.') ?>
+      <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button></footer>
+    </form>
+  </dialog>
+        <?php return (string)ob_get_clean();
+    };
+    ob_start(); ?>
+  <section class="mc-card rl-card bl-planes" id="bl-planes">
+    <header class="rl-card__cab"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('ruta', 20) ?></span>
+      <div><h2 class="rl-card__tit">Planificaciones aparte</h2><p class="rl-card__sub">Para los proyectos que no van con los releases: su propio calendario de sprints, para uno o varios proyectos.</p></div>
+      <button type="button" class="mc-btn mc-btn--primary bl-planes__nueva" data-rl-abrir="bl-dlg-plan-nueva"><?= rlIco('mas', 18) ?><span class="mc-btn__label">Nueva planificación</span></button></header>
+    <?php if (!$planes): ?>
+    <p class="bl-planes__vacio">Todavía no hay ninguna: todos los proyectos van con el calendario general.</p>
+    <?php else: ?>
+    <ul class="bl-planes__lista">
+      <?php foreach ($planes as $pl):
+        $spP = Backlog::calendario($pl);
+        $actP = Backlog::actualEn($spP, $hoy);
+        $sA = $spP[$actP] ?? null; ?>
+      <li class="bl-plan">
+        <div class="bl-plan__txt">
+          <b><?= e($pl['nombre']) ?></b>
+          <small>Sprints de <?= $pl['semanas'] === 1 ? 'una semana' : 'dos semanas' ?> desde el <?= e(rlF($pl['inicio'], true)) ?><?= $sA ? ' · en curso: ' . e($actP) . ' (' . e(rlF($sA['inicio']) . ' → ' . rlF($sA['fin'])) . ')' : '' ?></small>
+          <span class="bl-plan__proys"><?php foreach ($pl['proyectos'] as $pid): if (!isset($nombreP[$pid])) continue; ?><a class="bl-plan__proy" href="proyecto.php?id=<?= (int)$pid ?>#vista-sprints"><?= e($nombreP[$pid]) ?></a><?php endforeach; ?>
+            <?= !$pl['proyectos'] ? '<em>Sin proyectos</em>' : '' ?></span>
+        </div>
+        <div class="bl-plan__acc">
+          <button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-rl-abrir="bl-dlg-plan-<?= e($pl['id']) ?>" aria-label="Editar «<?= e($pl['nombre']) ?>»" data-ds-tip="Editar"><?= rlIco('editar', 18) ?></button>
+          <form method="post" action="actions.php" class="inline-form" data-confirmar="Sus proyectos vuelven al calendario general y sus historias pasan al sprint de las mismas fechas." data-confirmar-titulo="¿Quitar «<?= e($pl['nombre']) ?>»?" data-confirmar-ok="Sí, quitarla">
+            <input type="hidden" name="accion" value="bl_planificacion_borrar"><input type="hidden" name="id" value="<?= e($pl['id']) ?>">
+            <input type="hidden" name="volver" value="releases.php?v=ajustes&amp;t=sprints">
+            <button class="mc-iconbtn mc-iconbtn--tinte bl-plan__borrar" aria-label="Quitar «<?= e($pl['nombre']) ?>»" data-ds-tip="Quitar"><?= rlIco('eliminar', 18) ?></button>
+          </form>
+        </div>
+        <?= $form($pl, 'bl-dlg-plan-' . $pl['id'], $pl['proyectos']) ?>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <?php endif; ?>
+    <?= $form(null, 'bl-dlg-plan-nueva', $nueva > 0 ? [$nueva] : []) ?>
+    <?php if ($nueva > 0): ?><script>document.addEventListener('DOMContentLoaded', () => { const d = document.getElementById('bl-dlg-plan-nueva'); if (d && d.showModal) d.showModal(); });</script><?php endif; ?>
+  </section>
     <?php
     return (string)ob_get_clean();
 }

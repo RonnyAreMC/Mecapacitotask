@@ -325,6 +325,7 @@ final class IAFunciones
      */
     public static function historiasDocumento(array $proyecto, array $leido, string $nombreArchivo): array
     {
+        if (class_exists('Backlog')) Backlog::usarProyecto((int)($proyecto['id'] ?? 0));
         $sps = class_exists('Backlog') ? array_keys(Backlog::sprints()) : [];
         $ins = "Lees un documento de planificación ágil y sacas TODAS sus historias de usuario, sin inventar ni resumir: copia los textos como vienen.\n"
             . "- epica: el código de la épica o ítem del release al que pertenece (como «R2-D01»); \"\" si no tiene.\n"

@@ -820,6 +820,7 @@ $conSprints = !$esSupervisor && class_exists('Releases') && is_file(__DIR__ . '/
 $nSprintHu = 0;
 if ($conSprints) {
     require_once __DIR__ . '/lib/backlog/Backlog.php';
+    Backlog::usarProyecto($id);   // su calendario: el general o el de su planificación aparte
     $actSp = Backlog::actual();
     $nSprintHu = count(Backlog::historias(['proyecto_id' => $id, 'sprint' => $actSp]));
 }

@@ -6877,3 +6877,30 @@ html .ms-label .ms-label__txt { overflow: hidden; text-overflow: ellipsis; white
 html .mc-option__av { flex: none; }
 html .mc-select__value:has(.mc-option__av) { gap: 8px; }
 html .mc-select__value .mc-option__av { --sz: 24px !important; }
+
+/* =========================================================
+   Releases → Ajustes → Sprints: las dos tarjetas ocupan el ancho (sin el hueco a
+   la derecha) y la tabla del calendario no se corta. Y las planificaciones aparte.
+   ========================================================= */
+html .bl-aj-grid { display: grid; grid-template-columns: minmax(320px, 5fr) minmax(0, 7fr); gap: var(--space-4, 16px); align-items: start; }
+html .bl-aj-grid .bl-cal-caja { max-height: 520px; overflow-y: auto; overflow-x: hidden; }
+html .bl-aj-grid .bl-cal th, html .bl-aj-grid .bl-cal td { white-space: nowrap; }
+@media (max-width: 1000px) { html .bl-aj-grid { grid-template-columns: minmax(0, 1fr); } html .bl-aj-grid .bl-cal-caja { overflow-x: auto; } }
+html .bl-planes { margin-top: var(--space-4, 16px); }
+html .bl-planes .rl-card__cab { align-items: center; }
+html .bl-planes__nueva { margin-left: auto; }
+html .bl-planes__vacio { margin: 4px 0 0; color: var(--ink-muted); font-size: .86rem; }
+html .bl-planes__lista { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+html .bl-plan { display: flex; align-items: center; gap: 12px; padding: 12px 14px; border-radius: 14px; background: var(--surface-sunken, #F4F7FA); }
+html .bl-plan__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 4px; }
+html .bl-plan__txt b { font-size: .95rem; color: var(--ink); }
+html .bl-plan__txt small { color: var(--ink-muted); font-size: .8rem; }
+html .bl-plan__proys { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+html .bl-plan__proy { display: inline-flex; align-items: center; height: 26px; padding: 0 10px; border-radius: 999px; background: var(--primary-soft); color: var(--primary-ink); font-size: .78rem; font-weight: 600; text-decoration: none; }
+html .bl-plan__proy:hover { background: color-mix(in srgb, var(--primary) 18%, var(--surface)); }
+html .bl-plan__proys em { color: var(--ink-subtle); font-size: .8rem; }
+html .bl-plan__acc { display: flex; align-items: center; gap: 6px; flex: none; }
+html .bl-plan__acc .inline-form { margin: 0; display: inline-flex; }
+html .bl-plan__borrar:hover { color: var(--danger-ink); background: var(--danger-soft); }
+/* La pestaña Sprints de un proyecto con planificación aparte: su nombre donde iba el release */
+html .bl-plan-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; font-size: .9rem; }

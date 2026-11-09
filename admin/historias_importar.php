@@ -20,6 +20,7 @@ require_once __DIR__ . '/lib/releases/releases_ui.php';
 require_once __DIR__ . '/lib/backlog/backlog_ui.php';
 
 $pid = (int)($_GET['p'] ?? 0);
+Backlog::usarProyecto($pid);   // su calendario: el general o el de su planificación aparte
 $proyecto = (new ProyectoRepo())->buscar($pid);
 if (!$proyecto || !puedeVerProyecto($pid)) redirigir('index.php', 'Ese proyecto no está disponible.', 'error');
 if (!Backlog::puede($pid)) redirigir('proyecto.php?id=' . $pid . '#vista-sprints', 'Las historias las importan el PO del proyecto, su Scrum Master o el administrador.', 'error');

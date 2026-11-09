@@ -89,7 +89,7 @@ $accionesDeCualquiera = [
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_ia_reorganizar', 'rel_reorganizar_aplicar', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
-    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
+    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_planificacion', 'bl_planificacion_borrar', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
     // El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y DoR; también su PO, su SM o el admin
     'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
 ];
@@ -4526,6 +4526,8 @@ switch ($accion) {
     case 'bl_historia_mover':
     case 'bl_historia_borrar':
     case 'bl_sprints_conf':
+    case 'bl_planificacion':
+    case 'bl_planificacion_borrar':
     case 'bl_importar':
     case 'bl_ia_tareas':
     case 'bl_tareas_repartir':
@@ -4551,12 +4553,29 @@ switch ($accion) {
         if (!Releases::puedeVer()) $blFin(false, 'No tienes acceso a Releases.');
         $blYo = (int)(Auth::usuario()['id'] ?? 0);
         $blSinPermiso = 'El backlog lo arman el PO del proyecto, su Scrum Master o el administrador.';
+        // El calendario de sprints del proyecto: el general o el de su planificación aparte
+        $blPidCtx = (int)($_POST['proyecto_id'] ?? 0);
+        if (!$blPidCtx && (int)($_POST['id'] ?? 0) > 0 && in_array($accion, ['bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_ia_tareas', 'bl_tareas_repartir'], true)) {
+            $blPidCtx = (int)(Backlog::historia((int)$_POST['id'])['proyecto_id'] ?? 0);
+        }
+        Backlog::usarProyecto($blPidCtx);
         try {
             switch ($accion) {
                 case 'bl_sprints_conf':
                     if (!Releases::puedeEditar()) $blFin(false, 'Los sprints los configuran los editores de Releases.');
                     Backlog::guardarConf($_POST);
                     $blFin(true, 'Sprints guardados: el calendario se rehízo solo.');
+
+                case 'bl_planificacion':
+                    // Una planificación aparte: su propio calendario de sprints para uno o varios proyectos
+                    if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');
+                    $plBl = Backlog::guardarPlanificacion($_POST, $blYo);
+                    $blFin(true, 'Planificación «' . $plBl['nombre'] . '» guardada: ' . count($plBl['proyectos']) . ' proyecto(s) con su propio calendario.');
+
+                case 'bl_planificacion_borrar':
+                    if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');
+                    Backlog::borrarPlanificacion((string)($_POST['id'] ?? ''), $blYo);
+                    $blFin(true, 'Planificación quitada: sus proyectos vuelven al calendario general.');
 
                 case 'bl_ia_tareas':
                     // La IA propone las tareas de una historia; se revisan en el modal y se crean al guardarla

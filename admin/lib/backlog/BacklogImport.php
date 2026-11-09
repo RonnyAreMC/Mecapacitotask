@@ -268,7 +268,10 @@ final class BacklogImport
         foreach (Backlog::epicas($pid) as $it) $epicas[(string)$it['codigo']] = (string)$it['release'];
         $rels = [];
         foreach ($historias as $h) if (isset($epicas[$h['epica']])) $rels[$epicas[$h['epica']]] = true;
-        return array_keys(array_filter(Backlog::sprints(), fn($s) => $s['fin'] >= $hoy && (!$rels || array_intersect($s['releases'], array_keys($rels)))));
+        // Con planificación aparte, todos sus sprints (no van con los releases)
+        Backlog::usarProyecto($pid);
+        $sinRel = !$rels || Backlog::planDe($pid);
+        return array_keys(array_filter(Backlog::sprints(), fn($s) => $s['fin'] >= $hoy && ($sinRel || array_intersect($s['releases'], array_keys($rels)))));
     }
 
     /**
@@ -281,6 +284,7 @@ final class BacklogImport
     public static function aplicar(int $pid, array $historias, string $modo, int $capacidad, int $quien): array
     {
         $hoy = date('Y-m-d');
+        Backlog::usarProyecto($pid);
         $sps = Backlog::sprints();
         $act = Backlog::actual($hoy);
         $epicas = [];
