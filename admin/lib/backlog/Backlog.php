@@ -89,6 +89,48 @@ final class Backlog
     /** El proyecto en pantalla: si está en una planificación aparte, el calendario es el de ella. */
     private static int $ctx = 0;
 
+    /** Tope de sprints de una planificación aparte (un año de sprints de una semana). */
+    public const MAX_SPRINTS_PLAN = 52;
+
+    /**
+     * Las fechas de una planificación aparte, por días hábiles: cada sprint tiene los
+     * suyos completos (5 por semana); si cae un feriado o un fin de semana, se corre al
+     * siguiente día hábil, y el inicio también. Los sprints quedan pegados: cada uno va
+     * hasta la víspera del siguiente. $cantidad = 0: los que caben hasta doce semanas
+     * desde hoy. [S01 => [codigo, n, inicio, fin, ultimo (último día hábil), habiles, feriados => [fecha => nombre], releases => []]]
+     */
+    public static function calcularPlan(string $inicio, int $semanas, int $cantidad = 0): array
+    {
+        $ini = Releases::fecha($inicio);
+        if ($ini === '') return [];
+        $habil = fn(string $f) => class_exists('Feriados') ? Feriados::esHabil($f) : (int)date('N', strtotime($f)) <= 5;
+        $mas1 = fn(string $f) => date('Y-m-d', strtotime($f . ' +1 day'));
+        $sigHabil = function (string $f) use ($habil, $mas1): string { for ($i = 0; $i < 60 && !$habil($f); $i++) $f = $mas1($f); return $f; };
+        $dias = (in_array($semanas, [1, 2], true) ? $semanas : 2) * 5;
+        $cantidad = max(0, min(self::MAX_SPRINTS_PLAN, $cantidad));
+        $hasta = date('Y-m-d', strtotime('+84 days'));
+        $mapaFer = class_exists('Feriados') ? Feriados::mapa() : [];
+        $out = [];
+        $ini = $sigHabil($ini);
+        for ($n = 1; $n <= ($cantidad ?: 260); $n++) {
+            if (!$cantidad && $ini > $hasta) break;
+            $f = $ini; $cuenta = 1; $fer = [];
+            for ($i = 0; $cuenta < $dias && $i < 400; $i++) {
+                $f = $mas1($f);
+                if ($habil($f)) $cuenta++;
+                elseif (isset($mapaFer[$f]) && (int)date('N', strtotime($f)) <= 5) $fer[$f] = (string)$mapaFer[$f];
+            }
+            $sig = $sigHabil($mas1($f));
+            // Los feriados entre el último día hábil y el siguiente sprint también se cuentan aquí
+            for ($g = $mas1($f); $g < $sig; $g = $mas1($g)) if (isset($mapaFer[$g]) && (int)date('N', strtotime($g)) <= 5) $fer[$g] = (string)$mapaFer[$g];
+            $cod = 'S' . str_pad((string)$n, 2, '0', STR_PAD_LEFT);
+            $out[$cod] = ['codigo' => $cod, 'n' => $n, 'inicio' => $ini, 'fin' => date('Y-m-d', strtotime($sig . ' -1 day')), 'ultimo' => $f,
+                          'habiles' => $dias, 'feriados' => $fer, 'releases' => []];
+            $ini = $sig;
+        }
+        return $out;
+    }
+
     /** Lo llama cada pantalla o acción de un proyecto antes de mirar sus sprints. */
     public static function usarProyecto(int $pid): void
     {
@@ -110,6 +152,8 @@ final class Backlog
             if ($id === '' || $ini === '') continue;
             $out[$id] = ['id' => $id, 'nombre' => trim((string)($p['nombre'] ?? '')) ?: 'Planificación', 'inicio' => $ini,
                          'semanas' => in_array((int)($p['semanas'] ?? 2), [1, 2], true) ? (int)$p['semanas'] : 2,
+                         // Cuántos sprints tiene (0 = sin tope: los que caben hasta doce semanas desde hoy)
+                         'cantidad' => max(0, min(self::MAX_SPRINTS_PLAN, (int)($p['cantidad'] ?? 0))),
                          'proyectos' => array_values(array_unique(array_filter(array_map('intval', (array)($p['proyectos'] ?? [])))))];
         }
         uasort($out, fn($a, $b) => strcasecmp($a['nombre'], $b['nombre']));
@@ -138,6 +182,8 @@ final class Backlog
         if ($ini === '') throw new RuntimeException('Elige la fecha en que empieza su primer sprint.');
         $sem = (int)($d['semanas'] ?? 2);
         if (!in_array($sem, [1, 2], true)) throw new RuntimeException('Un sprint dura una o dos semanas, no más.');
+        $cant = (int)($d['cantidad'] ?? 0);
+        if ($cant < 0 || $cant > self::MAX_SPRINTS_PLAN) throw new RuntimeException('Pon entre 1 y ' . self::MAX_SPRINTS_PLAN . ' sprints (o déjalo vacío para que no tenga tope).');
         $existen = [];
         foreach ((new ProyectoRepo())->todos() as $pr) $existen[(int)$pr['id']] = true;
         $proys = array_values(array_unique(array_filter(array_map('intval', (array)($d['proyectos'] ?? [])), fn($i) => isset($existen[$i]))));
@@ -149,7 +195,7 @@ final class Backlog
         if ($id === '') $id = 'p' . bin2hex(random_bytes(4));
         $viejos = self::calendariosDe($tocados);
         foreach ($lista as $k => $pl) if ($k !== $id) $lista[$k]['proyectos'] = array_values(array_diff($pl['proyectos'], $proys));
-        $lista[$id] = ['id' => $id, 'nombre' => $nombre, 'inicio' => $ini, 'semanas' => $sem, 'proyectos' => $proys];
+        $lista[$id] = ['id' => $id, 'nombre' => $nombre, 'inicio' => $ini, 'semanas' => $sem, 'cantidad' => $cant, 'proyectos' => $proys];
         Releases::guardarConf(['planificaciones' => array_values($lista)]);
         self::reubicar($viejos, $quien);
         return $lista[$id];
@@ -183,7 +229,10 @@ final class Backlog
             $pid = (int)($h['proyecto_id'] ?? 0);
             $s = (string)($h['sprint'] ?? '');
             if ($s === '' || !isset($viejos[$pid])) continue;
-            $ref = $viejos[$pid][$s]['inicio'] ?? '';
+            // Por las fechas de su sprint; si ese sprint es el que va hoy, al que va hoy en el calendario nuevo
+            $spV = $viejos[$pid][$s] ?? null;
+            $hoyR = date('Y-m-d');
+            $ref = $spV ? ($spV['inicio'] <= $hoyR && $spV['fin'] >= $hoyR ? $hoyR : $spV['inicio']) : '';
             $nuevo = '';
             if ($ref !== '') foreach ($nuevos[$pid] as $cod => $sp) if ($sp['inicio'] <= $ref && $sp['fin'] >= $ref) { $nuevo = (string)$cod; break; }
             // Lo terminado antes de que empiece el calendario nuevo queda en su primer sprint
@@ -217,8 +266,10 @@ final class Backlog
     {
         static $cache = [];
         $c = $plan ?: self::confGeneral();
-        $k = ($plan['id'] ?? '') . '|' . $c['inicio'] . '|' . $c['semanas'];
+        $k = ($plan['id'] ?? '') . '|' . $c['inicio'] . '|' . $c['semanas'] . '|' . (int)($plan['cantidad'] ?? 0);
         if (isset($cache[$k])) return $cache[$k];
+        // Planificación aparte: por días hábiles, con su cantidad de sprints
+        if ($plan) return $cache[$k] = self::calcularPlan($plan['inicio'], (int)$plan['semanas'], (int)($plan['cantidad'] ?? 0));
         $hasta = date('Y-m-d', strtotime('+84 days'));
         $rels = $plan ? [] : Releases::releases();
         foreach ($rels as $r) if (($r['fin'] ?? '') > $hasta) $hasta = $r['fin'];
@@ -540,8 +591,8 @@ final class Backlog
             $kc = $plan['id'] ?? '';
             if (!isset($cals[$kc])) { $spC = self::calendario($plan); $cals[$kc] = [$spC, self::actualEn($spC, $hoy)]; }
             [$sp, $act] = $cals[$kc];
-            if ($act === '' || ($sp[$act]['inicio'] ?? '') > $hoy) continue;
-            if (!isset($sp[$s]) || $sp[$s]['fin'] >= $hoy) continue;
+            if ($act === '' || ($sp[$act]['inicio'] ?? '') > $hoy || ($sp[$act]['fin'] ?? '') < $hoy) continue;
+            if ($s === $act || !isset($sp[$s]) || $sp[$s]['fin'] >= $hoy) continue;
             $hist = (array)($h['historial'] ?? []);
             $hist[] = self::evento(0, 'No se terminó en el ' . $s . ': pasó sola al ' . $act);
             self::repo()->update((int)$h['id'], ['sprint' => $act, 'arrastres' => (int)($h['arrastres'] ?? 0) + 1, 'historial' => array_slice($hist, -60)]);

@@ -89,7 +89,7 @@ $accionesDeCualquiera = [
     'rel_ia_aplicar', 'rel_conf_guardar', 'rel_ia_revision', 'rel_ia_equipo', 'rel_ia_general', 'rel_ia_reorganizar', 'rel_reorganizar_aplicar', 'rel_sembrar', 'rel_reuniones_equipo',
     'rel_daily_registrar', 'rel_daily_zoom', 'rel_daily_reunion',
     // Backlog (pestaña Sprints del proyecto): su PO, su SM o el administrador; cada acción lo revisa
-    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_planificacion', 'bl_planificacion_borrar', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
+    'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_planificacion', 'bl_planificacion_borrar', 'bl_planificacion_calcular', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
     // El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y DoR; también su PO, su SM o el admin
     'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
 ];
@@ -4528,6 +4528,7 @@ switch ($accion) {
     case 'bl_sprints_conf':
     case 'bl_planificacion':
     case 'bl_planificacion_borrar':
+    case 'bl_planificacion_calcular':
     case 'bl_importar':
     case 'bl_ia_tareas':
     case 'bl_tareas_repartir':
@@ -4571,6 +4572,13 @@ switch ($accion) {
                     if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');
                     $plBl = Backlog::guardarPlanificacion($_POST, $blYo);
                     $blFin(true, 'Planificación «' . $plBl['nombre'] . '» guardada: ' . count($plBl['proyectos']) . ' proyecto(s) con su propio calendario.');
+
+                case 'bl_planificacion_calcular':
+                    // La vista previa de la ventana: los sprints con sus fechas, por días hábiles
+                    if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');
+                    $spCal = Backlog::calcularPlan((string)($_POST['inicio'] ?? ''), (int)($_POST['semanas'] ?? 2), max(0, min(Backlog::MAX_SPRINTS_PLAN, (int)($_POST['cantidad'] ?? 0))));
+                    $blFin(true, '', ['sprints' => array_values(array_map(fn($s) => ['cod' => $s['codigo'], 'inicio' => $s['inicio'], 'ultimo' => $s['ultimo'], 'habiles' => $s['habiles'],
+                        'feriados' => array_map(fn($f, $nom) => ['fecha' => $f, 'nombre' => $nom], array_keys($s['feriados']), $s['feriados'])], $spCal))]);
 
                 case 'bl_planificacion_borrar':
                     if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');

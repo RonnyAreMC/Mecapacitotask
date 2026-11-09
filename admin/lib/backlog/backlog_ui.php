@@ -660,6 +660,19 @@ function blAjustesSprints(): string
     return (string)ob_get_clean();
 }
 
+/** Los sprints de una planificación: del, al (último día hábil), días hábiles y los feriados que salta. */
+function blTablaPlan(array $sps, string $act, string $hoy): string
+{
+    $h = '<table class="bl-cal bl-cal--plan"><thead><tr><th scope="col">Sprint</th><th scope="col">Del</th><th scope="col">Al</th><th scope="col">Días hábiles</th><th scope="col">Feriados</th></tr></thead><tbody>';
+    foreach ($sps as $cod => $s) {
+        $fer = array_map(fn($f, $n) => rlF($f) . ($n !== '' ? ' · ' . $n : ''), array_keys($s['feriados'] ?? []), $s['feriados'] ?? []);
+        $h .= '<tr class="is-' . Backlog::momento($s, $hoy) . '"><th scope="row">' . e($cod) . ($cod === $act && $s['inicio'] <= $hoy && $s['fin'] >= $hoy ? ' <span class="bl-badge bl-badge--actual">En curso</span>' : '') . '</th>'
+            . '<td class="mc-num">' . e(rlF($s['inicio'], true)) . '</td><td class="mc-num">' . e(rlF($s['ultimo'] ?? $s['fin'], true)) . '</td>'
+            . '<td class="mc-num">' . (int)($s['habiles'] ?? 0) . '</td><td>' . ($fer ? e(implode(', ', $fer)) : '—') . '</td></tr>';
+    }
+    return $h . '</tbody></table>';
+}
+
 /**
  * Planificaciones aparte (Releases → Ajustes → Sprints): los proyectos que no van con
  * los releases llevan su propio calendario de sprints. Una vale para uno o varios
@@ -688,19 +701,22 @@ function blAjustesPlanes(): string
     $form = function (?array $pl, string $idDlg, array $marcados) use ($ops): string {
         ob_start(); ?>
   <dialog id="<?= e($idDlg) ?>" class="dlg-meca rl-dlg">
-    <form class="dlg-form" method="post" action="actions.php" data-rl-form="bl_planificacion" data-rl-tras="recargar">
+    <form class="dlg-form" method="post" action="actions.php" data-rl-form="bl_planificacion" data-rl-tras="recargar" data-bl-plan-form>
       <input type="hidden" name="id" value="<?= e((string)($pl['id'] ?? '')) ?>">
       <header><h3 class="font-display"><?= rlIco('reloj', 18) ?> <?= $pl ? 'Planificación «' . e($pl['nombre']) . '»' : 'Nueva planificación' ?><small>Su propio calendario de sprints, aparte de los releases</small></h3>
         <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
       <?= rlCampo('Nombre', '<input class="input-meca" name="nombre" maxlength="80" required placeholder="Ej. Buinco, o Proyectos de consultoría" value="' . e((string)($pl['nombre'] ?? '')) . '">') ?>
       <div class="rl-form-grid rl-form-grid--2">
         <?= rlCampo('Empieza el S01', '<input class="input-meca" type="date" name="inicio" required value="' . e((string)($pl['inicio'] ?? date('Y-m-d', strtotime('monday this week')))) . '">') ?>
-        <div class="mc-field"><span class="mc-field__label">Cada sprint dura</span>
-          <div class="rl-seg" role="radiogroup" aria-label="Duración">
-            <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="1"<?= (int)($pl['semanas'] ?? 2) === 1 ? ' checked' : '' ?>><span>1 semana</span></label>
-            <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="2"<?= (int)($pl['semanas'] ?? 2) === 2 ? ' checked' : '' ?>><span>2 semanas</span></label>
-          </div></div>
+        <?= rlCampo('¿Cuántos sprints?', '<div class="mc-input"><input class="mc-input__control" type="number" name="cantidad" min="1" max="' . Backlog::MAX_SPRINTS_PLAN . '" placeholder="Sin tope" value="' . ((int)($pl['cantidad'] ?? 0) ?: '') . '"><span class="mc-input__affix">sprints</span></div>') ?>
       </div>
+      <div class="mc-field"><span class="mc-field__label">Cada sprint dura</span>
+        <div class="rl-seg" role="radiogroup" aria-label="Duración">
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="1"<?= (int)($pl['semanas'] ?? 2) === 1 ? ' checked' : '' ?>><span>1 semana · 5 días hábiles</span></label>
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="2"<?= (int)($pl['semanas'] ?? 2) === 2 ? ' checked' : '' ?>><span>2 semanas · 10 días hábiles</span></label>
+        </div></div>
+      <p class="rl-dlg__nota"><?= rlIco('info', 15) ?> <span>Las fechas salen solas: cada sprint tiene sus días hábiles completos. Si cae un feriado, se alarga un día; si el inicio cae en fin de semana o feriado, empieza el siguiente día hábil.</span></p>
+      <div class="bl-plan-vista" data-bl-plan-vista aria-live="polite"></div>
       <?= rlCampo('Proyectos que la llevan', rlMulti('proyectos[]', $ops((string)($pl['nombre'] ?? '')), $marcados, 'Buscar proyecto…'), 'Un proyecto va con una sola planificación. Sus historias pasan al sprint que cae en las mismas fechas.') ?>
       <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button></footer>
     </form>
@@ -719,13 +735,20 @@ function blAjustesPlanes(): string
       <?php foreach ($planes as $pl):
         $spP = Backlog::calendario($pl);
         $actP = Backlog::actualEn($spP, $hoy);
-        $sA = $spP[$actP] ?? null; ?>
+        $sA = $spP[$actP] ?? null;
+        $primero = $spP ? reset($spP) : null;
+        $ultimo = $spP ? end($spP) : null;
+        $nFer = array_sum(array_map(fn($s) => count($s['feriados'] ?? []), $spP));
+        $termino = $ultimo && $pl['cantidad'] && $ultimo['fin'] < $hoy; ?>
       <li class="bl-plan">
         <div class="bl-plan__txt">
           <b><?= e($pl['nombre']) ?></b>
-          <small>Sprints de <?= $pl['semanas'] === 1 ? 'una semana' : 'dos semanas' ?> desde el <?= e(rlF($pl['inicio'], true)) ?><?= $sA ? ' · en curso: ' . e($actP) . ' (' . e(rlF($sA['inicio']) . ' → ' . rlF($sA['fin'])) . ')' : '' ?></small>
+          <small><?= $pl['cantidad'] ? (int)$pl['cantidad'] . ' sprints' : 'Sprints sin tope' ?> de <?= $pl['semanas'] === 1 ? 'una semana' : 'dos semanas' ?><?= $primero ? ' · del ' . e(rlF($primero['inicio'], true)) . ($pl['cantidad'] && $ultimo ? ' al ' . e(rlF($ultimo['ultimo'], true)) : '') : '' ?><?= $nFer ? ' · salta ' . $nFer . ' feriado(s)' : '' ?><?= $termino ? ' · ya terminó' : ($sA && $sA['inicio'] <= $hoy ? ' · en curso: ' . e($actP) . ' (' . e(rlF($sA['inicio']) . ' → ' . rlF($sA['ultimo'] ?? $sA['fin'])) . ')' : '') ?></small>
           <span class="bl-plan__proys"><?php foreach ($pl['proyectos'] as $pid): if (!isset($nombreP[$pid])) continue; ?><a class="bl-plan__proy" href="proyecto.php?id=<?= (int)$pid ?>#vista-sprints"><?= e($nombreP[$pid]) ?></a><?php endforeach; ?>
             <?= !$pl['proyectos'] ? '<em>Sin proyectos</em>' : '' ?></span>
+          <?php if ($spP): ?>
+          <details class="bl-plan__sprints"><summary>Ver los <?= count($spP) ?> sprints</summary><?= blTablaPlan($spP, $actP, $hoy) ?></details>
+          <?php endif; ?>
         </div>
         <div class="bl-plan__acc">
           <button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-rl-abrir="bl-dlg-plan-<?= e($pl['id']) ?>" aria-label="Editar «<?= e($pl['nombre']) ?>»" data-ds-tip="Editar"><?= rlIco('editar', 18) ?></button>

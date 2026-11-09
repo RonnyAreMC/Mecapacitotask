@@ -6907,3 +6907,14 @@ html .bl-plan__acc .inline-form { margin: 0; display: inline-flex; }
 html .bl-plan__borrar:hover { color: var(--danger-ink); background: var(--danger-soft); }
 /* La pestaña Sprints de un proyecto con planificación aparte: su nombre donde iba el release */
 html .bl-plan-chip { display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 0 14px; border-radius: 12px; background: var(--primary-soft); color: var(--primary-ink); font-weight: 600; font-size: .9rem; }
+
+/* Planificación aparte: la vista previa de sus sprints (en la ventana) y la lista de cada una */
+html .bl-plan-vista:empty { display: none; }
+html .bl-plan-vista__res { margin: 0 0 8px; font-size: .84rem; color: var(--ink-muted); }
+html .bl-plan-vista__res b { color: var(--ink); }
+html .bl-plan-vista__tabla { max-height: 240px; overflow: auto; border-radius: 10px; box-shadow: 0 0 0 1px var(--line); }
+html .bl-cal--plan td:last-child { white-space: normal; min-width: 140px; color: var(--ink-muted); }
+html .bl-plan__sprints { margin-top: 6px; }
+html .bl-plan__sprints > summary { cursor: pointer; width: fit-content; color: var(--primary-ink); font-size: .8rem; font-weight: 600; }
+html .bl-plan__sprints[open] > summary { margin-bottom: 8px; }
+html .bl-plan__sprints .bl-cal { background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); }

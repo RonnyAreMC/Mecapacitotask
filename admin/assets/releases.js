@@ -1130,7 +1130,42 @@
     if (!b) return;
     const d = document.getElementById(b.dataset.rlAbrir);
     if (d && d.showModal) d.showModal();
+    // Planificación aparte: la vista previa de sus sprints al abrir la ventana
+    const fp = d && d.querySelector('[data-bl-plan-form]');
+    if (fp) planVista(fp);
   });
+
+  /* Planificación aparte (Ajustes → Sprints): al cambiar el inicio, la duración o
+     cuántos sprints, el servidor calcula las fechas por días hábiles (con los
+     feriados del calendario general) y aquí se pintan. */
+  const fechaCorta = (f) => { const [a, m, d] = String(f).split('-'); return d + '/' + m + '/' + a; };
+  let planT = 0;
+  async function planVista(f) {
+    const caja = f.querySelector('[data-bl-plan-vista]');
+    if (!caja) return;
+    const ini = (f.querySelector('[name="inicio"]') || {}).value || '';
+    const sem = (f.querySelector('[name="semanas"]:checked') || {}).value || '2';
+    const cant = (f.querySelector('[name="cantidad"]') || {}).value || '';
+    if (!ini) { caja.innerHTML = ''; return; }
+    try {
+      const j = await post('bl_planificacion_calcular', { inicio: ini, semanas: sem, cantidad: cant || 0 });
+      const sps = (j && j.sprints) || [];
+      if (!sps.length) { caja.innerHTML = ''; return; }
+      const nFer = sps.reduce((n, s) => n + s.feriados.length, 0);
+      caja.innerHTML = '<p class="bl-plan-vista__res"><b>' + sps.length + ' sprint(s)' + (cant ? '' : ' (sin tope: hasta doce semanas desde hoy)') + '</b> · del ' + fechaCorta(sps[0].inicio)
+        + ' al ' + fechaCorta(sps[sps.length - 1].ultimo) + (nFer ? ' · salta ' + nFer + ' feriado(s)' : ' · sin feriados') + '</p>'
+        + '<div class="bl-plan-vista__tabla"><table class="bl-cal bl-cal--plan"><thead><tr><th>Sprint</th><th>Del</th><th>Al</th><th>Días hábiles</th><th>Feriados</th></tr></thead><tbody>'
+        + sps.map((s) => '<tr><th scope="row">' + esc(s.cod) + '</th><td class="mc-num">' + fechaCorta(s.inicio) + '</td><td class="mc-num">' + fechaCorta(s.ultimo) + '</td><td class="mc-num">' + s.habiles + '</td><td>'
+          + (s.feriados.length ? esc(s.feriados.map((x) => fechaCorta(x.fecha).slice(0, 5) + (x.nombre ? ' · ' + x.nombre : '')).join(', ')) : '—') + '</td></tr>').join('')
+        + '</tbody></table></div>';
+    } catch (err) { caja.innerHTML = '<p class="bl-plan-vista__res">' + esc(err.message || 'No se pudo calcular.') + '</p>'; }
+  }
+  ['input', 'change'].forEach((tipo) => document.addEventListener(tipo, (e) => {
+    const f = e.target.closest && e.target.closest('[data-bl-plan-form]');
+    if (!f || !['inicio', 'semanas', 'cantidad'].includes(e.target.name)) return;
+    clearTimeout(planT);
+    planT = setTimeout(() => planVista(f), 250);
+  }));
 
   /* =========================================================
      Modalidad de la revisión: presencial (lugar) o virtual (crear la reunión
