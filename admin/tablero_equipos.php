@@ -3,8 +3,9 @@
  * Tablero general de equipos (administrador): los equipos de Releases lado a lado
  * en tres frentes, y arriba el que va más bajo de todos.
  *
- *   1. Reuniones diarias: % de dailies cumplidas (y la asistencia media), desde la
- *      fecha de Releases → Ajustes → Dailies (Releases::resumenDailies).
+ *   1. Reuniones diarias: % de días en que la daily SE HIZO (aunque faltara alguien),
+ *      desde la fecha de Releases → Ajustes → Dailies (Releases::resumenDailies); lo
+ *      justificado no cuenta. La asistencia (contra los invitados) va aparte.
  *   2. Avance de releases: el avance real de sus ítems frente al esperado a hoy, y
  *      cuántos van atrasados (Releases::tablero).
  *   3. Revisiones semanales: % de lo revisado que se cumplió (Releases::cumplimiento).
@@ -22,7 +23,7 @@ $hoy = date('Y-m-d');
 $tab = Releases::tablero($hoy);
 $confDl = Releases::conf()['dailies'];
 $FRENTES = [
-    'dailies'    => ['Reuniones diarias', 'Dailies cumplidas'],
+    'dailies'    => ['Reuniones diarias', 'Días en que se hizo la daily'],
     'avance'     => ['Avance de releases', 'Avance real frente al esperado'],
     'revisiones' => ['Revisiones semanales', 'Lo revisado que se cumplió'],
 ];
@@ -37,6 +38,9 @@ foreach (Releases::equipos() as $nom => $e) {
     $col = class_exists('Colorimetria') ? Colorimetria::delEquipo($nom) : null;
     // Avance: real sobre esperado (si todavía no se esperaba nada, va al día)
     $avIdx = $av && $av['total'] ? ($av['esperado'] > 0 ? min(100, (int)round($av['pct'] * 100 / $av['esperado'])) : 100) : null;
+    // Dailies: el mismo cumplimiento que Releases (se hizo / no se hizo; lo justificado no cuenta)
+    $dl += ['hechas' => (int)($dl['cuenta']['cumplida'] ?? 0), 'base' => (int)$dl['cuentan'], 'sin_verificar' => (int)($dl['cuenta']['sin_zoom'] ?? 0),
+            'justificadas' => (int)($dl['cuenta']['justificada'] ?? 0)];
     $comp = ['dailies' => $dl['aplica'] ? $dl['pct'] : null, 'avance' => $avIdx, 'revisiones' => $cu['pct']];
     $con = array_filter($comp, fn($v) => $v !== null);
     if (!$con && !($av['total'] ?? 0)) continue;   // sin nada que medir todavía
@@ -127,7 +131,10 @@ UI::cabecera(
           <span class="tg-barra__pista" role="img" aria-label="<?= e($nom) ?>: <?= $v ?> %"><span class="tg-barra__relleno" style="width:<?= max(2, $v) ?>%"></span></span>
           <span class="tg-barra__val"><b class="mc-num"><?= $v ?> %</b></span>
           <small class="tg-barra__det"><?= $bajo ? '<span class="tg-chip tg-t--crit">Más bajo</span>' : '' ?><?php
-            if ($k === 'dailies') echo (int)($f['dl']['cuenta']['cumplida'] ?? 0) . ' de ' . (int)$f['dl']['cuentan'] . ' cumplidas' . ($f['dl']['asistencia'] !== null ? ' · asistencia ' . (int)$f['dl']['asistencia'] . ' %' : '');
+            if ($k === 'dailies') echo e('se hizo ' . $f['dl']['hechas'] . ' de ' . $f['dl']['base'] . ' días'
+                . ($f['dl']['justificadas'] ? ' · ' . $f['dl']['justificadas'] . ' justificada(s)' : '')
+                . ($f['dl']['asistencia'] !== null ? ' · asistencia ' . (int)$f['dl']['asistencia'] . ' %' : '')
+                . ($f['dl']['sin_verificar'] ? ' · ' . $f['dl']['sin_verificar'] . ' sin verificar' : ''));
             else echo (int)$f['cu']['cumplido'] . ' de ' . (int)($f['cu']['cumplido'] + $f['cu']['parcial'] + $f['cu']['no_cumplido']) . ' cumplido(s)';
           ?></small>
           <?php endif; ?>
@@ -142,7 +149,7 @@ UI::cabecera(
   <!-- El ranking: de más bajo a más alto -->
   <section class="mc-card tg-ranking" aria-labelledby="tg-ranking-t">
     <header class="tg-panel__cab"><div><h2 id="tg-ranking-t">Ranking general</h2>
-      <p>Índice = promedio de las dailies cumplidas, el avance real sobre el esperado (tope 100) y las revisiones cumplidas. Del más bajo al más alto.</p></div></header>
+      <p>Índice = promedio de los días con daily, el avance real sobre el esperado (tope 100) y las revisiones cumplidas. Del más bajo al más alto.</p></div></header>
     <div class="tg-tabla-caja"><table class="tg-tabla">
       <thead><tr><th scope="col">#</th><th scope="col">Equipo</th><th scope="col">Índice</th><?php foreach ($FRENTES as [$tit]): ?><th scope="col"><?= e($tit) ?></th><?php endforeach; ?><th scope="col">Colorimetría</th><th scope="col">Lo que más lo baja</th></tr></thead>
       <tbody>
@@ -152,7 +159,7 @@ UI::cabecera(
           <th scope="row"><a href="<?= e($urlEq($nom)) ?>"><span class="tg-punto" style="--ec:<?= e($f['color']) ?>"></span><?= e($nom) ?></a></th>
           <td><span class="tg-indice tg-t--<?= $tono($f['indice']) ?>"><?= $f['indice'] === null ? '—' : (int)$f['indice'] ?></span></td>
           <?php foreach (array_keys($FRENTES) as $kf): $v = $f['comp'][$kf]; ?>
-          <td class="mc-num tg-t--<?= $tono($v) ?> tg-celda"><?= $v === null ? '—' : $v . ' %' ?></td>
+          <td class="mc-num tg-t--<?= $tono($v) ?> tg-celda"><?= $v === null ? '—' : $v . ' %' ?><?php if ($kf === 'dailies' && $v !== null): ?><small class="tg-celda__sub">se hizo <?= (int)$f['dl']['hechas'] ?> de <?= (int)$f['dl']['base'] ?><?= $f['dl']['asistencia'] !== null ? ' · asist. ' . (int)$f['dl']['asistencia'] . ' %' : '' ?></small><?php endif; ?></td>
           <?php endforeach; ?>
           <td><?= $f['col'] && class_exists('Colorimetria') ? Colorimetria::estado($f['col']['estado'], $f['col']['puntaje'] !== null ? Colorimetria::num((float)$f['col']['puntaje']) . ' / 100' : null) : '—' ?></td>
           <td><?= $f['peor'] !== '' ? e($FRENTES[$f['peor']][0]) : '—' ?></td>

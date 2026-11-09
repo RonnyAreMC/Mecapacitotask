@@ -631,7 +631,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
             <span class="rl-ruta__lbl"><?= rlCode($cod, $r['color']) ?><span class="rl-ruta__nom"><?= e($r['nombre'] ?? '') ?></span></span>
             <span class="rl-ruta__pista">
               <?php if ($ant && $wa > $w): ?><span class="rl-ruta__ant<?= $antSale ? ' is-sale' : '' ?>" style="left:<?= $l ?>%;width:<?= $wa ?>%"></span><?php endif; ?>
-              <span class="rl-ruta__barra<?= $r['estado'] === 'cerrado' ? ' is-cerrado' : '' ?>" style="left:<?= $l ?>%;width:<?= $w ?>%">
+              <span class="rl-ruta__barra<?= ($r['estado'] ?? '') === 'cerrado' ? ' is-cerrado' : '' ?>" style="left:<?= $l ?>%;width:<?= $w ?>%">
                 <span class="rl-ruta__fill" style="width:<?= (int)$x['pct'] ?>%"></span>
                 <?php if ($x['esperado'] > 0 && $x['esperado'] < 100): ?><span class="rl-ruta__esp" style="left:<?= (int)$x['esperado'] ?>%"></span><?php endif; ?>
                 <span class="rl-ruta__pct mc-num"><?= (int)$x['pct'] ?> %</span>
@@ -1017,8 +1017,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <?php if ($dl['desde'] > $hoy): ?>
         <p class="rl-vacio-txt"><?= rlIco('reloj', 16) ?> Se empieza a medir el <?= e(rlFL($dl['desde'])) ?>.</p>
         <?php else: ?>
-        <?= rlDona([[(int)$cDl['cumplida'], 'ok', Releases::DAILY['cumplida'][0]], [(int)$cDl['incompleta'], 'warn', Releases::DAILY['incompleta'][0]],
-                    [(int)$cDl['no_hecha'] + (int)$cDl['sin_registrar'], 'crit', 'Sin daily'], [(int)$cDl['sin_zoom'], 'none', Releases::DAILY['sin_zoom'][0]]],
+        <?= rlDona([[(int)$cDl['cumplida'], 'ok', Releases::DAILY['cumplida'][0]],
+                    [(int)$cDl['no_hecha'] + (int)$cDl['sin_registrar'], 'crit', Releases::DAILY['no_hecha'][0]], [(int)$cDl['sin_zoom'], 'none', Releases::DAILY['sin_zoom'][0]]],
                    $dl['pct'] === null ? '—' : (int)$dl['pct'] . '<small>%</small>', 'cumplimiento') ?>
         <p class="rl-pan__dato">Asistencia promedio <b class="mc-num col-s-<?= $tonoPct($dl['asistencia']) ?> rl-tono"><?= $dl['asistencia'] === null ? '—' : (int)$dl['asistencia'] . ' %' ?></b> · <?= (int)$dl['cuentan'] ?> día(s) hábiles medidos</p>
         <?php endif; ?>
@@ -1184,7 +1184,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     <header class="rl-card__cab">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= rlIco('video', 20) ?></span>
       <div><h2 class="rl-card__tit">Reuniones diarias</h2>
-        <p class="rl-card__sub">Desde el <?= e(rlFL($dl['desde'], false)) ?>: cada día hábil cuenta si hubo al menos una reunión del equipo, y quién entró: lo dice Zoom y el botón «Entrar» del panel pulsado en la hora de la reunión. Se cumple con el <?= (int)$conf['dailies']['umbral'] ?> % del equipo.</p></div>
+        <p class="rl-card__sub">Desde el <?= e(rlFL($dl['desde'], false)) ?>: cada día hábil cuenta si <b>se hizo</b> la daily (alguien entró a la reunión del equipo), si <b>no se hizo</b> o si el SM la <b>justificó</b>. Quién entró lo dicen Zoom y el botón «Entrar» del panel; la asistencia se mide contra los invitados de la reunión.</p></div>
       <?php if ($puedeDl): ?>
       <div class="rl-card__acc">
         <?php if ($reuDl): ?><button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-zoom="<?= e($en) ?>" data-ds-tip="Vuelve a mirar Zoom y quién entró desde el panel"><?= rlIco('reintentar', 16) ?><span class="mc-btn__label">Volver a medir</span></button><?php endif; ?>
@@ -1220,12 +1220,12 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <dl class="rl-dailies__nums">
         <div class="rl-dnum col-s-<?= $tonoDl($dl['pct']) ?>"><dt>Cumplimiento</dt><dd class="mc-num"><?= $dl['pct'] === null ? '—' : (int)$dl['pct'] . '<small>%</small>' ?></dd>
           <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['pct'] ?? 0) ?>%"></i></span>
-          <small><?= $dl['cuentan'] ? (int)$dl['cuenta']['cumplida'] . ' de ' . (int)$dl['cuentan'] . ' día(s) hábiles' : 'Aún no hay días medidos' ?></small></div>
+          <small><?= $dl['cuentan'] ? 'Se hizo ' . (int)$dl['cuenta']['cumplida'] . ' de ' . (int)$dl['cuentan'] . ' día(s) hábiles' : 'Aún no hay días medidos' ?></small></div>
         <div class="rl-dnum col-s-<?= $tonoDl($dl['asistencia']) ?>"><dt>Asistencia</dt><dd class="mc-num"><?= $dl['asistencia'] === null ? '—' : (int)$dl['asistencia'] . '<small>%</small>' ?></dd>
           <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['asistencia'] ?? 0) ?>%"></i></span>
-          <small>Promedio del equipo conectado</small></div>
-        <div class="rl-dnum<?= ($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ? ' is-mal' : '' ?>"><dt>Sin daily</dt><dd class="mc-num"><?= (int)($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ?></dd>
-          <small><?= (int)$dl['cuenta']['sin_registrar'] ?> sin registrar · <?= (int)$dl['cuenta']['no_hecha'] ?> sin conectarse<?= !empty($dl['cuenta']['justificada']) ? ' · ' . (int)$dl['cuenta']['justificada'] . ' justificada' . ((int)$dl['cuenta']['justificada'] === 1 ? '' : 's') . ' (no cuentan)' : '' ?></small></div>
+          <small>De los invitados a la daily, los días que se hizo</small></div>
+        <div class="rl-dnum<?= ($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ? ' is-mal' : '' ?>"><dt>No se hizo</dt><dd class="mc-num"><?= (int)($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ?></dd>
+          <small><?= (int)$dl['cuenta']['no_hecha'] ?> nadie entró · <?= (int)$dl['cuenta']['sin_registrar'] ?> sin reunión en el panel<?= !empty($dl['cuenta']['justificada']) ? ' · ' . (int)$dl['cuenta']['justificada'] . ' justificada' . ((int)$dl['cuenta']['justificada'] === 1 ? '' : 's') . ' (no cuentan)' : '' ?></small></div>
       </dl>
 
       <div class="rl-dailies__dias">
@@ -1233,7 +1233,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         <ol class="rl-ddias">
           <?php foreach ($diasDl as $f => $x): [$lbl] = Releases::DAILY[$x['estado']] ?? Releases::DAILY['pendiente'];
             $entraron = array_filter(array_map(fn($mid) => explode(' ', trim($nomDl((int)$mid)))[0] . ' ' . $x['ingresos'][$mid], array_keys((array)($x['ingresos'] ?? []))));
-            $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · ' . (int)$x['asistencia'] . ' % conectado' : '')
+            $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · entró el ' . (int)$x['asistencia'] . ' % de los invitados' : '')
               . (($x['estado'] ?? '') === 'justificada' ? ' por el SM: ' . (Releases::DAILY_MOTIVOS[$x['motivo'] ?? ''] ?? 'sin motivo') . ' (no cuenta en contra)'
                  : match ($x['fuente'] ?? '') { 'manual' => ' · registrada por el SM', 'zoom' => ' · según Zoom', 'panel' => ' · según el panel', default => '' })
               . ($entraron ? ' · entraron desde el panel: ' . implode(', ', $entraron) : '')
@@ -1248,7 +1248,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?php if (!$diasDl): ?><li class="rl-vacio-txt">Todavía no hay días hábiles.</li><?php endif; ?>
         </ol>
         <ul class="rl-leyenda rl-leyenda--pie">
-          <?php foreach (['cumplida', 'incompleta', 'no_hecha', 'sin_registrar', 'sin_zoom', 'justificada', 'no_aplica'] as $k): ?>
+          <?php foreach (['cumplida', 'no_hecha', 'justificada', 'sin_registrar', 'sin_zoom', 'no_aplica'] as $k): ?>
           <li><i class="rl-ley rl-d--<?= $k ?>"></i><?= e(Releases::DAILY[$k][0]) ?></li>
           <?php endforeach; ?>
         </ul>
@@ -1256,7 +1256,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
 
       <?php $conDatos = array_filter($dl['personas'], fn($p) => $p['de'] > 0); ?>
       <div class="rl-dailies__gente">
-        <p class="rl-dlg__rot">Quién se conecta</p>
+        <p class="rl-dlg__rot">Quién se conecta <small>(los invitados a la daily)</small></p>
         <?php if ($conDatos): uasort($conDatos, fn($a, $b) => [$a['va'] / $a['de'], 0] <=> [$b['va'] / $b['de'], 0]); ?>
         <ul class="rl-dgente">
           <?php foreach ($conDatos as $mid => $p): $m = $miembros[$mid] ?? null; $pc = (int)round($p['va'] * 100 / $p['de']); ?>
@@ -2243,7 +2243,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <p class="rl-card__sub">Cada día hábil, cada equipo tiene su daily registrada en el panel (una reunión de sus proyectos con «Daily» en el nombre) y su gente se conecta. Zoom dice quién entró.</p></div></header>
         <div class="rl-form-grid rl-form-grid--2">
           <?= rlCampo('Se miden desde', '<input class="input-meca" type="date" name="dailies_desde" value="' . e($conf['dailies']['desde']) . '">') ?>
-          <?= rlCampo('Cuenta como cumplida con', UI::selectDS('dailies_umbral', ['50' => 'La mitad del equipo', '60' => 'El 60 % del equipo', '75' => 'El 75 % del equipo', '80' => 'El 80 % del equipo', '100' => 'Todo el equipo'], (string)$conf['dailies']['umbral'])) ?>
+          <p class="rl-dlg__nota"><?= rlIco('info', 15) ?> <span>Cada día se mide si la daily <b>se hizo</b> o <b>no se hizo</b> (o si el SM la justificó). La asistencia se cuenta contra los invitados de la reunión.</span></p>
         </div>
       </section>
       <section class="mc-card rl-card">

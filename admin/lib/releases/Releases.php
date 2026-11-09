@@ -1262,9 +1262,11 @@ final class Releases
      * Una fila por equipo y día en rel_dailies.
      */
     public const DAILY = [
-        'cumplida'      => ['Cumplida',         'azul'],
-        'incompleta'    => ['Faltó gente',      'cian'],
-        'no_hecha'      => ['No se conectaron', 'rojo'],
+        // Se hizo / No se hizo: la daily se hace o no, aunque falte alguien (eso es la asistencia).
+        // 'incompleta' es de antes: se lee como «Se hizo».
+        'cumplida'      => ['Se hizo',          'azul'],
+        'incompleta'    => ['Se hizo',          'azul'],
+        'no_hecha'      => ['No se hizo',       'rojo'],
         'sin_zoom'      => ['Sin verificar',    'gris'],
         'sin_registrar' => ['Sin registrar',    'gris'],
         'no_aplica'     => ['No aplica',        'gris'],
@@ -1285,7 +1287,7 @@ final class Releases
         'otro'      => 'Otro motivo',
     ];
     /** Los días que no se cumplieron: los que se pueden justificar. */
-    public const DAILY_FALTAS = ['no_hecha', 'sin_registrar', 'incompleta', 'sin_zoom'];
+    public const DAILY_FALTAS = ['no_hecha', 'sin_registrar', 'sin_zoom'];
     /** Los que cuentan para el cumplimiento (pendiente, no aplica y justificada, no). */
     private const DAILY_CUENTAN = ['cumplida', 'incompleta', 'no_hecha', 'sin_zoom', 'sin_registrar'];
     private const DAILY_RE = '/\b(dail(y|ies)|diari[ao]s?|stand ?-?up)\b/iu';
@@ -1403,6 +1405,26 @@ final class Releases
     }
 
     /** Quiénes tienen que estar: los miembros del equipo y su SM (o, sin miembros, la gente de sus proyectos). */
+    /**
+     * Los invitados de las reuniones (las de la daily de ese día): contra ellos se mide la
+     * asistencia y «Quién se conecta». Quien no está invitado a la daily no cuenta.
+     */
+    public static function dailyInvitados(array $reuniones): array
+    {
+        $mapa = (new MiembroRepo())->mapa();
+        $ids = [];
+        foreach ($reuniones as $r) foreach ((array)($r['invitados'] ?? []) as $mid) if (isset($mapa[(int)$mid])) $ids[] = (int)$mid;
+        return array_values(array_unique($ids));
+    }
+
+    /** De las reuniones de un día, las que son la daily (las que se llaman «Daily…» o «Reunión diaria…»); si ninguna, todas. */
+    public static function soloDailies(array $reuniones): array
+    {
+        $d = array_values(array_filter($reuniones, fn($r) => preg_match(self::DAILY_RE, (string)($r['topic'] ?? ''))));
+        return $d ?: $reuniones;
+    }
+
+    /** La gente del equipo: cuando la reunión de la daily no tiene invitados, se mide contra ella. */
     public static function dailyEsperados(string $equipo): array
     {
         $e = self::equipo($equipo);
@@ -1463,14 +1485,18 @@ final class Releases
         return [$ids, array_values(array_unique($invitados))];
     }
 
-    /** Lo medido de un día: cuántos del equipo estuvieron y si llega al mínimo de Ajustes. */
+    /**
+     * Lo medido de un día en que la daily se hizo: «Se hizo», sin importar cuántos entraron;
+     * la asistencia es cuántos de los invitados estuvieron. Se guardan todos los que
+     * entraron (para volver a medir si cambian los invitados).
+     */
     private static function dailyEstado(array $presentes, array $esperados): array
     {
         $esp = array_values(array_map('intval', $esperados));
-        $van = array_values(array_intersect(array_map('intval', $presentes), $esp));
+        $pres = array_values(array_unique(array_map('intval', $presentes)));
+        $van = array_values(array_intersect($pres, $esp));
         $pct = $esp ? (int)round(count($van) * 100 / count($esp)) : null;
-        $estado = $pct === null ? ($presentes ? 'cumplida' : 'incompleta') : ($pct >= self::conf()['dailies']['umbral'] ? 'cumplida' : 'incompleta');
-        return ['estado' => $estado, 'asistencia' => $pct, 'presentes' => $van];
+        return ['estado' => 'cumplida', 'asistencia' => $pct, 'presentes' => $pres];
     }
 
     /**
@@ -1511,8 +1537,10 @@ final class Releases
                 if ($termina + 600 > time()) continue;        // todavía no termina
                 $r = $rs[0];
                 [$hIni] = self::horario(substr((string)$r['inicio'], 11, 5), (int)($r['duracion'] ?? 30));
+                // Contra quién se mide: los invitados de las reuniones de ese día (si no tienen, el equipo)
+                $espDia = self::dailyInvitados(self::soloDailies($rs)) ?: $esperados;
                 $fila = ['equipo' => $nom, 'fecha' => $d, 'fuente' => 'zoom', 'reunion_id' => (int)$r['id'], 'reunion' => (string)($r['topic'] ?? ''),
-                         'hora' => $hIni, 'esperados' => $esperados, 'presentes' => [], 'minutos' => [], 'invitados' => [], 'asistencia' => null,
+                         'hora' => $hIni, 'esperados' => $espDia, 'presentes' => [], 'minutos' => [], 'invitados' => [], 'asistencia' => null,
                          'nota' => '', 'por' => 0, 'actualizado' => date('Y-m-d H:i'), 'msg' => '',
                          // Pasadas dos horas del final, lo que diga Zoom ya no cambia
                          'final' => time() > $termina + 7200];
@@ -1520,7 +1548,7 @@ final class Releases
                 $porClic = self::ingresosDelDia($rs, $d);
                 $fila['ingresos'] = $porClic;
                 $conClics = fn(array $f) => array_replace($f, ['fuente' => $f['fuente'] === 'zoom' && $f['minutos'] ? 'zoom' : 'panel'],
-                    self::dailyEstado(array_values(array_unique(array_merge(array_map('intval', array_keys($f['minutos'])), array_keys($porClic)))), $esperados));
+                    self::dailyEstado(array_values(array_unique(array_merge(array_map('intval', array_keys($f['minutos'])), array_keys($porClic)))), $espDia));
                 $deZoom = array_values(array_filter($rs, fn($x) => ($x['plataforma'] ?? 'zoom') === 'zoom' && !empty($x['zoom_id'])));
                 if (!$deZoom || !$zoomOk) {
                     if ($porClic) {
@@ -1564,7 +1592,7 @@ final class Releases
                             if ($p['estado'] !== 'ok') { $fila['msg'] = (string)$p['msg']; $error = $fila['msg']; continue; }
                             $gente = array_merge($gente, $p['items']);
                         }
-                        [$ids, $fila['invitados']] = self::emparejar($gente, $esperados, $mapa);
+                        [$ids, $fila['invitados']] = self::emparejar($gente, $espDia, $mapa);
                         $fila['minutos'] = array_map('intval', $ids);
                         if ($fila['msg'] !== '' && !$gente && !$porClic) {
                             // Se hizo, pero Zoom no deja ver quién entró y nadie entró desde el panel
@@ -1633,7 +1661,7 @@ final class Releases
                 throw new RuntimeException('Ese día la daily se hizo y el equipo se conectó: no hay nada que justificar.');
             }
         }
-        $esperados = self::dailyEsperados($equipo);
+        $esperados = self::dailyInvitados(self::soloDailies(self::dailiesDelDia(self::dailyReuniones($equipo), $fecha))) ?: self::dailyEsperados($equipo);
         $presentes = array_values(array_unique(array_filter(array_map('intval', (array)($d['presentes'] ?? [])))));
         $fila = ['equipo' => $equipo, 'fecha' => $fecha, 'fuente' => 'manual', 'esperados' => $esperados, 'nota' => $nota,
                  'modalidad' => ($d['modalidad'] ?? '') === 'virtual' ? 'virtual' : 'presencial', 'por' => $quien, 'actualizado' => date('Y-m-d H:i'),
@@ -1661,13 +1689,15 @@ final class Releases
         foreach (self::repo('rel_dailies')->where('equipo', $equipo) as $f) $filas[$f['fecha']] = $f;
         $reus = self::dailyReuniones($equipo);
         $esperados = self::dailyEsperados($equipo);
+        // Quiénes se miden: los invitados a la daily (si la reunión no tiene, el equipo)
+        $invitadosEq = self::dailyInvitados(self::soloDailies(self::dailiesDelDia($reus, $hasta) ?: $reus)) ?: $esperados;
         $dias = [];
         $cuenta = array_fill_keys(array_keys(self::DAILY), 0);
         // Un equipo sin gente ni proyectos (el «Todos» de los ítems transversales) no tiene daily que medir
         $aplica = $esperados || self::proyectosEquipo($equipo);
         if (!$aplica) $hasta = '';
         $asis = [];
-        $persona = array_fill_keys($esperados, ['va' => 0, 'de' => 0]);
+        $persona = array_fill_keys($invitadosEq, ['va' => 0, 'de' => 0]);
         for ($d = $c['desde']; $d !== '' && $d <= $hasta; $d = date('Y-m-d', strtotime($d . ' +1 day'))) {
             if (!self::esHabil($d)) continue;
             $f = $filas[$d] ?? null;
@@ -1679,23 +1709,34 @@ final class Releases
                 $estado = $d >= $hoy ? 'pendiente' : (!$r ? 'sin_registrar' : ($zoomR ? 'pendiente' : 'sin_zoom'));
                 $f = ['fecha' => $d, 'estado' => $estado, 'fuente' => '', 'hora' => $r ? substr((string)$r['inicio'], 11, 5) : '', 'reunion' => (string)($r['topic'] ?? '')];
             }
-            $dias[$d] = $f;
-            $cuenta[$f['estado']] = ($cuenta[$f['estado']] ?? 0) + 1;
-            if (in_array($f['estado'], ['cumplida', 'incompleta'], true) && ($f['asistencia'] ?? null) !== null) {
-                $asis[] = (int)$f['asistencia'];
-                foreach ((array)($f['esperados'] ?? []) as $mid) {
-                    if (!isset($persona[(int)$mid])) continue;
-                    $persona[(int)$mid]['de']++;
-                    if (in_array((int)$mid, array_map('intval', (array)($f['presentes'] ?? [])), true)) $persona[(int)$mid]['va']++;
+            // «Faltó gente» era de antes: la daily se hizo
+            if (($f['estado'] ?? '') === 'incompleta') $f['estado'] = 'cumplida';
+            if ($f['estado'] === 'cumplida' && (($f['asistencia'] ?? null) !== null || !empty($f['presentes']))) {
+                // La asistencia de ese día, contra los invitados de sus reuniones (no contra todo el equipo)
+                // La reunión que de verdad se hizo ese día (la que vio Zoom); si no se sabe, la daily del día
+                $rsDia = self::dailiesDelDia($reus, $d);
+                $laDeEse = array_values(array_filter($rsDia, fn($x) => (int)$x['id'] === (int)($f['reunion_id'] ?? 0)));
+                $espDia = self::dailyInvitados($laDeEse ?: self::soloDailies($rsDia)) ?: array_map('intval', (array)($f['esperados'] ?? $esperados));
+                $pres = array_map('intval', (array)($f['presentes'] ?? []));
+                if ($espDia) {
+                    $f['asistencia'] = (int)round(count(array_intersect($pres, $espDia)) * 100 / count($espDia));
+                    $asis[] = $f['asistencia'];
+                    foreach ($espDia as $mid) {
+                        $persona[$mid] ??= ['va' => 0, 'de' => 0];
+                        $persona[$mid]['de']++;
+                        if (in_array($mid, $pres, true)) $persona[$mid]['va']++;
+                    }
                 }
             }
+            $dias[$d] = $f;
+            $cuenta[$f['estado']] = ($cuenta[$f['estado']] ?? 0) + 1;
         }
         $cuentan = array_sum(array_intersect_key($cuenta, array_flip(self::DAILY_CUENTAN)));
         return [
             'aplica' => (bool)$aplica, 'desde' => $c['desde'], 'dias' => $dias, 'cuenta' => $cuenta, 'cuentan' => $cuentan,
             'pct' => $cuentan ? (int)round($cuenta['cumplida'] * 100 / $cuentan) : null,
             'asistencia' => $asis ? (int)round(array_sum($asis) / count($asis)) : null,
-            'personas' => $persona, 'reuniones' => $reus, 'esperados' => $esperados,
+            'personas' => $persona, 'reuniones' => $reus, 'esperados' => $invitadosEq,
         ];
     }
 
