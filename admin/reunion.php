@@ -194,6 +194,19 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
     $nEntraronInv = count(array_intersect($idsInv, array_keys($entraron)));
     $otros = array_values(array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, array_diff(array_keys($entraron), $idsInv))));
     $pct = $inv ? (int)round($nEntraronInv * 100 / count($inv)) : 0;
+
+    // ¿Es la daily de un equipo de Releases? Si ese día faltó (o ya se justificó),
+    // se dice aquí y su Scrum Master (o un editor) la justifica sin ir a Releases.
+    $dailyRu = null;
+    if ($estado === 'paso' && is_file(__DIR__ . '/lib/releases/Releases.php')) {
+        require_once __DIR__ . '/lib/releases/Releases.php';
+        if (Releases::puedeVer()) $dailyRu = Releases::dailyDeReunion($r, (string)$vez['dia']);
+    }
+    $dlEst   = $dailyRu['estado'] ?? '';
+    $dlJust  = $dlEst === 'justificada';
+    $dlFalta = $dailyRu && (in_array($dlEst, Releases::DAILY_FALTAS, true) || $dlEst === 'pendiente');
+    $dlPuede = $dailyRu && (Releases::puedeEditar() || ($dailyRu['sm_id'] > 0 && $dailyRu['sm_id'] === (int)(Auth::usuario()['id'] ?? 0)));
+    $dlFila  = $dailyRu['fila'] ?? [];
     ?>
     <section class="ru-card" aria-labelledby="ru-gente-t">
       <header class="ru-card__cab">
@@ -202,6 +215,24 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
       </header>
       <?php if ($inv && $mirarAsistencia): ?>
       <span class="rs-avance__pista ru-asist" role="img" aria-label="<?= $pct ?> % de los invitados entró"><span class="rs-avance__barra" style="--p:<?= $pct ?>%"></span></span>
+      <?php endif; ?>
+      <?php if ($dlFalta || $dlJust): ?>
+      <div class="ru-daily<?= $dlJust ? ' is-justificada' : '' ?>">
+        <span class="ru-daily__ico" aria-hidden="true"><i class="fa-solid <?= $dlJust ? 'fa-circle-check' : 'fa-mug-hot' ?>"></i></span>
+        <span class="ru-daily__txt">
+          <?php if ($dlJust): ?>
+          <b>Daily justificada · equipo <?= e($dailyRu['equipo']) ?></b>
+          <small><?= e(Releases::DAILY_MOTIVOS[$dlFila['motivo'] ?? ''] ?? 'Otro motivo') ?><?= trim((string)($dlFila['nota'] ?? '')) !== '' ? ': ' . e((string)$dlFila['nota']) : '' ?></small>
+          <small class="ru-daily__meta"><?= e(trim(implode(' · ', array_filter([(string)($miembros[(int)($dlFila['por'] ?? 0)]['nombre'] ?? ''), (string)($dlFila['actualizado'] ?? '')])))) ?> · ese día no cuenta en contra</small>
+          <?php else: ?>
+          <b>Daily del equipo <?= e($dailyRu['equipo']) ?>: <?= e(mb_strtolower(Releases::DAILY[$dlEst][0] ?? 'sin registrar')) ?></b>
+          <small><?= $dlPuede ? 'Si hubo un motivo (no sabían que había reunión, chocó con otra…), justifícala: ese día no cuenta en contra.' : 'Si hubo un motivo, el Scrum Master del equipo la puede justificar.' ?></small>
+          <?php endif; ?>
+        </span>
+        <?php if ($dlPuede): ?>
+        <button type="button" class="rs-boton ru-daily__btn" onclick="document.getElementById('ru-dlg-justificar').showModal()"><?= $dlJust ? 'Cambiar el motivo' : 'Justificar' ?></button>
+        <?php endif; ?>
+      </div>
       <?php endif; ?>
       <?php if ($inv): ?>
       <ul class="ru-personas">
@@ -227,6 +258,27 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
       <p class="rs-nota">Cuenta a quien pulsó «Entrar» en el panel, de 15 minutos antes a 15 después.</p>
       <?php endif; ?>
     </section>
+
+    <?php if ($dlPuede && ($dlFalta || $dlJust)): ?>
+    <dialog id="ru-dlg-justificar" class="dlg-meca rl-dlg">
+      <form class="dlg-form" method="post" action="actions.php">
+        <input type="hidden" name="accion" value="rel_daily_registrar">
+        <input type="hidden" name="equipo" value="<?= e($dailyRu['equipo']) ?>">
+        <input type="hidden" name="fecha" value="<?= e((string)$vez['dia']) ?>">
+        <input type="hidden" name="estado" value="justificada">
+        <input type="hidden" name="volver" value="<?= e($aqui) ?>">
+        <header><h3 class="font-display"><i class="fa-solid fa-mug-hot"></i> Justificar la daily<small>Equipo <?= e($dailyRu['equipo']) ?> · <?= e(mb_strtolower(ReunionesUI::diaTitulo($vez['ts'], $ahora)[0])) ?></small></h3>
+          <button type="button" class="dlg-close" data-cerrar-dlg aria-label="Cerrar"><i class="fa-solid fa-xmark"></i></button></header>
+        <p class="rl-dlg__nota"><i class="fa-solid fa-circle-info"></i> <span>La daily faltó, pero hubo un motivo: ese día queda como <b>Justificada</b> y no cuenta en contra del cumplimiento. Se ve quién la justificó y por qué.</span></p>
+        <div class="mc-field"><span class="mc-field__label">¿Por qué no se pudo hacer?</span>
+          <?= UI::selectDS('motivo', ['' => 'Elige el motivo'] + Releases::DAILY_MOTIVOS, (string)($dlJust ? ($dlFila['motivo'] ?? '') : ''), ['aria' => 'Por qué no se pudo hacer la daily']) ?></div>
+        <label class="mc-field"><span class="mc-field__label">Nota</span>
+          <textarea class="input-meca" name="nota" rows="3" maxlength="600" placeholder="Ej. Solo entró Vanessa: al resto no le llegó la invitación."><?= e($dlJust ? (string)($dlFila['nota'] ?? '') : '') ?></textarea></label>
+        <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button>
+          <button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Justificar</button></footer>
+      </form>
+    </dialog>
+    <?php endif; ?>
 
     <?php
     /* ---------- Lo que quedó: grabación, transcripción, acta y pizarra ---------- */

@@ -1281,6 +1281,7 @@ final class Releases
         'evento'    => 'Capacitación o evento del equipo',
         'ausencias' => 'El equipo no estaba (permisos, vacaciones, enfermedad)',
         'tecnico'   => 'Problema técnico (internet, luz, Zoom)',
+        'aviso'     => 'No se avisó de la reunión (no sabían que había)',
         'otro'      => 'Otro motivo',
     ];
     /** Los días que no se cumplieron: los que se pueden justificar. */
@@ -1339,6 +1340,29 @@ final class Releases
             if ($mid > 0 && !isset($out[$mid])) $out[$mid] = date('H:i', $t);
         }
         return $out;
+    }
+
+    /**
+     * Si esta reunión del panel es la daily de un equipo (la que se eligió en
+     * Releases o, si no se eligió ninguna, una que se llame «Daily…» o «Reunión
+     * diaria…»), el equipo y cómo quedó ese día. null si no es la daily de nadie
+     * o el día no cuenta (futuro o no hábil). La usa reunion.php para justificar
+     * la daily sin ir a Releases.
+     */
+    public static function dailyDeReunion(array $r, string $fecha): ?array
+    {
+        $fecha = self::fecha($fecha);
+        if ($fecha === '' || $fecha > date('Y-m-d') || !self::esHabil($fecha)) return null;
+        $pid = (int)($r['proyecto_id'] ?? 0);
+        foreach (self::equipos() as $nom => $e) {
+            if (!in_array($pid, self::proyectosEquipo((string)$nom), true)) continue;
+            $elegida = (int)($e['daily_reunion'] ?? 0);
+            if ($elegida > 0 ? $elegida !== (int)($r['id'] ?? 0) : !preg_match(self::DAILY_RE, (string)($r['topic'] ?? ''))) continue;
+            $fila = null;
+            foreach (self::repo('rel_dailies')->where('equipo', (string)$nom) as $f) if (($f['fecha'] ?? '') === $fecha) { $fila = $f; break; }
+            return ['equipo' => (string)$nom, 'sm_id' => (int)($e['sm_id'] ?? 0), 'fila' => $fila, 'estado' => (string)($fila['estado'] ?? 'pendiente')];
+        }
+        return null;
     }
 
     /** Para elegir cuál es la daily: las reuniones de los proyectos del equipo, primero las que se repiten. */

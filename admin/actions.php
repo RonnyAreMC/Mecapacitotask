@@ -4208,7 +4208,8 @@ switch ($accion) {
                 exit;
             }
             $volver = (string)($_POST['volver'] ?? '');
-            if (!preg_match('#^releases\.php(\?[^\s<>"]*)?$#', $volver)) $volver = 'releases.php';
+            // A Releases o a la reunión (la daily se justifica también desde reunion.php)
+            if (!preg_match('#^(releases|reunion)\.php(\?[^\s<>"]*)?$#', $volver)) $volver = 'releases.php';
             redirigir($volver, $msg !== '' ? $msg : ($ok ? 'Listo.' : 'No se pudo.'), $ok ? 'success' : 'error');
         };
         if (!Releases::puedeVer()) $relFin(false, 'No tienes acceso a Releases.');

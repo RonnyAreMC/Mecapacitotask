@@ -6833,3 +6833,18 @@ html .est-pill .mc-select__value { display: inline-flex; align-items: center; ga
 html .est-pill .mc-select__value::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
 html .est-pill .mc-select__text { color: inherit; }
 html .est-pill .mc-select__chev { width: 15px !important; height: 15px !important; color: inherit; opacity: .7; }
+
+/* =========================================================
+   Reunión (reunion.php): si es la daily de un equipo y ese día faltó, lo dice
+   en «Invitados» con el botón para justificarla. Sin bordes.
+   ========================================================= */
+html .ru-daily { display: flex; align-items: center; gap: 12px; margin: 2px 0 14px; padding: 12px 14px; border-radius: 14px; background: var(--tone-cian-bg); color: var(--tone-cian-fg); }
+html .ru-daily.is-justificada { background: var(--tone-petroleo-bg); color: var(--tone-petroleo-fg); }
+html .ru-daily__ico { flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 50%; background: rgb(255 255 255 / .7); font-size: .95rem; }
+html.dark .ru-daily__ico { background: rgb(255 255 255 / .08); }
+html .ru-daily__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html .ru-daily__txt b { color: inherit; font-size: .88rem; line-height: 1.35; }
+html .ru-daily__txt small { color: var(--ink-muted); font-size: .8rem; line-height: 1.45; overflow-wrap: anywhere; }
+html .ru-daily__txt small.ru-daily__meta { font-size: .74rem; }
+html .ru-daily__btn { flex: none; min-height: 38px; padding: 0 16px; }
+@media (max-width: 560px) { html .ru-daily { flex-wrap: wrap; } html .ru-daily__btn { width: 100%; } }
