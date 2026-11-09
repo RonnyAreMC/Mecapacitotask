@@ -907,7 +907,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
             . '<div class="rad-menu" role="menu" aria-label="' . e($titulo) . '" data-rad-menu hidden>'
             . '<button type="button" class="rad-centro" data-rad-cerrar aria-label="Cerrar"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button>'
             . '<span class="rad-aguja" aria-hidden="true"></span>'
-            . '<span class="rad-ayuda" aria-hidden="true"><i class="fa-solid fa-computer-mouse"></i> <b>Rueda</b> elige · <b>clic derecho</b> abre · <b>clic</b> cierra</span>';
+            . '<span class="rad-ayuda" aria-hidden="true"><i class="fa-solid fa-computer-mouse"></i> <b>Rueda</b> elige · <b>clic</b> abre · <b>clic derecho</b> cierra</span>';
         foreach ($ops as $o) {
             $ico = str_starts_with((string)$o['icono'], '<') ? (string)$o['icono'] : '<i class="fa-solid ' . e((string)$o['icono']) . '" aria-hidden="true"></i>';
             $tipo = (string)($o['tipo'] ?? 'button');

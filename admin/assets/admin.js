@@ -5366,10 +5366,10 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
    Menú circular de acciones rápidas (UI::menuRadial): el botón abre las
    opciones alrededor de un centro, cada una con su nombre por fuera.
    Como una rueda: la rueda del ratón (o las flechas) pasa de una opción a
-   otra y la marcada se pinta de verde, con la aguja del centro apuntándola;
-   el clic derecho abre la marcada y el clic izquierdo cierra, también encima
-   de una opción. Sin ratón sigue igual: tocar una opción en el celular o
-   Enter con el teclado la abren.
+   otra y la marcada se pinta de verde, con la aguja del centro apuntándola.
+   El clic izquierdo elige: encima de una opción, esa; en el disco, la
+   marcada. El clic derecho cierra. Sin ratón sigue igual: tocar una opción
+   en el celular o Enter con el teclado la abren.
    Esc también cierra. El menú se mueve a <body> al abrirse para que nada lo recorte.
    ========================================================= */
 (() => {
@@ -5456,8 +5456,18 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     }
     if (!abierto) return;
     const op = e.target.closest('.rad-op');
-    // Clic izquierdo fuera de una opción (fondo, disco, centro): se cierra
-    if (!op) { cerrar(); return; }
+    if (!op) {
+      // En el disco (no en la aspa del centro ni en la ayuda), con el ratón: abre la marcada
+      const enMenu = e.target.closest('[data-rad-menu]');
+      if (enMenu && !e.target.closest('[data-rad-cerrar], .rad-ayuda') && tipoPuntero === 'mouse') {
+        const marcada = enMenu.querySelectorAll('.rad-op')[enMenu._sel || 0];
+        if (marcada) { marcada.click(); return; }
+      }
+      if (enMenu && e.target.closest('.rad-ayuda')) return;
+      // Fuera del disco, o la aspa del centro: se cierra
+      cerrar();
+      return;
+    }
     // Abre su ventana o su pestaña; los enlaces y las descargas siguen su camino
     const dlg = op.dataset.radDlg ? document.getElementById(op.dataset.radDlg) : null;
     const vista = op.dataset.radVista ? document.querySelector('[data-vista="' + op.dataset.radVista + '"]') : null;
@@ -5480,18 +5490,9 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
       todos[(j + (e.shiftKey ? -1 : 1) + todos.length) % todos.length].focus();
     }
   });
-  // Clic izquierdo con ratón sobre una opción: cierra sin abrirla. Va en captura
-  // para que ni el enlace, ni el formulario, ni la vista ([data-subvista]) se
-  // enteren. El clic del teclado y el que dispara el clic derecho (op.click())
-  // llegan con detail 0 y sí abren.
+  // Con qué se pulsó (el disco solo abre la marcada con el ratón; en el celular se toca la opción)
   let tipoPuntero = '';
   document.addEventListener('pointerdown', (e) => { tipoPuntero = e.pointerType; }, true);
-  document.addEventListener('click', (e) => {
-    if (!abierto || e.detail === 0 || tipoPuntero !== 'mouse' || !e.target.closest('.rad-op')) return;
-    e.preventDefault();
-    e.stopImmediatePropagation();
-    cerrar();
-  }, true);
 
   // La rueda del ratón pasa a la opción siguiente o a la anterior (y la página
   // no se mueve). Se juntan los toques cortos del trackpad para no saltar varias.
@@ -5510,13 +5511,11 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     acum = 0;
   }, { passive: false });
 
-  // Clic derecho: abre la opción marcada (como pulsarla)
+  // Clic derecho: cierra (sin el menú del navegador)
   document.addEventListener('contextmenu', (e) => {
     if (!abierto) return;
     e.preventDefault();
-    const { menu } = partes(abierto);
-    const op = menu.querySelectorAll('.rad-op')[menu._sel || 0];
-    if (op) op.click();
+    cerrar();
   });
 
   // Pasar el ratón por una opción o llegar a ella con Tab también la marca

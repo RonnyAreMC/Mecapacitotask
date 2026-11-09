@@ -6883,9 +6883,12 @@ html .mc-select__value .mc-option__av { --sz: 24px !important; }
    la derecha) y la tabla del calendario no se corta. Y las planificaciones aparte.
    ========================================================= */
 html .bl-aj-grid { display: grid; grid-template-columns: minmax(320px, 5fr) minmax(0, 7fr); gap: var(--space-4, 16px); align-items: start; }
-html .bl-aj-grid .bl-cal-caja { max-height: 520px; overflow-y: auto; overflow-x: hidden; }
+/* La tabla completa, sin caja con scroll (se cortaba); el calendario general queda a la vista al bajar */
+html .bl-aj-grid .bl-cal-caja { max-height: none; overflow: visible; }
+html .bl-aj-grid .bl-cal thead th { position: static; }
+html .bl-aj-grid > form.rl-card { position: sticky; top: 84px; }
 html .bl-aj-grid .bl-cal th, html .bl-aj-grid .bl-cal td { white-space: nowrap; }
-@media (max-width: 1000px) { html .bl-aj-grid { grid-template-columns: minmax(0, 1fr); } html .bl-aj-grid .bl-cal-caja { overflow-x: auto; } }
+@media (max-width: 1000px) { html .bl-aj-grid { grid-template-columns: minmax(0, 1fr); } html .bl-aj-grid .bl-cal-caja { overflow-x: auto; } html .bl-aj-grid > form.rl-card { position: static; } }
 html .bl-planes { margin-top: var(--space-4, 16px); }
 html .bl-planes .rl-card__cab { align-items: center; }
 html .bl-planes__nueva { margin-left: auto; }
