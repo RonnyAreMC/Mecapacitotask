@@ -149,6 +149,13 @@ document.addEventListener('click', (e) => {
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const plano = (s) => String(s).normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
   let nId = 0;
+  // Una persona en la lista: su foto (data-foto) o sus iniciales (data-ini, con data-color)
+  const avatarOp = (o) => {
+    const d = o ? o.dataset : null;
+    if (!d || !(d.foto || d.ini)) return '';
+    return '<span class="avatar mc-option__av" style="--sz:26px;--av-c1:' + esc(d.color || '#64748B') + '">'
+      + (d.foto ? '<img src="' + esc(d.foto) + '" alt="">' : '<span>' + esc(d.ini) + '</span>') + '</span>';
+  };
 
   /* ---------- Lista desplegable ---------- */
 
@@ -177,7 +184,7 @@ document.addEventListener('click', (e) => {
     const o = sel.options[sel.selectedIndex];
     const vacio = !o || o.value === '';
     const txt = o ? o.text : (sel.dataset.placeholder || 'Elegir…');
-    btn.querySelector('.mc-select__value').innerHTML = '<span class="' + (vacio ? 'mc-select__placeholder' : 'mc-select__text') + '">' + esc(txt) + '</span>';
+    btn.querySelector('.mc-select__value').innerHTML = (vacio ? '' : avatarOp(o)) + '<span class="' + (vacio ? 'mc-select__placeholder' : 'mc-select__text') + '">' + esc(txt) + '</span>';
     btn.disabled = sel.disabled;
     btn.classList.toggle('is-disabled', sel.disabled);
     if (sel.getAttribute('aria-label') && !btn.getAttribute('aria-label')) btn.setAttribute('aria-label', sel.getAttribute('aria-label'));
@@ -212,7 +219,7 @@ document.addEventListener('click', (e) => {
       h += '<div class="mc-option' + (elegida ? ' is-selected' : '') + (o.disabled ? ' is-disabled' : '') + '" role="option" id="' + id + '-' + i
         + '" aria-selected="' + elegida + '"' + (o.disabled ? ' aria-disabled="true"' : '') + ' data-i="' + i + '" data-g="' + g
         + '" data-buscar="' + esc(plano(o.text + ' ' + desc)) + '" style="--i:' + Math.min(i, 10) + '">'
-        + '<span class="mc-option__text"><span class="mc-option__label">' + esc(o.text) + '</span>'
+        + avatarOp(o) + '<span class="mc-option__text"><span class="mc-option__label">' + esc(o.text) + '</span>'
         + (desc ? '<span class="mc-option__desc">' + esc(desc) + '</span>' : '') + '</span>'
         + (elegida ? check(16, 'mc-option__check') : '') + '</div>';
     });

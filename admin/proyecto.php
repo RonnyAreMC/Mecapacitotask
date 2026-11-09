@@ -141,6 +141,32 @@ foreach ($delProyecto as $m) {
     $opcionesDestino[$m['id']]   = $m['nombre'];
 }
 
+// El filtro de la tabla: solo los desarrolladores del proyecto (Programadores o
+// rol de desarrollo; sin Scrum Master, PO ni analistas), cada uno con su foto o
+// sus iniciales (MecaSelect, admin.js, pinta data-foto / data-ini). Si el proyecto
+// no tiene ninguno, salen todos; y quien esté elegido ahora sale siempre.
+$esDevFiltro = function (array $m): bool {
+    $rol = mb_strtolower((string)($m['rol'] ?? ''));
+    if (preg_match('/scrum|product owner|\bpo\b|analista|diseñ|admin|jef|coordin|gerent|supervis/u', $rol)) return false;
+    return ($m['equipo'] ?? '') === 'programacion' || (bool)preg_match('/dev|desarroll|program|front|back|full/u', $rol);
+};
+$devsFiltro = array_values(array_filter($delProyecto, $esDevFiltro));
+if (!$devsFiltro) $devsFiltro = array_values($delProyecto);
+usort($devsFiltro, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
+$opcionesFiltroDevs = '<option value="0" data-icono="fa-users"' . ((int)($_GET['asignado'] ?? 0) === 0 ? ' selected' : '') . '>Todo el equipo</option>';
+$hayElegidoFiltro = false;
+$opcionFiltro = function (array $m) use (&$hayElegidoFiltro): string {
+    $sel = (int)($_GET['asignado'] ?? 0) === (int)$m['id'];
+    if ($sel) $hayElegidoFiltro = true;
+    return '<option value="' . (int)$m['id'] . '"' . ($sel ? ' selected' : '')
+        . (!empty($m['foto']) ? ' data-foto="' . e((string)$m['foto']) . '"' : ' data-ini="' . e(MiembroRepo::iniciales($m)) . '"')
+        . ' data-color="' . e(Catalogo::colorDe($m['color'] ?? 0)) . '">' . e((string)$m['nombre']) . '</option>';
+};
+foreach ($devsFiltro as $m) $opcionesFiltroDevs .= $opcionFiltro($m);
+if (!$hayElegidoFiltro && (int)($_GET['asignado'] ?? 0) > 0) {
+    foreach ($delProyecto as $m) if ((int)$m['id'] === (int)$_GET['asignado']) { $opcionesFiltroDevs .= $opcionFiltro($m); break; }
+}
+
 // Todo el equipo, para el selector de participantes del proyecto
 $opcionesEquipo = [];
 foreach ($miembros as $m) {
@@ -839,6 +865,32 @@ if ($conSprints) {
       <i class="fa-solid fa-magnifying-glass"></i>
       <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off">
     </label>
+    <div class="tt2-filtro">
+      <?php if ($verComo): ?>
+      <!-- "Ver como" filtra la lista a las tareas de esa persona, y el aviso
+           vivía solo en la barra lateral: se asignaba una tarea a otro, no
+           aparecía, y parecía que la asignación no había funcionado. El aviso
+           va donde se mira, y se puede quitar desde aquí. -->
+      <a class="filtro-vercomo" href="?id=<?= $id ?>&amp;ver_como=0"
+         title="Volver a tu vista y ver todas las tareas">
+        <i class="fa-solid fa-eye"></i>
+        <!-- El texto va en un solo hijo: si no, el gap del flex mete aire
+             entre el nombre y los dos puntos. -->
+        <span>Viendo como <b><?= e(explode(' ', trim($verComo['nombre']))[0]) ?></b>: solo sus tareas</span>
+        <i class="fa-solid fa-xmark"></i>
+      </a>
+      <?php else: ?>
+      <form method="get" class="inline-form">
+        <input type="hidden" name="id" value="<?= $id ?>">
+        <?php if ($fEstado): ?><input type="hidden" name="estado" value="<?= e($fEstado) ?>"><?php endif; ?>
+        <select name="asignado" class="select-meca select-sm" data-ms-ancho="340" aria-label="Filtrar por desarrollador"
+                onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"><?= $opcionesFiltroDevs ?></select>
+      </form>
+      <?php endif; ?>
+      <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
+      <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
+      <?php endif; ?>
+    </div>
     <div class="tt2-iconos">
       <?php
         // Lo que antes eran cuatro botones va en un solo menú circular (UI::menuRadial):
@@ -872,29 +924,6 @@ if ($conSprints) {
     </div>
     <div class="tt2-fila tt2-fila--sub">
       <?= $radVistas ?>
-      <?php if ($verComo): ?>
-      <!-- "Ver como" filtra la lista a las tareas de esa persona, y el aviso
-           vivía solo en la barra lateral: se asignaba una tarea a otro, no
-           aparecía, y parecía que la asignación no había funcionado. El aviso
-           va donde se mira, y se puede quitar desde aquí. -->
-      <a class="filtro-vercomo" href="?id=<?= $id ?>&amp;ver_como=0"
-         title="Volver a tu vista y ver todas las tareas">
-        <i class="fa-solid fa-eye"></i>
-        <!-- El texto va en un solo hijo: si no, el gap del flex mete aire
-             entre el nombre y los dos puntos. -->
-        <span>Viendo como <b><?= e(explode(' ', trim($verComo['nombre']))[0]) ?></b>: solo sus tareas</span>
-        <i class="fa-solid fa-xmark"></i>
-      </a>
-      <?php else: ?>
-      <form method="get" class="inline-form">
-        <input type="hidden" name="id" value="<?= $id ?>">
-        <?php if ($fEstado): ?><input type="hidden" name="estado" value="<?= e($fEstado) ?>"><?php endif; ?>
-        <?= UI::select('asignado', $opcionesFiltro, (string)$fAsignado, true, 'select-sm') ?>
-      </form>
-      <?php endif; ?>
-      <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
-      <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
-      <?php endif; ?>
     </div>
   </div>
 
@@ -2708,7 +2737,10 @@ function depPicker(): void { ?>
 // Para «Pedir ayuda»: la gente del proyecto (si no tiene lista, todo el equipo)
 $genteFicha = [];
 foreach (array_unique(array_merge(ProyectoRepo::miembrosDe($proyecto) ?? array_keys($miembros), [(int)($proyecto['scrum'] ?? 0)])) as $midF) {
-    if (isset($miembros[$midF])) $genteFicha[] = ['id' => (int)$midF, 'nombre' => (string)$miembros[$midF]['nombre']];
+    // Con su foto (o iniciales y color) y si es desarrollador: «¿A quién?» ofrece solo a los devs
+    if (isset($miembros[$midF])) $genteFicha[] = ['id' => (int)$midF, 'nombre' => (string)$miembros[$midF]['nombre'],
+        'foto' => (string)($miembros[$midF]['foto'] ?? ''), 'ini' => MiembroRepo::iniciales($miembros[$midF]),
+        'color' => Catalogo::colorDe($miembros[$midF]['color'] ?? 0), 'dev' => $esDevFiltro($miembros[$midF])];
 }
 usort($genteFicha, fn($a, $b) => strcmp($a['nombre'], $b['nombre']));
 // Enlace directo a una tarea (proyecto.php?id=…&tarea=…, p. ej. desde Releases): se abre su

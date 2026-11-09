@@ -6848,3 +6848,32 @@ html .ru-daily__txt small { color: var(--ink-muted); font-size: .8rem; line-heig
 html .ru-daily__txt small.ru-daily__meta { font-size: .74rem; }
 html .ru-daily__btn { flex: none; min-height: 38px; padding: 0 16px; }
 @media (max-width: 560px) { html .ru-daily { flex-wrap: wrap; } html .ru-daily__btn { width: 100%; } }
+
+/* =========================================================
+   Tareas: el filtro de persona a la derecha del buscador, del mismo alto y
+   más ancho; en la lista, cada desarrollador con su foto (o iniciales).
+   ========================================================= */
+html .tt2-filtro { display: flex; align-items: center; gap: 10px; flex: 0 1 auto; min-width: 0; }
+html .tt2-filtro .inline-form { margin: 0; }
+html .tt2-filtro .ms.ms-sm { display: block; width: 290px; max-width: 100%; }
+html .tt2-filtro .ms-trigger { min-height: 44px; padding: 6px 16px 6px 8px; border-radius: 999px; font-size: .86rem; }
+html .tt2-filtro .ms-trigger:has(.ms-label__txt) { padding-left: 8px; }
+html .tt2-filtro .ms-trigger:not(:has(.ms-av)) { padding-left: 16px; }
+/* La foto o las iniciales, en la lista y en el botón */
+html .ms-av { flex: none !important; margin: 0; overflow: hidden !important; }
+html .ms-av.avatar { width: var(--sz, 26px); height: var(--sz, 26px); min-width: var(--sz, 26px); }
+html .ms-av em { font-style: normal; font-size: .66rem; font-weight: 700; }
+html .ms-av--ico { display: inline-grid; place-items: center; width: 26px; height: 26px; border-radius: 50%; background: var(--primary-soft, #E8F0FE); color: var(--primary-ink, #2565D4); font-size: .72rem; }
+html .ms-opt .ms-av--ico i { opacity: 1; color: inherit; font-size: .72rem; }
+html .ms-opt { gap: 10px; padding: 7px 10px; }
+html .ms-label .ms-av { margin-right: 2px; }
+html .ms-label .ms-label__txt { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+@media (max-width: 640px) {
+  html .tt2-filtro { order: 3; flex: 1 1 100%; }
+  html .tt2-filtro .ms.ms-sm { width: 100%; }
+}
+
+/* La lista del design system con personas: la foto (o iniciales) a la izquierda */
+html .mc-option__av { flex: none; }
+html .mc-select__value:has(.mc-option__av) { gap: 8px; }
+html .mc-select__value .mc-option__av { --sz: 24px !important; }

@@ -360,13 +360,24 @@ const MecaSelect = {
     const search = panel.querySelector('input');
     const host = sel.closest('dialog') || document.body;
     let abierto = false;
+    // La foto de la persona (data-foto), sus iniciales (data-ini, con data-color)
+    // o un ícono (data-icono): así se reconoce a cada quien en la lista
+    const escMs = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+    const avatarMs = (o) => {
+      const d = o.dataset;
+      const fondo = ' style="--sz:26px;--av-c1:' + escMs(d.color || '#64748B') + '"';
+      if (d.foto) return '<b class="avatar ms-av"' + fondo + '><img src="' + escMs(d.foto) + '" alt=""></b>';
+      if (d.ini) return '<b class="avatar ms-av"' + fondo + '><em>' + escMs(d.ini) + '</em></b>';
+      if (d.icono) return '<b class="ms-av ms-av--ico"><i class="fa-solid ' + escMs(d.icono) + '"></i></b>';
+      return '';
+    };
 
     const buildOpts = () => {
       opts.innerHTML = '';
       [...sel.options].forEach((o) => {
         const el = document.createElement('div');
         el.className = 'ms-opt' + (o.selected ? ' sel' : '') + (o.disabled ? ' dis' : '');
-        el.innerHTML = '<span>' + o.textContent + '</span><i class="fa-solid fa-check"></i>';
+        el.innerHTML = avatarMs(o) + '<span>' + o.textContent + '</span><i class="fa-solid fa-check"></i>';
         el.addEventListener('click', () => {
           if (o.disabled) return;
           if (multi) {
@@ -391,6 +402,8 @@ const MecaSelect = {
           ? elegidas.map((o) => '<span class="ms-chip">' + o.textContent +
               '<i class="fa-solid fa-xmark" data-val="' + o.value.replace(/"/g, '&quot;') + '"></i></span>').join('')
           : '<span class="ms-ph">' + (sel.dataset.ph || 'Selecciona…') + '</span>';
+      } else if (elegidas[0] && avatarMs(elegidas[0])) {
+        label.innerHTML = avatarMs(elegidas[0]) + '<span class="ms-label__txt">' + escMs(elegidas[0].textContent) + '</span>';
       } else {
         label.textContent = elegidas[0] ? elegidas[0].textContent : (sel.dataset.ph || '');
       }
@@ -400,7 +413,7 @@ const MecaSelect = {
       // El panel copiaba el ancho del disparador y en los filtros estrechos los
       // nombres salían cortados ("Carlos …"). Se le da un mínimo, sin pasarse
       // del borde de la ventana.
-      const ancho = Math.min(Math.max(r.width, 260), innerWidth - 20);
+      const ancho = Math.min(Math.max(r.width, +sel.dataset.msAncho || 260), innerWidth - 20);
       panel.style.width = ancho + 'px';
       panel.style.left = Math.max(10, Math.min(r.left, innerWidth - ancho - 10)) + 'px';
       panel.style.top = (r.bottom + 6) + 'px';
@@ -415,7 +428,8 @@ const MecaSelect = {
     const cerrar = () => { if (!abierto) return; abierto = false; wrap.classList.remove('ms-open'); panel.remove(); };
     const filtrar = (q) => {
       q = q.toLowerCase();
-      opts.querySelectorAll('.ms-opt').forEach((el) => { el.style.display = el.textContent.toLowerCase().includes(q) ? '' : 'none'; });
+      // Por el nombre (no por las iniciales de la foto)
+      opts.querySelectorAll('.ms-opt').forEach((el) => { el.style.display = (el.querySelector(':scope > span')?.textContent || el.textContent).toLowerCase().includes(q) ? '' : 'none'; });
     };
 
     trigger.addEventListener('click', (e) => {
@@ -2257,14 +2271,18 @@ function dtPrepararColab(dlg, t) {
   let gente = [];
   try { gente = JSON.parse(document.getElementById('dt-gente')?.textContent || '[]'); } catch (_) { gente = []; }
   const ya = new Set((t.asignados_ids || []).map(Number));
-  const libres = gente.filter((g) => !ya.has(+g.id));
+  // Solo los desarrolladores (si no hay ninguno libre, todos), con su foto o sus iniciales
+  const todosLibres = gente.filter((g) => !ya.has(+g.id));
+  const devsLibres = todosLibres.filter((g) => g.dev);
+  const libres = devsLibres.length ? devsLibres : todosLibres;
   fila.hidden = !t.puede_colab || !libres.length;
   fila.dataset.tarea = t.id;
   fila.querySelector('[data-dt-colab]').hidden = true;
   fila.querySelector('[data-dt-colab-abrir]').hidden = false;
   const quienSel = fila.querySelector('[data-dt-colab-quien]');
   quienSel.innerHTML = '<option value="">Elige a la persona…</option>'
-    + libres.map((g) => '<option value="' + (+g.id) + '">' + esc(g.nombre) + '</option>').join('');
+    + libres.map((g) => '<option value="' + (+g.id) + '"' + (g.foto ? ' data-foto="' + esc(g.foto) + '"' : ' data-ini="' + esc(g.ini || '') + '"')
+      + ' data-color="' + esc(g.color || '') + '">' + esc(g.nombre) + '</option>').join('');
   if (window.DS && DS.refrescar && quienSel.closest('.mc-select')) DS.refrescar(quienSel);
   fila.querySelector('[data-dt-colab-nota]').value = '';
 }
