@@ -6932,3 +6932,69 @@ html .campo-equipos > span small { color: var(--ink-muted); font-weight: 500; }
 /* Organizar equipos: «También en…» y las dos partes del menú */
 html .eqo-persona__otros { color: var(--primary-ink) !important; font-weight: 600; }
 html .eqo-menu__quitar { color: var(--danger-ink); }
+
+/* =========================================================
+   Tablero general de equipos (tablero_equipos.php): el más bajo arriba,
+   tres paneles de barras (dailies, avance, revisiones) y el ranking.
+   Tonos: ok ≥ 80 · warn ≥ 60 · crit < 60. Sin bordes en las tarjetas.
+   ========================================================= */
+html .tg { display: flex; flex-direction: column; gap: var(--space-4, 16px); }
+html .tg-t--ok   { --tg: var(--tone-verde-fg, #047857);   --tg-bg: var(--tone-verde-bg, #ECFDF5); }
+html .tg-t--warn { --tg: var(--tone-naranja-fg, #B45309); --tg-bg: var(--tone-naranja-bg, #FFF7ED); }
+html .tg-t--crit { --tg: var(--danger-ink, #991B1B);      --tg-bg: var(--danger-soft, #FEF2F2); }
+html .tg-t--nm   { --tg: var(--ink-muted, #64748B);       --tg-bg: var(--surface-sunken, #F1F5F9); }
+html .tg-punto { display: inline-block; width: 10px; height: 10px; margin-right: 8px; border-radius: 50%; background: var(--ec, #475569); flex: none; vertical-align: middle; }
+
+/* El más bajo de todos */
+html .tg-alerta { display: grid; grid-template-columns: auto 1fr auto; gap: 6px 18px; align-items: center; padding: 20px 22px; border-radius: 20px;
+  background: linear-gradient(135deg, var(--tg-bg) 0%, var(--surface, #fff) 70%); box-shadow: 0 10px 30px -22px rgb(15 23 42 / .35); }
+html .tg-alerta__ico { display: grid; place-items: center; width: 52px; height: 52px; border-radius: 16px; background: var(--tg-bg); color: var(--tg); }
+html .tg-alerta__txt small { color: var(--tg); font-weight: 700; text-transform: uppercase; letter-spacing: .06em; font-size: .72rem; }
+html .tg-alerta__txt h2 { margin: 2px 0 4px; font-size: 1.6rem; color: var(--ink); display: flex; align-items: center; }
+html .tg-alerta__txt h2 .tg-punto { width: 14px; height: 14px; }
+html .tg-alerta__txt p { margin: 0; color: var(--ink-muted); font-size: .9rem; }
+html .tg-alerta__ir { display: inline-block; margin-top: 6px; color: var(--primary-ink); font-weight: 600; font-size: .86rem; text-decoration: none; }
+html .tg-alerta__indice { text-align: center; }
+html .tg-alerta__indice b { display: block; font-size: 2.6rem; line-height: 1; color: var(--tg); }
+html .tg-alerta__indice small { color: var(--ink-muted); font-size: .78rem; }
+html .tg-alerta__frentes { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin: 10px 0 0; padding: 0; list-style: none; }
+html .tg-alerta__frentes li { display: flex; flex-direction: column; gap: 2px; padding: 10px 14px; border-radius: 12px; background: var(--tg-bg); }
+html .tg-alerta__frentes small { color: var(--ink-muted); font-size: .76rem; }
+html .tg-alerta__frentes b { color: var(--tg); font-size: 1.15rem; }
+
+/* Los tres paneles */
+html .tg-paneles { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: var(--space-4, 16px); align-items: start; }
+html .tg-panel, html .tg-ranking { padding: 18px 20px; border: 0; border-radius: 18px; box-shadow: 0 1px 2px rgb(15 23 42 / .04), 0 10px 28px -20px rgb(15 23 42 / .25); }
+html .tg-panel__cab { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+html .tg-panel__cab h2 { margin: 0; font-size: 1.02rem; color: var(--ink); }
+html .tg-panel__cab p { margin: 2px 0 0; color: var(--ink-muted); font-size: .8rem; }
+html .tg-chip { flex: none; display: inline-flex; align-items: center; height: 24px; padding: 0 10px; border-radius: 999px; background: var(--tg-bg); color: var(--tg); font-size: .74rem; font-weight: 700; white-space: nowrap; }
+html .tg-vacio { margin: 0; color: var(--ink-muted); font-size: .86rem; }
+html .tg-barras { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 12px; }
+html .tg-barra { display: grid; grid-template-columns: minmax(70px, 110px) minmax(0, 1fr) auto; grid-template-areas: 'eq pista val' 'eq det det'; align-items: center; gap: 4px 12px; padding: 8px 10px; border-radius: 12px; }
+html .tg-barra.is-bajo { background: var(--danger-soft, #FEF2F2); }
+html .tg-barra__eq { grid-area: eq; display: flex; align-items: center; min-width: 0; color: var(--ink); font-weight: 600; font-size: .88rem; text-decoration: none; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+html .tg-barra__pista { grid-area: pista; position: relative; height: 10px; border-radius: 999px; background: var(--surface-sunken, #EEF2F7); overflow: visible; }
+html .tg-barra__relleno { display: block; height: 100%; border-radius: 999px; background: var(--tg); transition: width .4s ease; }
+html .tg-barra__meta { position: absolute; top: -4px; width: 3px; height: 18px; margin-left: -1.5px; border-radius: 2px; background: var(--ink); opacity: .55; }
+html .tg-barra__val { grid-area: val; min-width: 46px; text-align: right; }
+html .tg-barra__val b { color: var(--tg); font-size: .95rem; }
+html .tg-barra__det { grid-area: det; display: flex; align-items: center; gap: 8px; color: var(--ink-muted); font-size: .74rem; }
+html .tg-barra__det .tg-chip { height: 20px; font-size: .68rem; }
+
+/* El ranking */
+html .tg-tabla-caja { overflow-x: auto; }
+html .tg-tabla { width: 100%; border-collapse: collapse; font-size: .86rem; }
+html .tg-tabla th, html .tg-tabla td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--line, #E2E8F0); white-space: nowrap; }
+html .tg-tabla thead th { color: var(--ink-muted); font-size: .76rem; font-weight: 600; }
+html .tg-tabla tbody th a { display: inline-flex; align-items: center; color: var(--ink); font-weight: 600; text-decoration: none; }
+html .tg-tabla tr.is-bajo { background: var(--danger-soft, #FEF2F2); }
+html .tg-celda { color: var(--tg) !important; font-weight: 600; }
+html .tg-indice { display: inline-grid; place-items: center; min-width: 40px; height: 28px; padding: 0 8px; border-radius: 999px; background: var(--tg-bg); color: var(--tg); font-weight: 800; }
+html.dark .tg-alerta { background: linear-gradient(135deg, var(--tg-bg) 0%, var(--surface) 70%); }
+@media (max-width: 1100px) { html .tg-paneles { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) {
+  html .tg-alerta { grid-template-columns: auto 1fr; }
+  html .tg-alerta__indice { grid-column: 1 / -1; text-align: left; }
+  html .tg-alerta__frentes { grid-template-columns: minmax(0, 1fr); }
+}

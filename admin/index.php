@@ -57,7 +57,9 @@ UI::cabecera(
     // Botones de vidrio solo con ícono (el nombre, en la ayuda de vidrio) y, el
     // último para que no se corra al cambiar, el control Proyectos | Resumen:
     // el mismo que en resumen.php (estilos: admin.css, «Resumen del dashboard»)
-    '<button type="button" class="rs-boton rs-boton--icono" onclick="document.getElementById(\'dlg-dailies\').showModal()"
+    (Auth::esAdmin() && !$verComo && is_file(__DIR__ . '/tablero_equipos.php')
+        ? '<a class="rs-boton rs-boton--icono" href="tablero_equipos.php" aria-label="Tablero de equipos" data-ds-tip="Tablero de equipos: dailies, avance y revisiones; quién va más bajo">' . UI::icono('ds-dashboard') . '</a>' : '')
+    . '<button type="button" class="rs-boton rs-boton--icono" onclick="document.getElementById(\'dlg-dailies\').showModal()"
              aria-label="Dailies" data-ds-tip="Dailies: a qué hora se junta cada equipo">' . UI::icono('ds-agenda') . '</button>
      <button type="button" class="rs-boton rs-boton--icono rs-boton--primario solo-admin" onclick="document.getElementById(\'dlg-nuevo\').showModal()"
              aria-label="Nuevo proyecto" data-ds-tip="Nuevo proyecto">' . UI::icono('ds-mas') . '</button>
