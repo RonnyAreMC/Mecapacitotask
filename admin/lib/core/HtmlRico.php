@@ -140,6 +140,9 @@ class HtmlRico
      */
     public static function texto(string $html, int $max = 0): string
     {
+        // Un espacio en cada salto de línea, párrafo, viñeta o celda: si no, al quitar las
+        // etiquetas el texto queda pegado («ValidaciónResponsable…»)
+        $html = (string)preg_replace('~<(?:br|/p|/li|/div|/h[1-6]|/tr|/td|/th|/blockquote)\b[^>]*>~i', '$0 ', $html);
         $t = html_entity_decode(strip_tags($html), ENT_QUOTES | ENT_HTML5, 'UTF-8');
         $t = trim((string)preg_replace('/\s+/u', ' ', $t));
         if ($max > 0 && mb_strlen($t) > $max) {

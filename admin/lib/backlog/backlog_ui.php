@@ -131,12 +131,16 @@ function blPestana(array $x): string
     Backlog::arrastrar($hoy);   // lo no terminado de un sprint que ya pasó, al sprint en curso
     $sps = Backlog::sprints();
     $act = Backlog::actual($hoy);
-    $rels = Releases::releases();
+    // Con planificación: sus releases (si tiene); si no tiene, todo junto ($sinRel)
+    $relsPlan = Backlog::releasesPlan($plan);
+    $sinRel = $plan && !$relsPlan;
+    $rels = $plan ? $relsPlan : Releases::releases();
     $epicas = Backlog::epicas($pid);
     // Los releases del proyecto (los de sus ítems); sin ítems, todos
-    $relsP = array_values(array_filter(array_keys($rels), fn($c) => in_array((string)$c, array_column($epicas, 'release'), true))) ?: array_map('strval', array_keys($rels));
+    $relsP = $plan ? array_map('strval', array_keys($relsPlan))
+        : (array_values(array_filter(array_keys($rels), fn($c) => in_array((string)$c, array_column($epicas, 'release'), true))) ?: array_map('strval', array_keys($rels)));
     $r = (string)($_GET['sp_r'] ?? '');
-    if ($plan) {
+    if ($sinRel) {
         $r = '';
     } elseif (!in_array($r, $relsP, true)) {
         $r = '';
@@ -148,10 +152,10 @@ function blPestana(array $x): string
     $url = $x['url'];
     $puede = $x['puede'];
     $todas = Backlog::historias(['proyecto_id' => $pid]);
-    $delRel = $plan ? $todas : array_values(array_filter($todas, fn($h) => $h['release'] === $r || ($h['release'] === '' && $h['sprint'] !== '' && in_array($r, $sps[$h['sprint']]['releases'] ?? [], true))));
+    $delRel = $sinRel ? $todas : array_values(array_filter($todas, fn($h) => $h['release'] === $r || ($h['release'] === '' && $h['sprint'] !== '' && in_array($r, $sps[$h['sprint']]['releases'] ?? [], true))));
     $porSprint = [];
     foreach ($todas as $h) $porSprint[$h['sprint']][] = $h;
-    $spsR = $plan ? $sps : array_filter($sps, fn($s) => in_array($r, $s['releases'], true));
+    $spsR = $sinRel ? $sps : array_filter($sps, fn($s) => in_array($r, $s['releases'], true));
     $tareasPorId = [];
     foreach ($x['tareas'] as $t) $tareasPorId[(int)$t['id']] = $t;
     $ctx = ['puede' => $puede, 'rels' => $rels, 'miembros' => $x['miembros'], 'tareasPorId' => $tareasPorId, 'finales' => Catalogo::estadosFinales()];
@@ -172,7 +176,9 @@ function blPestana(array $x): string
       $optRel = [];
       foreach ($relsP as $c) $optRel[$c] = [$c . ' · ' . (string)($rels[$c]['nombre'] ?? ''), rlF((string)($rels[$c]['inicio'] ?? ''), true) . ' → ' . rlF((string)($rels[$c]['fin'] ?? ''), true)]; ?>
     <?php if ($plan): ?>
-    <div class="bl-rel"><span class="bl-rel__rot">Planificación</span><span class="bl-plan-chip"><?= rlIco('reloj', 15) ?> <?= e($plan['nombre']) ?></span></div>
+    <div class="bl-rel"><span class="bl-rel__rot">Planificación</span><span class="bl-plan-chip"><?= rlIco('reloj', 15) ?> <?= e($plan['nombre']) ?></span>
+      <?php if (!$sinRel): ?><span class="bl-rel__rot">Release</span>
+      <?= UI::selectDS('sp_r', $optRel, $r, ['tam' => 'md', 'aria' => 'Release', 'attrs' => 'data-bl-rel data-url="' . e($url(['sp_r' => '__R__', 'sp_v' => $vista === 'tablero' ? 'tablero' : ''])) . '"']) ?><?php endif; ?></div>
     <?php else: ?>
     <div class="bl-rel"><span class="bl-rel__rot">Release</span>
       <?= UI::selectDS('sp_r', $optRel, $r, ['tam' => 'md', 'aria' => 'Release', 'attrs' => 'data-bl-rel data-url="' . e($url(['sp_r' => '__R__', 'sp_v' => $vista === 'tablero' ? 'tablero' : ''])) . '"']) ?></div>
@@ -189,7 +195,7 @@ function blPestana(array $x): string
   <div class="rl-kpis bl-kpis">
     <?= $sAct ? $kpi('Sprint en curso', e($act), 'azul', e(rlF($sAct['inicio']) . ' → ' . rlF($sAct['fin'])) . ' · quedan ' . (int)$dAct['quedan'] . ' día(s) hábiles') : $kpi('Sprint en curso', '—', 'nm') ?>
     <?= $kpi('Velocidad', $vel['promedio'] !== null ? (int)$vel['promedio'] . '<small> pts</small>' : '—', 'azul', 'por sprint, en los últimos ' . count($vel['sprints'])) ?>
-    <?= $kpi($plan ? 'En el proyecto' : 'En ' . $r, count($delRel) . '<small> historias</small>', 'azul', (int)$ptsRel . ' pts') ?>
+    <?= $kpi($sinRel ? 'En el proyecto' : 'En ' . $r, count($delRel) . '<small> historias</small>', 'azul', (int)$ptsRel . ' pts') ?>
     <?= $kpi('Hecho', $pctHecho !== null ? $pctHecho . '<small>%</small>' : '—', $pctHecho === null ? 'nm' : ($pctHecho >= 80 ? 'ok' : ($pctHecho >= 40 ? 'warn' : 'crit')), (int)$ptsHechos . ' de ' . (int)$ptsRel . ' pts') ?>
     <?= $kpi('Sin estimar', (string)$sinEst, $sinEst ? 'warn' : 'ok', $conf['escala'] === 'camisa' ? 'Talla de camisa' : 'Fibonacci') ?>
   </div>
@@ -200,7 +206,7 @@ function blPestana(array $x): string
 
   <?php /* Qué ver (Backlog o Tablero), junto al encabezado de la lista */ ?>
   <div class="bl-barra">
-    <h3 class="bl-barra__tit"><?= $vista === 'tablero' ? 'Tablero del sprint' : ($plan ? 'Historias por sprint' : 'Historias de ' . e($r) . ' por sprint') ?></h3>
+    <h3 class="bl-barra__tit"><?= $vista === 'tablero' ? 'Tablero del sprint' : ($sinRel ? 'Historias por sprint' : 'Historias de ' . e($r) . ' por sprint') ?></h3>
     <nav class="rs-vista bl-vista" data-rs-vista data-activa="<?= $vista ?>" aria-label="Qué ver">
         <span class="rs-vista__pieza" aria-hidden="true"></span>
         <a class="rs-vista__op" href="<?= e($url(['sp_r' => $r])) ?>" data-vista-op="backlog" aria-label="Backlog" data-ds-tip="Backlog"<?= $vista === 'backlog' ? ' aria-current="page"' : '' ?>><?= UI::icono('ds-lista-espera') ?></a>
@@ -233,7 +239,7 @@ function blPestana(array $x): string
       </ol>
     </details>
     <?php endforeach; ?>
-    <?php $bl = array_values(array_filter($porSprint[''] ?? [], fn($h) => $plan || $h['release'] === $r || $h['release'] === ''));
+    <?php $bl = array_values(array_filter($porSprint[''] ?? [], fn($h) => $sinRel || $h['release'] === $r || $h['release'] === ''));
       $ptsBl = array_sum(array_column($bl, 'puntos')); ?>
     <section class="bl-sec bl-sec--backlog" data-bl-sec>
       <header class="bl-sec__cab">
@@ -265,7 +271,7 @@ function blPestana(array $x): string
     $dS = $sp ? Backlog::dias($sp, $hoy) : ['total' => 0, 'quedan' => 0];
     $pctS = $comp ? (int)round($hecho * 100 / $comp) : null; ?>
   <?php if (!$sp): ?>
-  <p class="bl-vacio"><?= rlIco('info', 16) ?> <?= $plan ? 'Esta planificación todavía no tiene sprints.' : 'Este release todavía no tiene sprints en el calendario.' ?></p>
+  <p class="bl-vacio"><?= rlIco('info', 16) ?> <?= $sinRel ? 'Esta planificación todavía no tiene sprints.' : 'Este release todavía no tiene sprints en el calendario.' ?></p>
   <?php else: ?>
   <div class="bl-tabcab">
     <a class="mc-iconbtn mc-iconbtn--tinte<?= $iTab > 0 ? '' : ' is-off' ?>" href="<?= $iTab > 0 ? e($url(['sp_r' => $r, 'sp_v' => 'tablero', 'sp_s' => $codsR[$iTab - 1]])) : '#' ?>" aria-label="Sprint anterior" data-ds-tip="Sprint anterior"><?= rlIco('chevron-izq', 18) ?></a>
@@ -663,10 +669,12 @@ function blAjustesSprints(): string
 /** Los sprints de una planificación: del, al (último día hábil), días hábiles y los feriados que salta. */
 function blTablaPlan(array $sps, string $act, string $hoy): string
 {
-    $h = '<table class="bl-cal bl-cal--plan"><thead><tr><th scope="col">Sprint</th><th scope="col">Del</th><th scope="col">Al</th><th scope="col">Días hábiles</th><th scope="col">Feriados</th></tr></thead><tbody>';
+    $conRel = (bool)array_filter($sps, fn($s) => !empty($s['releases']));
+    $h = '<table class="bl-cal bl-cal--plan"><thead><tr><th scope="col">Sprint</th>' . ($conRel ? '<th scope="col">Release</th>' : '') . '<th scope="col">Del</th><th scope="col">Al</th><th scope="col">Días hábiles</th><th scope="col">Feriados</th></tr></thead><tbody>';
     foreach ($sps as $cod => $s) {
         $fer = array_map(fn($f, $n) => rlF($f) . ($n !== '' ? ' · ' . $n : ''), array_keys($s['feriados'] ?? []), $s['feriados'] ?? []);
         $h .= '<tr class="is-' . Backlog::momento($s, $hoy) . '"><th scope="row">' . e($cod) . ($cod === $act && $s['inicio'] <= $hoy && $s['fin'] >= $hoy ? ' <span class="bl-badge bl-badge--actual">En curso</span>' : '') . '</th>'
+            . ($conRel ? '<td>' . e(implode(' · ', $s['releases'] ?? []) ?: '—') . '</td>' : '')
             . '<td class="mc-num">' . e(rlF($s['inicio'], true)) . '</td><td class="mc-num">' . e(rlF($s['ultimo'] ?? $s['fin'], true)) . '</td>'
             . '<td class="mc-num">' . (int)($s['habiles'] ?? 0) . '</td><td>' . ($fer ? e(implode(', ', $fer)) : '—') . '</td></tr>';
     }
@@ -712,10 +720,18 @@ function blAjustesPlanes(): string
       </div>
       <div class="mc-field"><span class="mc-field__label">Cada sprint dura</span>
         <div class="rl-seg" role="radiogroup" aria-label="Duración">
-          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="1"<?= (int)($pl['semanas'] ?? 2) === 1 ? ' checked' : '' ?>><span>1 semana · 5 días hábiles</span></label>
-          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="2"<?= (int)($pl['semanas'] ?? 2) === 2 ? ' checked' : '' ?>><span>2 semanas · 10 días hábiles</span></label>
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="1"<?= (int)($pl['semanas'] ?? 2) === 1 ? ' checked' : '' ?>><span>1 semana</span></label>
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="semanas" value="2"<?= (int)($pl['semanas'] ?? 2) === 2 ? ' checked' : '' ?>><span>2 semanas</span></label>
         </div></div>
-      <p class="rl-dlg__nota"><?= rlIco('info', 15) ?> <span>Las fechas salen solas: cada sprint tiene sus días hábiles completos. Si cae un feriado, se alarga un día; si el inicio cae en fin de semana o feriado, empieza el siguiente día hábil.</span></p>
+      <div class="mc-field"><span class="mc-field__label">¿Cómo se cuentan las fechas?</span>
+        <div class="rl-seg" role="radiogroup" aria-label="Cómo se cuentan las fechas">
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="modo" value="habiles"<?= ($pl['modo'] ?? 'habiles') !== 'semanas' ? ' checked' : '' ?>><span>Días hábiles completos</span></label>
+          <label class="rl-seg__op rl-t--azul"><input type="radio" name="modo" value="semanas"<?= ($pl['modo'] ?? '') === 'semanas' ? ' checked' : '' ?>><span>Semanas de calendario</span></label>
+        </div></div>
+      <p class="rl-dlg__nota"><?= rlIco('info', 15) ?> <span><b>Días hábiles completos:</b> cada sprint tiene sus 5 o 10 días hábiles; si cae un feriado, se alarga. <b>Semanas de calendario:</b> cada sprint va de lunes a domingo, como un cronograma por semanas; los feriados se descuentan. En los dos, si el inicio cae en fin de semana o feriado, empieza el siguiente día hábil.</span></p>
+      <?= rlCampo('Releases (opcional)', '<textarea class="input-meca bl-plan-rels" name="releases_txt" rows="3" placeholder="R1 | MVP del CRM | 1-1&#10;R2 | Agentes IA e integración | 2-2">'
+          . e(implode("\n", array_map(fn($r) => $r['codigo'] . ' | ' . $r['nombre'] . ' | ' . $r['desde'] . ($r['hasta'] !== $r['desde'] ? '-' . $r['hasta'] : ''), (array)($pl['releases'] ?? []))))
+          . '</textarea>', 'Uno por línea: código | nombre | sprints que abarca. Son de esta planificación: no se mezclan con los releases generales.') ?>
       <div class="bl-plan-vista" data-bl-plan-vista aria-live="polite"></div>
       <?= rlCampo('Proyectos que la llevan', rlMulti('proyectos[]', $ops((string)($pl['nombre'] ?? '')), $marcados, 'Buscar proyecto…'), 'Un proyecto va con una sola planificación. Sus historias pasan al sprint que cae en las mismas fechas.') ?>
       <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button></footer>
@@ -739,11 +755,13 @@ function blAjustesPlanes(): string
         $primero = $spP ? reset($spP) : null;
         $ultimo = $spP ? end($spP) : null;
         $nFer = array_sum(array_map(fn($s) => count($s['feriados'] ?? []), $spP));
-        $termino = $ultimo && $pl['cantidad'] && $ultimo['fin'] < $hoy; ?>
+        $termino = $ultimo && $pl['cantidad'] && $ultimo['fin'] < $hoy;
+        $relsPl = Backlog::releasesPlan($pl); ?>
       <li class="bl-plan">
         <div class="bl-plan__txt">
           <b><?= e($pl['nombre']) ?></b>
-          <small><?= $pl['cantidad'] ? (int)$pl['cantidad'] . ' sprints' : 'Sprints sin tope' ?> de <?= $pl['semanas'] === 1 ? 'una semana' : 'dos semanas' ?><?= $primero ? ' · del ' . e(rlF($primero['inicio'], true)) . ($pl['cantidad'] && $ultimo ? ' al ' . e(rlF($ultimo['ultimo'], true)) : '') : '' ?><?= $nFer ? ' · salta ' . $nFer . ' feriado(s)' : '' ?><?= $termino ? ' · ya terminó' : ($sA && $sA['inicio'] <= $hoy ? ' · en curso: ' . e($actP) . ' (' . e(rlF($sA['inicio']) . ' → ' . rlF($sA['ultimo'] ?? $sA['fin'])) . ')' : '') ?></small>
+          <small><?= $pl['cantidad'] ? (int)$pl['cantidad'] . ' sprints' : 'Sprints sin tope' ?> de <?= $pl['semanas'] === 1 ? 'una semana' : 'dos semanas' ?><?= $pl['modo'] === 'semanas' ? ' (semanas de calendario)' : '' ?><?= $primero ? ' · del ' . e(rlF($primero['inicio'], true)) . ($pl['cantidad'] && $ultimo ? ' al ' . e(rlF($ultimo['ultimo'], true)) : '') : '' ?><?= $nFer ? ' · salta ' . $nFer . ' feriado(s)' : '' ?><?= $termino ? ' · ya terminó' : ($sA && $sA['inicio'] <= $hoy ? ' · en curso: ' . e($actP) . ' (' . e(rlF($sA['inicio']) . ' → ' . rlF($sA['ultimo'] ?? $sA['fin'])) . ')' : '') ?></small>
+          <?php if ($relsPl): ?><span class="bl-plan__rels"><?php foreach ($relsPl as $rp): ?><span class="bl-plan__rel" style="--rc:<?= e($rp['color']) ?>" data-ds-tip="<?= e($rp['nombre']) ?>"><b><?= e($rp['codigo']) ?></b> <?= e(rlF($rp['inicio']) . ' → ' . rlF($rp['fin'])) ?></span><?php endforeach; ?></span><?php endif; ?>
           <span class="bl-plan__proys"><?php foreach ($pl['proyectos'] as $pid): if (!isset($nombreP[$pid])) continue; ?><a class="bl-plan__proy" href="proyecto.php?id=<?= (int)$pid ?>#vista-sprints"><?= e($nombreP[$pid]) ?></a><?php endforeach; ?>
             <?= !$pl['proyectos'] ? '<em>Sin proyectos</em>' : '' ?></span>
           <?php if ($spP): ?>

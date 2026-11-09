@@ -1863,6 +1863,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         'app-movil'           => 'Apps móviles',
         'emprendimiento'      => 'Emprendimiento y vinculación',
         'procesos'            => 'Procesos · Flujos de trabajo',
+        'crm'                 => 'CRM · Ventas y leads',
     ];
 
     /**
@@ -1871,6 +1872,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
      */
     private const PORTADA_CLAVES = [
         'app-movil'           => ['app movil', ' movil', 'mobile', 'android', ' ios ', ' apk'],
+        'crm'                 => [' crm', 'leads', 'embudo de ventas', 'gestion comercial'],
         'universidad-agraria' => ['agrari', 'agro'],
         'ingles'              => ['ingles', 'english', 'buckingham', 'idioma'],
         'unidad-educativa'    => ['unidad educativa', 'uniebec', 'escuela', 'colegio', 'gestion educativa'],

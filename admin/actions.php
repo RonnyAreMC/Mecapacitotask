@@ -4576,8 +4576,10 @@ switch ($accion) {
                 case 'bl_planificacion_calcular':
                     // La vista previa de la ventana: los sprints con sus fechas, por días hábiles
                     if (!Releases::puedeEditar()) $blFin(false, 'Las planificaciones las configuran los editores de Releases.');
-                    $spCal = Backlog::calcularPlan((string)($_POST['inicio'] ?? ''), (int)($_POST['semanas'] ?? 2), max(0, min(Backlog::MAX_SPRINTS_PLAN, (int)($_POST['cantidad'] ?? 0))));
-                    $blFin(true, '', ['sprints' => array_values(array_map(fn($s) => ['cod' => $s['codigo'], 'inicio' => $s['inicio'], 'ultimo' => $s['ultimo'], 'habiles' => $s['habiles'],
+                    try { $relCal = Backlog::releasesDeTexto((string)($_POST['releases_txt'] ?? '')); } catch (RuntimeException $e) { $relCal = []; }
+                    $spCal = Backlog::calcularPlan((string)($_POST['inicio'] ?? ''), (int)($_POST['semanas'] ?? 2), max(0, min(Backlog::MAX_SPRINTS_PLAN, (int)($_POST['cantidad'] ?? 0))),
+                        ($_POST['modo'] ?? '') === 'semanas' ? 'semanas' : 'habiles', $relCal);
+                    $blFin(true, '', ['sprints' => array_values(array_map(fn($s) => ['cod' => $s['codigo'], 'inicio' => $s['inicio'], 'ultimo' => $s['ultimo'], 'habiles' => $s['habiles'], 'releases' => $s['releases'],
                         'feriados' => array_map(fn($f, $nom) => ['fecha' => $f, 'nombre' => $nom], array_keys($s['feriados']), $s['feriados'])], $spCal))]);
 
                 case 'bl_planificacion_borrar':

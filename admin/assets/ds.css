@@ -6918,3 +6918,10 @@ html .bl-plan__sprints { margin-top: 6px; }
 html .bl-plan__sprints > summary { cursor: pointer; width: fit-content; color: var(--primary-ink); font-size: .8rem; font-weight: 600; }
 html .bl-plan__sprints[open] > summary { margin-bottom: 8px; }
 html .bl-plan__sprints .bl-cal { background: var(--surface); border-radius: 10px; overflow: hidden; box-shadow: 0 0 0 1px var(--line); }
+
+/* Los releases de una planificación aparte (en su fila de Ajustes → Sprints) */
+html .bl-plan__rels { display: flex; flex-wrap: wrap; gap: 6px; }
+html .bl-plan__rel { display: inline-flex; align-items: center; gap: 6px; height: 24px; padding: 0 10px; border-radius: 999px; font-size: .76rem; color: var(--ink-muted);
+  background: color-mix(in srgb, var(--rc, #2563EB) 10%, var(--surface)); }
+html .bl-plan__rel b { color: var(--rc, #2563EB); }
+html .bl-plan-rels { font-family: var(--font-mono, ui-monospace, monospace); font-size: .82rem; }

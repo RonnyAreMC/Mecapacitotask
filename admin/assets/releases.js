@@ -1146,23 +1146,25 @@
     const ini = (f.querySelector('[name="inicio"]') || {}).value || '';
     const sem = (f.querySelector('[name="semanas"]:checked') || {}).value || '2';
     const cant = (f.querySelector('[name="cantidad"]') || {}).value || '';
+    const modo = (f.querySelector('[name="modo"]:checked') || {}).value || 'habiles';
+    const rels = (f.querySelector('[name="releases_txt"]') || {}).value || '';
     if (!ini) { caja.innerHTML = ''; return; }
     try {
-      const j = await post('bl_planificacion_calcular', { inicio: ini, semanas: sem, cantidad: cant || 0 });
+      const j = await post('bl_planificacion_calcular', { inicio: ini, semanas: sem, cantidad: cant || 0, modo, releases_txt: rels });
       const sps = (j && j.sprints) || [];
       if (!sps.length) { caja.innerHTML = ''; return; }
       const nFer = sps.reduce((n, s) => n + s.feriados.length, 0);
       caja.innerHTML = '<p class="bl-plan-vista__res"><b>' + sps.length + ' sprint(s)' + (cant ? '' : ' (sin tope: hasta doce semanas desde hoy)') + '</b> · del ' + fechaCorta(sps[0].inicio)
         + ' al ' + fechaCorta(sps[sps.length - 1].ultimo) + (nFer ? ' · salta ' + nFer + ' feriado(s)' : ' · sin feriados') + '</p>'
-        + '<div class="bl-plan-vista__tabla"><table class="bl-cal bl-cal--plan"><thead><tr><th>Sprint</th><th>Del</th><th>Al</th><th>Días hábiles</th><th>Feriados</th></tr></thead><tbody>'
-        + sps.map((s) => '<tr><th scope="row">' + esc(s.cod) + '</th><td class="mc-num">' + fechaCorta(s.inicio) + '</td><td class="mc-num">' + fechaCorta(s.ultimo) + '</td><td class="mc-num">' + s.habiles + '</td><td>'
+        + '<div class="bl-plan-vista__tabla"><table class="bl-cal bl-cal--plan"><thead><tr><th>Sprint</th>' + (sps.some((s) => (s.releases || []).length) ? '<th>Release</th>' : '') + '<th>Del</th><th>Al</th><th>Días hábiles</th><th>Feriados</th></tr></thead><tbody>'
+        + sps.map((s) => '<tr><th scope="row">' + esc(s.cod) + '</th>' + (sps.some((x) => (x.releases || []).length) ? '<td>' + esc((s.releases || []).join(' · ') || '—') + '</td>' : '') + '<td class="mc-num">' + fechaCorta(s.inicio) + '</td><td class="mc-num">' + fechaCorta(s.ultimo) + '</td><td class="mc-num">' + s.habiles + '</td><td>'
           + (s.feriados.length ? esc(s.feriados.map((x) => fechaCorta(x.fecha).slice(0, 5) + (x.nombre ? ' · ' + x.nombre : '')).join(', ')) : '—') + '</td></tr>').join('')
         + '</tbody></table></div>';
     } catch (err) { caja.innerHTML = '<p class="bl-plan-vista__res">' + esc(err.message || 'No se pudo calcular.') + '</p>'; }
   }
   ['input', 'change'].forEach((tipo) => document.addEventListener(tipo, (e) => {
     const f = e.target.closest && e.target.closest('[data-bl-plan-form]');
-    if (!f || !['inicio', 'semanas', 'cantidad'].includes(e.target.name)) return;
+    if (!f || !['inicio', 'semanas', 'cantidad', 'modo', 'releases_txt'].includes(e.target.name)) return;
     clearTimeout(planT);
     planT = setTimeout(() => planVista(f), 250);
   }));
