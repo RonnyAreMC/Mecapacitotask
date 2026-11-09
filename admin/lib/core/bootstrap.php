@@ -824,8 +824,8 @@ function puedeVerDeploys(): bool
     // Equipos completos: el administrador marca "Analistas" y todos los
     // analistas lo ven, sin ir persona por persona.
     if ($cfg['equipos']) {
-        $miEquipo = MiembroRepo::equipoDe((array)(Auth::usuario() ?? []));
-        if (in_array($miEquipo, $cfg['equipos'], true)) return true;
+        // En cualquiera de sus equipos
+        if (array_intersect(MiembroRepo::equiposDe((array)(Auth::usuario() ?? [])), $cfg['equipos'])) return true;
     }
     if (!$cfg['ver_po']) return false;
 

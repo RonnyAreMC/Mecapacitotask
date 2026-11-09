@@ -6925,3 +6925,10 @@ html .bl-plan__rel { display: inline-flex; align-items: center; gap: 6px; height
   background: color-mix(in srgb, var(--rc, #2563EB) 10%, var(--surface)); }
 html .bl-plan__rel b { color: var(--rc, #2563EB); }
 html .bl-plan-rels { font-family: var(--font-mono, ui-monospace, monospace); font-size: .82rem; }
+
+/* Los equipos de una persona: casillas en fila (puede estar en varios) */
+html .pp-equipos { display: flex; flex-wrap: wrap; gap: 8px 16px; padding: 6px 0 2px; }
+html .campo-equipos > span small { color: var(--ink-muted); font-weight: 500; }
+/* Organizar equipos: «También en…» y las dos partes del menú */
+html .eqo-persona__otros { color: var(--primary-ink) !important; font-weight: 600; }
+html .eqo-menu__quitar { color: var(--danger-ink); }

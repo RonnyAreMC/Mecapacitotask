@@ -743,7 +743,9 @@ class MiembroRepo
             'email'      => filter_var(trim($datos['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'foto'       => $datos['foto'] ?? '',
             'color'      => Catalogo::colorEntrada($datos),
-            'equipo'     => self::equipoValido($datos['equipo'] ?? ''),
+            // Puede estar en varios equipos; 'equipo' es el primero (el principal)
+            'equipos'    => $eqs = self::equiposEntrada($datos['equipos'] ?? ($datos['equipo'] ?? '')),
+            'equipo'     => $eqs[0],
         ]);
     }
 
@@ -788,10 +790,42 @@ class MiembroRepo
         return in_array($equipo, $claves, true) ? $equipo : $claves[0];
     }
 
-    /** Equipo del miembro (miembros antiguos sin campo caen al primero). */
+    /** Equipo principal del miembro (el primero de los suyos; miembros antiguos sin campo caen al primero del catálogo). */
     public static function equipoDe(array $m): string
     {
-        return self::equipoValido($m['equipo'] ?? '');
+        return self::equiposDe($m)[0];
+    }
+
+    /**
+     * Todos los equipos de una persona: puede ser PO, diseñadora y programadora a
+     * la vez. Los de antes (un solo 'equipo') siguen valiendo.
+     */
+    public static function equiposDe(array $m): array
+    {
+        $claves = array_keys(Catalogo::equipos());
+        $lista = array_values(array_unique(array_filter(array_map('strval', (array)($m['equipos'] ?? [])), fn($k) => in_array($k, $claves, true))));
+        return $lista ?: [self::equipoValido($m['equipo'] ?? '')];
+    }
+
+    /** ¿Está en ese equipo (aunque no sea el principal)? */
+    public static function enEquipo(array $m, string $equipo): bool
+    {
+        return in_array($equipo, self::equiposDe($m), true);
+    }
+
+    /** Lo que llega del formulario (las casillas equipos[] o un solo equipo): claves válidas, sin repetir, al menos una. */
+    public static function equiposEntrada($v): array
+    {
+        $claves = array_keys(Catalogo::equipos());
+        $lista = array_values(array_unique(array_filter(array_map('strval', is_array($v) ? $v : [$v]), fn($k) => in_array($k, $claves, true))));
+        return $lista ?: [$claves[0]];
+    }
+
+    /** Los nombres de sus equipos, juntos: «Programadores · Diseñadores». */
+    public static function etiquetaEquipos(array $m): string
+    {
+        $cat = Catalogo::equipos();
+        return implode(' · ', array_map(fn($k) => (string)($cat[$k][0] ?? $k), self::equiposDe($m)));
     }
 
 

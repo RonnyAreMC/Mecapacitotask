@@ -492,7 +492,7 @@ final class Cronograma
         }
         foreach ((new MiembroRepo())->todos() as $m) {
             $acc = MiembroRepo::accesosDe($m);
-            if (in_array('admin', $acc, true) || ($todos && $cfg['equipos'] && in_array(MiembroRepo::equipoDe($m), $cfg['equipos'], true))) $ids[] = (int)$m['id'];
+            if (in_array('admin', $acc, true) || ($todos && $cfg['equipos'] && array_intersect(MiembroRepo::equiposDe($m), $cfg['equipos']))) $ids[] = (int)$m['id'];
         }
         return array_values(array_unique(array_filter(array_map('intval', $ids), fn($i) => $i > 0)));
     }
@@ -521,7 +521,7 @@ final class Cronograma
         $id = (int)$m['id'];
         $acc = MiembroRepo::accesosDe($m);
         if (in_array('admin', $acc, true) || in_array($id, $cfg['encargados'], true) || in_array($id, $cfg['visores'], true)) return true;
-        if ($cfg['equipos'] && in_array(MiembroRepo::equipoDe($m), $cfg['equipos'], true)) return true;
+        if ($cfg['equipos'] && array_intersect(MiembroRepo::equiposDe($m), $cfg['equipos'])) return true;
         if (!$cfg['ver_po']) return false;
         if (in_array('scrum', $acc, true)) return true;
         foreach ((new ProyectoRepo())->todos() as $p) {

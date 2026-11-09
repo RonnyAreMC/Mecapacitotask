@@ -74,7 +74,7 @@ final class PedidoRepo
     {
         $mid = (int)($yo['id'] ?? 0);
         if ((int)($p['para_id'] ?? 0) > 0) return (int)$p['para_id'] === $mid || (int)($p['tomado_por'] ?? 0) === $mid;
-        return MiembroRepo::equipoDe($yo) === ($p['para_equipo'] ?? '') || (int)($p['tomado_por'] ?? 0) === $mid;
+        return MiembroRepo::enEquipo($yo, (string)($p['para_equipo'] ?? '')) || (int)($p['tomado_por'] ?? 0) === $mid;
     }
 
     /** ¿Puede verlo? Quien lo pidió, el equipo que lo recibe y el administrador. */
@@ -89,7 +89,7 @@ final class PedidoRepo
         if ((int)($p['para_id'] ?? 0) > 0) return [(int)$p['para_id']];
         $ids = [];
         foreach ($miembros->todos() as $m) {
-            if (MiembroRepo::equipoDe($m) === ($p['para_equipo'] ?? '') && !MiembroRepo::tieneAcceso($m, 'supervisor')) {
+            if (MiembroRepo::enEquipo($m, (string)($p['para_equipo'] ?? '')) && !MiembroRepo::tieneAcceso($m, 'supervisor')) {
                 $ids[] = (int)$m['id'];
             }
         }

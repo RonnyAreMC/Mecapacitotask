@@ -664,9 +664,10 @@ function poRelevoValido(int $id, int $principal, MiembroRepo $miembros): int
 
 function poAnalistaValido(int $id, MiembroRepo $miembros): int
 {
+    // El PO puede ser cualquiera del equipo (antes, solo los de Analistas): una
+    // persona puede ser PO, diseñadora y programadora a la vez
     if ($id <= 0) return 0;
-    $m = $miembros->buscar($id);
-    return ($m && MiembroRepo::equipoDe($m) === 'analistas') ? $id : 0;
+    return $miembros->buscar($id) ? $id : 0;
 }
 
 /**
@@ -960,7 +961,7 @@ switch ($accion) {
         $paraIdPed = (int)($_POST['para_id'] ?? 0);
         if ($paraIdPed > 0) {
             $mPed = $miembros->buscar($paraIdPed);
-            if (!$mPed || MiembroRepo::equipoDe($mPed) !== $paraEquipo) $paraIdPed = 0;
+            if (!$mPed || !MiembroRepo::enEquipo($mPed, $paraEquipo)) $paraIdPed = 0;
         }
         $pidPed = (int)($_POST['proyecto_id'] ?? 0);
         if ($pidPed > 0 && (!$proyectos->buscar($pidPed) || !puedeVerProyecto($pidPed))) $pidPed = 0;
@@ -2965,7 +2966,9 @@ switch ($accion) {
             'email'    => filter_var(trim($_POST['email'] ?? ''), FILTER_VALIDATE_EMAIL) ?: '',
             'telefono' => telefonoEntrada($_POST['telefono'] ?? ''),
             'color'    => Catalogo::colorEntrada($_POST),
-            'equipo'   => MiembroRepo::equipoValido($_POST['equipo'] ?? ''),
+            // Sus equipos (puede estar en varios); 'equipo' es el primero
+            'equipos'  => $eqsEd = MiembroRepo::equiposEntrada($_POST['equipos'] ?? ($_POST['equipo'] ?? '')),
+            'equipo'   => $eqsEd[0],
             // OJO: editar los datos NO toca el 'acceso'. Se conserva el que ya
             // tenía; el acceso se cambia solo desde la columna «Acceso» de la
             // tabla (miembro_acceso_set). Antes, al no venir bien en el form, un
@@ -2983,7 +2986,9 @@ switch ($accion) {
             $cambios['foto'] = $foto;
         }
         $miembros->actualizar($id, $cambios);
-        redirigir('equipo.php?e=' . $cambios['equipo'], 'Colaborador actualizado.');
+        // Se vuelve al equipo desde donde se editó, si sigue en él
+        $volverEqEd = (string)($_POST['desde_equipo'] ?? '');
+        redirigir('equipo.php?e=' . (in_array($volverEqEd, $cambios['equipos'], true) ? $volverEqEd : $cambios['equipo']), 'Colaborador actualizado.');
 
     case 'tareas_correo_crear':
         // Las tareas que el administrador revisó en el modal del correo (assets/ia.js).
@@ -3075,34 +3080,41 @@ switch ($accion) {
         if (!isset($equiposEq[$destEq])) $finEq(false, 'Ese equipo ya no existe: recarga la página.');
         $idsEq = array_values(array_unique(array_filter(array_map('intval', (array)($_POST['ids'] ?? [])))));
         if (!$idsEq) $finEq(false, 'Elige a quién mover.');
+        // Una persona puede estar en varios equipos:
+        //  - 'mover' (lo de siempre): el equipo de donde se arrastró ('desde') pasa a ser el de destino;
+        //    sin 'desde', queda solo en el de destino.
+        //  - 'sumar': además del que tenía, también en el de destino.
+        //  - 'quitar': sale del equipo 'desde' (si le queda otro).
+        $modoEq = in_array($_POST['modo'] ?? '', ['sumar', 'quitar'], true) ? (string)$_POST['modo'] : 'mover';
+        $desdeEq = (string)($_POST['desde'] ?? '');
         $movidosEq = [];
-        $sigueDePO = [];
-        $proyectosEq = null;
         foreach ($idsEq as $idEq) {
             $mEq = $miembros->buscar($idEq);
             if (!$mEq) continue;
-            $antesEq = MiembroRepo::equipoDe($mEq);
-            if ($antesEq === $destEq) continue;
-            $miembros->actualizar($idEq, ['equipo' => $destEq]);
-            $movidosEq[] = ['id' => $idEq, 'nombre' => (string)$mEq['nombre'], 'antes' => $antesEq];
-            // El PO se elige entre los analistas: quien sale de ahí sigue de PO
-            // en sus proyectos hasta que alguien lo cambie (se avisa, no se toca)
-            if ($antesEq === 'analistas') {
-                $proyectosEq ??= $proyectos->todos();
-                foreach ($proyectosEq as $pEq) {
-                    if (esPOde($pEq, $idEq)) $sigueDePO[(string)$pEq['nombre']] = true;
-                }
+            $antesEq = MiembroRepo::equiposDe($mEq);
+            if ($modoEq === 'sumar') {
+                $nuevosEq = in_array($destEq, $antesEq, true) ? $antesEq : array_merge($antesEq, [$destEq]);
+            } elseif ($modoEq === 'quitar') {
+                $nuevosEq = array_values(array_diff($antesEq, [$desdeEq]));
+                if (!$nuevosEq) $finEq(false, $mEq['nombre'] . ' no puede quedarse sin equipo: muévelo a otro en vez de quitarlo.');
+            } elseif ($desdeEq !== '' && in_array($desdeEq, $antesEq, true)) {
+                $nuevosEq = array_values(array_unique(array_map(fn($k) => $k === $desdeEq ? $destEq : $k, $antesEq)));
+            } else {
+                $nuevosEq = [$destEq];
             }
+            if ($nuevosEq === $antesEq) continue;
+            $miembros->actualizar($idEq, ['equipos' => $nuevosEq, 'equipo' => $nuevosEq[0]]);
+            $movidosEq[] = ['id' => $idEq, 'nombre' => (string)$mEq['nombre'], 'antes' => $antesEq, 'equipos' => $nuevosEq];
         }
         $nombreDest = $equiposEq[$destEq][0];
-        if (!$movidosEq) $finEq(true, 'Ya estaba en ' . $nombreDest . '.', ['movidos' => []]);
-        $msgEq = count($movidosEq) === 1
-            ? $movidosEq[0]['nombre'] . ' pasó a ' . $nombreDest . '.'
-            : count($movidosEq) . ' personas pasaron a ' . $nombreDest . '.';
-        $notaEq = $sigueDePO
-            ? 'Sigue como PO de «' . implode('», «', array_keys($sigueDePO)) . '»: cámbialo en el proyecto si ya no corresponde.'
-            : '';
-        $finEq(true, $msgEq . ($notaEq !== '' && !$ajaxEq ? ' ' . $notaEq : ''), ['movidos' => $movidosEq, 'nota' => $notaEq, 'equipo' => $destEq, 'etiqueta' => $nombreDest]);
+        if (!$movidosEq) $finEq(true, $modoEq === 'quitar' ? 'No estaba en ese equipo.' : 'Ya estaba en ' . $nombreDest . '.', ['movidos' => []]);
+        $uno = count($movidosEq) === 1 ? $movidosEq[0]['nombre'] : count($movidosEq) . ' personas';
+        $msgEq = match ($modoEq) {
+            'sumar'  => $uno . (count($movidosEq) === 1 ? ' también está' : ' también están') . ' en ' . $nombreDest . '.',
+            'quitar' => $uno . ' ya no ' . (count($movidosEq) === 1 ? 'está' : 'están') . ' en ' . ($equiposEq[$desdeEq][0] ?? 'ese equipo') . '.',
+            default  => $uno . (count($movidosEq) === 1 ? ' pasó' : ' pasaron') . ' a ' . $nombreDest . '.',
+        };
+        $finEq(true, $msgEq, ['movidos' => $movidosEq, 'equipo' => $destEq, 'etiqueta' => $nombreDest, 'modo' => $modoEq]);
 
     case 'supervisor_proyectos':
         // El admin define qué proyectos ve un supervisor (solo esos, nada más).
@@ -3417,8 +3429,9 @@ switch ($accion) {
         $eqk = array_keys($equiposCat);
         $storeMiembros = new JsonStore('miembros');
         foreach ($storeMiembros->all() as $m) {
-            if (!in_array($m['equipo'] ?? '', $eqk, true)) {
-                $storeMiembros->update((int)$m['id'], ['equipo' => $eqk[0]]);
+            $eqsM = array_values(array_filter((array)($m['equipos'] ?? [$m['equipo'] ?? '']), fn($k) => in_array($k, $eqk, true))) ?: [$eqk[0]];
+            if (!in_array($m['equipo'] ?? '', $eqk, true) || $eqsM !== (array)($m['equipos'] ?? [])) {
+                $storeMiembros->update((int)$m['id'], ['equipo' => in_array($m['equipo'] ?? '', $eqsM, true) ? $m['equipo'] : $eqsM[0], 'equipos' => $eqsM]);
             }
         }
         redirigir('ajustes.php', 'Ajustes guardados. ¡El panel ya usa tu configuración!');

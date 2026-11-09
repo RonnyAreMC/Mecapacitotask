@@ -184,7 +184,7 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
             'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
             'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '', 'telefono' => $m['telefono'] ?? '',
             'acceso' => $m['acceso'] ?? 'lector',
-            'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq,
+            'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq, 'equipos' => MiembroRepo::equiposDe($m),
         ], JSON_UNESCAPED_UNICODE)) ?>'>
         <i class="fa-solid fa-pen"></i> Editar
       </button>

@@ -718,7 +718,7 @@ function correoDirectorio(int $mid, string $yoMail): array
     foreach ((new MiembroRepo())->todos() as $m) {
         $email = $sinc[(int)$m['id']] ?? strtolower(trim((string)($m['email'] ?? '')));
         if ($email === '' || $email === $yoMail || !filter_var($email, FILTER_VALIDATE_EMAIL) || isset($equipo[$email])) continue;
-        $desc = array_filter([trim((string)($m['rol'] ?? '')), $equipos[$m['equipo'] ?? ''][0] ?? '']);
+        $desc = array_filter([trim((string)($m['rol'] ?? '')), MiembroRepo::etiquetaEquipos($m)]);
         $equipo[$email] = [
             'n' => trim((string)($m['nombre'] ?? '')),
             'e' => $email,

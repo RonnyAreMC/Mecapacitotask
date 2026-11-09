@@ -42,10 +42,15 @@ if (!function_exists('camposPersona')) {
             </div>
             <small class="campo-ayuda">Su usuario de GitHub/GitLab. Si usa varios, sepáralos con coma.</small>
           </label>
-          <label class="campo">
-            <span>Equipo</span>
-            <?= UI::select('equipo', $opcionesEquipo, $eqActual) ?>
-          </label>
+          <div class="campo campo-equipos">
+            <span>Equipos <small>(puede estar en varios: PO, diseño y programación a la vez)</small></span>
+            <div class="pp-equipos" data-pp-equipos>
+              <?php foreach ($opcionesEquipo as $kEq => $lEq): ?>
+              <?= UI::checkDS('equipos[]', $kEq === $eqActual, (string)$lEq, '', 'pp-equipo', (string)$kEq) ?>
+              <?php endforeach; ?>
+            </div>
+            <input type="hidden" name="desde_equipo" value="<?= e($eqActual) ?>">
+          </div>
         </div>
         <div class="campo">
           <span>Correos de Git (para cruzar sus commits)</span>

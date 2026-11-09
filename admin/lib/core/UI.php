@@ -603,7 +603,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         $otro = '';
         foreach (array_keys($equipos) as $k) if ($k !== $miEquipo) { $otro = $k; break; }
         $optEquipos = [];
-        foreach ($equipos as $k => [$l]) $optEquipos[$k] = [$l, $k === $miEquipo ? 'Tu equipo' : ''];
+        foreach ($equipos as $k => [$l]) $optEquipos[$k] = [$l, MiembroRepo::enEquipo($yo, $k) ? 'Tu equipo' : ''];
         $porEquipo = [];
         foreach ((new MiembroRepo())->todos() as $m) {
             if ((int)$m['id'] === (int)$yo['id'] || MiembroRepo::tieneAcceso($m, 'supervisor')) continue;
@@ -749,7 +749,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
       <?php foreach ($miembros as $m):
           $mid = (int)$m['id'];
           $c1 = Catalogo::colorDe($m['color'] ?? 0);
-          $eqLabel = $equipos[MiembroRepo::equipoDe($m)][0] ?? '';
+          $eqLabel = MiembroRepo::etiquetaEquipos($m);
       ?>
       <a class="vc-card <?= $actual && (int)$actual['id'] === $mid ? 'active' : '' ?>"
          style="--av-c1:<?= $c1 ?>" href="<?= e(urlConVerComo($mid)) ?>">

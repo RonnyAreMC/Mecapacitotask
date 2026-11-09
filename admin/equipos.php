@@ -13,8 +13,9 @@ Auth::requiereAdmin();
 
 $equipos = Catalogo::equipos();
 $porEquipo = array_fill_keys(array_keys($equipos), []);
+// Quien está en varios equipos sale en cada uno (con «también en…»)
 foreach ((new MiembroRepo())->todos() as $m) {
-    $porEquipo[MiembroRepo::equipoDe($m)][] = $m;
+    foreach (MiembroRepo::equiposDe($m) as $kEq) $porEquipo[$kEq][] = $m;
 }
 foreach ($porEquipo as &$lista) {
     usort($lista, fn($a, $b) => strnatcasecmp((string)$a['nombre'], (string)$b['nombre']));
@@ -34,7 +35,7 @@ $icoEq = fn(string $clave, string $icono, int $i): string =>
 UI::inicio('Organizar equipos', $desde !== '' ? 'equipo-' . $desde : 'equipos');
 UI::cabecera(
     'Organizar <span class="text-secondary">equipos</span>',
-    'Arrastra a cada persona a la columna de su equipo: se guarda al soltarla.',
+    'Arrastra a cada persona a la columna de su equipo: se guarda al soltarla. Con <b>Ctrl</b> (o <b>Alt</b>) presionado se suma a ese equipo sin salir del suyo: una persona puede estar en varios.',
     $desde !== ''
         ? UI::volver('equipo.php?e=' . $desde, 'Volver a ' . $equipos[$desde][0])
         : '',
@@ -64,7 +65,9 @@ UI::cabecera(
             data-buscar="<?= e(mb_strtolower($m['nombre'] . ' ' . ($m['rol'] ?? '') . ' ' . ($m['email'] ?? ''))) ?>">
           <span class="eqo-persona__asa" aria-hidden="true"><?= UI::iconoDS('arrastrar', 16) ?></span>
           <?= UI::avatar($m, 34) ?>
-          <span class="eqo-persona__txt"><b><?= e($m['nombre']) ?></b><small><?= e(($m['rol'] ?? '') !== '' ? $m['rol'] : 'Sin rol') ?></small></span>
+          <?php $otrosEq = array_values(array_filter(MiembroRepo::equiposDe($m), fn($k) => $k !== $clave)); ?>
+          <span class="eqo-persona__txt"><b><?= e($m['nombre']) ?></b><small><?= e(($m['rol'] ?? '') !== '' ? $m['rol'] : 'Sin rol') ?></small>
+            <?php if ($otrosEq): ?><small class="eqo-persona__otros">También en <?= e(implode(' y ', array_map(fn($k) => (string)($equipos[$k][0] ?? $k), $otrosEq))) ?></small><?php endif; ?></span>
           <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm eqo-mover" data-eqo-mover aria-haspopup="menu"
                   aria-label="Mover a <?= e($m['nombre']) ?> a otro equipo" data-ds-tip="Mover a otro equipo"><?= UI::iconoDS('transferencia', 16) ?><span class="mc-btn__label">Mover a</span></button>
         </li>
@@ -85,6 +88,15 @@ UI::cabecera(
     <?= $icoEq($clave, $icono, $i) ?><?= e($etiqueta) ?>
   </button>
   <?php $i++; endforeach; ?>
+  <p class="eqo-menu__t">Sumar también a</p>
+  <?php $i = 0; foreach ($equipos as $clave => [$etiqueta, $icono]): ?>
+  <button type="button" role="menuitem" class="eqo-menu__op" data-eqo-sumar="<?= e($clave) ?>">
+    <?= $icoEq($clave, $icono, $i) ?><?= e($etiqueta) ?>
+  </button>
+  <?php $i++; endforeach; ?>
+  <button type="button" role="menuitem" class="eqo-menu__op eqo-menu__quitar" data-eqo-quitar>
+    <?= UI::iconoDS('cerrar', 16) ?> Quitar de este equipo
+  </button>
 </div>
 
 <script>
@@ -112,17 +124,39 @@ UI::cabecera(
     pintar();
   };
 
+  /** ¿Ya está esa persona en esa columna? (quien está en varios equipos tiene una tarjeta en cada uno) */
+  const yaEn = (col, id, menos) => [...col.querySelectorAll('[data-eqo-id="' + id + '"]')].find((x) => x !== menos);
+
+  /** Lo mismo que «guardar», pero para sumar o quitar sin mover (la página se recarga para pintar el «también en») */
+  const cambiar = async (card, modo, destino) => {
+    const fd = new FormData();
+    fd.append('accion', 'equipo_mover');
+    fd.append('ajax', '1');
+    fd.append('modo', modo);
+    fd.append('equipo', destino);
+    fd.append('desde', card.closest('[data-eqo-col]').dataset.eqoCol);
+    fd.append('ids[]', card.dataset.eqoId);
+    let d = null;
+    try { d = await (await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin' })).json(); } catch (e) { d = null; }
+    if (!d || !d.ok) { aviso(d && d.mensaje ? d.mensaje : 'No se pudo guardar el cambio', 'error'); return; }
+    aviso(d.mensaje, 'success');
+    setTimeout(() => location.reload(), 700);
+  };
+
   /** Mueve a la persona y lo guarda; si falla, vuelve a su columna */
   const mover = async (card, destino, deshaciendo = false) => {
     const origen = card.closest('[data-eqo-col]');
     const col = colDe(destino);
     if (!col || col === origen || card.classList.contains('is-guardando')) return;
+    // Si ya estaba también en el de destino, solo sale del de origen
+    const repetida = yaEn(col, card.dataset.eqoId, card);
     colocar(card, col);
     card.classList.add('is-guardando');
     const fd = new FormData();
     fd.append('accion', 'equipo_mover');
     fd.append('ajax', '1');
     fd.append('equipo', destino);
+    fd.append('desde', origen.dataset.eqoCol);
     fd.append('ids[]', card.dataset.eqoId);
     let d = null;
     try {
@@ -135,10 +169,11 @@ UI::cabecera(
       aviso(d && d.mensaje ? d.mensaje : 'No se pudo guardar el cambio', 'error', { desc: d ? undefined : 'Revisa tu conexión o recarga la página.' });
       return;
     }
-    if (window.MC && MC.estrenar) MC.estrenar(card);
+    if (repetida) { card.remove(); pintar(); }
+    else if (window.MC && MC.estrenar) MC.estrenar(card);
     const op = {};
     if (d.nota) op.desc = d.nota;
-    if (!deshaciendo) op.accion = { texto: 'Deshacer', fn: () => mover(card, origen.dataset.eqoCol, true) };
+    if (!deshaciendo && !repetida) op.accion = { texto: 'Deshacer', fn: () => mover(card, origen.dataset.eqoCol, true) };
     aviso(d.mensaje, 'success', op);
   };
 
@@ -170,7 +205,10 @@ UI::cabecera(
     col.addEventListener('drop', (e) => {
       e.preventDefault();
       col.classList.remove('is-sobre');
-      if (arrastrada) mover(arrastrada, col.dataset.eqoCol);
+      if (!arrastrada) return;
+      // Con Ctrl, Alt o Cmd: se suma a ese equipo sin salir del suyo
+      if ((e.ctrlKey || e.altKey || e.metaKey) && arrastrada.closest('[data-eqo-col]') !== col) cambiar(arrastrada, 'sumar', col.dataset.eqoCol);
+      else mover(arrastrada, col.dataset.eqoCol);
     });
   });
 
@@ -190,6 +228,11 @@ UI::cabecera(
     deQuien = card;
     const actual = card.closest('[data-eqo-col]').dataset.eqoCol;
     menu.querySelectorAll('[data-eqo-a]').forEach((o) => { o.hidden = o.dataset.eqoA === actual; });
+    // «Sumar también a»: los equipos donde todavía no está; «Quitar»: solo si está en más de uno
+    const suyos = cols.filter((c) => c.querySelector('[data-eqo-id="' + card.dataset.eqoId + '"]')).map((c) => c.dataset.eqoCol);
+    menu.querySelectorAll('[data-eqo-sumar]').forEach((o) => { o.hidden = suyos.includes(o.dataset.eqoSumar); });
+    const q = menu.querySelector('[data-eqo-quitar]');
+    if (q) q.hidden = suyos.length < 2;
     menu.hidden = false;
     b.setAttribute('aria-expanded', 'true');
     // Debajo del botón; si no cabe, encima
@@ -235,3 +278,29 @@ UI::cabecera(
 })();
 </script>
 <?php UI::fin(); ?>
+<script>
+// «Sumar también a» y «Quitar de este equipo» en el menú de cada persona (equipos.php)
+(() => {
+  const menu = document.querySelector('[data-eqo-menu]');
+  if (!menu) return;
+  menu.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-eqo-sumar], [data-eqo-quitar]');
+    if (!b) return;
+    const abierta = document.querySelector('[data-eqo-mover][aria-expanded="true"]');
+    const card = abierta && abierta.closest('[data-eqo-id]');
+    menu.hidden = true;
+    if (!card) return;
+    const fd = new FormData();
+    fd.append('accion', 'equipo_mover');
+    fd.append('ajax', '1');
+    fd.append('modo', b.dataset.eqoSumar ? 'sumar' : 'quitar');
+    fd.append('desde', card.closest('[data-eqo-col]').dataset.eqoCol);
+    fd.append('equipo', b.dataset.eqoSumar || card.closest('[data-eqo-col]').dataset.eqoCol);
+    fd.append('ids[]', card.dataset.eqoId);
+    let d = null;
+    try { d = await (await fetch('actions.php', { method: 'POST', body: fd, credentials: 'same-origin' })).json(); } catch (_) { d = null; }
+    if (window.MC && MC.toast) MC.toast(d && d.mensaje ? d.mensaje : 'No se pudo guardar el cambio', d && d.ok ? 'success' : 'error', 4000);
+    if (d && d.ok) setTimeout(() => location.reload(), 700);
+  });
+})();
+</script>

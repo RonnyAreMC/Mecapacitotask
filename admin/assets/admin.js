@@ -3718,6 +3718,12 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     if (telEl) telEl.value = String(m.telefono || '').replace(/\D/g, '');
     const selEquipo = form.querySelector('[name="equipo"]');
     if (selEquipo && m.equipo) setSelect(selEquipo, m.equipo);
+    // Sus equipos (puede estar en varios): se marcan las casillas y se repintan
+    const eqs = Array.isArray(m.equipos) && m.equipos.length ? m.equipos : [m.equipo];
+    form.querySelectorAll('[name="equipos[]"]').forEach((c) => {
+      c.checked = eqs.includes(c.value);
+      c.dispatchEvent(new Event('change', { bubbles: true }));
+    });
     const selAcceso = form.querySelector('[name="acceso"]');
     if (selAcceso && m.acceso) setSelect(selAcceso, m.acceso);   // sin esto el admin editado se degradaba a lector
     form.querySelector('.pp-file').value = '';
@@ -5720,3 +5726,15 @@ document.querySelectorAll('[data-alias-de]').forEach((caja) => {
     });
   });
 })();
+
+// Equipos de una persona (lib/team/campos_persona.php): al menos uno marcado
+document.addEventListener('change', (e) => {
+  const c = e.target;
+  if (!(c instanceof HTMLInputElement) || c.name !== 'equipos[]' || c.checked) return;
+  const caja = c.closest('[data-pp-equipos]');
+  if (caja && !caja.querySelector('[name="equipos[]"]:checked')) {
+    c.checked = true;
+    c.dispatchEvent(new Event('change', { bubbles: true }));
+    if (window.MC && MC.toast) MC.toast('Tiene que estar en al menos un equipo.', 'warning', 3000);
+  }
+});

@@ -1179,7 +1179,7 @@ class Mailer
                     . 'con el botón «Continuar con Google», usando la misma cuenta con la que te registraste.')
             . self::detalle('Tu cuenta', [
                 'Correo' => e($miembro['email']),
-                'Equipo' => e(Catalogo::equipos()[MiembroRepo::equipoDe($miembro)][0] ?? ''),
+                'Equipo' => e(MiembroRepo::etiquetaEquipos($miembro)),
                 'Rol'    => e($miembro['rol'] ?? ''),
                 'Perfil' => e($rol),
             ])

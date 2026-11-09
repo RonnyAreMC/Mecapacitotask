@@ -146,9 +146,11 @@ foreach ($delProyecto as $m) {
 // sus iniciales (MecaSelect, admin.js, pinta data-foto / data-ini). Si el proyecto
 // no tiene ninguno, salen todos; y quien esté elegido ahora sale siempre.
 $esDevFiltro = function (array $m): bool {
+    // Quien está en Programadores cuenta, aunque también sea PO, diseñador o analista
+    if (MiembroRepo::enEquipo($m, 'programacion')) return true;
     $rol = mb_strtolower((string)($m['rol'] ?? ''));
     if (preg_match('/scrum|product owner|\bpo\b|analista|diseñ|admin|jef|coordin|gerent|supervis/u', $rol)) return false;
-    return ($m['equipo'] ?? '') === 'programacion' || (bool)preg_match('/dev|desarroll|program|front|back|full/u', $rol);
+    return (bool)preg_match('/dev|desarroll|program|front|back|full/u', $rol);
 };
 $devsFiltro = array_values(array_filter($delProyecto, $esDevFiltro));
 if (!$devsFiltro) $devsFiltro = array_values($delProyecto);
@@ -173,15 +175,14 @@ foreach ($miembros as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
 }
 
-// Analistas, para elegir el Product Owner del proyecto (el PO sale de ahí)
+// Para elegir el Product Owner del proyecto: cualquiera del equipo (antes, solo
+// los de Analistas; una persona puede ser PO, diseñadora y programadora a la vez)
 $opcionesAnalistas = [0 => '— Sin PO —'];
 // Y quienes tienen rol de Scrum Master, para decir cuál manda AQUÍ: el rol es
 // global, pero el horario de reuniones lo pone el SM de cada proyecto.
 $opcionesScrum = [0 => '— Sin Scrum Master —'];
 foreach ($miembros as $m) {
-    if (MiembroRepo::equipoDe($m) === 'analistas') {
-        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
-    }
+    $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     // El administrador también puede llevar un tablero: manda sobre todo.
     if (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) {
         $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];

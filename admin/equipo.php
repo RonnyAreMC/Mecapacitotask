@@ -22,7 +22,7 @@ $proyectosTodos = (new ProyectoRepo())->todos();
 
 $equipo = array_values(array_filter(
     $miembrosRepo->todos(),
-    fn($m) => MiembroRepo::equipoDe($m) === $eq
+    fn($m) => MiembroRepo::enEquipo($m, $eq)   // también quien está en varios
 ));
 
 // Solo se abre la ficha ajena siendo administrador

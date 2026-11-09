@@ -220,7 +220,7 @@ final class IAFunciones
             if ($ids !== null && !in_array($mid, $ids, true)) continue;
             $eq = MiembroRepo::equipoDe($m);
             $gente[] = ['id' => $mid, 'nombre' => trim((string)$m['nombre']), 'rol' => trim((string)($m['rol'] ?? '')),
-                        'equipo' => (string)($equipos[$eq][0] ?? $eq), 'abiertas' => (int)($carga[$mid]['n'] ?? 0),
+                        'equipo' => MiembroRepo::etiquetaEquipos($m), 'abiertas' => (int)($carga[$mid]['n'] ?? 0),
                         'hasta' => (string)($carga[$mid]['hasta'] ?? '')];
         }
         $nombres = array_column($gente, 'nombre');

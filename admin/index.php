@@ -37,9 +37,8 @@ $opcionesAnalistas = [0 => '— Sin PO —'];
 $opcionesScrum = [0 => '— Sin Scrum Master —'];
 foreach ($miembrosRepo->todos() as $m) {
     $opcionesEquipo[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
-    if (MiembroRepo::equipoDe($m) === 'analistas') {
-        $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
-    }
+    // El PO puede ser cualquiera (antes, solo los de Analistas)
+    $opcionesAnalistas[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
     // El administrador también puede llevar un tablero: manda sobre todo.
     if (MiembroRepo::tieneAcceso($m, 'scrum') || MiembroRepo::tieneAcceso($m, 'admin')) {
         $opcionesScrum[$m['id']] = $m['nombre'] . ' · ' . $m['rol'];
