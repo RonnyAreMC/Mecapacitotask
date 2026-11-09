@@ -464,6 +464,24 @@ class Mailer
     }
 
     /**
+     * El requerimiento en el panel, donde lo puede abrir quien recibe el correo:
+     * el administrador en Requerimientos y los demás en su bandeja. Las dos
+     * páginas abren su ficha con ?ver=id. $para: el miembro o, si solo se tiene
+     * la dirección, el correo (una dirección suelta de Ajustes va a Requerimientos).
+     */
+    private static function urlRequerimiento(array $req, array|string $para): string
+    {
+        $m = is_array($para) ? $para : null;
+        if ($m === null && trim($para) !== '') {
+            foreach ((new MiembroRepo())->todos() as $x) {
+                if (strcasecmp(trim((string)($x['email'] ?? '')), trim($para)) === 0) { $m = $x; break; }
+            }
+        }
+        $admin = !$m || in_array('admin', MiembroRepo::accesosDe($m), true);
+        return self::urlPagina(($admin ? 'requerimientos.php' : 'bandeja.php') . '?ver=' . (int)($req['id'] ?? 0));
+    }
+
+    /**
      * Envoltura del correo. Diseño minimalista: tarjeta blanca con borde
      * sutil, cabecera con logo + chip, título con barra de acento, chip de
      * aviso automático, tarjeta institucional y footer con línea de acento.
@@ -850,8 +868,9 @@ class Mailer
                   . '<b>Observaciones</b><br>' . $rico . '</div>'
                 : '');
 
+        $url = self::urlRequerimiento($req, $miembro);
         return self::enviar($miembro['email'], 'Requerimiento: ' . ($req['titulo'] ?? ''),
-            self::plantilla($cuerpo));
+            self::plantilla($cuerpo, $url, $url !== '' ? 'Ver el requerimiento' : ''));
     }
 
     /**
@@ -902,9 +921,10 @@ class Mailer
             . ($responde ? $recuadro('Observación', (string)$responde['texto'], '#c9ced8', !empty($responde['html'])) : '')
             . $recuadro($responde ? 'Respuesta' : 'Observación', $texto, $acento, $texto !== strip_tags($texto));
 
+        $url = self::urlRequerimiento($req, $miembro);
         return self::enviar($miembro['email'],
             ($responde ? 'Respuesta: ' : 'Observación: ') . ($req['titulo'] ?? ''),
-            self::plantilla($cuerpo));
+            self::plantilla($cuerpo, $url, $url !== '' ? 'Ver el requerimiento y responder' : ''));
     }
 
 
@@ -932,7 +952,8 @@ class Mailer
                   . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Cómo lo dejó</b><br>' . nl2br(e($nota)) . '</div>'
                 : '');
 
-        return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo));
+        $url = self::urlRequerimiento($req, $para);
+        return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo, $url, $url !== '' ? 'Ver el requerimiento' : ''));
     }
 
     /**
@@ -1408,8 +1429,10 @@ class Mailer
         foreach ($porPersona as $p) {
             $filas = '';
             foreach ($p['items'] as $it) {
+                $urlIt = !empty($it['id']) ? self::urlPagina('requerimientos.php?ver=' . (int)$it['id']) : '';
                 $filas .= '<tr>'
-                    . '<td style="padding:5px 10px 5px 0;font-size:14px;color:#1d1d1f;">' . e($it['titulo']) . '</td>'
+                    . '<td style="padding:5px 10px 5px 0;font-size:14px;color:#1d1d1f;">'
+                    . ($urlIt !== '' ? '<a href="' . e($urlIt) . '" style="color:#1d1d1f;text-decoration:underline;">' . e($it['titulo']) . '</a>' : e($it['titulo'])) . '</td>'
                     . '<td style="padding:5px 0;font-size:13px;color:' . $acento . ';white-space:nowrap;">'
                     . e($it['fin']) . ' · ' . (int)$it['dias'] . ' día' . ((int)$it['dias'] === 1 ? '' : 's')
                     . '</td></tr>';
@@ -1430,8 +1453,9 @@ class Mailer
                     . (count($porPersona) === 1 ? '' : 's') . '.')
             . $bloques;
 
+        $url = self::urlPagina('requerimientos.php?sit=tarde');
         return self::enviar($para, 'Atrasados: ' . $total . ' requerimiento' . ($total === 1 ? '' : 's'),
-            self::plantilla($cuerpo));
+            self::plantilla($cuerpo, $url, $url !== '' ? 'Ver los pasados de fecha' : ''));
     }
 
     /**

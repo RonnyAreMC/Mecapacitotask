@@ -90,7 +90,7 @@ if (!$atrasados) {
     foreach ($atrasados as $r) {
         $fin  = RequerimientoRepo::fechaFin($r);
         $dias = (int)$hoy->diff(new DateTime($fin))->format('%a');
-        $item = ['titulo' => (string)($r['titulo'] ?? ''), 'fin' => $fin, 'dias' => $dias];
+        $item = ['id' => (int)($r['id'] ?? 0), 'titulo' => (string)($r['titulo'] ?? ''), 'fin' => $fin, 'dias' => $dias];
         $suyos = RequerimientoRepo::asignadosDe($r);
         if (!$suyos) { $huerfanos[] = $item; continue; }
         foreach ($suyos as $mid) {

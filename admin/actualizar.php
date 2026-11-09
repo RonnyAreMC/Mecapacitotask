@@ -133,7 +133,8 @@ function actualizarPanel(array $opc): void
         'lib/core/ApiToken.php'   => ['function miembro', 'function anotarUso'],
         'scripts/cron_whatsapp.php' => ['cronCallado'],
         'scripts/cron_deploys.php' => ['cronCallado'],
-        'scripts/cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado'],
+        'bandeja.php'       => ['Enlace directo a un requerimiento (desde el correo)'],
+        'scripts/cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado', "'id' => (int)(\$r['id']"],
         'lib/core/Models.php'    => ["'impedimento']", 'function correosAvisos', 'function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code'],
         'lib/tasks/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
         'lib/core/bootstrap.php' => ['/Colorimetria.php', '/Feriados.php', "'notas_api.php'", "'pizarra_api.php'", 'function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
@@ -221,7 +222,7 @@ function actualizarPanel(array $opc): void
         'zoom_drive.php'    => ['ZoomDrive::paso', 'data-zd-seguir', 'List users', 'auto_estado', 'traspaso_paso'],
         'lib/meetings/ZoomDrive.php' => ['function errorDrive', 'function faltanPermisos', 'function automatico', 'function deReuniones', 'function traspasoPaso'],
         'lib/integrations/GoogleLogin.php' => ["'scope'", 'function flujo', 'oauth_drive_dueno'],
-        'lib/mail/Mailer.php'    => ['function invitacionRevision', 'Abrir la nota', 'function recordatorioNota', 'function recordatorioReunion', 'function enviarDirecto', 'codigoRecuperacion', '/auth/gmail.send', 'avisoRelease', 'seguimientoRequerimientos'],
+        'lib/mail/Mailer.php'    => ['function urlRequerimiento', 'function invitacionRevision', 'Abrir la nota', 'function recordatorioNota', 'function recordatorioReunion', 'function enviarDirecto', 'codigoRecuperacion', '/auth/gmail.send', 'avisoRelease', 'seguimientoRequerimientos'],
         'oauth_google.php'  => ['oauth_drive', '/auth/drive', 'oauth_drive_dueno'],
     ];
     $viejos = [];

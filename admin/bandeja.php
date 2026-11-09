@@ -104,4 +104,14 @@ UI::cabecera(
 
 <?php fichaRequerimiento(false, !$verComo); ?>
 
+<?php if (isset($_GET['ver'])): ?>
+<script>
+// Enlace directo a un requerimiento (desde el correo): abre su ficha con el detalle
+document.addEventListener('DOMContentLoaded', () => {
+  const fila = document.querySelector('[data-req-id="<?= (int)$_GET['ver'] ?>"]');
+  if (fila) { fila.scrollIntoView({ block: 'center' }); fila.click(); }
+});
+</script>
+<?php endif; ?>
+
 <?php UI::fin(); ?>
