@@ -994,7 +994,7 @@ if ($conSprints) {
               <?php if (count($asigLista) === 1): ?>
               <div class="cp-info">
                 <span><?= e($asigLista[0]['nombre']) ?></span>
-                <small><i class="fa-brands fa-github"></i> <?= e($asigLista[0]['git_user']) ?></small>
+                <?php if (trim((string)($asigLista[0]['git_user'] ?? '')) !== ''): ?><small><i class="fa-brands fa-github"></i> <?= e($asigLista[0]['git_user']) ?></small><?php endif; ?>
               </div>
               <?php elseif (count($asigLista) > 1): ?>
               <div class="cp-info">

@@ -6688,3 +6688,58 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 /* .inline-form pisa [hidden] con inline-block: sin esto «Marcar resuelto» salía también en los cerrados */
 .dlg-ficha footer .inline-form[hidden], .dlg-ficha footer .fq-cancelar-form[hidden], .dlg-ficha footer #fq-cancelar[hidden] { display: none; }
 .dlg-ficha footer.fq-cancelando > :not(.fq-cancelar-form) { display: none !important; }
+
+/* =========================================================
+   Paginador de la tabla de tareas: centrado y en vidrio líquido, como lo
+   activo del menú (blanco translúcido con su brillo arriba y el canto de
+   celeste a verde en la página actual). A los lados, solo las flechas
+   finas; el círculo aparece al pasar el mouse. Sin raya arriba.
+   ========================================================= */
+html .paginador { justify-content: center; align-items: center; gap: 10px; padding: 16px 20px 22px; border-top: 0; }
+html .paginador[hidden] { display: none; }
+html .paginador .pg-vidrio {
+  background: linear-gradient(180deg, rgb(255 255 255 / .86) 0%, rgb(241 245 249 / .66) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .95), inset 0 -1px 1px rgb(15 23 42 / .04),
+              0 0 0 1px rgb(15 23 42 / .05), 0 10px 26px -14px rgb(15 23 42 / .30);
+}
+html .paginador .pg-vidrio { display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px; }
+html .paginador .pg-btn {
+  min-width: 34px; height: 34px; padding: 0 10px; margin: 0;
+  border: 1px solid transparent; border-radius: 999px;
+  background: transparent; box-shadow: none;
+  color: var(--ink-muted); font: 600 .8125rem/1 var(--font-sans, 'Inter', sans-serif);
+  font-variant-numeric: tabular-nums; letter-spacing: -.01em;
+  cursor: pointer; -webkit-tap-highlight-color: transparent;
+  transition: background-color .2s ease, color .2s ease, box-shadow .25s ease, transform .15s ease;
+}
+html .paginador .pg-btn:hover:not(:disabled):not(.active) { background: rgb(15 23 42 / .05); color: var(--ink); }
+html .paginador .pg-btn:active:not(:disabled) { transform: scale(.94); }
+html .paginador .pg-btn:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus, rgb(37 99 235 / .35)); }
+html .paginador .pg-btn.active {
+  color: var(--primary-ink, #2565D4); cursor: default;
+  background: linear-gradient(180deg, #fff 0%, rgb(255 255 255 / .72) 100%) padding-box, var(--elegido-canto) border-box;
+  box-shadow: var(--elegido-luz);
+}
+html .paginador .pg-sep { min-width: 22px; text-align: center; color: var(--ink-subtle); font-weight: 600; letter-spacing: .06em; user-select: none; }
+html .paginador .pg-flecha { width: 38px; min-width: 38px; height: 38px; padding: 0; display: inline-grid; place-items: center; color: var(--ink); border: 0; }
+html .paginador .pg-flecha svg { transition: transform .2s ease; }
+html .paginador .pg-flecha:hover:not(:disabled) { background: rgb(15 23 42 / .05); color: var(--primary-ink, #2565D4); }
+html .paginador .pg-flecha[data-pg="prev"]:hover:not(:disabled) svg { transform: translateX(-2px); }
+html .paginador .pg-flecha[data-pg="next"]:hover:not(:disabled) svg { transform: translateX(2px); }
+html .paginador .pg-flecha:disabled { opacity: .35; cursor: default; }
+html.dark .paginador .pg-vidrio {
+  background: linear-gradient(180deg, rgb(255 255 255 / .10) 0%, rgb(255 255 255 / .04) 100%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), 0 0 0 1px rgb(255 255 255 / .06), 0 10px 26px -14px rgb(0 0 0 / .6);
+}
+html.dark .paginador .pg-btn:hover:not(:disabled):not(.active) { background: rgb(255 255 255 / .07); }
+html.dark .paginador .pg-btn.active { color: #E0F2FE; background: linear-gradient(180deg, rgb(255 255 255 / .18) 0%, rgb(255 255 255 / .07) 100%) padding-box, var(--elegido-canto) border-box; }
+html.dark .paginador .pg-flecha:hover:not(:disabled) { background: rgb(255 255 255 / .08); color: #E0F2FE; }
+@media (max-width: 520px) {
+  html .paginador { gap: 6px; padding-inline: 12px; }
+  html .paginador .pg-btn { min-width: 32px; height: 32px; padding: 0 8px; }
+  html .paginador .pg-flecha { width: 34px; min-width: 34px; height: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  html .paginador .pg-btn, html .paginador .pg-flecha svg { transition: none; }
+}

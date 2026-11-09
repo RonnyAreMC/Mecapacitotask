@@ -2059,11 +2059,25 @@ if (cuerpoTabla) {
 
       // Con los resultados en una sola página, el paginador estorba
       cont.hidden = visibles.length <= porPagina;
-      let html = '<button type="button" class="pg-btn" data-pg="prev" ' + (pagina === 1 ? 'disabled' : '') + '><i class="fa-solid fa-chevron-left"></i></button>';
-      for (let p = 1; p <= totalPaginas; p++) {
-        html += '<button type="button" class="pg-btn ' + (p === pagina ? 'active' : '') + '" data-pg="' + p + '">' + p + '</button>';
-      }
-      html += '<button type="button" class="pg-btn" data-pg="next" ' + (pagina === totalPaginas ? 'disabled' : '') + '><i class="fa-solid fa-chevron-right"></i></button>';
+      // Los números justos, siempre la misma cantidad para que no baile:
+      // 1 2 3 4 5 … 23 · 1 … 5 6 7 … 23 · 1 … 19 20 21 22 23 (en el teléfono, uno menos a cada lado)
+      const v = window.matchMedia('(max-width: 520px)').matches ? 0 : 1;
+      const huecos = 2 * v + 5;
+      const rango = (a, b) => Array.from({ length: b - a + 1 }, (_, i) => a + i);
+      const nums = totalPaginas <= huecos ? rango(1, totalPaginas)
+        : pagina <= v + 3 ? [...rango(1, huecos - 2), 0, totalPaginas]
+        : pagina >= totalPaginas - v - 2 ? [1, 0, ...rango(totalPaginas - huecos + 3, totalPaginas)]
+        : [1, 0, ...rango(pagina - v, pagina + v), 0, totalPaginas];
+      // Flechas finas, dibujadas a mano: la de Font Awesome es gruesa
+      const flecha = (izq) => '<svg viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="'
+        + (izq ? 'M14.5 5.5 8 12l6.5 6.5' : 'M9.5 5.5 16 12l-6.5 6.5') + '"/></svg>';
+      let html = '<button type="button" class="pg-btn pg-flecha" data-pg="prev" aria-label="Página anterior"' + (pagina === 1 ? ' disabled' : '') + '>' + flecha(true) + '</button>'
+        + '<div class="pg-vidrio" role="group" aria-label="Páginas">';
+      nums.forEach((p) => {
+        html += p === 0 ? '<span class="pg-sep" aria-hidden="true">…</span>'
+          : '<button type="button" class="pg-btn' + (p === pagina ? ' active' : '') + '" data-pg="' + p + '"' + (p === pagina ? ' aria-current="page"' : '') + ' aria-label="Página ' + p + '">' + p + '</button>';
+      });
+      html += '</div><button type="button" class="pg-btn pg-flecha" data-pg="next" aria-label="Página siguiente"' + (pagina === totalPaginas ? ' disabled' : '') + '>' + flecha(false) + '</button>';
       cont.innerHTML = html;
     };
     cont.addEventListener('click', (e) => {
