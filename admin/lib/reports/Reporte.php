@@ -222,6 +222,8 @@ final class Reporte
         /* ---- Requerimientos sueltos ---- */
         $req = ['total' => 0, 'resueltos' => 0, 'vencidos' => 0, 'abiertos' => []];
         foreach ($requerimientos as $r) {
+            // Cancelado: ya no había que hacerlo, no entra en las cuentas
+            if (($r['estado'] ?? '') === 'cancelado') continue;
             $req['total']++;
             if (RequerimientoRepo::estadoValido($r['estado'] ?? '') === 'hecho') $req['resueltos']++;
             if (RequerimientoRepo::cerrado($r)) continue;

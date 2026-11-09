@@ -4236,7 +4236,7 @@ document.addEventListener('change', (e) => {
       personas.append(li);
     }
 
-    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar', 'fq-id-colab'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
+    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar', 'fq-id-colab', 'fq-id-cancelar', 'fq-id-reabrir'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
     // Sumar colaborador (bandeja): mientras siga abierto, y sin ofrecer a quien ya está
     const fCol = $('fq-colab');
     if (fCol) {
@@ -4362,6 +4362,36 @@ document.addEventListener('change', (e) => {
     const resolver = $('fq-resolver');
     if (resolver) resolver.hidden = r.cerrado;
 
+    // Cancelado: existió pero se dejó de hacer. El bloque va arriba, con el porqué
+    const cancelado = r.estado === 'cancelado';
+    const bCan = $('fq-cancelado');
+    if (bCan) {
+      bCan.hidden = !cancelado;
+      if (cancelado) {
+        $('fq-motivo-cancelado').textContent = r.motivoCancelacion || 'No se anotó el motivo.';
+        $('fq-cancelado-meta').textContent = [r.canceladoPor && ('Lo canceló ' + r.canceladoPor), r.canceladoEn].filter(Boolean).join(' · ');
+      }
+    }
+    // «Cancelar» (administrador): mientras siga abierto. Abre el formulario en el
+    // pie y esconde lo demás; «Volver» lo deja como estaba. «Reabrir», si se canceló.
+    const btnCan = $('fq-cancelar');
+    const fCan = $('fq-cancelar-form');
+    if (btnCan && fCan) {
+      const pie = fCan.closest('footer');
+      const modo = (si) => {
+        fCan.hidden = !si;
+        pie.classList.toggle('fq-cancelando', si);
+        if (si) fCan.querySelector('textarea').focus();
+      };
+      fCan.reset();
+      modo(false);
+      btnCan.hidden = r.cerrado;
+      btnCan.onclick = () => modo(true);
+      $('fq-cancelar-volver').onclick = () => modo(false);
+    }
+    const reabrir = $('fq-reabrir');
+    if (reabrir) reabrir.hidden = !cancelado;
+
     // Observación de cierre (cómo se entregó): se muestra si existe
     const cierre = $('fq-cierre');
     if (cierre) {
@@ -4382,7 +4412,13 @@ document.addEventListener('change', (e) => {
     const cerrarPie = $('fq-cerrar-pie');
     if (cerrarPie && fTerm) cerrarPie.hidden = !r.cerrado;
     const yaCerr = $('fq-ya-cerrado');
-    if (yaCerr) yaCerr.hidden = !r.cerrado;
+    if (yaCerr) {
+      yaCerr.hidden = !r.cerrado;
+      const txtCerr = yaCerr.querySelector('span');
+      if (txtCerr) txtCerr.textContent = cancelado ? 'Se canceló: ya no hay que hacerlo.' : 'Ya está marcado como terminado.';
+      const icoCerr = yaCerr.querySelector('i');
+      if (icoCerr) icoCerr.className = 'fa-solid ' + (cancelado ? 'fa-ban' : 'fa-circle-check');
+    }
 
     // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
     // y con su plazo actual en las fechas

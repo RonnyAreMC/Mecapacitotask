@@ -992,6 +992,9 @@ class RequerimientoRepo
         'pendiente'  => ['Sin asignar', 'fa-inbox',        false],
         'asignado'   => ['Asignado',    'fa-user-check',   false],
         'hecho'      => ['Resuelto',    'fa-circle-check', true],
+        // Se dejó de hacer: no se borra, queda con el porqué (motivo_cancelacion),
+        // quién (cancelado_por) y cuándo (cancelado_en). Ver req_cancelar.
+        'cancelado'  => ['Cancelado',   'fa-ban',          true],
         'descartado' => ['Descartado',  'fa-ban',          true],
     ];
 
@@ -1025,7 +1028,7 @@ class RequerimientoRepo
         return isset(self::ESTADOS[$v]) ? $v : 'pendiente';
     }
 
-    /** ¿Está cerrado (resuelto o descartado)? */
+    /** ¿Está cerrado (resuelto, cancelado o descartado)? */
     public static function cerrado(array $r): bool
     {
         return self::ESTADOS[self::estadoValido($r['estado'] ?? '')][2];

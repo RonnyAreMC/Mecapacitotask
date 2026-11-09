@@ -420,7 +420,7 @@ UI::cabecera(
           'sin-asignar' => 'Abiertos que todavía no tienen responsable',
           'en-curso'    => 'Abiertos y ya repartidos',
           'tarde'       => 'Abiertos a los que se les pasó la fecha de entrega',
-          'cerrados'    => 'Resueltos o descartados',
+          'cerrados'    => 'Resueltos o cancelados',
       ];
   ?>
   <a class="estado-tile <?= e($clase) ?><?= $activo ? ' tile-activo' : '' ?>"

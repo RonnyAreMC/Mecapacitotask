@@ -6673,3 +6673,18 @@ a.bl-fila__abrir, a.bl-card__abrir { color: inherit; text-decoration: none; }
 .rl-ley.rl-d--justificada { width: 12px; height: 12px; border-radius: 4px; background: var(--d-bg); box-shadow: inset 0 0 0 1px var(--d-line, transparent); }
 .rl-dl-just[hidden], .rl-seg__op[hidden] { display: none; }
 .rl-dl-just { display: flex; flex-direction: column; gap: var(--space-3); }
+
+/* Requerimientos sueltos: cancelado. Existió pero se dejó de hacer: título tachado,
+   el motivo en la fila y, en la ficha, un bloque arriba con el porqué (sin bordes). */
+.req-ico-cancelado { background: var(--danger-soft); color: var(--danger-ink); }
+.req-tabla tr.req-e-cancelado td { opacity: .8; }
+.req-tabla tr.req-e-cancelado .req-c-txt b { text-decoration: line-through; text-decoration-color: color-mix(in srgb, currentColor 45%, transparent); }
+.req-c-txt small.req-c-cancelado { color: var(--danger-ink); }
+.fq-chip.fq-cancelado { color: var(--danger-ink); }
+.fq-bloque.fq-cancelado { background: var(--danger-soft); border-radius: 12px; padding: 12px 14px; }
+.fq-bloque.fq-cancelado[hidden] { display: none; }
+.fq-bloque.fq-cancelado h4, .fq-bloque.fq-cancelado h4 i { color: var(--danger-ink); }
+.fq-bloque.fq-cancelado p { white-space: pre-wrap; }
+/* .inline-form pisa [hidden] con inline-block: sin esto «Marcar resuelto» salía también en los cerrados */
+.dlg-ficha footer .inline-form[hidden], .dlg-ficha footer .fq-cancelar-form[hidden], .dlg-ficha footer #fq-cancelar[hidden] { display: none; }
+.dlg-ficha footer.fq-cancelando > :not(.fq-cancelar-form) { display: none !important; }

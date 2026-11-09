@@ -34,6 +34,10 @@ function plazoDe(array $r): array
         $ini !== ''                => 'Empieza el ' . $ini,
         default                    => 'Nadie le puso fechas',
     };
+    // Cancelado: ya no hay plazo que contar
+    if (($r['estado'] ?? '') === 'cancelado') {
+        return ['Cancelado', 'cerrado', $rango];
+    }
     if ($fin === '') {
         return [$ini !== '' ? 'Desde ' . $ini : 'Sin plazo', 'sin', $rango];
     }
@@ -120,6 +124,10 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
         'cerradoPor'  => (string)($mapa[(int)($r['cerrado_por'] ?? 0)]['nombre'] ?? ''),
         'cerradoEn'   => (string)($r['cerrado_en'] ?? ''),
+        // Cancelado: el porqué, quién y cuándo (solo el nombre, sin perfil)
+        'motivoCancelacion' => (string)($r['motivo_cancelacion'] ?? ''),
+        'canceladoPor' => (string)($mapa[(int)($r['cancelado_por'] ?? 0)]['nombre'] ?? ''),
+        'canceladoEn'  => (string)($r['cancelado_en'] ?? ''),
         // Las observaciones en hilos, ya con el nombre de quien las escribió:
         // el JS solo recibe esta fila, no el mapa del equipo entero.
         'observaciones' => array_map(fn($o) => [
@@ -137,7 +145,8 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
             ], $o['respuestas']),
         ], RequerimientoRepo::hilosDe($r)),
     ];
-    $estTono = ['pendiente' => 'warning', 'asignado' => 'info', 'hecho' => 'success', 'descartado' => 'neutral'][$estado] ?? 'neutral';
+    $estTono = ['pendiente' => 'warning', 'asignado' => 'info', 'hecho' => 'success', 'cancelado' => 'danger', 'descartado' => 'neutral'][$estado] ?? 'neutral';
+    $motivoCan = $estado === 'cancelado' ? trim((string)($r['motivo_cancelacion'] ?? '')) : '';
     $insts   = RequerimientoRepo::institucionesDe($r);
     $imapa   = reqUiInst();
     ?>
@@ -147,7 +156,11 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         <span class="req-c-ico req-ico-<?= e($estado) ?>"><i class="fa-solid <?= e($icEstado) ?>"></i></span>
         <span class="req-c-txt">
           <b class="truncate"><?= e($r['titulo']) ?></b>
+          <?php if ($estado === 'cancelado'): ?>
+          <small class="truncate req-c-cancelado" title="<?= e($motivoCan) ?>"><?= $motivoCan !== '' ? 'Cancelado: ' . e($motivoCan) : 'Cancelado' ?></small>
+          <?php else: ?>
           <small class="truncate"><?= !empty($r['solicitante']) ? 'Lo pide ' . e($r['solicitante']) : 'Sin remitente anotado' ?></small>
+          <?php endif; ?>
           <?php if ($insts): ?>
           <span class="req-f-inst">
             <?php foreach ($insts as $iid): if (!isset($imapa[$iid])) continue; $ii = $imapa[$iid]; ?>
@@ -234,6 +247,13 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
              documentos, fechas y responsables a la derecha. En el teléfono, una columna. -->
         <div class="fq-cols">
         <div class="fq-principal">
+        <!-- Cancelado: existió, pero se dejó de hacer. Va primero, con el porqué. -->
+        <div class="fq-bloque fq-cancelado" id="fq-cancelado" hidden>
+          <h4><i class="fa-solid fa-ban"></i> Se canceló</h4>
+          <p id="fq-motivo-cancelado"></p>
+          <small class="fq-cierre-meta" id="fq-cancelado-meta"></small>
+        </div>
+
         <div class="fq-bloque">
           <h4>Detalle</h4>
           <div id="fq-detalle" class="rt-render"></div>
@@ -337,11 +357,32 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
           </form>
           <button type="button" class="btn-outline btn-meca btn-azul" id="fq-editar"><i class="fa-solid fa-pen"></i> Editar</button>
           <button type="button" class="btn-outline btn-meca btn-azul" id="fq-derivar"><i class="fa-solid fa-user-plus"></i> Asignar</button>
+          <!-- Cancelar: no se borra, queda en Cerrados con el porqué. El botón
+               abre el formulario en el pie; «Volver» lo deja como estaba. -->
+          <button type="button" class="btn-outline btn-meca btn-rojo" id="fq-cancelar"><i class="fa-solid fa-ban"></i> Cancelar</button>
+          <form method="post" action="actions.php" class="inline-form" id="fq-reabrir" hidden>
+            <input type="hidden" name="accion" value="req_reabrir">
+            <input type="hidden" name="id" id="fq-id-reabrir">
+            <button class="btn-outline btn-meca btn-azul"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>
+          </form>
           <form method="post" action="actions.php" class="inline-form" id="fq-resolver">
             <input type="hidden" name="accion" value="req_estado">
             <input type="hidden" name="id" id="fq-id-estado">
             <input type="hidden" name="estado" value="hecho">
             <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Marcar resuelto</button>
+          </form>
+          <form method="post" action="actions.php" class="fq-terminar fq-cancelar-form" id="fq-cancelar-form" hidden>
+            <input type="hidden" name="accion" value="req_cancelar">
+            <input type="hidden" name="id" id="fq-id-cancelar">
+            <label class="campo">
+              <span>¿Por qué se cancela? <small>(queda en el requerimiento y les llega a quienes lo tenían)</small></span>
+              <textarea class="input-meca" name="motivo" rows="2" maxlength="600" required
+                        placeholder="Ej. El cliente ya no lo necesita: lo resolvieron por su cuenta"></textarea>
+            </label>
+            <div class="fq-terminar-acc">
+              <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-cancelar-volver">Volver</button>
+              <button class="btn-peligro-solido btn-meca"><i class="fa-solid fa-ban"></i> Cancelar requerimiento</button>
+            </div>
           </form>
           <?php else: ?>
           <?php if ($puedeTerminar): ?>
@@ -362,7 +403,7 @@ function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
             </div>
           </form>
           <p class="ajuste-ayuda fq-nota" id="fq-ya-cerrado" hidden>
-            <i class="fa-solid fa-circle-check"></i> Ya está marcado como terminado.
+            <i class="fa-solid fa-circle-check"></i> <span>Ya está marcado como terminado.</span>
           </p>
           <?php else: ?>
           <p class="ajuste-ayuda fq-nota">

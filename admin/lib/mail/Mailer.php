@@ -957,6 +957,31 @@ class Mailer
     }
 
     /**
+     * A quien tenía el requerimiento: se canceló y ya no hay que hacerlo, con el
+     * porqué. Solo el nombre de quien lo canceló, sin su perfil.
+     */
+    public static function requerimientoCancelado(array $req, array $autor, array $miembro, string $motivo): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = '#6B7280';
+        $nombre = $autor['nombre'] ?? 'Alguien';
+        $filas  = ['Lo canceló' => e($nombre)];
+        if (!empty($req['cancelado_en'])) $filas['Cuándo'] = e((string)$req['cancelado_en']);
+        if (!empty($req['solicitante'])) $filas['Lo pedía'] = e((string)$req['solicitante']);
+
+        $cuerpo = self::encabezado($acento, '&#10005;', 'Requerimiento cancelado',
+                    '<b>' . e($nombre) . '</b> canceló un requerimiento que tenías asignado. Ya no hay que hacerlo.')
+            . self::detalle($req['titulo'] ?? '', $filas, $req['detalle'] ?? '', true)
+            . '<div style="margin-top:16px;padding:12px 16px;border-radius:10px;background:#f4f4f5;'
+            . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Por qué se canceló</b><br>' . nl2br(e($motivo)) . '</div>';
+
+        $url = self::urlRequerimiento($req, $miembro);
+        return self::enviar($miembro['email'], 'Cancelado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo, $url, $url !== '' ? 'Ver el requerimiento' : ''));
+    }
+
+    /**
      * Copia del requerimiento terminado al correo del administrador.
      *
      * Va con el mismo interruptor que los proyectos completados

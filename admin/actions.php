@@ -2582,6 +2582,78 @@ switch ($accion) {
         $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), 'Lo pasó a «' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '».');
         redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
 
+    case 'req_cancelar':
+        // Se deja de hacer, pero no se borra: queda en «Cerrados» como cancelado,
+        // con el porqué, quién y cuándo, para que se vea que existió. El motivo es
+        // obligatorio. A quienes lo tenían les llega a la campana y al correo.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        if (Auth::esSupervisor()) {
+            redirigir('requerimientos.php', 'Solo quien gestiona los requerimientos puede cancelarlos.', 'error');
+        }
+        if (RequerimientoRepo::cerrado($req)) {
+            redirigir('requerimientos.php', '«' . ($req['titulo'] ?? '') . '» ya estaba cerrado.', 'info');
+        }
+        $motivoCan = mb_substr(trim((string)($_POST['motivo'] ?? '')), 0, 600);
+        if ($motivoCan === '') {
+            redirigir('requerimientos.php?ver=' . (int)$req['id'], 'Escribe por qué se cancela.', 'error');
+        }
+        $yoCan = (int)(Auth::usuario()['id'] ?? 0);
+        $reqRepo->actualizar((int)$req['id'], [
+            'estado'             => 'cancelado',
+            'motivo_cancelacion' => $motivoCan,
+            'cancelado_por'      => $yoCan,
+            'cancelado_en'       => date('Y-m-d H:i'),
+        ]);
+        $reqRepo->anotar((int)$req['id'], $yoCan, 'Lo canceló: ' . mb_substr($motivoCan, 0, 200));
+        $reqCan    = $reqRepo->buscar((int)$req['id']) ?? $req;
+        $autorCan  = $miembros->buscar($yoCan) ?? [];
+        $adminsCan = idsAdmins($miembros);
+        $avisadosCan = [];
+        foreach (RequerimientoRepo::asignadosDe($reqCan) as $midCan) {
+            if ($midCan === $yoCan || !($mCan = $miembros->buscar($midCan))) continue;
+            avisoPanel([$midCan], 'requerimiento', 'Se canceló un requerimiento',
+                '«' . ($req['titulo'] ?? '') . '» · ' . mb_substr($motivoCan, 0, 100),
+                (in_array($midCan, $adminsCan, true) ? 'requerimientos.php' : 'bandeja.php') . '?ver=' . (int)$req['id']);
+            if (Mailer::requerimientoCancelado($reqCan, $autorCan, $mCan, $motivoCan) === true) {
+                $avisadosCan[] = explode(' ', trim((string)($mCan['nombre'] ?? '')))[0];
+            }
+        }
+        redirigir('requerimientos.php', '«' . ($req['titulo'] ?? '') . '» quedó cancelado. Sigue en «Cerrados» con el motivo.'
+            . ($avisadosCan ? ' Avisamos por correo a ' . implode(', ', $avisadosCan) . '.' : ''));
+
+    case 'req_reabrir':
+        // Deshacer una cancelación hecha por error: vuelve a «Asignado» (o a
+        // «Sin asignar» si no tenía a nadie). El motivo queda en la trazabilidad.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$req) {
+            redirigir('requerimientos.php', 'Ese requerimiento ya no existe.', 'error');
+        }
+        if (Auth::esSupervisor()) {
+            redirigir('requerimientos.php', 'Solo quien gestiona los requerimientos puede reabrirlos.', 'error');
+        }
+        if (($req['estado'] ?? '') !== 'cancelado') {
+            redirigir('requerimientos.php', 'Solo se reabre un requerimiento cancelado.', 'info');
+        }
+        $yoReab = (int)(Auth::usuario()['id'] ?? 0);
+        $reqRepo->actualizar((int)$req['id'], [
+            'estado'             => RequerimientoRepo::asignadosDe($req) ? 'asignado' : 'pendiente',
+            'motivo_cancelacion' => '',
+            'cancelado_por'      => 0,
+            'cancelado_en'       => '',
+        ]);
+        $reqRepo->anotar((int)$req['id'], $yoReab, 'Lo reabrió (estaba cancelado).');
+        $adminsReab = idsAdmins($miembros);
+        foreach (RequerimientoRepo::asignadosDe($req) as $midReab) {
+            avisoPanel([$midReab], 'requerimiento', 'Se reabrió un requerimiento', '«' . ($req['titulo'] ?? '') . '» vuelve a estar en curso',
+                (in_array($midReab, $adminsReab, true) ? 'requerimientos.php' : 'bandeja.php') . '?ver=' . (int)$req['id']);
+        }
+        redirigir('requerimientos.php', '«' . ($req['titulo'] ?? '') . '» se reabrió.');
+
     case 'req_terminar':
         // Lo marca el RESPONSABLE desde su bandeja, con una observación de cómo
         // lo dejó (rama, commits…). Avisa por correo a quien lo asignó.
@@ -2593,6 +2665,9 @@ switch ($accion) {
         $yoTerm = (int)(Auth::usuario()['id'] ?? 0);
         if (!RequerimientoRepo::tieneAsignado($req, $yoTerm)) {
             redirigir('bandeja.php', 'Solo quien lo tiene asignado puede marcarlo terminado.', 'error');
+        }
+        if (($req['estado'] ?? '') === 'cancelado') {
+            redirigir('bandeja.php', 'Ese requerimiento se canceló: ya no hay que hacerlo.', 'info');
         }
         if (RequerimientoRepo::cerrado($req)) {
             redirigir('bandeja.php', 'Ese requerimiento ya estaba cerrado.', 'info');

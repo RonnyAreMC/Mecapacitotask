@@ -41,7 +41,7 @@ foreach ($requerimientos as $r) {
     $estado = RequerimientoRepo::estadoValido($r['estado'] ?? '');
     $cerrado = RequerimientoRepo::cerrado($r);
     if ($estado === 'hecho')      $resueltos++;
-    if ($estado === 'descartado') $descartados++;
+    if ($estado === 'descartado' || $estado === 'cancelado') $descartados++;
     if (RequerimientoRepo::vencido($r)) $vencidos++;
 
     $sit[situacionDe($r)]++;
@@ -70,7 +70,8 @@ foreach ($requerimientos as $r) {
 }
 
 $pendientes = $total - $resueltos - $descartados;   // abiertos
-$pct        = $total > 0 ? round($resueltos / $total * 100) : 0;
+// Los cancelados no cuentan para el cumplimiento: ya no había que hacerlos
+$pct        = $total - $descartados > 0 ? round($resueltos / ($total - $descartados) * 100) : 0;
 
 // Institución: ya ordenada por total desc, en la forma que espera el JS
 uasort($porInst, fn($a, $b) => $b['total'] <=> $a['total']);
