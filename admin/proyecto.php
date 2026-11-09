@@ -776,13 +776,17 @@ foreach ($tareas as $t) {
 }
 ?>
 <?php
-// «Visualización»: Tabla, Kanban o Flujo, en un menú circular que va en la barra
-// de cada una (admin.js marca la actual). El supervisor solo ve el Kanban.
-$radVistas = $esSupervisor ? '' : UI::menuRadial('Cómo ver las tareas', [
-    ['texto' => 'Tabla',  'icono' => 'fa-table-list',      'attrs' => 'data-subvista="tabla"'],
-    ['texto' => 'Kanban', 'icono' => 'fa-table-columns',   'attrs' => 'data-subvista="kanban"'],
-    ['texto' => 'Flujo',  'icono' => 'fa-diagram-project', 'attrs' => 'data-subvista="flujo"'],
-], 'Visualización', 'fa-layer-group');
+// Las formas de ver (Tabla, Kanban o Flujo) a la vista, solo con su ícono, en la
+// barra de cada una; admin.js marca la actual (.is-actual). El supervisor solo ve el Kanban.
+$radVistas = '';
+if (!$esSupervisor) {
+    $radVistas = '<div class="tt-vistas" role="group" aria-label="Cómo ver las tareas">';
+    foreach (['tabla' => ['fa-table-list', 'Tabla'], 'kanban' => ['fa-table-columns', 'Kanban'], 'flujo' => ['fa-diagram-project', 'Flujo']] as $svK => [$svIco, $svTxt]) {
+        $radVistas .= '<button type="button" class="tt-vista" data-subvista="' . $svK . '" aria-label="' . $svTxt . '" data-ds-tip="' . $svTxt . '">'
+            . '<i class="fa-solid ' . $svIco . '" aria-hidden="true"></i></button>';
+    }
+    $radVistas .= '</div>';
+}
 ?>
 <?php
 // Pestaña «Sprints» (lib/backlog/Backlog.php + lib/backlog/backlog_ui.php): sale si está Releases
@@ -825,15 +829,49 @@ if ($conSprints) {
 
 <div data-vista-panel="tabla">
 <!-- Tabla de tareas -->
-<section class="card-base tabla-card">
-  <?php /* Sin título: «Tareas» y su número ya están en la pestaña. A la izquierda el
-           buscador; a la derecha el filtro, Acciones y Visualización */ ?>
-  <div class="tabla-toolbar tabla-toolbar--tareas">
+<section class="card-base tabla-card tabla-card--tareas">
+  <?php /* Sin título: «Tareas» y su número ya están en la pestaña. La barra va aparte
+           de la tabla: arriba el buscador y, a la derecha, solo íconos (Acciones y
+           Nueva tarea); debajo, las formas de ver y el filtro. */ ?>
+  <div class="tabla-toolbar tabla-toolbar--tareas tt2">
+    <div class="tt2-fila">
     <label class="tabla-buscar">
       <i class="fa-solid fa-magnifying-glass"></i>
       <input class="input-meca" type="search" data-tabla-buscar placeholder="Buscar por título, responsable o estado…" autocomplete="off">
     </label>
-    <div class="tabla-filtros">
+    <div class="tt2-iconos">
+      <?php
+        // Lo que antes eran cuatro botones va en un solo menú circular (UI::menuRadial):
+        // el release del equipo, las archivadas, las descargas para Claude y avisar
+        $accRapidas = [];
+        if ($puedeIntercambiar) $accRapidas[] = ['texto' => 'Proponer intercambio', 'icono' => 'fa-right-left', 'attrs' => 'data-rad-dlg="dlg-intercambio"'];
+        $accRapidas[] = ['texto' => 'Intercambios' . ($intercambios ? ' (' . count($intercambios) . ')' : ''), 'icono' => 'fa-clock-rotate-left', 'attrs' => 'data-rad-vista="intercambios"'];
+        if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)) {
+            $accRapidas[] = $verArchivadas
+                ? ['texto' => 'Ocultar archivadas', 'icono' => 'fa-eye-slash', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '"']
+                : ['texto' => 'Ver archivadas (' . $nArchivadas . ')', 'icono' => 'fa-box-archive', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '&amp;arch=1"'];
+        }
+        $accRapidas[] = ['texto' => 'Mis tareas para Claude', 'icono' => '<img src="assets/claude.svg" alt="" width="20" height="20">', 'tipo' => 'submit',
+                         'attrs' => 'form="form-tareas-json" name="alcance" value="mias" title="Tus tareas de este proyecto, con sus #id y dependencias, en JSON"'];
+        if ($puedeGestionar) $accRapidas[] = ['texto' => 'Tareas del equipo (JSON)', 'icono' => 'fa-users', 'tipo' => 'submit',
+                         'attrs' => 'form="form-tareas-json" name="alcance" value="equipo" title="Las tareas de todo el equipo en este proyecto, en JSON"'];
+        if ($avisoPersonas && Auth::esAdmin()) $accRapidas[] = ['texto' => 'Avisar al equipo', 'icono' => 'fa-paper-plane', 'attrs' => 'data-rad-dlg="dlg-avisar"'];
+      ?>
+      <form method="post" action="actions.php" class="inline-form" id="form-tareas-json" data-descarga hidden>
+        <input type="hidden" name="accion" value="proyecto_tareas_json">
+        <input type="hidden" name="id" value="<?= $id ?>">
+      </form>
+      <?php // Acciones, solo el ícono (el botón de vidrio redondo de la cabecera de Reuniones)
+        echo str_replace(['class="btn-outline btn-meca btn-sm btn-azul rad-btn"', ' title="Acciones rápidas"'],
+                         ['class="rs-boton rs-boton--icono rad-btn"', ' aria-label="Acciones rápidas" data-ds-tip="Acciones rápidas"'], UI::menuRadial('Acciones rápidas', $accRapidas)); ?>
+      <?php if ($puedeTareas): ?>
+      <button type="button" class="rs-boton rs-boton--icono rs-boton--primario" aria-label="Nueva tarea" data-ds-tip="Nueva tarea"
+              onclick="document.getElementById('dlg-nueva-tarea').showModal()"><?= UI::icono('ds-mas') ?></button>
+      <?php endif; ?>
+    </div>
+    </div>
+    <div class="tt2-fila tt2-fila--sub">
+      <?= $radVistas ?>
       <?php if ($verComo): ?>
       <!-- "Ver como" filtra la lista a las tareas de esa persona, y el aviso
            vivía solo en la barra lateral: se asignaba una tarea a otro, no
@@ -856,34 +894,6 @@ if ($conSprints) {
       <?php endif; ?>
       <?php if ($fEstado || (!$verComo && $fAsignado)): ?>
       <a href="?id=<?= $id ?>" class="filtro-clear"><i class="fa-solid fa-filter-circle-xmark"></i> Limpiar</a>
-      <?php endif; ?>
-      <?php
-        // Lo que antes eran cuatro botones va en un solo menú circular (UI::menuRadial):
-        // el release del equipo, las archivadas, las descargas para Claude y avisar
-        $accRapidas = [];
-        if ($puedeIntercambiar) $accRapidas[] = ['texto' => 'Proponer intercambio', 'icono' => 'fa-right-left', 'attrs' => 'data-rad-dlg="dlg-intercambio"'];
-        $accRapidas[] = ['texto' => 'Intercambios' . ($intercambios ? ' (' . count($intercambios) . ')' : ''), 'icono' => 'fa-clock-rotate-left', 'attrs' => 'data-rad-vista="intercambios"'];
-        if ($nArchivadas > 0 && !in_array($fEstado, $finales, true)) {
-            $accRapidas[] = $verArchivadas
-                ? ['texto' => 'Ocultar archivadas', 'icono' => 'fa-eye-slash', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '"']
-                : ['texto' => 'Ver archivadas (' . $nArchivadas . ')', 'icono' => 'fa-box-archive', 'tipo' => 'a', 'attrs' => 'href="?id=' . $id . '&amp;arch=1"'];
-        }
-        $accRapidas[] = ['texto' => 'Mis tareas para Claude', 'icono' => '<img src="assets/claude.svg" alt="" width="20" height="20">', 'tipo' => 'submit',
-                         'attrs' => 'form="form-tareas-json" name="alcance" value="mias" title="Tus tareas de este proyecto, con sus #id y dependencias, en JSON"'];
-        if ($puedeGestionar) $accRapidas[] = ['texto' => 'Tareas del equipo (JSON)', 'icono' => 'fa-users', 'tipo' => 'submit',
-                         'attrs' => 'form="form-tareas-json" name="alcance" value="equipo" title="Las tareas de todo el equipo en este proyecto, en JSON"'];
-        if ($avisoPersonas && Auth::esAdmin()) $accRapidas[] = ['texto' => 'Avisar al equipo', 'icono' => 'fa-paper-plane', 'attrs' => 'data-rad-dlg="dlg-avisar"'];
-      ?>
-      <form method="post" action="actions.php" class="inline-form" id="form-tareas-json" data-descarga hidden>
-        <input type="hidden" name="accion" value="proyecto_tareas_json">
-        <input type="hidden" name="id" value="<?= $id ?>">
-      </form>
-      <?= UI::menuRadial('Acciones rápidas', $accRapidas) ?>
-      <?= $radVistas ?>
-      <?php if ($puedeTareas): ?>
-      <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById('dlg-nueva-tarea').showModal()">
-        <i class="fa-solid fa-plus"></i> Nueva tarea
-      </button>
       <?php endif; ?>
     </div>
   </div>

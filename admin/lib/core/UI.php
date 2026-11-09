@@ -1144,8 +1144,14 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         $html = '<form method="post" action="actions.php" class="inline-form">';
         $html .= '<input type="hidden" name="accion" value="tarea_estado">';
         $html .= '<input type="hidden" name="id" value="' . (int)$tarea['id'] . '">';
-        $html .= self::select('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()),
-                              $tarea['estado'], true, 'select-pill estado-' . e($tarea['estado']));
+        // La lista del design system (assets/ds.js), como pastilla del color del
+        // estado: el select nativo abría la lista gris del sistema operativo.
+        // Al elegir, ds.js dispara «change» y se guarda por AJAX (admin.js).
+        $lista = self::selectDS('estado', array_map(fn($v) => $v[0], Catalogo::estadosTarea()), (string)$tarea['estado'], [
+            'aria'  => 'Estado de la tarea',
+            'attrs' => 'onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"',
+        ]);
+        $html .= str_replace('<div class="mc-select" data-ds-select', '<div class="mc-select est-pill estado-' . e((string)$tarea['estado']) . '" data-ds-ancho="200" data-ds-select', $lista);
         return $html . '</form>';
     }
 

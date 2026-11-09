@@ -382,19 +382,25 @@ final class ReunionesUI
     }
 
     /**
-     * El encabezado de la suite, del detalle y de la videoteca: el botón de
-     * volver a la izquierda del título y, a la derecha, en la misma fila, los
-     * botones redondos de vidrio (en el celular bajan bajo el título).
+     * El encabezado de la suite, del detalle y de la videoteca: el título a la
+     * izquierda y, a la derecha, en la misma fila, «Regresar» y los botones
+     * redondos de vidrio (en el celular bajan bajo el título). «Regresar» va
+     * corto; a dónde lleva ($volverTip) sale al pasar el mouse.
      * $titulo y $sub van tal cual (HTML ya escapado); $acciones, los botones.
      */
     public static function cabecera(string $volver, string $volverTip, string $titulo, string $sub = '', string $acciones = ''): void
     {
+        $regresar = $volver !== ''
+            ? '<a class="rs-boton ru-cab__volver" href="' . e($volver) . '" aria-label="' . e($volverTip ?: 'Regresar') . '" data-ds-tip="' . e($volverTip ?: 'Regresar') . '">'
+              . '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>'
+              . 'Regresar</a>'
+            : '';
+        $derecha = $regresar . ($regresar !== '' && $acciones !== '' ? '<span class="ru-cab__sep" aria-hidden="true"></span>' : '') . $acciones;
         echo '<header class="page-head ru-cab">'
             . '<div class="ru-cab__main">'
-            . ($volver !== '' ? UI::volver($volver, $volverTip, 'ru-cab__volver') : '')
             . '<div class="ru-cab__txt"><h1 class="page-title font-display">' . $titulo . '</h1>'
             . ($sub !== '' ? '<p class="page-sub ru-cab__sub">' . $sub . '</p>' : '') . '</div></div>'
-            . ($acciones !== '' ? '<div class="page-actions ru-cab__acc">' . $acciones . '</div>' : '')
+            . ($derecha !== '' ? '<div class="page-actions ru-cab__acc">' . $derecha . '</div>' : '')
             . '</header>';
     }
 

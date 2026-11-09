@@ -2017,14 +2017,18 @@ document.addEventListener('submit', (e) => {
   if (!id || !estado) return;
   e.preventDefault();
   const sel = form.querySelector('[name="estado"]');
-  const previo = [...(sel?.classList || [])].find((c) => c.startsWith('estado-'));
+  // La pastilla es la lista del design system (.est-pill); si no, el select mismo
+  const pill = sel?.closest('.est-pill') || sel;
+  const previo = [...(pill?.classList || [])].find((c) => c.startsWith('estado-'));
   guardarEstadoTarea(id, estado).then((res) => {
     // Recolorear la píldora: sin recarga, la clase estado-* quedaría en el valor viejo.
-    if (res.ok && sel) {
-      if (previo) sel.classList.remove(previo);
-      sel.classList.add('estado-' + estado);
+    if (res.ok && pill) {
+      if (previo) pill.classList.remove(previo);
+      pill.classList.add('estado-' + estado);
     } else if (!res.ok && sel && previo) {
       sel.value = previo.slice('estado-'.length);   // revertir lo que no se guardó
+      const txt = pill.querySelector?.('.mc-select__text');
+      if (txt && sel.selectedOptions[0]) txt.textContent = sel.selectedOptions[0].text;
     }
     MC?.toast?.(res.ok ? 'Estado actualizado' : (res.error || 'No se pudo cambiar'), res.ok ? 'success' : 'error', res.ok ? 1600 : 4000);
   });

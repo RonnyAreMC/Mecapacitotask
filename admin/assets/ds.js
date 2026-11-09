@@ -271,7 +271,8 @@ document.addEventListener('click', (e) => {
     if (!abierto) return;
     const { btn, pop } = abierto;
     const r = btn.getBoundingClientRect();
-    const ancho = Math.min(Math.max(r.width, 300), 460, innerWidth - 24);
+    // data-ds-ancho: lo mínimo de ancho (la pastilla de estado no necesita 300 px)
+    const ancho = Math.min(Math.max(r.width, +abierto.caja.dataset.dsAncho || 300), 460, innerWidth - 24);
     pop.style.width = ancho + 'px';
     const izq = Math.max(12, Math.min(r.left, innerWidth - ancho - 12));
     const alto = pop.offsetHeight;

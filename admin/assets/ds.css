@@ -6743,3 +6743,93 @@ html.dark .paginador .pg-flecha:hover:not(:disabled) { background: rgb(255 255 2
 @media (prefers-reduced-motion: reduce) {
   html .paginador .pg-btn, html .paginador .pg-flecha svg { transition: none; }
 }
+
+/* =========================================================
+   Reuniones: «Regresar» va a la derecha, con los botones de vidrio.
+   ========================================================= */
+html .ru-cab .ru-cab__volver { min-height: 44px; padding: 0 16px 0 13px; gap: 7px; }
+html .ru-cab .ru-cab__volver .ico { width: 18px; height: 18px; }
+@media (max-width: 640px) { html .ru-cab:has(.ru-cab__volver) .ru-cab__acc { padding-left: 0; } }
+
+/* =========================================================
+   Tareas (tabla): la barra aparte de la tabla. Arriba el buscador y solo
+   íconos (Acciones, Nueva tarea); debajo, las formas de ver a la vista y el
+   filtro. La tabla es su propia tarjeta, sin bordes, y el paginador queda
+   suelto debajo.
+   ========================================================= */
+html .card-base.tabla-card--tareas, html.dark .card-base.tabla-card--tareas,
+html .card-base.tabla-card--tareas:hover, html.dark .card-base.tabla-card--tareas:hover {
+  background: transparent; border: 0; border-radius: 0; box-shadow: none; overflow: visible; transform: none;
+}
+html .tabla-card--tareas > .tabla-toolbar.tt2 { display: flex; flex-direction: column; align-items: stretch; gap: 12px; padding: 0 0 16px; border-bottom: 0; }
+html .tt2-fila { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; min-width: 0; }
+html .tt2-fila .tabla-buscar { flex: 1 1 18rem; max-width: 36rem; }
+html .tt2-fila .tabla-buscar .input-meca { min-height: 44px; border-radius: 999px; padding-left: 40px; }
+html .tt2-fila .tabla-buscar > i { left: 16px; }
+html .tt2-iconos { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+html .tt2-iconos .rs-boton--icono { width: 44px; height: 44px; min-height: 44px; }
+html .tt2-iconos .rs-boton--icono > i { font-size: 1rem; color: #0284C7; }
+html.dark .tt2-iconos .rs-boton--icono > i { color: #7DD3FC; }
+html .tt2-iconos .rad-btn .rad-btn__txt { display: none; }
+html .tt2-fila--sub { gap: 10px; }
+html .tt2-fila--sub .inline-form { margin: 0; }
+html .tabla-card--tareas > .tabla-scroll {
+  background: var(--n-bg); border-radius: var(--radius-lg, 14px);
+  box-shadow: 0 1px 2px rgb(15 23 42 / .04), 0 10px 28px -18px rgb(15 23 42 / .22);
+}
+html.dark .tabla-card--tareas > .tabla-scroll { background: var(--n-card); box-shadow: 0 10px 28px -18px rgb(0 0 0 / .6); }
+html .tabla-card--tareas > .paginador { padding-top: 18px; }
+
+/* Las formas de ver: tres íconos en una pastilla de vidrio; la actual, con el canto */
+html .tt-vistas {
+  display: inline-flex; align-items: center; gap: 2px; padding: 4px; border-radius: 999px;
+  background: linear-gradient(180deg, rgb(255 255 255 / .86) 0%, rgb(241 245 249 / .66) 100%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%); backdrop-filter: blur(16px) saturate(180%);
+  box-shadow: inset 0 1px 0 rgb(255 255 255 / .95), 0 0 0 1px rgb(15 23 42 / .05), 0 8px 22px -14px rgb(15 23 42 / .28);
+}
+html .tt-vista {
+  display: inline-grid; place-items: center; width: 36px; height: 34px; padding: 0;
+  border: 1px solid transparent; border-radius: 999px; background: transparent;
+  color: var(--ink-muted); cursor: pointer; transition: background-color .2s ease, color .2s ease, transform .15s ease;
+}
+html .tt-vista i { font-size: .9rem; }
+html .tt-vista:hover:not(.is-actual) { background: rgb(15 23 42 / .05); color: var(--ink); }
+html .tt-vista:active { transform: scale(.94); }
+html .tt-vista:focus-visible { outline: none; box-shadow: 0 0 0 3px var(--focus, rgb(37 99 235 / .35)); }
+html .tt-vista.is-actual {
+  color: var(--primary-ink, #2565D4);
+  background: linear-gradient(180deg, #fff 0%, rgb(255 255 255 / .72) 100%) padding-box, var(--elegido-canto) border-box;
+  box-shadow: var(--elegido-luz);
+}
+html.dark .tt-vistas { background: linear-gradient(180deg, rgb(255 255 255 / .10) 0%, rgb(255 255 255 / .04) 100%); box-shadow: inset 0 1px 0 rgb(255 255 255 / .12), 0 0 0 1px rgb(255 255 255 / .06); }
+html.dark .tt-vista:hover:not(.is-actual) { background: rgb(255 255 255 / .07); }
+html.dark .tt-vista.is-actual { color: #E0F2FE; background: linear-gradient(180deg, rgb(255 255 255 / .18) 0%, rgb(255 255 255 / .07) 100%) padding-box, var(--elegido-canto) border-box; }
+@media (max-width: 640px) {
+  html .tt2-fila .tabla-buscar { flex-basis: 100%; max-width: none; order: 2; }
+  html .tt2-iconos { order: 1; margin-left: auto; }
+}
+
+/* El estado de la tarea: pastilla del color del estado con la lista del design
+   system (el select nativo abría la lista gris del sistema). Sin bordes. */
+html .mc-select.est-pill { --est: var(--ink-muted); display: inline-block; width: auto; min-width: 0; }
+html .est-pill.estado-pendiente { --est: #0B7EA8; }
+html .est-pill.estado-progreso  { --est: #2563EB; }
+html .est-pill.estado-revision  { --est: #C26F0E; }
+html .est-pill.estado-hecho     { --est: #059669; }
+html.dark .est-pill.estado-pendiente { --est: #5EE1F2; }
+html.dark .est-pill.estado-progreso  { --est: #7FABFF; }
+html.dark .est-pill.estado-revision  { --est: #FFB35C; }
+html.dark .est-pill.estado-hecho     { --est: #57D99A; }
+html .est-pill .mc-select__trigger {
+  width: auto; min-width: 0; height: 32px; min-height: 32px; padding: 0 8px 0 11px; gap: 6px;
+  border: 0; border-radius: 999px; box-shadow: none;
+  background: color-mix(in srgb, var(--est) 11%, transparent); color: var(--est);
+  font: 600 .8rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+  transition: background-color .15s ease;
+}
+html .est-pill .mc-select__trigger:hover, html .est-pill .mc-select__trigger.is-open { background: color-mix(in srgb, var(--est) 18%, transparent); }
+html .est-pill .mc-select__trigger:focus-visible { outline: none; box-shadow: 0 0 0 3px color-mix(in srgb, var(--est) 30%, transparent); }
+html .est-pill .mc-select__value { display: inline-flex; align-items: center; gap: 7px; color: inherit; }
+html .est-pill .mc-select__value::before { content: ''; width: 7px; height: 7px; border-radius: 50%; background: currentColor; flex: none; }
+html .est-pill .mc-select__text { color: inherit; }
+html .est-pill .mc-select__chev { width: 15px !important; height: 15px !important; color: inherit; opacity: .7; }
