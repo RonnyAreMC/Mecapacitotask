@@ -4321,7 +4321,11 @@ switch ($accion) {
                     $eqDl = (string)($_POST['equipo'] ?? '');
                     if (!$relSmDe($eqDl)) $relFin(false, 'Las dailies las registran los editores o el Scrum Master del equipo.');
                     Releases::registrarDaily($eqDl, (string)($_POST['fecha'] ?? ''), $_POST, $relYo, $relEditor);
-                    $relFin(true, ($_POST['estado'] ?? '') === 'auto' ? 'Listo: ese día vuelve a medirse con Zoom.' : 'Daily registrada.');
+                    $relFin(true, match ((string)($_POST['estado'] ?? '')) {
+                        'auto'        => 'Listo: ese día vuelve a medirse con Zoom.',
+                        'justificada' => 'Daily justificada: ese día no cuenta en contra del cumplimiento.',
+                        default       => 'Daily registrada.',
+                    });
 
                 case 'rel_daily_zoom':
                     $eqDl = (string)($_POST['equipo'] ?? '');

@@ -1477,13 +1477,21 @@
   const cajaDl = document.querySelector('[data-rl-dailies]');
   const DL = leerJSON(cajaDl && cajaDl.querySelector('[data-rl-dailies-datos]')) || {};
   const dlgDl = document.getElementById('rl-dlg-daily');
-  function llenarDaily(fecha) {
+  function llenarDaily(fecha, modo) {
     if (!dlgDl) return;
     const f = dlgDl.querySelector('form');
     const x = (DL.dias || {})[fecha] || {};
     const manual = x.fuente === 'manual';
+    // Un día que ya pasó: el SM solo puede justificarlo (o devolverlo a Zoom); corregirlo es de un editor
+    const soloJustificar = fecha < DL.hoy && !DL.pasados;
+    f.querySelectorAll('[name="estado"]').forEach((r) => {
+      if (['hecha', 'no_hecha', 'no_aplica'].includes(r.value)) r.closest('label').hidden = soloJustificar;
+    });
     const marca = (v) => { const r = f.querySelector('[name="estado"][value="' + v + '"]'); if (r) r.checked = true; };
-    marca(!manual ? 'hecha' : ({ cumplida: 'hecha', incompleta: 'hecha', no_hecha: 'no_hecha', no_aplica: 'no_aplica' }[x.estado] || 'hecha'));
+    marca(modo === 'justificada' || soloJustificar || x.estado === 'justificada' ? 'justificada'
+      : (!manual ? 'hecha' : ({ cumplida: 'hecha', incompleta: 'hecha', no_hecha: 'no_hecha', no_aplica: 'no_aplica' }[x.estado] || 'hecha')));
+    const motivo = f.querySelector('[name="motivo"]');
+    if (motivo) { motivo.value = x.estado === 'justificada' ? (x.motivo || '') : ''; motivo.dispatchEvent(new Event('change', { bubbles: true })); }
     dlgDl.querySelector('[data-rl-dl-auto]').hidden = !manual;
     dlgDl.querySelector('[data-rl-dl-zoom]').hidden = !(x.zoom && !manual);
     const mod = f.querySelector('[name="modalidad"][value="' + (x.modalidad === 'virtual' || (!manual && x.zoom) ? 'virtual' : 'presencial') + '"]');
@@ -1501,13 +1509,21 @@
     if (!dlgDl) return;
     const v = (dlgDl.querySelector('[name="estado"]:checked') || {}).value;
     dlgDl.querySelector('[data-rl-dl-hecha]').hidden = v !== 'hecha';
+    const just = v === 'justificada';
+    dlgDl.querySelector('[data-rl-dl-just]').hidden = !just;
+    const motivo = dlgDl.querySelector('[name="motivo"]');
+    if (motivo) motivo.required = just;
     const nota = dlgDl.querySelector('[name="nota"]');
-    nota.required = v === 'no_aplica';
+    nota.required = v === 'no_aplica' || (just && motivo && motivo.value === 'otro');
+    nota.placeholder = just ? 'Cuéntalo en una línea: con qué reunión chocó, quién avisó…'
+      : 'Bloqueos, quién avisó que no venía… Si no aplica, el motivo.';
     nota.closest('.mc-field').hidden = v === 'auto';
+    const tit = dlgDl.querySelector('h3');
+    if (tit && tit.firstChild) tit.childNodes[tit.childNodes.length > 2 ? 1 : 0].textContent = just ? ' Justificar la daily' : ' Registrar la daily';
   }
   if (dlgDl) {
     dlgDl.addEventListener('change', (e) => {
-      if (e.target.matches('[name="estado"]')) verHecha();
+      if (e.target.matches('[name="estado"]') || e.target.matches('[name="motivo"]')) verHecha();
       if (e.target.matches('[data-rl-dl-fecha]')) llenarDaily(e.target.value);
     });
   }
@@ -1516,13 +1532,19 @@
     if (!b || !dlgDl) return;
     const fecha = b.dataset.rlDailyReg || DL.hoy;
     if (fecha > DL.hoy) { toast('Ese día todavía no llega: se registra cuando pase.', 'info'); return; }
-    // Hoy no se registra la daily de ayer: los días pasados los mide Zoom (o los corrige un editor)
-    if (fecha < DL.hoy && !DL.pasados) { toast('Solo se registra la daily de hoy. Los días que ya pasaron los mide Zoom.', 'info'); return; }
+    // Hoy no se registra la daily de ayer: los días pasados los mide Zoom (o los corrige un editor).
+    // Lo que sí se puede es justificar un día que faltó.
+    const x = (DL.dias || {})[fecha] || {};
+    if (fecha < DL.hoy && !DL.pasados && x.estado === 'cumplida' && x.fuente !== 'manual') {
+      toast('Ese día la daily se hizo: no hay nada que justificar.', 'info'); return;
+    }
     mejorar(dlgDl);
     const inp = dlgDl.querySelector('[data-rl-dl-fecha]');
+    // Un día que ya pasó se puede elegir para justificarlo
+    inp.min = DL.desde || inp.min;
     inp.value = fecha;
     inp.dispatchEvent(new Event('md-sync'));
-    llenarDaily(fecha);
+    llenarDaily(fecha, b.dataset.rlDailyModo || '');
     dlgDl.showModal();
   });
   document.addEventListener('click', async (e) => {

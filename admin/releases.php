@@ -865,7 +865,11 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
     $pasadosDl = Releases::puedeEditar();   // el SM registra solo la de hoy; un día pasado, un editor
     $jsDl = ['equipo' => $en, 'desde' => $dl['desde'], 'hoy' => $hoy, 'pasados' => $pasadosDl, 'dias' => [], 'esperados' => array_map(fn($id) => ['id' => $id, 'nombre' => $nomDl($id)], $dl['esperados'])];
     foreach ($dl['dias'] as $f => $x) $jsDl['dias'][$f] = ['estado' => $x['estado'], 'fuente' => (string)($x['fuente'] ?? ''), 'presentes' => array_map('intval', (array)($x['presentes'] ?? [])),
-        'nota' => (string)($x['nota'] ?? ''), 'modalidad' => (string)($x['modalidad'] ?? ''), 'zoom' => !empty($x['minutos']) || ($x['fuente'] ?? '') === 'zoom'];
+        'nota' => (string)($x['nota'] ?? ''), 'modalidad' => (string)($x['modalidad'] ?? ''), 'zoom' => !empty($x['minutos']) || ($x['fuente'] ?? '') === 'zoom',
+        'motivo' => (string)($x['motivo'] ?? '')];
+    // El último día que faltó (para el botón «Justificar»): si no hay ninguno, hoy
+    $faltaDl = '';
+    foreach (array_reverse($dl['dias'], true) as $f => $x) if (in_array($x['estado'], Releases::DAILY_FALTAS, true) && $f <= $hoy) { $faltaDl = (string)$f; break; }
   ?>
   <?php
     /* ---------- El tablero del equipo: un resumen por tema, en tarjetas; el detalle de cada
@@ -1184,6 +1188,8 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
       <?php if ($puedeDl): ?>
       <div class="rl-card__acc">
         <?php if ($reuDl): ?><button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-zoom="<?= e($en) ?>" data-ds-tip="Vuelve a mirar Zoom y quién entró desde el panel"><?= rlIco('reintentar', 16) ?><span class="mc-btn__label">Volver a medir</span></button><?php endif; ?>
+        <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-rl-daily-reg="<?= e($faltaDl !== '' ? $faltaDl : $hoy) ?>" data-rl-daily-modo="justificada"<?= $dl['desde'] > $hoy ? ' disabled' : '' ?>
+          data-ds-tip="<?= e($faltaDl !== '' ? 'La daily faltó el ' . rlFL($faltaDl, true) . ': deja el motivo (chocó con otra reunión…) y ese día no cuenta en contra' : 'Si una daily no se pudo hacer, deja el motivo y ese día no cuenta en contra') ?>"><?= rlIco('notas', 16) ?><span class="mc-btn__label">Justificar</span></button>
         <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-rl-daily-reg="<?= e(min($hoy, max($dl['desde'], $hoy))) ?>"<?= $dl['desde'] > $hoy ? ' disabled' : '' ?>><?= rlIco('check', 16) ?><span class="mc-btn__label">Registrar daily</span></button>
       </div>
       <?php endif; ?>
@@ -1219,7 +1225,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <span class="rl-dbarra" aria-hidden="true"><i style="--p:<?= (int)($dl['asistencia'] ?? 0) ?>%"></i></span>
           <small>Promedio del equipo conectado</small></div>
         <div class="rl-dnum<?= ($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ? ' is-mal' : '' ?>"><dt>Sin daily</dt><dd class="mc-num"><?= (int)($dl['cuenta']['sin_registrar'] + $dl['cuenta']['no_hecha']) ?></dd>
-          <small><?= (int)$dl['cuenta']['sin_registrar'] ?> sin registrar · <?= (int)$dl['cuenta']['no_hecha'] ?> sin conectarse</small></div>
+          <small><?= (int)$dl['cuenta']['sin_registrar'] ?> sin registrar · <?= (int)$dl['cuenta']['no_hecha'] ?> sin conectarse<?= !empty($dl['cuenta']['justificada']) ? ' · ' . (int)$dl['cuenta']['justificada'] . ' justificada' . ((int)$dl['cuenta']['justificada'] === 1 ? '' : 's') . ' (no cuentan)' : '' ?></small></div>
       </dl>
 
       <div class="rl-dailies__dias">
@@ -1228,19 +1234,21 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <?php foreach ($diasDl as $f => $x): [$lbl] = Releases::DAILY[$x['estado']] ?? Releases::DAILY['pendiente'];
             $entraron = array_filter(array_map(fn($mid) => explode(' ', trim($nomDl((int)$mid)))[0] . ' ' . $x['ingresos'][$mid], array_keys((array)($x['ingresos'] ?? []))));
             $det = $lbl . (($x['asistencia'] ?? null) !== null ? ' · ' . (int)$x['asistencia'] . ' % conectado' : '')
-              . match ($x['fuente'] ?? '') { 'manual' => ' · registrada por el SM', 'zoom' => ' · según Zoom', 'panel' => ' · según el panel', default => '' }
+              . (($x['estado'] ?? '') === 'justificada' ? ' por el SM: ' . (Releases::DAILY_MOTIVOS[$x['motivo'] ?? ''] ?? 'sin motivo') . ' (no cuenta en contra)'
+                 : match ($x['fuente'] ?? '') { 'manual' => ' · registrada por el SM', 'zoom' => ' · según Zoom', 'panel' => ' · según el panel', default => '' })
               . ($entraron ? ' · entraron desde el panel: ' . implode(', ', $entraron) : '')
               . (($x['nota'] ?? '') !== '' ? ' · ' . $x['nota'] : '') . (($x['msg'] ?? '') !== '' ? ' · ' . $x['msg'] : '');
-            $tag = $puedeDl ? 'button type="button" data-rl-daily-reg="' . e($f) . '"' : 'span tabindex="0"'; ?>
+            // Un día que faltó se abre directo para justificarlo
+            $tag = $puedeDl ? 'button type="button" data-rl-daily-reg="' . e($f) . '"' . (in_array($x['estado'], Releases::DAILY_FALTAS, true) && $f < $hoy ? ' data-rl-daily-modo="justificada"' : '') : 'span tabindex="0"'; ?>
           <li><<?= $tag ?> class="rl-ddia rl-d--<?= e($x['estado']) ?><?= $f === $hoy ? ' is-hoy' : '' ?>" data-ds-tip="<?= e(rlFL($f, true) . ': ' . $det) ?>" aria-label="<?= e(rlFL($f, true) . ': ' . $det) ?>">
             <small><?= e(mb_substr(RL_DIA[(int)date('w', strtotime($f))], 0, 3)) ?></small><b class="mc-num"><?= (int)date('j', strtotime($f)) ?></b>
-            <i class="mc-num"><?= ($x['asistencia'] ?? null) !== null ? (int)$x['asistencia'] . '%' : match ($x['estado']) { 'no_aplica' => 'N/A', 'pendiente' => '·', 'no_hecha', 'sin_registrar' => '✕', default => '—' } ?></i>
+            <i class="mc-num"><?= ($x['asistencia'] ?? null) !== null ? (int)$x['asistencia'] . '%' : match ($x['estado']) { 'no_aplica' => 'N/A', 'justificada' => 'Just.', 'pendiente' => '·', 'no_hecha', 'sin_registrar' => '✕', default => '—' } ?></i>
           </<?= $puedeDl ? 'button' : 'span' ?>></li>
           <?php endforeach; ?>
           <?php if (!$diasDl): ?><li class="rl-vacio-txt">Todavía no hay días hábiles.</li><?php endif; ?>
         </ol>
         <ul class="rl-leyenda rl-leyenda--pie">
-          <?php foreach (['cumplida', 'incompleta', 'no_hecha', 'sin_registrar', 'sin_zoom', 'no_aplica'] as $k): ?>
+          <?php foreach (['cumplida', 'incompleta', 'no_hecha', 'sin_registrar', 'sin_zoom', 'justificada', 'no_aplica'] as $k): ?>
           <li><i class="rl-ley rl-d--<?= $k ?>"></i><?= e(Releases::DAILY[$k][0]) ?></li>
           <?php endforeach; ?>
         </ul>
@@ -1283,8 +1291,13 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
           <label class="rl-seg__op rl-t--azul"><input type="radio" name="estado" value="hecha" checked><span><?= rlIco('check', 15) ?>Se hizo</span></label>
           <label class="rl-seg__op rl-t--rojo"><input type="radio" name="estado" value="no_hecha"><span><?= rlIco('cerrar', 15) ?>No se hizo</span></label>
           <label class="rl-seg__op rl-t--gris"><input type="radio" name="estado" value="no_aplica"><span><?= rlIco('pausa', 15) ?>No aplica</span></label>
+          <label class="rl-seg__op rl-t--petroleo"><input type="radio" name="estado" value="justificada"><span><?= rlIco('notas', 15) ?>Justificar</span></label>
           <label class="rl-seg__op rl-t--gris" data-rl-dl-auto hidden><input type="radio" name="estado" value="auto"><span><?= rlIco('reintentar', 15) ?>Que lo diga Zoom</span></label>
         </div>
+      </div>
+      <div class="rl-dl-just" data-rl-dl-just hidden>
+        <p class="rl-dlg__nota"><?= rlIco('info', 15) ?> <span>La daily faltó, pero hubo un motivo: ese día queda como <b>Justificada</b> y no cuenta en contra del cumplimiento. Se ve quién la justificó y por qué.</span></p>
+        <?= rlCampo('¿Por qué no se pudo hacer?', UI::selectDS('motivo', ['' => 'Elige el motivo'] + Releases::DAILY_MOTIVOS, '', ['aria' => 'Por qué no se pudo hacer la daily'])) ?>
       </div>
       <div class="rl-dl-hecha" data-rl-dl-hecha>
         <div class="rl-seg rl-seg--modo" role="radiogroup" aria-label="Modalidad">
@@ -1293,7 +1306,7 @@ UI::cabecera('Releases <span class="text-secondary">· ' . e($conf['programa']) 
         </div>
         <?= rlCampo('Quiénes estuvieron', rlMulti('presentes[]', $opsDl, $dl['esperados'], 'Buscar persona…')) ?>
       </div>
-      <?= rlCampo('Nota', '<textarea class="input-meca" name="nota" rows="2" maxlength="600" placeholder="Bloqueos, quién avisó que no venía… Si no aplica, el motivo."></textarea>') ?>
+      <?= rlCampo('Nota', '<textarea class="input-meca" name="nota" rows="2" maxlength="600" placeholder="Bloqueos, quién avisó que no venía… Si no aplica, el motivo." data-rl-dl-nota></textarea>') ?>
       <footer><button type="button" class="btn-outline btn-meca btn-neutro" data-cerrar-dlg>Cancelar</button><button class="btn-primary btn-meca" type="submit"><i class="fa-solid fa-check"></i> Guardar</button></footer>
     </form>
   </dialog>

@@ -1268,9 +1268,24 @@ final class Releases
         'sin_zoom'      => ['Sin verificar',    'gris'],
         'sin_registrar' => ['Sin registrar',    'gris'],
         'no_aplica'     => ['No aplica',        'gris'],
+        'justificada'   => ['Justificada',      'petroleo'],
         'pendiente'     => ['Por medir',        'gris'],
     ];
-    /** Los que cuentan para el cumplimiento (pendiente y no aplica, no). */
+    /**
+     * Por qué no se pudo hacer la daily, cuando el SM la justifica: el día no
+     * cuenta en contra (como «No aplica»), pero queda a la vista con su motivo.
+     */
+    public const DAILY_MOTIVOS = [
+        'choque'    => 'Chocó con otra reunión',
+        'revision'  => 'Revisión del release o reunión con el cliente',
+        'evento'    => 'Capacitación o evento del equipo',
+        'ausencias' => 'El equipo no estaba (permisos, vacaciones, enfermedad)',
+        'tecnico'   => 'Problema técnico (internet, luz, Zoom)',
+        'otro'      => 'Otro motivo',
+    ];
+    /** Los días que no se cumplieron: los que se pueden justificar. */
+    public const DAILY_FALTAS = ['no_hecha', 'sin_registrar', 'incompleta', 'sin_zoom'];
+    /** Los que cuentan para el cumplimiento (pendiente, no aplica y justificada, no). */
     private const DAILY_CUENTAN = ['cumplida', 'incompleta', 'no_hecha', 'sin_zoom', 'sin_registrar'];
     private const DAILY_RE = '/\b(dail(y|ies)|diari[ao]s?|stand ?-?up)\b/iu';
 
@@ -1560,9 +1575,10 @@ final class Releases
 
     /**
      * El SM registra el día a mano: se hizo (con quiénes estuvieron), no se hizo,
-     * no aplica (con el motivo) o «auto» (borra lo suyo y vuelve a mandar Zoom).
-     * Solo el de hoy: registrar hoy la daily de ayer no vale. Un día que ya pasó
-     * lo corrige un editor de Releases ($diasPasados).
+     * no aplica (con el motivo), justificada (faltó, con su motivo de la lista) o
+     * «auto» (borra lo suyo y vuelve a mandar Zoom). Solo el de hoy: registrar hoy
+     * la daily de ayer no vale. Un día que ya pasó lo corrige un editor de Releases
+     * ($diasPasados); justificarlo sí lo puede hacer el SM, que es cuando se sabe.
      */
     public static function registrarDaily(string $equipo, string $fecha, array $d, int $quien, bool $diasPasados = false): ?array
     {
@@ -1570,7 +1586,7 @@ final class Releases
         if (!self::equipo($equipo)) throw new RuntimeException('Ese equipo no existe.');
         if ($fecha === '' || $fecha > date('Y-m-d')) throw new RuntimeException('Elige un día que ya pasó (u hoy).');
         $que = (string)($d['estado'] ?? '');
-        if ($fecha < date('Y-m-d') && !$diasPasados && $que !== 'auto') {
+        if ($fecha < date('Y-m-d') && !$diasPasados && !in_array($que, ['auto', 'justificada'], true)) {
             throw new RuntimeException('Solo se registra la daily de hoy. Los días que ya pasaron los mide Zoom; si hay que corregir uno, pídeselo a un administrador.');
         }
         $repo = self::repo('rel_dailies');
@@ -1581,9 +1597,18 @@ final class Releases
             self::sincronizarDailies($equipo, (int)ceil((time() - strtotime($fecha)) / 86400) + 1);
             return null;
         }
-        if (!in_array($que, ['hecha', 'no_hecha', 'no_aplica'], true)) throw new RuntimeException('Elige cómo fue la daily.');
+        if (!in_array($que, ['hecha', 'no_hecha', 'no_aplica', 'justificada'], true)) throw new RuntimeException('Elige cómo fue la daily.');
         $nota = mb_substr(trim((string)($d['nota'] ?? '')), 0, 600);
         if ($que === 'no_aplica' && $nota === '') throw new RuntimeException('Escribe por qué ese día no aplica (feriado, revisión del release…).');
+        $motivo = (string)($d['motivo'] ?? '');
+        if ($que === 'justificada') {
+            if (!isset(self::DAILY_MOTIVOS[$motivo])) throw new RuntimeException('Elige por qué no se pudo hacer la daily.');
+            if ($motivo === 'otro' && $nota === '') throw new RuntimeException('Escribe el motivo.');
+            // Un día en que la daily se hizo (según Zoom o el panel) no se justifica: no faltó nada
+            if ($ya && ($ya['estado'] ?? '') === 'cumplida' && ($ya['fuente'] ?? '') !== 'manual') {
+                throw new RuntimeException('Ese día la daily se hizo y el equipo se conectó: no hay nada que justificar.');
+            }
+        }
         $esperados = self::dailyEsperados($equipo);
         $presentes = array_values(array_unique(array_filter(array_map('intval', (array)($d['presentes'] ?? [])))));
         $fila = ['equipo' => $equipo, 'fecha' => $fecha, 'fuente' => 'manual', 'esperados' => $esperados, 'nota' => $nota,
@@ -1591,6 +1616,9 @@ final class Releases
                  'final' => true, 'presentes' => [], 'asistencia' => null, 'msg' => ''];
         if ($que === 'hecha') $fila = array_replace($fila, self::dailyEstado($presentes, $esperados));
         else $fila['estado'] = $que;
+        // Justificada: el motivo y lo que había antes (lo que midió Zoom o el panel)
+        $fila['motivo'] = $que === 'justificada' ? $motivo : '';
+        if ($que === 'justificada') $fila['antes'] = (string)($ya['estado'] ?? 'sin_registrar');
         // Lo que ya trajo Zoom (minutos, invitados) se queda como referencia
         if ($ya) { $repo->update((int)$ya['id'], $fila); return $repo->find((int)$ya['id']); }
         return $repo->insert($fila + ['minutos' => [], 'invitados' => []]);
