@@ -1730,6 +1730,13 @@ function initComposer(form) {
       if (tabBadge) tabBadge.textContent = data.pendientes;
       MC.sonidoEnviar();
       MC.toast(data.items.length > 1 ? data.items.length + ' observaciones anotadas' : 'Observación anotada', 'success', 1800);
+      // La observación devolvió tareas completadas: salen otra vez, sin recargar
+      if (Array.isArray(data.reabiertas) && data.reabiertas.length) {
+        data.reabiertas.forEach((r) => reabrirTareaEnPantalla(r));
+        const n = data.reabiertas.length;
+        setTimeout(() => MC.toast((n === 1 ? 'La tarea #' + data.reabiertas[0].id + ' volvió' : n + ' tareas volvieron')
+          + ' a «' + data.reabiertas[0].etiqueta + '» para corregirla.', 'info', 4000), 600);
+      }
       // En el modal: se cierra al guardar; suelto, sigue listo para otra
       const dlgObs = form.closest('dialog');
       if (dlgObs) dlgObs.close(); else area.focus();
@@ -1852,10 +1859,110 @@ function guardarEstadoTarea(id, estado) {
     headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' },
     body,
   }).then((r) => r.json()).then((res) => {
-    if (res && res.ok) pintarAvanceProyecto(res);
+    if (res && res.ok) {
+      // Cambiado desde la tabla: la tarjeta del kanban también pasa a su columna
+      // (al arrastrar ya está ahí). Antes de recontar, que con filtro cuenta tarjetas.
+      const card = document.querySelector('.kb-card[data-tarea="' + id + '"]');
+      const destino = document.querySelector('.kb-cards[data-estado-drop="' + estado + '"]');
+      if (card && destino && card.parentElement !== destino) destino.prepend(card);
+      pintarAvanceProyecto(res);
+      if (res.entrega !== undefined) reflejarEntrega(id, res.entrega, false);
+    }
     return res || { ok: false };
   }).catch(() => ({ ok: false, error: 'Sin conexión' }));
 }
+
+/* Dónde está una tarea completada (por subir, en pruebas, desplegada). Al
+   completarla o reabrirla sin recargar: en la tabla sale u se oculta su lista
+   (UI::celdaEstadoTarea) y en el kanban, su etiqueta. '' = no está completada;
+   devuelta = la devolvió una observación. */
+function celdaEstadoDe(id) {
+  return [...document.querySelectorAll('.est-celda')].find((c) => c.querySelector('input[name="id"]')?.value == id);
+}
+function pintarListaEntrega(form, valor) {
+  const sel = form.querySelector('select[name="entrega"]');
+  if (!sel) return;
+  sel.value = valor;
+  const pill = sel.closest('.ent-pill');
+  if (pill) {
+    [...pill.classList].filter((c) => c.startsWith('entrega-')).forEach((c) => pill.classList.remove(c));
+    pill.classList.add('entrega-' + valor);
+    const txt = pill.querySelector('.mc-select__text, .mc-select__placeholder');
+    if (txt && sel.selectedOptions[0]) txt.textContent = sel.selectedOptions[0].text;
+  }
+}
+function reflejarEntrega(id, entrega, devuelta) {
+  const tpl = document.getElementById('tpl-entrega')?.content;
+  const celda = celdaEstadoDe(id);
+  if (celda) {
+    const formEnt = celda.querySelector('.ent-form');
+    if (formEnt) {
+      formEnt.hidden = !entrega;
+      if (entrega) pintarListaEntrega(formEnt, entrega);
+    }
+    celda.closest('.fila-tarea')?.classList.toggle('fila-hecha', !!entrega);
+    const chip = celda.querySelector('.ent-devuelta');
+    if (entrega || !devuelta) chip?.remove();
+    if (!entrega && devuelta && !chip && tpl) celda.append(tpl.querySelector('[data-ent="devuelta-tabla"]').cloneNode(true));
+  }
+  const card = document.querySelector('.kb-card[data-tarea="' + id + '"]');
+  const meta = card?.querySelector('.kb-meta');
+  if (meta) {
+    meta.querySelector('.kb-ent')?.remove();
+    const pon = entrega || (devuelta ? 'devuelta' : '');
+    const nuevo = pon && tpl ? tpl.querySelector('[data-ent="' + pon + '"]') : null;
+    if (nuevo) meta.append(nuevo.cloneNode(true));
+  }
+}
+
+/* Una observación devolvió la tarea ({id, estado, etiqueta}): su pastilla de
+   estado, la fila, la marca «Volvió» y la tarjeta del kanban en su columna. */
+function reabrirTareaEnPantalla(r) {
+  const celda = celdaEstadoDe(r.id);
+  const sel = celda?.querySelector('select[name="estado"]');
+  if (sel) {
+    sel.value = r.estado;
+    const pill = sel.closest('.est-pill');
+    if (pill) {
+      [...pill.classList].filter((c) => c.startsWith('estado-')).forEach((c) => pill.classList.remove(c));
+      pill.classList.add('estado-' + r.estado);
+      const txt = pill.querySelector('.mc-select__text');
+      if (txt && sel.selectedOptions[0]) txt.textContent = sel.selectedOptions[0].text;
+    }
+  }
+  celda?.closest('.fila-tarea')?.classList.remove('fila-hecha');
+  const card = document.querySelector('.kb-card[data-tarea="' + r.id + '"]');
+  const destino = document.querySelector('.kb-cards[data-estado-drop="' + r.estado + '"]');
+  if (card && destino && card.parentElement !== destino) {
+    // Los contadores son del proyecto entero (no de las tarjetas a la vista): uno menos allá, uno más acá
+    const sumar = (zona, d) => {
+      const head = zona?.closest('.kb-col')?.querySelector('.kb-count');
+      if (head) head.textContent = Math.max(0, (parseInt(head.textContent, 10) || 0) + d);
+    };
+    sumar(card.parentElement, -1);
+    destino.prepend(card);
+    sumar(destino, 1);
+  }
+  reflejarEntrega(r.id, '', true);
+}
+
+// Tabla: la lista de entrega guarda por AJAX, como la del estado
+document.addEventListener('submit', (e) => {
+  const form = e.target;
+  if (form.querySelector?.('input[name="accion"]')?.value !== 'tarea_entrega') return;
+  e.preventDefault();
+  const id = form.querySelector('input[name="id"]')?.value;
+  const sel = form.querySelector('[name="entrega"]');
+  const previo = [...(sel?.closest('.ent-pill')?.classList || [])].find((c) => c.startsWith('entrega-'))?.slice('entrega-'.length);
+  const body = new URLSearchParams({ accion: 'tarea_entrega', id, entrega: sel?.value || '', ajax: '1' });
+  fetch('actions.php', { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-Requested-With': 'fetch' }, body })
+    .then((r) => r.json()).catch(() => ({ ok: false, error: 'Sin conexión' }))
+    .then((res) => {
+      if (res.ok) reflejarEntrega(id, res.entrega, false);
+      else if (previo) pintarListaEntrega(form, previo);   // revertir lo que no se guardó
+      MC?.toast?.(res.ok ? 'Quedó «' + res.mensaje + '»' : (res.error || 'No se pudo guardar'), res.ok ? 'success' : 'error', res.ok ? 1800 : 4000);
+    });
+});
 
 /* Refresca lo que la recarga pintaba sola: contadores del kanban, tiles de
    resumen por estado y la barra de avance de la cabecera. Sin esto, guardar

@@ -406,7 +406,12 @@ final class Cronograma
             'proyectos' => $pids, 'autor_id' => 0, 'entorno' => $cfg['entorno'], 'fecha' => date('Y-m-d H:i', $fin),
             'nota' => mb_substr($nota, 0, 1500), 'tareas' => $pend, 'origen' => 'gitlab', 'builds' => [(int)$b['id']],
         ]);
-        foreach ($pend as $tid) $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]);
+        // Subida = en el servidor de pruebas (lo que ya se marcó desplegado se queda así)
+        foreach ($pend as $tid) {
+            $tPend = $tareas->buscar($tid);
+            $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]
+                + (($tPend['entrega'] ?? '') === 'desplegado' ? [] : ['entrega' => 'pruebas']));
+        }
         self::builds()->update((int)$b['id'], ['deploy_id' => (int)$dep['id']]);
 
         if (time() - $fin <= self::AVISAR_HASTA) {

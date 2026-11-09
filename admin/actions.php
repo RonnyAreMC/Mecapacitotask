@@ -41,6 +41,8 @@ $accionesDeCualquiera = [
     // Colorimetría: anota el SM o el PO del proyecto (Colorimetria::puedeMedir lo revisa)
     'col_medir',
     'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
+    // Dónde está la tarea completada (dentro: UI::puedeMarcarEntrega)
+    'tarea_entrega',
     // Quien depende de una tarea de otro equipo puede recordarle por correo
     // (dentro se comprueba que participe en su proyecto y que la dep sea real).
     'dep_recordar',
@@ -1562,7 +1564,24 @@ switch ($accion) {
             'avance'      => $tareas->avance($pidEstado),
             'completadas' => $tareas->completadas($pidEstado),
             'total'       => array_sum($conteo),
+            // Dónde está ('' si no está completada): la tabla muestra u oculta su lista
+            'entrega'     => TareaRepo::entregaDe($tareas->buscar((int)$t['id']) ?? []),
         ]);
+
+    case 'tarea_entrega':
+        // Completada: ¿por subir, en el servidor de pruebas o desplegada? (AJAX desde la tabla)
+        $finEnt = function (bool $ok, string $msg, array $extra = []): never {
+            header('Content-Type: application/json; charset=utf-8');
+            exit(json_encode(['ok' => $ok, 'error' => $ok ? '' : $msg, 'mensaje' => $msg] + $extra, JSON_UNESCAPED_UNICODE));
+        };
+        $tEnt = $tareas->buscar((int)($_POST['id'] ?? 0));
+        if (!$tEnt || !puedeVerProyecto((int)$tEnt['proyecto_id'])) $finEnt(false, 'Tarea no encontrada.');
+        if (!UI::puedeMarcarEntrega($tEnt)) $finEnt(false, 'Lo marca quien tiene la tarea, quien lleva el proyecto o quien sube los cambios.');
+        if (TareaRepo::entregaDe($tEnt) === '') $finEnt(false, 'Primero márcala como completada.');
+        $kEnt = (string)($_POST['entrega'] ?? '');
+        if (!isset(TareaRepo::ENTREGAS[$kEnt])) $finEnt(false, 'Elige dónde está: por subir, en el servidor de pruebas o desplegada.');
+        $tareas->actualizar((int)$tEnt['id'], ['entrega' => $kEnt, 'entrega_en' => date('Y-m-d H:i'), 'entrega_por' => (int)(Auth::usuario()['id'] ?? 0)]);
+        $finEnt(true, TareaRepo::ENTREGAS[$kEnt][0], ['entrega' => $kEnt]);
 
     case 'tarea_editar':
         $t = $tareas->buscar((int)($_POST['id'] ?? 0));
@@ -1868,6 +1887,37 @@ switch ($accion) {
                 'proyecto.php?id=' . $pid . '#vista-observaciones');
         }
 
+        // Una observación nueva sobre una tarea ya completada la devuelve: sale otra
+        // vez en «Por hacer» para corregirla, y al completarla vuelve a «Por subir».
+        // Las respuestas de un hilo no, ni la nota que deja quien tiene la tarea.
+        $reabiertas = [];
+        if (!$padre && !empty($creadas)) {
+            $finalesObs = Catalogo::estadosFinales();
+            $volverA = array_values(array_diff(array_keys(Catalogo::estadosTarea()), $finalesObs))[0] ?? 'pendiente';
+            TareaRepo::$motivo = 'por una observación';
+            foreach ($creadas as $oc) {
+                $tObs = (int)($oc['tarea_id'] ?? 0) > 0 ? $tareas->buscar((int)$oc['tarea_id']) : null;
+                if (!$tObs || !in_array($tObs['estado'] ?? '', $finalesObs, true) || TareaRepo::tieneAsignado($tObs, $creadorId)) continue;
+                $tareas->actualizar((int)$tObs['id'], ['estado' => $volverA, 'devuelta' => [
+                    'obs_id' => (int)$oc['id'], 'fecha' => date('Y-m-d H:i'), 'por' => $creadorId, 'estaba' => TareaRepo::entregaDe($tObs),
+                ]] + completadaEn($volverA, (string)$tObs['estado']));
+                $reabiertas[] = $tObs;
+            }
+            TareaRepo::$motivo = '';
+            if ($reabiertas) {
+                relAlDia(array_map(fn($x) => (int)$x['id'], $reabiertas));
+                chequearEntrega($pid, $proyectos, $tareas);
+                // Quien la tiene se entera en la campana aunque la observación no fuera para él
+                $yaAvisados = array_map('intval', $campana ?? []);
+                foreach ($reabiertas as $tr) {
+                    $avisarA = array_values(array_diff(TareaRepo::asignadosDe($tr), $yaAvisados, [$creadorId]));
+                    if ($avisarA) avisoPanel($avisarA, 'observacion', 'Tu tarea volvió por una observación',
+                        '#' . (int)$tr['id'] . ' «' . mb_substr((string)($tr['titulo'] ?? ''), 0, 80) . '» pasó a «'
+                        . (Catalogo::estadosTarea()[$volverA][0] ?? $volverA) . '» para corregirla.', 'proyecto.php?id=' . $pid . '&tarea=' . (int)$tr['id']);
+                }
+            }
+        }
+
         // Aviso por correo a los destinatarios (menos al propio autor).
         if ($destIds && Mailer::listo() && !empty($creadas)) {
             $pObs     = $proyectos->buscar($pid);
@@ -1893,10 +1943,15 @@ switch ($accion) {
                 'esRespuesta'=> (bool)$padre,
                 'total'      => $res['total'],
                 'pendientes' => $res['pendientes'],
+                // Las tareas que la observación devolvió: la tabla y el kanban las mueven sin recargar
+                'reabiertas' => array_map(fn($x) => ['id' => (int)$x['id'], 'estado' => $volverA ?? 'pendiente',
+                                                     'etiqueta' => Catalogo::estadosTarea()[$volverA ?? 'pendiente'][0] ?? ''], $reabiertas),
             ]);
             exit;
         }
-        redirigir($volver, count($creadas) > 1 ? count($creadas) . ' observaciones registradas.' : 'Observación registrada.');
+        redirigir($volver, (count($creadas) > 1 ? count($creadas) . ' observaciones registradas.' : 'Observación registrada.')
+            . ($reabiertas ? ' ' . (count($reabiertas) === 1 ? 'La tarea volvió' : count($reabiertas) . ' tareas volvieron') . ' a «'
+                . (Catalogo::estadosTarea()[$volverA][0] ?? $volverA) . '» para corregirla.' : ''));
 
     case 'dep_recordar':
         $pid    = (int)($_POST['proyecto_id'] ?? 0);
@@ -3530,6 +3585,7 @@ switch ($accion) {
                 'fecha_limite'  => (string)($t['fecha_limite'] ?? ''),
                 'completada_en' => (string)($t['completada_en'] ?? ''),
                 'subida_en'     => (string)($t['desplegada_en'] ?? ''),
+                'entrega'       => ($kEntP = TareaRepo::entregaDe($t)) !== '' ? TareaRepo::ENTREGAS[$kEntP][0] : '',
                 'dependencias'  => $deps,
                 'dependencias_de_otro_proyecto' => $externas,
                 'adjuntos'      => count((array)($t['adjuntos'] ?? [])),
@@ -5334,10 +5390,12 @@ switch ($accion) {
             'tareas'    => $pendientesDep,
         ]);
         foreach ($pendientesDep as $tid) {
+            $tDepE = $tareas->buscar($tid);
             $tareas->actualizar($tid, [
                 'deploy_id'     => (int)$nuevoDep['id'],
                 'desplegada_en' => $nuevoDep['fecha'],
-            ]);
+            // Subida = en el servidor de pruebas (lo que ya se marcó desplegado se queda así)
+            ] + (($tDepE['entrega'] ?? '') === 'desplegado' ? [] : ['entrega' => 'pruebas']));
         }
         // Se lleva los builds de GitLab en cola de esos proyectos y avisa a todos (lib/deploys/Cronograma.php)
         if (is_file(__DIR__ . '/lib/deploys/Cronograma.php')) {
@@ -5368,7 +5426,8 @@ switch ($accion) {
         foreach (DeployRepo::tareasDe($dep) as $tid) {
             $t = $tareas->buscar($tid);
             if ($t && (int)($t['deploy_id'] ?? 0) === (int)$dep['id']) {
-                $tareas->actualizar($tid, ['deploy_id' => 0, 'desplegada_en' => '']);
+                $tareas->actualizar($tid, ['deploy_id' => 0, 'desplegada_en' => '']
+                    + (($t['entrega'] ?? '') === 'pruebas' ? ['entrega' => ''] : []));
             }
         }
         $depRepo->eliminar((int)$dep['id']);

@@ -6999,3 +6999,42 @@ html.dark .tg-alerta { background: linear-gradient(135deg, var(--tg-bg) 0%, var(
   html .tg-alerta__indice { grid-column: 1 / -1; text-align: left; }
   html .tg-alerta__frentes { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* =========================================================
+   Tareas: dónde está la tarea completada (UI::celdaEstadoTarea). Debajo del
+   estado, una pastilla más chica: por subir, en el servidor de pruebas o
+   desplegada. Si una observación la devolvió, la marca roja «Volvió». Sin bordes.
+   ========================================================= */
+html .est-celda { display: flex; flex-direction: column; align-items: flex-start; gap: 5px; }
+html .est-celda .ent-form[hidden] { display: none; }
+html :is(.est-pill, .ent-badge, .kb-ent).entrega-por_subir  { --est: #C2410C; }
+html :is(.est-pill, .ent-badge, .kb-ent).entrega-pruebas    { --est: #7C3AED; }
+html :is(.est-pill, .ent-badge, .kb-ent).entrega-desplegado { --est: #0F766E; }
+html.dark :is(.est-pill, .ent-badge, .kb-ent).entrega-por_subir  { --est: #FDBA74; }
+html.dark :is(.est-pill, .ent-badge, .kb-ent).entrega-pruebas    { --est: #C4B5FD; }
+html.dark :is(.est-pill, .ent-badge, .kb-ent).entrega-desplegado { --est: #5EEAD4; }
+html .ent-pill .mc-select__trigger { height: 26px; min-height: 26px; padding: 0 6px 0 9px; font-size: .74rem; }
+html .ent-pill .mc-select__value::before { width: 6px; height: 6px; border-radius: 2px; }
+html .ent-badge {
+  display: inline-flex; align-items: center; gap: 5px; height: 24px; padding: 0 9px; border-radius: 999px;
+  color: var(--est); background: color-mix(in srgb, var(--est) 11%, transparent);
+  font: 600 .74rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+}
+html .ent-badge .ico { width: 13px; height: 13px; }
+html .badge-estado + .ent-badge { margin-left: 6px; }
+html .ent-devuelta {
+  display: inline-flex; align-items: center; gap: 5px; height: 22px; padding: 0 8px; border-radius: 999px;
+  color: #B91C1C; background: color-mix(in srgb, #DC2626 10%, transparent);
+  font: 600 .72rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+}
+html .ent-devuelta .ico { width: 12px; height: 12px; }
+html.dark .ent-devuelta { color: #FCA5A5; background: color-mix(in srgb, #F87171 16%, transparent); }
+html .kb-ent { color: var(--est); background: color-mix(in srgb, var(--est) 13%, transparent); }
+html .kb-ent { white-space: nowrap; }
+html .kb-ent.ent-devuelta { height: auto; padding: 2px 8px; font-size: .68rem; font-weight: 700; color: #B91C1C; background: color-mix(in srgb, #DC2626 10%, transparent); }
+html.dark .kb-ent.ent-devuelta { color: #FCA5A5; background: color-mix(in srgb, #F87171 16%, transparent); }
+/* La fila de abajo de la tarjeta baja de línea si no cabe (la etiqueta de entrega no se corta) */
+html .kb-card .kb-meta { flex-wrap: wrap; row-gap: 6px; }
+/* La fila completada se apaga, pero su estado y su entrega se leen enteros */
+html .fila-tarea.fila-hecha { opacity: 1; }
+html .fila-tarea.fila-hecha > td:not(:has(.est-celda)) { opacity: .68; }

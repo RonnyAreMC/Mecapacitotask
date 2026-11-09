@@ -1155,6 +1155,57 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         return $html . '</form>';
     }
 
+    /** ¿Puede marcar dónde está la tarea completada? Quien la tiene, quien lleva el proyecto o quien sube los cambios. */
+    public static function puedeMarcarEntrega(array $tarea): bool
+    {
+        if (Auth::esSupervisor()) return false;
+        return Auth::esAdmin()
+            || TareaRepo::tieneAsignado($tarea, (int)(Auth::usuario()['id'] ?? 0))
+            || puedeGestionarTareas((int)($tarea['proyecto_id'] ?? 0))
+            || puedeDesplegar();
+    }
+
+    /** Insignia de la entrega («En servidor de pruebas»…); vacía si la tarea no está completada. */
+    public static function badgeEntrega(array $tarea): string
+    {
+        $k = TareaRepo::entregaDe($tarea);
+        if ($k === '') return '';
+        [$label, $icono] = TareaRepo::ENTREGAS[$k];
+        return '<span class="ent-badge entrega-' . e($k) . '">' . self::icono($icono) . ' ' . e($label) . '</span>';
+    }
+
+    /**
+     * La celda «Estado» de la tabla de tareas: el estado y, debajo, dónde está
+     * si ya se completó (por subir, en el servidor de pruebas o desplegada).
+     * Si una observación la devolvió, lo dice. La lista de entrega va siempre
+     * (oculta si no está completada) para que admin.js la muestre al completarla.
+     */
+    public static function celdaEstadoTarea(array $tarea): string
+    {
+        $finales = Catalogo::estadosFinales();
+        $k = TareaRepo::entregaDe($tarea);
+        $html = '<div class="est-celda" data-finales="' . e(implode(',', $finales)) . '">' . self::selectEstadoTarea($tarea);
+        if (self::puedeMarcarEntrega($tarea)) {
+            $ops = array_map(fn($v) => $v[0], TareaRepo::ENTREGAS);
+            $lista = self::selectDS('entrega', $ops, $k !== '' ? $k : 'por_subir', [
+                'aria'  => 'Dónde está la tarea completada',
+                'attrs' => 'onchange="this.form.requestSubmit ? this.form.requestSubmit() : this.form.submit()"',
+            ]);
+            $html .= '<form method="post" action="actions.php" class="inline-form ent-form"' . ($k === '' ? ' hidden' : '') . '>'
+                . '<input type="hidden" name="accion" value="tarea_entrega"><input type="hidden" name="id" value="' . (int)$tarea['id'] . '">'
+                . str_replace('<div class="mc-select" data-ds-select', '<div class="mc-select est-pill ent-pill entrega-' . e($k !== '' ? $k : 'por_subir') . '" data-ds-ancho="230" data-ds-select', $lista)
+                . '</form>';
+        } elseif ($k !== '') {
+            $html .= self::badgeEntrega($tarea);
+        }
+        $dev = is_array($tarea['devuelta'] ?? null) ? $tarea['devuelta'] : [];
+        if ($dev && $k === '') {
+            $html .= '<span class="ent-devuelta" data-ds-tip="Una observación la devolvió el ' . e((string)($dev['fecha'] ?? '')) . ': hay que corregirla y completarla otra vez.">'
+                . self::icono('RotateLeft') . ' Volvió por observación</span>';
+        }
+        return $html . '</div>';
+    }
+
     /**
      * Selector de color reutilizable (campos `color` + `color_hex`).
      * Muestra la fila principal (colores de marca + personalizado) y el

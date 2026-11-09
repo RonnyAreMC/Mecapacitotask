@@ -481,7 +481,7 @@ $verTareaAttr = function (array $t) use ($miembros, $finales, $obsPorTarea, $est
         'titulo'       => $t['titulo'] ?? '',
         'descripcion'  => $t['descripcion'] ?? '',
         'proyecto'     => $proyecto['nombre'] ?? '',
-        'estado_badge' => UI::badgeEstadoTarea($t['estado'] ?? ''),
+        'estado_badge' => UI::badgeEstadoTarea($t['estado'] ?? '') . UI::badgeEntrega($t),
         'prio_badge'   => UI::badgePrioridad($t['prioridad'] ?? ''),
         'asignados'    => $nombres,
         'responsables' => $responsables,
@@ -1003,17 +1003,7 @@ if ($conSprints) {
                 <i class="fa-solid fa-paperclip"></i> <?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?>
               </small>
               <?php endif; ?>
-              <?php if ($depsOn && $esFinal): ?>
-                <?php if ((int)($t['deploy_id'] ?? 0) > 0): ?>
-                <small class="dep-tag deploy-tag deploy-si" title="Ya está en <?= e($depEntorno) ?>">
-                  <i class="fa-solid fa-cloud-arrow-up"></i> Subida el <?= e($t['desplegada_en'] ?? '') ?>
-                </small>
-                <?php else: ?>
-                <small class="dep-tag deploy-tag deploy-no" title="Completada, pero aún no se ha subido a <?= e($depEntorno) ?>">
-                  <i class="fa-regular fa-clock"></i> Sin subir
-                </small>
-                <?php endif; ?>
-              <?php endif; ?>
+              <?php /* Si ya está subida, dónde y cuándo va en la columna Estado (UI::celdaEstadoTarea) */ ?>
               <?= $relChips($t) ?>
               <?php $ag = TareaRepo::agregadaPor($t, $miembros); if ($ag['miembro'] || $ag['corto'] !== ''): ?>
               <small class="tarea-autor" title="<?= e(($ag['miembro'] ? 'La agregó ' . $ag['miembro']['nombre'] . ' el ' : 'Agregada el ') . $ag['largo'] . ($ag['origen'] ? ' · ' . $ag['origen'] : '')) ?>">
@@ -1048,7 +1038,7 @@ if ($conSprints) {
             </div>
           </td>
           <td><?= UI::badgePrioridad($t['prioridad']) ?></td>
-          <td><?= UI::selectEstadoTarea($t) ?></td>
+          <td><?= UI::celdaEstadoTarea($t) ?></td>
           <td>
             <?php $arranque = TareaRepo::arranque($t); ?>
             <?php if ($arranque === 'programada'): ?>
@@ -1214,18 +1204,17 @@ if ($conSprints) {
               <?php $nAdj = count(TareaRepo::adjuntosDe($t)); if ($nAdj > 0): ?>
               <small title="<?= $nAdj ?> documento<?= $nAdj === 1 ? '' : 's' ?> de respaldo"><i class="fa-solid fa-paperclip"></i> <?= $nAdj ?></small>
               <?php endif; ?>
-              <?php if ($depsOn && in_array($t['estado'] ?? '', $finales, true)):
-                  // Completada: lo siguiente que preguntan es si ya está arriba.
-                  $depT = (int)($t['deploy_id'] ?? 0); ?>
-                <?php if ($depT > 0): ?>
-                <small class="kb-deploy kb-deploy-si" title="Subida a <?= e($depEntorno) ?> el <?= e($t['desplegada_en'] ?? '') ?>">
-                  <?= UI::icono('Upload') ?> <?= e(substr((string)($t['desplegada_en'] ?? ''), 5, 11)) ?>
+              <?php
+                // Completada: lo siguiente que preguntan es dónde está (por subir, en pruebas o desplegada)
+                $entK = TareaRepo::entregaDe($t);
+                if ($entK !== ''): [$entTxt, $entIco, $entCorto] = TareaRepo::ENTREGAS[$entK]; ?>
+                <small class="kb-deploy kb-ent entrega-<?= e($entK) ?>" title="<?= e($entTxt) ?><?= (int)($t['deploy_id'] ?? 0) > 0 && $entK === 'pruebas' ? ' · subida el ' . e($t['desplegada_en'] ?? '') : '' ?>">
+                  <?= UI::icono($entIco) ?> <?= e($entCorto) ?>
                 </small>
-                <?php else: ?>
-                <small class="kb-deploy kb-deploy-no" title="Completada, pero todavía no se ha subido a <?= e($depEntorno) ?>">
-                  <?= UI::icono('Clock') ?> sin subir
+              <?php elseif (is_array($t['devuelta'] ?? null) && $t['devuelta']): ?>
+                <small class="kb-deploy kb-ent ent-devuelta" title="Una observación la devolvió el <?= e((string)($t['devuelta']['fecha'] ?? '')) ?>">
+                  <?= UI::icono('RotateLeft') ?> Volvió
                 </small>
-                <?php endif; ?>
               <?php endif; ?>
             </div>
           </div>
@@ -1235,6 +1224,14 @@ if ($conSprints) {
       <?php endforeach; ?>
     </div>
   </section>
+  <?php /* Las etiquetas de entrega ya dibujadas: admin.js las pone al completar o devolver una tarea sin recargar */ ?>
+  <template id="tpl-entrega">
+    <?php foreach (TareaRepo::ENTREGAS as $ek => [$etx, $eic, $ecorto]): ?>
+    <small class="kb-deploy kb-ent entrega-<?= e($ek) ?>" data-ent="<?= e($ek) ?>" title="<?= e($etx) ?>"><?= UI::icono($eic) ?> <?= e($ecorto) ?></small>
+    <?php endforeach; ?>
+    <small class="kb-deploy kb-ent ent-devuelta" data-ent="devuelta" title="Una observación la devolvió"><?= UI::icono('RotateLeft') ?> Volvió</small>
+    <span class="ent-devuelta" data-ent="devuelta-tabla" data-ds-tip="Una observación la devolvió: hay que corregirla y completarla otra vez."><?= UI::icono('RotateLeft') ?> Volvió por observación</span>
+  </template>
   <form id="frm-kanban" method="post" action="actions.php" hidden>
     <input type="hidden" name="accion" value="tarea_estado">
     <input type="hidden" name="id" id="kb-id">

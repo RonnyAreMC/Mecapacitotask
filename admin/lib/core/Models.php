@@ -1593,6 +1593,29 @@ class TareaRepo
     }
 
     /**
+     * Dónde está una tarea ya completada: clave => [etiqueta, icono, corta].
+     * Una observación nueva la devuelve a «Por hacer» y, al completarla otra
+     * vez, arranca de nuevo en «Por subir».
+     */
+    public const ENTREGAS = [
+        'por_subir'  => ['Por subir',              'Clock',          'Por subir'],
+        'pruebas'    => ['En servidor de pruebas', 'ds-laboratorio', 'En pruebas'],
+        'desplegado' => ['Desplegado',             'ds-publicar',    'Desplegado'],
+    ];
+
+    /**
+     * La entrega de una tarea completada ('' si todavía no lo está): la que se
+     * marcó a mano; si nadie la marcó, la de los despliegues (subida = pruebas).
+     */
+    public static function entregaDe(array $t): string
+    {
+        if (!in_array($t['estado'] ?? '', Catalogo::estadosFinales(), true)) return '';
+        $e = (string)($t['entrega'] ?? '');
+        if (isset(self::ENTREGAS[$e])) return $e;
+        return (int)($t['deploy_id'] ?? 0) > 0 ? 'pruebas' : 'por_subir';
+    }
+
+    /**
      * De dónde viene el cambio cuando no lo hace una persona a mano: 'commit
      * a1b2c3d' (AutoEstado), 'intercambio'… Lo pone quien llama y lo deja vacío al terminar.
      */
@@ -1648,6 +1671,10 @@ class TareaRepo
             if (array_key_exists($k, $datos) && (string)$datos[$k] !== (string)($antes[$k] ?? '')) {
                 $out[] = ['tipo' => $k, 'de' => (string)($antes[$k] ?? ''), 'a' => (string)$datos[$k]];
             }
+        }
+        // La entrega solo cuando alguien la marca (al reabrir se limpia sola y eso ya lo dice el estado)
+        if (isset(self::ENTREGAS[(string)($datos['entrega'] ?? '')]) && (string)$datos['entrega'] !== self::entregaDe($antes)) {
+            $out[] = ['tipo' => 'entrega', 'de' => self::entregaDe($antes), 'a' => (string)$datos['entrega']];
         }
         if (array_key_exists('asignados', $datos)) {
             $de = self::asignadosDe($antes);

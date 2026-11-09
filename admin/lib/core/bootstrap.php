@@ -519,8 +519,10 @@ function completadaEn(string $nuevo, string $antes): array
     $finales  = Catalogo::estadosFinales();
     $esFinal  = in_array($nuevo, $finales, true);
     $eraFinal = in_array($antes, $finales, true);
-    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d')];
-    if (!$esFinal && $eraFinal) return ['completada_en' => ''];
+    // Al completarla, la marca de «volvió por una observación» ya no aplica
+    if ($esFinal && !$eraFinal) return ['completada_en' => date('Y-m-d'), 'devuelta' => ''];
+    // Reabierta: lo que se corrija hay que subirlo otra vez (vuelve a «Por subir» al completarla)
+    if (!$esFinal && $eraFinal) return ['completada_en' => '', 'entrega' => '', 'deploy_id' => 0, 'desplegada_en' => ''];
     return [];
 }
 

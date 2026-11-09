@@ -98,6 +98,8 @@ $tareaApi = function (array $t, bool $detalle = false) use ($nombre, $etiqueta, 
         'fecha_inicio'  => (string)($t['fecha_inicio'] ?? ''),
         'fecha_limite'  => (string)($t['fecha_limite'] ?? ''),
         'completada_en' => (string)($t['completada_en'] ?? ''),
+        // Completada: por_subir, pruebas (en el servidor de pruebas) o desplegado; '' si no lo está
+        'entrega'       => TareaRepo::entregaDe($t),
         'item_release'  => $itemsDeTarea[(int)$t['id']] ?? [],
         'url'           => $base . 'proyecto.php?id=' . $pid . '&tarea=' . (int)$t['id'],
     ];

@@ -70,6 +70,7 @@ foreach ((array)($t['historial'] ?? []) as $h) {
         'fechas'    => 'Cambiaron las fechas: antes ' . $rango((array)$h['de']) . '; ahora ' . $rango((array)$h['a']),
         'prioridad' => 'Prioridad: ' . ($prios[(string)$h['de']] ?? $h['de']) . ' → ' . ($prios[(string)$h['a']] ?? $h['a']),
         'titulo'    => 'Cambió el título (antes: «' . mb_substr((string)$h['de'], 0, 90) . '»)',
+        'entrega'   => 'Quedó «' . (TareaRepo::ENTREGAS[(string)$h['a']][0] ?? $h['a']) . '»',
         default     => '',
     };
     if ($texto === '') continue;
