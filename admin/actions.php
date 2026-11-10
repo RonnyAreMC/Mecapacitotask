@@ -52,6 +52,8 @@ $accionesDeCualquiera = [
     // su bandeja, y anotar observaciones en el que tenga asignado (dentro se
     // comprueba que sea suyo).
     'req_terminar', 'req_observar',
+    // Marcar una corrección (observación con plazo) como corregida: quien lo tiene o el administrador
+    'req_obs_estado',
     // Quien tiene un requerimiento suma a un colaborador (solo eso: no cambia
     // fechas ni quita a nadie). Dentro se comprueba que lo tenga asignado.
     'req_colaborador',
@@ -351,9 +353,36 @@ function reqObsAsistente(): string
  * dentro del correo de asignación; al resto de responsables (en Editar, los que
  * ya estaban) les llega como observación. Devuelve la coletilla.
  */
+/**
+ * Lo que dice el correo de una corrección: el texto y, debajo, hasta cuándo
+ * hay que cumplirla (días hábiles).
+ */
+function reqObsConPlazo(string $html, int $dias): string
+{
+    if ($dias <= 0) return $html;
+    if (!function_exists('fechaLargaReq') && is_file(__DIR__ . '/lib/requirements/req_ui.php')) require_once __DIR__ . '/lib/requirements/req_ui.php';
+    $vence = RequerimientoRepo::sumarHabiles(date('Y-m-d'), $dias);
+    return $html . '<p><b>Plazo para corregirlo: ' . $dias . ' día' . ($dias === 1 ? '' : 's') . ' hábil' . ($dias === 1 ? '' : 'es')
+        . ', hasta el ' . e(function_exists('fechaLargaReq') ? fechaLargaReq($vence) : date('d/m/Y', strtotime($vence))) . '.</b></p>';
+}
+
+/**
+ * Una corrección con plazo sobre un requerimiento ya resuelto lo devuelve a
+ * «Asignado»: hay trabajo pendiente otra vez. Devuelve la coletilla.
+ */
+function reqReabrirPorCorreccion(RequerimientoRepo $repo, array $req, int $quien): string
+{
+    if (($req['estado'] ?? '') !== 'hecho') return '';
+    $repo->actualizar((int)$req['id'], ['estado' => RequerimientoRepo::asignadosDe($req) ? 'asignado' : 'pendiente', 'cerrado_en' => '', 'cerrado_por' => 0]);
+    $repo->anotar((int)$req['id'], $quien, 'Volvió a abrirse por una corrección con plazo.');
+    return ' Estaba resuelto: volvió a abrirse hasta que se corrija.';
+}
+
 function reqObsGuardar(RequerimientoRepo $repo, int $reqId, string $html, MiembroRepo $miembros, array $yaAvisados): string
 {
     if ($html === '') return '';
+    // Días hábiles para cumplirla (paso «Observaciones» del asistente); 0 = comentario
+    $dias = max(0, min(RequerimientoRepo::TOPE_DIAS_CORRECCION, (int)($_POST['obs_dias'] ?? 0)));
     $req = $repo->buscar($reqId);
     if (!$req) return '';
     $yo = (int)(Auth::usuario()['id'] ?? 0);
@@ -365,11 +394,13 @@ function reqObsGuardar(RequerimientoRepo $repo, int $reqId, string $html, Miembr
         if ($mid === $yo || in_array($mid, $yaAvisados, true)) continue;
         $m = $miembros->buscar($mid);
         if (!$m) continue;
-        avisoPanel([$mid], 'requerimiento', 'Observación en un requerimiento', '«' . ($req['titulo'] ?? '') . '» · ' . HtmlRico::texto($html, 100), 'bandeja.php');
-        if (Mailer::observacionRequerimiento($req, $autor, $m, $html) === true) $avisados[] = $mid;
+        avisoPanel([$mid], 'requerimiento', $dias ? 'Corrección con plazo en un requerimiento' : 'Observación en un requerimiento',
+            '«' . ($req['titulo'] ?? '') . '» · ' . HtmlRico::texto($html, 100), 'requerimiento.php?id=' . $reqId);
+        if (Mailer::observacionRequerimiento($req, $autor, $m, reqObsConPlazo($html, $dias)) === true) $avisados[] = $mid;
     }
-    $repo->observar($reqId, $html, $yo, $avisados, 0, true);
-    return ' Las observaciones quedaron anotadas.';
+    $repo->observar($reqId, $html, $yo, $avisados, 0, true, $dias);
+    $extra = $dias ? reqReabrirPorCorreccion($repo, $repo->buscar($reqId) ?? [], $yo) : '';
+    return ($dias ? ' La corrección quedó anotada con ' . $dias . ' día' . ($dias === 1 ? '' : 's') . ' hábil' . ($dias === 1 ? '' : 'es') . ' de plazo.' : ' Las observaciones quedaron anotadas.') . $extra;
 }
 
 /**
@@ -2608,7 +2639,7 @@ switch ($accion) {
         $sufijoEd = $avisadosEd
             ? ' Avisamos por correo a ' . $avisadosEd . ' responsable' . ($avisadosEd === 1 ? '' : 's') . ' nuevo' . ($avisadosEd === 1 ? '' : 's') . '.'
             : '';
-        redirigir('requerimientos.php', '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd . $notaEd);
+        redirigir(volverAqui('requerimientos.php'), '«' . trim($_POST['titulo']) . '» actualizado.' . $sufijoEd . $notaEd);
 
     case 'req_asignar':
         $reqRepo = new RequerimientoRepo();
@@ -2622,9 +2653,9 @@ switch ($accion) {
         // Todos los responsables la recibieron en el correo de asignación
         $notaAs = reqObsGuardar($reqRepo, (int)$req['id'], $obsAs, $miembros, RequerimientoRepo::asignadosDe($reqRepo->buscar((int)$req['id']) ?? []));
         if ($aviso === '') {
-            redirigir('requerimientos.php', '«' . $req['titulo'] . '» vuelve a «sin asignar».' . $notaAs, 'info');
+            redirigir(volverAqui('requerimientos.php'), '«' . $req['titulo'] . '» vuelve a «sin asignar».' . $notaAs, 'info');
         }
-        redirigir('requerimientos.php', '«' . $req['titulo'] . '» es de ' . $aviso . $notaAs);
+        redirigir(volverAqui('requerimientos.php'), '«' . $req['titulo'] . '» es de ' . $aviso . $notaAs);
 
     case 'req_estado':
         $reqRepo = new RequerimientoRepo();
@@ -2636,7 +2667,7 @@ switch ($accion) {
         $reqRepo->actualizar((int)$req['id'], ['estado' => $estadoReq]
             + ($estadoReq === 'hecho' && empty($req['cerrado_en']) ? ['cerrado_en' => date('Y-m-d H:i'), 'cerrado_por' => (int)(Auth::usuario()['id'] ?? 0)] : []));
         $reqRepo->anotar((int)$req['id'], (int)(Auth::usuario()['id'] ?? 0), 'Lo pasó a «' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '».');
-        redirigir('requerimientos.php', '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
+        redirigir(volverAqui('requerimientos.php'), '«' . $req['titulo'] . '» → ' . RequerimientoRepo::ESTADOS[$estadoReq][0] . '.');
 
     case 'req_cancelar':
         // Se deja de hacer, pero no se borra: queda en «Cerrados» como cancelado,
@@ -2655,7 +2686,7 @@ switch ($accion) {
         }
         $motivoCan = mb_substr(trim((string)($_POST['motivo'] ?? '')), 0, 600);
         if ($motivoCan === '') {
-            redirigir('requerimientos.php?ver=' . (int)$req['id'], 'Escribe por qué se cancela.', 'error');
+            redirigir('requerimiento.php?id=' . (int)$req['id'], 'Escribe por qué se cancela.', 'error');
         }
         $yoCan = (int)(Auth::usuario()['id'] ?? 0);
         $reqRepo->actualizar((int)$req['id'], [
@@ -2673,12 +2704,12 @@ switch ($accion) {
             if ($midCan === $yoCan || !($mCan = $miembros->buscar($midCan))) continue;
             avisoPanel([$midCan], 'requerimiento', 'Se canceló un requerimiento',
                 '«' . ($req['titulo'] ?? '') . '» · ' . mb_substr($motivoCan, 0, 100),
-                (in_array($midCan, $adminsCan, true) ? 'requerimientos.php' : 'bandeja.php') . '?ver=' . (int)$req['id']);
+                'requerimiento.php?id=' . (int)$req['id']);
             if (Mailer::requerimientoCancelado($reqCan, $autorCan, $mCan, $motivoCan) === true) {
                 $avisadosCan[] = explode(' ', trim((string)($mCan['nombre'] ?? '')))[0];
             }
         }
-        redirigir('requerimientos.php', '«' . ($req['titulo'] ?? '') . '» quedó cancelado. Sigue en «Cerrados» con el motivo.'
+        redirigir(volverAqui('requerimientos.php'), '«' . ($req['titulo'] ?? '') . '» quedó cancelado. Sigue en «Cerrados» con el motivo.'
             . ($avisadosCan ? ' Avisamos por correo a ' . implode(', ', $avisadosCan) . '.' : ''));
 
     case 'req_reabrir':
@@ -2706,9 +2737,9 @@ switch ($accion) {
         $adminsReab = idsAdmins($miembros);
         foreach (RequerimientoRepo::asignadosDe($req) as $midReab) {
             avisoPanel([$midReab], 'requerimiento', 'Se reabrió un requerimiento', '«' . ($req['titulo'] ?? '') . '» vuelve a estar en curso',
-                (in_array($midReab, $adminsReab, true) ? 'requerimientos.php' : 'bandeja.php') . '?ver=' . (int)$req['id']);
+                'requerimiento.php?id=' . (int)$req['id']);
         }
-        redirigir('requerimientos.php', '«' . ($req['titulo'] ?? '') . '» se reabrió.');
+        redirigir(volverAqui('requerimientos.php'), '«' . ($req['titulo'] ?? '') . '» se reabrió.');
 
     case 'req_terminar':
         // Lo marca el RESPONSABLE desde su bandeja, con una observación de cómo
@@ -2740,7 +2771,7 @@ switch ($accion) {
         $reqRepo->anotar((int)$req['id'], $yoTerm, 'Lo marcó terminado' . ($retTerm ? ' con ' . $retTerm . ' día' . ($retTerm === 1 ? '' : 's') . ' de retraso' : ($retTerm === 0 ? ' a tiempo' : ''))
             . ($notaTerm !== '' ? ': ' . mb_substr($notaTerm, 0, 200) : '.'));
         $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
-        redirigir('bandeja.php', 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
+        redirigir(volverAqui('bandeja.php'), 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
 
     case 'req_observar':
         // Dejar dicho algo sobre un requerimiento —"estimado, ¿qué pasó con
@@ -2798,24 +2829,29 @@ switch ($accion) {
             if ($mObs = $miembros->buscar($midObs)) $paraObs[$midObs] = $mObs;
         }
         $autorObs = $miembros->buscar($yoObs) ?? [];
-        // Campana: al administrador lo lleva al módulo; a los demás, a su bandeja
-        $adminsObs = idsAdmins($miembros);
+        // Plazo de la corrección en días hábiles: lo pone quien lo gestiona, y solo al abrir hilo
+        $diasObs = (esAdmin() && !$laQueRespondeObs) ? max(0, min(RequerimientoRepo::TOPE_DIAS_CORRECCION, (int)($_POST['dias'] ?? 0))) : 0;
+        // Campana: lleva a la pantalla del requerimiento, a su observación
         foreach (array_keys($paraObs) as $midObs) {
-            avisoPanel([$midObs], 'requerimiento', $laQueRespondeObs ? 'Respondieron tu observación' : 'Observación en un requerimiento',
+            avisoPanel([$midObs], 'requerimiento', $laQueRespondeObs ? 'Respondieron tu observación' : ($diasObs ? 'Corrección con plazo en un requerimiento' : 'Observación en un requerimiento'),
                 '«' . ($req['titulo'] ?? '') . '» · ' . HtmlRico::texto((string)$textoObs, 100),
-                in_array($midObs, $adminsObs, true) ? 'requerimientos.php' : 'bandeja.php');
+                'requerimiento.php?id=' . (int)$req['id'] . '#observaciones');
         }
         $avisadosObs = [];
         foreach ($paraObs as $midObs => $mObs) {
-            if (Mailer::observacionRequerimiento($req, $autorObs, $mObs, $textoObs, $laQueRespondeObs) === true) {
+            if (Mailer::observacionRequerimiento($req, $autorObs, $mObs, reqObsConPlazo($textoObs, $diasObs), $laQueRespondeObs) === true) {
                 $avisadosObs[] = $midObs;
             }
         }
-        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs, true);
+        $reqRepo->observar((int)$req['id'], $textoObs, $yoObs, $avisadosObs, $padreObs, true, $diasObs);
+        if ($diasObs) {
+            $reqRepo->anotar((int)$req['id'], $yoObs, 'Pidió una corrección con ' . $diasObs . ' día' . ($diasObs === 1 ? '' : 's') . ' hábil' . ($diasObs === 1 ? '' : 'es') . ' de plazo.');
+        }
+        $reabiertoObs = $diasObs ? reqReabrirPorCorreccion($reqRepo, $reqRepo->buscar((int)$req['id']) ?? [], $yoObs) : '';
 
         $nAvObs = count($avisadosObs);
-        $rotuloObs = $laQueRespondeObs ? 'Respuesta anotada en «' : 'Observación anotada en «';
-        redirigir($volverObs, $rotuloObs . ($req['titulo'] ?? '') . '».'
+        $rotuloObs = $laQueRespondeObs ? 'Respuesta anotada en «' : ($diasObs ? 'Corrección anotada (' . $diasObs . ' día' . ($diasObs === 1 ? '' : 's') . ' hábil' . ($diasObs === 1 ? '' : 'es') . ') en «' : 'Observación anotada en «');
+        redirigir($volverObs, $rotuloObs . ($req['titulo'] ?? '') . '».' . $reabiertoObs
             . ($nAvObs
                 ? ' Avisamos por correo a ' . implode(', ', array_map(
                     fn($mid) => explode(' ', trim((string)($paraObs[$mid]['nombre'] ?? '')))[0], $avisadosObs)) . '.'
@@ -2824,6 +2860,34 @@ switch ($accion) {
                         ? ' No salió correo: la escribiste tú o quien la escribió ya no está en el equipo.'
                         : ' Nadie la tiene asignada todavía, así que no salió ningún correo.')
                     : ' No salió el correo (revisa Ajustes → Correo), pero queda anotada.')));
+
+    case 'req_obs_estado':
+        // Una corrección (observación con plazo) se cumplió: la marca quien lo
+        // tiene o el administrador. «Sigue pendiente» la deja como estaba.
+        $reqRepo = new RequerimientoRepo();
+        $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
+        $volverCo = volverAqui('requerimientos.php');
+        if (!$req) redirigir($volverCo, 'Ese requerimiento ya no existe.', 'error');
+        $yoCo = (int)(Auth::usuario()['id'] ?? 0);
+        if (Auth::esSupervisor() || (!esAdmin() && !RequerimientoRepo::tieneAsignado($req, $yoCo))) {
+            redirigir($volverCo, 'La marca quien tiene el requerimiento o quien lo gestiona.', 'error');
+        }
+        $corregidaCo = !empty($_POST['corregida']);
+        $oCo = $reqRepo->marcarCorreccion((int)$req['id'], (int)($_POST['obs_id'] ?? 0), $corregidaCo, $yoCo);
+        if (!$oCo) redirigir($volverCo, 'Esa corrección ya no está.', 'error');
+        $resumenCo = HtmlRico::texto((string)$oCo['texto'], 80);
+        $reqRepo->anotar((int)$req['id'], $yoCo, ($corregidaCo ? 'Marcó corregida: «' : 'Dejó pendiente otra vez: «') . $resumenCo . '»');
+        // Se entera la otra parte: al corregirla, quien la pidió; al dejarla pendiente, los responsables
+        $paraCo = $corregidaCo ? [(int)$oCo['autor']] : RequerimientoRepo::asignadosDe($req);
+        $paraCo = array_values(array_diff(array_filter($paraCo), [$yoCo]));
+        if ($paraCo) {
+            avisoPanel($paraCo, 'requerimiento', $corregidaCo ? 'Corrigieron una observación' : 'Una corrección sigue pendiente',
+                '«' . ($req['titulo'] ?? '') . '» · ' . $resumenCo, 'requerimiento.php?id=' . (int)$req['id'] . '#obs-' . (int)$oCo['id']);
+        }
+        $corrCo = RequerimientoRepo::correccionesDe($reqRepo->buscar((int)$req['id']) ?? $req);
+        redirigir($volverCo, $corregidaCo
+            ? 'Corrección marcada como hecha.' . ($corrCo['pendientes'] ? ' Quedan ' . $corrCo['pendientes'] . '.' : ' No queda ninguna pendiente.')
+            : 'La corrección sigue pendiente.');
 
     case 'req_colaborador':
         // Quien lo tiene asignado suma a alguien para que le ayude. Nada más:

@@ -11,6 +11,11 @@
  */
 require_once __DIR__ . '/lib/core/bootstrap.php';
 require_once __DIR__ . '/lib/requirements/req_ui.php';
+// Los enlaces de siempre (campana, correos) abren ahora la pantalla del requerimiento
+if (isset($_GET['ver'])) {
+    header('Location: requerimiento.php?id=' . (int)$_GET['ver']);
+    exit;
+}
 
 $reqRepo  = new RequerimientoRepo();
 $miembros = new MiembroRepo();
@@ -102,16 +107,5 @@ UI::cabecera(
 
 <?php endif; ?>
 
-<?php fichaRequerimiento(false, !$verComo); ?>
-
-<?php if (isset($_GET['ver'])): ?>
-<script>
-// Enlace directo a un requerimiento (desde el correo): abre su ficha con el detalle
-document.addEventListener('DOMContentLoaded', () => {
-  const fila = document.querySelector('[data-req-id="<?= (int)$_GET['ver'] ?>"]');
-  if (fila) { fila.scrollIntoView({ block: 'center' }); fila.click(); }
-});
-</script>
-<?php endif; ?>
-
+<?php /* Cada fila abre la pantalla del requerimiento (requerimiento.php) */ ?>
 <?php UI::fin(); ?>

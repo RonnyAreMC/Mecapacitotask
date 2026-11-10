@@ -1296,14 +1296,14 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         ['Petición',     'Qué están pidiendo',      'El título es lo que verás en la lista; el detalle viaja en el correo.', 'fa-inbox'],
         ['Responsables', 'Quién lo saca adelante',  'Arriba, quien está más libre y lleva más tiempo sin que le toque nada.', 'fa-user-group'],
         ['Plazo',        'Cuándo empieza y acaba',  'Desde cuándo se puede empezar y para cuándo lo esperan.', 'fa-calendar-days'],
-        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.', 'fa-note-sticky'],
+        ['Observaciones', 'Qué tiene que saber',   'Indicaciones o correcciones para quien lo hace, con días para cumplirlas si hace falta. Le llegan en el correo.', 'fa-note-sticky'],
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo rápido a todo lo que se va a guardar.', 'fa-clipboard-check'],
     ];
 
     public const PASOS_ASIGNAR = [
         ['Responsables', 'Quién lo saca adelante',  'Puede ir a varias personas. El número es lo que ya tienen abierto.', 'fa-user-group'],
         ['Plazo',        'Cuándo empieza y acaba',  'Se guarda con el requerimiento; puedes moverlo al reasignar.', 'fa-calendar-days'],
-        ['Observaciones', 'Qué tiene que saber',   'Indicaciones para quien lo hace: le llegan en el correo. Puedes pegar tablas.', 'fa-note-sticky'],
+        ['Observaciones', 'Qué tiene que saber',   'Las que ya tiene y, si hace falta, una nueva con días para corregirla. Le llegan en el correo.', 'fa-note-sticky'],
         ['Revisión',     'Revisa antes de guardar', 'Un vistazo a quién se lo mandas y con qué plazo.', 'fa-clipboard-check'],
     ];
 

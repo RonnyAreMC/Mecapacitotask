@@ -69,8 +69,8 @@ function reqUiInst(?array $set = null): array
 /**
  * Una fila de la lista. Enseña lo justo para decidir sin abrirla: qué es,
  * quién lo hace (con nombres, no solo iniciales de colores), qué urgencia
- * tiene y cuánto queda de plazo. El detalle largo y las acciones viven en la
- * ficha que se abre al pulsarla.
+ * tiene, cuánto queda de plazo y si tiene correcciones pendientes. El detalle,
+ * las observaciones y las acciones viven en su pantalla (requerimiento.php).
  */
 function filaRequerimiento(array $r, array $mapa, array $prioridades, array $estados): void
 {
@@ -95,63 +95,15 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
         default => $nombres[0] . ', ' . $nombres[1] . ' +' . (count($nombres) - 2),
     };
 
-    // La ficha se rellena en el navegador con estos datos: asi no hay que
-    // repetir el detalle completo de cada requerimiento en el HTML.
-    $datos = [
-        'id'          => $id,
-        'titulo'      => (string)$r['titulo'],
-        'detalle'     => (string)($r['detalle'] ?? ''),
-        'solicitante' => (string)($r['solicitante'] ?? ''),
-        'estado'      => $estado,
-        'estadoTxt'   => $etEstado,
-        'prioridad'   => isset($prioridades[$prio]) ? $prioridades[$prio][0] : '',
-        'prioridadKey' => $prio,
-        'instituciones' => RequerimientoRepo::institucionesDe($r),
-        'inicio'      => $ini,
-        'fin'         => $fin,
-        'vencido'     => $vencido,
-        'creado'      => (string)($r['creado'] ?? ''),
-        'cerrado'     => RequerimientoRepo::cerrado($r),
-        'asignados'   => implode(',', $ids),
-        'adjuntos'    => array_values((array)($r['adjuntos'] ?? [])),
-        // Los que sumó como colaboradores quien ya lo tenía, con quién los sumó
-        'personas'    => array_map(fn($m) => ['nombre' => $m['nombre'], 'rol' => $m['rol'] ?? '',
-                             'colab' => isset($colab[(int)$m['id']]) ? (string)($mapa[$colab[(int)$m['id']]['por']]['nombre'] ?? 'alguien') : ''], $gente),
-        // Trazabilidad: qué le pasó, cuándo y quién (0 = el panel: la IA, el aviso de vencido)
-        'historial'   => array_map(fn($h) => ['fecha' => (string)($h['fecha'] ?? ''), 'quien' => (int)($h['quien'] ?? 0) > 0 ? (string)($mapa[(int)$h['quien']]['nombre'] ?? 'Alguien') : 'El panel',
-                             'texto' => (string)$h['texto']], RequerimientoRepo::historialDe($r)),
-        // Observación de cierre que deja el responsable al marcarlo terminado.
-        'notaCierre'  => (string)($r['nota_cierre'] ?? ''),
-        'cerradoPor'  => (string)($mapa[(int)($r['cerrado_por'] ?? 0)]['nombre'] ?? ''),
-        'cerradoEn'   => (string)($r['cerrado_en'] ?? ''),
-        // Cancelado: el porqué, quién y cuándo (solo el nombre, sin perfil)
-        'motivoCancelacion' => (string)($r['motivo_cancelacion'] ?? ''),
-        'canceladoPor' => (string)($mapa[(int)($r['cancelado_por'] ?? 0)]['nombre'] ?? ''),
-        'canceladoEn'  => (string)($r['cancelado_en'] ?? ''),
-        // Las observaciones en hilos, ya con el nombre de quien las escribió:
-        // el JS solo recibe esta fila, no el mapa del equipo entero.
-        'observaciones' => array_map(fn($o) => [
-            'id'     => $o['id'],
-            'texto'  => $o['texto'],
-            'html'   => !empty($o['html']),
-            'autor'  => (string)($mapa[$o['autor']]['nombre'] ?? 'Alguien'),
-            'creado' => $o['creado'],
-            'respuestas' => array_map(fn($rr) => [
-                'id'     => $rr['id'],
-                'texto'  => $rr['texto'],
-                'html'   => !empty($rr['html']),
-                'autor'  => (string)($mapa[$rr['autor']]['nombre'] ?? 'Alguien'),
-                'creado' => $rr['creado'],
-            ], $o['respuestas']),
-        ], RequerimientoRepo::hilosDe($r)),
-    ];
+    // Correcciones (observaciones con plazo) que siguen pendientes: se ven sin abrirlo
+    $corr    = RequerimientoRepo::correccionesDe($r);
     $estTono = ['pendiente' => 'warning', 'asignado' => 'info', 'hecho' => 'success', 'cancelado' => 'danger', 'descartado' => 'neutral'][$estado] ?? 'neutral';
     $motivoCan = $estado === 'cancelado' ? trim((string)($r['motivo_cancelacion'] ?? '')) : '';
     $insts   = RequerimientoRepo::institucionesDe($r);
     $imapa   = reqUiInst();
     ?>
-    <tr class="req-tr req-e-<?= e($estado) ?><?= $vencido ? ' req-tr-vencida' : '' ?>" data-req-id="<?= (int)$r['id'] ?>" tabindex="0" role="button"
-        aria-label="Abrir «<?= e((string)$r['titulo']) ?>»" data-req="<?= e(json_encode($datos, JSON_UNESCAPED_UNICODE)) ?>">
+    <tr class="req-tr req-e-<?= e($estado) ?><?= $vencido ? ' req-tr-vencida' : '' ?>" data-req-id="<?= (int)$r['id'] ?>" tabindex="0" role="link"
+        aria-label="Abrir «<?= e((string)$r['titulo']) ?>»" data-href="requerimiento.php?id=<?= (int)$r['id'] ?>">
       <td class="is-primary" data-label="Requerimiento"><div class="mc-table__cell req-c-titulo">
         <span class="req-c-ico req-ico-<?= e($estado) ?>"><i class="fa-solid <?= e($icEstado) ?>"></i></span>
         <span class="req-c-txt">
@@ -160,6 +112,11 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
           <small class="truncate req-c-cancelado" title="<?= e($motivoCan) ?>"><?= $motivoCan !== '' ? 'Cancelado: ' . e($motivoCan) : 'Cancelado' ?></small>
           <?php else: ?>
           <small class="truncate"><?= !empty($r['solicitante']) ? 'Lo pide ' . e($r['solicitante']) : 'Sin remitente anotado' ?></small>
+          <?php endif; ?>
+          <?php if ($corr['pendientes']): ?>
+          <span class="rq-chip rq-chip--<?= $corr['vencidas'] ? 'mal' : 'pend' ?> req-c-corr" title="Correcciones pendientes<?= $corr['proxima'] !== '' ? ' · la próxima vence el ' . e(fechaLargaReq($corr['proxima'])) : '' ?>">
+            <?= UI::icono('ds-reloj') ?> <?= $corr['pendientes'] ?> corrección<?= $corr['pendientes'] === 1 ? '' : 'es' ?><?= $corr['vencidas'] ? ' · ' . $corr['vencidas'] . ' vencida' . ($corr['vencidas'] === 1 ? '' : 's') : '' ?>
+          </span>
           <?php endif; ?>
           <?php if ($insts): ?>
           <span class="req-f-inst">
@@ -225,196 +182,417 @@ function bloqueRequerimientos(string $titulo, string $icono, array $items, array
 }
 
 /**
- * Ficha completa, que se abre al pulsar una fila. La rellena admin.js con los
- * datos que lleva la fila encima.
+ * Carga de cada persona: tareas abiertas + requerimientos abiertos. Es el dato
+ * con el que se decide a quien darle el siguiente.
  *
- * $gestor = el administrador en su modulo: ademas de mirar, asigna, cierra y
- * borra. En la bandeja del equipo la ficha es solo de lectura.
+ * Y, a igualdad de carga, CUANDO entrego algo por ultima vez. Ordenar solo por
+ * lo abierto repartia mal: quien acababa de cerrar diez cosas marcaba 0 igual
+ * que quien no recibe trabajo desde hace un mes, y entre dos ceros mandaba el
+ * alfabeto — o sea que Aaron Bayas se llevaba siempre el siguiente. Con la
+ * fecha de la ultima entrega, arriba queda quien lleva mas tiempo sin que le
+ * toque nada.
+ *
+ * Devuelve [$carga, $opcionesRol]: la lista ordenada y los roles para filtrar.
  */
-function fichaRequerimiento(bool $gestor, bool $puedeTerminar = false): void
+function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, TareaRepo $tareasRepo): array
+{
+    $finales  = Catalogo::estadosFinales();
+    $abiertas = [];
+    $ultima   = [];      // [miembro_id => 'Y-m-d' de lo ultimo que entrego]
+    $apuntar  = function (int $mid, string $fecha) use (&$ultima) {
+        $fecha = substr(trim($fecha), 0, 10);
+        if ($mid <= 0 || $fecha === '') return;
+        if (!isset($ultima[$mid]) || $fecha > $ultima[$mid]) $ultima[$mid] = $fecha;
+    };
+    foreach ($tareasRepo->todas() as $t) {
+        $cerrada = in_array($t['estado'] ?? '', $finales, true);
+        foreach (TareaRepo::asignadosDe($t) as $mid) {
+            if ($cerrada) $apuntar($mid, (string)($t['completada_en'] ?? ''));
+            else          $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
+        }
+    }
+    foreach ($reqRepo->todos() as $rq) {
+        if (!RequerimientoRepo::cerrado($rq)) continue;
+        $cuando = (string)($rq['cerrado_en'] ?? '');
+        // Lo cuenta quien lo marco terminado; si lo cerro el administrador desde
+        // el modulo no queda 'cerrado_por', y entonces cuenta para sus responsables.
+        $deQuien = (int)($rq['cerrado_por'] ?? 0)
+            ? [(int)$rq['cerrado_por']]
+            : RequerimientoRepo::asignadosDe($rq);
+        foreach ($deQuien as $mid) $apuntar($mid, $cuando);
+    }
+
+    $hoyCarga = new DateTimeImmutable('today');
+    $carga = [];
+    foreach ($miembros->todos() as $m) {
+        $mid    = (int)$m['id'];
+        $tareas = (int)($abiertas[$mid] ?? 0);
+        $reqs   = $reqRepo->abiertosDe($mid);
+        $suUltima = $ultima[$mid] ?? '';
+        $carga[] = [
+            'miembro' => $m,
+            'rol'     => trim($m['rol'] ?? '') ?: 'Sin rol',
+            'tareas'  => $tareas,
+            'reqs'    => $reqs,
+            'total'   => $tareas + $reqs,
+            'ultima'  => $suUltima,
+            // Dias desde la ultima entrega; null si no consta ninguna.
+            'dias'    => $suUltima !== ''
+                ? (int)$hoyCarga->diff(new DateTimeImmutable($suUltima))->days
+                : null,
+        ];
+    }
+    // Del mas libre al mas cargado y, a igual carga, de quien lleva mas tiempo sin
+    // entregar a quien acaba de hacerlo. La cadena vacia ordena antes que cualquier
+    // fecha, asi que quien no tiene ninguna entrega registrada sale primero.
+    usort($carga, fn($a, $b) => $a['total'] <=> $b['total']
+        ?: strcmp($a['ultima'], $b['ultima'])
+        ?: strcasecmp($a['miembro']['nombre'], $b['miembro']['nombre']));
+
+    // Roles presentes, con cuanta gente hay en cada uno: son los filtros del
+    // selector. Se sacan del equipo real y no del catalogo, para no ofrecer
+    // filtros que no seleccionan a nadie.
+    $rolesCarga = [];
+    foreach ($carga as $c) {
+        $rolesCarga[$c['rol']] = ($rolesCarga[$c['rol']] ?? 0) + 1;
+    }
+    ksort($rolesCarga, SORT_NATURAL | SORT_FLAG_CASE);
+
+    $opcionesRol = ['' => 'Todos (' . count($carga) . ')'];
+    foreach ($rolesCarga as $rolNombre => $cuantos) {
+        $opcionesRol[$rolNombre] = $rolNombre . ' (' . $cuantos . ')';
+    }
+    return [$carga, $opcionesRol];
+}
+
+/**
+ * Paso "Responsables": el selector de personas con su carga delante. La misma
+ * pieza en "nuevo requerimiento" y en "asignar" uno que ya existe, porque es
+ * la misma decisión. El numero de cada quien es lo que ya tiene abierto y el
+ * color dice quien esta libre, sin ir a comprobarlo a otra pantalla.
+ *
+ * $prefijo distingue los dos usos ('nr' y 'dv') para que el filtro de rol de
+ * cada asistente no toque la lista del otro.
+ */
+function panelResponsables(array $carga, array $opcionesRol, string $prefijo, array $marcados = []): void
+{
+    $tope = $carga ? max(array_column($carga, 'total')) : 0;
+    ?>
+    <section class="wz-panel">
+      <div class="campo">
+        <span>Responsables</span>
+        <!-- Espejo de lo marcado, solo para que el paso de Revisión lo liste:
+             el asistente resume campos, y una lista de casillas no lo es.
+             Sin name, así que no se envía; los ids van en asignados[]. -->
+        <input type="hidden" data-md="1" data-picker-resumen="<?= e($prefijo) ?>">
+
+        <div class="dv-controles">
+          <label class="dv-buscar">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input type="search" class="input-meca js-<?= e($prefijo) ?>-buscar" placeholder="Buscar por nombre…" autocomplete="off">
+          </label>
+          <label class="carga-filtro dv-filtro">
+            <span>Filtrar por rol</span>
+            <?= UI::select($prefijo . '_rol', $opcionesRol, '', false, 'js-' . $prefijo . '-rol') ?>
+          </label>
+        </div>
+
+        <p class="dv-sinresultados" data-picker-vacio="<?= e($prefijo) ?>" hidden>Nadie coincide con la búsqueda.</p>
+
+        <div class="dv-lista" data-picker="<?= e($prefijo) ?>">
+          <?php foreach ($carga as $c):
+              $m = $c['miembro'];
+              $pct = $tope > 0 ? round($c['total'] / $tope * 100) : 0;
+              $nivel = $pct >= 66 ? 'alta' : ($pct >= 33 ? 'media' : 'baja');
+          ?>
+          <label class="dv-persona carga-<?= $nivel ?>" data-id="<?= (int)$m['id'] ?>"
+                 data-rol="<?= e($c['rol']) ?>" data-nombre="<?= e($m['nombre']) ?>">
+            <input type="checkbox" name="asignados[]" value="<?= (int)$m['id'] ?>"<?= in_array((int)$m['id'], $marcados, true) ? ' checked' : '' ?>>
+            <span class="dv-check"><i class="fa-solid fa-check"></i></span>
+            <?= UI::avatar($m, 34) ?>
+            <span class="dv-datos">
+              <strong class="truncate"><?= e($m['nombre']) ?></strong>
+              <small class="truncate"><?= e($c['rol']) ?></small>
+            </span>
+            <span class="dv-medida">
+              <span class="dv-barra"><span style="width:<?= max($pct, $c['total'] > 0 ? 8 : 0) ?>%"></span></span>
+              <small><?= $c['tareas'] ?> tareas · <?= $c['reqs'] ?> req.</small>
+              <?php
+              // Por que esta donde esta: entre varios con la misma carga, arriba
+              // van los que llevan mas tiempo sin entregar. Sin esto, el orden
+              // parece arbitrario cuando todos marcan 0.
+              $etUlt = $c['dias'] === null
+                  ? 'sin entregas registradas'
+                  : match (true) {
+                      $c['dias'] === 0 => 'entregó hoy',
+                      $c['dias'] === 1 => 'entregó ayer',
+                      $c['dias'] < 30  => 'entregó hace ' . $c['dias'] . ' días',
+                      default          => 'sin entregar hace ' . intdiv($c['dias'], 30) . ' mes'
+                                          . (intdiv($c['dias'], 30) === 1 ? '' : 'es'),
+                  };
+              ?>
+              <small class="dv-ultima<?= $c['dias'] !== null && $c['dias'] < 7 ? ' dv-ultima-reciente' : '' ?>"
+                     <?= $c['ultima'] !== '' ? 'title="Última entrega: ' . e($c['ultima']) . '"' : '' ?>>
+                <?= e($etUlt) ?>
+              </small>
+            </span>
+            <span class="dv-carga" title="<?= $c['total'] ?> pendientes en total: <?= $c['tareas'] ?> tareas de proyecto y <?= $c['reqs'] ?> requerimientos"><?= $c['total'] ?></span>
+          </label>
+          <?php endforeach; ?>
+        </div>
+
+        <small class="campo-ayuda">
+          <b data-picker-n="<?= e($prefijo) ?>">0</b> seleccionados · el número de cada quien es lo que ya tiene
+          abierto (tareas de proyecto + requerimientos). Arriba van los más libres y, entre los que
+          empatan, quien lleva más tiempo sin que le toque nada. Sin marcar a nadie, queda «sin asignar».
+        </small>
+      </div>
+    </section>
+    <?php
+}
+
+
+/**
+ * Paso "Plazo": las dos fechas del encargo, con los mismos atajos y el mismo
+ * aviso de duración que el asistente de tareas.
+ */
+function panelPlazo(string $prefijo, string $inicioPorDefecto = '', string $finPorDefecto = ''): void
 {
     ?>
-    <dialog id="dlg-req-ficha" class="dlg-meca dlg-ficha">
-      <div class="dlg-form">
-        <header>
-          <h3 class="font-display"><i class="fa-solid fa-inbox text-secondary"></i> <span id="fq-titulo"></span></h3>
-          <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
-        </header>
-
-        <div class="fq-chips" id="fq-chips"></div>
-
-        <!-- Apaisado: lo que se lee (detalle, cierre, observaciones) a la izquierda;
-             documentos, fechas y responsables a la derecha. En el teléfono, una columna. -->
-        <div class="fq-cols">
-        <div class="fq-principal">
-        <!-- Cancelado: existió, pero se dejó de hacer. Va primero, con el porqué. -->
-        <div class="fq-bloque fq-cancelado" id="fq-cancelado" hidden>
-          <h4><i class="fa-solid fa-ban"></i> Se canceló</h4>
-          <p id="fq-motivo-cancelado"></p>
-          <small class="fq-cierre-meta" id="fq-cancelado-meta"></small>
-        </div>
-
-        <div class="fq-bloque">
-          <h4>Detalle</h4>
-          <div id="fq-detalle" class="rt-render"></div>
-        </div>
-
-        <!-- Observación de cierre: lo que dejó anotado quien lo terminó (rama,
-             commits, dónde quedó). Se muestra si existe. -->
-        <div class="fq-bloque fq-cierre" id="fq-cierre" hidden>
-          <h4><i class="fa-solid fa-circle-check text-secondary"></i> Cómo se entregó</h4>
-          <p id="fq-nota-cierre"></p>
-          <small class="fq-cierre-meta" id="fq-cierre-meta"></small>
-        </div>
-
-        <!-- Observaciones: la conversación sobre el requerimiento. Nace de los
-             vencidos —se veía "vencido hace dos días" y para preguntar había
-             que salirse a WhatsApp, donde lo preguntado no queda—. Se escribe
-             aquí, sale por correo a la otra parte y queda con fecha y autor. -->
-        <div class="fq-bloque">
-          <h4><i class="fa-solid fa-comments text-secondary"></i> Observaciones
-            <span class="fq-obs-n" id="fq-obs-n" hidden></span>
-          </h4>
-          <ul class="fq-obs" id="fq-obs"></ul>
-          <p class="fq-obs-vacio" id="fq-obs-vacio">Todavía no hay ninguna.</p>
-          <form method="post" action="actions.php" class="fq-obs-form" id="fq-obs-form">
-            <input type="hidden" name="accion" value="req_observar">
-            <input type="hidden" name="id" id="fq-id-observar">
-            <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'requerimientos.php')) ?>">
-            <!-- 0 = abre hilo. Lo pone el botón "Responder" de cada
-                 observación, y el aspa de la tira lo devuelve a 0. -->
-            <input type="hidden" name="padre_id" id="fq-obs-padre" value="0">
-            <p class="fq-obs-respondiendo" id="fq-obs-respondiendo" hidden>
-              <span></span>
-              <button type="button" class="fq-obs-cancelar" title="Dejar de responder">
-                <i class="fa-solid fa-xmark"></i>
-              </button>
-            </p>
-            <?= UI::editorRico(['name' => 'texto', 'id' => 'fq-obs-editor', 'clase' => 'rt--obs', 'placeholder' => 'Estimado, ¿qué pasó con este requerimiento? (puedes pegar tablas)']) ?>
-            <button class="btn-primary btn-meca">
-              <i class="fa-solid fa-paper-plane"></i> <span id="fq-obs-enviar">Notificar</span>
-            </button>
-          </form>
-          <small class="campo-ayuda" id="fq-obs-para"></small>
-        </div>
-        </div>
-
-        <aside class="fq-lado">
-        <div class="fq-datos">
-          <div><span>Lo pide</span><b id="fq-solicitante"></b></div>
-          <div><span>Registrado</span><b id="fq-creado"></b></div>
-          <div><span>Inicio</span><b id="fq-inicio"></b></div>
-          <div><span>Entrega</span><b id="fq-fin"></b></div>
-        </div>
-
-        <div class="fq-bloque">
-          <h4>Responsables</h4>
-          <ul class="fq-personas" id="fq-personas"></ul>
-          <?php if ($puedeTerminar): $equipoCol = (new MiembroRepo())->todos(); ?>
-          <!-- Quien lo tiene suma a alguien que le ayude. Solo eso: las fechas
-               y el resto los cambia el administrador. JS lo esconde si ya está
-               cerrado y apaga a quienes ya están. -->
-          <div class="fq-colab" id="fq-colab">
-            <button type="button" class="fq-colab-abrir" id="fq-colab-abrir"><i class="fa-solid fa-user-plus"></i> Sumar a alguien que te ayude</button>
-            <form method="post" action="actions.php" class="fq-colab-form" id="fq-colab-form" hidden>
-              <input type="hidden" name="accion" value="req_colaborador">
-              <input type="hidden" name="id" id="fq-id-colab">
-              <input type="hidden" name="volver" value="<?= e(basename($_SERVER['SCRIPT_NAME'] ?? 'bandeja.php')) ?>">
-              <label class="campo"><span>¿Quién te ayuda?</span>
-                <select name="colaborador" class="select-meca" id="fq-colab-sel" required>
-                  <option value="">Elige a alguien del equipo…</option>
-                  <?php foreach ($equipoCol as $mC): ?><option value="<?= (int)$mC['id'] ?>"><?= e($mC['nombre']) ?><?= trim((string)($mC['rol'] ?? '')) !== '' ? ' · ' . e($mC['rol']) : '' ?></option><?php endforeach; ?>
-                </select></label>
-              <div class="fq-colab-acc">
-                <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-colab-cancelar">Cancelar</button>
-                <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Sumar</button>
-              </div>
-              <small class="campo-ayuda">Le llega como a ti y queda anotado que lo sumaste. Las fechas las cambia el administrador.</small>
-            </form>
-          </div>
-          <?php endif; ?>
-        </div>
-
-        <div class="fq-bloque" id="fq-hist-bloque" hidden>
-          <h4><i class="fa-solid fa-clock-rotate-left text-secondary"></i> Trazabilidad</h4>
-          <ol class="fq-hist" id="fq-hist"></ol>
-        </div>
-
-        <div class="fq-bloque" id="fq-docs-bloque" hidden>
-          <h4>Documentos</h4>
-          <div id="fq-docs" class="dt-adjuntos"></div>
-        </div>
-        </aside>
-        </div>
-
-        <footer>
-          <?php if ($gestor): ?>
-          <form method="post" action="actions.php" class="inline-form" id="fq-borrar"
-                data-confirmar="Se borrará este requerimiento." data-confirmar-titulo="¿Eliminar?" data-confirmar-ok="Sí, eliminar">
-            <input type="hidden" name="accion" value="req_eliminar">
-            <input type="hidden" name="id" id="fq-id-borrar">
-            <button class="accion-btn accion-peligro" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
-          </form>
-          <button type="button" class="btn-outline btn-meca btn-azul" id="fq-editar"><i class="fa-solid fa-pen"></i> Editar</button>
-          <button type="button" class="btn-outline btn-meca btn-azul" id="fq-derivar"><i class="fa-solid fa-user-plus"></i> Asignar</button>
-          <!-- Cancelar: no se borra, queda en Cerrados con el porqué. El botón
-               abre el formulario en el pie; «Volver» lo deja como estaba. -->
-          <button type="button" class="btn-outline btn-meca btn-rojo" id="fq-cancelar"><i class="fa-solid fa-ban"></i> Cancelar</button>
-          <form method="post" action="actions.php" class="inline-form" id="fq-reabrir" hidden>
-            <input type="hidden" name="accion" value="req_reabrir">
-            <input type="hidden" name="id" id="fq-id-reabrir">
-            <button class="btn-outline btn-meca btn-azul"><i class="fa-solid fa-rotate-left"></i> Reabrir</button>
-          </form>
-          <form method="post" action="actions.php" class="inline-form" id="fq-resolver">
-            <input type="hidden" name="accion" value="req_estado">
-            <input type="hidden" name="id" id="fq-id-estado">
-            <input type="hidden" name="estado" value="hecho">
-            <button class="btn-primary btn-meca"><i class="fa-solid fa-check"></i> Marcar resuelto</button>
-          </form>
-          <form method="post" action="actions.php" class="fq-terminar fq-cancelar-form" id="fq-cancelar-form" hidden>
-            <input type="hidden" name="accion" value="req_cancelar">
-            <input type="hidden" name="id" id="fq-id-cancelar">
-            <label class="campo">
-              <span>¿Por qué se cancela? <small>(queda en el requerimiento y les llega a quienes lo tenían)</small></span>
-              <textarea class="input-meca" name="motivo" rows="2" maxlength="600" required
-                        placeholder="Ej. El cliente ya no lo necesita: lo resolvieron por su cuenta"></textarea>
-            </label>
-            <div class="fq-terminar-acc">
-              <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-cancelar-volver">Volver</button>
-              <button class="btn-peligro-solido btn-meca"><i class="fa-solid fa-ban"></i> Cancelar requerimiento</button>
-            </div>
-          </form>
-          <?php else: ?>
-          <?php if ($puedeTerminar): ?>
-          <!-- El responsable marca cuando lo terminó y deja constancia de cómo
-               (rama, commits…). Al enviarlo, se avisa por correo a quien lo
-               asignó. JS oculta el formulario si ya está cerrado. -->
-          <form method="post" action="actions.php" class="fq-terminar" id="fq-terminar">
-            <input type="hidden" name="accion" value="req_terminar">
-            <input type="hidden" name="id" id="fq-id-terminar">
-            <label class="campo">
-              <span>¿Cómo lo dejaste? <small>(rama, commits, dónde quedó…)</small></span>
-              <textarea class="input-meca" name="nota" rows="2" maxlength="600"
-                        placeholder="Ej. Subido en la rama feature/nota-credito con los commits ab12cd y 34ef56"></textarea>
-            </label>
-            <div class="fq-terminar-acc">
-              <button type="button" class="btn-outline btn-meca btn-neutro" onclick="this.closest('dialog').close()">Cerrar</button>
-              <button class="btn-primary btn-meca btn-agregar"><i class="fa-solid fa-circle-check"></i> Marcar como terminado</button>
-            </div>
-          </form>
-          <p class="ajuste-ayuda fq-nota" id="fq-ya-cerrado" hidden>
-            <i class="fa-solid fa-circle-check"></i> <span>Ya está marcado como terminado.</span>
-          </p>
-          <?php else: ?>
-          <p class="ajuste-ayuda fq-nota">
-            <i class="fa-solid fa-circle-info"></i>
-            Lo reparte el administrador: si algo no cuadra (el plazo, o que no te toque a ti), díselo.
-          </p>
-          <?php endif; ?>
-          <button type="button" class="btn-outline btn-meca btn-neutro" id="fq-cerrar-pie" onclick="this.closest('dialog').close()">Cerrar</button>
-          <?php endif; ?>
-        </footer>
+    <section class="wz-panel">
+      <div class="campo-doble">
+        <label class="campo"><span>Fecha de inicio</span>
+          <input class="input-meca" type="date" name="fecha_inicio"
+                 data-req-fecha="<?= e($prefijo) ?>-inicio" value="<?= e($inicioPorDefecto) ?>">
+        </label>
+        <label class="campo"><span>Fecha de entrega</span>
+          <input class="input-meca" type="date" name="fecha_fin"
+                 data-req-fecha="<?= e($prefijo) ?>-fin" value="<?= e($finPorDefecto) ?>">
+        </label>
       </div>
-    </dialog>
+      <?= UI::atajosFecha() ?>
+    </section>
+    <?php
+}
+
+/**
+ * Paso «Observaciones» de los asistentes: indicaciones o correcciones para
+ * quien lo hace, con el editor de formato (viñetas, tablas). Opcional: si se
+ * escribe, queda en las observaciones y va en el correo a los responsables.
+ *
+ * Con $req (Editar, Asignar) enseña antes las que ya tiene, con su plazo y si
+ * se corrigieron: así no se pide dos veces lo mismo. Con días de plazo, la
+ * observación pasa a ser una corrección con fecha (días hábiles).
+ */
+function panelObservacion(string $prefijo, ?array $req = null, array $mapa = []): void
+{
+    $hilos = $req ? RequerimientoRepo::hilosDe($req) : [];
+    ?>
+    <section class="wz-panel">
+      <?php if ($hilos): ?>
+      <div class="campo rq-previas">
+        <span>Las que ya tiene <small>(<?= count($hilos) ?>)</small></span>
+        <ul class="rq-previas__lista">
+          <?php foreach ($hilos as $o): ?>
+          <li>
+            <span class="rq-previas__txt"><?= e(HtmlRico::texto((string)$o['texto'], 170)) ?></span>
+            <small><?= e((string)($mapa[$o['autor']]['nombre'] ?? 'Alguien')) ?> · <?= e(fechaCortaReq(substr((string)$o['creado'], 0, 10))) ?>
+              <?= count($o['respuestas']) ? ' · ' . count($o['respuestas']) . ' respuesta' . (count($o['respuestas']) === 1 ? '' : 's') : '' ?></small>
+            <?= chipCorreccion($o) ?>
+          </li>
+          <?php endforeach; ?>
+        </ul>
+      </div>
+      <?php endif; ?>
+      <div class="campo">
+        <span><?= $hilos ? 'Nueva observación' : 'Observaciones' ?> <small>(opcional)</small></span>
+        <?= UI::editorRico(['name' => 'observacion', 'id' => $prefijo . '-obs', 'clase' => 'rt--obs',
+              'placeholder' => 'Ej. Coordina con Diseño; la referencia está en el documento adjunto… (puedes pegar tablas)']) ?>
+        <small class="campo-ayuda">Queda en las observaciones del requerimiento y les llega por correo a los responsables.</small>
+      </div>
+      <?= campoPlazoCorreccion('obs_dias') ?>
+    </section>
+    <?php
+}
+
+/**
+ * «¿En cuántos días hay que corregirlo?»: días hábiles (sin fines de semana ni
+ * feriados), con atajos y la fecha en que vence ya calculada. 0 = sin plazo,
+ * queda como comentario. La lista de fechas va en el HTML para que admin.js
+ * diga la fecha al momento, con los feriados del panel.
+ */
+function campoPlazoCorreccion(string $nombre): string
+{
+    $fechas = [];
+    $t = strtotime(date('Y-m-d'));
+    for ($n = 1, $i = 0; $n <= RequerimientoRepo::TOPE_DIAS_CORRECCION && $i < 400; $i++) {
+        $t = strtotime('+1 day', $t);
+        $d = date('Y-m-d', $t);
+        if (class_exists('Feriados') ? Feriados::esHabil($d) : (int)date('N', $t) <= 5) $fechas[$n++] = fechaLargaReq($d);
+    }
+    $chips = '';
+    foreach ([1, 2, 3, 5, 10] as $n) {
+        $chips .= '<button type="button" class="rq-plazo__chip" data-rq-dias="' . $n . '">' . $n . ' día' . ($n === 1 ? '' : 's') . '</button>';
+    }
+    return '<div class="campo rq-plazo" data-rq-plazo="' . e(json_encode($fechas, JSON_UNESCAPED_UNICODE)) . '">'
+        . '<span>¿En cuántos días hay que corregirlo? <small>(días hábiles)</small></span>'
+        . '<div class="rq-plazo__fila">'
+        . '<input class="input-meca rq-plazo__n" type="number" name="' . e($nombre) . '" min="0" max="' . RequerimientoRepo::TOPE_DIAS_CORRECCION . '" value="0" inputmode="numeric" aria-label="Días hábiles para corregirlo">'
+        . '<div class="rq-plazo__chips">' . $chips . '<button type="button" class="rq-plazo__chip" data-rq-dias="0">Sin plazo</button></div>'
+        . '</div>'
+        . '<small class="campo-ayuda rq-plazo__vence" data-rq-vence>Sin plazo: queda como comentario, sin fecha.</small>'
+        . '</div>';
+}
+
+/** «jueves 13 de noviembre» (y el año si no es el actual). */
+function fechaLargaReq(string $f): string
+{
+    $t = strtotime($f);
+    if (!$t) return $f;
+    $dias = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    $meses = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+    return $dias[(int)date('N', $t) - 1] . ' ' . (int)date('j', $t) . ' de ' . $meses[(int)date('n', $t) - 1] . (date('Y', $t) !== date('Y') ? ' de ' . date('Y', $t) : '');
+}
+
+/**
+ * La etiqueta de una corrección: «Corregida», «Vence hoy», «Vence en 3 días»
+ * o «Vencida hace 2 días». Vacía si la observación no tiene plazo.
+ */
+function chipCorreccion(array $o): string
+{
+    if ((int)($o['dias'] ?? 0) <= 0 || !empty($o['padre'])) return '';
+    if (!empty($o['corregida'])) {
+        return '<span class="rq-chip rq-chip--ok" title="Corregida el ' . e((string)$o['corregida_en']) . '">' . UI::icono('ds-check') . ' Corregida</span>';
+    }
+    $vence = (string)($o['vence'] ?? '');
+    $dias = $vence !== '' ? (int)round((strtotime($vence) - strtotime(date('Y-m-d'))) / 86400) : 0;
+    [$txt, $tono] = match (true) {
+        $vence === ''  => ['Pendiente', 'pend'],
+        $dias < 0      => [abs($dias) === 1 ? 'Vencida ayer' : 'Vencida hace ' . abs($dias) . ' días', 'mal'],
+        $dias === 0    => ['Vence hoy', 'aviso'],
+        $dias === 1    => ['Vence mañana', 'aviso'],
+        default        => ['Vence en ' . $dias . ' días', 'pend'],
+    };
+    return '<span class="rq-chip rq-chip--' . $tono . '" title="' . (int)$o['dias'] . ' día' . ((int)$o['dias'] === 1 ? '' : 's') . ' hábil' . ((int)$o['dias'] === 1 ? '' : 'es') . ' · hasta el ' . e(fechaLargaReq($vence)) . '">'
+        . UI::icono('ds-reloj') . ' ' . e($txt) . '</span>';
+}
+
+/**
+ * Asistente «Asignar» de un requerimiento (su pantalla, requerimiento.php):
+ * quién lo hace, con qué plazo y, si hace falta, una observación o corrección.
+ * Ya viene relleno con lo que tiene ahora: guardar sin tocar nada no borra nada.
+ */
+function dialogoAsignarReq(array $req, array $carga, array $opcionesRol, array $mapa, string $volver): void
+{
+    ?>
+<dialog id="dlg-req-derivar" class="dlg-meca dlg-wizard dlg-req-wz">
+  <form method="post" action="actions.php" class="dlg-form wz">
+    <input type="hidden" name="accion" value="req_asignar">
+    <input type="hidden" name="id" value="<?= (int)$req['id'] ?>">
+    <input type="hidden" name="volver" value="<?= e($volver) ?>">
+    <?= UI::wizardRiel('fa-user-plus', 'Asignar', 'A una o varias personas, con su plazo', UI::PASOS_ASIGNAR) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+          <p class="wz-sobre">«<b><?= e((string)$req['titulo']) ?></b>»</p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <?php panelResponsables($carga, $opcionesRol, 'dv', RequerimientoRepo::asignadosDe($req)); ?>
+      <?php panelPlazo('dv', RequerimientoRepo::fechaInicio($req), RequerimientoRepo::fechaFin($req)); ?>
+      <?php panelObservacion('dv', $req, $mapa); ?>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca wz-guardar"><i class="fa-solid fa-paper-plane"></i> Asignar</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</dialog>
+    <?php
+}
+
+/**
+ * Asistente «Editar»: el mismo que «Nuevo requerimiento» (mismos pasos), ya
+ * relleno con este requerimiento. Los responsables nuevos reciben aviso; a los
+ * que ya estaban no se les reenvía. En «Observaciones» se ven las que ya tiene.
+ */
+function dialogoEditarReq(array $req, array $carga, array $opcionesRol, array $prioridades, array $opcionesInst, array $mapa, string $volver): void
+{
+    ?>
+<dialog id="dlg-req-editar" class="dlg-meca dlg-wizard dlg-req-wz">
+  <form method="post" action="actions.php" class="dlg-form wz">
+    <input type="hidden" name="accion" value="req_editar">
+    <input type="hidden" name="id" value="<?= (int)$req['id'] ?>">
+    <input type="hidden" name="volver" value="<?= e($volver) ?>">
+    <?= UI::wizardRiel('fa-pen', 'Editar requerimiento', 'Corrige lo que haga falta', UI::PASOS_REQUERIMIENTO) ?>
+    <div class="wz-cuerpo">
+      <header>
+        <div>
+          <h4 class="wz-titulo-paso"></h4>
+          <p class="wz-ayuda-paso"></p>
+        </div>
+        <button type="button" class="dlg-close" onclick="this.closest('dialog').close()"><i class="fa-solid fa-xmark"></i></button>
+      </header>
+
+      <section class="wz-panel">
+        <label class="campo">
+          <span>¿Qué piden?</span>
+          <input class="input-meca" name="titulo" required maxlength="120" placeholder="Ej. Reporte de matrículas para el rectorado" value="<?= e((string)$req['titulo']) ?>">
+        </label>
+        <div class="campo">
+          <span>Detalle</span>
+          <?= UI::editorRico(['name' => 'detalle', 'id' => 're-detalle', 'valor' => HtmlRico::limpiar((string)($req['detalle'] ?? '')),
+                'placeholder' => 'Contexto, con quién hablar, qué se espera… (puedes pegar un correo con su tabla)']) ?>
+        </div>
+        <div class="campo-doble">
+          <label class="campo"><span>¿Quién lo pide?</span>
+            <input class="input-meca" name="solicitante" maxlength="80" placeholder="Ej. Secretaría académica" value="<?= e((string)($req['solicitante'] ?? '')) ?>">
+          </label>
+          <label class="campo"><span>Prioridad</span>
+            <?= UI::select('prioridad', array_map(fn($v) => $v[0], $prioridades), Catalogo::prioridadValida($req['prioridad'] ?? '')) ?>
+          </label>
+        </div>
+        <label class="campo">
+          <span><i class="fa-solid fa-building-columns"></i> Institución(es)</span>
+          <?php if ($opcionesInst): ?>
+          <?= UI::select('instituciones', $opcionesInst, RequerimientoRepo::institucionesDe($req), false, '', true) ?>
+          <small class="campo-ayuda">¿Para qué institución es? Puedes elegir <b>varias</b>.</small>
+          <?php else: ?>
+          <small class="campo-ayuda">Aún no hay instituciones en el catálogo. <a href="instituciones.php">Créalas aquí</a>.</small>
+          <?php endif; ?>
+        </label>
+      </section>
+
+      <?php panelResponsables($carga, $opcionesRol, 're', RequerimientoRepo::asignadosDe($req)); ?>
+      <?php panelPlazo('re', RequerimientoRepo::fechaInicio($req), RequerimientoRepo::fechaFin($req)); ?>
+      <?php panelObservacion('re', $req, $mapa); ?>
+
+      <section class="wz-panel">
+        <dl class="wz-resumen"></dl>
+      </section>
+
+      <div class="wz-pie">
+        <span class="wz-contador"></span>
+        <div class="wz-acciones">
+          <button type="button" class="btn-outline btn-meca btn-neutro wz-atras"><i class="fa-solid fa-arrow-left"></i> Atrás</button>
+          <button type="button" class="btn-primary btn-meca wz-siguiente">Siguiente <i class="fa-solid fa-arrow-right"></i></button>
+          <button type="submit" class="btn-primary btn-meca btn-agregar wz-guardar"><i class="fa-solid fa-check"></i> Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  </form>
+</dialog>
     <?php
 }

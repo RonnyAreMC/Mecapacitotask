@@ -1184,6 +1184,12 @@ class RequerimientoRepo
                 'autor'  => (int)($o['autor'] ?? 0),
                 'creado' => (string)($o['creado'] ?? ''),
                 'avisados' => array_values(array_filter(array_map('intval', (array)($o['avisados'] ?? [])))),
+                // Corrección con plazo: días hábiles para cumplirla, hasta cuándo y si ya se corrigió
+                'dias'   => max(0, (int)($o['dias'] ?? 0)),
+                'vence'  => (string)($o['vence'] ?? ''),
+                'corregida'     => !empty($o['corregida']),
+                'corregida_en'  => (string)($o['corregida_en'] ?? ''),
+                'corregida_por' => (int)($o['corregida_por'] ?? 0),
             ];
         }
         usort($obs, fn($a, $b) => strcmp($a['creado'], $b['creado']) ?: ($a['id'] <=> $b['id']));
@@ -1237,7 +1243,7 @@ class RequerimientoRepo
      * guarda el campo tal cual: sumar al array en memoria de quien llamo
      * pisaria lo que otro hubiera anotado mientras tanto.
      */
-    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0, bool $html = false): ?array
+    public function observar(int $id, string $texto, int $autorId, array $avisados = [], int $padre = 0, bool $html = false, int $dias = 0): ?array
     {
         $r = $this->buscar($id);
         if (!$r) return null;
@@ -1249,6 +1255,8 @@ class RequerimientoRepo
         // Un padre que no existe se ignora: la observacion abre hilo en vez de
         // perderse colgada de una nada.
         if ($padre > 0 && self::observacionDe($r, $padre) === null) $padre = 0;
+        // El plazo es de la corrección (la que abre hilo), no de una respuesta
+        $dias = $padre > 0 ? 0 : max(0, min(self::TOPE_DIAS_CORRECCION, $dias));
         $lista[] = [
             'id'       => $siguiente,
             'padre'    => $padre,
@@ -1258,9 +1266,70 @@ class RequerimientoRepo
             'autor'    => $autorId,
             'creado'   => date('Y-m-d H:i'),
             'avisados' => array_values(array_unique(array_map('intval', $avisados))),
-        ];
+        ] + ($dias > 0 ? ['dias' => $dias, 'vence' => self::sumarHabiles(date('Y-m-d'), $dias), 'corregida' => false] : []);
         $this->store->update($id, ['observaciones' => $lista]);
         return $this->buscar($id);
+    }
+
+    /** Hasta cuántos días hábiles se puede dar para una corrección. */
+    public const TOPE_DIAS_CORRECCION = 60;
+
+    /** $desde + $n días hábiles (sin sábados, domingos ni feriados del panel). */
+    public static function sumarHabiles(string $desde, int $n): string
+    {
+        $t = strtotime($desde) ?: time();
+        for ($i = 0; $n > 0 && $i < 1000; $i++) {
+            $t = strtotime('+1 day', $t);
+            $d = date('Y-m-d', $t);
+            $habil = class_exists('Feriados') ? Feriados::esHabil($d) : (int)date('N', $t) <= 5;
+            if ($habil) $n--;
+        }
+        return date('Y-m-d', $t);
+    }
+
+    /**
+     * Marca una corrección (observación con plazo) como corregida, o la deja
+     * pendiente otra vez. Devuelve la observación ya cambiada, o null.
+     */
+    public function marcarCorreccion(int $id, int $obsId, bool $corregida, int $quien): ?array
+    {
+        $r = $this->buscar($id);
+        if (!$r) return null;
+        $crudas = array_values((array)($r['observaciones'] ?? []));
+        $n = 0;
+        $hecha = null;
+        foreach ($crudas as $i => $o) {
+            if (!is_array($o) || trim((string)($o['texto'] ?? '')) === '') continue;
+            $n++;
+            if (((int)($o['id'] ?? 0) ?: $n) !== $obsId || (int)($o['padre'] ?? 0) > 0 || (int)($o['dias'] ?? 0) <= 0) continue;
+            $crudas[$i]['id'] = $obsId;
+            $crudas[$i]['corregida'] = $corregida;
+            $crudas[$i]['corregida_en'] = $corregida ? date('Y-m-d H:i') : '';
+            $crudas[$i]['corregida_por'] = $corregida ? $quien : 0;
+            $hecha = $crudas[$i];
+        }
+        if ($hecha === null) return null;
+        $this->store->update($id, ['observaciones' => $crudas]);
+        return self::observacionDe($this->buscar($id) ?? [], $obsId);
+    }
+
+    /**
+     * Cómo van las correcciones de un requerimiento: cuántas tienen plazo,
+     * cuántas siguen pendientes, cuántas se pasaron y la que vence antes.
+     */
+    public static function correccionesDe(array $r): array
+    {
+        $out = ['total' => 0, 'pendientes' => 0, 'vencidas' => 0, 'proxima' => ''];
+        $hoy = date('Y-m-d');
+        foreach (self::observacionesDe($r) as $o) {
+            if ($o['padre'] > 0 || $o['dias'] <= 0) continue;
+            $out['total']++;
+            if ($o['corregida']) continue;
+            $out['pendientes']++;
+            if ($o['vence'] !== '' && $o['vence'] < $hoy) $out['vencidas']++;
+            if ($o['vence'] !== '' && ($out['proxima'] === '' || $o['vence'] < $out['proxima'])) $out['proxima'] = $o['vence'];
+        }
+        return $out;
     }
 
     /**

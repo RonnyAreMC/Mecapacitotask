@@ -4313,304 +4313,85 @@ document.addEventListener('change', (e) => {
   });
 })();
 
-/* Requerimientos: la ficha completa se abre al pulsar una fila. La lista solo
-   muestra lo justo; aquí se ve todo y están las acciones. */
-(() => {
-  const dlg = document.getElementById('dlg-req-ficha');
-  if (!dlg) return;
-  const $ = (id) => dlg.querySelector('#' + id);
+/* Requerimientos: cada fila abre la pantalla del requerimiento
+   (requerimiento.php). Antes era una ficha en una ventana que lo apilaba todo. */
+document.addEventListener('click', (e) => {
+  const fila = e.target.closest('.req-tr[data-href]');
+  if (!fila || e.target.closest('a, button, form')) return;
+  if (e.ctrlKey || e.metaKey) window.open(fila.dataset.href, '_blank');
+  else location.href = fila.dataset.href;
+});
+document.addEventListener('keydown', (e) => {
+  const fila = e.target.closest?.('.req-tr[data-href]');
+  if (fila && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); location.href = fila.dataset.href; }
+});
 
-  document.addEventListener('click', (e) => {
-    const fila = e.target.closest('.req-fila, .req-tr');
-    if (!fila) return;
-    const r = JSON.parse(fila.dataset.req);
-
-    $('fq-titulo').textContent = r.titulo;
-    // El detalle es HTML ya saneado en el servidor: se inyecta tal cual para
-    // que se vean las tablas y el formato. Vacío → nota en gris.
-    const detEl = $('fq-detalle');
-    if (r.detalle) { detEl.innerHTML = r.detalle; detEl.classList.remove('vacio'); }
-    else { detEl.textContent = 'Sin detalle.'; detEl.classList.add('vacio'); }
-    // Documentos: los mismos chips que en el detalle de la tarea, con el ojo
-    // para lo que el navegador sabe pintar y la flecha para lo que hay que
-    // bajarse. El bloque se esconde si no hay ninguno.
-    const docs = Array.isArray(r.adjuntos) ? r.adjuntos : [];
-    const bloqueDocs = $('fq-docs-bloque');
-    if (bloqueDocs) {
-      bloqueDocs.hidden = docs.length === 0;
-      $('fq-docs').innerHTML = docs.map((a) => {
-        const ver = previsualizable(a.ext);
-        return '<a class="adj-chip' + (ver ? '' : ' adj-bajar') + '" href="' + esc(a.ruta) + '"' +
-          (ver ? '' : ' download') + ' target="_blank" rel="noopener"' +
-          ' title="' + (ver ? 'Ver ' : 'Descargar ') + esc(a.nombre) + '">' +
-          '<i class="fa-solid ' + iconoAdjunto(a.ext) + '"></i><span>' + esc(a.nombre) + '</span>' +
-          '<i class="fa-solid ' + (ver ? 'fa-eye' : 'fa-download') + ' adj-chip-acc"></i></a>';
-      }).join('');
-    }
-    $('fq-solicitante').textContent = r.solicitante || '—';
-    $('fq-inicio').textContent = r.inicio || '—';
-    $('fq-fin').textContent = r.fin || '—';
-    $('fq-creado').textContent = r.creado || '—';
-
-    $('fq-chips').innerHTML =
-      `<span class="fq-chip fq-${r.estado}">${r.estadoTxt}</span>` +
-      (r.prioridad ? `<span class="fq-chip">Prioridad ${r.prioridad}</span>` : '') +
-      (r.vencido ? '<span class="fq-chip fq-vencido">Pasado de fecha</span>' : '');
-
-    // Los nombres se pintan con textContent: vienen del equipo, pero un
-    // nombre con "<" no tiene por qué romper la ficha.
-    const personas = $('fq-personas');
-    personas.textContent = '';
-    if (r.personas.length) {
-      r.personas.forEach(p => {
-        const li = document.createElement('li');
-        const b = document.createElement('b');
-        b.textContent = p.nombre;
-        const s = document.createElement('small');
-        s.textContent = p.rol || '';
-        li.append(b, s);
-        // Colaborador: lo sumó quien ya lo tenía
-        if (p.colab) {
-          const c = document.createElement('small');
-          c.className = 'fq-colab-tag';
-          c.textContent = 'Colaborador · lo sumó ' + p.colab.split(' ')[0];
-          li.append(c);
-        }
-        personas.append(li);
-      });
-    } else {
-      const li = document.createElement('li');
-      li.className = 'vacio';
-      li.textContent = 'Todavía no está asignado a nadie.';
-      personas.append(li);
-    }
-
-    ['fq-id-borrar', 'fq-id-estado', 'fq-id-terminar', 'fq-id-colab', 'fq-id-cancelar', 'fq-id-reabrir'].forEach(id => { const el = $(id); if (el) el.value = r.id; });
-    // Sumar colaborador (bandeja): mientras siga abierto, y sin ofrecer a quien ya está
-    const fCol = $('fq-colab');
-    if (fCol) {
-      fCol.hidden = r.cerrado;
-      // Empieza plegado: un botón; al pulsarlo sale la lista y el «Sumar»
-      const abrirCol = $('fq-colab-abrir');
-      const formCol = $('fq-colab-form');
-      const plegar = (abierto) => { formCol.hidden = !abierto; abrirCol.hidden = abierto; };
-      plegar(false);
-      abrirCol.onclick = () => { plegar(true); $('fq-colab-sel').focus(); };
-      $('fq-colab-cancelar').onclick = () => plegar(false);
-      const ya = new Set(String(r.asignados || '').split(',').filter(Boolean));
-      const sel = $('fq-colab-sel');
-      [...sel.options].forEach((o) => { if (o.value) { o.disabled = ya.has(o.value); o.hidden = ya.has(o.value); } });
-      sel.value = '';
-      sel.dispatchEvent(new Event('ms-sync'));
-    }
-    // Trazabilidad: de lo más nuevo a lo más viejo (textContent: lo escribe gente)
-    const hist = $('fq-hist');
-    if (hist) {
-      const lista = Array.isArray(r.historial) ? r.historial.slice().reverse() : [];
-      $('fq-hist-bloque').hidden = lista.length === 0;
-      hist.textContent = '';
-      lista.forEach((h) => {
-        const li = document.createElement('li');
-        const meta = document.createElement('small');
-        meta.textContent = (h.fecha || '') + ' · ' + (h.quien || '');
-        const t = document.createElement('span');
-        t.textContent = h.texto || '';
-        li.append(t, meta);
-        hist.append(li);
-      });
-    }
-    const idObs = $('fq-id-observar');
-    if (idObs) idObs.value = r.id;
-
-    // Observaciones: la conversación sobre este requerimiento. Se pintan con
-    // textContent y no con innerHTML — las escribe gente y llevan lo que
-    // Observaciones, en hilo: cada una con sus respuestas debajo y con
-    // sangría. Se pintan con textContent y no con innerHTML — las escribe
-    // gente y llevan dentro lo que quieran.
-    const lista = $('fq-obs');
-    if (lista) {
-      const hilos = Array.isArray(r.observaciones) ? r.observaciones : [];
-      const padre = $('fq-obs-padre');
-      const tira = $('fq-obs-respondiendo');
-      const enviar = $('fq-obs-enviar');
-      // La caja es el editor con formato (o el textarea de antes, si no está)
-      const caja = $('fq-obs-form') && ($('fq-obs-form').querySelector('.rt-area') || $('fq-obs-form').querySelector('textarea'));
-      const ponPh = (t) => { if (!caja) return; if (caja.classList.contains('rt-area')) caja.dataset.ph = t; else caja.placeholder = t; };
-      if (window.MecaRT && $('fq-obs-editor')) window.MecaRT.set('fq-obs-editor', '');
-
-      // Deja de responder: la siguiente vuelve a abrir hilo.
-      const soltar = () => {
-        if (padre) padre.value = '0';
-        if (tira) tira.hidden = true;
-        if (enviar) enviar.textContent = 'Notificar';
-        ponPh('Estimado, ¿qué pasó con este requerimiento? (puedes pegar tablas)');
-      };
-      const responderA = (o) => {
-        if (padre) padre.value = o.id;
-        if (tira) {
-          tira.querySelector('span').textContent = 'Respondiendo a ' + o.autor;
-          tira.hidden = false;
-        }
-        if (enviar) enviar.textContent = 'Responder';
-        ponPh('Tu respuesta para ' + o.autor + '…');
-        if (caja) caja.focus();
-      };
-      if (tira && !tira.dataset.listo) {
-        tira.dataset.listo = '1';
-        tira.querySelector('.fq-obs-cancelar').addEventListener('click', soltar);
-      }
-
-      const pinta = (o, esRespuesta) => {
-        const li = document.createElement('li');
-        if (esRespuesta) li.className = 'fq-obs-r';
-        // Con formato: HTML ya saneado en el servidor (viñetas, tablas). Las de antes, texto plano
-        const p = document.createElement(o.html ? 'div' : 'p');
-        if (o.html) { p.className = 'rt-render fq-obs-rico'; p.innerHTML = o.texto; } else p.textContent = o.texto;
-        const meta = document.createElement('small');
-        meta.textContent = [o.autor, o.creado].filter(Boolean).join(' · ');
-        li.append(p, meta);
-        // Se responde AL HILO, no a la respuesta: un solo nivel de sangría.
-        // El correo va igual a quien escribió lo que se está respondiendo.
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = 'fq-obs-responder';
-        btn.innerHTML = '<i class="fa-solid fa-reply"></i> Responder';
-        btn.addEventListener('click', () => responderA(o));
-        li.append(btn);
-        return li;
-      };
-
-      lista.textContent = '';
-      let total = 0;
-      hilos.forEach((o) => {
-        total++;
-        lista.append(pinta(o, false));
-        (o.respuestas || []).forEach((rr) => { total++; lista.append(pinta(rr, true)); });
-      });
-      soltar();
-      lista.hidden = total === 0;
-      const vacio = $('fq-obs-vacio');
-      if (vacio) vacio.hidden = total > 0;
-      const cuantas = $('fq-obs-n');
-      if (cuantas) {
-        cuantas.textContent = total;
-        cuantas.hidden = total === 0;
-      }
-      // A quién le va a llegar: se dice ANTES de escribir, que es cuando
-      // importa. Una que abre hilo va a los responsables; una respuesta, a
-      // quien escribió aquello que se responde (lo dice la tira de arriba).
-      const para = $('fq-obs-para');
-      if (para) {
-        const nombres = (r.personas || []).map((p) => p.nombre.split(' ')[0]);
-        para.textContent = nombres.length
-          ? 'Al enviarla le llega por correo a ' + nombres.join(', ') + '. Al responder, a quien escribió esa observación.'
-          : 'Nadie la tiene asignada, así que no saldrá ningún correo: queda solo anotada.';
-      }
-    }
-    // Cerrarlo solo tiene sentido mientras siga abierto
-    const resolver = $('fq-resolver');
-    if (resolver) resolver.hidden = r.cerrado;
-
-    // Cancelado: existió pero se dejó de hacer. El bloque va arriba, con el porqué
-    const cancelado = r.estado === 'cancelado';
-    const bCan = $('fq-cancelado');
-    if (bCan) {
-      bCan.hidden = !cancelado;
-      if (cancelado) {
-        $('fq-motivo-cancelado').textContent = r.motivoCancelacion || 'No se anotó el motivo.';
-        $('fq-cancelado-meta').textContent = [r.canceladoPor && ('Lo canceló ' + r.canceladoPor), r.canceladoEn].filter(Boolean).join(' · ');
-      }
-    }
-    // «Cancelar» (administrador): mientras siga abierto. Abre el formulario en el
-    // pie y esconde lo demás; «Volver» lo deja como estaba. «Reabrir», si se canceló.
-    const btnCan = $('fq-cancelar');
-    const fCan = $('fq-cancelar-form');
-    if (btnCan && fCan) {
-      const pie = fCan.closest('footer');
-      const modo = (si) => {
-        fCan.hidden = !si;
-        pie.classList.toggle('fq-cancelando', si);
-        if (si) fCan.querySelector('textarea').focus();
-      };
-      fCan.reset();
-      modo(false);
-      btnCan.hidden = r.cerrado;
-      btnCan.onclick = () => modo(true);
-      $('fq-cancelar-volver').onclick = () => modo(false);
-    }
-    const reabrir = $('fq-reabrir');
-    if (reabrir) reabrir.hidden = !cancelado;
-
-    // Observación de cierre (cómo se entregó): se muestra si existe
-    const cierre = $('fq-cierre');
-    if (cierre) {
-      if (r.notaCierre) {
-        $('fq-nota-cierre').textContent = r.notaCierre;
-        const meta = [r.cerradoPor && ('por ' + r.cerradoPor), r.cerradoEn].filter(Boolean).join(' · ');
-        $('fq-cierre-meta').textContent = meta;
-        cierre.hidden = false;
-      } else {
-        cierre.hidden = true;
-      }
-    }
-    // Formulario de "marcar terminado" (bandeja del responsable): solo mientras
-    // siga abierto; si ya está cerrado, se muestra el aviso en su lugar.
-    const fTerm = $('fq-terminar');
-    if (fTerm) fTerm.hidden = r.cerrado;
-    // Abierto, «Cerrar» va junto a «Marcar como terminado» (mitad y mitad); cerrado, va solo
-    const cerrarPie = $('fq-cerrar-pie');
-    if (cerrarPie && fTerm) cerrarPie.hidden = !r.cerrado;
-    const yaCerr = $('fq-ya-cerrado');
-    if (yaCerr) {
-      yaCerr.hidden = !r.cerrado;
-      const txtCerr = yaCerr.querySelector('span');
-      if (txtCerr) txtCerr.textContent = cancelado ? 'Se canceló: ya no hay que hacerlo.' : 'Ya está marcado como terminado.';
-      const icoCerr = yaCerr.querySelector('i');
-      if (icoCerr) icoCerr.className = 'fa-solid ' + (cancelado ? 'fa-ban' : 'fa-circle-check');
-    }
-
-    // "Asignar" reutiliza el modal de siempre, con lo que ya tiene marcado
-    // y con su plazo actual en las fechas
-    const derivar = $('fq-derivar');
-    if (derivar) {
-      derivar.dataset.derivar = r.id;
-      derivar.dataset.titulo = r.titulo;
-      derivar.dataset.actual = r.asignados;
-      derivar.dataset.inicio = r.inicio || '';
-      derivar.dataset.fin = r.fin || '';
-      derivar.onclick = () => { dlg.close(); };
-    }
-
-    // "Editar": abre EL MISMO asistente que "Nuevo requerimiento", relleno con
-    // este requerimiento (contenido + responsables + plazo actuales).
-    const editar = $('fq-editar');
-    if (editar) {
-      editar.onclick = () => {
-        const em = document.getElementById('dlg-req-editar');
-        if (!em) return;
-        em.querySelector('#re-id').value = r.id;
-        em.querySelector('#re-titulo').value = r.titulo || '';
-        em.querySelector('#re-solicitante').value = r.solicitante || '';
-        setSelect(em.querySelector('.js-re-prioridad'), r.prioridadKey || 'media');
-        setSelect(em.querySelector('.js-re-inst'), r.instituciones || []);
-        window.MecaRT.set('re-detalle', r.detalle || '');
-        window.MecaRT.set('re-obs', '');
-        // Plazo actual (setFecha, no .value: MecaDate sustituye el input)
-        setFecha(em.querySelector('[data-req-fecha="re-inicio"]'), r.inicio || '');
-        setFecha(em.querySelector('[data-req-fecha="re-fin"]'), r.fin || '');
-        // Deja marcados a los responsables actuales (r.asignados = "3,7")
-        const actuales = (r.asignados || '').split(',').filter(Boolean);
-        em.querySelectorAll('input[name="asignados[]"]').forEach(c => { c.checked = actuales.includes(c.value); });
-        const lista = em.querySelector('[data-picker="re"]');
-        if (lista) lista.dispatchEvent(new Event('change'));
-        const fEm = em.querySelector('form');
-        if (typeof actualizarDuracion === 'function') actualizarDuracion(fEm);
-        dlg.close();
-        em.showModal();
-      };
-    }
-    dlg.showModal();
+/* «¿En cuántos días hay que corregirlo?» (campoPlazoCorreccion): días hábiles,
+   con atajos, y la fecha en que vence ya calculada con los feriados del panel. */
+document.querySelectorAll('[data-rq-plazo]').forEach((caja) => {
+  let fechas = {};
+  try { fechas = JSON.parse(caja.dataset.rqPlazo || '{}'); } catch (_) {}
+  const n = caja.querySelector('input[type="number"]');
+  const vence = caja.querySelector('[data-rq-vence]');
+  const pintar = () => {
+    const d = Math.max(0, Math.min(parseInt(n.max || '60', 10), parseInt(n.value || '0', 10) || 0));
+    caja.querySelectorAll('[data-rq-dias]').forEach((b) => b.classList.toggle('is-on', parseInt(b.dataset.rqDias, 10) === d));
+    caja.classList.toggle('con-plazo', d > 0);
+    if (vence) vence.textContent = d > 0
+      ? 'Vence el ' + (fechas[d] || '…') + ' (' + d + ' día' + (d === 1 ? '' : 's') + ' hábil' + (d === 1 ? '' : 'es') + ', sin fines de semana ni feriados).'
+      : 'Sin plazo: queda como comentario, sin fecha.';
+  };
+  caja.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rq-dias]');
+    if (!b) return;
+    n.value = b.dataset.rqDias;
+    n.dispatchEvent(new Event('change', { bubbles: true }));
+    pintar();
   });
+  n.addEventListener('input', pintar);
+  n.addEventListener('change', pintar);
+  pintar();
+});
+
+/* La pantalla del requerimiento: «Responder» lleva al cuadro de abajo como
+   respuesta a ese hilo (sin plazo: el plazo es de la corrección que abre hilo). */
+(() => {
+  const form = document.getElementById('rq-nueva');
+  if (!form) return;
+  const padre = form.querySelector('[data-rq-padre]');
+  const tira = form.querySelector('[data-rq-respondiendo]');
+  const tit = form.querySelector('[data-rq-nueva-tit]');
+  const enviar = form.querySelector('[data-rq-enviar]');
+  const soloHilo = form.querySelector('[data-rq-solo-hilo]');
+  const area = form.querySelector('.rt-area');
+  const para = form.querySelector('[data-rq-para]');
+  const paraHilo = para ? para.textContent : '';
+  const soltar = () => {
+    padre.value = '0';
+    tira.hidden = true;
+    if (para) para.textContent = paraHilo;
+    tit.textContent = 'Nueva observación';
+    enviar.textContent = 'Enviar';
+    if (soloHilo) soloHilo.hidden = false;
+  };
+  document.addEventListener('click', (e) => {
+    const b = e.target.closest('[data-rq-responder]');
+    if (!b) return;
+    padre.value = b.dataset.rqResponder;
+    tira.querySelector('span').textContent = 'Respondiendo a ' + (b.dataset.autor || 'la observación');
+    tira.hidden = false;
+    tit.textContent = 'Tu respuesta';
+    enviar.textContent = 'Responder';
+    if (para) para.textContent = 'Le llega a la campana y por correo a ' + (b.dataset.autor || 'quien la escribió') + '.';
+    if (soloHilo) {
+      soloHilo.hidden = true;
+      const n = soloHilo.querySelector('input[type="number"]');
+      if (n) { n.value = '0'; n.dispatchEvent(new Event('change', { bubbles: true })); }
+    }
+    form.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    setTimeout(() => area?.focus(), 350);
+  });
+  form.querySelector('[data-rq-soltar]')?.addEventListener('click', soltar);
 })();
 
 /* Horario de reuniones fijas: el mismo formulario sirve para añadir y para

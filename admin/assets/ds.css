@@ -7038,3 +7038,120 @@ html .kb-card .kb-meta { flex-wrap: wrap; row-gap: 6px; }
 /* La fila completada se apaga, pero su estado y su entrega se leen enteros */
 html .fila-tarea.fila-hecha { opacity: 1; }
 html .fila-tarea.fila-hecha > td:not(:has(.est-celda)) { opacity: .68; }
+
+/* =========================================================
+   Un requerimiento suelto en su pantalla (requerimiento.php). Antes era una
+   ficha en una ventana con todo apilado. Arriba qué es y las acciones; a la
+   izquierda detalle y observaciones; a la derecha datos, gente, documentos y
+   trazabilidad. Tarjetas blancas sin bordes. Prefijo rq-.
+   ========================================================= */
+html .rq-cab__eyebrow { margin: 0 0 4px; color: var(--ink-muted); font: 600 .78rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+html .rq-cab .ru-cab__sub { margin-top: 8px; }
+html .rq-cab .rs-boton.rq-peligro .ico { color: #DC2626; }
+html .rq-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(280px, 340px); gap: 20px; align-items: start; }
+html .rq-main, html .rq-lado { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+html .rq-lado { position: sticky; top: 84px; }
+html .rq-card { min-width: 0; padding: 20px 22px; border: 0; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-xs); }
+html .rq-card__cab { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 6px 14px; margin-bottom: 14px; }
+html .rq-card__tit { display: flex; align-items: center; gap: 8px; margin: 0 0 12px; color: var(--ink); font: 700 1rem/1.3 var(--font-display, inherit); }
+html .rq-card__cab .rq-card__tit { margin: 0; }
+html .rq-resumen { color: var(--ink-muted); font-size: .82rem; }
+html .rq-vacio { margin: 0; color: var(--ink-muted); font-size: .88rem; }
+html .rq-detalle { color: var(--ink); font-size: .92rem; line-height: 1.6; overflow-wrap: anywhere; }
+html .rq-aviso h2 { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font: 700 .95rem/1.3 var(--font-display, inherit); }
+html .rq-aviso h2 .ico { width: 18px; height: 18px; }
+html .rq-aviso p { margin: 0 0 6px; color: var(--ink); }
+html .rq-aviso small { color: var(--ink-muted); }
+html .rq-aviso--mal { background: color-mix(in srgb, #DC2626 7%, var(--surface)); }
+html .rq-aviso--mal h2 { color: #B91C1C; }
+html .rq-aviso--ok { background: color-mix(in srgb, #059669 7%, var(--surface)); }
+html .rq-aviso--ok h2 { color: #047857; }
+
+/* Observaciones: cada hilo, y si es corrección, con su plazo y su estado */
+html .rq-obs-lista { display: flex; flex-direction: column; gap: 12px; margin: 0 0 18px; padding: 0; list-style: none; }
+html .rq-obs { padding: 14px 16px; border-radius: 14px; background: var(--bg); }
+html .rq-obs--corr.is-ok { background: color-mix(in srgb, #059669 5%, var(--bg)); }
+html .rq-obs__cab { display: flex; align-items: center; gap: 10px; min-width: 0; }
+html .rq-obs__quien { display: flex; flex-direction: column; min-width: 0; margin-right: auto; }
+html .rq-obs__quien b { color: var(--ink); font-size: .86rem; }
+html .rq-obs__quien small { color: var(--ink-muted); font-size: .74rem; }
+html .rq-obs__txt { margin: 8px 0 0; color: var(--ink); font-size: .9rem; line-height: 1.55; overflow-wrap: anywhere; }
+html .rq-obs__plazo { margin: 8px 0 0; color: var(--ink-muted); font-size: .8rem; }
+html .rq-obs.is-ok .rq-obs__txt { color: var(--ink-muted); }
+html .rq-resp { margin: 12px 0 0 18px; padding: 10px 0 0 14px; box-shadow: inset 2px 0 0 var(--line); }
+html .rq-obs__acc { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+html .rq-obs__acc .inline-form { display: inline-flex; margin: 0; }
+
+/* La etiqueta de una corrección: pendiente, por vencer, vencida o corregida */
+html .rq-chip {
+  display: inline-flex; flex: none; align-items: center; gap: 5px; height: 24px; padding: 0 10px; border-radius: 999px;
+  color: var(--rq, #B45309); background: color-mix(in srgb, var(--rq, #B45309) 11%, transparent);
+  font: 600 .74rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap; text-decoration: none;
+}
+html .rq-chip .ico { width: 13px; height: 13px; }
+html .rq-chip--pend { --rq: #B45309; }
+html .rq-chip--aviso { --rq: #C2410C; }
+html .rq-chip--mal { --rq: #DC2626; }
+html .rq-chip--ok { --rq: #059669; }
+html.dark .rq-chip--pend { --rq: #FBBF24; }
+html.dark .rq-chip--aviso { --rq: #FDBA74; }
+html.dark .rq-chip--mal { --rq: #F87171; }
+html.dark .rq-chip--ok { --rq: #34D399; }
+html .req-c-corr { margin-top: 4px; height: 22px; font-size: .72rem; }
+
+/* Escribir: una observación nueva (con plazo, si es corrección) o una respuesta */
+html .rq-nueva { display: flex; flex-direction: column; gap: 12px; padding-top: 16px; box-shadow: inset 0 1px 0 var(--line); }
+html .rq-nueva__tit { margin: 0; color: var(--ink); font: 700 .92rem/1.3 var(--font-display, inherit); }
+html .rq-respondiendo[hidden], html [data-rq-solo-hilo][hidden] { display: none; }
+html .rq-respondiendo { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin: 0; padding: 6px 6px 6px 12px;
+  border-radius: 10px; background: color-mix(in srgb, var(--primary, #2B76F7) 8%, transparent); color: var(--primary-ink, #2565D4); font-size: .82rem; }
+html .rq-nueva__pie { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+html .rq-nueva__pie .campo-ayuda { margin: 0; }
+
+/* ¿En cuántos días hay que corregirlo? */
+html .rq-plazo__fila { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+html .rq-plazo__n { width: 84px; flex: none; text-align: center; }
+html .rq-plazo__chips { display: flex; flex-wrap: wrap; gap: 6px; }
+html .rq-plazo__chip { height: 32px; padding: 0 12px; border: 0; border-radius: 999px; background: var(--bg); color: var(--ink);
+  font: 600 .8rem/1 var(--font-sans, 'Inter', sans-serif); cursor: pointer; transition: background-color .15s ease, color .15s ease; }
+html .rq-plazo__chip:hover { background: color-mix(in srgb, var(--primary, #2B76F7) 10%, var(--bg)); }
+html .rq-plazo__chip.is-on { background: var(--primary, #2B76F7); color: #fff; }
+html .rq-plazo.con-plazo .rq-plazo__vence { color: #B45309; font-weight: 600; }
+html.dark .rq-plazo.con-plazo .rq-plazo__vence { color: #FBBF24; }
+
+/* Paso «Observaciones» de los asistentes: las que ya tiene, antes de escribir otra */
+html .rq-previas__lista { display: flex; flex-direction: column; gap: 8px; max-height: 220px; margin: 0; padding: 0; overflow: auto; list-style: none; }
+html .rq-previas__lista li { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 2px 10px; padding: 10px 12px; border-radius: 12px; background: var(--bg); }
+html .rq-previas__txt { color: var(--ink); font-size: .85rem; }
+html .rq-previas__lista small { grid-column: 1; color: var(--ink-muted); font-size: .74rem; }
+html .rq-previas__lista .rq-chip { grid-column: 2; grid-row: 1 / span 2; align-self: center; }
+
+/* Lado derecho */
+html .rq-datos { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 16px; }
+html .rq-datos > div { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+html .rq-datos span:first-child { color: var(--ink-muted); font: 600 .7rem/1.2 var(--font-sans, 'Inter', sans-serif); letter-spacing: .04em; text-transform: uppercase; }
+html .rq-datos b { color: var(--ink); font-size: .9rem; overflow-wrap: anywhere; }
+html .rq-datos__ancho { grid-column: 1 / -1; }
+html .rq-gente { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+html .rq-gente li { display: flex; align-items: center; gap: 10px; min-width: 0; }
+html .rq-gente li > span { display: flex; flex-direction: column; min-width: 0; }
+html .rq-gente b { color: var(--ink); font-size: .88rem; }
+html .rq-gente small { color: var(--ink-muted); font-size: .76rem; }
+html .rq-docs { display: flex; flex-wrap: wrap; gap: 8px; }
+html .rq-hist summary { margin: 0; cursor: pointer; list-style: none; }
+html .rq-hist summary::-webkit-details-marker { display: none; }
+html .rq-hist summary::after { content: ''; width: 8px; height: 8px; margin-left: auto; border: solid var(--ink-muted); border-width: 0 2px 2px 0; transform: rotate(45deg); transition: transform .15s ease; }
+html .rq-hist[open] summary::after { transform: rotate(-135deg); }
+html .rq-hist ol { display: flex; flex-direction: column; gap: 10px; margin: 6px 0 0; padding: 0; list-style: none; }
+html .rq-hist li { display: flex; flex-direction: column; gap: 2px; padding-left: 14px; box-shadow: inset 2px 0 0 var(--line); }
+html .rq-hist li span { color: var(--ink); font-size: .84rem; }
+html .rq-hist li small { color: var(--ink-muted); font-size: .74rem; }
+
+@media (max-width: 1000px) {
+  html .rq-grid { grid-template-columns: minmax(0, 1fr); }
+  html .rq-lado { position: static; }
+}
+@media (max-width: 640px) {
+  html .rq-card { padding: 16px; }
+  html .rq-cab .ru-cab__acc { flex-wrap: wrap; justify-content: flex-start; }
+}
