@@ -106,13 +106,13 @@ $donut = function (array $segs, string $centro, string $sub): string {
     $total = array_sum(array_map(fn($s) => $s[0], $segs));
     $r = 54; $circ = 2 * M_PI * $r; $off = 0;
     $svg = '<svg viewBox="0 0 140 140" class="mc-donut" role="img">';
-    $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" class="mc-donut-track" stroke-width="15"/>';
+    $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" class="mc-donut-track" stroke-width="12"/>';
     if ($total > 0) {
         foreach ($segs as [$v, $col]) {
             if ($v <= 0) continue;
             $len = $circ * $v / $total;
             $svg .= '<circle cx="70" cy="70" r="' . $r . '" fill="none" stroke="' . e($col) . '"'
-                  . ' stroke-width="15" stroke-dasharray="' . round($len, 2) . ' ' . round($circ - $len, 2) . '"'
+                  . ' stroke-width="12" stroke-dasharray="' . round($len, 2) . ' ' . round($circ - $len, 2) . '"'
                   . ' stroke-dashoffset="' . round(-$off, 2) . '" transform="rotate(-90 70 70)"/>';
             $off += $len;
         }
@@ -144,146 +144,161 @@ foreach ($susTareas as $t) {
 UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
 ?>
 
-<header class="colab-hero card-base" style="--av-c1:<?= $c1 ?>">
-  <a href="equipo.php?e=<?= e($eq) ?>" class="colab-back"><i class="fa-solid fa-arrow-left"></i> <?= e($eqLabel) ?></a>
+<?php
+/* ---------- La ficha, al estilo del panel: tarjetas blancas sin bordes ----------
+   Arriba quién es y sus cuentas, con las acciones solo con ícono y «Regresar» a
+   la derecha. Debajo, cinco indicadores que se leen solos (cada uno dice qué
+   significa su número) y cuatro gráficos. Prefijo kp-. */
+$tonoPct = fn(?int $p): string => $p === null ? 'neutro' : ($p >= 70 ? 'ok' : ($p >= 40 ? 'aviso' : 'mal'));
+$nProy   = count($susProyectos);
+$pctDe   = fn(int $n, int $de): int => $de > 0 ? (int)round($n * 100 / $de) : 0;
+// Colores de los estados: los de la pastilla de estado del tablero (UI::selectEstadoTarea)
+$colEstadoDS = ['pendiente' => '#0B7EA8', 'progreso' => '#2563EB', 'revision' => '#C26F0E', 'hecho' => '#059669'];
+$colPrioDS   = ['baja' => '#64748B', 'media' => '#D97706', 'alta' => '#EA580C'];
+$tile = fn(string $ico, string $tono, string $valor, string $lab, string $sub = '', string $extra = ''): string =>
+    '<article class="kp-tile kp--' . $tono . '">'
+    . '<div class="kp-tile__top"><span class="kp-tile__lab">' . e($lab) . '</span><span class="kp-tile__ico" aria-hidden="true">' . UI::icono($ico) . '</span></div>'
+    . '<b class="kp-tile__num">' . e($valor) . '</b>'
+    . ($sub !== '' ? '<small class="kp-tile__sub">' . $sub . '</small>' : '') . $extra . '</article>';
+/* Barras: [ [etiqueta, valor, color, enlace?], ... ] */
+$kpBarras = function (array $items): string {
+    $max = max(1, ...array_map(fn($i) => (int)$i[1], $items ?: [[0, 0]]));
+    $h = '<ul class="kp-barras">';
+    foreach ($items as $it) {
+        [$lab, $val, $col] = $it;
+        $url = $it[3] ?? '';
+        $nombre = $url !== '' ? '<a href="' . e($url) . '" title="' . e($lab) . '">' . e($lab) . '</a>' : '<span title="' . e($lab) . '">' . e($lab) . '</span>';
+        $h .= '<li style="--kc:' . e($col) . '"><span class="kp-barras__lab"><i class="kp-dot" aria-hidden="true"></i>' . $nombre . '</span>'
+            . '<span class="kp-barras__pista"><span style="width:' . max((int)$val > 0 ? 4 : 0, (int)round($val * 100 / $max)) . '%"></span></span>'
+            . '<b class="kp-barras__n">' . (int)$val . '</b></li>';
+    }
+    return $h . '</ul>';
+};
+$copiar = fn(string $v, string $tip) => '<button type="button" class="btn-copiar kp-cuenta__copiar" data-copiar="' . e($v) . '" aria-label="' . e($tip) . '" data-ds-tip="' . e($tip) . '"><i class="fa-regular fa-copy"></i></button>';
+?>
 
-  <div class="colab-hero-main">
-    <div class="mc-avatar-zone">
-      <span class="mc-ring-anim"></span>
-      <div class="mc-avatar-ring"><?= UI::avatar($m, 104) ?></div>
-    </div>
-    <div class="colab-id">
-      <h1 class="font-display"><?= e($m['nombre']) ?></h1>
-      <p class="mc-rol" style="--av-c1:<?= $c1 ?>"><?= UI::iconoEquipo($eq, $eqIcono, 'ico-equipo--chip') ?> <?= e($m['rol']) ?> · <?= e($eqLabel) ?></p>
-      <div class="colab-cuentas">
+<header class="page-head ru-cab kp-cab" style="--av-c1:<?= $c1 ?>">
+  <div class="ru-cab__main">
+    <span class="kp-cab__foto"><?= UI::avatar($m, 72) ?></span>
+    <div class="ru-cab__txt">
+      <p class="kp-cab__rol"><?= UI::iconoEquipo($eq, $eqIcono, 'ico-equipo--chip') ?> <?= e(trim((string)($m['rol'] ?? '')) ?: 'Sin rol') ?> · <?= e(MiembroRepo::etiquetaEquipos($m)) ?></p>
+      <h1 class="page-title font-display"><?= e($m['nombre']) ?></h1>
+      <div class="kp-cuentas">
         <?php if (!empty($m['git_user'])): ?>
-        <span class="cuenta-chip">
-          <a href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?></a>
-          <button type="button" class="btn-copiar mini" data-copiar="<?= e($m['git_user']) ?>" title="Copiar usuario de Git"><i class="fa-regular fa-copy"></i></button>
-        </span>
+        <span class="kp-cuenta"><a href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?></a><?= $copiar((string)$m['git_user'], 'Copiar usuario de Git') ?></span>
         <?php endif; ?>
         <?php if (!empty($m['email'])): ?>
-        <span class="cuenta-chip">
-          <a href="mailto:<?= e($m['email']) ?>"><i class="fa-solid fa-envelope"></i> <?= e($m['email']) ?></a>
-          <button type="button" class="btn-copiar mini" data-copiar="<?= e($m['email']) ?>" title="Copiar correo"><i class="fa-regular fa-copy"></i></button>
-        </span>
+        <span class="kp-cuenta"><a href="mailto:<?= e($m['email']) ?>"><i class="fa-regular fa-envelope"></i> <?= e($m['email']) ?></a><?= $copiar((string)$m['email'], 'Copiar correo') ?></span>
         <?php else: ?>
-        <span class="cuenta-chip cuenta-off"><i class="fa-solid fa-envelope-circle-check"></i> Sin correo registrado</span>
+        <span class="kp-cuenta kp-cuenta--off"><i class="fa-regular fa-envelope"></i> Sin correo registrado</span>
         <?php endif; ?>
         <?php if (!empty($m['telefono'])): ?>
-        <span class="cuenta-chip">
-          <a href="tel:<?= e(preg_replace('/[^\d+]/', '', (string)$m['telefono'])) ?>"><i class="fa-solid fa-phone"></i> <?= e($m['telefono']) ?></a>
-          <button type="button" class="btn-copiar mini" data-copiar="<?= e($m['telefono']) ?>" title="Copiar teléfono"><i class="fa-regular fa-copy"></i></button>
-        </span>
+        <span class="kp-cuenta"><a href="tel:<?= e(preg_replace('/[^\d+]/', '', (string)$m['telefono'])) ?>"><i class="fa-solid fa-phone"></i> <?= e($m['telefono']) ?></a><?= $copiar((string)$m['telefono'], 'Copiar teléfono') ?></span>
         <?php endif; ?>
       </div>
     </div>
-    <div class="colab-acciones">
-      <button class="btn-outline btn-meca btn-sm btn-azul solo-admin" title="Editar"
-        data-editar-miembro='<?= e(json_encode([
-            'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'],
-            'git_user' => $m['git_user'], 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '', 'telefono' => $m['telefono'] ?? '',
-            'acceso' => $m['acceso'] ?? 'lector',
-            'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq, 'equipos' => MiembroRepo::equiposDe($m),
-        ], JSON_UNESCAPED_UNICODE)) ?>'>
-        <i class="fa-solid fa-pen"></i> Editar
-      </button>
-      <form method="post" action="actions.php" class="inline-form solo-admin"
-            data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
-            data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
-        <input type="hidden" name="accion" value="miembro_eliminar">
-        <input type="hidden" name="id" value="<?= $id ?>">
-        <button class="btn-outline btn-meca btn-rojo btn-sm btn-peligro"><i class="fa-solid fa-user-minus"></i></button>
-      </form>
-    </div>
+  </div>
+  <div class="page-actions ru-cab__acc">
+    <?php if (esAdmin()): ?>
+    <button type="button" class="rs-boton rs-boton--icono solo-admin" aria-label="Editar" data-ds-tip="Editar"
+      data-editar-miembro='<?= e(json_encode([
+          'id' => $id, 'nombre' => $m['nombre'], 'rol' => $m['rol'] ?? '',
+          'git_user' => $m['git_user'] ?? '', 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '', 'telefono' => $m['telefono'] ?? '',
+          'acceso' => $m['acceso'] ?? 'lector',
+          'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq, 'equipos' => MiembroRepo::equiposDe($m),
+      ], JSON_UNESCAPED_UNICODE)) ?>'><?= UI::icono('ds-editar') ?></button>
+    <form method="post" action="actions.php" class="inline-form solo-admin"
+          data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
+          data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
+      <input type="hidden" name="accion" value="miembro_eliminar">
+      <input type="hidden" name="id" value="<?= $id ?>">
+      <button class="rs-boton rs-boton--icono kp-peligro" aria-label="Retirar del equipo" data-ds-tip="Retirar del equipo"><i class="fa-solid fa-user-minus"></i></button>
+    </form>
+    <span class="ru-cab__sep" aria-hidden="true"></span>
+    <?php endif; ?>
+    <a class="rs-boton rs-boton--icono" href="equipo.php?e=<?= e($eq) ?>" aria-label="Regresar" data-ds-tip="Regresar a <?= e($eqLabel) ?>">
+      <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></a>
   </div>
 </header>
 
-<section class="stats-grid stats-grid-6">
-  <?= UI::stat('fa-layer-group', '#2B76F7', (string)$totales, 'Asignadas') ?>
-  <?= UI::stat('fa-circle-check', '#2BB673', (string)$hechas, 'Completadas') ?>
-  <?= UI::stat('fa-list-check', '#F7931E', (string)$abiertas, 'Abiertas') ?>
-  <?= UI::stat('fa-triangle-exclamation', '#E63946', (string)$atrasadas, 'Atrasadas') ?>
-  <?= UI::stat('fa-gauge-high', '#0EA5E9', $avance . '%', 'Avance') ?>
-  <?= UI::stat('fa-clock', '#16A34A', ($puntualidad === null ? '—' : $puntualidad . '%'), 'Puntualidad') ?>
+<section class="kp-tiles" aria-label="Indicadores personales">
+  <?= $tile('ds-lista-espera', 'info', (string)$totales, 'Asignadas',
+        $totales ? 'en ' . $nProy . ' proyecto' . ($nProy === 1 ? '' : 's') : 'todavía ninguna') ?>
+  <?= $tile('ds-check', 'ok', (string)$hechas, 'Completadas',
+        $totales ? '<b>' . $avance . ' %</b> de lo asignado' : '—',
+        '<span class="kp-tile__barra" aria-hidden="true"><span style="width:' . $avance . '%"></span></span>') ?>
+  <?= $tile('ds-progreso', 'info', (string)$abiertas, 'Abiertas',
+        $porVencer ? e($porVencer . ' vence' . ($porVencer === 1 ? '' : 'n') . ' en los próximos 7 días') : 'ninguna vence esta semana') ?>
+  <?= $tile('ds-alerta', $atrasadas ? 'mal' : 'ok', (string)$atrasadas, 'Atrasadas',
+        $atrasadas ? 'pasaron su fecha límite' : 'todo al día') ?>
+  <?= $tile('ds-reloj', $tonoPct($puntualidad), $puntualidad === null ? '—' : $puntualidad . ' %', 'Puntualidad',
+        $conPuntualidad ? e($aTiempo . ' de ' . $conPuntualidad . ' entregadas a tiempo') : 'sin tareas cerradas con fecha límite') ?>
 </section>
 
-<section class="mc-metricas">
+<section class="kp-grid">
 
-  <!-- Distribución por estado (donut) -->
-  <div class="card-base mc-chart">
-    <h3 class="mc-chart-tit"><i class="fa-solid fa-chart-pie"></i> Distribución por estado</h3>
+  <article class="kp-card">
+    <h2 class="kp-card__tit">Tareas por estado</h2>
     <?php if ($totales === 0): ?>
-      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+      <p class="kp-vacio">Sin tareas todavía.</p>
     <?php else:
       $segsEstado = [];
-      foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]) {
-          $segsEstado[] = [$porEstado[$k] ?? 0, $colEstado[$k] ?? '#2B76F7'];
-      }
+      foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]) $segsEstado[] = [$porEstado[$k] ?? 0, $colEstadoDS[$k] ?? ($colEstado[$k] ?? '#2B76F7')];
     ?>
-    <div class="mc-donut-wrap">
+    <div class="kp-dona">
       <?= $donut($segsEstado, (string)$totales, 'tareas') ?>
-      <ul class="mc-legend">
-        <?php foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]): ?>
-        <li><span class="mc-dot" style="background:<?= e($colEstado[$k] ?? '#2B76F7') ?>"></span>
-          <?= e($lab) ?> <b><?= (int)($porEstado[$k] ?? 0) ?></b></li>
+      <ul class="kp-leyenda">
+        <?php foreach (Catalogo::estadosTarea() as $k => [$lab, $ic]): $nE = (int)($porEstado[$k] ?? 0); ?>
+        <li<?= $nE ? '' : ' class="is-cero"' ?>><i class="kp-dot" style="--kc:<?= e($colEstadoDS[$k] ?? ($colEstado[$k] ?? '#2B76F7')) ?>"></i>
+          <span><?= e($lab) ?></span><b><?= $nE ?></b><small><?= $pctDe($nE, $totales) ?> %</small></li>
         <?php endforeach; ?>
       </ul>
     </div>
     <?php endif; ?>
-  </div>
+  </article>
 
-  <!-- Responsabilidad de tiempos (puntualidad) -->
-  <div class="card-base mc-chart">
-    <h3 class="mc-chart-tit"><i class="fa-solid fa-clock"></i> Responsabilidad de tiempos</h3>
-    <div class="mc-punt">
-      <div class="mc-punt-num" style="color:<?= $puntualidad === null ? '#94a3b8' : ($puntualidad >= 70 ? '#16A34A' : ($puntualidad >= 40 ? '#C26F0E' : '#E63946')) ?>">
-        <?= $puntualidad === null ? '—' : $puntualidad . '%' ?>
-      </div>
-      <p class="mc-punt-sub"><?= $conPuntualidad > 0 ? 'entregadas a tiempo' : 'aún no hay tareas cerradas con fecha límite' ?></p>
+  <article class="kp-card">
+    <h2 class="kp-card__tit">Entrega a tiempo</h2>
+    <div class="kp-punt kp--<?= $tonoPct($puntualidad) ?>">
+      <b class="kp-punt__num"><?= $puntualidad === null ? '—' : $puntualidad . ' %' ?></b>
+      <span class="kp-punt__txt"><?= $conPuntualidad > 0 ? 'de las tareas cerradas con fecha límite se entregaron a tiempo' : 'Aún no hay tareas cerradas con fecha límite.' ?></span>
     </div>
     <?php if ($conPuntualidad > 0): ?>
-    <div class="mc-split">
-      <span class="mc-split-a" style="width:<?= (int)round($aTiempo * 100 / $conPuntualidad) ?>%"></span>
-      <span class="mc-split-b" style="width:<?= (int)round($tarde * 100 / $conPuntualidad) ?>%"></span>
+    <div class="kp-split" aria-hidden="true">
+      <?php if ($aTiempo): ?><span class="kp-split__a" style="flex:<?= $aTiempo ?>"></span><?php endif; ?>
+      <?php if ($tarde): ?><span class="kp-split__b" style="flex:<?= $tarde ?>"></span><?php endif; ?>
     </div>
     <?php endif; ?>
-    <ul class="mc-punt-list">
-      <li><span class="mc-dot" style="background:#16A34A"></span> A tiempo <b><?= $aTiempo ?></b></li>
-      <li><span class="mc-dot" style="background:#E63946"></span> Tarde <b><?= $tarde ?></b></li>
-      <li><span class="mc-dot" style="background:#F7931E"></span> Atrasadas (abiertas) <b><?= $atrasadas ?></b></li>
-      <li><span class="mc-dot" style="background:#0EA5E9"></span> Por vencer (7 días) <b><?= $porVencer ?></b></li>
+    <ul class="kp-leyenda kp-leyenda--2">
+      <li><i class="kp-dot" style="--kc:#059669"></i><span>A tiempo</span><b><?= $aTiempo ?></b></li>
+      <li><i class="kp-dot" style="--kc:#DC2626"></i><span>Tarde</span><b><?= $tarde ?></b></li>
+      <li><i class="kp-dot" style="--kc:#EA580C"></i><span>Atrasadas (abiertas)</span><b><?= $atrasadas ?></b></li>
+      <li><i class="kp-dot" style="--kc:#0EA5E9"></i><span>Vencen en 7 días</span><b><?= $porVencer ?></b></li>
     </ul>
-  </div>
+  </article>
 
-  <!-- Carga por prioridad -->
-  <div class="card-base mc-chart">
-    <h3 class="mc-chart-tit"><i class="fa-solid fa-signal"></i> Carga por prioridad</h3>
+  <article class="kp-card">
+    <h2 class="kp-card__tit">Carga por prioridad</h2>
     <?php if ($totales === 0): ?>
-      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+      <p class="kp-vacio">Sin tareas todavía.</p>
     <?php else:
       $itemsPrio = [];
-      foreach (Catalogo::prioridades() as $k => [$lab, $ic]) {
-          $itemsPrio[] = [$lab, $porPrioridad[$k] ?? 0, $colPrio[$k] ?? '#94a3b8'];
-      }
-      echo $barras($itemsPrio);
+      foreach (Catalogo::prioridades() as $k => [$lab, $ic]) $itemsPrio[] = [$lab, $porPrioridad[$k] ?? 0, $colPrioDS[$k] ?? ($colPrio[$k] ?? '#94A3B8')];
+      echo $kpBarras($itemsPrio);
     endif; ?>
-  </div>
+  </article>
 
-  <!-- Tareas por proyecto -->
-  <div class="card-base mc-chart">
-    <h3 class="mc-chart-tit"><i class="fa-solid fa-folder-tree"></i> Tareas por proyecto</h3>
+  <article class="kp-card">
+    <h2 class="kp-card__tit">Tareas por proyecto</h2>
     <?php if (empty($porProyecto)): ?>
-      <p class="mc-chart-vacio">Sin tareas todavía.</p>
+      <p class="kp-vacio">Sin tareas todavía.</p>
     <?php else:
       arsort($porProyecto);
       $itemsProy = [];
-      foreach ($porProyecto as $pid => $n) {
-          $itemsProy[] = [$nombresProyecto[$pid] ?? '—', $n, $colorProyecto[$pid] ?? '#2B76F7'];
-      }
-      echo $barras($itemsProy);
+      foreach ($porProyecto as $pid => $n) $itemsProy[] = [$nombresProyecto[$pid] ?? '—', $n, $colorProyecto[$pid] ?? '#2B76F7', 'proyecto.php?id=' . (int)$pid];
+      echo $kpBarras($itemsProy);
     endif; ?>
-  </div>
+  </article>
 
 </section>
 
@@ -291,38 +306,31 @@ UI::inicio('Ficha · ' . $m['nombre'], 'equipo-' . $eq);
 <!-- Requerimientos sueltos: no son tareas de proyecto, así que van aparte y
      con su propio corte. Sin esto, alguien cargado de requerimientos aparecía
      libre en su ficha. -->
-<section class="mc-reqs">
-  <div class="card-base mc-chart">
-    <h2 class="font-display"><?= UI::icono('Requerimientos', 'text-secondary') ?> Requerimientos sueltos
-      <span class="tabla-count"><?= $reqTotal ?></span>
-    </h2>
-    <div class="stats-grid stats-grid-4">
-      <?= UI::stat('fa-inbox',        '#2B76F7', (string)$reqTotal,    'Asignados') ?>
-      <?= UI::stat('fa-circle-check', '#2BB673', (string)$reqCerrados, 'Resueltos') ?>
-      <?= UI::stat('fa-hourglass-half', '#C26F0E', (string)$reqAbiertos, 'Abiertos') ?>
-      <?= UI::stat('fa-triangle-exclamation', '#C66B2D', (string)$reqVencidos, 'Vencidos') ?>
-    </div>
-    <?php if ($reqCumpl !== null): ?>
-    <div class="mc-punt">
-      <p class="mc-punt-num"><?= $reqCumpl ?>%</p>
-      <p class="mc-punt-sub">de los que le tocaron ya están cerrados</p>
-      <span class="mc-split">
-        <span class="mc-split-a" style="width:<?= $reqCumpl ?>%"></span>
-        <span class="mc-split-b" style="width:<?= 100 - $reqCumpl ?>%"></span>
-      </span>
-    </div>
-    <?php endif; ?>
-    <?php if ($reqPorInst): ?>
-    <h3 class="mc-chart-tit">Por institución</h3>
-    <?php
-      $itemsInst = [];
-      foreach ($reqPorInst as $iid => $n2) {
-          $itemsInst[] = [$instMapaC[$iid]['nombre'], $n2, InstitucionRepo::colorBase($instMapaC[$iid])];
-      }
-      echo $barras($itemsInst);
-    ?>
-    <?php endif; ?>
+<section class="kp-card kp-reqs">
+  <header class="kp-card__cab">
+    <h2 class="kp-card__tit">Requerimientos sueltos <span class="tabla-count"><?= $reqTotal ?></span></h2>
+    <?php if ($reqCumpl !== null): ?><span class="kp-reqs__cumpl"><b><?= $reqCumpl ?> %</b> ya cerrados</span><?php endif; ?>
+  </header>
+  <div class="kp-minis">
+    <div><span>Asignados</span><b><?= $reqTotal ?></b></div>
+    <div><span>Resueltos</span><b class="kp-t--ok"><?= $reqCerrados ?></b></div>
+    <div><span>Abiertos</span><b><?= $reqAbiertos ?></b></div>
+    <div><span>Vencidos</span><b class="<?= $reqVencidos ? 'kp-t--mal' : '' ?>"><?= $reqVencidos ?></b></div>
   </div>
+  <?php if ($reqCumpl !== null): ?>
+  <div class="kp-split" aria-hidden="true">
+    <?php if ($reqCerrados): ?><span class="kp-split__a" style="flex:<?= $reqCerrados ?>"></span><?php endif; ?>
+    <?php if ($reqAbiertos): ?><span class="kp-split__c" style="flex:<?= $reqAbiertos ?>"></span><?php endif; ?>
+  </div>
+  <?php endif; ?>
+  <?php if ($reqPorInst): ?>
+  <h3 class="kp-card__sub">Por institución</h3>
+  <?php
+    $itemsInst = [];
+    foreach ($reqPorInst as $iid => $n2) $itemsInst[] = [$instMapaC[$iid]['nombre'], $n2, InstitucionRepo::colorBase($instMapaC[$iid])];
+    echo $kpBarras($itemsInst);
+  ?>
+  <?php endif; ?>
 </section>
 <?php endif; ?>
 

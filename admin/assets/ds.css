@@ -7175,3 +7175,109 @@ html .rq-tl__txt small { display: block; margin-top: 3px; color: var(--ink-muted
   html .rq-card { padding: 16px; }
   html .rq-cab .ru-cab__acc { flex-wrap: wrap; justify-content: flex-start; }
 }
+
+/* =========================================================
+   Ficha de una persona (colaborador.php): sus KPIs. Tarjetas blancas sin
+   bordes ni franjas de color, cada indicador dice qué significa su número y
+   el color solo marca lo que va bien o mal. Prefijo kp-.
+   ========================================================= */
+html .kp-cab .ru-cab__main { gap: 18px; }
+html .kp-cab__foto { flex: none; display: inline-flex; }
+html .kp-cab__rol { display: flex; align-items: center; gap: 6px; margin: 0 0 4px; color: var(--ink-muted); font: 600 .8rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+html .kp-cuentas { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+html .kp-cuenta { display: inline-flex; align-items: center; gap: 2px; height: 32px; padding: 0 4px 0 12px; border-radius: 999px; background: var(--surface); box-shadow: var(--shadow-xs); font-size: .82rem; }
+html .kp-cuenta a { display: inline-flex; align-items: center; gap: 7px; color: var(--ink); font-weight: 600; text-decoration: none; }
+html .kp-cuenta a:hover { color: var(--primary-ink, #2565D4); }
+html .kp-cuenta a i { color: var(--ink-muted); }
+html .kp-cuenta--off { padding-right: 12px; gap: 7px; color: var(--ink-muted); }
+html .kp-cuenta .kp-cuenta__copiar { display: inline-grid; place-items: center; width: 26px; height: 26px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: var(--ink-muted); cursor: pointer; }
+html .kp-cuenta .kp-cuenta__copiar:hover { background: var(--bg); color: var(--ink); }
+html .kp-cab .rs-boton.kp-peligro, html .kp-cab .rs-boton.kp-peligro i { color: #DC2626; }
+
+/* Los cinco indicadores */
+html .kp-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 14px; margin: 4px 0 18px; }
+html .kp-tile { --kt: #2563EB; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 16px 18px; border: 0; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-xs); }
+html .kp-tile__top { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+html .kp-tile__lab { color: var(--ink-muted); font: 600 .8rem/1.2 var(--font-sans, 'Inter', sans-serif); }
+html .kp-tile__ico { display: inline-grid; flex: none; place-items: center; width: 34px; height: 34px; border-radius: 11px; color: var(--kt); background: color-mix(in srgb, var(--kt) 11%, transparent); }
+html .kp-tile__ico .ico { width: 18px; height: 18px; }
+html .kp-tile__num { color: var(--ink); font: 700 1.9rem/1.1 var(--font-display, inherit); letter-spacing: -.01em; }
+html .kp-tile.kp--mal .kp-tile__num { color: var(--kt); }
+html .kp-tile__sub { color: var(--ink-muted); font-size: .78rem; line-height: 1.35; }
+html .kp-tile__sub b { color: var(--ink); }
+html .kp-tile__barra { display: block; height: 6px; margin-top: 6px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+html .kp-tile__barra span { display: block; height: 100%; border-radius: inherit; background: var(--kt); }
+html .kp--info { --kt: #2563EB; }
+html .kp--ok { --kt: #059669; }
+html .kp--aviso { --kt: #C2410C; }
+html .kp--mal { --kt: #DC2626; }
+html .kp--neutro { --kt: #64748B; }
+html.dark .kp--info { --kt: #7FABFF; }
+html.dark .kp--ok { --kt: #34D399; }
+html.dark .kp--aviso { --kt: #FDBA74; }
+html.dark .kp--mal { --kt: #F87171; }
+html.dark .kp--neutro { --kt: #A5B3C2; }
+
+/* Los gráficos */
+html .kp-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 18px; }
+html .kp-card { min-width: 0; padding: 20px 22px; border: 0; border-radius: 18px; background: var(--surface); box-shadow: var(--shadow-xs); }
+html .kp-card__cab { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 14px; margin-bottom: 14px; }
+html .kp-card__tit { display: flex; align-items: center; gap: 8px; margin: 0 0 16px; color: var(--ink); font: 700 1rem/1.3 var(--font-display, inherit); }
+html .kp-card__cab .kp-card__tit { margin: 0; }
+html .kp-card__sub { margin: 18px 0 10px; color: var(--ink-muted); font: 600 .8rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+html .kp-vacio { margin: 0; color: var(--ink-muted); font-size: .88rem; }
+html .kp-dot { display: inline-block; flex: none; width: 9px; height: 9px; border-radius: 50%; background: var(--kc, #2563EB); }
+html .kp-dona { display: grid; grid-template-columns: 150px minmax(0, 1fr); align-items: center; gap: 26px; }
+html .kp-dona .mc-donut { width: 150px; height: 150px; }
+html .kp-leyenda { display: flex; flex-direction: column; gap: 10px; margin: 0; padding: 0; list-style: none; }
+html .kp-leyenda li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto auto; align-items: center; gap: 10px; color: var(--ink); font-size: .86rem; }
+html .kp-leyenda li b { font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+html .kp-leyenda li small { min-width: 38px; color: var(--ink-muted); font-size: .76rem; text-align: right; font-variant-numeric: tabular-nums; }
+html .kp-leyenda li.is-cero { color: var(--ink-muted); }
+html .kp-leyenda--2 { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px 24px; margin-top: 16px; }
+html .kp-leyenda--2 li { grid-template-columns: auto minmax(0, 1fr) auto; }
+html .kp-punt { display: flex; align-items: baseline; gap: 14px; }
+html .kp-punt__num { flex: none; color: var(--kt); font: 700 2.4rem/1 var(--font-display, inherit); letter-spacing: -.02em; }
+html .kp-punt__txt { color: var(--ink-muted); font-size: .86rem; line-height: 1.4; }
+html .kp-split { display: flex; gap: 4px; height: 10px; margin-top: 16px; }
+html .kp-split span { min-width: 6px; border-radius: 999px; }
+html .kp-split__a { background: #059669; }
+html .kp-split__b { background: #DC2626; }
+html .kp-split__c { background: color-mix(in srgb, var(--ink-muted) 22%, transparent); }
+html .kp-barras { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; list-style: none; }
+html .kp-barras li { display: grid; grid-template-columns: minmax(90px, 34%) minmax(0, 1fr) 32px; align-items: center; gap: 12px; }
+html .kp-barras__lab { display: flex; align-items: center; gap: 8px; min-width: 0; color: var(--ink); font-size: .86rem; }
+html .kp-barras__lab a, html .kp-barras__lab span { min-width: 0; overflow: hidden; color: inherit; text-decoration: none; text-overflow: ellipsis; white-space: nowrap; }
+html .kp-barras__lab a:hover { color: var(--primary-ink, #2565D4); }
+html .kp-barras__pista { height: 8px; border-radius: 999px; background: var(--bg); overflow: hidden; }
+html .kp-barras__pista span { display: block; height: 100%; border-radius: inherit; background: var(--kc, #2563EB); }
+html .kp-barras__n { color: var(--ink); font-size: .86rem; text-align: right; font-variant-numeric: tabular-nums; }
+
+/* Requerimientos sueltos */
+html .kp-reqs { margin-bottom: 18px; }
+html .kp-reqs__cumpl { color: var(--ink-muted); font-size: .84rem; }
+html .kp-reqs__cumpl b { color: #059669; }
+html .kp-minis { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+html .kp-minis > div { display: flex; flex-direction: column; gap: 2px; padding: 12px 14px; border-radius: 14px; background: var(--bg); }
+html .kp-minis span { color: var(--ink-muted); font-size: .76rem; font-weight: 600; }
+html .kp-minis b { color: var(--ink); font: 700 1.3rem/1.2 var(--font-display, inherit); }
+html .kp-t--ok { color: #059669 !important; }
+html .kp-t--mal { color: #DC2626 !important; }
+
+@media (max-width: 900px) {
+  html .kp-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 640px) {
+  html .kp-cab .ru-cab__main { align-items: flex-start; }
+  html .kp-cab__foto .avatar { --sz: 56px !important; width: 56px; height: 56px; }
+  html .kp-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  html .kp-tile { padding: 14px; border-radius: 16px; }
+  html .kp-tile__num { font-size: 1.5rem; }
+  html .kp-tile__ico { width: 30px; height: 30px; border-radius: 10px; }
+  html .kp-tile:last-child:nth-child(odd) { grid-column: 1 / -1; }
+  html .kp-dona { grid-template-columns: minmax(0, 1fr); justify-items: center; }
+  html .kp-dona .kp-leyenda { width: 100%; }
+  html .kp-leyenda--2 { grid-template-columns: minmax(0, 1fr); }
+  html .kp-minis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  html .kp-card { padding: 16px; }
+}
