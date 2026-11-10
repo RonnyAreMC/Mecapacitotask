@@ -277,14 +277,48 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
     </section>
     <?php endif; ?>
 
-    <?php if ($historial): ?>
-    <section class="rq-card">
-      <details class="rq-hist">
-        <summary class="rq-card__tit">Trazabilidad <span class="tabla-count"><?= count($historial) ?></span></summary>
-        <ol>
-          <?php foreach ($historial as $h): ?>
-          <li><span><?= e((string)$h['texto']) ?></span>
-            <small><?= e((string)($h['fecha'] ?? '')) ?> · <?= (int)($h['quien'] ?? 0) > 0 ? e($nombreDe((int)$h['quien'])) : 'El panel' ?></small></li>
+    <?php if ($historial):
+        // Línea de tiempo: de lo más nuevo a lo más viejo, cada paso con su ícono,
+        // la fecha corta («Hoy, 16:42») y quién, con el nombre corto (el completo al pasar el ratón).
+        $hoyH = date('Y-m-d');
+        $ayerH = date('Y-m-d', strtotime('-1 day'));
+        $cuandoH = function (string $f) use ($hoyH, $ayerH): string {
+            $d = substr($f, 0, 10);
+            $hora = substr($f, 11, 5);
+            $dia = $d === $hoyH ? 'Hoy' : ($d === $ayerH ? 'Ayer' : fechaCortaReq($d));
+            return $dia . ($hora !== '' ? ', ' . $hora : '');
+        };
+        $cortoH = function (string $n): string {
+            $p = preg_split('/\s+/', trim($n)) ?: [];
+            return match (true) { count($p) >= 4 => $p[0] . ' ' . $p[2], count($p) === 3 => $p[0] . ' ' . $p[1], default => trim($n) };
+        };
+        $tipoH = fn(string $t) => match (true) {
+            (bool)preg_match('/reabri|volvi[oó] a abrirse/i', $t) => ['RotateLeft', 'aviso'],
+            (bool)preg_match('/cancel/i', $t)                     => ['fa-ban', 'mal'],
+            (bool)preg_match('/terminad|resuelt|corregida/i', $t) => ['ds-check', 'ok'],
+            (bool)preg_match('/correcci|pendiente otra/i', $t)    => ['ds-reloj', 'aviso'],
+            (bool)preg_match('/asign|sum[oó]|colaborador/i', $t)  => ['ds-usuarios', 'info'],
+            (bool)preg_match('/registr|cre[oó]/i', $t)            => ['ds-mas', 'info'],
+            default                                              => ['ds-editar', 'neutro'],
+        }; ?>
+    <section class="rq-card rq-hist-card">
+      <details class="rq-hist"<?= count($historial) <= 5 ? ' open' : '' ?>>
+        <summary>
+          <span class="rq-card__tit">Trazabilidad <span class="tabla-count"><?= count($historial) ?></span></span>
+          <span class="rq-hist__chev" aria-hidden="true"><?= UI::iconoDS('chevron-abajo', 18) ?></span>
+        </summary>
+        <ol class="rq-tl">
+          <?php foreach ($historial as $h):
+              [$icoH, $tonoH] = $tipoH((string)$h['texto']);
+              $quienH = (int)($h['quien'] ?? 0) > 0 ? $nombreDe((int)$h['quien']) : ''; ?>
+          <li class="rq-tl__paso rq-tl--<?= $tonoH ?>">
+            <span class="rq-tl__ico" aria-hidden="true"><?= UI::icono($icoH) ?></span>
+            <div class="rq-tl__txt">
+              <p><?= e((string)$h['texto']) ?></p>
+              <small><time datetime="<?= e(str_replace(' ', 'T', (string)($h['fecha'] ?? ''))) ?>" title="<?= e((string)($h['fecha'] ?? '')) ?>"><?= e($cuandoH((string)($h['fecha'] ?? ''))) ?></time>
+                · <span title="<?= e($quienH ?: 'Lo hizo el panel solo') ?>"><?= e($quienH !== '' ? $cortoH($quienH) : 'El panel') ?></span></small>
+            </div>
+          </li>
           <?php endforeach; ?>
         </ol>
       </details>
