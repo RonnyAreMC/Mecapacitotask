@@ -45,7 +45,7 @@ final class Catalogo
         'Wallet', 'CreditCard', 'Calculator', 'House',
         'Global', 'Map', 'SuitCase', 'Monitor',
         'Laptop', 'Task', 'Contracts', 'DocumentCloud',
-        'Settings', 'ShieldTick', 'Bell', 'FolderOpen', 'ds-procesos',
+        'Settings', 'ShieldTick', 'Bell', 'FolderOpen', 'ds-procesos', 'ds-design-system',
     ];
 
     /**

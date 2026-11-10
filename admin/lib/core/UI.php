@@ -1915,6 +1915,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         'emprendimiento'      => 'Emprendimiento y vinculación',
         'procesos'            => 'Procesos · Flujos de trabajo',
         'crm'                 => 'CRM · Ventas y leads',
+        'design-system'       => 'Design System · Componentes y estilos',
     ];
 
     /**
@@ -1932,6 +1933,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
         'financiero'          => ['financ', 'contab', 'tesorer', 'factur', 'tpv', 'punto de venta', 'pagos'],
         'mesa-ayuda'          => ['mesa de ayuda', 'soporte', 'helpdesk', 'ticket'],
         'emprendimiento'      => ['emprend', 'vinculacion', 'sociedad', 'comunidad', 'startup'],
+        'design-system'       => ['design system', 'sistema de diseno', 'ui kit', 'componentes ui', 'guia de estilo', 'figma'],
         'procesos'            => ['proceso', 'flujo de trabajo', 'workflow', ' bpm', 'buinco'],
         'asistente-virtual'   => ['asistente', 'chatbot', 'bot '],
         'sitios-web'          => ['web', 'sitio', 'portal', 'pagina', 'landing'],

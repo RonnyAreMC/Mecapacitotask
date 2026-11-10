@@ -91,7 +91,7 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/icono-192.png', 'iconos/pwa/icono-512.png', 'iconos/pwa/icono-maskable-512.png',
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/help/Tutoriales.php', 'lib/requirements/ReqCorreo.php', 'lib/requirements/ReqSeguimiento.php', 'scripts/arreglar_tildes.php', 'lib/releases/releases_ui.php', 'lib/integrations/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/mail/CorreoCopias.php',
-        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg', 'iconos/ilustraciones/procesos.svg', 'iconos/ilustraciones/crm.svg', 'scripts/seed_crm.php', 'tablero_equipos.php',
+        'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg', 'iconos/ilustraciones/procesos.svg', 'iconos/DS/ds-design-system.svg', 'iconos/ilustraciones/design-system.svg', 'iconos/ilustraciones/crm.svg', 'scripts/seed_crm.php', 'tablero_equipos.php',
         'lib/notifications/Whatsapp.php', 'scripts/cron_whatsapp.php',
         'correo.php', 'manifest-correo.webmanifest',
         'iconos/pwa/correo-192.png', 'iconos/pwa/correo-512.png', 'iconos/pwa/correo-apple-180.png', 'iconos/pwa/correo-maskable-512.png', 'iconos/pwa/app-correo.svg', 'iconos/ilustraciones/ia-mascota.svg',
@@ -121,7 +121,7 @@ function actualizarPanel(array $opc): void
 
     // Un archivo subido a medias o de la versión anterior se reconoce por lo que le falta adentro
     $marcas = [
-        'lib/core/UI.php'        => ['function celdaEstadoTarea', "'crm'                 => 'CRM", '<b>clic derecho</b> cierra', 'est-pill estado-', 'public static function volver(', 'col-tokens', 'colorimetria.php', 'calendario.php', 'fa-money-bill-wave', 'Mi espacio', 'sb-atajos', "'ia-estrellas'", 'notas.php', 'PASOS_OBSERVACION', 'dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'stroke-width="1.9"', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
+        'lib/core/UI.php'        => ['function celdaEstadoTarea', "'crm'                 => 'CRM", "'design-system'       => 'Design System", '<b>clic derecho</b> cierra', 'est-pill estado-', 'public static function volver(', 'col-tokens', 'colorimetria.php', 'calendario.php', 'fa-money-bill-wave', 'Mi espacio', 'sb-atajos', "'ia-estrellas'", 'notas.php', 'PASOS_OBSERVACION', 'dialogTelefonoHtml', 'atributosPagina', 'selectorPortada', 'barraSuperior', 'TELEFONO_PATRON', "'app-movil'", 'entradaArte', 'data-push-modal', 'tutoriales.php', 'data-correo-n-menu', 'modalAviso', 'iconoEquipo', 'function nexo', 'nexo:descansando', 'releases.php', 'SIDEBAR_RECOGIDO', 'navGrupo', 'stroke-width="1.9"', 'Qué tiene que saber', 'buzones.php', 'function menuRadial', 'rad-aguja', '$icono: el del', 'PASOS_DETALLE_TAREA', 'PASOS_EDITAR_TAREA', 'data-icono', 'PASOS_ASISTENTE', 'function selectorHora'],
         'lib/notifications/Notificaciones.php' => ["'recordatorio'", "'reunion_pronto'", 'Push::avisar', 'function pendientes', "'deploy'", "'release'"],
         'lib/notifications/Push.php'      => ['push_claves', 'estadoPagina', 'atributosPagina'],
         'sw.js'             => ['meca-push', 'clavePanel'],
@@ -137,7 +137,7 @@ function actualizarPanel(array $opc): void
         'requerimiento.php' => ['rq-grid', 'req_obs_estado', 'dialogoEditarReq'],
         'colaborador.php'   => ['kp-tiles'],
         'scripts/cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado', "'id' => (int)(\$r['id']"],
-        'lib/core/Models.php'    => ['function correccionesDe', 'function entregaDe', 'function equiposDe', "'impedimento']", 'function correosAvisos', 'function respaldos', 'ds-programadores', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code', "'cancelado'  => ['Cancelado'"],
+        'lib/core/Models.php'    => ['function correccionesDe', 'function entregaDe', 'function equiposDe', "'impedimento']", 'function correosAvisos', 'function respaldos', 'ds-programadores', 'ds-design-system', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code', "'cancelado'  => ['Cancelado'"],
         'lib/tasks/ImportadorTareas.php' => ['$origen', 'item_release', 'para usarlo en los commits'],
         'lib/core/bootstrap.php' => ["'devuelta' => ''", '/Colorimetria.php', '/Feriados.php', "'notas_api.php'", "'pizarra_api.php'", 'function esPOde', 'avisarTareaTerminada', 'opcache_limpiar', 'function cronogramaDeploys', 'function cronCallado', 'De fábrica: lunes y jueves a las 22:00', 'MCH_API', 'function chequearEntrega', "'video.php'"],
         'actions.php'       => ["case 'req_obs_estado'", "case 'tarea_entrega'", 'reabiertas', "\$modoEq = in_array", "case 'bl_planificacion_calcular'", "case 'bl_planificacion'", '(releases|reunion)', "case 'req_cancelar'", 'rel_reorganizar_aplicar', 'Colabora con el equipo ', 'an-salud)?', 'bl_tareas_repartir', "\$_POST['ia_tareas']", '$finSp = function', "'bl_sprint_plan', 'bl_sprint_retro'", 'bl_importar', 'bl_historia_mover', 'ia_plan_descripcion', 'imp_resolver', 'De vuelta a la página donde se abrió', 'col_medir', 'feriado_traer', 'rel_revision_externo', 'externos_asistio', 'Una casilla puede traer una conversación entera', 'correo_marcar_varios', 'Abierto desde el detalle (reunion.php)', 'email_avisos', 'perfil_telefono', 'po_relevo', 'pedido_crear', 'ia_guardar', 'exigirTelefonoValido', 'correo_conectar', 'tutorial_crear', 'UI::hayIcono', 'auth_recuperar_pedir', 'whatsapp_estado', 'enAppC', 'req_correo_conf', 'ia_req_correo', 'CorreoCopias::quitar', 'equipo_mover', 'tareas_correo_crear', 'ia_tareas_correo', 'ia_responder_correo', 'correo_respuesta_ia', 'alRegistrarAMano', 'cronogramaDeploys', 'impIa->origen', 'rel_item_guardar', 'relMoverReunion', 'rel_daily_registrar', 'relAmarrar', 'req_colaborador', 'reqObsGuardar', 'function transcripcionReunion', 'function reunionNoPasada', 'correo_leidos', 'tarea_colaborador', 'api_token_crear', "'reunion_choque'", "'reunion_agenda'", 'contexto_tareas_json'],
@@ -184,7 +184,7 @@ function actualizarPanel(array $opc): void
         'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]'],
         'lib/core/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
-        'assets/admin.js'   => ['data-rq-plazo', 'rq-nueva', 'function reflejarEntrega', 'reabrirTareaEnPantalla', 'data-pp-equipos', 'Clic derecho: cierra', 'dataset.msAncho', "closest('.est-pill')", 'pg-vidrio', 'Uno a la vez: al abrir este', 'function dtFoco', 'dtImpEnviar', 'data-vt-tabs', "quitar('volver')", 'data-ru-abrir', 'nueva_reunion', 'data-ru-serie', 'function obsTarjetas', 'MecaWizard.CHECK', 'ACTIVAS:', "setProperty('--lx'", 'data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-fila, .req-tr','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'data-rad-btn', 'Clic derecho: abre la opción marcada', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
+        'assets/admin.js'   => ['data-rq-plazo', 'rq-nueva', 'function reflejarEntrega', 'reabrirTareaEnPantalla', 'data-pp-equipos', 'Clic derecho: cierra', 'dataset.msAncho', "closest('.est-pill')", 'pg-vidrio', 'Uno a la vez: al abrir este', 'function dtFoco', 'dtImpEnviar', 'data-vt-tabs', "quitar('volver')", 'data-ru-abrir', 'nueva_reunion', 'data-ru-serie', 'function obsTarjetas', 'MecaWizard.CHECK', 'ACTIVAS:', "setProperty('--lx'", 'data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-tr[data-href]','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'data-rad-btn', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora'],
         'index.php'         => ['pac-resumen__ico', 'Colorimetria::proyectos', 'Feriados::es', 'nexo:saludando', 'portadaDe', 'resumen_tira.php', 'data-activa="proyectos"', 'rs-boton--primario', 'pac-ir'],
         'lib/dashboard/resumen_tira.php' => ['data-rt-correo-n', 'data-rt-pista', 'rt-radar', 'Por revisar como PO'],
         'lib/whiteboard/Pizarra.php'   => ['function bloqueadoPara', 'function conDueno', 'self::bloqueadoPara($viejo, $por)', 'function ridNota', 'function tareasDe', 'function avisarRecordatorios', 'final class Pizarra', 'piz_elementos', 'function subirImagen'],
@@ -467,20 +467,22 @@ function actualizarPanel(array $opc): void
     /* Equipo de Diseñadores: se agrega UNA vez a los equipos guardados (si
        luego alguien lo quita en Ajustes, no vuelve). Si nunca se guardaron
        equipos, ya sale de los de fábrica (Config::defaults). */
-    /* Íconos de proyecto: el de «Procesos» (iconos/DS/ds-procesos.svg) entra a la lista corta
-       del selector UNA vez (semillas.icono_procesos): si luego lo quitan en Ajustes, no vuelve. */
+    /* Íconos de proyecto: los de «Procesos» y «Design System» (iconos/DS/) entran a la lista
+       corta del selector UNA vez cada uno (semillas.icono_*): si luego los quitan en Ajustes, no vuelven. */
     paso('Íconos de proyecto');
-    $crudoI   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
-    $semillaI = (array)($crudoI['semillas'] ?? []);
-    $listaI   = $crudoI['iconos'] ?? null;
-    if (!empty($semillaI['icono_procesos'])) {
-        nota('ok', 'El ícono «Procesos» ya está en el selector de íconos de proyecto');
-    } elseif (!method_exists('Config', 'respaldos')) {
-        nota('error', 'No se agregó el ícono «Procesos»: lib/core/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
-    } else {
-        $nuevaI = is_array($listaI) && $listaI !== [] && !in_array('ds-procesos', $listaI, true) ? [...$listaI, 'ds-procesos'] : null;
-        if (!$seco) Config::guardar(($nuevaI ? ['iconos' => $nuevaI] : []) + ['semillas' => ['icono_procesos' => date('Y-m-d')] + $semillaI]);
-        nota('ok', 'Ícono «Procesos» ' . ($seco ? 'se agregaría' : 'agregado') . ' al selector de íconos de proyecto (al crear o editar un proyecto)');
+    foreach (['ds-procesos' => ['icono_procesos', 'Procesos'], 'ds-design-system' => ['icono_design_system', 'Design System']] as $icI => [$banderaI, $nombreI]) {
+        $crudoI   = json_decode((string)@file_get_contents($dir . '/data/config.json'), true) ?: [];
+        $semillaI = (array)($crudoI['semillas'] ?? []);
+        $listaI   = $crudoI['iconos'] ?? null;
+        if (!empty($semillaI[$banderaI])) {
+            nota('ok', 'El ícono «' . $nombreI . '» ya está en el selector de íconos de proyecto');
+        } elseif (!method_exists('Config', 'respaldos')) {
+            nota('error', 'No se agregó el ícono «' . $nombreI . '»: lib/core/Models.php es de la versión anterior y borraría el resto de la configuración. Súbelo de nuevo y repite.');
+        } else {
+            $nuevaI = is_array($listaI) && $listaI !== [] && !in_array($icI, $listaI, true) ? [...$listaI, $icI] : null;
+            if (!$seco) Config::guardar(($nuevaI ? ['iconos' => $nuevaI] : []) + ['semillas' => [$banderaI => date('Y-m-d')] + $semillaI]);
+            nota('ok', 'Ícono «' . $nombreI . '» ' . ($seco ? 'se agregaría' : 'agregado') . ' al selector de íconos de proyecto (al crear o editar un proyecto)');
+        }
     }
 
     /* Portada «Procesos» (iconos/ilustraciones/procesos.svg): a Buinco se le pone UNA vez
