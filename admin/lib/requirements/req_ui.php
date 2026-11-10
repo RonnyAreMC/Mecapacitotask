@@ -115,7 +115,7 @@ function filaRequerimiento(array $r, array $mapa, array $prioridades, array $est
           <?php endif; ?>
           <?php if ($corr['pendientes']): ?>
           <span class="rq-chip rq-chip--<?= $corr['vencidas'] ? 'mal' : 'pend' ?> req-c-corr" title="Correcciones pendientes<?= $corr['proxima'] !== '' ? ' · la próxima vence el ' . e(fechaLargaReq($corr['proxima'])) : '' ?>">
-            <?= UI::icono('ds-reloj') ?> <?= $corr['pendientes'] ?> corrección<?= $corr['pendientes'] === 1 ? '' : 'es' ?><?= $corr['vencidas'] ? ' · ' . $corr['vencidas'] . ' vencida' . ($corr['vencidas'] === 1 ? '' : 's') : '' ?>
+            <?= UI::icono('ds-reloj') ?> <?= $corr['pendientes'] ?> <?= $corr['pendientes'] === 1 ? 'corrección' : 'correcciones' ?><?= $corr['vencidas'] ? ' · ' . $corr['vencidas'] . ' vencida' . ($corr['vencidas'] === 1 ? '' : 's') : '' ?>
           </span>
           <?php endif; ?>
           <?php if ($insts): ?>

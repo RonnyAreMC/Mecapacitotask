@@ -81,7 +81,7 @@ $sub = '<span class="mc-status mc-status--pill mc-status--' . $estTono . '"><spa
     . (isset($prioridades[$prio]) ? UI::badgePrioridad($prio) : '')
     . '<span class="req-plazo plazo-' . e($plazoNivel) . '" title="' . e($plazoDetalle) . '">' . e($plazoTxt) . '</span>'
     . ($corr['pendientes'] ? '<a class="rq-chip rq-chip--' . ($corr['vencidas'] ? 'mal' : 'pend') . '" href="#observaciones">' . UI::icono('ds-reloj') . ' '
-        . $corr['pendientes'] . ' corrección' . ($corr['pendientes'] === 1 ? '' : 'es') . ' pendiente' . ($corr['pendientes'] === 1 ? '' : 's')
+        . $corr['pendientes'] . ($corr['pendientes'] === 1 ? ' corrección' : ' correcciones') . ' pendiente' . ($corr['pendientes'] === 1 ? '' : 's')
         . ($corr['vencidas'] ? ' · ' . $corr['vencidas'] . ' vencida' . ($corr['vencidas'] === 1 ? '' : 's') : '') . '</a>' : '');
 
 $boton = fn(string $icono, string $tip, string $attrs, string $clase = '') =>
@@ -98,18 +98,19 @@ if ($esGestor && !Auth::esSupervisor()) {
         . '<button class="rs-boton rs-boton--icono rq-peligro" aria-label="Eliminar" data-ds-tip="Eliminar">' . UI::icono('ds-eliminar') . '</button></form>';
     if ($cancelado) {
         $acciones .= '<form method="post" action="actions.php" class="inline-form"><input type="hidden" name="accion" value="req_reabrir"><input type="hidden" name="id" value="' . $id . '">'
-            . '<input type="hidden" name="volver" value="' . e($aqui) . '"><button class="rs-boton">' . UI::icono('RotateLeft') . ' Reabrir</button></form>';
+            . '<input type="hidden" name="volver" value="' . e($aqui) . '"><button class="rs-boton rs-boton--icono" aria-label="Reabrir" data-ds-tip="Reabrir">' . UI::icono('RotateLeft') . '</button></form>';
     } elseif (!$cerrado) {
         $acciones .= '<form method="post" action="actions.php" class="inline-form"><input type="hidden" name="accion" value="req_estado"><input type="hidden" name="id" value="' . $id . '">'
             . '<input type="hidden" name="estado" value="hecho"><input type="hidden" name="volver" value="' . e($aqui) . '">'
-            . '<button class="rs-boton rs-boton--primario">' . UI::icono('ds-check') . ' Marcar resuelto</button></form>';
+            . '<button class="rs-boton rs-boton--icono rs-boton--primario" aria-label="Marcar resuelto" data-ds-tip="Marcar resuelto">' . UI::icono('ds-check') . '</button></form>';
     }
 } elseif ($esResp && !$cerrado && !Auth::esSupervisor()) {
     $acciones .= $boton('ds-usuarios', 'Sumar a alguien que te ayude', 'onclick="document.getElementById(\'dlg-rq-colab\').showModal()"')
-        . '<button type="button" class="rs-boton rs-boton--primario" onclick="document.getElementById(\'dlg-rq-terminar\').showModal()">' . UI::icono('ds-check') . ' Marcar terminado</button>';
+        . '<button type="button" class="rs-boton rs-boton--icono rs-boton--primario" aria-label="Marcar terminado" data-ds-tip="Marcar terminado" onclick="document.getElementById(\'dlg-rq-terminar\').showModal()">' . UI::icono('ds-check') . '</button>';
 }
-$regresar = '<a class="rs-boton ru-cab__volver" href="' . e($listaUrl) . '" aria-label="Regresar" data-ds-tip="Volver a ' . ($esGestor ? 'Requerimientos' : 'tus requerimientos') . '">'
-    . '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg>Regresar</a>';
+// «Regresar» va al final, a la derecha de todo, y como los demás: solo el ícono
+$regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" aria-label="Regresar" data-ds-tip="Regresar a ' . ($esGestor ? 'Requerimientos' : 'tus requerimientos') . '">'
+    . '<svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 14 4 9l5-5"/><path d="M4 9h10.5a5.5 5.5 0 0 1 0 11H11"/></svg></a>';
 ?>
 <header class="page-head ru-cab rq-cab">
   <div class="ru-cab__main"><div class="ru-cab__txt">
@@ -117,7 +118,7 @@ $regresar = '<a class="rs-boton ru-cab__volver" href="' . e($listaUrl) . '" aria
     <h1 class="page-title font-display"><?= e((string)$req['titulo']) ?></h1>
     <p class="page-sub ru-cab__sub"><?= $sub ?></p>
   </div></div>
-  <div class="page-actions ru-cab__acc"><?= $regresar ?><?= $acciones !== '' ? '<span class="ru-cab__sep" aria-hidden="true"></span>' . $acciones : '' ?></div>
+  <div class="page-actions ru-cab__acc"><?= $acciones !== '' ? $acciones . '<span class="ru-cab__sep" aria-hidden="true"></span>' : '' ?><?= $regresar ?></div>
 </header>
 
 <div class="rq-grid">
@@ -327,7 +328,7 @@ $regresar = '<a class="rs-boton ru-cab__volver" href="' . e($listaUrl) . '" aria
     <header class="ds-modal__head">
       <span class="mc-tile mc-tile--sm mc-tile--verde"><?= UI::iconoDS('check', 18) ?></span>
       <div><h2 class="ds-modal__title" id="dlg-rq-ter-t">Marcar como terminado</h2>
-        <p class="ds-modal__sub">Le avisamos a quien te lo asignó.<?= $corr['pendientes'] ? ' Ojo: tiene ' . $corr['pendientes'] . ' corrección' . ($corr['pendientes'] === 1 ? '' : 'es') . ' sin marcar como corregida.' : '' ?></p></div>
+        <p class="ds-modal__sub">Le avisamos a quien te lo asignó.<?= $corr['pendientes'] ? ' Ojo: tiene ' . $corr['pendientes'] . ($corr['pendientes'] === 1 ? ' corrección' : ' correcciones') . ' sin marcar como corregida.' : '' ?></p></div>
       <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
     </header>
     <div class="ds-modal__body">
