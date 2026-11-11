@@ -42,10 +42,44 @@
     pintar();
   });
 
+  /* ---------- Tira de avisos y estadísticas ----------
+     Cambia sola cada 6 s; se detiene con el mouse encima o el foco dentro, y
+     con «reducir movimiento» no rota (se cambia con los puntos). */
+  document.querySelectorAll('[data-rp-tira]').forEach((tira) => {
+    const avisos = [...tira.querySelectorAll('[data-rp-aviso]')];
+    const puntos = [...tira.querySelectorAll('[data-rp-ir]')];
+    if (avisos.length < 2) return;
+    let i = 0, reloj = 0, quieto = false;
+    const ir = (n) => {
+      i = (n + avisos.length) % avisos.length;
+      avisos.forEach((a, k) => {
+        const on = k === i;
+        a.classList.toggle('is-activo', on);
+        a.toggleAttribute('aria-hidden', !on);
+        a.querySelectorAll('a,button').forEach((x) => { x.tabIndex = on ? 0 : -1; });
+      });
+      puntos.forEach((p, k) => p.setAttribute('aria-selected', k === i ? 'true' : 'false'));
+    };
+    const reducir = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const seguir = () => { clearInterval(reloj); if (!reducir && !quieto) reloj = setInterval(() => ir(i + 1), 6000); };
+    puntos.forEach((p, k) => p.addEventListener('click', () => { ir(k); seguir(); }));
+    tira.addEventListener('pointerenter', () => { quieto = true; clearInterval(reloj); });
+    tira.addEventListener('pointerleave', () => { quieto = false; seguir(); });
+    tira.addEventListener('focusin', () => { quieto = true; clearInterval(reloj); });
+    tira.addEventListener('focusout', () => { quieto = false; seguir(); });
+    document.addEventListener('visibilitychange', () => (document.hidden ? clearInterval(reloj) : seguir()));
+    seguir();
+  });
+
   /* ---------- Gráfico «Reparto entre compañeros» ---------- */
   const D = window.REQ_REPARTO;
   const el = document.getElementById('rp-grafico');
-  if (!D || !el || !D.filas || !D.filas.length) return;
+  if (!D || !el || !D.filas || !D.filas.length) {
+    // Sin datos todavía: el modal se abre igual (muestra su estado vacío)
+    const vacio = document.getElementById('dlg-reparto');
+    if (vacio) document.querySelectorAll('[data-rp-abrir]').forEach((b) => b.addEventListener('click', () => vacio.showModal()));
+    return;
+  }
   let grafico = null;
 
   const dibujar = () => {
@@ -109,8 +143,21 @@
     grafico.render();
   };
 
-  // apexcharts.min.js va con defer: se dibuja cuando ya está
-  if (typeof ApexCharts !== 'undefined') dibujar();
-  else window.addEventListener('load', dibujar, { once: true });
-  document.addEventListener('meca:tema', () => setTimeout(dibujar, 30));
+  const dlg = el.closest('dialog');
+  const visible = () => !dlg || dlg.open;
+  const pintar = () => { if (visible()) dibujar(); };
+  if (dlg) {
+    // Botones que lo abren (cabecera y tira) y #reparto en la URL (al cambiar el periodo)
+    document.querySelectorAll('[data-rp-abrir]').forEach((b) => b.addEventListener('click', () => { dlg.showModal(); pintar(); }));
+    if (location.hash === '#reparto') {
+      const abrir = () => { dlg.showModal(); pintar(); };
+      if (typeof ApexCharts !== 'undefined') abrir(); else window.addEventListener('load', abrir, { once: true });
+    }
+  } else if (typeof ApexCharts !== 'undefined') {
+    dibujar();
+  } else {
+    // apexcharts.min.js va con defer: se dibuja cuando ya está
+    window.addEventListener('load', dibujar, { once: true });
+  }
+  document.addEventListener('meca:tema', () => setTimeout(pintar, 30));
 })();

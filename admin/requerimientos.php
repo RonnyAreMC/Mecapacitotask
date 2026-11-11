@@ -204,26 +204,15 @@ UI::inicio('Requerimientos', 'requerimientos');
 UI::cabecera(
     'Requerimientos <span class="text-secondary">sueltos</span>',
     'Peticiones que no pertenecen a ningún proyecto. Repártelas con su plazo, mirando cuánto tiene encima cada persona.',
-    '<a class="btn-outline btn-meca btn-azul btn-icono" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
-       <i class="fa-solid fa-chart-column"></i> <span class="tab-txt">Panel</span>
-     </a>
-     ' . (is_file(__DIR__ . '/agenda.php') && function_exists('puedeReunionesGenerales') && puedeReunionesGenerales()
-        ? '<a class="btn-outline btn-meca btn-azul btn-icono" href="agenda.php?nueva=1&amp;tema=' . rawurlencode('Requerimientos sueltos') . '" title="Agendar una reunión de requerimientos sueltos (invita a un equipo entero o a todos)">
-       ' . UI::iconoDS('reuniones', 16) . ' <span class="tab-txt">Reunión</span>
-     </a>' : '') . '
-     <a class="btn-outline btn-meca btn-azul btn-icono" href="instituciones.php" title="Catálogo de instituciones">
-       <i class="fa-solid fa-building-columns"></i> <span class="tab-txt">Instituciones</span>
-     </a>
-     ' . (class_exists('ReqSeguimiento') ? '<button type="button" class="btn-outline btn-meca btn-azul btn-icono" onclick="document.getElementById(\'dlg-req-seg\').showModal()" title="Quién recibe los terminados y los que se pasan de fecha">
-       <i class="fa-solid fa-binoculars"></i> <span class="tab-txt">Seguimiento</span>
-     </button>' : '') . '
-     ' . ($conCorreo ? '<button type="button" class="btn-outline btn-meca btn-azul btn-icono" onclick="document.getElementById(\'dlg-req-correo\').showModal()" title="La IA convierte tus correos en requerimientos">
-       <i class="fa-solid fa-envelope-open-text"></i> <span class="tab-txt">Desde el correo</span>'
-       . ($propuestas ? ' <span class="tab-badge">' . count($propuestas) . '</span>' : '') . '
-     </button>' : '') . '
-     <button class="btn-primary btn-meca btn-agregar" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()">
-       <i class="fa-solid fa-plus"></i> Nuevo requerimiento
-     </button>'
+    '<a class="rs-boton rs-boton--icono" href="req_dashboard.php" aria-label="Panel" data-ds-tip="Panel: gráficos de cumplimiento y reparto">' . UI::icono('ds-reportes') . '</a>'
+    . '<button type="button" class="rs-boton rs-boton--icono" data-rp-abrir aria-label="Reparto entre compañeros" data-ds-tip="Reparto: cuánto le tocó a cada uno">' . UI::icono('ds-usuarios') . '</button>'
+    . (is_file(__DIR__ . '/agenda.php') && function_exists('puedeReunionesGenerales') && puedeReunionesGenerales()
+        ? '<a class="rs-boton rs-boton--icono" href="agenda.php?nueva=1&amp;tema=' . rawurlencode('Requerimientos sueltos') . '" aria-label="Reunión" data-ds-tip="Agendar una reunión de requerimientos sueltos">' . UI::icono('ds-reuniones') . '</a>' : '')
+    . '<a class="rs-boton rs-boton--icono" href="instituciones.php" aria-label="Instituciones" data-ds-tip="Catálogo de instituciones">' . UI::icono('Bank') . '</a>'
+    . (class_exists('ReqSeguimiento') ? '<button type="button" class="rs-boton rs-boton--icono" onclick="document.getElementById(\'dlg-req-seg\').showModal()" aria-label="Seguimiento" data-ds-tip="Seguimiento: quién recibe los terminados y los atrasados">' . UI::icono('ds-auditoria') . '</button>' : '')
+    . ($conCorreo ? '<button type="button" class="rs-boton rs-boton--icono" onclick="document.getElementById(\'dlg-req-correo\').showModal()" aria-label="Desde el correo" data-ds-tip="Desde el correo: la IA arma requerimientos con tus correos"'
+        . ($propuestas ? ' data-n="' . count($propuestas) . '"' : '') . '>' . UI::icono('ds-correo') . '</button>' : '')
+    . '<button type="button" class="rs-boton rs-boton--icono rs-boton--primario" onclick="document.getElementById(\'dlg-req-nuevo\').showModal()" aria-label="Nuevo requerimiento" data-ds-tip="Nuevo requerimiento">' . UI::icono('ds-mas') . '</button>'
 );
 ?>
 
@@ -282,18 +271,94 @@ UI::cabecera(
   <?php endforeach; ?>
 </section>
 
-<section class="rp-card" aria-labelledby="rp-t">
-  <header class="rp-cab">
-    <div>
-      <h2 id="rp-t"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('usuarios', 18) ?></span> Reparto entre compañeros</h2>
-      <p>Cuántos requerimientos se le asignaron a cada uno, para repartir parejo.</p>
-    </div>
+<?php
+/* Avisos y estadísticas que van rotando arriba (req-reparto.js): lo que pide
+   atención primero (sin asignar, vencidos, sobrecargados) y luego el reparto.
+   El gráfico completo, en el modal «Reparto entre compañeros». */
+$nombreCorto = fn(array $m) => explode(' ', trim((string)$m['nombre']))[0];
+$listaNombres = function (array $nombres): string {
+    $nombres = array_values($nombres);
+    return count($nombres) > 1 ? implode(', ', array_slice($nombres, 0, -1)) . ' y ' . end($nombres) : (string)($nombres[0] ?? '');
+};
+$avisos = [];
+$sugeridosTira = array_values(array_filter($carga, fn($c) => ($c['reco'][0] ?? '') === 'recomendado'));
+if ($conteo['sin-asignar'] > 0) {
+    $avisos[] = ['warn', 'ds-estado-alerta', $conteo['sin-asignar'] . ($conteo['sin-asignar'] === 1 ? ' requerimiento espera responsable' : ' requerimientos esperan responsable'),
+        $sugeridosTira ? 'Los sugeridos para repartir: ' . $listaNombres(array_map(fn($c) => $nombreCorto($c['miembro']), $sugeridosTira)) . '.' : 'Repártelos mirando la carga de cada uno.',
+        urlFiltro(['sit' => 'sin-asignar']), 'Ver'];
+}
+if ($conteo['tarde'] > 0) {
+    $deQuien = [];
+    foreach ($requerimientos as $r) {
+        if (!RequerimientoRepo::vencido($r)) continue;
+        foreach (RequerimientoRepo::asignadosDe($r) as $mid) if (isset($mapa[$mid])) $deQuien[$mid] = ($deQuien[$mid] ?? 0) + 1;
+    }
+    arsort($deQuien);
+    $avisos[] = ['crit', 'ds-estado-critico', $conteo['tarde'] . ($conteo['tarde'] === 1 ? ' pasado de fecha' : ' pasados de fecha'),
+        $deQuien ? 'Los tienen ' . $listaNombres(array_map(fn($mid, $n) => $nombreCorto($mapa[$mid]) . ' (' . $n . ')', array_keys(array_slice($deQuien, 0, 3, true)), array_slice($deQuien, 0, 3, true))) . '.' : 'Todavía sin responsable.',
+        urlFiltro(['sit' => 'tarde']), 'Ver'];
+}
+$cargados = array_values(array_filter($carga, fn($c) => $c['nivel'] === 'alta'));
+if ($cargados) {
+    $avisos[] = ['warn', 'ds-estado-insignia-alerta', count($cargados) === 1 ? $cargados[0]['miembro']['nombre'] . ' tiene mucha carga' : count($cargados) . ' personas con mucha carga',
+        $listaNombres(array_map(fn($c) => $nombreCorto($c['miembro']) . ' (' . $c['total'] . ' pendientes)', array_slice($cargados, 0, 3))) . ': mejor darle lo nuevo a otro.', '', ''];
+}
+if ($filasRep) {
+    $ultimoRep = end($filasRep);
+    $avisos[] = ['done', 'ds-estado-finalizado', $asignadosRep . ' repartidos en ' . ($fRep === 'todo' ? 'total' : 'los últimos ' . $periodosRep[$fRep]),
+        'Promedio por programador: ' . number_format($promedioDevs, 1, ',', '.') . '. A quien más le tocó: ' . $filasRep[0]['nombre'] . ' (' . $filasRep[0]['total'] . ').', '', ''];
+    $resueltosRep = array_sum(array_column($filasRep, 'resueltos'));
+    if ($resueltosRep > 0) {
+        $avisos[] = ['ok', 'ds-estado-cumple', $resueltosRep . ($resueltosRep === 1 ? ' resuelto' : ' resueltos') . ' en el periodo',
+            'De ' . array_sum(array_column($filasRep, 'total')) . ' asignaciones; ' . array_sum(array_column($filasRep, 'curso')) . ' siguen en curso.', '', ''];
+    }
+}
+if ($siguientes) {
+    $avisos[] = ['ok', 'ds-estado-cumple', 'Los siguientes en la fila: ' . $listaNombres(array_map(fn($c) => $nombreCorto($c['miembro']), $siguientes)),
+        'Son quienes menos tienen abierto y a quienes menos se les asignó en 90 días.', '', '', $siguientes];
+}
+if (!$avisos) {
+    $avisos[] = ['ok', 'ds-estado-cumple', 'Todo en orden', 'Nada sin asignar, nada vencido y nadie sobrecargado.', '', ''];
+}
+?>
+<section class="rp-tira" data-rp-tira aria-roledescription="carrusel" aria-label="Avisos y estadísticas de los requerimientos">
+  <div class="rp-tira__pila" aria-live="polite">
+    <?php foreach ($avisos as $n => $av): [$tono, $ico, $tit, $sub, $url, $acc] = $av; $gente = $av[6] ?? []; ?>
+    <article class="rp-aviso rp-aviso--<?= e($tono) ?><?= $n === 0 ? ' is-activo' : '' ?>" data-rp-aviso="<?= $n ?>"<?= $n === 0 ? '' : ' aria-hidden="true"' ?>>
+      <span class="rp-aviso__ic"><?= UI::icono($ico) ?></span>
+      <div class="rp-aviso__txt">
+        <b class="truncate"><?= e($tit) ?></b>
+        <small class="truncate"><?= e($sub) ?></small>
+      </div>
+      <?php if ($gente): ?><span class="rp-aviso__gente" aria-hidden="true"><?php foreach ($gente as $c) echo UI::avatar($c['miembro'], 26); ?></span><?php endif; ?>
+      <?php if ($url !== ''): ?><a class="rp-aviso__acc" href="<?= e($url) ?>"<?= $n === 0 ? '' : ' tabindex="-1"' ?>><?= e($acc) ?></a><?php endif; ?>
+    </article>
+    <?php endforeach; ?>
+  </div>
+  <div class="rp-tira__ctrl">
+    <?php if (count($avisos) > 1): ?>
+    <span class="rp-tira__puntos" role="tablist" aria-label="Avisos">
+      <?php foreach ($avisos as $n => $av): ?><button type="button" role="tab" data-rp-ir="<?= $n ?>" aria-label="Aviso <?= $n + 1 ?> de <?= count($avisos) ?>"<?= $n === 0 ? ' aria-selected="true"' : '' ?>></button><?php endforeach; ?>
+    </span>
+    <?php endif; ?>
+    <button type="button" class="rs-boton rs-boton--icono rp-tira__btn" data-rp-abrir aria-label="Ver el reparto entre compañeros" data-ds-tip="Reparto entre compañeros"><?= UI::icono('ds-reportes') ?></button>
+  </div>
+</section>
+
+<!-- Modal: el reparto completo (gráfico y datos). Se dibuja al abrirlo. -->
+<dialog class="ds-modal rp-dlg" id="dlg-reparto" aria-labelledby="rp-t">
+  <header class="ds-modal__head">
+    <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('usuarios', 18) ?></span>
+    <div><h2 class="ds-modal__title" id="rp-t">Reparto entre compañeros</h2>
+      <p class="ds-modal__sub">Cuántos requerimientos se le asignaron a cada uno, para repartir parejo.</p></div>
+    <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+  </header>
+  <div class="ds-modal__body">
     <nav class="rp-periodo" aria-label="Periodo del reparto">
       <?php foreach ($periodosRep as $k => $lab): $k = (string)$k;   // PHP vuelve número las claves «30» y «90» ?>
-      <a href="<?= e(urlFiltro(['rep' => $k === '90' ? '' : $k])) ?>"<?= $fRep === $k ? ' aria-current="true"' : '' ?>><?= e($lab) ?></a>
+      <a href="<?= e(urlFiltro(['rep' => $k === '90' ? '' : $k])) ?>#reparto"<?= $fRep === $k ? ' aria-current="true"' : '' ?>><?= e($lab) ?></a>
       <?php endforeach; ?>
     </nav>
-  </header>
   <?php if (!$filasRep): ?>
     <p class="rp-vacio">Nadie recibió requerimientos <?= $fRep === 'todo' ? 'todavía' : 'en los últimos ' . e($periodosRep[$fRep]) ?>.</p>
   <?php else: ?>
@@ -320,11 +385,12 @@ UI::cabecera(
     </aside>
   </div>
   <?php if (count($filasRep) > $topeRep): ?>
-  <p class="rp-vacio" style="padding:6px 0 0;text-align:left">Se ven los <?= $topeRep ?> con más. <a href="req_dashboard.php">Todos en el Panel</a>.</p>
+  <p class="rp-nota">Se ven los <?= $topeRep ?> con más. <a href="req_dashboard.php">Todos en el Panel</a>.</p>
   <?php endif; ?>
   <script>window.REQ_REPARTO = <?= json_encode($repData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
   <?php endif; ?>
-</section>
+  </div>
+</dialog>
 
 <?php
 // Métrica: cuántos requerimientos toca cada institución (y cuántos ya resueltos)

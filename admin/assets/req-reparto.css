@@ -71,20 +71,63 @@
   .dv-medida { flex: 1 1 100%; order: 7; padding-left: 31px; }
 }
 
-/* ---------- Tarjeta «Reparto entre compañeros» ---------- */
-.rp-card {
-  margin: 0 0 18px; padding: 18px 20px 14px;
+/* ---------- Tira de avisos y estadísticas (arriba de la lista) ----------
+   Un solo renglón que va rotando: lo que pide atención y el reparto. Todas
+   las tarjetas van en la misma celda de la rejilla, así la tira mide lo que
+   la más alta y no salta al cambiar. */
+.rp-tira {
+  display: flex; align-items: center; gap: 12px;
+  margin: 0 0 16px; padding: 10px 12px 10px 14px;
   border-radius: 18px; background: var(--n-bg); box-shadow: var(--sh-card);
 }
-.rp-cab {
-  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
-  margin-bottom: 4px;
+.rp-tira__pila { flex: 1 1 auto; min-width: 0; display: grid; }
+.rp-aviso {
+  grid-area: 1 / 1; min-width: 0;
+  display: flex; align-items: center; gap: 12px;
+  opacity: 0; visibility: hidden; transform: translateY(4px);
+  transition: opacity .35s ease, transform .35s ease, visibility 0s linear .35s;
 }
-.rp-cab h2 {
-  display: flex; align-items: center; gap: 10px; margin: 0;
-  font-size: 1.02rem; font-weight: 800; color: var(--c-text); text-wrap: balance;
+.rp-aviso.is-activo { opacity: 1; visibility: visible; transform: none; transition: opacity .35s ease, transform .35s ease; }
+.rp-aviso__ic {
+  flex: none; width: 38px; height: 38px; border-radius: 12px;
+  display: grid; place-items: center;
 }
-.rp-cab p { margin: 2px 0 0; font-size: .82rem; color: var(--c-text-soft); }
+.rp-aviso__ic .ico { width: 20px; height: 20px; }
+.rp-aviso--ok   .rp-aviso__ic { background: var(--col-ok-bg);   color: var(--col-ok-fg); }
+.rp-aviso--warn .rp-aviso__ic { background: var(--col-warn-bg); color: var(--col-warn-fg); }
+.rp-aviso--crit .rp-aviso__ic { background: var(--col-crit-bg); color: var(--col-crit-fg); }
+.rp-aviso--done .rp-aviso__ic { background: var(--col-done-bg); color: var(--col-done-fg); }
+.rp-aviso__txt { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.3; }
+.rp-aviso__txt b { font-size: .92rem; font-weight: 800; color: var(--c-text); }
+.rp-aviso__txt small { font-size: .8rem; color: var(--c-text-soft); }
+.rp-aviso__gente { flex: none; display: flex; }
+.rp-aviso__gente > * + * { margin-left: -8px; }
+.rp-aviso__gente > * { box-shadow: 0 0 0 2px var(--n-bg); border-radius: 50%; }
+.rp-aviso__acc {
+  flex: none; padding: 6px 14px; border-radius: 999px; white-space: nowrap;
+  font-size: .8rem; font-weight: 700; text-decoration: none;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini); color: var(--primary, #2B76F7);
+}
+.rp-aviso__acc:focus-visible { outline: 2px solid var(--primary, #2B76F7); outline-offset: 2px; }
+.rp-tira__ctrl { flex: none; display: flex; align-items: center; gap: 10px; }
+.rp-tira__puntos { display: flex; gap: 5px; }
+.rp-tira__puntos button {
+  width: 7px; height: 7px; padding: 0; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--col-nm-solid, #98A2B3); opacity: .45; transition: width .25s ease, opacity .25s ease;
+}
+.rp-tira__puntos button[aria-selected="true"] { width: 20px; opacity: 1; background: var(--primary, #2B76F7); }
+.rp-tira__puntos button:focus-visible { outline: 2px solid var(--primary, #2B76F7); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .rp-aviso, .rp-aviso.is-activo, .rp-tira__puntos button { transition: none; transform: none; } }
+@media (max-width: 640px) {
+  .rp-tira { flex-wrap: wrap; padding: 10px 12px; }
+  .rp-aviso__gente { display: none; }
+  .rp-tira__ctrl { flex: 1 1 100%; justify-content: space-between; padding-left: 50px; }
+  .rp-tira__btn { width: 36px; min-height: 36px; }
+}
+
+/* ---------- Modal «Reparto entre compañeros» ---------- */
+dialog.ds-modal.rp-dlg { width: min(1080px, calc(100vw - 32px)); }
+.rp-dlg .rp-periodo { margin-bottom: 12px; align-self: flex-start; width: max-content; }
 .rp-periodo {
   display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px;
   background: var(--n-bg); box-shadow: var(--sh-inset-mini);
@@ -98,7 +141,6 @@
 
 .rp-cuerpo {
   display: grid; grid-template-columns: minmax(0, 1fr) 17.5rem; gap: 18px; align-items: stretch;
-  margin-top: 10px;
 }
 .rp-grafico { min-width: 0; min-height: 220px; }
 .rp-lado { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
@@ -121,11 +163,8 @@
 .rp-sig li .rp-sig__n { flex: 1 1 auto; min-width: 0; font-size: .84rem; font-weight: 700; color: var(--c-text); }
 .rp-sig li small { flex: none; font-size: .74rem; color: var(--col-ok-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .rp-vacio { padding: 28px 8px; text-align: center; font-size: .86rem; color: var(--c-text-soft); }
-
-@media (max-width: 900px) {
-  .rp-cuerpo { grid-template-columns: 1fr; }
-  .rp-card { padding: 16px 14px 12px; }
-}
+.rp-nota { margin: 8px 0 0; font-size: .8rem; color: var(--c-text-soft); }
+@media (max-width: 900px) { .rp-cuerpo { grid-template-columns: 1fr; } }
 
 /* En el Panel de requerimientos, el reparto completo ocupa toda la fila */
 .rd-grid-pagina .rd-ancho-3 { grid-column: 1 / -1; }

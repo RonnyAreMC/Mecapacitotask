@@ -1472,7 +1472,9 @@ html .sidebar .sidebar-brand-icono .sidebar-logo, html.dark .sidebar .sidebar-br
   max-width: 260px; padding: 6px 10px;
   background: var(--surface-raised); color: var(--ink);
   border: 1px solid var(--line); border-radius: var(--radius-md); box-shadow: var(--shadow-md);
-  font: 600 var(--mc-fs-xs, .75rem)/1.1rem var(--font-sans); white-space: nowrap;
+  font: 600 var(--mc-fs-xs, .75rem)/1.1rem var(--font-sans);
+  /* Corto: en una línea. Largo: se parte dentro de la caja (con nowrap se salía de ella). */
+  width: max-content; max-width: min(280px, calc(100vw - 16px)); white-space: normal; text-wrap: balance; overflow-wrap: break-word;
   opacity: 0; transition: opacity var(--mc-dur-1, .12s) ease, transform var(--mc-dur-2, .2s) var(--mc-ease-out, ease);
 }
 .ds-tip.a-la-derecha { transform: translateX(-4px); }
