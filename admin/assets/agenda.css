@@ -1,0 +1,189 @@
+/* =========================================================
+   Agenda de reuniones (agenda.php) y selector de invitados
+   (ReunionesUI::selectorInvitados, lib/meetings/reuniones_ui.php; lo
+   maneja assets/invitados.js). La lista de la agenda usa las piezas de la
+   suite de reuniones (admin.css, «Reuniones: la suite…»): aquí solo va lo
+   nuevo. Dentro de los asistentes (.dlg-wizard) se usan sus colores
+   (--wz-*), con los tokens del DS como respaldo; sin franjas de color.
+   ========================================================= */
+
+/* ---------- La agenda: el proyecto de cada reunión en su renglón ---------- */
+.ag-proy {
+  display: inline-flex; align-items: center; gap: 5px; min-width: 0; max-width: 220px;
+  color: var(--ink, #2D3E50); font-weight: 600;
+}
+.ag-proy__ic {
+  flex: none; display: inline-grid; place-items: center; width: 18px; height: 18px; border-radius: 6px;
+  background: color-mix(in srgb, var(--pc, #40CFFF) 16%, var(--surface, #fff));
+  color: color-mix(in srgb, var(--pc, #40CFFF) 70%, var(--ink, #2D3E50));
+}
+.ag-proy__ic .ico { width: 12px; height: 12px; }
+.ag-proy__t { min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+html.dark .ag-proy__ic { color: color-mix(in srgb, var(--pc, #40CFFF) 70%, #fff); }
+
+/* ---------- El asistente de la agenda ---------- */
+/* La plataforma en tarjetas, con un ícono SVG del DS (las de proyecto.php llevan <i>) */
+.dlg-wizard .nr-plat .subvista-btn > .nr-plat__ic {
+  grid-row: 1 / 3; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 11px;
+  background: var(--wz-sec-h); color: var(--wz-tinta-3);
+}
+.dlg-wizard .nr-plat .subvista-btn > .nr-plat__ic .ico { width: 20px; height: 20px; }
+.dlg-wizard .nr-plat .subvista-btn.active > .nr-plat__ic { background: var(--wz-azul); color: #fff; }
+.ag-dlg .ag-donde .mc-select { width: 100%; }
+
+/* Guardas que valida el asistente: no se ven ni se enfocan con Tab */
+.inv-req {
+  position: absolute; width: 1px; height: 1px; margin: -1px; padding: 0; border: 0;
+  overflow: hidden; clip: rect(0 0 0 0); clip-path: inset(50%); opacity: 0; pointer-events: none;
+}
+
+/* ---------- Selector de invitados ---------- */
+.inv [hidden] { display: none !important; }
+/* En el asistente, el paso de invitados no se desplaza entero: se desplaza la lista,
+   y el buscador y el contador quedan siempre a la vista */
+.dlg-wizard .wz-panel--inv.activo { overflow: hidden; }
+.wz-panel--inv > .inv-campo { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
+.inv-campo > .campo-ayuda { flex: none; }
+.inv {
+  position: relative; flex: 1 1 auto; min-height: 0;
+  display: flex; flex-direction: column; gap: 10px;
+}
+.inv-barra { flex: none; display: flex; align-items: center; gap: 8px; }
+.inv-buscar {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 8px;
+  height: 44px; padding: 0 12px; box-sizing: border-box;
+  border: 1px solid var(--wz-linea, var(--line)); border-radius: 10px;
+  background: var(--wz-campo, var(--surface)); color: var(--wz-tinta-2, var(--ink-muted));
+  transition: border-color .18s ease, box-shadow .18s ease;
+}
+.inv-buscar:hover { border-color: var(--wz-linea-h, var(--line-strong)); }
+.inv-buscar:focus-within { border-color: var(--wz-azul, var(--primary)); box-shadow: var(--wz-anillo, var(--focus-ring)); }
+.inv-buscar > .ico { flex: none; width: 18px; height: 18px; }
+.inv-buscar__in {
+  flex: 1 1 auto; min-width: 0; height: 100%; margin: 0; padding: 0; border: 0; outline: 0; box-shadow: none;
+  background: transparent; color: var(--wz-tinta, var(--ink)); font: inherit; font-size: .9375rem;
+}
+.inv-buscar__in::placeholder { color: var(--wz-tinta-2, var(--ink-muted)); }
+.inv-buscar__in:-webkit-autofill { -webkit-box-shadow: 0 0 0 40px var(--wz-campo, var(--surface)) inset; }
+.inv-todos {
+  flex: none; display: inline-flex; align-items: center; gap: 6px; height: 44px; padding: 0 14px; box-sizing: border-box;
+  border: 1px solid var(--wz-linea, var(--line)); border-radius: 10px; cursor: pointer;
+  background: var(--wz-campo, var(--surface)); color: var(--wz-tinta, var(--ink));
+  font: 600 .875rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+  transition: border-color .18s ease, background-color .18s ease;
+}
+.inv-todos .ico { width: 18px; height: 18px; color: var(--wz-azul, var(--primary)); }
+.inv-todos:hover { border-color: var(--wz-linea-h, var(--line-strong)); }
+.inv-todos[aria-pressed="true"] { border-color: var(--wz-azul, var(--primary)); background: var(--wz-azul-suave, var(--primary-soft)); color: var(--wz-azul-txt, var(--primary-ink)); box-shadow: 0 0 0 1px var(--wz-azul, var(--primary)); }
+.inv-todos:focus-visible, .inv-todo:focus-visible, .inv-grupo__abrir:focus-visible, .inv-quitar:focus-visible {
+  outline: 2px solid var(--wz-azul, var(--focus)); outline-offset: 2px;
+}
+
+.inv-estado {
+  flex: none; display: flex; align-items: center; justify-content: space-between; gap: 12px;
+  min-height: 24px; margin: 0; font-size: .8125rem; line-height: 1.3; color: var(--wz-tinta-2, var(--ink-muted));
+}
+.inv-cuenta { font-weight: 600; color: var(--wz-tinta, var(--ink)); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-quitar {
+  flex: none; margin: 0; padding: 2px 6px; border: 0; border-radius: 6px; background: none; cursor: pointer;
+  color: var(--wz-azul-txt, var(--primary-ink)); font: 600 .8125rem/1.3 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+}
+.inv-quitar:hover { background: var(--wz-azul-suave, var(--primary-soft)); }
+
+.inv-grupos {
+  flex: 1 1 auto; min-height: 140px; overflow-y: auto; overscroll-behavior: contain;
+  display: flex; flex-direction: column; gap: 10px;
+  margin: 0 -4px; padding: 2px 4px 4px;
+  scrollbar-width: thin; scrollbar-color: var(--wz-linea-h, var(--line-strong)) transparent;
+}
+.inv-grupo {
+  flex: none; border: 1px solid var(--wz-linea, var(--line)); border-radius: 14px;
+  background: var(--wz-campo, var(--surface));
+  --_tbg: var(--tone-azul-bg); --_tfg: var(--tone-azul-fg);
+}
+.inv-grupo--verde { --_tbg: var(--tone-verde-bg); --_tfg: var(--tone-verde-fg); }
+.inv-grupo--naranja { --_tbg: var(--tone-naranja-bg); --_tfg: var(--tone-naranja-fg); }
+.inv-grupo--amarillo { --_tbg: var(--tone-amarillo-bg); --_tfg: var(--tone-amarillo-fg); }
+.inv-grupo--cian { --_tbg: var(--tone-cian-bg); --_tfg: var(--tone-cian-fg); }
+.inv-grupo--petroleo { --_tbg: var(--tone-petroleo-bg); --_tfg: var(--tone-petroleo-fg); }
+.inv-grupo__cab { display: flex; align-items: center; gap: 8px; padding: 6px 10px 6px 6px; }
+.inv-grupo__abrir {
+  flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 10px;
+  margin: 0; padding: 4px; border: 0; border-radius: 10px; background: none; cursor: pointer;
+  color: inherit; font: inherit; text-align: left;
+}
+.inv-grupo__abrir:hover { background: var(--wz-sec-h, var(--surface-hover)); }
+.inv-grupo__ic {
+  flex: none; display: grid; place-items: center; width: 36px; height: 36px; border-radius: 10px;
+  background: var(--_tbg); color: var(--_tfg); box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--_tfg) 14%, transparent);
+}
+.inv-grupo__ic .ico { width: 20px; height: 20px; }
+.inv-grupo__t { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.inv-grupo__t b { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: var(--wz-tinta, var(--ink)); font-size: .9375rem; font-weight: 600; line-height: 1.3; }
+.inv-grupo__t small { color: var(--wz-tinta-2, var(--ink-muted)); font-size: .78rem; line-height: 1.3; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.inv-grupo__chev { flex: none; width: 18px; height: 18px; margin-left: auto; color: var(--wz-tinta-2, var(--ink-muted)); transition: transform .2s ease; }
+.inv-grupo__abrir[aria-expanded="false"] .inv-grupo__chev { transform: rotate(-90deg); }
+
+/* La casilla (de cada persona y de «Todo el equipo»): la del DS, dibujada aquí */
+.inv-caja {
+  flex: none; display: grid; place-items: center; width: 18px; height: 18px; box-sizing: border-box;
+  border: 1.5px solid var(--line-strong, #94A3B8); border-radius: 5px;
+  background: var(--wz-sup, var(--surface)); color: var(--on-primary, #fff);
+  transition: background-color .15s ease, border-color .15s ease;
+}
+.inv-p.is-on .inv-caja,
+.inv-todo:not([data-estado="no"]) .inv-caja { background: var(--wz-azul, var(--primary)); border-color: var(--wz-azul, var(--primary)); }
+.inv-todo {
+  flex: none; display: inline-flex; align-items: center; gap: 8px; height: 34px; padding: 0 12px 0 10px; box-sizing: border-box;
+  border: 1px solid var(--wz-linea, var(--line)); border-radius: 999px; cursor: pointer;
+  background: var(--wz-sup, var(--surface)); color: var(--wz-tinta-3, var(--ink));
+  font: 600 .8125rem/1 var(--font-sans, 'Inter', sans-serif); white-space: nowrap;
+}
+.inv-todo:hover { border-color: var(--wz-linea-h, var(--line-strong)); }
+.inv-todo[data-estado="si"] { border-color: var(--wz-azul, var(--primary)); background: var(--wz-azul-suave, var(--primary-soft)); color: var(--wz-azul-txt, var(--primary-ink)); }
+
+.inv-lista {
+  display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 2px 6px;
+  margin: 0; padding: 6px 8px 8px; list-style: none;
+  border-top: 1px solid var(--wz-linea, var(--line));
+}
+.inv-p { min-width: 0; margin: 0; }
+.inv-p__l {
+  position: relative; display: flex; align-items: center; gap: 10px; min-width: 0; min-height: 44px;
+  padding: 5px 8px; border-radius: 10px; cursor: pointer; transition: background-color .15s ease;
+}
+.inv-p__l:hover { background: var(--wz-sec-h, var(--surface-hover)); }
+.inv-p.is-on .inv-p__l { background: var(--wz-azul-suave, var(--primary-soft)); }
+.inv-p__chk { position: absolute; width: 1px; height: 1px; margin: 0; opacity: 0; pointer-events: none; }
+.inv-p__chk:focus-visible + .inv-caja { border-color: var(--wz-azul, var(--primary)); box-shadow: var(--wz-anillo, var(--focus-ring)); }
+.inv-p .avatar { flex: none; }
+.inv-p__txt { min-width: 0; display: flex; flex-direction: column; gap: 1px; }
+.inv-p__txt b, .inv-p__txt small { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.inv-p__txt b { color: var(--wz-tinta, var(--ink)); font-size: .875rem; font-weight: 600; line-height: 1.3; }
+.inv-p__txt small { color: var(--wz-tinta-2, var(--ink-muted)); font-size: .75rem; line-height: 1.3; }
+
+.inv-vacio {
+  display: flex; align-items: center; gap: 10px; margin: 0; padding: 14px 16px;
+  border: 1px dashed var(--wz-linea-h, var(--line-strong)); border-radius: 12px;
+  color: var(--wz-tinta-2, var(--ink-muted)); font-size: .875rem; line-height: 1.4;
+}
+.inv-vacio .ico { flex: none; width: 18px; height: 18px; }
+.inv > .wz-error { flex: none; }
+
+/* Celular: una persona por fila y «Todo el equipo» más corto de ancho */
+@media (max-width: 640px) {
+  .inv-lista { grid-template-columns: minmax(0, 1fr); }
+  /* «Todos» queda en ícono (con su ayuda): el buscador se lee entero */
+  .inv-todos { width: 44px; padding: 0; justify-content: center; }
+  .inv-todos__t { display: none; }
+  .inv-buscar__in { font-size: .875rem; }
+  /* El nombre del equipo cabe entero junto a «Todo el equipo»: sin la baldosa */
+  .inv-grupo__ic { display: none; }
+  .inv-grupo__cab { padding: 6px 8px 6px 4px; }
+  .inv-grupo__abrir { gap: 6px; padding: 4px 6px; }
+  .inv-todo { padding: 0 10px 0 8px; }
+  .inv-grupos { min-height: 120px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .inv-grupo__chev, .inv-p__l, .inv-caja, .inv-buscar, .inv-todos { transition: none; }
+}

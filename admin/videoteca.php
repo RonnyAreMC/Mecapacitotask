@@ -33,7 +33,10 @@ $ahora    = time();
 $miembros = (new MiembroRepo())->mapa();
 $proyectos = [];
 foreach (soloProyectosVisibles((new ProyectoRepo())->todos()) as $p) $proyectos[(int)$p['id']] = $p;
-$todas    = array_values(array_filter((new ReunionRepo())->todas(), fn($r) => isset($proyectos[(int)($r['proyecto_id'] ?? 0)])));
+// Las reuniones generales (agenda.php, sin proyecto) que puede ver: van como el «proyecto» 0
+$proyectos[0] = Reuniones::proyectoGeneral();
+$todas    = array_values(array_filter((new ReunionRepo())->todas(), fn($r) => (int)($r['proyecto_id'] ?? 0) > 0
+    ? isset($proyectos[(int)$r['proyecto_id']]) : puedeVerReunion($r)));
 $rastros  = ReunionesUI::rastros($todas);
 $grabadas = ReunionesUI::grabadas($todas, $proyectos, $ahora, $rastros);
 $ctx      = ['ahora' => $ahora, 'miembros' => $miembros, 'rastros' => $rastros];
@@ -53,7 +56,7 @@ $conTrans = fn(array $v) => ReunionesUI::transcripcion($v['r'], $v['serie'] ? $v
 $verId = (int)($_GET['v'] ?? 0);
 if ($verId) {
     $r = (new ReunionRepo())->buscar($verId);
-    if (!$r || !isset($proyectos[(int)($r['proyecto_id'] ?? 0)])) {
+    if (!$r || !((int)($r['proyecto_id'] ?? 0) > 0 ? isset($proyectos[(int)$r['proyecto_id']]) : puedeVerReunion($r))) {
         redirigir($url(), 'Esa grabación no está disponible.', 'error');
     }
     $pid  = (int)$r['proyecto_id'];
@@ -69,7 +72,8 @@ if ($verId) {
     $trans = $paso && $plat === 'zoom' ? ReunionesUI::transcripcion($r, $diaOc, $vez['fin'], $rastros) : 'sin';
     $tema  = ReunionesUI::tema($r);
     $entraron = ReunionesUI::entraron($vez, $rastros);
-    $puedeActa = UI::ia('acta_reunion') && puedeGestionar($pid);
+    $puedeActa = $pid > 0 && UI::ia('acta_reunion') && puedeGestionar($pid);   // el acta crea tareas: la general no tiene proyecto
+    $urlCanal  = $pid > 0 ? 'reuniones.php?p=' . $pid : 'agenda.php';
 
     // Los adjuntos de las observaciones de esa reunión (en una serie, las anotadas ese día)
     $hilos = array_values(array_filter((new ObservacionRepo())->hilosDelProyecto($pid), fn($o) => (int)($o['reunion_id'] ?? 0) === (int)$r['id']
@@ -98,7 +102,7 @@ if ($verId) {
     <?= UI::volver($volverLista, 'Volver a las grabaciones', 'ru-cab__volver') ?>
     <span class="vt-barra__t">Videos</span>
     <span class="ru-sep" aria-hidden="true">·</span>
-    <?= ReunionesUI::chipProyecto($p, 'reuniones.php?p=' . $pid) ?>
+    <?= ReunionesUI::chipProyecto($p, $urlCanal) ?>
   </div>
 
   <div class="vt-ver">
@@ -118,9 +122,9 @@ if ($verId) {
 
       <h1 class="vt-ver__t"><?= e($tema) ?></h1>
       <div class="vt-ver__fila">
-        <a class="vt-canal vt-canal--grande" href="reuniones.php?p=<?= $pid ?>" style="--pc:<?= e(ReunionesUI::colorProyecto($p)) ?>" aria-label="Las reuniones de <?= e($p['nombre']) ?>" data-ds-tip="Las reuniones de <?= e($p['nombre']) ?>"><?= ReunionesUI::iconoProyecto($p) ?></a>
+        <a class="vt-canal vt-canal--grande" href="<?= e($urlCanal) ?>" style="--pc:<?= e(ReunionesUI::colorProyecto($p)) ?>" aria-label="Las reuniones de <?= e($p['nombre']) ?>" data-ds-tip="Las reuniones de <?= e($p['nombre']) ?>"><?= ReunionesUI::iconoProyecto($p) ?></a>
         <span class="vt-ver__canal">
-          <a href="reuniones.php?p=<?= $pid ?>"><?= e($p['nombre']) ?></a>
+          <a href="<?= e($urlCanal) ?>"><?= e($p['nombre']) ?></a>
           <small><?= e($cuandoTxt) ?></small>
         </span>
         <div class="ru-acc">
@@ -233,7 +237,7 @@ if ($verId) {
 /* ======================= La cuadrícula ======================= */
 $nPorProyecto = [];
 foreach ($grabadas as $v) $nPorProyecto[(int)$v['p']['id']] = ($nPorProyecto[(int)$v['p']['id']] ?? 0) + 1;
-$chipsProy = array_values(array_filter($proyectos, fn($p) => isset($nPorProyecto[(int)$p['id']])));
+$chipsProy = array_values(array_filter($proyectos, fn($p) => (int)$p['id'] > 0 && isset($nPorProyecto[(int)$p['id']])));   // la general no es un filtro
 usort($chipsProy, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
 
 $lista = array_values(array_filter($grabadas, fn($v) => (!$fp || (int)$v['p']['id'] === $fp) && (!$ft || $conTrans($v))

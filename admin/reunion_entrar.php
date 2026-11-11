@@ -10,12 +10,12 @@
 require_once __DIR__ . '/lib/core/bootstrap.php';
 
 $reu = (new ReunionRepo())->buscar((int)($_GET['id'] ?? 0));
-if (!$reu || !puedeVerProyecto((int)$reu['proyecto_id'])) {
+if (!$reu || !puedeVerReunion($reu)) {   // la general (agenda.php): admin, quien la creó y sus invitados
     redirigir('index.php', 'Esa reunión no está disponible.', 'error');
 }
 $url = trim((string)($reu['join_url'] ?? ''));
 if (!preg_match('#^https?://#i', $url)) {
-    redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'] . '#vista-reuniones', 'Esa reunión no tiene enlace para entrar.', 'error');
+    redirigir(Reuniones::urlLista($reu), 'Esa reunión no tiene enlace para entrar.', 'error');
 }
 
 $yo = (int)(Auth::usuario()['id'] ?? 0);

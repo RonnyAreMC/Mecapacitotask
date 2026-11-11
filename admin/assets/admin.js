@@ -4649,6 +4649,22 @@ document.querySelectorAll('[data-rq-plazo]').forEach((caja) => {
 
     const oscuro = document.documentElement.classList.contains('dark');
     const P = oscuro ? PALETAS.oscuro : PALETAS.claro;
+    // Colorimetría (2026-11-11): los estados salen de los tokens --col-*, los mismos
+    // del resto del panel. Cumplido = Cumple, pendiente = Sin iniciar, en curso =
+    // Finalizado (azul), alta = Crítico, media = Alerta. Las instituciones siguen
+    // con su color propio: ahí el dato ES la institución, no un estado.
+    {
+      const tk = (n, d) => (getComputedStyle(document.documentElement).getPropertyValue(n).trim() || d);
+      const ok = tk('--col-ok-solid', P.hecho), none = tk('--col-none-solid', P.pendiente), done = tk('--col-done-solid', P.serie);
+      const warn = tk('--col-warn-solid', P.estado.ojo), crit = tk('--col-crit-solid', P.estado.mal);
+      Object.assign(P, {
+        hecho: ok, pendiente: none, serie: done,
+        situacion: [none, done, ok],
+        prioridad: { Alta: crit, Media: warn, Baja: none },
+        tintaPrio: ['#ffffff', '#ffffff', oscuro ? '#101827' : '#16233a'],
+        estado: { bien: ok, ojo: warn, mal: crit },
+      });
+    }
     const css = getComputedStyle(document.documentElement);
     const v = (n, d) => (css.getPropertyValue(n).trim() || d);
     const cText  = v('--c-text', oscuro ? '#e9edf6' : '#1e2430');

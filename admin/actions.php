@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/core/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento'] as $moduloNuevo) {
+foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento', 'requirements/req_avisos'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -427,43 +427,7 @@ function transcripcionReunion(array $reu, string $fecha = ''): array
     return $t;
 }
 
-/**
- * Avisa por correo de que un requerimiento se terminó.
- *
- * Van dos avisos, cada uno por su lado:
- *  - a quien lo creó/asignó, que es el que espera la respuesta;
- *  - al correo del administrador de Ajustes → Correo, con el mismo
- *    interruptor que los proyectos completados, para que tenga la foto de
- *    todo lo que se cierra aunque el requerimiento no lo pidiera él.
- * Si son el mismo correo solo sale uno. Devuelve la coletilla para el flash.
- */
-function notificarReqTerminado(array $req, array $quien, MiembroRepo $miembros, string $nota): string
-{
-    avisoPanel(array_merge([(int)($req['creado_por'] ?? 0)], idsAdmins($miembros)), 'requerimiento',
-        'Terminaron un requerimiento', '«' . ($req['titulo'] ?? '') . '» · ' . ($quien['nombre'] ?? ''), 'requerimientos.php');
-    $para    = '';
-    $creador = $miembros->buscar((int)($req['creado_por'] ?? 0));
-    if ($creador && !empty($creador['email'])) {
-        $para = (string)$creador['email'];
-    }
-    if ($para === '') {
-        $para = trim((string)(Mailer::config()['admin_email'] ?? ''));
-    }
-
-    $aQuienPidio = $para !== ''
-        && Mailer::notificarRequerimientoHecho($req, $quien, $para, $nota) === true;
-    $alAdmin = Mailer::avisarAdminRequerimientoHecho($req, $quien, $nota, $para) === true;
-    // Quien da seguimiento (Felipe): lo terminado, con si llegó a tiempo (sin repetir a los de arriba)
-    $alSeguimiento = class_exists('ReqSeguimiento')
-        ? ReqSeguimiento::avisarTerminado($req, $quien, $nota, array_merge([$para], Mailer::listo() ? Mailer::destinatariosAdmin($para) : []))
-        : 0;
-    if ($alSeguimiento) return ' Avisamos por correo a quien lo asignó y a quien le da seguimiento.';
-
-    if ($aQuienPidio && $alAdmin) return ' Avisamos por correo a quien lo asignó y al administrador.';
-    if ($aQuienPidio)             return ' Le avisamos por correo a quien lo asignó.';
-    if ($alAdmin)                 return ' Le avisamos por correo al administrador.';
-    return '';
-}
+// notificarReqTerminado(): en lib/requirements/req_avisos.php (la usa también la API, api.php)
 
 /**
  * Avisa al OTRO equipo cuando una tarea pasa a depender de una suya. Solo por
@@ -655,6 +619,22 @@ function repeticionReunion(array $post, string $inicio, string $plataforma, stri
             . '. Acorta el rango de fechas o crea la reunión con Google Meet.', 'error');
     }
     return [true, $dias, $hasta, $inicio];
+}
+
+/**
+ * Los invitados que llegan del formulario (las casillas invitados[] del
+ * selector de invitados, ReunionesUI::selectorInvitados): solo personas que
+ * existen, sin repetir (quien está en dos equipos sale dos veces en la lista).
+ */
+function invitadosReunion(mixed $ids, MiembroRepo $miembros): array
+{
+    $mapa = $miembros->mapa();
+    $out = [];
+    foreach ((array)$ids as $id) {
+        $id = (int)$id;
+        if ($id > 0 && isset($mapa[$id])) $out[$id] = $id;
+    }
+    return array_values($out);
 }
 
 /**
@@ -5035,16 +5015,28 @@ switch ($accion) {
     case 'reunion_crear':
         $reuniones = new ReunionRepo();
         $pid = (int)($_POST['proyecto_id'] ?? 0);
-        if (!$proyectos->buscar($pid)) {
-            redirigir('index.php', 'Proyecto no encontrado.', 'error');
+        // proyecto_id = 0: reunión general (agenda.php), de todos o de varios equipos, sin proyecto
+        $general = $pid <= 0;
+        if ($general) {
+            if (!puedeReunionesGenerales()) {
+                redirigir('agenda.php', 'Las reuniones generales las crean el administrador y los Scrum Master.', 'error');
+            }
+            $p = Reuniones::proyectoGeneral();
+            $volver = volverAqui('agenda.php');
+        } else {
+            $p = $proyectos->buscar($pid);
+            if (!$p) {
+                redirigir('index.php', 'Proyecto no encontrado.', 'error');
+            }
+            if (!puedeReunionesDelProyecto($pid)) {
+                redirigir('proyecto.php?id=' . $pid, 'Solo puedes crear reuniones en tus proyectos.', 'error');
+            }
+            // Desde la agenda (agenda.php) se vuelve a la agenda; desde el proyecto, a su pestaña
+            $volver = volverAqui('proyecto.php?id=' . $pid . '#vista-reuniones');
         }
-        if (!puedeReunionesDelProyecto($pid)) {
-            redirigir('proyecto.php?id=' . $pid, 'Solo puedes crear reuniones en tus proyectos.', 'error');
-        }
-        $volver = 'proyecto.php?id=' . $pid . '#vista-reuniones';
         // La plataforma la decide el proyecto (si tiene una propia) o Ajustes;
         // lo que pida el formulario solo cuenta si el admin dejo elegir.
-        $plataforma = Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pid));
+        $plataforma = Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $general ? null : $p);
         if ($plataforma === '') {
             redirigir($volver, 'No hay ninguna plataforma de reuniones configurada. Ve a Ajustes → Reuniones.', 'error');
         }
@@ -5054,10 +5046,22 @@ switch ($accion) {
         if ($topic === '' || $inicio === '') {
             redirigir($volver, 'Indica el tema y la fecha/hora de la reunión.', 'error');
         }
+        // Lo que el asistente ya validó, otra vez aquí: nadie se salta el formulario
+        if (mb_strlen($topic) > 120) {
+            redirigir($volver, 'El tema es muy largo: déjalo en 120 caracteres o menos.', 'error');
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}/', $inicio) || strtotime($inicio) === false) {
+            redirigir($volver, 'La fecha y la hora de la reunión no son válidas. Elígelas otra vez.', 'error');
+        }
+        if (!isset(Reuniones::duraciones()[$dur])) {
+            redirigir($volver, 'Elige una de las duraciones de la lista.', 'error');
+        }
         [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $plataforma, $volver);
         reunionNoPasada($inicio, $volver);
-        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
-        $p = $proyectos->buscar($pid);
+        $invitados = invitadosReunion($_POST['invitados'] ?? [], $miembros);
+        if ($general && !$invitados) {
+            redirigir($volver, 'Invita al menos a una persona: una reunión general no es de ningún proyecto, así que nadie más la vería.', 'error');
+        }
 
         if ($plataforma === 'enlace') {
             // Enlace propio: no se llama a ninguna API, el enlace lo pone quien
@@ -5160,7 +5164,8 @@ switch ($accion) {
         $agendados = agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), (array)$p, $miembros, $reuniones);
 
         avisoPanel($invitados, 'reunion', 'Te invitaron a una reunión',
-            ($reu['topic'] ?? 'Reunión') . ' · ' . ($reu['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
+            ($reu['topic'] ?? 'Reunión') . ' · ' . ($reu['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''),
+            $general ? 'reunion.php?id=' . (int)$reu['id'] : $volver);
 
         // Avisa a los invitados: con WhatsApp encendido, por WhatsApp (a la cola;
         // por correo a quien no tenga teléfono válido). Si no, por correo.
@@ -5187,9 +5192,11 @@ switch ($accion) {
         header('Content-Type: application/json; charset=utf-8');
         $reuA = (int)($_POST['id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$_POST['id']) : null;
         $pidA = $reuA ? (int)$reuA['proyecto_id'] : (int)($_POST['proyecto_id'] ?? 0);
-        $platA = $reuA ? (string)($reuA['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pidA));
+        $platA = $reuA ? (string)($reuA['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $pidA > 0 ? $proyectos->buscar($pidA) : null);
         $fechaA = (string)($_POST['fecha'] ?? '');
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaA) || $platA !== 'zoom' || $pidA <= 0 || !puedeReunionesDelProyecto($pidA)) {
+        // proyecto_id = 0: la reunión general de la agenda (permiso propio)
+        $puedeA = $reuA ? puedeEditarReunion($reuA) : ($pidA > 0 ? puedeReunionesDelProyecto($pidA) : puedeReunionesGenerales());
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaA) || $platA !== 'zoom' || !$puedeA) {
             exit('{"ocupado":[]}');
         }
         exit(json_encode(['ocupado' => Reuniones::ocupadoZoom($fechaA, (int)($reuA['id'] ?? 0))], JSON_UNESCAPED_UNICODE));
@@ -5200,7 +5207,9 @@ switch ($accion) {
         header('Content-Type: application/json; charset=utf-8');
         $reuC = (int)($_POST['id'] ?? 0) > 0 ? (new ReunionRepo())->buscar((int)$_POST['id']) : null;
         $pidC = $reuC ? (int)$reuC['proyecto_id'] : (int)($_POST['proyecto_id'] ?? 0);
-        $platC = $reuC ? (string)($reuC['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $proyectos->buscar($pidC));
+        $platC = $reuC ? (string)($reuC['plataforma'] ?? 'zoom') : Reuniones::resolverPlataforma($_POST['plataforma'] ?? '', $pidC > 0 ? $proyectos->buscar($pidC) : null);
+        // proyecto_id = 0: la reunión general de la agenda (permiso propio)
+        $puedeC = $reuC ? puedeEditarReunion($reuC) : ($pidC > 0 ? puedeReunionesDelProyecto($pidC) : puedeReunionesGenerales());
         $inicioC = str_replace('T', ' ', trim((string)($_POST['inicio'] ?? '')));
         $durC = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
         $serieC = !empty($_POST['recurrente']);
@@ -5211,7 +5220,7 @@ switch ($accion) {
         $mismoC = $reuC && $inicioC === (string)($reuC['inicio'] ?? '') && $durC === (int)($reuC['duracion'] ?? 0)
             && $serieC === !empty($reuC['recurrente']) && $hastaC === (string)($reuC['hasta'] ?? '')
             && $diasC === Reuniones::diasValidos($reuC['dias'] ?? []);
-        $choqueC = !$mismoC && $platC === 'zoom' && $pidC > 0 && puedeReunionesDelProyecto($pidC) && strtotime($inicioC)
+        $choqueC = !$mismoC && $platC === 'zoom' && $puedeC && strtotime($inicioC)
             ? Reuniones::choqueZoom($inicioC, $durC, $diasC, $hastaC, (int)($reuC['id'] ?? 0)) : null;
         exit(json_encode($choqueC ? ['libre' => false, 'texto' => Reuniones::textoChoque($choqueC, $durC, $serieC)] : ['libre' => true], JSON_UNESCAPED_UNICODE));
 
@@ -5222,11 +5231,14 @@ switch ($accion) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
         }
         $pid = (int)$reu['proyecto_id'];
-        if (!puedeReunionesDelProyecto($pid)) {
-            redirigir('proyecto.php?id=' . $pid, 'Solo puedes editar reuniones de tus proyectos.', 'error');
+        $general = Reuniones::esGeneral($reu);   // la de la agenda, sin proyecto
+        if (!puedeEditarReunion($reu)) {
+            redirigir($general ? 'agenda.php' : 'proyecto.php?id=' . $pid, $general
+                ? 'Una reunión general la editan el administrador y el Scrum Master que la creó.'
+                : 'Solo puedes editar reuniones de tus proyectos.', 'error');
         }
         // Abierto desde el detalle (reunion.php): «volver» lo trae y se regresa ahí (volverAqui: solo páginas del panel)
-        $volver = volverAqui('proyecto.php?id=' . $pid . '#vista-reuniones');
+        $volver = volverAqui($general ? 'agenda.php' : 'proyecto.php?id=' . $pid . '#vista-reuniones');
         $topic = trim($_POST['topic'] ?? '');
         $inicio = str_replace('T', ' ', trim($_POST['inicio'] ?? ''));
         $duracion = (int)($_POST['duracion'] ?? Reuniones::duracionDefecto());
@@ -5237,8 +5249,14 @@ switch ($accion) {
         [$recurrente, $dias, $hasta, $inicio] = repeticionReunion($_POST, $inicio, $esMeet ? 'meet' : 'zoom', $volver);
         // Cambiar el tema o los invitados de una que ya empezó, sí; moverla a una hora que ya pasó, no
         if (substr($inicio, 0, 16) !== substr((string)($reu['inicio'] ?? ''), 0, 16)) reunionNoPasada($inicio, $volver);
+        if (mb_strlen($topic) > 120 || strtotime($inicio) === false) {
+            redirigir($volver, 'Revisa el tema (hasta 120 caracteres) y la fecha y la hora.', 'error');
+        }
         $invitadosAntes = array_map('intval', (array)($reu['invitados'] ?? []));
-        $invitados = array_values(array_map('intval', (array)($_POST['invitados'] ?? [])));
+        $invitados = invitadosReunion($_POST['invitados'] ?? [], $miembros);
+        if ($general && !$invitados) {
+            redirigir($volver, 'Invita al menos a una persona: una reunión general no es de ningún proyecto, así que nadie más la vería.', 'error');
+        }
         // En Zoom, moverla a la hora de otra reunión no (sumar invitados a una que ya estaba, sí)
         $cambiaHorario = $inicio !== (string)($reu['inicio'] ?? '') || $duracion !== (int)($reu['duracion'] ?? 0)
             || (bool)$recurrente !== !empty($reu['recurrente']) || (string)$hasta !== (string)($reu['hasta'] ?? '')
@@ -5288,15 +5306,16 @@ switch ($accion) {
             'hasta'      => $hasta,
         ]);
         // Reagenda las copias: la hora, la repeticion o los invitados pudieron cambiar
-        $pReu = $proyectos->buscar($pid);
+        $pReu = $general ? Reuniones::proyectoGeneral() : $proyectos->buscar($pid);
         agendarReunionEnCalendarios($reuniones->buscar((int)$reu['id']), (array)$pReu, $miembros, $reuniones);
         // Avisa solo a los invitados NUEVOS
         $nuevos = array_diff($invitados, $invitadosAntes);
         $avisados = 0;
-        $p = $proyectos->buscar($pid);
+        $p = $pReu;
         $reuActual = $reuniones->buscar((int)$reu['id']);
         avisoPanel($nuevos, 'reunion', 'Te invitaron a una reunión',
-            ($reuActual['topic'] ?? 'Reunión') . ' · ' . ($reuActual['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''), $volver);
+            ($reuActual['topic'] ?? 'Reunión') . ' · ' . ($reuActual['inicio'] ?? '') . ' · ' . ($p['nombre'] ?? ''),
+            $general ? 'reunion.php?id=' . (int)$reu['id'] : $volver);
         // Con WhatsApp: los nuevos reciben la invitación y los que ya estaban, el cambio.
         // Por correo (WhatsApp apagado o sin teléfono válido), solo los nuevos, como siempre.
         $porWa = 0;
@@ -5328,10 +5347,10 @@ switch ($accion) {
         if (!$reu) {
             redirigir('index.php', 'Reunión no encontrada.', 'error');
         }
-        if (!puedeVerProyecto((int)$reu['proyecto_id'])) {
-            redirigir('index.php', 'No participas en ese proyecto.', 'error');
+        if (!puedeVerReunion($reu)) {
+            redirigir('index.php', 'Esa reunión no está disponible para ti.', 'error');
         }
-        $volver = 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
+        $volver = Reuniones::esGeneral($reu) ? 'reunion.php?id=' . (int)$reu['id'] : 'proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones';
 
         // Transcripción de UN día (ocurrencia de una serie) o de la reunión; de Drive
         $ocurrenciaT = Reuniones::esRecurrente($reu) ? trim((string)($_POST['ocurrencia'] ?? '')) : '';
@@ -5339,14 +5358,14 @@ switch ($accion) {
         if ($tr['estado'] !== 'ok') {
             redirigir($volver, $tr['msg'], $tr['estado'] === 'error' ? 'error' : 'info');
         }
-        $p = $proyectos->buscar((int)$reu['proyecto_id']);
+        $p = Reuniones::proyectoDe($reu);
         $nombres = [];
         foreach ((array)($reu['invitados'] ?? []) as $mid) {
             $m = $miembros->buscar((int)$mid);
             if ($m) $nombres[] = $m['nombre'];
         }
         $cab = '# Transcripción de reunión — ' . ($reu['topic'] ?? '') . "\n\n"
-            . 'Proyecto: ' . ($p['nombre'] ?? '') . "\n"
+            . (!empty($p['general']) ? 'Reunión general' : 'Proyecto: ' . ($p['nombre'] ?? '')) . "\n"
             . 'Fecha: ' . ($ocurrenciaT !== '' ? $ocurrenciaT : ($reu['inicio'] ?? '')) . "\n"
             . ($nombres ? 'Participantes: ' . implode(', ', $nombres) . "\n" : '')
             . "\nContexto para Claude: esto es la transcripción automática (Zoom) de una reunión "
@@ -5362,8 +5381,10 @@ switch ($accion) {
     case 'reunion_eliminar':
         $reuniones = new ReunionRepo();
         $reu = $reuniones->buscar((int)($_POST['id'] ?? 0));
-        if ($reu && !puedeReunionesDelProyecto((int)$reu['proyecto_id'])) {
-            redirigir('proyecto.php?id=' . (int)$reu['proyecto_id'], 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
+        if ($reu && !puedeEditarReunion($reu)) {
+            redirigir(Reuniones::esGeneral($reu) ? 'agenda.php' : 'proyecto.php?id=' . (int)$reu['proyecto_id'], Reuniones::esGeneral($reu)
+                ? 'Una reunión general la eliminan el administrador y el Scrum Master que la creó.'
+                : 'Solo puedes eliminar reuniones de tus proyectos.', 'error');
         }
         if ($reu) {
             // Con WhatsApp: si le quedaba alguna fecha por delante, los invitados se enteran
@@ -5371,7 +5392,7 @@ switch ($accion) {
             if (class_exists('Whatsapp') && Whatsapp::activo()) {
                 Whatsapp::quitarDeReunion((int)$reu['id']);
                 if (Whatsapp::quedaPorDelante($reu)) {
-                    Whatsapp::avisarReunion($reu, (array)($reu['invitados'] ?? []), (array)$proyectos->buscar((int)$reu['proyecto_id']),
+                    Whatsapp::avisarReunion($reu, (array)($reu['invitados'] ?? []), (array)Reuniones::proyectoDe($reu),
                         'cancelada', (int)(Auth::usuario()['id'] ?? 0));
                 }
             }
@@ -5386,7 +5407,7 @@ switch ($accion) {
             }
             $reuniones->eliminar((int)$reu['id']);
             // Desde el detalle se vuelve a la suite del proyecto (o a su historial); volverAqui solo deja páginas del panel
-            redirigir(volverAqui('proyecto.php?id=' . $reu['proyecto_id'] . '#vista-reuniones'), 'Reunión eliminada.');
+            redirigir(volverAqui(Reuniones::urlLista($reu)), 'Reunión eliminada.');
         }
         redirigir('index.php', 'Reunión no encontrada.', 'error');
 

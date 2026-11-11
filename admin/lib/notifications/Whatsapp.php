@@ -291,7 +291,7 @@ final class Whatsapp
             foreach (self::fechasDe($reu) as $f) {
                 $ts = strtotime($f);
                 if ($ts === false || $ts <= $ahora || $ts > $hasta) continue;
-                $p = $proyectos->buscar((int)($reu['proyecto_id'] ?? 0)) ?? [];
+                $p = Reuniones::esGeneral($reu) ? Reuniones::proyectoGeneral() : ($proyectos->buscar((int)($reu['proyecto_id'] ?? 0)) ?? []);
                 $texto = self::textoRecordatorio($reu, $p, $f, max(1, (int)round(($ts - $ahora) / 60)));
                 foreach (array_unique(array_map('intval', (array)($reu['invitados'] ?? []))) as $mid) {
                     $m = $miembros->buscar($mid);
@@ -320,7 +320,8 @@ final class Whatsapp
             'cancelada' => ['❌ *Se canceló una reunión*', '*' . $titulo . '*'],
             default     => ['📅 *Te invitaron a una reunión*', '*' . $titulo . '*'],
         };
-        if (!empty($proyecto['nombre'])) $lineas[] = 'Proyecto: ' . $proyecto['nombre'];
+        if (!empty($proyecto['general'])) $lineas[] = 'Reunión general';   // agenda.php: no es de un proyecto
+        elseif (!empty($proyecto['nombre'])) $lineas[] = 'Proyecto: ' . $proyecto['nombre'];
         $inicio = (string)($reu['inicio'] ?? '');
         if (Reuniones::esRecurrente($reu)) {
             $lineas[] = ($tipo === 'cancelada' ? 'Era: ' : 'Cuándo: ') . Reuniones::etiqueta((array)$reu['dias'])

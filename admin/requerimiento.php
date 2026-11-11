@@ -404,4 +404,6 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
 </dialog>
 <?php endif; ?>
 
+<link rel="stylesheet" href="<?= asset('assets/req-reparto.css') ?>">
+<script src="<?= asset('assets/req-reparto.js') ?>" defer></script>
 <?php UI::fin(); ?>

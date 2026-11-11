@@ -118,14 +118,16 @@ final class ResumenPersona
             $inv = array_map('intval', (array)($r['invitados'] ?? []));
             if (!in_array($mid, $inv, true) && (int)($r['creador_id'] ?? 0) !== $mid) continue;
             $pid = (int)($r['proyecto_id'] ?? 0);
-            if (!isset($proyectos[$pid])) continue;
+            // La reunión general (agenda.php) no es de un proyecto: cuenta igual si te invitaron
+            $pR = $pid <= 0 && method_exists('Reuniones', 'proyectoGeneral') ? Reuniones::proyectoGeneral() : ($proyectos[$pid] ?? null);
+            if (!$pR) continue;
             // La vez de hoy, aunque ya haya terminado: el día se lee entero
             $ts = self::inicioDesde($r, $inicioDia);
-            if ($ts && date('Y-m-d', $ts) === $hoy) $agenda[] = self::itemReunion($r, $ts, $proyectos[$pid], $ahora);
+            if ($ts && date('Y-m-d', $ts) === $hoy) $agenda[] = self::itemReunion($r, $ts, $pR, $ahora);
             // Y la siguiente (en curso o por venir), para cuando hoy ya no queda ninguna
             $tsN = self::inicioDesde($r, $ahora);
             if ($tsN && $tsN - $ahora < 14 * 86400 && (!$siguiente || $tsN < $siguiente['ts'])) {
-                $siguiente = self::itemReunion($r, $tsN, $proyectos[$pid], $ahora);
+                $siguiente = self::itemReunion($r, $tsN, $pR, $ahora);
             }
         }
         $dow = (int)date('N', $ahora);

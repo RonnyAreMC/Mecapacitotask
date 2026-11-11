@@ -238,7 +238,8 @@ class GoogleCalendar
         $plataforma = ($reunion['plataforma'] ?? 'zoom') === 'meet' ? 'Google Meet' : 'Zoom';
 
         $desc = 'Reunión de ' . $plataforma;
-        if (!empty($proyecto['nombre'])) $desc .= ' · Proyecto: ' . $proyecto['nombre'];
+        if (!empty($proyecto['general'])) $desc .= ' · Reunión general';   // agenda.php: sin proyecto
+        elseif (!empty($proyecto['nombre'])) $desc .= ' · Proyecto: ' . $proyecto['nombre'];
         if (!empty($reunion['join_url'])) $desc .= "\nEntrar: " . $reunion['join_url'];
         if (!empty($reunion['password'])) $desc .= "\nCódigo: " . $reunion['password'];
 

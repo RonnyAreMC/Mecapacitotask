@@ -337,7 +337,7 @@ final class ReunionesUI
         $r = $vez['r'];
         $gente = array_map(fn($m) => (string)$m['nombre'], self::invitados($r, $miembros));
         if (isset($miembros[(int)($r['creador_id'] ?? 0)])) $gente[] = (string)$miembros[(int)$r['creador_id']]['nombre'];
-        return self::normal(implode(' ', [self::tema($r), (string)($vez['p']['nombre'] ?? ''),
+        return self::normal(implode(' ', [self::tema($r), (string)($vez['p']['nombre'] ?? '') . (!empty($vez['p']['general']) ? ' general todos' : ''),
             Reuniones::etiquetaPlataforma((string)($r['plataforma'] ?? 'zoom')), implode(' ', array_unique($gente))]));
     }
 
@@ -356,13 +356,18 @@ final class ReunionesUI
      */
     public static function urlDetalle(array $vez, string $desde = ''): string
     {
+        // 'agenda' y 'agenda_hist': desde la agenda de reuniones (agenda.php), y su volver regresa ahí
         return 'reunion.php?id=' . $vez['id'] . ($vez['serie'] ? '&dia=' . $vez['dia'] : '')
-            . (in_array($desde, ['historial', 'proyecto'], true) ? '&desde=' . $desde : '');
+            . (in_array($desde, self::DESDE, true) ? '&desde=' . $desde : '');
     }
+
+    /** De dónde se puede llegar al detalle (reunion.php?…&desde=). */
+    public const DESDE = ['historial', 'proyecto', 'agenda', 'agenda_hist'];
 
     /** El color del proyecto, el mismo del menú lateral (los muy oscuros se aclaran). */
     public static function colorProyecto(array $p): string
     {
+        if (!empty($p['general'])) return '#40CFFF';   // la reunión general: el celeste del panel
         $c = ProyectoRepo::colorBase($p);
         return $c === '#2D3E50' ? '#40CFFF' : $c;
     }
@@ -370,6 +375,7 @@ final class ReunionesUI
     /** El ícono del proyecto, siempre SVG: los viejos que no son del set caen a la carpeta. */
     public static function iconoProyecto(array $p, string $clase = ''): string
     {
+        if (!empty($p['general'])) return UI::icono('ds-usuarios', $clase);   // la reunión general, de varios equipos
         $ico = UI::icono((string)($p['icono'] ?? '') ?: 'FolderOpen', $clase);
         return str_starts_with($ico, '<svg') ? $ico : UI::icono('FolderOpen', $clase);
     }
@@ -377,8 +383,24 @@ final class ReunionesUI
     /** El proyecto como chip, con su ícono y su color. */
     public static function chipProyecto(array $p, string $href): string
     {
+        // La general dice «General» y lleva a la agenda (agenda.php)
+        if (!empty($p['general'])) $href = 'agenda.php';
         return '<a class="ru-chip-proy" href="' . e($href) . '" style="--pc:' . e(self::colorProyecto($p)) . '">'
-            . '<span class="ru-chip-proy__ic" aria-hidden="true">' . self::iconoProyecto($p) . '</span>' . e((string)($p['nombre'] ?? 'Proyecto')) . '</a>';
+            . '<span class="ru-chip-proy__ic" aria-hidden="true">' . self::iconoProyecto($p) . '</span>' . e(self::nombreProyecto($p)) . '</a>';
+    }
+
+    /** El nombre corto para un chip: el del proyecto, o «General». */
+    public static function nombreProyecto(array $p): string
+    {
+        return !empty($p['general']) ? 'General' : (string)($p['nombre'] ?? 'Proyecto');
+    }
+
+    /** El proyecto en el renglón de una fila (la agenda mezcla proyectos): su ícono con su color y el nombre. */
+    public static function marcaProyecto(array $p): string
+    {
+        $n = self::nombreProyecto($p);
+        return '<span class="ag-proy" style="--pc:' . e(self::colorProyecto($p)) . '" title="' . e(!empty($p['general']) ? 'Reunión general: no es de un proyecto' : 'Proyecto ' . $n) . '">'
+            . '<span class="ag-proy__ic" aria-hidden="true">' . self::iconoProyecto($p) . '</span><span class="ag-proy__t">' . e($n) . '</span></span>';
     }
 
     /**
@@ -617,7 +639,7 @@ final class ReunionesUI
     {
         $r = $vez['r'];
         $partes = [self::plataforma($r)];
-        if ($conProyecto) $partes[] = '<span>' . e((string)($vez['p']['nombre'] ?? '')) . '</span>';
+        if ($conProyecto) $partes[] = self::marcaProyecto($vez['p']);
         $partes[] = '<span>' . self::duracion($r) . ' min</span>';
         if ($vez['serie']) $partes[] = '<span class="ru-repite">' . UI::icono('RepeatCircle') . e(Reuniones::diasTexto((array)$r['dias'])) . '</span>';
         return implode('<span class="ru-sep" aria-hidden="true">·</span>', $partes);
@@ -748,6 +770,168 @@ final class ReunionesUI
         $ya = array_values(array_filter($veces, fn($v) => in_array($v['estado'], ['vivo', 'pronto'], true)));
         $resto = array_values(array_filter($veces, fn($v) => !in_array($v['estado'], ['vivo', 'pronto'], true)));
         return self::ahora($ya, $ctx) . self::dias($resto, $ctx);
+    }
+
+    /* ======================= Selector de invitados ======================= */
+
+    /** Los tonos del DS para la baldosa de cada grupo (--tone-*-bg / --tone-*-fg). */
+    private const TONOS_GRUPO = ['azul', 'verde', 'naranja', 'amarillo', 'petroleo'];
+
+    /**
+     * ¿Quiénes están en un proyecto? Lo mismo que ofrece proyecto.php: su equipo
+     * si lo tiene definido; si no, quien ya participa (tarea, reunión u
+     * observación), con su Scrum Master y su PO. [] si todavía no hay nadie.
+     * $participan: [pid => [mid => true]] ya contado para todos (participantes()).
+     */
+    public static function delProyecto(array $p, array $miembros, array $participan = []): array
+    {
+        $ids = ProyectoRepo::miembrosDe($p);
+        $ids = $ids !== null ? array_fill_keys($ids, true) : ($participan[(int)$p['id']] ?? []);
+        foreach ([ProyectoRepo::scrumDe($p), ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0)] as $mid) {
+            if ($mid > 0) $ids[$mid] = true;
+        }
+        $out = [];
+        foreach (array_keys($ids) as $mid) if (isset($miembros[(int)$mid])) $out[] = (int)$mid;
+        return $out;
+    }
+
+    /** Quién participa en cada proyecto (tareas, reuniones y observaciones), de una sola pasada: [pid => [mid => true]]. */
+    public static function participantes(): array
+    {
+        $out = [];
+        foreach ((new TareaRepo())->todas() as $t) {
+            foreach (TareaRepo::asignadosDe($t) as $mid) $out[(int)($t['proyecto_id'] ?? 0)][(int)$mid] = true;
+        }
+        foreach ((new ReunionRepo())->todas() as $r) {
+            if ((int)($r['proyecto_id'] ?? 0) <= 0) continue;
+            foreach ((array)($r['invitados'] ?? []) as $mid) $out[(int)$r['proyecto_id']][(int)$mid] = true;
+        }
+        foreach ((new JsonStore('observaciones'))->all() as $o) {
+            if ((int)($o['autor_id'] ?? 0) > 0) $out[(int)($o['proyecto_id'] ?? 0)][(int)$o['autor_id']] = true;
+        }
+        return $out;
+    }
+
+    /**
+     * El selector de invitados de una reunión (el campo entero, con su
+     * etiqueta «Invitados»): un buscador, «Todos», cuántos van y la gente
+     * agrupada por equipo (Programadores, Analistas, Diseñadores y «Sin
+     * equipo» si hay), cada grupo con «Todo el equipo». En una reunión de
+     * proyecto, arriba el grupo «Del proyecto» y debajo los demás equipos, para
+     * invitar también de otros. Quien está en dos equipos sale en los dos: su
+     * casilla es la misma persona (assets/invitados.js las mantiene iguales y
+     * actions.php no repite a nadie).
+     *
+     * $miembros: [id => miembro] (todos). $sel: ids ya invitados.
+     * $op: 'proyectos' => [pid => ['p' => proyecto, 'ids' => [mids]]] (los grupos «Del proyecto»;
+     *        con varios, assets/invitados.js muestra el del proyecto elegido en el formulario),
+     *      'proyecto' => pid que se ve al abrir (0: ninguno, reunión general),
+     *      'requerido' => true (al menos una persona: lo valida el asistente),
+     *      'ayuda' => texto bajo el campo, 'clase' => clase extra del campo.
+     */
+    public static function selectorInvitados(array $miembros, array $sel = [], array $op = []): string
+    {
+        static $n = 0;
+        $n++;
+        $sel = array_fill_keys(array_map('intval', $sel), true);
+        $catalogo = Catalogo::equipos();
+        uasort($miembros, fn($a, $b) => strcasecmp((string)($a['nombre'] ?? ''), (string)($b['nombre'] ?? '')));
+
+        // Los equipos: cada persona en todos los suyos; sin uno válido, en «Sin equipo»
+        $grupos = [];
+        foreach ($catalogo as $k => [$label, $icono]) $grupos[$k] = ['t' => $label, 'ic' => UI::icono($icono ?: 'ds-usuarios'), 'ids' => []];
+        $sinEquipo = [];
+        foreach ($miembros as $m) {
+            $suyos = array_values(array_filter(array_merge(array_map('strval', (array)($m['equipos'] ?? [])), [(string)($m['equipo'] ?? '')]),
+                fn($k) => isset($catalogo[$k])));
+            if (!$suyos) { $sinEquipo[] = (int)$m['id']; continue; }
+            foreach (array_unique($suyos) as $k) $grupos[$k]['ids'][] = (int)$m['id'];
+        }
+        if ($sinEquipo) $grupos['_sin'] = ['t' => 'Sin equipo', 'ic' => UI::icono('ds-usuario'), 'ids' => $sinEquipo];
+
+        $persona = function (int $mid, array $equiposTxt) use ($miembros, $sel, $n): string {
+            $m = $miembros[$mid];
+            $on = isset($sel[$mid]);
+            $nombre = (string)($m['nombre'] ?? '');
+            $rol = trim((string)($m['rol'] ?? ''));
+            $sub = $rol !== '' ? $rol : implode(' · ', $equiposTxt);
+            $txt = self::normal($nombre . ' ' . $rol . ' ' . (string)($m['email'] ?? '') . ' ' . implode(' ', $equiposTxt));
+            return '<li class="inv-p' . ($on ? ' is-on' : '') . '" data-inv-txt="' . e($txt) . '">'
+                . '<label class="inv-p__l">'
+                . '<input type="checkbox" class="inv-p__chk" name="invitados[]" value="' . $mid . '" data-nombre="' . e($nombre) . '"' . ($on ? ' checked' : '') . '>'
+                . '<span class="inv-caja" aria-hidden="true">' . ($on ? UI::checkDibujado(12) : '') . '</span>'
+                . UI::avatar($m, 28)
+                . '<span class="inv-p__txt"><b title="' . e($nombre) . '">' . e($nombre) . '</b>' . ($sub !== '' ? '<small title="' . e($sub) . '">' . e($sub) . '</small>' : '') . '</span>'
+                . '</label></li>';
+        };
+        $equiposTxtDe = function (int $mid) use ($grupos): array {
+            $out = [];
+            foreach ($grupos as $g) if (in_array($mid, $g['ids'], true)) $out[] = $g['t'];
+            return $out;
+        };
+        $grupo = function (string $clave, string $titulo, string $icono, array $ids, string $tono, string $todoTxt, bool $abierto, string $extra = '') use ($persona, $equiposTxtDe, $sel, $n): string {
+            if (!$ids) return '';
+            $nSel = count(array_filter($ids, fn($i) => isset($sel[$i])));
+            $todo = $nSel === 0 ? 'no' : ($nSel === count($ids) ? 'si' : 'parte');
+            $idLista = 'inv-' . $n . '-' . preg_replace('/\W/', '', $clave);
+            $h = '<section class="inv-grupo inv-grupo--' . e($tono) . '" data-inv-grupo data-inv-txt="' . e(self::normal($titulo)) . '"' . $extra . '>'
+                . '<header class="inv-grupo__cab">'
+                . '<button type="button" class="inv-grupo__abrir" aria-expanded="' . ($abierto ? 'true' : 'false') . '" aria-controls="' . $idLista . '" data-inv-abrir>'
+                . '<span class="inv-grupo__ic" aria-hidden="true">' . $icono . '</span>'
+                . '<span class="inv-grupo__t"><b>' . e($titulo) . '</b><small data-inv-n>' . $nSel . ' de ' . count($ids) . '</small></span>'
+                . UI::icono('ds-chevron-abajo', 'inv-grupo__chev') . '</button>'
+                . '<button type="button" class="inv-todo" data-inv-todo data-estado="' . $todo . '" aria-pressed="' . ($todo === 'si' ? 'true' : ($todo === 'parte' ? 'mixed' : 'false')) . '"'
+                . ' aria-label="' . e($todoTxt) . ': ' . e($titulo) . '">'
+                . '<span class="inv-caja" aria-hidden="true">' . ($todo === 'si' ? UI::checkDibujado(12) : '') . '</span><span class="inv-todo__t">' . e($todoTxt) . '</span></button>'
+                . '</header>'
+                . '<ul class="inv-lista" id="' . $idLista . '"' . ($abierto ? '' : ' hidden') . '>';
+            foreach ($ids as $mid) $h .= $persona($mid, $equiposTxtDe($mid));
+            return $h . '</ul></section>';
+        };
+
+        $proyectos = (array)($op['proyectos'] ?? []);
+        $verP = (int)($op['proyecto'] ?? 0);
+        // ¿Se ve un «Del proyecto» al abrir? (un proyecto sin nadie todavía no lo trae: entonces los equipos van abiertos)
+        $conProyecto = $verP > 0 && array_filter(array_map('intval', (array)($proyectos[$verP]['ids'] ?? [])), fn($i) => isset($miembros[$i])) !== [];
+        $html = '';
+        // «Del proyecto»: uno por proyecto (en la agenda, el del proyecto elegido; en proyecto.php, el suyo)
+        foreach ($proyectos as $pid => $info) {
+            $ids = array_values(array_filter(array_map('intval', (array)($info['ids'] ?? [])), fn($i) => isset($miembros[$i])));
+            usort($ids, fn($a, $b) => strcasecmp((string)$miembros[$a]['nombre'], (string)$miembros[$b]['nombre']));
+            $html .= $grupo('p' . $pid, 'Del proyecto', self::iconoProyecto((array)($info['p'] ?? [])), $ids, 'cian', 'Todo el proyecto', true,
+                ' data-inv-de="' . (int)$pid . '"' . ((int)$pid !== $verP ? ' data-inv-oculto hidden' : ''));
+        }
+        $i = 0;
+        foreach ($grupos as $k => $g) {
+            $tono = $k === '_sin' ? 'petroleo' : self::TONOS_GRUPO[$i++ % 4];
+            // Con un proyecto a la vista, los demás equipos empiezan plegados (salvo que ya tengan a alguien invitado)
+            $abierto = !$conProyecto || (bool)array_filter($g['ids'], fn($id) => isset($sel[$id]));
+            $html .= $grupo($k, $g['t'], $g['ic'], $g['ids'], $tono, 'Todo el equipo', $abierto, ' data-inv-equipo="' . e($k) . '"');
+        }
+
+        $total = count($miembros);
+        $nSel = count(array_filter(array_keys($sel), fn($i) => isset($miembros[$i])));
+        $requerido = !empty($op['requerido']);
+        $cuenta = $nSel === 0 ? 'Nadie invitado todavía' : ($nSel === 1 ? '1 persona invitada' : $nSel . ' personas invitadas');
+        return '<div class="campo inv-campo' . (!empty($op['clase']) ? ' ' . e($op['clase']) : '') . '" data-resumen="">'
+            . '<span>Invitados</span>'
+            . '<div class="inv" data-inv>'
+            . '<div class="inv-barra">'
+            . '<label class="inv-buscar">' . UI::icono('ds-buscar') . '<input type="search" class="inv-buscar__in" placeholder="Buscar persona o equipo" autocomplete="off" aria-label="Buscar a quién invitar" data-inv-buscar></label>'
+            . '<button type="button" class="inv-todos" data-inv-todos aria-pressed="' . ($total && $nSel === $total ? 'true' : 'false') . '" aria-label="Invitar a todos" data-ds-tip="Invitar a todos">'
+            . UI::icono('ds-usuarios') . '<span class="inv-todos__t">Todos</span></button>'
+            . '</div>'
+            . '<p class="inv-estado"><span class="inv-cuenta" data-inv-cuenta aria-live="polite">' . $cuenta . '</span>'
+            . '<button type="button" class="inv-quitar" data-inv-quitar' . ($nSel ? '' : ' hidden') . '>Quitar a todos</button></p>'
+            . '<div class="inv-grupos" data-inv-grupos>' . $html
+            . '<p class="inv-vacio" data-inv-vacio hidden>' . UI::icono('ds-buscar') . '<span>Nadie coincide con la búsqueda. Prueba con otro nombre o con el equipo.</span></p>'
+            . '</div>'
+            // La guarda del asistente: un radio oculto, marcado si hay alguien (MecaWizard valida con checkValidity;
+            // sin «name», Chrome no da por faltante un radio required). actions.php no lo lee.
+            . ($requerido ? '<input type="radio" class="inv-req" name="_guarda_invitados" value="1" data-inv-req required tabindex="-1" aria-hidden="true"' . ($nSel ? ' checked' : '') . ' data-error="Invita al menos a una persona.">' : '')
+            . '</div>'
+            . (($op['ayuda'] ?? '') !== '' ? '<small class="campo-ayuda">' . e((string)$op['ayuda']) . '</small>' : '')
+            . '</div>';
     }
 
     /** Un vacío corto, de una línea con su ícono (el del Resumen): sin el hueco de una ilustración. */

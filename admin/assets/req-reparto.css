@@ -1,0 +1,132 @@
+/* =========================================================
+   Requerimientos sueltos: reparto equitativo.
+   - El selector de responsables por equipo, con la recomendación de cada
+     persona y su carga en los tonos de la colorimetría (--col-*).
+   - La tarjeta «Reparto entre compañeros» de requerimientos.php.
+   ========================================================= */
+
+/* ---------- Selector de responsables ---------- */
+.dv-buscar > svg {
+  position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+  color: var(--c-text-soft); pointer-events: none;
+}
+.dv-check svg { color: inherit; }
+.dv-buscar .input-meca { padding-left: 38px !important; }
+
+/* Sugeridos: los recomendados, a un toque */
+.dv-sugeridos {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+  margin: 2px 0 10px;
+}
+.dv-sugeridos__tit {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--col-ok-fg);
+}
+.dv-sugerido {
+  display: inline-flex; align-items: center; gap: 7px; max-width: 11rem;
+  padding: 4px 12px 4px 4px; border: 0; border-radius: 999px; cursor: pointer;
+  background: var(--col-ok-bg); color: var(--col-ok-fg);
+  font: inherit; font-size: .82rem; font-weight: 700;
+  transition: box-shadow .15s ease;
+}
+.dv-sugerido:hover { box-shadow: 0 0 0 2px var(--col-ok-solid) inset; }
+.dv-sugerido:focus-visible { outline: 2px solid var(--col-ok-solid); outline-offset: 2px; }
+.dv-sugerido.is-marcado { background: var(--col-ok-solid); color: #fff; }
+.dv-sugerido .truncate { min-width: 0; }
+
+/* Un bloque por equipo dentro de la lista */
+.dv-grupo { display: flex; flex-direction: column; gap: 8px; }
+.dv-grupo + .dv-grupo { margin-top: 8px; }
+.dv-grupo__tit {
+  display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap;
+  margin: 2px 2px 0; font-size: .74rem; color: var(--c-text-soft);
+}
+.dv-grupo__tit b { font-size: .74rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text); }
+.dv-grupo.is-vacio { display: none; }
+
+/* La recomendación de cada persona */
+.dv-reco {
+  flex: none; white-space: nowrap;
+  padding: 3px 10px; border-radius: 999px;
+  font-size: .72rem; font-weight: 700; line-height: 1.4;
+}
+.dv-reco--recomendado { background: var(--col-ok-bg);   color: var(--col-ok-fg); }
+.dv-reco--disponible  { background: var(--col-none-bg); color: var(--col-none-fg); }
+.dv-reco--media       { background: var(--col-warn-bg); color: var(--col-warn-fg); }
+.dv-reco--alta        { background: var(--col-crit-bg); color: var(--col-crit-fg); }
+
+/* La carga, con la colorimetría: libre, media y a tope */
+.dv-persona.carga-baja  .dv-barra span { background: var(--col-ok-solid); }
+.dv-persona.carga-media .dv-barra span { background: var(--col-warn-solid); }
+.dv-persona.carga-alta  .dv-barra span { background: var(--col-crit-solid); }
+.dv-persona.carga-alta  .dv-carga { color: var(--col-crit-fg); }
+
+@media (max-width: 640px) {
+  /* En el celular: arriba la persona y su número; debajo la recomendación y la
+     medida. Así el nombre tiene todo el ancho y no se corta a las 4 letras. */
+  .dv-persona { flex-wrap: wrap; row-gap: 6px; }
+  .dv-datos { flex: 1 1 0; min-width: 9rem; }   /* así la recomendación baja a la segunda línea */
+  .dv-reco { order: 6; margin-left: 31px; }
+  .dv-medida { flex: 1 1 100%; order: 7; padding-left: 31px; }
+}
+
+/* ---------- Tarjeta «Reparto entre compañeros» ---------- */
+.rp-card {
+  margin: 0 0 18px; padding: 18px 20px 14px;
+  border-radius: 18px; background: var(--n-bg); box-shadow: var(--sh-card);
+}
+.rp-cab {
+  display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.rp-cab h2 {
+  display: flex; align-items: center; gap: 10px; margin: 0;
+  font-size: 1.02rem; font-weight: 800; color: var(--c-text); text-wrap: balance;
+}
+.rp-cab p { margin: 2px 0 0; font-size: .82rem; color: var(--c-text-soft); }
+.rp-periodo {
+  display: inline-flex; padding: 3px; gap: 2px; border-radius: 999px;
+  background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+}
+.rp-periodo a {
+  padding: 5px 12px; border-radius: 999px; white-space: nowrap;
+  font-size: .78rem; font-weight: 700; color: var(--c-text-soft); text-decoration: none;
+}
+.rp-periodo a[aria-current="true"] { background: var(--primary, #2B76F7); color: #fff; }
+.rp-periodo a:focus-visible { outline: 2px solid var(--primary, #2B76F7); outline-offset: 2px; }
+
+.rp-cuerpo {
+  display: grid; grid-template-columns: minmax(0, 1fr) 17.5rem; gap: 18px; align-items: stretch;
+  margin-top: 10px;
+}
+.rp-grafico { min-width: 0; min-height: 220px; }
+.rp-lado { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.rp-dato {
+  display: grid; grid-template-columns: 1fr auto; align-items: baseline; gap: 6px;
+  padding: 9px 12px; border-radius: 12px; background: var(--n-bg); box-shadow: var(--sh-inset-mini);
+  font-size: .8rem; color: var(--c-text-soft);
+}
+.rp-dato b { font-size: .95rem; font-weight: 800; color: var(--c-text); font-variant-numeric: tabular-nums; }
+.rp-sig { flex: 1 1 auto; display: flex; flex-direction: column; gap: 6px; min-height: 0; }
+.rp-sig h3 {
+  margin: 4px 2px 0; font-size: .72rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase;
+  color: var(--col-ok-fg);
+}
+.rp-sig ol { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.rp-sig li {
+  display: flex; align-items: center; gap: 9px; min-width: 0;
+  padding: 6px 10px; border-radius: 12px; background: var(--col-ok-bg);
+}
+.rp-sig li .rp-sig__n { flex: 1 1 auto; min-width: 0; font-size: .84rem; font-weight: 700; color: var(--c-text); }
+.rp-sig li small { flex: none; font-size: .74rem; color: var(--col-ok-fg); font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rp-vacio { padding: 28px 8px; text-align: center; font-size: .86rem; color: var(--c-text-soft); }
+
+@media (max-width: 900px) {
+  .rp-cuerpo { grid-template-columns: 1fr; }
+  .rp-card { padding: 16px 14px 12px; }
+}
+
+/* En el Panel de requerimientos, el reparto completo ocupa toda la fila */
+.rd-grid-pagina .rd-ancho-3 { grid-column: 1 / -1; }
+.req-dash-card h3 .mc-icon { vertical-align: -3px; }

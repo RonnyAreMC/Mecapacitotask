@@ -134,6 +134,43 @@ foreach ($lista as $r) {
 // Carga de cada persona (tareas + requerimientos abiertos) y los roles para filtrar: req_ui.php
 [$carga, $opcionesRol] = cargaParaAsignar($miembros, $reqRepo, $tareasRepo);
 
+/* ---------- Reparto entre compañeros (equidad) ----------
+   Cuánto se le asignó a cada persona en el periodo, separado en resueltos, en
+   curso y vencidos, y el promedio por programador como referencia. Arriba de
+   la lista, para repartir mirando esto. Periodo: ?rep=30|90|todo (90 por defecto). */
+$periodosRep = ['30' => '30 días', '90' => '90 días', 'todo' => 'Todo'];
+$fRep  = isset($periodosRep[$_GET['rep'] ?? '']) ? (string)$_GET['rep'] : '90';
+$desdeRep = $fRep === 'todo' ? '' : date('Y-m-d', strtotime('-' . (int)$fRep . ' days'));
+$porPersona = reqRepartoPorPersona($requerimientos, $desdeRep);
+$filasRep = [];
+$devsRep = 0; $asignadoDevs = 0;
+foreach ($carga as $c) {
+    $mid = (int)$c['miembro']['id'];
+    $d = $porPersona[$mid] ?? ['total' => 0, 'abiertos' => 0, 'vencidos' => 0, 'resueltos' => 0];
+    if ($c['grupo'] === 0) { $devsRep++; $asignadoDevs += $d['total']; }
+    if ($d['total'] === 0) continue;
+    $partes = preg_split('/\s+/', trim($c['miembro']['nombre']));
+    $filasRep[] = [
+        'nombre'  => implode(' ', array_slice($partes, 0, 2)),
+        'completo'=> $c['miembro']['nombre'],
+        'equipo'  => $c['equipo'],
+        'resueltos' => $d['resueltos'], 'curso' => $d['abiertos'], 'vencidos' => $d['vencidos'], 'total' => $d['total'],
+    ];
+}
+usort($filasRep, fn($a, $b) => $b['total'] <=> $a['total'] ?: strcmp($a['nombre'], $b['nombre']));
+$asignadosRep = 0;   // requerimientos (no asignaciones) repartidos en el periodo
+foreach ($requerimientos as $r) {
+    $cuando = substr((string)(($r['asignado_en'] ?? '') ?: ($r['creado'] ?? '')), 0, 10);
+    if (RequerimientoRepo::asignadosDe($r) && ($desdeRep === '' || $cuando === '' || $cuando >= $desdeRep)) $asignadosRep++;
+}
+$promedioDevs = $devsRep > 0 ? round($asignadoDevs / $devsRep, 1) : 0;
+$topeRep = 12;   // en la lista principal, los 12 con más; el resto en el Panel
+$siguientes = array_slice(array_values(array_filter($carga, fn($c) => in_array($c['reco'][0], ['recomendado', 'disponible'], true) && $c['grupo'] === ($carga[0]['grupo'] ?? 0))), 0, 4);
+$repData = [
+    'filas'    => array_slice($filasRep, 0, $topeRep),
+    'promedio' => $promedioDevs,
+];
+
 // Filtro "de quién": solo gente que tiene alguno, para no ofrecer filtros que
 // no devuelven nada.
 $opcionesPersona = ['0' => 'Cualquiera'];
@@ -155,6 +192,7 @@ function urlFiltro(array $cambios): string
         'persona' => $_GET['persona'] ?? '',
         'inst'    => $_GET['inst'] ?? '',
         'orden'   => $_GET['orden'] ?? '',
+        'rep'     => $_GET['rep'] ?? '',
     ], $cambios), fn($v) => (string)$v !== '' && (string)$v !== '0');
     return 'requerimientos.php' . ($qs ? '?' . http_build_query($qs) : '');
 }
@@ -169,6 +207,10 @@ UI::cabecera(
     '<a class="btn-outline btn-meca btn-azul btn-icono" href="req_dashboard.php" title="Panel con gráficos de cumplimiento">
        <i class="fa-solid fa-chart-column"></i> <span class="tab-txt">Panel</span>
      </a>
+     ' . (is_file(__DIR__ . '/agenda.php') && function_exists('puedeReunionesGenerales') && puedeReunionesGenerales()
+        ? '<a class="btn-outline btn-meca btn-azul btn-icono" href="agenda.php?nueva=1&amp;tema=' . rawurlencode('Requerimientos sueltos') . '" title="Agendar una reunión de requerimientos sueltos (invita a un equipo entero o a todos)">
+       ' . UI::iconoDS('reuniones', 16) . ' <span class="tab-txt">Reunión</span>
+     </a>' : '') . '
      <a class="btn-outline btn-meca btn-azul btn-icono" href="instituciones.php" title="Catálogo de instituciones">
        <i class="fa-solid fa-building-columns"></i> <span class="tab-txt">Instituciones</span>
      </a>
@@ -238,6 +280,50 @@ UI::cabecera(
     </span>
   </a>
   <?php endforeach; ?>
+</section>
+
+<section class="rp-card" aria-labelledby="rp-t">
+  <header class="rp-cab">
+    <div>
+      <h2 id="rp-t"><span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('usuarios', 18) ?></span> Reparto entre compañeros</h2>
+      <p>Cuántos requerimientos se le asignaron a cada uno, para repartir parejo.</p>
+    </div>
+    <nav class="rp-periodo" aria-label="Periodo del reparto">
+      <?php foreach ($periodosRep as $k => $lab): $k = (string)$k;   // PHP vuelve número las claves «30» y «90» ?>
+      <a href="<?= e(urlFiltro(['rep' => $k === '90' ? '' : $k])) ?>"<?= $fRep === $k ? ' aria-current="true"' : '' ?>><?= e($lab) ?></a>
+      <?php endforeach; ?>
+    </nav>
+  </header>
+  <?php if (!$filasRep): ?>
+    <p class="rp-vacio">Nadie recibió requerimientos <?= $fRep === 'todo' ? 'todavía' : 'en los últimos ' . e($periodosRep[$fRep]) ?>.</p>
+  <?php else: ?>
+  <div class="rp-cuerpo">
+    <div class="rp-grafico" id="rp-grafico" role="img"
+         aria-label="Requerimientos asignados por persona: <?= e(implode(', ', array_map(fn($f) => $f['completo'] . ' ' . $f['total'], array_slice($filasRep, 0, $topeRep)))) ?>"></div>
+    <aside class="rp-lado">
+      <div class="rp-dato"><span>Repartidos en el periodo</span><b><?= number_format($asignadosRep, 0, ',', '.') ?></b></div>
+      <div class="rp-dato"><span>Promedio por programador</span><b><?= number_format($promedioDevs, 1, ',', '.') ?></b></div>
+      <div class="rp-dato"><span>A quien más le tocó</span><b class="truncate" title="<?= e($filasRep[0]['completo']) ?>"><?= e($filasRep[0]['nombre']) ?> · <?= (int)$filasRep[0]['total'] ?></b></div>
+      <?php if ($siguientes): ?>
+      <div class="rp-sig">
+        <h3>Los siguientes en la fila</h3>
+        <ol>
+          <?php foreach ($siguientes as $c): $m = $c['miembro']; ?>
+          <li title="<?= e($m['nombre']) ?>: <?= (int)$c['total'] ?> pendiente(s) · <?= (int)$c['recibidos'] ?> requerimiento(s) en 90 días">
+            <?= UI::avatar($m, 24) ?><span class="rp-sig__n truncate"><?= e($m['nombre']) ?></span>
+            <small><?= (int)$c['total'] ?> pend. · <?= (int)$c['recibidos'] ?> en 90 d</small>
+          </li>
+          <?php endforeach; ?>
+        </ol>
+      </div>
+      <?php endif; ?>
+    </aside>
+  </div>
+  <?php if (count($filasRep) > $topeRep): ?>
+  <p class="rp-vacio" style="padding:6px 0 0;text-align:left">Se ven los <?= $topeRep ?> con más. <a href="req_dashboard.php">Todos en el Panel</a>.</p>
+  <?php endif; ?>
+  <script>window.REQ_REPARTO = <?= json_encode($repData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+  <?php endif; ?>
 </section>
 
 <?php
@@ -568,4 +654,7 @@ document.addEventListener('DOMContentLoaded', () => {
   <?php endif; ?>
 });
 </script>
+<link rel="stylesheet" href="<?= asset('assets/req-reparto.css') ?>">
+<?php if (!empty($repData['filas'])): ?><script src="<?= asset('assets/apexcharts.min.js') ?>" defer></script><?php endif; ?>
+<script src="<?= asset('assets/req-reparto.js') ?>" defer></script>
 <?php UI::fin(); ?>

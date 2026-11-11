@@ -127,6 +127,9 @@ class UI
 <?php if (is_file(__DIR__ . '/../../assets/ds.css')): /* componentes del design system y menú lateral */ ?>
 <link rel="stylesheet" href="<?= asset('assets/ds.css') ?>">
 <?php endif; ?>
+<?php if (is_file(__DIR__ . '/../../assets/agenda.css')): /* la agenda de reuniones y el selector de invitados */ ?>
+<link rel="stylesheet" href="<?= asset('assets/agenda.css') ?>">
+<?php endif; ?>
 <?php self::estilosConfig(); ?>
 <?php if (class_exists('Colorimetria')): /* los tonos de cada estado (Cumple, Alerta, Crítico…), con los colores de la configuración */ ?>
 <style id="col-tokens"><?= Colorimetria::css() ?></style>
@@ -176,6 +179,11 @@ class UI
     <a href="index.php" class="sidebar-link <?= $activo === 'dashboard' ? 'active' : '' ?>" title="Dashboard">
       <?= UI::icono('ds-dashboard') ?> <span class="truncate">Dashboard</span>
     </a>
+    <?php if (is_file(__DIR__ . '/../../agenda.php') && !Auth::esSupervisor()): /* la agenda de reuniones: las generales y las de tus proyectos */ ?>
+    <a href="agenda.php" class="sidebar-link <?= $activo === 'agenda' ? 'active' : '' ?>" title="Agenda de reuniones">
+      <?= UI::icono(UI::hayIcono('ds-reuniones') ? 'ds-reuniones' : 'ds-agenda') ?> <span class="truncate">Agenda</span>
+    </a>
+    <?php endif; ?>
     <?php
     // Correo InnoTech con su propio lugar en el menú (antes solo se llegaba desde Notificaciones)
     $nCorreoMenu = null;
@@ -427,6 +435,9 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
 <script src="<?= asset('assets/admin.js') ?>"></script>
 <?php if (is_file(__DIR__ . '/../../assets/ds.js')): /* lista desplegable y casillas del design system */ ?>
 <script src="<?= asset('assets/ds.js') ?>"></script>
+<?php endif; ?>
+<?php if (is_file(__DIR__ . '/../../assets/invitados.js')): /* el selector de invitados de las reuniones (ReunionesUI::selectorInvitados) */ ?>
+<script src="<?= asset('assets/invitados.js') ?>"></script>
 <?php endif; ?>
 <?php if (self::ia() && is_file(__DIR__ . '/../../assets/ia.js')): /* IA: admin y Scrum Master */ ?>
 <script src="<?= asset('assets/ia.js') ?>"></script>

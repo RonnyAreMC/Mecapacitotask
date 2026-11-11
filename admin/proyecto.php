@@ -2185,7 +2185,11 @@ $comData = json_encode([
 </div><!-- /metricas -->
 <?php endif; /* fin de las vistas ocultas al supervisor */ ?>
 
-<?php if ($reunionesOn): ?>
+<?php if ($reunionesOn):
+    // Invitados: arriba «Del proyecto» y debajo cada equipo, para invitar también de otros
+    // equipos o a un equipo entero (ReunionesUI::selectorInvitados, assets/invitados.js)
+    $invProyecto = [$id => ['p' => $proyecto, 'ids' => array_map('intval', array_keys($delProyecto))]];
+?>
 <!-- Modal: nueva reunión, por pasos (Zoom, Meet o enlace propio). La hora se
      elige en cuartos y lo que Zoom ya tiene ocupado sale en gris. -->
 <dialog id="dlg-nueva-reunion" class="dlg-meca dlg-wizard">
@@ -2284,11 +2288,9 @@ $comData = json_encode([
         </div>
       </section>
 
-      <section class="wz-panel">
-        <label class="campo"><span>Invitados</span>
-          <?= UI::select('invitados', $opcionesInvitados, [], false, '', true) ?>
-          <small class="campo-ayuda">Les llega el enlace por correo si tienen uno registrado<?= Reuniones::agendaEnCalendarios() ? ', y la reunión queda en su Google Calendar' : '' ?>.</small>
-        </label>
+      <section class="wz-panel wz-panel--inv">
+        <?= ReunionesUI::selectorInvitados($miembros, [], ['proyectos' => $invProyecto, 'proyecto' => $id,
+            'ayuda' => 'Les llega el enlace por correo' . (Reuniones::agendaEnCalendarios() ? ' y queda en su Google Calendar' : '') . '. Abre otro equipo para invitar también de ahí.']) ?>
       </section>
 
       <section class="wz-panel">
@@ -2354,11 +2356,10 @@ $comData = json_encode([
         </div>
       </section>
 
-      <section class="wz-panel">
-        <label class="campo"><span>Invitados</span>
-          <?= UI::select('invitados', $opcionesInvitados, [], false, 'js-er-invitados', true) ?>
-          <small class="campo-ayuda">A los invitados nuevos les llega el enlace por correo.</small>
-        </label>
+      <section class="wz-panel wz-panel--inv">
+        <?php /* Los ya invitados los marca assets/invitados.js con los datos del botón .js-editar-reunion */ ?>
+        <?= ReunionesUI::selectorInvitados($miembros, [], ['proyectos' => $invProyecto, 'proyecto' => $id,
+            'ayuda' => 'A los invitados nuevos les llega el enlace por correo. Abre otro equipo para invitar también de ahí.']) ?>
       </section>
 
       <section class="wz-panel">

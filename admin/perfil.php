@@ -97,11 +97,18 @@ $guiaApi = "## InnoTech Hub: mis tareas (API)\n\n"
     . "- Cambiar el estado:\n"
     . "  curl -s -X POST -H \"\$AUTH\" -H \"Content-Type: application/json\" -d '{\"id\":812,\"estado\":\"hecho\"}' \"\$API?r=estado\"\n"
     . "  Estados: pendiente, progreso, revision, hecho.\n\n"
+    . "Requerimientos sueltos (sin commits: muchos son de repos que el panel no lee, como los Gitea de las instituciones):\n"
+    . "- Mis requerimientos abiertos: curl -s -H \"\$AUTH\" \"\$API?r=requerimientos\"\n"
+    . "- Buscar o ver cerrados:      curl -s -H \"\$AUTH\" \"\$API?r=requerimientos&q=matrículas&estado=todos\"\n"
+    . "- Uno en detalle (con sus observaciones): curl -s -H \"\$AUTH\" \"\$API?r=requerimiento&id=37\"\n"
+    . "- Marcarlo terminado, con una nota de cómo quedó (le llega el aviso a quien lo asignó):\n"
+    . "  curl -s -X POST -H \"\$AUTH\" -H \"Content-Type: application/json\" -d '{\"id\":37,\"nota\":\"Subido al Gitea de la institución, rama main\"}' \"\$API?r=req_terminar\"\n\n"
     . "Cómo trabajar:\n"
     . "1. Antes de empezar algo, busca si ya tiene tarea (?r=tareas&q=…). Si no, créala con su item_release.\n"
     . "2. El mensaje de cada commit termina con su #id; después del commit, asócialo con ?r=commit.\n"
     . "3. Hecho pero sin subir al servidor de pruebas: \"revision\". Tras el deploy (lunes y jueves, 22:00): \"hecho\".\n"
-    . "4. Si la API responde 401, avisa: el token se quitó o se cambió (Mi perfil → Tu asistente de código).\n";
+    . "4. Un requerimiento suelto se cierra con ?r=req_terminar y una nota clara (qué se hizo y dónde quedó); no lleva commits.\n"
+    . "5. Si la API responde 401, avisa: el token se quitó o se cambió (Mi perfil → Tu asistente de código).\n";
 
 $misGitMails = array_values(array_filter(array_map('trim', explode(',', (string)($yo['git_emails'] ?? '')))));
 // A dónde le llegan los avisos (puede ser otro correo que el de entrar)
@@ -411,6 +418,7 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
           <li><i class="fa-solid fa-plus"></i> Crea las nuevas, amarradas a su ítem del release</li>
           <li><i class="fa-solid fa-code-commit"></i> Asocia cada commit a su tarea por el #id</li>
           <li><i class="fa-solid fa-arrows-rotate"></i> Les cambia el estado: en progreso, revisión, hecho</li>
+          <li><?= UI::iconoDS('requerimiento', 16) ?> Consulta tus requerimientos sueltos y los marca terminados</li>
         </ul>
         <p class="pf-as-estado<?= $tk['tiene'] ? ' is-on' : '' ?>"><?= $tk['tiene']
             ? '<i class="fa-solid fa-circle-check"></i> Ya está conectado · token …' . e($tk['fin']) . ($tk['usado'] !== '' ? ' · último uso ' . e($cuandoTk($tk['usado'])) : ' · sin usar todavía')

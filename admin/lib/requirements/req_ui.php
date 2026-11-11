@@ -182,17 +182,74 @@ function bloqueRequerimientos(string $titulo, string $icono, array $items, array
 }
 
 /**
- * Carga de cada persona: tareas abiertas + requerimientos abiertos. Es el dato
- * con el que se decide a quien darle el siguiente.
+ * Orden de los equipos al repartir un requerimiento suelto: primero quienes
+ * programan; diseño y procesos (analistas) también aparecen, pero abajo, para
+ * cuando el pedido es de lo suyo. Un equipo creado en Ajustes que no esté aquí
+ * va al final, con su nombre del catálogo.
+ */
+const REQ_GRUPOS = [
+    'programacion' => [0, 'Programadores'],
+    'disenadores'  => [1, 'Diseño'],
+    'analistas'    => [2, 'Procesos y análisis'],
+];
+
+/** [orden, etiqueta] del equipo con el que se reparte a una persona (el de más prioridad de los suyos). */
+function reqGrupoDe(array $m): array
+{
+    $cat = Catalogo::equipos();
+    $mejor = [9, 'Sin equipo'];
+    foreach (MiembroRepo::equiposDe($m) as $eq) {
+        $g = REQ_GRUPOS[$eq] ?? [3, $cat[$eq][0] ?? ucfirst((string)$eq)];
+        if ($g[0] < $mejor[0]) $mejor = $g;
+    }
+    return $mejor;
+}
+
+/**
+ * Lo que se le ha asignado de requerimientos sueltos a cada persona, en total y
+ * desde $desde ('Y-m-d'; '' = desde siempre), separado en abiertos, vencidos y
+ * resueltos. La fecha que cuenta es la de la asignación (o la de alta, en los
+ * viejos que no la guardaban). Es la base del reparto equitativo.
+ */
+function reqRepartoPorPersona(array $requerimientos, string $desde = ''): array
+{
+    $out = [];
+    foreach ($requerimientos as $r) {
+        $cuando = substr((string)(($r['asignado_en'] ?? '') ?: ($r['creado'] ?? '')), 0, 10);
+        if ($desde !== '' && $cuando !== '' && $cuando < $desde) continue;
+        $cerrado = RequerimientoRepo::cerrado($r);
+        $resuelto = ($r['estado'] ?? '') === 'hecho';
+        $vencido = !$cerrado && RequerimientoRepo::vencido($r);
+        foreach (RequerimientoRepo::asignadosDe($r) as $mid) {
+            $o = &$out[$mid];
+            $o ??= ['total' => 0, 'abiertos' => 0, 'vencidos' => 0, 'resueltos' => 0];
+            $o['total']++;
+            if ($resuelto)      $o['resueltos']++;
+            elseif ($vencido)   $o['vencidos']++;
+            elseif (!$cerrado)  $o['abiertos']++;
+            unset($o);
+        }
+    }
+    return $out;
+}
+
+/**
+ * Carga de cada persona y a quién conviene darle el siguiente requerimiento.
  *
- * Y, a igualdad de carga, CUANDO entrego algo por ultima vez. Ordenar solo por
- * lo abierto repartia mal: quien acababa de cerrar diez cosas marcaba 0 igual
- * que quien no recibe trabajo desde hace un mes, y entre dos ceros mandaba el
- * alfabeto — o sea que Aaron Bayas se llevaba siempre el siguiente. Con la
- * fecha de la ultima entrega, arriba queda quien lleva mas tiempo sin que le
- * toque nada.
+ * El orden, de arriba abajo:
+ *  1. El equipo: primero Programadores; Diseño y Procesos después. Antes salía
+ *     arriba gente que no programa y nunca tiene tareas (marca 0), así que el
+ *     «más libre» era justo quien no lo iba a hacer.
+ *  2. Lo que tiene abierto AHORA (tareas de proyecto + requerimientos).
+ *  3. A igual carga, a quien MENOS requerimientos sueltos se le asignaron en
+ *     los últimos 90 días: así el reparto se empareja.
+ *  4. Y luego quien lleva más tiempo sin entregar nada (sin esto, entre dos
+ *     ceros mandaba el alfabeto y Aaron Bayas se llevaba siempre el siguiente).
  *
- * Devuelve [$carga, $opcionesRol]: la lista ordenada y los roles para filtrar.
+ * Cada persona sale con su recomendación: «Recomendado» (los 3 primeros de
+ * Programadores con poca carga), «Disponible», «Carga media» o «Mucha carga».
+ *
+ * Devuelve [$carga, $opcionesEquipo]: la lista ordenada y los equipos para filtrar.
  */
 function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, TareaRepo $tareasRepo): array
 {
@@ -211,7 +268,8 @@ function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, Tar
             else          $abiertas[$mid] = ($abiertas[$mid] ?? 0) + 1;
         }
     }
-    foreach ($reqRepo->todos() as $rq) {
+    $todosReq = $reqRepo->todos();
+    foreach ($todosReq as $rq) {
         if (!RequerimientoRepo::cerrado($rq)) continue;
         $cuando = (string)($rq['cerrado_en'] ?? '');
         // Lo cuenta quien lo marco terminado; si lo cerro el administrador desde
@@ -221,6 +279,7 @@ function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, Tar
             : RequerimientoRepo::asignadosDe($rq);
         foreach ($deQuien as $mid) $apuntar($mid, $cuando);
     }
+    $recibidos = reqRepartoPorPersona($todosReq, date('Y-m-d', strtotime('-90 days')));
 
     $hoyCarga = new DateTimeImmutable('today');
     $carga = [];
@@ -229,40 +288,64 @@ function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, Tar
         $tareas = (int)($abiertas[$mid] ?? 0);
         $reqs   = $reqRepo->abiertosDe($mid);
         $suUltima = $ultima[$mid] ?? '';
+        [$grupo, $equipo] = reqGrupoDe($m);
         $carga[] = [
-            'miembro' => $m,
-            'rol'     => trim($m['rol'] ?? '') ?: 'Sin rol',
-            'tareas'  => $tareas,
-            'reqs'    => $reqs,
-            'total'   => $tareas + $reqs,
-            'ultima'  => $suUltima,
+            'miembro'   => $m,
+            'rol'       => trim($m['rol'] ?? '') ?: 'Sin rol',
+            'grupo'     => $grupo,
+            'equipo'    => $equipo,
+            'tareas'    => $tareas,
+            'reqs'      => $reqs,
+            'total'     => $tareas + $reqs,
+            'recibidos' => (int)($recibidos[$mid]['total'] ?? 0),   // req. sueltos asignados en 90 días
+            'ultima'    => $suUltima,
             // Dias desde la ultima entrega; null si no consta ninguna.
-            'dias'    => $suUltima !== ''
+            'dias'      => $suUltima !== ''
                 ? (int)$hoyCarga->diff(new DateTimeImmutable($suUltima))->days
                 : null,
         ];
     }
-    // Del mas libre al mas cargado y, a igual carga, de quien lleva mas tiempo sin
-    // entregar a quien acaba de hacerlo. La cadena vacia ordena antes que cualquier
-    // fecha, asi que quien no tiene ninguna entrega registrada sale primero.
-    usort($carga, fn($a, $b) => $a['total'] <=> $b['total']
+    // La cadena vacía ordena antes que cualquier fecha: quien no tiene ninguna
+    // entrega registrada sale primero entre los que empatan.
+    usort($carga, fn($a, $b) => $a['grupo'] <=> $b['grupo']
+        ?: $a['total'] <=> $b['total']
+        ?: $a['recibidos'] <=> $b['recibidos']
         ?: strcmp($a['ultima'], $b['ultima'])
         ?: strcasecmp($a['miembro']['nombre'], $b['miembro']['nombre']));
 
-    // Roles presentes, con cuanta gente hay en cada uno: son los filtros del
-    // selector. Se sacan del equipo real y no del catalogo, para no ofrecer
-    // filtros que no seleccionan a nadie.
-    $rolesCarga = [];
-    foreach ($carga as $c) {
-        $rolesCarga[$c['rol']] = ($rolesCarga[$c['rol']] ?? 0) + 1;
+    // Nivel de carga: relativo al más cargado, pero sin llamar «mucha carga» a
+    // tener dos cosas cuando nadie tiene más de dos.
+    $tope = $carga ? max(array_column($carga, 'total')) : 0;
+    $primerGrupo = $carga ? $carga[0]['grupo'] : 0;
+    $recomendados = 0;
+    foreach ($carga as &$c) {
+        $pct = $tope > 0 ? $c['total'] / $tope * 100 : 0;
+        $c['pct']   = (int)round($pct);
+        $c['nivel'] = ($pct >= 66 && $c['total'] >= 4) ? 'alta' : (($pct >= 33 && $c['total'] >= 2) ? 'media' : 'baja');
+        if ($c['nivel'] === 'alta') {
+            $c['reco'] = ['alta', 'Mucha carga'];
+        } elseif ($c['nivel'] === 'media') {
+            $c['reco'] = ['media', 'Carga media'];
+        } elseif ($c['grupo'] === $primerGrupo && $recomendados < 3) {
+            $c['reco'] = ['recomendado', 'Recomendado'];
+            $recomendados++;
+        } else {
+            $c['reco'] = ['disponible', 'Disponible'];
+        }
     }
-    ksort($rolesCarga, SORT_NATURAL | SORT_FLAG_CASE);
+    unset($c);
 
-    $opcionesRol = ['' => 'Todos (' . count($carga) . ')'];
-    foreach ($rolesCarga as $rolNombre => $cuantos) {
-        $opcionesRol[$rolNombre] = $rolNombre . ' (' . $cuantos . ')';
+    // Equipos presentes, con cuánta gente hay en cada uno: son los filtros del
+    // selector (del equipo real, para no ofrecer filtros que no seleccionan a nadie).
+    $porEquipo = [];
+    foreach ($carga as $c) {
+        $porEquipo[$c['equipo']] = ($porEquipo[$c['equipo']] ?? 0) + 1;
     }
-    return [$carga, $opcionesRol];
+    $opciones = ['' => 'Todos (' . count($carga) . ')'];
+    foreach ($porEquipo as $eq => $cuantos) {
+        $opciones[$eq] = $eq . ' (' . $cuantos . ')';
+    }
+    return [$carga, $opciones];
 }
 
 /**
@@ -276,7 +359,17 @@ function cargaParaAsignar(MiembroRepo $miembros, RequerimientoRepo $reqRepo, Tar
  */
 function panelResponsables(array $carga, array $opcionesRol, string $prefijo, array $marcados = []): void
 {
-    $tope = $carga ? max(array_column($carga, 'total')) : 0;
+    // Los grupos por equipo, en el orden de la lista (ya viene ordenada)
+    $grupos = [];
+    foreach ($carga as $c) {
+        $grupos[$c['equipo']][] = $c;
+    }
+    $sugeridos = array_values(array_filter($carga, fn($c) => ($c['reco'][0] ?? '') === 'recomendado'));
+    $notas = [
+        'Programadores'       => 'los recomendados primero',
+        'Diseño'              => 'si el pedido es de diseño',
+        'Procesos y análisis' => 'si el pedido es de procesos o análisis',
+    ];
     ?>
     <section class="wz-panel">
       <div class="campo">
@@ -286,13 +379,25 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo, ar
              Sin name, así que no se envía; los ids van en asignados[]. -->
         <input type="hidden" data-md="1" data-picker-resumen="<?= e($prefijo) ?>">
 
+        <?php if ($sugeridos): ?>
+        <div class="dv-sugeridos" data-sugeridos="<?= e($prefijo) ?>">
+          <span class="dv-sugeridos__tit"><?= UI::iconoDS('estado-cumple', 16) ?> Sugeridos</span>
+          <?php foreach ($sugeridos as $c): $m = $c['miembro']; ?>
+          <button type="button" class="dv-sugerido" data-marcar="<?= (int)$m['id'] ?>"
+                  title="<?= e($m['nombre']) ?>: <?= (int)$c['total'] ?> pendiente<?= $c['total'] === 1 ? '' : 's' ?>, <?= (int)$c['recibidos'] ?> requerimiento<?= $c['recibidos'] === 1 ? '' : 's' ?> en 90 días">
+            <?= UI::avatar($m, 22) ?><span class="truncate"><?= e(explode(' ', trim($m['nombre']))[0]) ?></span>
+          </button>
+          <?php endforeach; ?>
+        </div>
+        <?php endif; ?>
+
         <div class="dv-controles">
           <label class="dv-buscar">
-            <i class="fa-solid fa-magnifying-glass"></i>
+            <?= UI::iconoDS('buscar', 16) ?>
             <input type="search" class="input-meca js-<?= e($prefijo) ?>-buscar" placeholder="Buscar por nombre…" autocomplete="off">
           </label>
           <label class="carga-filtro dv-filtro">
-            <span>Filtrar por rol</span>
+            <span>Equipo</span>
             <?= UI::select($prefijo . '_rol', $opcionesRol, '', false, 'js-' . $prefijo . '-rol') ?>
           </label>
         </div>
@@ -300,27 +405,28 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo, ar
         <p class="dv-sinresultados" data-picker-vacio="<?= e($prefijo) ?>" hidden>Nadie coincide con la búsqueda.</p>
 
         <div class="dv-lista" data-picker="<?= e($prefijo) ?>">
-          <?php foreach ($carga as $c):
+          <?php foreach ($grupos as $equipo => $gente): ?>
+          <div class="dv-grupo" data-dv-grupo>
+            <p class="dv-grupo__tit"><b><?= e($equipo) ?></b><?php if (isset($notas[$equipo])): ?><small><?= e($notas[$equipo]) ?></small><?php endif; ?></p>
+          <?php foreach ($gente as $c):
               $m = $c['miembro'];
-              $pct = $tope > 0 ? round($c['total'] / $tope * 100) : 0;
-              $nivel = $pct >= 66 ? 'alta' : ($pct >= 33 ? 'media' : 'baja');
+              [$recoK, $recoT] = $c['reco'];
           ?>
-          <label class="dv-persona carga-<?= $nivel ?>" data-id="<?= (int)$m['id'] ?>"
-                 data-rol="<?= e($c['rol']) ?>" data-nombre="<?= e($m['nombre']) ?>">
+          <label class="dv-persona carga-<?= e($c['nivel']) ?> dv-reco-<?= e($recoK) ?>" data-id="<?= (int)$m['id'] ?>"
+                 data-rol="<?= e($c['equipo']) ?>" data-nombre="<?= e($m['nombre']) ?>">
             <input type="checkbox" name="asignados[]" value="<?= (int)$m['id'] ?>"<?= in_array((int)$m['id'], $marcados, true) ? ' checked' : '' ?>>
-            <span class="dv-check"><i class="fa-solid fa-check"></i></span>
+            <span class="dv-check"><?= UI::iconoDS('check', 12) ?></span>
             <?= UI::avatar($m, 34) ?>
             <span class="dv-datos">
               <strong class="truncate"><?= e($m['nombre']) ?></strong>
               <small class="truncate"><?= e($c['rol']) ?></small>
             </span>
             <span class="dv-medida">
-              <span class="dv-barra"><span style="width:<?= max($pct, $c['total'] > 0 ? 8 : 0) ?>%"></span></span>
+              <span class="dv-barra" title="Carga: <?= (int)$c['pct'] ?>% de la de quien más tiene"><span style="width:<?= max($c['pct'], $c['total'] > 0 ? 8 : 0) ?>%"></span></span>
               <small><?= $c['tareas'] ?> tareas · <?= $c['reqs'] ?> req.</small>
               <?php
-              // Por que esta donde esta: entre varios con la misma carga, arriba
-              // van los que llevan mas tiempo sin entregar. Sin esto, el orden
-              // parece arbitrario cuando todos marcan 0.
+              // Por qué está donde está: a igual carga, arriba van a quienes menos
+              // se les asignó últimamente y quienes llevan más tiempo sin entregar.
               $etUlt = $c['dias'] === null
                   ? 'sin entregas registradas'
                   : match (true) {
@@ -332,19 +438,22 @@ function panelResponsables(array $carga, array $opcionesRol, string $prefijo, ar
                   };
               ?>
               <small class="dv-ultima<?= $c['dias'] !== null && $c['dias'] < 7 ? ' dv-ultima-reciente' : '' ?>"
-                     <?= $c['ultima'] !== '' ? 'title="Última entrega: ' . e($c['ultima']) . '"' : '' ?>>
-                <?= e($etUlt) ?>
+                     title="<?= (int)$c['recibidos'] ?> requerimiento(s) suelto(s) asignado(s) en los últimos 90 días<?= $c['ultima'] !== '' ? ' · Última entrega: ' . e($c['ultima']) : '' ?>">
+                <?= (int)$c['recibidos'] ?> en 90 días · <?= e($etUlt) ?>
               </small>
             </span>
+            <span class="dv-reco dv-reco--<?= e($recoK) ?>"><?= e($recoT) ?></span>
             <span class="dv-carga" title="<?= $c['total'] ?> pendientes en total: <?= $c['tareas'] ?> tareas de proyecto y <?= $c['reqs'] ?> requerimientos"><?= $c['total'] ?></span>
           </label>
+          <?php endforeach; ?>
+          </div>
           <?php endforeach; ?>
         </div>
 
         <small class="campo-ayuda">
-          <b data-picker-n="<?= e($prefijo) ?>">0</b> seleccionados · el número de cada quien es lo que ya tiene
-          abierto (tareas de proyecto + requerimientos). Arriba van los más libres y, entre los que
-          empatan, quien lleva más tiempo sin que le toque nada. Sin marcar a nadie, queda «sin asignar».
+          <b data-picker-n="<?= e($prefijo) ?>">0</b> seleccionados · primero Programadores; Diseño y Procesos,
+          abajo. En cada equipo, arriba quien menos tiene abierto (tareas + requerimientos) y, entre los que
+          empatan, a quien menos se le asignó en 90 días. Sin marcar a nadie, queda «sin asignar».
         </small>
       </div>
     </section>

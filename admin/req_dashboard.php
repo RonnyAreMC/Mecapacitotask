@@ -127,6 +127,22 @@ foreach ($prioOrden as $pk => $plabel) {
     $heatSeries[] = ['name' => $plabel, 'data' => $data];
 }
 
+// Reparto por persona, de siempre: cuánto se le asignó a cada uno (resueltos,
+// en curso, vencidos) y el promedio por programador (req_ui.php y req-reparto.js).
+[$cargaRep] = cargaParaAsignar($miembros, $reqRepo, new TareaRepo());
+$porPersonaRep = reqRepartoPorPersona($requerimientos);
+$filasRep = []; $devsRep = 0; $asigDevs = 0;
+foreach ($cargaRep as $c) {
+    $d = $porPersonaRep[(int)$c['miembro']['id']] ?? null;
+    if ($c['grupo'] === 0) { $devsRep++; $asigDevs += (int)($d['total'] ?? 0); }
+    if (!$d) continue;
+    $partes = preg_split('/\s+/', trim($c['miembro']['nombre']));
+    $filasRep[] = ['nombre' => implode(' ', array_slice($partes, 0, 2)), 'completo' => $c['miembro']['nombre'], 'equipo' => $c['equipo'],
+                   'resueltos' => $d['resueltos'], 'curso' => $d['abiertos'], 'vencidos' => $d['vencidos'], 'total' => $d['total']];
+}
+usort($filasRep, fn($a, $b) => $b['total'] <=> $a['total'] ?: strcmp($a['nombre'], $b['nombre']));
+$repData = ['filas' => $filasRep, 'promedio' => $devsRep ? round($asigDevs / $devsRep, 1) : 0];
+
 $dashData = [
     'inst'  => $dashInst,
     'sit'   => [['Sin asignar', $sit['sin-asignar']], ['En curso', $sit['en-curso']], ['Cerrados', $sit['cerrados']]],
@@ -207,10 +223,19 @@ UI::cabecera(
     <h3><i class="fa-solid fa-chart-simple"></i> Carga abierta por persona</h3>
     <div class="req-dash-chart" id="rd-carga"></div>
   </div>
+  <?php if (!empty($repData['filas'])): ?>
+  <div class="req-dash-card rd-ancho-3">
+    <h3><?= UI::iconoDS('usuarios', 18) ?> Asignados por persona (histórico)</h3>
+    <div class="req-dash-chart" id="rp-grafico"></div>
+  </div>
+  <?php endif; ?>
 </section>
 
 <script src="<?= asset('assets/apexcharts.min.js') ?>"></script>
 <script>window.REQ_DASH = <?= json_encode($dashData, JSON_UNESCAPED_UNICODE) ?>;</script>
+<script>window.REQ_REPARTO = <?= json_encode($repData, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;</script>
+<link rel="stylesheet" href="<?= asset('assets/req-reparto.css') ?>">
+<script src="<?= asset('assets/req-reparto.js') ?>" defer></script>
 <?php endif; ?>
 
 <?php UI::fin(); ?>

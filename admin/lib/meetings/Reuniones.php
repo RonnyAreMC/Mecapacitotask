@@ -60,6 +60,40 @@ class Reuniones
     /** Codigo de dia para la RRULE de Google, por dia ISO. */
     private const RRULE_DIAS = [1 => 'MO', 2 => 'TU', 3 => 'WE', 4 => 'TH', 5 => 'FR', 6 => 'SA', 7 => 'SU'];
 
+    /* ---------------- Reuniones generales (sin proyecto) ---------------- */
+
+    /**
+     * ¿Es una reunión general? (proyecto_id = 0: la «de todos» o la de varios
+     * equipos, creada desde agenda.php). No pertenece a ningún proyecto.
+     */
+    public static function esGeneral(array $r): bool
+    {
+        return (int)($r['proyecto_id'] ?? 0) <= 0;
+    }
+
+    /**
+     * El «proyecto» de una reunión general: lo que piden las piezas que pintan
+     * o avisan con el proyecto (correo, WhatsApp, Google Calendar, el chip de
+     * la agenda). Lleva 'general' => true para que digan «Reunión general» en
+     * vez de «Proyecto: …».
+     */
+    public static function proyectoGeneral(): array
+    {
+        return ['id' => 0, 'nombre' => 'Reunión general', 'general' => true, 'icono' => 'ds-usuarios', 'color' => 0, 'plataforma' => ''];
+    }
+
+    /** El proyecto de una reunión, o el de las generales (null si su proyecto ya no existe). */
+    public static function proyectoDe(array $r): ?array
+    {
+        return self::esGeneral($r) ? self::proyectoGeneral() : (new ProyectoRepo())->buscar((int)$r['proyecto_id']);
+    }
+
+    /** A dónde se mira una reunión en el panel: la agenda (las generales) o la pestaña del proyecto. */
+    public static function urlLista(array $r): string
+    {
+        return self::esGeneral($r) ? 'agenda.php' : 'proyecto.php?id=' . (int)$r['proyecto_id'] . '#vista-reuniones';
+    }
+
     /* ---------------- Configuracion ---------------- */
 
     public static function conf(): array
@@ -385,7 +419,7 @@ class Reuniones
             foreach (self::inicios((string)($r['inicio'] ?? ''), $serie ? (array)($r['dias'] ?? []) : [], $serie ? (string)($r['hasta'] ?? '') : '') as $t) {
                 if ($t + $dur <= $d0 || $t >= $d1) continue;
                 $pid = (int)($r['proyecto_id'] ?? 0);
-                $nombres[$pid] ??= (string)((new ProyectoRepo())->buscar($pid)['nombre'] ?? '');
+                $nombres[$pid] ??= $pid > 0 ? (string)((new ProyectoRepo())->buscar($pid)['nombre'] ?? '') : 'Reunión general';
                 $out[] = ['ini' => (int)((max($t, $d0) - $d0) / 60), 'fin' => (int)((min($t + $dur, $d1) - $d0) / 60),
                           'tema' => (string)($r['topic'] ?? 'Reunión'), 'proyecto' => $nombres[$pid]];
             }
@@ -445,14 +479,16 @@ class Reuniones
             $para[] = (int)($r['creador_id'] ?? 0);
             $para = array_values(array_unique(array_filter($para, fn($m) => $m > 0 && isset($miembros[$m]))));
             if (!$para) continue;
-            $p = $proyectos->buscar((int)$r['proyecto_id']) ?? ['id' => (int)$r['proyecto_id'], 'nombre' => ''];
+            // Las generales no tienen proyecto: dicen «Reunión general» y llevan a la agenda
+            $p = self::esGeneral($r) ? self::proyectoGeneral()
+                : ($proyectos->buscar((int)$r['proyecto_id']) ?? ['id' => (int)$r['proyecto_id'], 'nombre' => '']);
             $faltan = max(1, (int)ceil(($t - $ahora) / 60));
             $entrar = preg_match('#^https?://#i', trim((string)($r['join_url'] ?? '')));
             if (class_exists('Notif')) {
                 Notif::crear($para, 'reunion_pronto', 'En ' . $faltan . ' min: ' . ($r['topic'] ?? 'Reunión'),
                     date('g:i a', $t) . ' · ' . self::etiquetaPlataforma((string)($r['plataforma'] ?? 'zoom'))
                     . (($p['nombre'] ?? '') !== '' ? ' · ' . $p['nombre'] : ''),
-                    $entrar ? 'reunion_entrar.php?id=' . (int)$r['id'] : 'proyecto.php?id=' . (int)$r['proyecto_id'] . '#vista-reuniones', 0);
+                    $entrar ? 'reunion_entrar.php?id=' . (int)$r['id'] : self::urlLista($r), 0);
             }
             foreach ($para as $mid) {
                 try { Mailer::recordatorioReunion($r, $miembros[$mid], $p, $t); } catch (\Throwable $e) { error_log('Recordatorio de reunión: ' . $e->getMessage()); }
@@ -478,7 +514,7 @@ class Reuniones
     public static function textoChoque(array $c, int $duracion, bool $serie = false): string
     {
         $r = $c['reunion'];
-        $p = (new ProyectoRepo())->buscar((int)($r['proyecto_id'] ?? 0));
+        $p = self::proyectoDe($r);
         $txt = 'Zoom ya está ocupado a esa hora: «' . ($r['topic'] ?? 'Reunión') . '»' . ($p ? ' (' . $p['nombre'] . ')' : '')
             . ' el ' . date('d/m', $c['inicio']) . ' de ' . date('H:i', $c['inicio']) . ' a ' . date('H:i', $c['fin']) . '.';
         if (!$serie && ($libre = self::libreDesde($c['fin'], $duracion))) {

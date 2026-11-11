@@ -78,9 +78,10 @@ if ($publica || $idNota > 0) {
     }
     $editar   = Pizarra::puedeEditar($reu) && !$embed;   // la vista previa es solo para mirar
     $pid      = (int)($reu['proyecto_id'] ?? 0);
-    $proyecto = (new ProyectoRepo())->buscar($pid);
+    // La general (agenda.php) no tiene proyecto: vuelve a su detalle
+    $proyecto = $pid > 0 ? (new ProyectoRepo())->buscar($pid) : Reuniones::proyectoGeneral();
     $titulo   = trim((string)($reu['topic'] ?? '')) ?: 'Reunión';
-    $volver   = 'proyecto.php?id=' . $pid . '#vista-reuniones';
+    $volver   = $pid > 0 ? 'proyecto.php?id=' . $pid . '#vista-reuniones' : 'reunion.php?id=' . $idReu;
     $api      = 'pizarra_api.php?reunion=' . $idReu;
 
     // «Jueves 29 oct · 10:00» o, si se repite, «De lunes a viernes · 09:00»
@@ -203,7 +204,7 @@ if ($editar) {
 
   <!-- Arriba: volver, la reunión, quién está y si ya se guardó -->
   <header class="pz-arriba pz-vidrio">
-    <a class="pz-boton pz-boton--icono" href="<?= e($volver) ?>" data-tip="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : 'Volver a las reuniones de ' . e((string)($proyecto['nombre'] ?? 'el proyecto'))) ?>" aria-label="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : 'Volver al proyecto') ?>">
+    <a class="pz-boton pz-boton--icono" href="<?= e($volver) ?>" data-tip="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : (!empty($proyecto['general']) ? 'Volver a la reunión' : 'Volver a las reuniones de ' . e((string)($proyecto['nombre'] ?? 'el proyecto')))) ?>" aria-label="<?= $idNota ? e($volverTip) : ($mia ? 'Volver al panel' : 'Volver al proyecto') ?>">
       <?= UI::icono('ds-chevron-izq') ?>
     </a>
     <div class="pz-arriba__titulo">

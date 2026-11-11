@@ -102,6 +102,8 @@ final class Pizarra
     /** La ve quien ve el proyecto de la reunión. */
     public static function puedeVer(?array $r): bool
     {
+        // La reunión general (proyecto_id = 0, agenda.php): admin, quien la creó y sus invitados
+        if ($r !== null && (int)($r['proyecto_id'] ?? 0) <= 0 && function_exists('puedeVerReunion')) return puedeVerReunion($r);
         return $r !== null && Auth::usuario() !== null && puedeVerProyecto((int)($r['proyecto_id'] ?? 0));
     }
 
@@ -112,7 +114,7 @@ final class Pizarra
         if (Auth::esAdmin()) return true;
         $yo = (int)(Auth::usuario()['id'] ?? 0);
         if ($yo > 0 && (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true) || (int)($r['creador_id'] ?? 0) === $yo)) return true;
-        return puedeReunionesDelProyecto((int)($r['proyecto_id'] ?? 0));
+        return (int)($r['proyecto_id'] ?? 0) <= 0 && function_exists('puedeEditarReunion') ? puedeEditarReunion($r) : puedeReunionesDelProyecto((int)($r['proyecto_id'] ?? 0));
     }
 
     /* ---------- Leer ---------- */

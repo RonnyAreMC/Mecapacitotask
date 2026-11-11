@@ -226,7 +226,7 @@ $invitadosDe = fn(array $a) => array_values(array_filter(array_map(fn($id) => $m
   <header class="rs-card__cab">
     <h3 class="rs-card__t"><?= $d['agenda'] ? 'Tus reuniones de hoy' : 'Tus reuniones' ?></h3>
     <?php if ($destacada): ?>
-    <a class="rs-card__ver" href="proyecto.php?id=<?= (int)$destacada['proyecto']['id'] ?>#vista-reuniones">Ver reuniones</a>
+    <a class="rs-card__ver" href="<?= !empty($destacada['proyecto']['general']) ? 'agenda.php' : 'proyecto.php?id=' . (int)$destacada['proyecto']['id'] . '#vista-reuniones' ?>">Ver reuniones</a>
     <?php endif; ?>
   </header>
   <?php if ($destacada):
@@ -253,7 +253,11 @@ $invitadosDe = fn(array $a) => array_values(array_filter(array_map(fn($id) => $m
       <?php if ($destacada['entrar'] && ($destacadaHoy || $vivo)): /* «Entrar» el mismo día; la de otro día se mira en el proyecto */ ?>
       <a class="rs-entrar<?= $conBorde ? ' is-ya' : '' ?>" href="<?= e($destacada['entrar']) ?>"><?= UI::icono('ds-video') ?> Entrar</a>
       <?php else: ?>
+      <?php if (!empty($destacada['proyecto']['general'])): /* la reunión general no es de un proyecto: su detalle */ ?>
+      <a class="rs-entrar rs-entrar--suave" href="reunion.php?id=<?= (int)$destacada['id'] ?>&amp;desde=agenda"><?= UI::icono('ds-chevron-der') ?> Ver la reunión</a>
+      <?php else: ?>
       <a class="rs-entrar rs-entrar--suave" href="proyecto.php?id=<?= (int)$destacada['proyecto']['id'] ?>#vista-reuniones"><?= UI::icono('ds-chevron-der') ?> Ver en el proyecto</a>
+      <?php endif; ?>
       <?php endif; ?>
     </div>
   </div>

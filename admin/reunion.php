@@ -28,7 +28,8 @@ require_once __DIR__ . '/lib/core/bootstrap.php';
 require_once __DIR__ . '/lib/meetings/reuniones_ui.php';
 
 $r = (new ReunionRepo())->buscar((int)($_GET['id'] ?? 0));
-if (!$r || !puedeVerProyecto((int)($r['proyecto_id'] ?? 0))) {
+// La general (proyecto_id = 0, agenda.php) la ven el admin, quien la creó y sus invitados
+if (!$r || !puedeVerReunion($r)) {
     redirigir('index.php', 'Esa reunión no está disponible.', 'error');
 }
 if (esSupervisor()) {
@@ -37,7 +38,8 @@ if (esSupervisor()) {
 
 $ahora    = time();
 $pid      = (int)$r['proyecto_id'];
-$proyecto = (new ProyectoRepo())->buscar($pid) ?? ['id' => $pid, 'nombre' => 'Proyecto'];
+$general  = Reuniones::esGeneral($r);   // sin proyecto: vuelve a la agenda y no tiene observaciones ni acta
+$proyecto = $general ? Reuniones::proyectoGeneral() : ((new ProyectoRepo())->buscar($pid) ?? ['id' => $pid, 'nombre' => 'Proyecto']);
 $miembros = (new MiembroRepo())->mapa();
 $serie    = Reuniones::esRecurrente($r);
 $plat     = in_array($r['plataforma'] ?? 'zoom', ['zoom', 'meet', 'enlace'], true) ? (string)($r['plataforma'] ?? 'zoom') : 'zoom';
@@ -47,16 +49,21 @@ $rastros  = ReunionesUI::rastros([$r]);
 $estado   = $vez['estado'] ?? 'paso';
 $paso     = $estado === 'paso';
 $diaOc    = $vez && $serie ? $vez['dia'] : '';            // el día, solo en las que se repiten (como en proyecto.php)
-$puedeReuniones = puedeReunionesDelProyecto($pid);
-$puedeEditar    = $puedeReuniones && ReunionesUI::plataformasListas();   // sin Zoom ni Meet, proyecto.php no trae el asistente
-$puedeActa      = UI::ia('acta_reunion') && puedeGestionar($pid);
+$puedeReuniones = puedeEditarReunion($r);
+// Sin Zoom ni Meet, proyecto.php no trae el asistente; la agenda (las generales) siempre lo trae
+$puedeEditar    = $puedeReuniones && ($general || ReunionesUI::plataformasListas());
+$puedeActa      = !$general && UI::ia('acta_reunion') && puedeGestionar($pid);   // el acta crea tareas en un proyecto
 $plural = fn(int $n, string $uno, string $varios) => $n . ' ' . ($n === 1 ? $uno : $varios);
 $entrar = ReunionesUI::enlaceEntrar($r);
 $nombreP = (string)$proyecto['nombre'];
 
 /* ---------- De dónde se llegó: a dónde vuelve el botón y adónde lleva editar o eliminar ---------- */
-$desde = in_array($_GET['desde'] ?? '', ['historial', 'proyecto'], true) ? (string)$_GET['desde'] : '';
+$desde = in_array($_GET['desde'] ?? '', ReunionesUI::DESDE, true) ? (string)$_GET['desde'] : '';
+// La general no tiene proyecto ni suite propia: siempre vuelve a la agenda (o a su historial)
+if ($general && !in_array($desde, ['agenda', 'agenda_hist'], true)) $desde = $desde === 'historial' ? 'agenda_hist' : 'agenda';
 [$volver, $volverTip] = match ($desde) {
+    'agenda'      => ['agenda.php', 'Volver a la agenda de reuniones'],
+    'agenda_hist' => ['agenda.php?ver=historial', 'Volver al historial de la agenda'],
     'proyecto'  => ['proyecto.php?id=' . $pid . '#vista-reuniones', 'Volver a ' . $nombreP],
     'historial' => ['reuniones.php?p=' . $pid . '&ver=historial', 'Volver al historial de ' . $nombreP],
     default     => ['reuniones.php?p=' . $pid, 'Volver a las reuniones de ' . $nombreP],
@@ -71,7 +78,7 @@ $trasEliminar = $desde === 'proyecto' ? '' : $volver;
 $acciones = '';
 if ($puedeReuniones) {
     $acciones .= '<form method="post" action="actions.php" class="inline-form"'
-        . ' data-confirmar="Se eliminará la reunión «' . e($tema) . '»' . ($serie ? ' con todos sus días' : '') . ' del panel y de ' . ($plat === 'meet' ? 'Google Calendar' : 'Zoom') . '."'
+        . ' data-confirmar="Se eliminará la reunión «' . e($tema) . '»' . ($serie ? ' con todos sus días' : '') . ' del panel' . ($plat === 'enlace' ? '' : ' y de ' . ($plat === 'meet' ? 'Google Calendar' : 'Zoom')) . '. Los invitados dejan de verla."'
         . ' data-confirmar-titulo="¿Eliminar reunión?" data-confirmar-ok="Sí, eliminar">'
         . '<input type="hidden" name="accion" value="reunion_eliminar"><input type="hidden" name="id" value="' . (int)$r['id'] . '">'
         . ($trasEliminar !== '' ? '<input type="hidden" name="volver" value="' . e($trasEliminar) . '">' : '')
@@ -88,8 +95,10 @@ if (!$paso && !empty($r['start_url'])) {
     $acciones .= ReunionesUI::botonCab('ds-play', 'Iniciar como anfitrión', (string)$r['start_url'], '', 'target="_blank" rel="noopener"');
 }
 if ($puedeEditar) {
-    $acciones .= ReunionesUI::botonCab('ds-editar', 'Editar o invitar a más gente' . ($serie ? ' (toda la serie)' : ''),
-        'proyecto.php?id=' . $pid . '&editar_reunion=' . (int)$r['id'] . '&volver=' . rawurlencode($aqui) . '#vista-reuniones');
+    // La general se edita en la agenda (agenda.php trae su asistente); la de un proyecto, en el proyecto
+    $acciones .= ReunionesUI::botonCab('ds-editar', 'Editar o invitar a más gente' . ($serie ? ' (toda la serie)' : ''), $general
+        ? 'agenda.php?editar_reunion=' . (int)$r['id'] . '&volver=' . rawurlencode($aqui)
+        : 'proyecto.php?id=' . $pid . '&editar_reunion=' . (int)$r['id'] . '&volver=' . rawurlencode($aqui) . '#vista-reuniones');
 }
 if (!$paso && $entrar) {
     $ya = in_array($estado, ['vivo', 'pronto'], true);
@@ -98,7 +107,7 @@ if (!$paso && $entrar) {
 }
 $sub = ReunionesUI::chipProyecto($proyecto, 'proyecto.php?id=' . $pid) . ReunionesUI::plataforma($r);
 
-UI::inicio($tema . ' · Reuniones', 'proyecto-' . $pid);
+UI::inicio($tema . ' · Reuniones', $general || in_array($desde, ['agenda', 'agenda_hist'], true) ? 'agenda' : 'proyecto-' . $pid);
 ReunionesUI::cabecera($volver, $volverTip, e($tema), $sub, $acciones);
 
 if (!$vez): ?>
@@ -342,7 +351,8 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
   </div>
 
   <?php
-  /* ---------- Observaciones ligadas a la reunión ---------- */
+  /* ---------- Observaciones ligadas a la reunión (son de un proyecto: la general no tiene) ---------- */
+  if (!$general):
   require_once __DIR__ . '/lib/tasks/obs_item.php';
   $todasObs = !empty($_GET['obs']);
   $hilos = array_values(array_filter((new ObservacionRepo())->hilosDelProyecto($pid), fn($o) => (int)($o['reunion_id'] ?? 0) === (int)$r['id']));
@@ -366,6 +376,7 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
       <?= ReunionesUI::vacio('ds-mensajes', 'Sin observaciones', 'Al anotar una en el proyecto, elige esta reunión en «De la reunión» y sale aquí.') ?>
     <?php endif; ?>
   </section>
+  <?php endif; /* !$general */ ?>
 </div>
 
 <?php UI::fin(); ?>

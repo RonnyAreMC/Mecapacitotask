@@ -489,6 +489,50 @@ function puedeReunionesDelProyecto(int $proyectoId): bool
     return puedeGestionar($proyectoId) || esPODelProyecto($proyectoId);
 }
 
+/**
+ * Reuniones generales (proyecto_id = 0): la «de todos» o la de varios equipos,
+ * sin ser de un proyecto (agenda.php). Las crean el administrador y el Scrum
+ * Master. Con «ver como» activo se contesta por ESA persona, como
+ * puedeHorarioDelProyecto(): así el panel no enseña lo que puede el admin
+ * mientras dice estar mirando con los ojos de otro.
+ */
+function puedeReunionesGenerales(): bool
+{
+    $yo = verComo() ?: Auth::usuario();
+    if (!$yo) return false;
+    return MiembroRepo::tieneAcceso($yo, 'admin') || MiembroRepo::tieneAcceso($yo, 'scrum');
+}
+
+/**
+ * ¿Puede abrir esta reunión (su detalle, entrar, su pizarra)? La de un
+ * proyecto, quien ve el proyecto. La general, el administrador, quien la creó
+ * y sus invitados (cada quien es invitado como persona, no por proyecto).
+ */
+function puedeVerReunion(?array $r): bool
+{
+    if (!$r || !Auth::usuario()) return false;
+    $pid = (int)($r['proyecto_id'] ?? 0);
+    if ($pid > 0) return puedeVerProyecto($pid);
+    if (Auth::esAdmin()) return true;
+    $yo = (int)Auth::usuario()['id'];
+    return (int)($r['creador_id'] ?? 0) === $yo
+        || in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true);
+}
+
+/**
+ * ¿Puede editarla o eliminarla? La de un proyecto, quien lleva sus reuniones.
+ * La general, el administrador (todas) o el Scrum Master que la creó.
+ */
+function puedeEditarReunion(?array $r): bool
+{
+    if (!$r) return false;
+    $pid = (int)($r['proyecto_id'] ?? 0);
+    if ($pid > 0) return puedeReunionesDelProyecto($pid);
+    if (!puedeReunionesGenerales()) return false;
+    $yo = verComo() ?: Auth::usuario();
+    return MiembroRepo::tieneAcceso($yo, 'admin') || (int)($r['creador_id'] ?? 0) === (int)($yo['id'] ?? 0);
+}
+
 function puedeHorarioDelProyecto(int $proyectoId): bool
 {
     // Con "ver como" activo se contesta por ESA persona. Si no, el panel
@@ -932,7 +976,8 @@ function alcanceProyectos(): ?array
             }
         }
         foreach ((new JsonStore('reuniones'))->all() as $r) {
-            if (in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
+            // Una reunión general (proyecto_id = 0) no abre ningún proyecto
+            if ((int)($r['proyecto_id'] ?? 0) > 0 && in_array($yo, array_map('intval', (array)($r['invitados'] ?? [])), true)) {
                 $ids[(int)$r['proyecto_id']] = true;
             }
         }

@@ -119,7 +119,8 @@ $rtReuTs = 0;
 foreach ((new ReunionRepo())->todas() as $rtRV) {
     $rtInv = array_map('intval', (array)($rtRV['invitados'] ?? []));
     if (!in_array($rtMid, $rtInv, true) && (int)($rtRV['creador_id'] ?? 0) !== $rtMid) continue;
-    if (!puedeVerProyecto((int)($rtRV['proyecto_id'] ?? 0))) continue;
+    // La general (proyecto_id = 0, agenda.php) también: ya se sabe que te invitaron o la creaste
+    if (!(function_exists('puedeVerReunion') ? puedeVerReunion($rtRV) : puedeVerProyecto((int)($rtRV['proyecto_id'] ?? 0)))) continue;
     $rtTs = Reuniones::proximoInicio($rtRV, $rtAhora);
     if ($rtTs && $rtTs - $rtAhora < 14 * 86400 && (!$rtReuTs || $rtTs < $rtReuTs)) { $rtReu = $rtRV; $rtReuTs = $rtTs; }
 }
@@ -138,7 +139,7 @@ if ($rtReu) {
     $rtDatos .= $rtDato($rtIc('Clock'), 'menta', $rtEnVivo ? 'Termina' : 'Empieza',
         '<span data-cuenta-regresiva data-corto data-ya="' . ($rtEnVivo ? 'ya terminó' : 'ya empezó') . '" data-hasta="' . ($rtEnVivo ? $rtFin : $rtReuTs)
         . '" data-ahora="' . $rtAhora . '">&nbsp;</span>',
-        e($rtNombreP($rtPidM)) . ' · ' . (int)($rtReu['duracion'] ?? 60) . ' min');
+        e($rtPidM > 0 ? $rtNombreP($rtPidM) : 'Reunión general') . ' · ' . (int)($rtReu['duracion'] ?? 60) . ' min');
     // Con quién: los demás invitados, en avatares
     $rtMapa = (new MiembroRepo())->mapa();
     $rtGente = [];
@@ -161,7 +162,9 @@ if ($rtReu) {
     if (is_file(__DIR__ . '/../../pizarra.php')) {
         $rtAcc .= $rtBoton('pizarra.php?reunion=' . (int)$rtReu['id'], $rtIc('StickyNote'), 'Pizarra de la reunión');
     }
-    $rtAcc .= $rtBoton('proyecto.php?id=' . $rtPidM . '#vista-reuniones', $rtIc('Calendar'), 'Reuniones de ' . $rtNombreP($rtPidM));
+    $rtAcc .= $rtPidM > 0
+        ? $rtBoton('proyecto.php?id=' . $rtPidM . '#vista-reuniones', $rtIc('Calendar'), 'Reuniones de ' . $rtNombreP($rtPidM))
+        : $rtBoton('agenda.php', $rtIc('Calendar'), 'Agenda de reuniones');
     $rtSlides[] = ['clave' => 'reunion', 'nombre' => 'Próxima reunión', 'main' => $rtMain($rtDatos, $rtAcc), 'urgente' => $rtReuUrgente];
 }
 

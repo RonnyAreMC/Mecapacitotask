@@ -15,11 +15,21 @@
  *   POST ?r=estado   {"id":N, "estado":"revision"}
  *   POST ?r=commit   {"id":N, "sha":"…", "mensaje":"…", "url":"…", "repo":"…", "estado":"…"}
  *   POST ?r=tareas   {"tareas":[…], "validar":true}   el mismo JSON de Planificar
+ *
+ *   Requerimientos sueltos (sin commits: muchos son de repos que el panel no lee):
+ *   GET  ?r=requerimientos[&estado=abiertos|cerrados|todos][&q=…][&todos=1]
+ *                                                los que tengo asignados (todos=1: todos, solo administrador)
+ *   GET  ?r=requerimiento&id=N                   uno con su detalle, observaciones e historial
+ *   POST ?r=req_terminar {"id":N, "nota":"cómo quedó"}   marcarlo terminado, con los mismos avisos del panel
  */
 define('MCH_API', true);
 require_once __DIR__ . '/lib/core/bootstrap.php';
 require_once __DIR__ . '/lib/core/ApiToken.php';
 if (is_file(__DIR__ . '/lib/releases/Releases.php')) require_once __DIR__ . '/lib/releases/Releases.php';
+// Requerimientos sueltos: el aviso de terminado (el mismo del panel) y quién da seguimiento
+foreach (['notifications/Notificaciones', 'requirements/ReqSeguimiento', 'requirements/req_avisos'] as $modApi) {
+    if (is_file(__DIR__ . '/lib/' . $modApi . '.php')) require_once __DIR__ . '/lib/' . $modApi . '.php';
+}
 
 header('Content-Type: application/json; charset=utf-8');
 header('Cache-Control: no-store');
@@ -134,6 +144,47 @@ $cambiarEstado = function (array $t, string $nuevo) use ($tareasRepo, $yoId): st
     return trim($aviso);
 };
 
+/* ---------- Requerimientos sueltos ---------- */
+$reqRepo = new RequerimientoRepo();
+$instMapaApi = class_exists('InstitucionRepo') ? (new InstitucionRepo())->mapa() : [];
+$textoPlano = fn(string $h) => class_exists('HtmlRico') ? HtmlRico::texto($h) : trim(html_entity_decode(strip_tags($h), ENT_QUOTES, 'UTF-8'));
+$reqApi = function (array $r, bool $detalle = false) use ($nombre, $instMapaApi, $textoPlano, $base): array {
+    $estado = RequerimientoRepo::estadoValido($r['estado'] ?? '');
+    $out = [
+        'id'            => (int)$r['id'],
+        'titulo'        => (string)($r['titulo'] ?? ''),
+        'estado'        => $estado,
+        'estado_nombre' => (string)(RequerimientoRepo::ESTADOS[$estado][0] ?? $estado),
+        'cerrado'       => RequerimientoRepo::cerrado($r),
+        'prioridad'     => (string)($r['prioridad'] ?? ''),
+        'solicitante'   => (string)($r['solicitante'] ?? ''),
+        'instituciones' => array_values(array_filter(array_map(fn($iid) => (string)($instMapaApi[$iid]['nombre'] ?? ''), RequerimientoRepo::institucionesDe($r)))),
+        'asignados'     => array_values(array_filter(array_map($nombre, RequerimientoRepo::asignadosDe($r)))),
+        'fecha_inicio'  => RequerimientoRepo::fechaInicio($r),
+        'fecha_entrega' => RequerimientoRepo::fechaFin($r),
+        'vencido'       => RequerimientoRepo::vencido($r),
+        'cerrado_en'    => (string)($r['cerrado_en'] ?? ''),
+        'url'           => $base . 'requerimiento.php?id=' . (int)$r['id'],
+    ];
+    if (!$detalle) return $out;
+    $out['detalle'] = $textoPlano((string)($r['detalle'] ?? ''));
+    $out['nota_cierre'] = (string)($r['nota_cierre'] ?? '');
+    $out['adjuntos'] = array_values(array_filter(array_map(fn($a) => is_array($a) ? (string)($a['nombre'] ?? '') : (string)$a, (array)($r['adjuntos'] ?? []))));
+    $out['observaciones'] = array_map(fn($o) => [
+        'id' => $o['id'], 'de' => $nombre($o['autor']), 'cuando' => $o['creado'], 'texto' => $o['html'] ? $textoPlano($o['texto']) : $o['texto'],
+        'responde_a' => $o['padre'] ?: null, 'corregir_hasta' => $o['vence'] ?: null, 'corregida' => $o['corregida'],
+    ], array_slice(RequerimientoRepo::observacionesDe($r), -30));
+    $out['historial'] = array_map(fn($h) => ['cuando' => (string)($h['fecha'] ?? ''), 'por' => $nombre((int)($h['quien'] ?? 0)), 'texto' => (string)($h['texto'] ?? '')],
+        array_slice(RequerimientoRepo::historialDe($r), -20));
+    return $out;
+};
+// Lo ve el administrador o quien lo tiene asignado (los colaboradores también quedan asignados)
+$reqVisible = function (int $id) use ($reqRepo, $yoId): array {
+    $r = $id > 0 ? $reqRepo->buscar($id) : null;
+    if (!$r || (!Auth::esAdmin() && !RequerimientoRepo::tieneAsignado($r, $yoId))) apiError('No existe el requerimiento #' . $id . ' o no lo tienes asignado.', 404);
+    return $r;
+};
+
 /* ---------- Rutas ---------- */
 switch ($ruta) {
     case 'yo':
@@ -236,10 +287,54 @@ switch ($ruta) {
         }
         apiFin(['ok' => true, 'mensaje' => $msg, 'tarea' => $tareaApi($tareasRepo->buscar((int)$t['id']) ?? $t, true)]);
 
+    case 'requerimientos':
+        $exigir('GET');
+        $todosReq = !empty($_GET['todos']);
+        if ($todosReq && !Auth::esAdmin()) apiError('Ver todos los requerimientos es del administrador; sin «todos=1» ves los tuyos.', 403);
+        $fEstR = (string)($_GET['estado'] ?? 'abiertos');
+        if (!in_array($fEstR, ['abiertos', 'cerrados', 'todos'], true)) apiError('Estado: abiertos (por defecto), cerrados o todos.');
+        $qR = ImportadorTareas::norm((string)($_GET['q'] ?? ''));
+        $listaR = [];
+        foreach ($reqRepo->todos() as $r) {
+            if (!$todosReq && !RequerimientoRepo::tieneAsignado($r, $yoId)) continue;
+            $cerradoR = RequerimientoRepo::cerrado($r);
+            if (($fEstR === 'abiertos' && $cerradoR) || ($fEstR === 'cerrados' && !$cerradoR)) continue;
+            if ($qR !== '' && !str_contains(ImportadorTareas::norm('#' . $r['id'] . ' ' . ($r['titulo'] ?? '') . ' ' . $textoPlano((string)($r['detalle'] ?? '')) . ' ' . ($r['solicitante'] ?? '')), $qR)) continue;
+            $listaR[] = $r;
+        }
+        // Lo que vence antes, arriba; sin fecha, al final
+        usort($listaR, fn($a, $b) => [RequerimientoRepo::fechaFin($a) ?: '9999', (int)$a['id']] <=> [RequerimientoRepo::fechaFin($b) ?: '9999', (int)$b['id']]);
+        apiFin(['ok' => true, 'total' => count($listaR), 'requerimientos' => array_map($reqApi, array_slice($listaR, 0, 200))]);
+
+    case 'requerimiento':
+        $exigir('GET');
+        apiFin(['ok' => true, 'requerimiento' => $reqApi($reqVisible((int)($_GET['id'] ?? 0)), true)]);
+
+    case 'req_terminar':
+        // Como «Marcar terminado» de la bandeja: lo marca quien lo tiene asignado (o el
+        // administrador), con una nota de cómo quedó. Sin commits: muchos son de repos
+        // (Gitea de las instituciones) que el panel no alcanza a leer.
+        $exigir('POST');
+        $r = $reqVisible((int)($entrada['id'] ?? 0));
+        if (!RequerimientoRepo::tieneAsignado($r, $yoId) && !Auth::esAdmin()) apiError('Solo quien lo tiene asignado puede marcarlo terminado.', 403);
+        if (($r['estado'] ?? '') === 'cancelado') apiError('El requerimiento #' . (int)$r['id'] . ' se canceló: ya no hay que hacerlo.', 409);
+        if (RequerimientoRepo::cerrado($r)) apiError('El requerimiento #' . (int)$r['id'] . ' ya estaba cerrado.', 409);
+        $notaR = mb_substr(trim((string)($entrada['nota'] ?? '')), 0, 600);
+        $reqRepo->actualizar((int)$r['id'], ['estado' => 'hecho', 'nota_cierre' => $notaR, 'cerrado_por' => $yoId, 'cerrado_en' => date('Y-m-d H:i')]);
+        $rAct = $reqRepo->buscar((int)$r['id']) ?? $r;
+        $retR = class_exists('ReqSeguimiento') ? ReqSeguimiento::retraso($rAct) : null;
+        $reqRepo->anotar((int)$r['id'], $yoId, 'Lo marcó terminado desde su asistente de código'
+            . ($retR ? ' con ' . $retR . ' día' . ($retR === 1 ? '' : 's') . ' de retraso' : ($retR === 0 ? ' a tiempo' : ''))
+            . ($notaR !== '' ? ': ' . mb_substr($notaR, 0, 200) : '.'));
+        $avisoR = function_exists('notificarReqTerminado') ? notificarReqTerminado($rAct, $yo, new MiembroRepo(), $notaR) : '';
+        apiFin(['ok' => true, 'mensaje' => 'El requerimiento #' . (int)$r['id'] . ' quedó terminado.' . $avisoR,
+                'requerimiento' => $reqApi($reqRepo->buscar((int)$r['id']) ?? $rAct, true)]);
+
     default:
         apiFin(['ok' => false, 'error' => 'Ruta desconocida.', 'rutas' => [
             'GET ?r=yo', 'GET ?r=tareas[&todas=1][&proyecto=ID][&estado=…][&q=…][&terminadas=1]', 'GET ?r=tarea&id=N',
             'GET ?r=items[&equipo=…][&release=…]', 'POST ?r=estado {id, estado}', 'POST ?r=commit {id, sha, mensaje, url, repo, rama, estado}',
             'POST ?r=tareas {tareas:[…], validar}',
+            'GET ?r=requerimientos[&estado=abiertos|cerrados|todos][&q=…][&todos=1]', 'GET ?r=requerimiento&id=N', 'POST ?r=req_terminar {id, nota}',
         ]], 404);
 }
