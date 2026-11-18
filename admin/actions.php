@@ -3297,7 +3297,7 @@ switch ($accion) {
         if ($nvIni === '' || $nvFin === '') redirigir('ajustes.php', 'Pon las dos fechas de la temporada navideña.', 'error');
         if ($nvFin < $nvIni) redirigir('ajustes.php', 'La temporada navideña termina antes de empezar: revisa las fechas.', 'error');
         $nvActiva = !empty($_POST['activa']);
-        Config::guardar(['navidad' => ['activa' => $nvActiva, 'inicio' => $nvIni, 'fin' => $nvFin, 'copos' => !empty($_POST['copos'])]]);
+        Config::guardar(['navidad' => ['activa' => $nvActiva, 'inicio' => $nvIni, 'fin' => $nvFin, 'copos' => !empty($_POST['copos']), 'santa' => !empty($_POST['santa'])]]);
         $nvFmt = fn(string $f) => (int)date('j', strtotime($f)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', strtotime($f)) - 1];
         $nvHoy = date('Y-m-d');
         redirigir('ajustes.php', !$nvActiva

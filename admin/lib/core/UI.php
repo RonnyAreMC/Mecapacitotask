@@ -92,7 +92,7 @@ class UI
         ?>
 <!DOCTYPE html>
 <?php $nvTemporada = self::navidad(); ?>
-<html lang="es"<?= $nvTemporada['vigente'] ? ' class="is-navidad"' . ($nvTemporada['copos'] ? ' data-nv-copos' : '') : '' ?>>
+<html lang="es"<?= $nvTemporada['vigente'] ? ' class="is-navidad"' . ($nvTemporada['copos'] ? ' data-nv-copos' : '') . ($nvTemporada['santa'] ? ' data-nv-santa' : '') . ($nvTemporada['logo'] !== '' ? ' data-nv-logo="' . e($nvTemporada['logo']) . '"' : '') : '' ?>>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -2037,7 +2037,11 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
             'inicio' => $fecha($c['inicio'] ?? null, $anio . '-12-01'),
             'fin'    => $fecha($c['fin'] ?? null, ($anio + 1) . '-01-06'),
             'copos'  => array_key_exists('copos', $c) ? !empty($c['copos']) : true,
+            'santa'  => array_key_exists('santa', $c) ? !empty($c['santa']) : true,
         ];
+        // El logo con su gorrito (lo hizo GPT a partir del de InnoTech): solo si el panel usa el logo de siempre
+        $gorro = __DIR__ . '/../../iconos/navidad/logo-gorro.png';
+        $n['logo'] = is_file($gorro) && empty(Config::get('logo')) ? asset('iconos/navidad/logo-gorro.png') : '';
         $n['vigente'] = $n['activa'] && $n['inicio'] <= $hoy && $hoy <= $n['fin'];
         return $n;
     }

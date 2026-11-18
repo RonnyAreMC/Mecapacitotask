@@ -107,12 +107,12 @@ UI::cabecera(
         <span class="nvaj__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 13c-2-4-6-5-9-3 1 1 1.3 2.2.6 3.2 1.4-.2 2.4.6 2.6 1.9 1-.9 2.3-.9 3.3 0 .3-1.3 1.4-2 2.5-2.1z" fill="#1F7A4D" stroke="#C9A227" stroke-width=".6" stroke-linejoin="round"/><path d="M12 13c2-4 6-5 9-3-1 1-1.3 2.2-.6 3.2-1.4-.2-2.4.6-2.6 1.9-1-.9-2.3-.9-3.3 0-.3-1.3-1.4-2-2.5-2.1z" fill="#27925C" stroke="#C9A227" stroke-width=".6" stroke-linejoin="round"/><circle cx="10.4" cy="13.6" r="2" fill="#C2333A"/><circle cx="13.6" cy="13.6" r="2" fill="#D9404A"/><circle cx="12" cy="11.4" r="2" fill="#B22A31"/></svg></span>
         <div class="nvaj__txt">
           <h2 class="font-display">Temporada navideña</h2>
-          <p class="ajuste-ayuda">Adornos sutiles en dorado, verde y rojo sobre los colores del panel: las pestañas y lo elegido con un canto dorado, una guirnalda de luces en la cabecera, esferas junto al título y acebo en el logo. Solo se ve entre sus fechas.</p>
+          <p class="ajuste-ayuda">Adornos en dorado, verde y rojo sobre los colores del panel: pestañas con canto dorado, guirnalda de luces, esferas junto al título, el logo y tu foto con gorrito, regalos en los proyectos y Papá Noel que aparece en una esquina. Solo se ve entre sus fechas.</p>
         </div>
         <dl class="nvaj__datos">
           <div><dt>Estado</dt><dd><span class="bl-est <?= $nvEstado[1] ?>"><?= e($nvEstado[0]) ?></span></dd></div>
           <div><dt>Fechas</dt><dd><?= e($nvFmt($nvT['inicio'])) ?> → <?= e($nvFmt($nvT['fin'])) ?></dd></div>
-          <div><dt>Copos en el menú</dt><dd><?= $nvT['copos'] ? 'Sí' : 'No' ?></dd></div>
+          <div><dt>Copos y Papá Noel</dt><dd><?= ($nvT['copos'] ? 'Copos' : 'Sin copos') . ' · ' . ($nvT['santa'] ? 'Papá Noel' : 'sin Papá Noel') ?></dd></div>
         </dl>
         <button type="button" class="mc-iconbtn" onclick="document.getElementById('dlg-navidad').showModal()" aria-label="Editar la temporada navideña" data-ds-tip="Editar la temporada navideña"><?= UI::iconoDS('editar', 18) ?></button>
       </section>
@@ -1189,6 +1189,7 @@ UI::cabecera(
         <label class="campo"><span>Hasta</span><input class="input-meca" type="date" name="fin" value="<?= e($nvM['fin']) ?>" required></label>
       </div>
       <?= UI::checkDS('copos', $nvM['copos'], 'Copos en el menú', 'Unos pocos copos, dorados y blancos, cayendo despacio solo en el menú lateral.') ?>
+      <?= UI::checkDS('santa', $nvM['santa'], 'Papá Noel en las esquinas', 'De vez en cuando aparece en 3D en una esquina de abajo, saluda y se va (unos segundos, cada uno o dos minutos).') ?>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
