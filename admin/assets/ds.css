@@ -7283,3 +7283,15 @@ html .kp-t--mal { color: #DC2626 !important; }
   html .kp-minis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   html .kp-card { padding: 16px; }
 }
+
+/* Importar historias: solo vienen marcadas las nuevas. El aviso de cuántas ya
+   están y, mientras no se pidan, esas filas (y las épicas solo con ellas) ocultas. */
+html .bl-imp-ya { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 14px; margin: 0 0 16px; padding: 12px 16px; border-radius: 14px;
+  background: color-mix(in srgb, var(--primary, #2B76F7) 7%, var(--surface)); color: var(--ink); font-size: .88rem; }
+html .bl-imp-ya.is-ninguna { background: color-mix(in srgb, #059669 8%, var(--surface)); }
+html .bl-imp-ya p { flex: 1 1 320px; margin: 0; line-height: 1.45; }
+html .bl-imp-ya__ico { display: inline-grid; flex: none; place-items: center; width: 30px; height: 30px; border-radius: 50%; color: var(--primary-ink, #2565D4); background: var(--surface); }
+html .bl-imp-ya.is-ninguna .bl-imp-ya__ico { color: #059669; }
+html .bl-imp-ya__ico .ico { width: 16px; height: 16px; }
+html .bl-hu.is-solo-nuevas tr.is-ya, html .bl-hu.is-solo-nuevas .bl-imp__ep.is-solo-ya { display: none; }
+html .bl-imp__tabla tr.is-ya:not(.is-fuera) { background: color-mix(in srgb, var(--primary, #2B76F7) 4%, transparent); }

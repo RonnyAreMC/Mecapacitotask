@@ -4758,14 +4758,19 @@ switch ($accion) {
                     $leidoImp = $_SESSION['bl_imp'][$pidImp] ?? null;
                     if (!is_array($leidoImp) || empty($leidoImp['datos']['historias'])) $blFin(false, 'Se perdió el documento leído: súbelo otra vez.');
                     $selImp = array_flip(array_map('intval', (array)($_POST['hu'] ?? [])));
-                    $husImp = array_values(array_filter($leidoImp['datos']['historias'], fn($i) => isset($selImp[$i]), ARRAY_FILTER_USE_KEY));
+                    // Con sus índices del documento: lo que ya está se reconoce sobre el documento entero
+                    // (igual que en la pantalla), así una marcada como «ya está» se pone al día y no se duplica
+                    $husImp = array_filter($leidoImp['datos']['historias'], fn($i) => isset($selImp[$i]), ARRAY_FILTER_USE_KEY);
                     if (!$husImp) $blFin(false, 'Marca al menos una historia para importar.');
+                    Backlog::usarProyecto($pidImp);
+                    $prevImp = array_intersect_key(BacklogImport::previas($pidImp, $leidoImp['datos']['historias']), $husImp);
                     $modoImp = in_array($_POST['modo'] ?? '', ['documento', 'repartir', 'backlog'], true) ? (string)$_POST['modo'] : 'documento';
-                    $rImp = BacklogImport::aplicar($pidImp, $husImp, $modoImp, max(1, min(300, (int)($_POST['capacidad'] ?? 0))), $blYo);
+                    $rImp = BacklogImport::aplicar($pidImp, $husImp, $modoImp, max(1, min(300, (int)($_POST['capacidad'] ?? 0))), $blYo, $prevImp);
                     unset($_SESSION['bl_imp'][$pidImp]);
                     // Se vuelve al release de esas historias
                     $relImp = '';
-                    foreach (Backlog::epicas($pidImp) as $itImp) if ((string)$itImp['codigo'] === (string)($husImp[0]['epica'] ?? '')) { $relImp = (string)$itImp['release']; break; }
+                    $primeraImp = reset($husImp) ?: [];
+                    foreach (Backlog::epicas($pidImp) as $itImp) if ((string)$itImp['codigo'] === (string)($primeraImp['epica'] ?? '')) { $relImp = (string)$itImp['release']; break; }
                     $_POST['volver'] = 'proyecto.php?id=' . $pidImp . ($relImp !== '' ? '&sp_r=' . rawurlencode($relImp) : '') . '#vista-sprints';
                     $msgImp = 'Importadas: ' . $rImp['creadas'] . ' nueva(s)' . ($rImp['actualizadas'] ? ' y ' . $rImp['actualizadas'] . ' puesta(s) al día' : '')
                         . ' · ' . $rImp['en_sprint'] . ' en sprints y ' . $rImp['en_backlog'] . ' en el backlog.';

@@ -275,13 +275,97 @@ final class BacklogImport
     }
 
     /**
-     * Crea (o pone al día, por su código) las historias en el backlog del proyecto.
+     * Un título para comparar: sin mayúsculas, tildes, signos ni el «HU-03 ·» del principio.
+     */
+    public static function normal(string $t): string
+    {
+        $t = mb_strtolower(trim($t));
+        $t = strtr($t, ['á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n']);
+        $t = preg_replace('/^(hu|us)[\s_-]*\d+\s*[:.·-]*\s*/u', '', $t) ?? $t;
+        $t = preg_replace('/[^a-z0-9]+/', ' ', $t) ?? $t;
+        return trim(preg_replace('/\s+/', ' ', $t) ?? $t);
+    }
+
+    /** Las palabras que dicen algo de un título, sin plurales ni artículos y en orden: «los clientes nuevos» = «nuevo cliente». */
+    public static function palabras(string $normal): string
+    {
+        static $vacias = ['de', 'del', 'la', 'el', 'los', 'las', 'un', 'una', 'unos', 'unas', 'y', 'e', 'o', 'a', 'al', 'en', 'para', 'por', 'con', 'que', 'se', 'su', 'sus'];
+        $w = [];
+        foreach (explode(' ', $normal) as $x) {
+            if ($x === '' || in_array($x, $vacias, true)) continue;
+            if (strlen($x) > 3 && str_ends_with($x, 's')) $x = substr($x, 0, -1);   // clientes → cliente, leads → lead
+            if (strlen($x) > 4 && str_ends_with($x, 'e')) $x = substr($x, 0, -1);   // cliente → client (igual que clientes)
+            $w[] = $x;
+        }
+        $w = array_unique($w);
+        sort($w);
+        return implode(' ', $w);
+    }
+
+    /**
+     * ¿Cuáles del documento ya están en el backlog del proyecto? Por su código y,
+     * si no lo trae o no coincide, por el título: igual, con las mismas palabras
+     * (plurales, tildes, artículos y orden aparte) o, si la IA lo reescribió un
+     * poco, casi igual en el título Y en el «quiero». «Reporte de ventas mensual»
+     * y «… anual» no son la misma: cambia una palabra que importa. Hace falta porque el documento que lee la IA casi nunca trae
+     * códigos: esas historias se guardaron con «HU-001…» y, al subir el documento
+     * otra vez con dos cosas nuevas, se volvían a crear todas.
+     * → [índice => ['h' => la historia que ya está, 'por' => 'codigo'|'titulo']]
+     */
+    public static function previas(int $pid, array $historias): array
+    {
+        $todas = Backlog::historias(['proyecto_id' => $pid]);
+        $porCod = [];
+        foreach ($todas as $e) if ((string)$e['codigo'] !== '') $porCod[strtoupper((string)$e['codigo'])] = $e;
+        $out = [];
+        $usadas = [];
+        foreach ($historias as $i => $h) {
+            $c = strtoupper(trim((string)($h['codigo'] ?? '')));
+            if ($c !== '' && isset($porCod[$c])) {
+                $out[$i] = ['h' => $porCod[$c], 'por' => 'codigo'];
+                $usadas[(int)$porCod[$c]['id']] = true;
+            }
+        }
+        $norm = [];
+        foreach ($todas as $e) {
+            $t = self::normal((string)$e['titulo']);
+            $norm[(int)$e['id']] = [$t, self::normal((string)($e['quiero'] ?? '')), self::palabras($t)];
+        }
+        foreach ($historias as $i => $h) {
+            if (isset($out[$i])) continue;
+            $t = self::normal((string)($h['titulo'] ?? ''));
+            $q = self::normal((string)($h['quiero'] ?? ''));
+            if ($t === '') continue;
+            $pal = self::palabras($t);
+            $mejor = null;
+            $mejorPct = 0.0;
+            foreach ($todas as $e) {
+                $eid = (int)$e['id'];
+                if (isset($usadas[$eid]) || $norm[$eid][0] === '') continue;
+                if ($norm[$eid][0] === $t || ($pal !== '' && $norm[$eid][2] === $pal)) { $mejor = $e; $mejorPct = 100.0; break; }
+                // Reescrita por la IA: el título y el «quiero» casi iguales, los dos
+                if ($q === '' || $norm[$eid][1] === '') continue;
+                similar_text($t, $norm[$eid][0], $pt);
+                similar_text($q, $norm[$eid][1], $pq);
+                $pct = ($pt >= 90 && $pq >= 92) ? ($pt + $pq) / 2 : 0.0;
+                if ($pct > $mejorPct) { $mejorPct = $pct; $mejor = $e; }
+            }
+            if ($mejor && $mejorPct >= 90) {
+                $out[$i] = ['h' => $mejor, 'por' => 'titulo'];
+                $usadas[(int)$mejor['id']] = true;
+            }
+        }
+        return $out;
+    }
+
+    /**
+     * Crea (o pone al día, por su código o su título) las historias en el backlog del proyecto.
      * $modo: 'documento' (el sprint que dice el documento; si ya pasó, el de hoy),
      * 'repartir' (por prioridad y capacidad) o 'backlog' (todas sin sprint).
      * Las que ya existían conservan su sprint, su estado, su responsable y sus tareas.
      * → ['creadas', 'actualizadas', 'en_sprint', 'en_backlog', 'sin_epica' => [códigos]]
      */
-    public static function aplicar(int $pid, array $historias, string $modo, int $capacidad, int $quien): array
+    public static function aplicar(int $pid, array $historias, string $modo, int $capacidad, int $quien, ?array $previas = null): array
     {
         $hoy = date('Y-m-d');
         Backlog::usarProyecto($pid);
@@ -289,14 +373,14 @@ final class BacklogImport
         $act = Backlog::actual($hoy);
         $epicas = [];
         foreach (Backlog::epicas($pid) as $it) $epicas[(string)$it['codigo']] = (int)$it['id'];
-        $ya = [];
-        foreach (Backlog::historias(['proyecto_id' => $pid]) as $h) if ($h['codigo'] !== '') $ya[$h['codigo']] = $h;
+        // Las que ya están (por código o por título): se ponen al día, no se duplican
+        $prev = $previas ?? self::previas($pid, $historias);
         // Repartir: los sprints que no pasaron de los releases de sus épicas (o, si no, de todos)
         $destino = [];
         if ($modo === 'repartir') {
             $cand = self::candidatos($pid, $historias);
             // Solo las nuevas: las que ya estaban se quedan en su sprint y no ocupan capacidad
-            $destino = self::repartir(array_filter($historias, fn($h) => $h['codigo'] === '' || !isset($ya[$h['codigo']])), $cand, max(1, $capacidad));
+            $destino = self::repartir(array_filter($historias, fn($i) => !isset($prev[$i]), ARRAY_FILTER_USE_KEY), $cand, max(1, $capacidad));
         }
         $r = ['creadas' => 0, 'actualizadas' => 0, 'en_sprint' => 0, 'en_backlog' => 0, 'sin_epica' => []];
         foreach ($historias as $i => $h) {
@@ -305,8 +389,8 @@ final class BacklogImport
                   'prioridad' => self::MOSCOW[$h['prioridad']] ?? 'media', 'proyecto_id' => $pid];
             $iid = $epicas[$h['epica']] ?? 0;
             if ($h['epica'] !== '' && !$iid) $r['sin_epica'][$h['epica']] = true;
-            if ($iid || !($ya[$h['codigo']] ?? null)) $d['item_id'] = $iid; // una ya enlazada a mano no se suelta
-            $previa = $ya[$h['codigo']] ?? null;
+            $previa = $prev[$i]['h'] ?? null;
+            if ($iid || !$previa) $d['item_id'] = $iid; // una ya enlazada a mano no se suelta
             if (!$previa) {
                 $sp = match ($modo) {
                     'repartir' => (string)($destino[$i] ?? ''),
