@@ -221,14 +221,22 @@
 
   /* -- Papá Noel en 3D: de vez en cuando aparece de la nada en una esquina de abajo, saluda y se va.
         El módulo (y three.js) se carga recién la primera vez; solo dibuja mientras está en pantalla. -- */
+  // Una vez por hora: la última visita se anota en el navegador, así no se repite al cambiar de
+  // página ni con varias pestañas abiertas (sin localStorage, cuenta solo en esta página)
+  var HORA = 3600000, CLAVE = 'nv-santa-ultima';
+  function ultima() { try { return +localStorage.getItem(CLAVE) || 0; } catch (e) { return 0; } }
+  function anotar() { try { localStorage.setItem(CLAVE, String(Date.now())); } catch (e) { /* sin almacenamiento */ } }
   var santa = null, enEscena = false, sinSanta = false;
   function visitaDeSanta() {
     if (sinSanta) return;
+    var falta = ultima() + HORA - Date.now();
+    if (falta > 1000) return programar(falta);   // ya vino hace menos de una hora (quizá en otra pestaña)
     if (enEscena || document.hidden || document.querySelector('dialog[open]')) return programar(20000);
     enEscena = true;
+    anotar();
     (santa || (santa = import(base + 'navidad/santa.js' + version)))
       .then(function (m) { return m.mostrar({ lado: Math.random() < .7 ? 'der' : 'izq', onDestello: function (x, y) { estallido(x, y, true); } }); })
-      .then(function () { enEscena = false; programar(70000 + Math.random() * 70000); },
+      .then(function () { enEscena = false; programar(HORA); },
             function () { enEscena = false; sinSanta = true; /* sin WebGL o sin el módulo: ya no se intenta */ });
   }
   function programar(ms) { setTimeout(visitaDeSanta, ms); }
@@ -240,11 +248,14 @@
     try { gorritos(); } catch (e) { /* adorno */ }
     try { proyecto(); } catch (e) { /* adorno */ }
     try { copos(); } catch (e) { /* adorno */ }
-    if (!quieto && html.hasAttribute('data-nv-santa') && 'noModule' in HTMLScriptElement.prototype) programar(9000 + Math.random() * 8000);
+    if (!quieto && html.hasAttribute('data-nv-santa') && 'noModule' in HTMLScriptElement.prototype) {
+      // La primera vez, a los pocos segundos; después, cuando se cumpla la hora desde la última visita
+      programar(Math.max(ultima() + HORA - Date.now(), 10000 + Math.random() * 8000));
+    }
   }
   var reloj = 0;
   window.addEventListener('resize', function () { clearTimeout(reloj); reloj = setTimeout(function () { try { guirnalda(); } catch (e) { /* adorno */ } }, 200); });
   // Para probarlo desde la consola: nvSantaYa()
-  window.nvSantaYa = function () { visitaDeSanta(); };
+  window.nvSantaYa = function () { try { localStorage.removeItem(CLAVE); } catch (e) { /* nada */ } visitaDeSanta(); };
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', poner); else poner();
 })();

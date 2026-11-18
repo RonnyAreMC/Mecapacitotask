@@ -181,7 +181,7 @@ function actualizarPanel(array $opc): void
         'lib/ai/IAFunciones.php' => ['function reorganizarItem', 'mejor pocas y seguras: vincula', 'function tareasHistoria', 'historiasDocumento', '$itemFijo', 'Por qué: ', 'requerimientoCorreo', 'tareasCorreo', 'respuestaCorreo', 'releaseTareas', 'PLAZO_REQ', 'itemsRel', 'planDescripcion'],
         'lib/ai/IA.php'        => ['rel_reorganizar', 'bl_tareas_hu', 'bl_historias', 'req_desde_correo', 'tareas_desde_correo', 'responder_correo', 'release_tareas', 'plan_descripcion'],
         'login.php'         => ['entradaArte', 'auth_recuperar_cambiar', 'ent-nexo'],
-        'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]', 'dlg-navidad', 'navidad_conf', 'Papá Noel en las esquinas'],
+        'ajustes.php'       => ['whatsapp[activo]', 'deploys[cronograma][hora]', 'deploys[url]', 'dlg-navidad', 'navidad_conf', 'Papá Noel en las esquinas', 'Una vez por hora aparece'],
         'lib/core/Auth.php'      => ['buscarPorUsuario', 'trasLogin'],
         'registro.php'      => ['entradaArte'],
         'assets/admin.js'   => ['data-rq-plazo', 'rq-nueva', 'function reflejarEntrega', 'reabrirTareaEnPantalla', 'data-pp-equipos', 'Clic derecho: cierra', 'dataset.msAncho', "closest('.est-pill')", 'pg-vidrio', 'Uno a la vez: al abrir este', 'function dtFoco', 'dtImpEnviar', 'data-vt-tabs', "quitar('volver')", 'data-ru-abrir', 'nueva_reunion', 'data-ru-serie', 'function obsTarjetas', 'MecaWizard.CHECK', 'ACTIVAS:', "setProperty('--lx'", 'data-rt-mover', 'mchub.rs.plegada.', '.rs-vista__op, .rs-boton', 'dataset.ya', '.req-tr[data-href]','mc-toast-slot', '--spin-c', 'proyectoVistaCelular', 'mc-toast__accion', 'data-visor-grupo', 'data-cuenta-regresiva', 'dt-autor', 'data-buscar-lista', 'meca-nav-plegados', 'insertTable', 'js-et-rel', 'data-rad-btn', 'tipoPuntero', 'function dtPintarTraza', 'function abrirTareaEnlazada', 'const LenteVidrio', 'wz-ceja', 'dataset.wzIr', 'reu-choque', 'const SelectorHora', 'tk(\'--col-none-solid\', P.pendiente)'],
@@ -232,8 +232,8 @@ function actualizarPanel(array $opc): void
         'req_dashboard.php'          => ['rd-ancho-3', 'reqRepartoPorPersona'],
         'assets/req-reparto.js'      => ['data-rp-tira', 'data-rp-abrir'],
         'assets/req-reparto.css'     => ['.rp-tira', '.rp-dlg'],
-        'assets/navidad.css'         => ['nv-chispa', '--elegido-canto', '.nv-santa {', '.nv-gorro {', '.nv-nevado {', 'nv-halo'],
-        'assets/navidad.js'          => ['function estallido(', 'function gorritos(', 'function visitaDeSanta(', 'function proyecto('],
+        'assets/navidad.css'         => ['nv-chispa', '--elegido-canto', '.nv-santa {', '.nv-gorro {', '.nv-nevado {', 'nv-halo', 'nv-gorro-mece'],
+        'assets/navidad.js'          => ['function estallido(', 'function gorritos(', 'function visitaDeSanta(', 'function proyecto(', 'nv-santa-ultima'],
         'assets/navidad/santa.js'    => ['export function mostrar('],
     ];
     $viejos = [];

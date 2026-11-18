@@ -150,12 +150,14 @@ html.sb-collapsed .nv-santa-globo[data-lado="izq"] { left: 234px; }
 /* ---------- Gorrito de Papá Noel sobre tu foto (en proporción a cualquier tamaño) ---------- */
 .nv-av { position: relative; display: inline-flex; flex: none; line-height: 0; }
 .nv-gorro {
-  position: absolute; left: -12%; top: -27%; width: 72%; z-index: 2;
-  transform: rotate(-16deg); pointer-events: none;
+  /* Al lado derecho de la foto, inclinado hacia afuera */
+  position: absolute; left: 42%; top: -27%; width: 72%; z-index: 2;
+  transform: rotate(18deg); pointer-events: none;
   filter: drop-shadow(0 1px 1.5px rgb(0 0 0 / .22));
 }
 .nv-gorro svg { display: block; width: 100%; height: auto; }
-.ds-cuenta__btn:hover .nv-gorro { animation: nv-campana .75s ease-in-out; transform-origin: 30% 80%; }
+.ds-cuenta__btn:hover .nv-gorro { animation: nv-gorro-mece .75s ease-in-out; transform-origin: 40% 85%; }
+@keyframes nv-gorro-mece { 0%, 100% { transform: rotate(18deg); } 30% { transform: rotate(28deg); } 60% { transform: rotate(12deg); } 80% { transform: rotate(21deg); } }
 
 /* ---------- La cabecera del proyecto: nieve sobre el borde y unos regalos al pie ---------- */
 html.is-navidad .proyecto-hero { position: relative; }

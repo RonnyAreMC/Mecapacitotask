@@ -1189,7 +1189,7 @@ UI::cabecera(
         <label class="campo"><span>Hasta</span><input class="input-meca" type="date" name="fin" value="<?= e($nvM['fin']) ?>" required></label>
       </div>
       <?= UI::checkDS('copos', $nvM['copos'], 'Copos en el menú', 'Unos pocos copos, dorados y blancos, cayendo despacio solo en el menú lateral.') ?>
-      <?= UI::checkDS('santa', $nvM['santa'], 'Papá Noel en las esquinas', 'De vez en cuando aparece en 3D en una esquina de abajo, saluda y se va (unos segundos, cada uno o dos minutos).') ?>
+      <?= UI::checkDS('santa', $nvM['santa'], 'Papá Noel en las esquinas', 'Una vez por hora aparece en 3D en una esquina de abajo, saluda y se va (unos segundos).') ?>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
