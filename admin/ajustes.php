@@ -99,6 +99,24 @@ UI::cabecera(
         </div>
       </section>
 
+      <?php /* Temporada navideña: se ve aquí y se edita en su modal (dlg-navidad, al final de la página) */
+        $nvT = UI::navidad();
+        $nvFmt = fn(string $f) => (int)date('j', strtotime($f)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', strtotime($f)) - 1] . ' ' . date('Y', strtotime($f));
+        $nvEstado = !$nvT['activa'] ? ['Apagada', 'bl-t--gris'] : ($nvT['vigente'] ? ['Encendida · se ve ahora', 'bl-t--verde'] : ['Encendida · empieza el ' . $nvFmt($nvT['inicio']), 'bl-t--azul']); ?>
+      <section class="card-base ajuste-card nvaj">
+        <span class="nvaj__ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="28" height="28"><path d="M12 13c-2-4-6-5-9-3 1 1 1.3 2.2.6 3.2 1.4-.2 2.4.6 2.6 1.9 1-.9 2.3-.9 3.3 0 .3-1.3 1.4-2 2.5-2.1z" fill="#1F7A4D" stroke="#C9A227" stroke-width=".6" stroke-linejoin="round"/><path d="M12 13c2-4 6-5 9-3-1 1-1.3 2.2-.6 3.2-1.4-.2-2.4.6-2.6 1.9-1-.9-2.3-.9-3.3 0-.3-1.3-1.4-2-2.5-2.1z" fill="#27925C" stroke="#C9A227" stroke-width=".6" stroke-linejoin="round"/><circle cx="10.4" cy="13.6" r="2" fill="#C2333A"/><circle cx="13.6" cy="13.6" r="2" fill="#D9404A"/><circle cx="12" cy="11.4" r="2" fill="#B22A31"/></svg></span>
+        <div class="nvaj__txt">
+          <h2 class="font-display">Temporada navideña</h2>
+          <p class="ajuste-ayuda">Adornos sutiles en dorado, verde y rojo sobre los colores del panel: las pestañas y lo elegido con un canto dorado, una guirnalda de luces en la cabecera, esferas junto al título y acebo en el logo. Solo se ve entre sus fechas.</p>
+        </div>
+        <dl class="nvaj__datos">
+          <div><dt>Estado</dt><dd><span class="bl-est <?= $nvEstado[1] ?>"><?= e($nvEstado[0]) ?></span></dd></div>
+          <div><dt>Fechas</dt><dd><?= e($nvFmt($nvT['inicio'])) ?> → <?= e($nvFmt($nvT['fin'])) ?></dd></div>
+          <div><dt>Copos en el menú</dt><dd><?= $nvT['copos'] ? 'Sí' : 'No' ?></dd></div>
+        </dl>
+        <button type="button" class="mc-iconbtn" onclick="document.getElementById('dlg-navidad').showModal()" aria-label="Editar la temporada navideña" data-ds-tip="Editar la temporada navideña"><?= UI::iconoDS('editar', 18) ?></button>
+      </section>
+
     </div>
   </div>
 
@@ -1152,5 +1170,31 @@ UI::cabecera(
     <button type="button" class="accion-btn accion-peligro btn-quitar-fila" title="Eliminar"><i class="fa-solid fa-trash"></i></button>
   </div>
 </template>
+
+<!-- Modal: Temporada navideña (la tarjeta está en Ajustes → Identidad) -->
+<?php $nvM = UI::navidad(); ?>
+<dialog class="ds-modal" id="dlg-navidad" aria-labelledby="dlg-nv-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="navidad_conf">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul" aria-hidden="true"><svg viewBox="0 0 24 24" width="18" height="18"><path d="M12 2.5l2.4 5.6 6.1.6-4.6 4 1.4 6-5.3-3.2-5.3 3.2 1.4-6-4.6-4 6.1-.6z" fill="#F1D27A" stroke="#9C7A12" stroke-width="1" stroke-linejoin="round"/></svg></span>
+      <div><h2 class="ds-modal__title" id="dlg-nv-t">Temporada navideña</h2>
+        <p class="ds-modal__sub">Se enciende para todo el panel y se apaga sola al pasar la fecha final.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body nvaj-form">
+      <?= UI::checkDS('activa', $nvM['activa'], 'Encendida para todo el panel', 'Solo se ve entre estas fechas: antes y después el panel luce como siempre, sin que nadie la apague.') ?>
+      <div class="campo-doble">
+        <label class="campo"><span>Desde</span><input class="input-meca" type="date" name="inicio" value="<?= e($nvM['inicio']) ?>" required></label>
+        <label class="campo"><span>Hasta</span><input class="input-meca" type="date" name="fin" value="<?= e($nvM['fin']) ?>" required></label>
+      </div>
+      <?= UI::checkDS('copos', $nvM['copos'], 'Copos en el menú', 'Unos pocos copos, dorados y blancos, cayendo despacio solo en el menú lateral.') ?>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar</span></button>
+    </footer>
+  </form>
+</dialog>
 
 <?php UI::fin(); ?>

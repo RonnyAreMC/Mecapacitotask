@@ -1,0 +1,149 @@
+/* =========================================================
+   Temporada navideña (Ajustes → Identidad). Solo se carga entre sus fechas
+   (UI::navidad) y todo va bajo html.is-navidad: si se apaga, el panel luce
+   como siempre. Adornos sutiles, en dorado, verde y rojo sobre los azules de
+   InnoTech: nada tapa contenido ni se puede pulsar (pointer-events: none).
+   ========================================================= */
+html.is-navidad {
+  --nv-oro: #C9A227;
+  --nv-oro-claro: #F1D27A;
+  --nv-oro-hondo: #9C7A12;
+  --nv-verde: #1F7A4D;
+  --nv-verde-claro: #3FA36B;
+  --nv-rojo: #C2333A;
+  --nv-rojo-claro: #E25A5F;
+  --nv-azul: #2B76F7;
+  --nv-hilo: rgb(110 92 52 / .45);
+  /* Lo elegido (pestañas, enlace activo del menú, opciones): el canto pasa a oro, rojo y verde */
+  --elegido-canto: linear-gradient(125deg, rgb(241 210 122 / .98), rgb(201 162 39 / .8) 28%, rgb(194 51 58 / .6) 46%, rgb(255 255 255 / 0) 60%, rgb(31 122 77 / .92));
+  --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .9), 0 4px 14px -6px rgb(201 162 39 / .6);
+}
+html.is-navidad.dark {
+  --nv-hilo: rgb(241 210 122 / .35);
+  --elegido-luz: inset 0 1px 0 rgb(255 255 255 / .1), 0 4px 16px -6px rgb(241 210 122 / .45);
+}
+
+/* ---------- Pestañas: un destello dorado en la que está elegida ---------- */
+html.is-navidad :is(.tab-btn.active, .subvista-btn.active, .sup-tab.active, .ru-tabs__op[aria-current], .rs-vista__op[aria-current], .rl-subnav a[aria-current]) {
+  position: relative;
+}
+html.is-navidad :is(.tab-btn.active, .subvista-btn.active, .sup-tab.active, .ru-tabs__op[aria-current], .rs-vista__op[aria-current], .rl-subnav a[aria-current])::before {
+  content: '';
+  position: absolute; top: 3px; right: 5px; z-index: 2;
+  width: 10px; height: 10px; pointer-events: none;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E%3Cstop offset='0' stop-color='%23FFF1C2'/%3E%3Cstop offset='.5' stop-color='%23F1D27A'/%3E%3Cstop offset='1' stop-color='%23C9A227'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath fill='url(%23g)' d='M12 0c.9 6.4 5.6 11.1 12 12-6.4.9-11.1 5.6-12 12-.9-6.4-5.6-11.1-12-12C6.4 11.1 11.1 6.4 12 0z'/%3E%3C/svg%3E") center / contain no-repeat;
+  filter: drop-shadow(0 0 2px rgb(241 210 122 / .8));
+  animation: nv-destello 3.8s ease-in-out infinite;
+}
+/* Los selectores deslizantes (Próximas | Historial, Proyectos | Resumen): un aro dorado fino */
+html.is-navidad :is(.ru-tabs__pieza, .rs-vista__pieza) {
+  box-shadow: inset 0 0 0 1.5px rgb(241 210 122 / .85), 0 6px 16px -8px rgb(201 162 39 / .6);
+}
+/* El botón principal (crear): un filo dorado */
+html.is-navidad .rs-boton--primario {
+  box-shadow: inset 0 0 0 1.5px rgb(241 210 122 / .75), inset 0 1px 0 rgb(255 255 255 / .4), 0 6px 16px -8px rgb(22 163 74 / .65);
+}
+
+/* ---------- La guirnalda de luces bajo la cabecera ---------- */
+html.is-navidad #ds-topbar { position: relative; }
+.nv-luces {
+  position: absolute; left: 0; right: 0; bottom: -9px; height: 16px; z-index: 3;
+  pointer-events: none; overflow: visible;
+}
+.nv-luces svg { display: block; width: 100%; height: 16px; overflow: visible; }
+.nv-luces .nv-hilo { fill: none; stroke: var(--nv-hilo); stroke-width: 1; }
+.nv-luces .nv-foco { animation: nv-titilar 3.2s ease-in-out infinite; transform-box: fill-box; transform-origin: center; }
+.nv-luces .nv-foco:nth-of-type(4n+2) { animation-delay: -.8s; }
+.nv-luces .nv-foco:nth-of-type(4n+3) { animation-delay: -1.6s; }
+.nv-luces .nv-foco:nth-of-type(4n+4) { animation-delay: -2.4s; }
+.nv-luces .nv-foco--oro   { fill: var(--nv-oro-claro); filter: drop-shadow(0 0 3px rgb(241 210 122 / .9)); }
+.nv-luces .nv-foco--rojo  { fill: var(--nv-rojo-claro); filter: drop-shadow(0 0 3px rgb(226 90 95 / .75)); }
+.nv-luces .nv-foco--verde { fill: var(--nv-verde-claro); filter: drop-shadow(0 0 3px rgb(63 163 107 / .75)); }
+.nv-luces .nv-foco--azul  { fill: #5B95F5; filter: drop-shadow(0 0 3px rgb(91 149 245 / .8)); }
+.nv-luces .nv-casquillo { fill: var(--nv-oro-hondo); }
+
+/* ---------- Tres esferas colgando del título de cada pantalla ---------- */
+.nv-adornos {
+  display: inline-flex; align-items: flex-start; gap: 7px;
+  margin-left: 12px; height: 1em; vertical-align: top;
+  pointer-events: none;
+}
+.nv-adorno { display: block; transform-origin: 50% 0; animation: nv-mecer 5.5s ease-in-out infinite; }
+.nv-adorno:nth-child(2) { animation-delay: -1.8s; }
+.nv-adorno:nth-child(3) { animation-delay: -3.6s; }
+.nv-adorno svg { display: block; overflow: visible; }
+
+/* ---------- Acebo junto al logo ---------- */
+html.is-navidad .sidebar-brand { position: relative; }
+.nv-acebo {
+  position: absolute; left: 26px; top: -2px; z-index: 2;
+  width: 22px; height: 22px; pointer-events: none;
+  filter: drop-shadow(0 1px 1px rgb(0 0 0 / .18));
+}
+
+/* ---------- Copos en el menú (opcional) ---------- */
+html.is-navidad .sidebar { isolation: isolate; }
+.nv-copos { position: absolute; inset: 0; overflow: hidden; pointer-events: none; z-index: 0; }
+.nv-copo {
+  position: absolute; top: -12px;
+  width: var(--t, 5px); height: var(--t, 5px); border-radius: 50%;
+  background: radial-gradient(circle, #fff 0 45%, rgb(255 255 255 / 0) 70%);
+  opacity: var(--o, .55);
+  animation: nv-caer var(--d, 14s) linear infinite;
+  animation-delay: var(--r, 0s);
+}
+.nv-copo--oro { background: radial-gradient(circle, var(--nv-oro-claro) 0 40%, rgb(241 210 122 / 0) 70%); }
+html:not(.dark).is-navidad .nv-copo:not(.nv-copo--oro) { background: radial-gradient(circle, rgb(43 118 247 / .45) 0 40%, rgb(43 118 247 / 0) 70%); }
+
+/* ---------- Botones: el ícono se mece como campanita y los principales brillan en dorado ---------- */
+html.is-navidad :is(.rs-boton, .mc-btn, .btn-meca, .mc-iconbtn, .tab-btn, .subvista-btn):hover > :is(.ico, .mc-icon, svg, i) {
+  animation: nv-campana .75s ease-in-out;
+  transform-origin: 50% 15%;
+}
+html.is-navidad :is(.rs-boton--primario, .mc-btn--primary, .btn-primary):hover {
+  animation: nv-brillo 1.6s ease-in-out infinite;
+}
+/* El estallido al hacer clic (navidad.js): destellos, esferas y algún copo */
+.nv-chispas { position: fixed; left: 0; top: 0; width: 0; height: 0; z-index: 9999; pointer-events: none; }
+.nv-chispa {
+  position: absolute; left: 0; top: 0; width: 8px; height: 8px; margin: -4px 0 0 -4px;
+  animation: nv-chispa .75s cubic-bezier(.2, .7, .3, 1) forwards;
+}
+.nv-chispa--oro { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24'%3E%3Cpath fill='%23F1D27A' d='M12 0c.9 6.4 5.6 11.1 12 12-6.4.9-11.1 5.6-12 12-.9-6.4-5.6-11.1-12-12C6.4 11.1 11.1 6.4 12 0z'/%3E%3C/svg%3E") center / contain no-repeat; width: 11px; height: 11px; margin: -5.5px 0 0 -5.5px; filter: drop-shadow(0 0 2px rgb(241 210 122 / .9)); }
+.nv-chispa--rojo { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #F7A1A4, #C2333A 60%); }
+.nv-chispa--verde { border-radius: 50%; background: radial-gradient(circle at 35% 35%, #9BE2B9, #1F7A4D 60%); }
+.nv-chispa--copo { background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%235B95F5' stroke-width='2.2' stroke-linecap='round'%3E%3Cpath d='M12 2v20M3.3 7l17.4 10M3.3 17L20.7 7M9 4l3 2 3-2M9 20l3-2 3 2'/%3E%3C/svg%3E") center / contain no-repeat; width: 10px; height: 10px; margin: -5px 0 0 -5px; }
+
+@keyframes nv-campana { 0%, 100% { transform: rotate(0); } 20% { transform: rotate(14deg); } 40% { transform: rotate(-11deg); } 60% { transform: rotate(7deg); } 80% { transform: rotate(-4deg); } }
+@keyframes nv-brillo {
+  0%, 100% { box-shadow: inset 0 0 0 1.5px rgb(241 210 122 / .7), 0 6px 16px -8px rgb(22 163 74 / .6); }
+  50% { box-shadow: inset 0 0 0 1.5px rgb(255 241 194 / 1), 0 0 0 4px rgb(241 210 122 / .28), 0 8px 22px -8px rgb(201 162 39 / .75); }
+}
+@keyframes nv-chispa {
+  0% { transform: translate(0, 0) scale(.4) rotate(0deg); opacity: 1; }
+  70% { opacity: 1; }
+  100% { transform: translate(var(--dx), var(--dy)) scale(1) rotate(var(--g, 90deg)); opacity: 0; }
+}
+@keyframes nv-destello { 0%, 100% { transform: scale(.85) rotate(0deg); opacity: .8; } 50% { transform: scale(1.12) rotate(18deg); opacity: 1; } }
+@keyframes nv-titilar { 0%, 100% { opacity: 1; } 45% { opacity: .55; } 55% { opacity: .9; } }
+@keyframes nv-mecer { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes nv-caer {
+  0% { transform: translate3d(0, 0, 0); }
+  50% { transform: translate3d(var(--x, 10px), 50vh, 0); }
+  100% { transform: translate3d(0, 105vh, 0); }
+}
+
+/* En el celular: la guirnalda más corta y sin esferas junto al título (el título ya va justo) */
+@media (max-width: 640px) {
+  .nv-adornos { display: none; }
+  .nv-acebo { left: 22px; }
+}
+/* Sin movimiento para quien lo pide: los adornos quedan quietos y no cae nada */
+@media (prefers-reduced-motion: reduce) {
+  html.is-navidad :is(.tab-btn.active, .subvista-btn.active, .sup-tab.active, .ru-tabs__op[aria-current], .rs-vista__op[aria-current], .rl-subnav a[aria-current])::before,
+  .nv-luces .nv-foco, .nv-adorno { animation: none; }
+  html.is-navidad :is(.rs-boton, .mc-btn, .btn-meca, .mc-iconbtn, .tab-btn, .subvista-btn):hover > :is(.ico, .mc-icon, svg, i),
+  html.is-navidad :is(.rs-boton--primario, .mc-btn--primary, .btn-primary):hover { animation: none; }
+  .nv-copos, .nv-chispas { display: none; }
+}
+@media print { .nv-luces, .nv-adornos, .nv-acebo, .nv-copos { display: none; } }

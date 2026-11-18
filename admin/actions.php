@@ -3289,6 +3289,23 @@ switch ($accion) {
 
     /* ---------- Ajustes (parametrizacion) ---------- */
 
+    case 'navidad_conf':
+        // Temporada navideña (Ajustes → Identidad): se enciende con sus fechas y solo se ve entre ellas
+        $nvFecha = fn(string $k) => preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($_POST[$k] ?? '')) && strtotime((string)$_POST[$k]) ? (string)$_POST[$k] : '';
+        $nvIni = $nvFecha('inicio');
+        $nvFin = $nvFecha('fin');
+        if ($nvIni === '' || $nvFin === '') redirigir('ajustes.php', 'Pon las dos fechas de la temporada navideña.', 'error');
+        if ($nvFin < $nvIni) redirigir('ajustes.php', 'La temporada navideña termina antes de empezar: revisa las fechas.', 'error');
+        $nvActiva = !empty($_POST['activa']);
+        Config::guardar(['navidad' => ['activa' => $nvActiva, 'inicio' => $nvIni, 'fin' => $nvFin, 'copos' => !empty($_POST['copos'])]]);
+        $nvFmt = fn(string $f) => (int)date('j', strtotime($f)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', strtotime($f)) - 1];
+        $nvHoy = date('Y-m-d');
+        redirigir('ajustes.php', !$nvActiva
+            ? 'Temporada navideña apagada: el panel luce como siempre.'
+            : ($nvIni <= $nvHoy && $nvHoy <= $nvFin
+                ? 'Temporada navideña encendida: ya se ve en todo el panel, hasta el ' . $nvFmt($nvFin) . '.'
+                : 'Temporada navideña encendida: se verá del ' . $nvFmt($nvIni) . ' al ' . $nvFmt($nvFin) . '.'));
+
     case 'config_guardar':
         $def = Config::defaults();
         $prev = Config::all();

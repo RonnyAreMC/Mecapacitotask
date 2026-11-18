@@ -91,7 +91,8 @@ class UI
         }
         ?>
 <!DOCTYPE html>
-<html lang="es">
+<?php $nvTemporada = self::navidad(); ?>
+<html lang="es"<?= $nvTemporada['vigente'] ? ' class="is-navidad"' . ($nvTemporada['copos'] ? ' data-nv-copos' : '') : '' ?>>
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -129,6 +130,10 @@ class UI
 <?php endif; ?>
 <?php if (is_file(__DIR__ . '/../../assets/agenda.css')): /* la agenda de reuniones y el selector de invitados */ ?>
 <link rel="stylesheet" href="<?= asset('assets/agenda.css') ?>">
+<?php endif; ?>
+<?php if ($nvTemporada['vigente'] && is_file(__DIR__ . '/../../assets/navidad.css')): /* Temporada navideña (Ajustes → Identidad): adornos sutiles */ ?>
+<link rel="stylesheet" href="<?= asset('assets/navidad.css') ?>">
+<script src="<?= asset('assets/navidad.js') ?>" defer></script>
 <?php endif; ?>
 <?php self::estilosConfig(); ?>
 <?php if (class_exists('Colorimetria')): /* los tonos de cada estado (Cumple, Alerta, Crítico…), con los colores de la configuración */ ?>
@@ -2013,6 +2018,28 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
     {
         return '<button type="button" class="mc-input__btn ent-ver" data-ver-clave aria-label="Mostrar contraseña" aria-pressed="false">'
             . self::iconoDS('ver', 18, 'ent-ver__si') . self::iconoDS('ocultar', 18, 'ent-ver__no') . '</button>';
+    }
+
+    /**
+     * Temporada navideña (Ajustes → Identidad): la enciende el administrador con sus
+     * fechas y solo se ve entre ellas; antes y después el panel luce como siempre,
+     * sin que nadie la apague. → ['activa', 'inicio', 'fin', 'copos', 'vigente']
+     */
+    public static function navidad(): array
+    {
+        $hoy = date('Y-m-d');
+        // Fechas sugeridas: del 1 de diciembre al 6 de enero (Reyes) de la temporada en curso o la que viene
+        $anio = (int)date('Y') - ((int)date('n') === 1 && (int)date('j') <= 6 ? 1 : 0);
+        $c = (array)(Config::get('navidad') ?? []);
+        $fecha = fn($v, string $def) => is_string($v) && preg_match('/^\d{4}-\d{2}-\d{2}$/', $v) ? $v : $def;
+        $n = [
+            'activa' => !empty($c['activa']),
+            'inicio' => $fecha($c['inicio'] ?? null, $anio . '-12-01'),
+            'fin'    => $fecha($c['fin'] ?? null, ($anio + 1) . '-01-06'),
+            'copos'  => array_key_exists('copos', $c) ? !empty($c['copos']) : true,
+        ];
+        $n['vigente'] = $n['activa'] && $n['inicio'] <= $hoy && $hoy <= $n['fin'];
+        return $n;
     }
 
     /** Elegir la portada de un proyecto: miniaturas, más «automática» y «sin portada». */

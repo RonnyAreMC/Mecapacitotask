@@ -7300,3 +7300,38 @@ html .bl-imp__par { display: grid; gap: 6px; margin: 0 0 12px; padding: 10px 12p
 html .bl-imp__par .bl-imp__rot { margin: 0; }
 html .bl-imp__par small { color: var(--ink-soft, #5b6577); font-size: .78rem; line-height: 1.4; }
 html .bl-imp__tabla tr.is-ya:not(.is-fuera) { background: color-mix(in srgb, var(--primary, #2B76F7) 4%, transparent); }
+
+/* =========================================================
+   Ajustes → Identidad: tarjeta «Temporada navideña» (a lo ancho, sin dejar
+   huecos en la cuadrícula). Se edita en su modal (#dlg-navidad).
+   ========================================================= */
+html .ajustes-grid .nvaj {
+  grid-column: 1 / -1;
+  display: flex; flex-direction: row; align-items: center; justify-content: flex-start; gap: 16px; flex-wrap: wrap;
+  min-height: 0; height: auto; text-align: left;
+}
+html .ajustes-grid .nvaj > * { margin: 0; }
+html .nvaj__ico {
+  flex: none; width: 48px; height: 48px; border-radius: 14px;
+  display: grid; place-items: center;
+  background: linear-gradient(135deg, #FFF8E1, #F4E7C2);
+  box-shadow: inset 0 0 0 1px rgb(201 162 39 / .45);
+}
+html.dark .nvaj__ico { background: linear-gradient(135deg, #3A3220, #2C2617); }
+html .nvaj__txt { flex: 1 1 280px; min-width: 0; }
+html .nvaj__txt h2 { margin: 0 0 2px; }
+html .nvaj__txt .ajuste-ayuda { margin: 0; }
+html .nvaj__datos {
+  flex: 0 1 auto; display: grid; grid-template-columns: repeat(3, auto); gap: 6px 20px; margin: 0;
+}
+html .nvaj__datos dt { font-size: .7rem; font-weight: 800; letter-spacing: .05em; text-transform: uppercase; color: var(--c-text-soft); }
+html .nvaj__datos dd { margin: 2px 0 0; font-size: .86rem; font-weight: 600; color: var(--c-text); white-space: nowrap; }
+html .nvaj-form { display: grid; gap: 14px; }
+@media (max-width: 640px) {
+  html .nvaj__datos { grid-template-columns: 1fr 1fr; flex-basis: 100%; }
+  html .nvaj__datos dd { white-space: normal; }
+  /* Ajustes en el celular: las tarjetas no pasan del ancho de la pantalla (antes los campos se salían) */
+  html .ajustes-grid { grid-template-columns: minmax(0, 1fr); }
+  html .ajustes-grid > .ajuste-card { min-width: 0; padding: 18px; }
+  html .ajustes-grid .campo-doble { grid-template-columns: minmax(0, 1fr); }
+}
