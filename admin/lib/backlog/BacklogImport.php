@@ -90,7 +90,7 @@ final class BacklogImport
                     continue;
                 }
                 // Una épica: una fila «R2-D01 | Título»
-                if (count($filas) === 1 && count($filas[0]) === 2 && preg_match('/^R\d+-[A-Z]+\d+$/u', trim($filas[0][0]))) {
+                if (count($filas) === 1 && count($filas[0]) === 2 && preg_match('/^[A-Z]{1,4}\d*-[A-Z]{1,4}\d+$/u', trim($filas[0][0]))) {
                     $cerrar();
                     $ep = trim($filas[0][0]);
                     $epicas[$ep] = ['codigo' => $ep, 'titulo' => trim($filas[0][1]), 'sprints' => '', 'microservicio' => '', 'descripcion' => '', 'notas' => []];
@@ -110,7 +110,7 @@ final class BacklogImport
                 if ($filas && preg_match('/^HU$/iu', trim($filas[0][0] ?? ''))) {
                     foreach (array_slice($filas, 1) as $f) {
                         $cod = trim($f[0] ?? '');
-                        if (preg_match('/^R\d+-[A-Z]+\d+-HU\d+$/u', $cod)) $resumen[$cod] = ['sp' => trim($f[2] ?? ''), 'prioridad' => trim($f[3] ?? ''), 'sprint' => trim($f[4] ?? '')];
+                        if (preg_match('/^[A-Z]{1,4}\d*-[A-Z]{1,4}\d+-HU\d+$/u', $cod)) $resumen[$cod] = ['sp' => trim($f[2] ?? ''), 'prioridad' => trim($f[3] ?? ''), 'sprint' => trim($f[4] ?? '')];
                     }
                     continue;
                 }
@@ -128,8 +128,8 @@ final class BacklogImport
             $esTitulo = (bool)preg_match('/^Heading(\d)/i', $est, $mt);
             $nivel = $esTitulo ? (int)$mt[1] : 0;
             if ($esTitulo) {
-                // Una historia: «R2-D01-HU01 · Título»
-                if (preg_match('/^(R\d+-[A-Z]+\d+-HU\d+)\s*[·\-–:]\s*(.+)$/u', $t, $m)) {
+                // Una historia: «R2-D01-HU01 · Título» (o BA-D01-HU01, CRM-R1-HU02…)
+                if (preg_match('/^([A-Z]{1,4}\d*-[A-Z]{1,4}\d+-HU\d+)\s*[·\-–:]\s*(.+)$/u', $t, $m)) {
                     $cerrar();
                     $cod = $m[1];
                     $r = $resumen[$cod] ?? [];
@@ -302,60 +302,179 @@ final class BacklogImport
         return implode(' ', $w);
     }
 
+    /** Un código para comparar: «R2-D01-HU01», «r2-d1-hu1» y «R2 D01 HU 01» son el mismo; «HU-001» = «HU1». */
+    public static function clave(string $cod): string
+    {
+        $c = strtoupper(preg_replace('/[^A-Za-z0-9]+/', '', $cod) ?? '');
+        return preg_replace_callback('/\d+/', fn($m) => (string)(int)$m[0], $c) ?? $c;
+    }
+
+    /** Las palabras de dos títulos que coinciden, de 0 a 1 (Jaccard sobre palabras()). */
+    private static function cruce(string $a, string $b): float
+    {
+        $x = $a === '' ? [] : explode(' ', $a);
+        $y = $b === '' ? [] : explode(' ', $b);
+        if (!$x || !$y) return 0.0;
+        return count(array_intersect($x, $y)) / count(array_unique(array_merge($x, $y)));
+    }
+
+    /** Qué tan parecidos son dos textos ya normalizados, de 0 a 1 (null si alguno está vacío). */
+    private static function parecido(string $a, string $b): ?float
+    {
+        if ($a === '' || $b === '') return null;
+        if ($a === $b) return 1.0;
+        // similar_text es cuadrático: con criterios largos basta comparar el comienzo
+        similar_text(mb_substr($a, 0, 600), mb_substr($b, 0, 600), $pct);
+        return $pct / 100;
+    }
+
+    /** Los criterios Dado · Cuando · Entonces de una historia, en un solo texto normalizado. */
+    private static function textoEscenarios(array $esc): string
+    {
+        $t = '';
+        foreach ($esc as $e) $t .= ' ' . ($e['nombre'] ?? '') . ' ' . ($e['dado'] ?? '') . ' ' . ($e['cuando'] ?? '') . ' ' . ($e['entonces'] ?? '');
+        return self::normal($t);
+    }
+
+    /** Las reglas de negocio de una historia ya guardada (están en sus notas, como las dejó notas()). */
+    private static function reglasGuardadas(array $e): string
+    {
+        return preg_match('#<h3>Reglas de negocio</h3>\s*<ul>(.*?)</ul>#s', (string)($e['notas'] ?? ''), $m)
+            ? self::normal(html_entity_decode(strip_tags(str_replace('</li>', ' ', $m[1])), ENT_QUOTES, 'UTF-8')) : '';
+    }
+
     /**
-     * ¿Cuáles del documento ya están en el backlog del proyecto? Por su código y,
-     * si no lo trae o no coincide, por el título: igual, con las mismas palabras
-     * (plurales, tildes, artículos y orden aparte) o, si la IA lo reescribió un
-     * poco, casi igual en el título Y en el «quiero». «Reporte de ventas mensual»
-     * y «… anual» no son la misma: cambia una palabra que importa. Hace falta porque el documento que lee la IA casi nunca trae
-     * códigos: esas historias se guardaron con «HU-001…» y, al subir el documento
-     * otra vez con dos cosas nuevas, se volvían a crear todas.
-     * → [índice => ['h' => la historia que ya está, 'por' => 'codigo'|'titulo']]
+     * Qué cambia entre la historia del documento y la que ya está: los nombres de lo que
+     * cambió («título», «quiero», «criterios»…). Vacío si el documento dice lo mismo.
+     */
+    public static function cambios(array $h, array $e): array
+    {
+        $c = [];
+        if (self::normal((string)$h['titulo']) !== self::normal((string)$e['titulo'])) $c[] = 'título';
+        foreach (['como' => 'como', 'quiero' => 'quiero', 'para' => 'para'] as $k => $lbl) {
+            if (self::normal((string)($h[$k] ?? '')) !== self::normal((string)($e[$k] ?? ''))) $c[] = $lbl;
+        }
+        if (self::textoEscenarios((array)($h['escenarios'] ?? [])) !== self::textoEscenarios((array)($e['escenarios'] ?? []))) $c[] = 'criterios';
+        if (self::normal(implode(' ', (array)($h['reglas'] ?? []))) !== self::reglasGuardadas($e)) $c[] = 'reglas';
+        $est = self::estimacion((string)($h['sp'] ?? ''));
+        if ($est !== '' && $est !== (string)($e['estimacion'] ?? '')) $c[] = 'puntos';
+        $pri = self::MOSCOW[$h['prioridad'] ?? ''] ?? '';
+        if ($pri !== '' && $pri !== (string)($e['prioridad'] ?? '')) $c[] = 'prioridad';
+        return $c;
+    }
+
+    /**
+     * ¿Cuáles del documento ya están en el backlog del proyecto?
+     *
+     * 1. Por su código, escrito como venga («R2-D01-HU01» = «R2-D1-HU1»).
+     * 2. Si no lo trae o no coincide, por lo que dice: un puntaje con el título
+     *    (palabras y parecido), el «quiero» y los criterios. Se emparejan primero
+     *    los pares más parecidos de todo el documento, así una historia que el PO
+     *    editó (le cambió el título o el «quiero») se reconoce igual, y dos
+     *    parecidas («Reporte de ventas mensual» y «… anual») se quedan cada una
+     *    con la suya. Hacía falta porque al subir el documento editado todas
+     *    salían como nuevas y se iban a duplicar.
+     * 3. A cada una que ya está se le anota qué cambió: con cambios se pone al día;
+     *    sin cambios no hay nada que hacer.
+     *
+     * → [índice => ['h' => la que ya está, 'por' => 'codigo'|'titulo'|'contenido', 'pct' => 0-100,
+     *              'cambios' => [...], 'estado' => 'cambio'|'igual']]
      */
     public static function previas(int $pid, array $historias): array
     {
         $todas = Backlog::historias(['proyecto_id' => $pid]);
         $porCod = [];
-        foreach ($todas as $e) if ((string)$e['codigo'] !== '') $porCod[strtoupper((string)$e['codigo'])] = $e;
+        foreach ($todas as $e) if ((string)$e['codigo'] !== '') $porCod[self::clave((string)$e['codigo'])] = $e;
         $out = [];
         $usadas = [];
         foreach ($historias as $i => $h) {
-            $c = strtoupper(trim((string)($h['codigo'] ?? '')));
-            if ($c !== '' && isset($porCod[$c])) {
-                $out[$i] = ['h' => $porCod[$c], 'por' => 'codigo'];
+            $c = self::clave((string)($h['codigo'] ?? ''));
+            if ($c !== '' && isset($porCod[$c]) && !isset($usadas[(int)$porCod[$c]['id']])) {
+                $out[$i] = ['h' => $porCod[$c], 'por' => 'codigo', 'pct' => 100];
                 $usadas[(int)$porCod[$c]['id']] = true;
             }
         }
-        $norm = [];
+        // Lo de cada historia que ya está, normalizado una sola vez
+        $ex = [];
         foreach ($todas as $e) {
+            if (isset($usadas[(int)$e['id']])) continue;
             $t = self::normal((string)$e['titulo']);
-            $norm[(int)$e['id']] = [$t, self::normal((string)($e['quiero'] ?? '')), self::palabras($t)];
+            $ex[(int)$e['id']] = ['e' => $e, 't' => $t, 'w' => self::palabras($t), 'q' => self::normal((string)($e['quiero'] ?? '')),
+                                  'esc' => self::textoEscenarios((array)($e['escenarios'] ?? [])), 'ep' => (string)($e['item']['codigo'] ?? '')];
         }
+        // Todos los pares posibles con su puntaje
+        $pares = [];
         foreach ($historias as $i => $h) {
             if (isset($out[$i])) continue;
             $t = self::normal((string)($h['titulo'] ?? ''));
-            $q = self::normal((string)($h['quiero'] ?? ''));
             if ($t === '') continue;
-            $pal = self::palabras($t);
-            $mejor = null;
-            $mejorPct = 0.0;
-            foreach ($todas as $e) {
-                $eid = (int)$e['id'];
-                if (isset($usadas[$eid]) || $norm[$eid][0] === '') continue;
-                if ($norm[$eid][0] === $t || ($pal !== '' && $norm[$eid][2] === $pal)) { $mejor = $e; $mejorPct = 100.0; break; }
-                // Reescrita por la IA: el título y el «quiero» casi iguales, los dos
-                if ($q === '' || $norm[$eid][1] === '') continue;
-                similar_text($t, $norm[$eid][0], $pt);
-                similar_text($q, $norm[$eid][1], $pq);
-                $pct = ($pt >= 90 && $pq >= 92) ? ($pt + $pq) / 2 : 0.0;
-                if ($pct > $mejorPct) { $mejorPct = $pct; $mejor = $e; }
-            }
-            if ($mejor && $mejorPct >= 90) {
-                $out[$i] = ['h' => $mejor, 'por' => 'titulo'];
-                $usadas[(int)$mejor['id']] = true;
+            $w = self::palabras($t);
+            $q = self::normal((string)($h['quiero'] ?? ''));
+            $esc = self::textoEscenarios((array)($h['escenarios'] ?? []));
+            foreach ($ex as $eid => $x) {
+                if ($x['t'] === '') continue;
+                $igualTit = $x['t'] === $t || ($w !== '' && $x['w'] === $w);
+                $tit = $igualTit ? 1.0 : max(self::cruce($w, $x['w']), (float)self::parecido($t, $x['t']));
+                $pq = self::parecido($q, $x['q']);
+                $pe = self::parecido($esc, $x['esc']);
+                if ($igualTit) {
+                    $pct = 1.0;
+                } else {
+                    // Título 45 %, «quiero» 35 %, criterios 20 %; lo que falte cuenta como el título
+                    $pct = 0.45 * $tit + 0.35 * ($pq ?? $tit) + 0.20 * ($pe ?? $pq ?? $tit);
+                    // Hace falta algo fuerte en lo que dice, no solo palabras sueltas en común
+                    if (!($tit >= 0.55 || ($pq ?? 0) >= 0.80 || ($pe ?? 0) >= 0.80)) $pct = 0.0;
+                    // De otro ítem del release: más exigente
+                    $epH = (string)($h['epica'] ?? '');
+                    if ($epH !== '' && $x['ep'] !== '' && $epH !== $x['ep']) $pct *= 0.85;
+                }
+                if ($pct >= 0.62) $pares[] = [$pct, $i, $eid, $igualTit];
             }
         }
+        // Primero los más parecidos: cada historia del documento y cada una del backlog, una sola vez
+        usort($pares, fn($a, $b) => $b[0] <=> $a[0] ?: $a[1] <=> $b[1]);
+        foreach ($pares as [$pct, $i, $eid, $igualTit]) {
+            if (isset($out[$i]) || isset($usadas[$eid])) continue;
+            $out[$i] = ['h' => $ex[$eid]['e'], 'por' => $igualTit ? 'titulo' : 'contenido', 'pct' => (int)round($pct * 100)];
+            $usadas[$eid] = true;
+        }
+        foreach ($out as $i => &$o) {
+            $o['cambios'] = self::cambios($historias[$i], $o['h']);
+            $o['estado'] = $o['cambios'] ? 'cambio' : 'igual';
+        }
+        unset($o);
+        ksort($out);
         return $out;
+    }
+
+    /**
+     * Las parejas que eligió quien importa en la revisión (par[índice] = id de la que ya
+     * está, o 0 si es nueva), sobre lo que reconoció previas(). Solo historias del proyecto
+     * y cada una una vez.
+     */
+    public static function conParejas(int $pid, array $historias, array $previas, array $par): array
+    {
+        if (!$par) return $previas;
+        $mias = [];
+        foreach (Backlog::historias(['proyecto_id' => $pid]) as $e) $mias[(int)$e['id']] = $e;
+        foreach ($par as $i => $eid) {
+            $i = (int)$i; $eid = (int)$eid;
+            if (!isset($historias[$i])) continue;
+            if ($eid <= 0) { unset($previas[$i]); continue; }
+            if (!isset($mias[$eid])) continue;
+            $cambios = self::cambios($historias[$i], $mias[$eid]);
+            $previas[$i] = ['h' => $mias[$eid], 'por' => 'eleccion', 'pct' => 100, 'cambios' => $cambios, 'estado' => $cambios ? 'cambio' : 'igual'];
+        }
+        // Si dos quedaron con la misma, la elegida a mano manda y la otra pasa a nueva
+        $vistas = [];
+        uasort($previas, fn($a, $b) => ($b['por'] === 'eleccion') <=> ($a['por'] === 'eleccion'));
+        foreach ($previas as $i => $o) {
+            $id = (int)$o['h']['id'];
+            if (isset($vistas[$id])) { unset($previas[$i]); continue; }
+            $vistas[$id] = true;
+        }
+        ksort($previas);
+        return $previas;
     }
 
     /**

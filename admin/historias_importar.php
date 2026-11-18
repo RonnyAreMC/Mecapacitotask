@@ -141,7 +141,7 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
               <li><b>Reglas de negocio</b> y lo que dice el documento, en el detalle.</li>
               <li><b>Criterios de aceptación</b> como escenarios Dado · Cuando · Entonces.</li>
             </ul>
-            <p class="bl-hu__ayuda">Antes de importar ves todo, eliges cuáles entran y a qué sprint va cada una. Si subes el documento otra vez (por ejemplo, con dos historias más), solo vienen marcadas las nuevas: las que ya están en el backlog, por su código o por su título, quedan aparte por si quieres ponerlas al día.</p>
+            <p class="bl-hu__ayuda">Antes de importar ves todo, eliges cuáles entran y a qué sprint va cada una. Si subes el documento otra vez, editado o con historias nuevas, el panel reconoce las que ya están (por su código o por lo que dicen): las que cambiaron se ponen al día, las nuevas se crean y las iguales no se tocan.</p>
           </div>
         </section>
       </div>
@@ -155,31 +155,41 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
     $act = Backlog::actual($hoy);
     $epPro = [];
     foreach (Backlog::epicas($pid) as $it) $epPro[(string)$it['codigo']] = $it;
-    // Las que ya están en el backlog, por su código o por su título: no vienen marcadas
+    // Las que ya están en el backlog (por su código o por lo que dicen) y qué les cambió:
+    // las nuevas y las que cambiaron vienen marcadas; las iguales, no
     $prev = BacklogImport::previas($pid, $hus);
+    $todasPro = Backlog::historias(['proyecto_id' => $pid]);
+    usort($todasPro, fn($a, $b) => strnatcasecmp((string)$a['codigo'], (string)$b['codigo']) ?: strcmp((string)$a['titulo'], (string)$b['titulo']));
+    $opsPar = ['0' => 'Es nueva: se crea'];
+    foreach ($todasPro as $e) $opsPar[(string)$e['id']] = mb_strimwidth(trim((string)$e['codigo'] . ' · ' . (string)$e['titulo'], ' ·'), 0, 90, '…');
     $conf = Backlog::conf();
     $vel = Backlog::velocidad($pid);
     $capDef = (int)($conf['capacidad'] ?? 0) ?: ((int)($vel['promedio'] ?? 0) ?: 20);
     $cand = BacklogImport::candidatos($pid, $hus);
     // Lo que el navegador necesita para mostrar a qué sprint va cada una (y repartir en vivo)
-    $js = ['actual' => $act, 'candidatos' => array_values($cand), 'historias' => []];
+    $js = ['actual' => $act, 'candidatos' => array_values($cand), 'historias' => [],
+           'existentes' => array_map(fn($e) => (string)$e['sprint'], array_column($todasPro, null, 'id'))];
     $grupos = [];
-    $totSp = $nEsc = $nNuevas = 0;
+    $totSp = $nEsc = $nNuevas = $nCambio = 0;
     foreach ($hus as $i => $h) {
         $sp = BacklogImport::sprintInicial((string)$h['sprint']);
         $doc = $sp !== '' && isset($sps[$sp]) ? ($sps[$sp]['fin'] < $hoy ? $act : $sp) : '';
         $previa = $prev[$i]['h'] ?? null;
         $js['historias'][] = ['i' => $i, 'pts' => max(1, Backlog::puntos(BacklogImport::estimacion((string)$h['sp']))), 'prio' => (string)$h['prioridad'],
-                              'doc' => $doc, 'ya' => $previa ? (string)$previa['sprint'] : null];
+                              'doc' => $doc, 'ya' => $previa ? (string)$previa['sprint'] : null, 'estado' => $previa ? $prev[$i]['estado'] : 'nueva'];
         $grupos[$h['epica']][] = $i;
         $totSp += (int)$h['sp'];
         $nEsc += count($h['escenarios']);
-        if (!$previa) { $nNuevas++; $spNuevas = ($spNuevas ?? 0) + (int)$h['sp']; }
+        if (!$previa) $nNuevas++;
+        elseif ($prev[$i]['estado'] === 'cambio') $nCambio++;
+        if (!$previa || $prev[$i]['estado'] === 'cambio') $spNuevas = ($spNuevas ?? 0) + (int)$h['sp'];
     }
-    $nYa = count($hus) - $nNuevas;
+    $nIgual = count($hus) - $nNuevas - $nCambio;
+    $nYa = $nCambio + $nIgual;
+    $nMarcadas = $nNuevas + $nCambio;
     $spNuevas ??= 0;
-    // Con nuevas y repetidas a la vez, las repetidas empiezan ocultas: lo que hay que mirar es lo nuevo
-    $soloNuevas = $nYa > 0 && $nNuevas > 0;
+    // Las iguales empiezan ocultas si hay algo que hacer: lo que hay que mirar es lo nuevo y lo que cambió
+    $soloNuevas = $nIgual > 0 && $nMarcadas > 0;
     $enlazadas = count(array_filter(array_keys($grupos), fn($c) => $c !== '' && isset($epPro[$c])));
     $kpi = fn(string $lbl, string $val, string $k, string $pie = '') => '<div class="rl-kpi' . ($k === 'azul' ? ' rl-kpi--azul' : ' col-s-' . $k) . '"><small>' . e($lbl) . '</small><b class="mc-num">' . $val . '</b>' . ($pie !== '' ? '<em>' . $pie . '</em>' : '') . '</div>';
     $meta = array_slice(array_filter((array)$d['meta'], fn($v) => trim((string)$v) !== ''), 0, 8, true);
@@ -194,27 +204,34 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
             : 'leído sin IA (formato InnoTech)' ?></p></div>
       <div class="bl-hu__acc">
         <a class="rs-boton rs-boton--icono" href="<?= e($aqui . '&otro=1') ?>" aria-label="Subir otro documento" data-ds-tip="Subir otro documento"><?= rlIco('reintentar', 18) ?></a>
-        <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-ir><?= UI::icono('ds-check') ?><span>Importar <b data-bl-imp-n><?= $nNuevas ?></b></span></button>
+        <button type="submit" class="rs-boton rs-boton--primario" data-bl-imp-ir><?= UI::icono('ds-check') ?><span>Importar <b data-bl-imp-n><?= $nMarcadas ?></b></span></button>
         <?= UI::volver($urlSprints, 'Volver a los sprints') ?>
       </div>
     </header>
 
     <div class="rl-kpis bl-kpis">
-      <?= $kpi('Historias', (string)count($hus), 'azul', $nNuevas . ' nueva(s) · ' . $nYa . ' ya está(n)') ?>
+      <?= $kpi('Historias', (string)count($hus), 'azul', $nNuevas . ' nueva(s) · ' . $nCambio . ' con cambios · ' . $nIgual . ' igual(es)') ?>
       <?= $kpi('Puntos', (string)$totSp, 'azul', 'Lo que dice el documento') ?>
       <?= $kpi('Épicas', (string)count(array_filter(array_keys($grupos), fn($c) => $c !== '')), $enlazadas === count(array_filter(array_keys($grupos), fn($c) => $c !== '')) ? 'ok' : 'warn', $enlazadas . ' con su ítem en el proyecto') ?>
       <?= $kpi('Escenarios', (string)$nEsc, 'azul', 'Dado · Cuando · Entonces') ?>
-      <?= $kpi('Elegidas', '<span data-bl-imp-n>' . $nNuevas . '</span>', 'ok', '<span data-bl-imp-pts>' . $spNuevas . '</span> pts') ?>
+      <?= $kpi('Elegidas', '<span data-bl-imp-n>' . $nMarcadas . '</span>', 'ok', '<span data-bl-imp-pts>' . $spNuevas . '</span> pts') ?>
     </div>
 
-    <?php if ($nYa > 0): ?>
-    <div class="bl-imp-ya<?= $nNuevas ? '' : ' is-ninguna' ?>">
-      <span class="bl-imp-ya__ico" aria-hidden="true"><?= UI::icono($nNuevas ? 'ds-info' : 'ds-check') ?></span>
-      <p><?= $nNuevas
-          ? '<b>' . $nNuevas . ' historia' . ($nNuevas === 1 ? ' nueva' : 's nuevas') . '</b> en este documento: solo esa' . ($nNuevas === 1 ? '' : 's') . ' viene' . ($nNuevas === 1 ? '' : 'n') . ' marcada' . ($nNuevas === 1 ? '' : 's') . '. Las ' . $nYa . ' que ya están en el backlog no se vuelven a crear.'
-          : '<b>Este documento no trae historias nuevas.</b> Las ' . $nYa . ' ya están en el backlog. Si quieres ponerlas al día con lo que dice el documento, márcalas.' ?></p>
-      <?php if ($nNuevas): ?>
-      <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-bl-imp-ver-ya aria-pressed="false"><span class="mc-btn__label" data-bl-imp-ver-ya-txt>Ver las <?= $nYa ?> que ya están</span></button>
+    <?php if ($nYa > 0):
+        $pl = fn(int $n, string $uno, string $varios) => $n . ' ' . ($n === 1 ? $uno : $varios);
+        $partesAv = array_filter([
+            $nNuevas ? '<b>' . $pl($nNuevas, 'nueva', 'nuevas') . '</b> (se crea' . ($nNuevas === 1 ? '' : 'n') . ')' : '',
+            $nCambio ? '<b>' . $pl($nCambio, 'con cambios', 'con cambios') . '</b> (se pone' . ($nCambio === 1 ? '' : 'n') . ' al día y conserva' . ($nCambio === 1 ? '' : 'n') . ' su sprint, estado, responsable y tareas)' : '',
+        ]); ?>
+    <div class="bl-imp-ya<?= $nMarcadas ? '' : ' is-ninguna' ?>">
+      <span class="bl-imp-ya__ico" aria-hidden="true"><?= UI::icono($nMarcadas ? 'ds-info' : 'ds-check') ?></span>
+      <p><?= $nMarcadas
+          ? 'Vienen marcadas ' . implode(' y ', $partesAv) . '.'
+            . ($nIgual ? ' ' . $pl($nIgual, 'ya está igual', 'ya están iguales') . ' en el backlog: no se toca' . ($nIgual === 1 ? '' : 'n') . '.' : '')
+            . ' Si una quedó emparejada con la que no era, ábrela y elige con cuál va.'
+          : '<b>Este documento no trae nada nuevo ni cambios.</b> Las ' . $nIgual . ' historias ya están iguales en el backlog.' ?></p>
+      <?php if ($nIgual && $nMarcadas): ?>
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-bl-imp-ver-ya aria-pressed="false"><span class="mc-btn__label" data-bl-imp-ver-ya-txt>Ver las <?= $nIgual ?> iguales</span></button>
       <?php endif; ?>
     </div>
     <?php endif; ?>
@@ -232,7 +249,7 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
             <label class="bl-imp-op"><input type="radio" name="modo" value="backlog" data-bl-imp-modo>
               <span><b>Todas al backlog</b><small>Sin sprint: las metes tú a cada sprint arrastrándolas.</small></span></label>
           </div>
-          <p class="bl-hu__ayuda">Las que ya están en el backlog (mismo código o mismo título) no vienen marcadas. Si marcas alguna, se pone al día y se queda en su sprint.</p>
+          <p class="bl-hu__ayuda">Las que ya están en el backlog y cambiaron se ponen al día y se quedan en su sprint; las iguales no vienen marcadas.</p>
         </div>
       </section>
       <section class="rl-pan">
@@ -250,7 +267,7 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
         $ep = $cod !== '' ? ($d['epicas'][$cod] ?? ['codigo' => $cod, 'titulo' => '']) : null;
         $it = $cod !== '' ? ($epPro[$cod] ?? null) : null;
         $ptsEp = array_sum(array_map(fn($i) => (int)$hus[$i]['sp'], $idx));
-        $yaEp = count(array_filter($idx, fn($i) => isset($prev[$i]))); ?>
+        $yaEp = count(array_filter($idx, fn($i) => ($prev[$i]['estado'] ?? '') === 'igual')); // las iguales: no vienen marcadas ?>
     <section class="rl-pan bl-imp__ep<?= $yaEp === count($idx) ? ' is-solo-ya' : '' ?>" data-bl-imp-ep>
       <header class="rl-pan__cab">
         <label class="bl-imp__todas" data-ds-tip="Marcar o quitar todas"><input type="checkbox"<?= $yaEp === 0 ? ' checked' : '' ?> data-bl-imp-todas><span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span></label>
@@ -262,14 +279,20 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
         <table class="mc-table__table bl-imp__tabla">
           <thead><tr><th class="bl-imp__c-chk"><span class="mc-sr-only">Importar</span></th><th>Historia</th><th class="is-center">SP</th><th>Prioridad</th><th>Documento</th><th>Va a</th><th class="is-center">Esc. · reglas</th><th>Queda</th></tr></thead>
           <tbody>
-          <?php foreach ($idx as $i): $h = $hus[$i]; $previa = $prev[$i]['h'] ?? null; ?>
-            <tr data-bl-imp-fila="<?= $i ?>"<?= $previa ? ' class="is-ya"' : '' ?>>
-              <td class="bl-imp__c-chk"><label class="bl-imp__chk"><input type="checkbox" name="hu[]" value="<?= $i ?>"<?= $previa ? '' : ' checked' ?> data-bl-imp-hu><span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span><span class="mc-sr-only">Importar <?= e($h['codigo']) ?></span></label></td>
+          <?php foreach ($idx as $i): $h = $hus[$i]; $previa = $prev[$i]['h'] ?? null; $estPrev = $previa ? $prev[$i]['estado'] : 'nueva'; $cambiosPrev = $previa ? $prev[$i]['cambios'] : []; ?>
+            <tr data-bl-imp-fila="<?= $i ?>"<?= $estPrev === 'igual' ? ' class="is-ya"' : ($estPrev === 'cambio' ? ' class="is-cambio"' : '') ?>>
+              <td class="bl-imp__c-chk"><label class="bl-imp__chk"><input type="checkbox" name="hu[]" value="<?= $i ?>"<?= $estPrev === 'igual' ? '' : ' checked' ?> data-bl-imp-hu><span class="rl-multi__caja" aria-hidden="true"><?= UI::checkDibujado(11) ?></span><span class="mc-sr-only">Importar <?= e($h['codigo']) ?></span></label></td>
               <td class="bl-imp__c-hu">
                 <details class="bl-imp__det">
                   <summary><span class="bl-dlg__cod"><?= e($h['codigo'] !== '' ? $h['codigo'] : 'Sin código') ?></span><b><?= e($h['titulo']) ?></b>
-                    <?php if ($h['como'] !== ''): ?><small>Como <?= e($h['como']) ?></small><?php endif; ?></summary>
+                    <?php if ($h['como'] !== ''): ?><small>Como <?= e($h['como']) ?></small><?php endif; ?>
+                    <?php if ($estPrev === 'cambio'): ?><small class="bl-imp__antes">Cambia <?= e(implode(', ', $cambiosPrev)) ?><?= in_array('título', $cambiosPrev, true) ? ' · antes: «' . e(mb_strimwidth((string)$previa['titulo'], 0, 80, '…')) . '»' : '' ?></small><?php endif; ?></summary>
                   <div class="bl-imp__det-cuerpo">
+                    <div class="bl-imp__par">
+                      <label class="bl-imp__rot" for="bl-par-<?= $i ?>">¿Es una que ya está?</label>
+                      <?= str_replace('<select ', '<select id="bl-par-' . $i . '" data-bl-imp-par="' . $i . '" ', UI::select('par[' . $i . ']', $opsPar, $previa ? (string)$previa['id'] : '0')) ?>
+                      <small>El panel la emparejó <?= $previa ? (match ($prev[$i]['por']) { 'codigo' => 'por su código', 'titulo' => 'por su título', default => 'por lo que dice (' . (int)$prev[$i]['pct'] . ' % parecida)' }) . ' con <b>' . e((string)$previa['codigo']) . '</b>' : 'como nueva' ?>. Si no es esa, elige la correcta o «Es nueva».</small>
+                    </div>
                     <?php if ($h['quiero'] !== '' || $h['para'] !== ''): ?><p><b>Quiero</b> <?= e($h['quiero']) ?><?php if ($h['para'] !== ''): ?><br><b>Para</b> <?= e($h['para']) ?><?php endif; ?></p><?php endif; ?>
                     <?php if ($h['reglas']): ?><p class="bl-imp__rot">Reglas de negocio</p><ul><?php foreach ($h['reglas'] as $rg): ?><li><?= e($rg) ?></li><?php endforeach; ?></ul><?php endif; ?>
                     <?php foreach ($h['escenarios'] as $n => $es): ?>
@@ -287,10 +310,11 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
               <td><b class="bl-imp__va" data-bl-imp-va>—</b></td>
               <td class="is-center"><span class="bl-imp__n" data-ds-tip="<?= count($h['escenarios']) ?> escenario(s) · <?= count($h['reglas']) ?> regla(s)"><?= count($h['escenarios']) ?> · <?= count($h['reglas']) ?></span></td>
               <td><?php if ($previa):
-                  $comoEs = trim((string)$previa['codigo'] . ' · ' . (string)$previa['titulo'], ' ·');
-                  $porQue = ($prev[$i]['por'] ?? '') === 'codigo' ? 'por su código' : 'por su título'; ?>
-                <span class="bl-est bl-t--gris" data-bl-imp-queda data-ds-tip="Ya está en el backlog (<?= e($porQue) ?>): «<?= e(mb_strimwidth($comoEs, 0, 90, '…')) ?>». Márcala solo si quieres ponerla al día con el documento; conserva su sprint, estado y responsable.">Ya está</span>
-                <?php else: ?><span class="bl-est bl-t--verde">Nueva</span><?php endif; ?></td>
+                  $comoEs = trim((string)$previa['codigo'] . ' · ' . (string)$previa['titulo'], ' ·'); ?>
+                <span class="bl-est <?= $estPrev === 'cambio' ? 'bl-t--azul' : 'bl-t--gris' ?>" data-bl-imp-queda data-ds-tip="<?= $estPrev === 'cambio'
+                    ? 'Es «' . e(mb_strimwidth($comoEs, 0, 90, '…')) . '» con cambios en ' . e(implode(', ', $cambiosPrev)) . ': se pone al día con el documento y conserva su sprint, estado, responsable y tareas.'
+                    : 'Ya está igual en el backlog: «' . e(mb_strimwidth($comoEs, 0, 90, '…')) . '». Márcala solo si quieres volver a escribirla con el documento.' ?>"><?= $estPrev === 'cambio' ? 'Se actualiza' : 'Igual' ?></span>
+                <?php else: ?><span class="bl-est bl-t--verde" data-bl-imp-queda>Nueva</span><?php endif; ?></td>
             </tr>
           <?php endforeach; ?>
           </tbody>
@@ -376,8 +400,13 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
       var fila = f.querySelector('[data-bl-imp-fila="' + h.i + '"]'), on = fila.querySelector('[data-bl-imp-hu]').checked,
           s = h.ya !== null ? h.ya : (modo === 'backlog' ? '' : modo === 'repartir' ? (va[h.i] || '') : h.doc);
       fila.classList.toggle('is-fuera', !on);
+      // Lo que le va a pasar: nueva se crea, con cambios (o marcada a mano) se pone al día, sin marcar no se toca
       var queda = fila.querySelector('[data-bl-imp-queda]');
-      if (queda) { queda.textContent = on ? 'Se actualiza' : 'Ya está'; queda.classList.toggle('bl-t--azul', on); queda.classList.toggle('bl-t--gris', !on); }
+      if (queda) {
+        var esNueva = h.ya === null, txt = on ? (esNueva ? 'Nueva' : 'Se actualiza') : (esNueva ? 'No entra' : h.estado === 'igual' ? 'Igual' : 'No se toca');
+        queda.textContent = txt;
+        queda.classList.toggle('bl-t--verde', on && esNueva); queda.classList.toggle('bl-t--azul', on && !esNueva); queda.classList.toggle('bl-t--gris', !on);
+      }
       fila.querySelector('[data-bl-imp-va]').textContent = !on ? '—' : (s || 'Backlog') + (h.ya !== null ? ' (se queda)' : '');
       if (!on) return;
       pts += h.pts;
@@ -395,6 +424,13 @@ $urlSprints = 'proyecto.php?id=' . $pid . '#vista-sprints';
   }
   f.addEventListener('change', function (e) {
     var t = e.target;
+    // Otra pareja elegida a mano: «Es nueva» o una de las que ya están (se pone al día y conserva su sprint)
+    if (t.matches('[data-bl-imp-par]')) {
+      var h = porI[+t.getAttribute('data-bl-imp-par')], fila = f.querySelector('[data-bl-imp-fila="' + h.i + '"]');
+      if (t.value === '0') { h.ya = null; h.estado = 'nueva'; } else { h.ya = d.existentes[t.value] !== undefined ? d.existentes[t.value] : ''; h.estado = 'cambio'; }
+      fila.classList.remove('is-ya'); fila.classList.toggle('is-cambio', h.estado === 'cambio');
+      fila.querySelector('[data-bl-imp-hu]').checked = true;
+    }
     if (t.matches('[data-bl-imp-todas]')) t.closest('[data-bl-imp-ep]').querySelectorAll('[data-bl-imp-hu]').forEach(function (c) { c.checked = t.checked; });
     else if (t.matches('[data-bl-imp-hu]')) { var ep = t.closest('[data-bl-imp-ep]'), cs = ep.querySelectorAll('[data-bl-imp-hu]'), on = ep.querySelectorAll('[data-bl-imp-hu]:checked').length, td = ep.querySelector('[data-bl-imp-todas]'); td.checked = on === cs.length; td.indeterminate = on > 0 && on < cs.length; }
     calcular();

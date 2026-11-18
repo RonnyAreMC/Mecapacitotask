@@ -7294,4 +7294,9 @@ html .bl-imp-ya__ico { display: inline-grid; flex: none; place-items: center; wi
 html .bl-imp-ya.is-ninguna .bl-imp-ya__ico { color: #059669; }
 html .bl-imp-ya__ico .ico { width: 16px; height: 16px; }
 html .bl-hu.is-solo-nuevas tr.is-ya, html .bl-hu.is-solo-nuevas .bl-imp__ep.is-solo-ya { display: none; }
+/* Importar historias: lo que cambió de una que ya está, y con cuál se empareja (se corrige a mano) */
+html .bl-imp__antes { display: block; margin-top: 2px; color: var(--col-done-fg, #1d4ed8); font-weight: 600; white-space: normal; }
+html .bl-imp__par { display: grid; gap: 6px; margin: 0 0 12px; padding: 10px 12px; border-radius: 12px; background: var(--col-done-bg, #eef4ff); }
+html .bl-imp__par .bl-imp__rot { margin: 0; }
+html .bl-imp__par small { color: var(--ink-soft, #5b6577); font-size: .78rem; line-height: 1.4; }
 html .bl-imp__tabla tr.is-ya:not(.is-fuera) { background: color-mix(in srgb, var(--primary, #2B76F7) 4%, transparent); }

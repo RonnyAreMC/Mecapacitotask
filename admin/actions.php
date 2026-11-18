@@ -4763,7 +4763,10 @@ switch ($accion) {
                     $husImp = array_filter($leidoImp['datos']['historias'], fn($i) => isset($selImp[$i]), ARRAY_FILTER_USE_KEY);
                     if (!$husImp) $blFin(false, 'Marca al menos una historia para importar.');
                     Backlog::usarProyecto($pidImp);
-                    $prevImp = array_intersect_key(BacklogImport::previas($pidImp, $leidoImp['datos']['historias']), $husImp);
+                    // Lo que reconoció el panel y, encima, las parejas que se corrigieron a mano en la revisión
+                    $parImp = array_map('intval', array_filter((array)($_POST['par'] ?? []), fn($v) => is_scalar($v)));
+                    $prevImp = array_intersect_key(BacklogImport::conParejas($pidImp, $leidoImp['datos']['historias'],
+                        BacklogImport::previas($pidImp, $leidoImp['datos']['historias']), $parImp), $husImp);
                     $modoImp = in_array($_POST['modo'] ?? '', ['documento', 'repartir', 'backlog'], true) ? (string)$_POST['modo'] : 'documento';
                     $rImp = BacklogImport::aplicar($pidImp, $husImp, $modoImp, max(1, min(300, (int)($_POST['capacidad'] ?? 0))), $blYo, $prevImp);
                     unset($_SESSION['bl_imp'][$pidImp]);
