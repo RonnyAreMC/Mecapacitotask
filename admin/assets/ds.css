@@ -7335,3 +7335,50 @@ html .nvaj-form { display: grid; gap: 14px; }
   html .ajustes-grid > .ajuste-card { min-width: 0; padding: 18px; }
   html .ajustes-grid .campo-doble { grid-template-columns: minmax(0, 1fr); }
 }
+
+/* =========================================================
+   Varias licencias de Zoom. En el selector de hora: en qué cuenta va (o «la que
+   esté libre») y, en cada franja, un punto por cuenta: de su color si está libre,
+   gris si no. En Ajustes: una fila por licencia. Prefijos hp-cuenta / zc-.
+   ========================================================= */
+html .hp-cuentas { display: flex; flex-direction: column; gap: 6px; }
+html .hp-cuentas[hidden] { display: none; }
+html .hp-cuentas > small { font-size: .75rem; font-weight: 600; color: var(--ink-muted); }
+html .hp-cuentas__ops { display: flex; flex-wrap: wrap; gap: 6px; }
+html .hp-cuenta { position: relative; cursor: pointer; }
+html .hp-cuenta input { position: absolute; opacity: 0; pointer-events: none; }
+html .hp-cuenta span { display: inline-flex; align-items: center; gap: 7px; min-height: 34px; padding: 0 13px; border-radius: 999px;
+  background: var(--bg); color: var(--ink); font: 600 .82rem/1 var(--font-sans, 'Inter', sans-serif); transition: background-color .15s ease, box-shadow .15s ease; }
+html .hp-cuenta span i { width: 9px; height: 9px; border-radius: 50%; background: #10B981; }
+html .hp-cuenta span .hp-cuenta__auto { background: #10B981; }
+html .hp-cuenta:hover span { background: color-mix(in srgb, var(--primary, #2B76F7) 8%, var(--bg)); }
+html .hp-cuenta input:checked + span { background: color-mix(in srgb, var(--primary, #2B76F7) 12%, var(--surface)); box-shadow: inset 0 0 0 2px var(--primary, #2B76F7); }
+html .hp-cuenta input:focus-visible + span { outline: 2px solid var(--primary, #2B76F7); outline-offset: 2px; }
+/* Cada franja: C1, C2… con su punto, verde si está libre y rojo si está ocupada */
+html .hp-cs { display: inline-flex; flex-wrap: wrap; justify-content: center; gap: 4px; margin-top: 3px; }
+html .hp-cs > span { display: inline-flex; align-items: center; gap: 3px; padding: 1px 5px 1px 4px; border-radius: 999px;
+  font: 700 .62rem/1.3 var(--font-sans, 'Inter', sans-serif); letter-spacing: .02em; }
+html .hp-cs > span i { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+html .hp-cs .is-libre { color: #047857; background: color-mix(in srgb, #10B981 14%, transparent); }
+html .hp-cs .is-ocupada { color: #B91C1C; background: color-mix(in srgb, #EF4444 12%, transparent); }
+html.dark .hp-cs .is-libre { color: #6EE7B7; }
+html.dark .hp-cs .is-ocupada { color: #FCA5A5; }
+html .hp-op.is-sel .hp-cs > span { background: rgba(255, 255, 255, .92); }
+html .hp-op.is-ocupado .hp-cs { opacity: .8; }
+html .hp-op.is-ocupado .hp-cs b, html .hp-op.is-ocupado .hp-cs span { text-decoration: none; }
+html .hp-cs--ley { margin: 0 0 0 6px; vertical-align: middle; }
+html .hp-ley b { color: var(--ink); font-weight: 700; }
+html .hp-cuenta__c { display: inline-grid; place-items: center; min-width: 22px; height: 18px; padding: 0 4px; border-radius: 6px;
+  background: color-mix(in srgb, var(--primary, #2B76F7) 14%, transparent); color: var(--primary-ink, #1D4ED8); font: 700 .68rem/1 var(--font-sans, 'Inter', sans-serif); }
+html .reu-choque.reu-choque--nota { background: color-mix(in srgb, var(--primary, #2B76F7) 8%, var(--surface)); color: var(--primary-ink, #1D4ED8); }
+html.dark .reu-choque.reu-choque--nota { background: rgba(59, 130, 246, .14); color: #93C5FD; }
+
+html .zc { display: flex; flex-direction: column; gap: 12px; margin: 6px 0 14px; padding-top: 14px; box-shadow: inset 0 1px 0 var(--line); }
+html .zc-tit { display: flex; align-items: baseline; gap: 10px; margin: 0; color: var(--ink); font: 700 .98rem/1.3 var(--font-display, inherit); }
+html .zc-tit small { color: var(--ink-muted); font: 500 .8rem/1.3 var(--font-sans, 'Inter', sans-serif); }
+html .zc-lista { display: flex; flex-direction: column; gap: 10px; }
+html .zc-lista:empty { display: none; }
+html .zc-fila { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 14px; background: var(--bg); }
+html .zc-opciones { display: flex; flex-wrap: wrap; gap: 8px 22px; }
+html .zc-propias[hidden] { display: none; }
+html .zc [data-zc-agregar] { align-self: flex-start; }

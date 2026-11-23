@@ -1560,14 +1560,17 @@ final class Releases
                 } else {
                     // Las sesiones que de verdad hubo ese día, en cualquiera de las reuniones
                     $uuids = [];
+                    $reuDeUuid = [];
                     $fallo = '';
                     foreach ($deZoom as $x) {
                         $zid = (string)$x['zoom_id'];
-                        $inst[$zid] ??= Zoom::instancias($zid);
+                        // Se pregunta en la cuenta (licencia) de Zoom de esa reunión
+                        if (!isset($inst[$zid])) { Zoom::usarDe($x); $inst[$zid] = Zoom::instancias($zid); }
                         if (($inst[$zid]['estado'] ?? '') === 'error') { $fallo = (string)$inst[$zid]['msg']; continue; }
                         foreach ((array)($inst[$zid]['items'] ?? []) as $it) {
                             if (($it['fecha'] ?? '') !== $d) continue;
                             $uuids[] = (string)$it['uuid'];
+                            $reuDeUuid[(string)$it['uuid']] = $x;
                             $fila['reunion_id'] = (int)$x['id'];
                             $fila['reunion'] = (string)($x['topic'] ?? '');
                         }
@@ -1588,6 +1591,7 @@ final class Releases
                     } else {
                         $gente = [];
                         foreach ($uuids as $u) {
+                            Zoom::usarDe($reuDeUuid[$u] ?? []);
                             $p = Zoom::participantes($u);
                             if ($p['estado'] !== 'ok') { $fila['msg'] = (string)$p['msg']; $error = $fila['msg']; continue; }
                             $gente = array_merge($gente, $p['items']);

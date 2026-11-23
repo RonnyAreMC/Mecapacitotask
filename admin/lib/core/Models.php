@@ -2267,6 +2267,8 @@ class ReunionRepo
             'proyecto_id' => (int)($datos['proyecto_id'] ?? 0),
             'plataforma'  => in_array($datos['plataforma'] ?? '', ['zoom', 'meet', 'enlace'], true) ? $datos['plataforma'] : 'zoom',
             'zoom_id'     => (string)($datos['zoom_id'] ?? ''),
+            // La cuenta (licencia) de Zoom en la que se creó (Zoom::cuentas); '' = la principal
+            'zoom_cuenta' => preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($datos['zoom_cuenta'] ?? ''))),
             'gcal_event'  => (string)($datos['gcal_event'] ?? ''),
             'creador_id'  => (int)($datos['creador_id'] ?? 0),
             'topic'       => trim($datos['topic'] ?? ''),

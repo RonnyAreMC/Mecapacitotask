@@ -14,7 +14,25 @@ class Zoom
     /** Último motivo de fallo al quitar el código de la grabación (diagnóstico). */
     public static ?string $ultimoError = null;
 
-    private static function conf(): array
+    /**
+     * Varias cuentas (licencias) de Zoom. Una licencia solo da UNA reunión a la
+     * vez: con dos, caben dos reuniones a la misma hora. Cada cuenta es:
+     *  - otra licencia de la MISMA cuenta de Zoom: el correo de ese usuario
+     *    (las reuniones se crean a su nombre con la app de siempre), o
+     *  - una cuenta de Zoom APARTE: su correo y su propia app Server-to-Server
+     *    (Account ID, Client ID y Client Secret).
+     * La principal es la de siempre (Ajustes → Conexión con Zoom); las demás van
+     * en Config zoom.cuentas. Cada reunión guarda la suya en 'zoom_cuenta'.
+     */
+    public const PRINCIPAL = 'principal';
+
+    /** La cuenta con la que se habla ahora (usar() / usarDe()). */
+    private static string $actual = self::PRINCIPAL;
+
+    /** Colores para distinguir las cuentas en el calendario de horas. */
+    public const COLORES = ['#2563EB', '#7C3AED', '#0D9488', '#EA580C', '#DB2777', '#4D7C0F'];
+
+    private static function confBase(): array
     {
         return array_merge([
             'activo'        => false,
@@ -22,19 +40,117 @@ class Zoom
             'client_id'     => '',
             'client_secret' => '',
             'zona'          => 'America/Guayaquil',
+            'nombre'        => '',
+            'usuario'       => '',
+            'cuentas'       => [],
         ], (array)Config::get('zoom'));
+    }
+
+    /**
+     * Todas las cuentas, la principal primero: id => [id, nombre, usuario (correo
+     * del anfitrión; '' = el dueño de la app), propias (bool), account_id,
+     * client_id, client_secret, color]. Las apagadas no salen.
+     */
+    public static function cuentas(): array
+    {
+        $b = self::confBase();
+        $out = [self::PRINCIPAL => [
+            'id' => self::PRINCIPAL, 'nombre' => trim((string)$b['nombre']) ?: 'Zoom 1', 'usuario' => trim((string)$b['usuario']),
+            'propias' => false, 'account_id' => '', 'client_id' => '', 'client_secret' => '', 'color' => self::COLORES[0],
+        ]];
+        $i = 1;
+        foreach ((array)$b['cuentas'] as $x) {
+            if (!is_array($x) || empty($x['activa'])) continue;
+            $id = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($x['id'] ?? '')));
+            if ($id === '' || isset($out[$id])) continue;
+            $out[$id] = [
+                'id' => $id, 'nombre' => trim((string)($x['nombre'] ?? '')) ?: 'Zoom ' . ($i + 1), 'usuario' => trim((string)($x['usuario'] ?? '')),
+                'propias' => !empty($x['propias']), 'account_id' => trim((string)($x['account_id'] ?? '')),
+                'client_id' => trim((string)($x['client_id'] ?? '')), 'client_secret' => (string)($x['client_secret'] ?? ''),
+                'color' => self::COLORES[$i % count(self::COLORES)],
+            ];
+            $i++;
+        }
+        return $out;
+    }
+
+    /** Las cuentas con las que de verdad se pueden crear reuniones ahora. */
+    public static function activas(): array
+    {
+        if (!self::listo()) return [];
+        return array_filter(self::cuentas(), function ($c) {
+            if (!$c['propias']) return $c['id'] === self::PRINCIPAL || $c['usuario'] !== '';   // otra licencia: hace falta su correo
+            return $c['account_id'] !== '' && $c['client_id'] !== '' && $c['client_secret'] !== '';
+        });
+    }
+
+    /** ¿Hay más de una cuenta? (si no, el panel se ve como siempre). */
+    public static function varias(): bool
+    {
+        return count(self::activas()) > 1;
+    }
+
+    /** El nombre de una cuenta («Zoom 2»), o el de la principal si ya no está. */
+    public static function nombre(string $id): string
+    {
+        $c = self::cuentas();
+        return ($c[$id] ?? $c[self::PRINCIPAL])['nombre'];
+    }
+
+    /** Habla con esa cuenta desde ahora (la principal si no existe). */
+    public static function usar(string $id): void
+    {
+        self::$actual = isset(self::cuentas()[$id]) ? $id : self::PRINCIPAL;
+    }
+
+    /** Habla con la cuenta en la que se creó esa reunión. */
+    public static function usarDe(array $reunion): void
+    {
+        self::usar((string)($reunion['zoom_cuenta'] ?? '') ?: self::PRINCIPAL);
+    }
+
+    public static function actual(): string
+    {
+        return self::$actual;
+    }
+
+    /** Las credenciales con las que se habla ahora: las de la cuenta aparte, o las de siempre. */
+    private static function conf(): array
+    {
+        $b = self::confBase();
+        $c = self::cuentas()[self::$actual] ?? null;
+        if ($c && $c['propias']) {
+            return ['activo' => $b['activo'], 'account_id' => $c['account_id'], 'client_id' => $c['client_id'],
+                    'client_secret' => $c['client_secret'], 'zona' => $b['zona']];
+        }
+        return $b;
+    }
+
+    /** El anfitrión de las reuniones de la cuenta actual, para /users/{…}/meetings. */
+    private static function anfitrion(): string
+    {
+        $u = (string)(self::cuentas()[self::$actual]['usuario'] ?? '');
+        return $u !== '' ? rawurlencode($u) : 'me';
+    }
+
+    /** Las direcciones de Zoom (ZOOM_PRUEBA las manda a un servidor falso en las pruebas). */
+    private static function url(string $que): string
+    {
+        $prueba = rtrim((string)getenv('ZOOM_PRUEBA'), '/');
+        if ($prueba !== '') return $prueba . ($que === 'token' ? '/zoom/oauth/token' : '/zoom/v2');
+        return $que === 'token' ? 'https://zoom.us/oauth/token' : 'https://api.zoom.us/v2';
     }
 
     /** true si está activo y con credenciales completas. */
     public static function listo(): bool
     {
-        $c = self::conf();
+        $c = self::confBase();
         return !empty($c['activo']) && $c['account_id'] !== '' && $c['client_id'] !== '' && $c['client_secret'] !== '';
     }
 
     public static function zona(): string
     {
-        return self::conf()['zona'] ?: 'America/Guayaquil';
+        return self::confBase()['zona'] ?: 'America/Guayaquil';
     }
 
     /** Token de acceso (cacheado ~55 min). Devuelve string o ['error'=>...].
@@ -42,12 +158,14 @@ class Zoom
     private static function token(bool $forzar = false): string|array
     {
         $c = self::conf();
-        $cacheFile = __DIR__ . '/../../data/cache_zoom.json';
+        // Cada app (la de siempre o la de una cuenta aparte) tiene su token
+        $propia = (self::cuentas()[self::$actual]['propias'] ?? false);
+        $cacheFile = __DIR__ . '/../../data/cache_zoom' . ($propia ? '_' . self::$actual : '') . (getenv('ZOOM_PRUEBA') ? '_prueba' : '') . '.json';
         $cache = file_exists($cacheFile) ? (json_decode((string)file_get_contents($cacheFile), true) ?: []) : [];
         if (!$forzar && !empty($cache['token']) && ($cache['exp'] ?? 0) > time() + 60) {
             return $cache['token'];
         }
-        $url = 'https://zoom.us/oauth/token?grant_type=account_credentials&account_id=' . urlencode($c['account_id']);
+        $url = self::url('token') . '?grant_type=account_credentials&account_id=' . urlencode($c['account_id']);
         [$codigo, $cuerpo] = self::http('POST', $url, null, [
             'Authorization: Basic ' . base64_encode($c['client_id'] . ':' . $c['client_secret']),
             'Content-Type: application/x-www-form-urlencoded',
@@ -65,7 +183,7 @@ class Zoom
     {
         $token = self::token($forzarToken);
         if (is_array($token)) return [0, $token];
-        [$codigo, $cuerpo] = self::http($metodo, 'https://api.zoom.us/v2' . $ruta,
+        [$codigo, $cuerpo] = self::http($metodo, self::url('api') . $ruta,
             $body !== null ? json_encode($body) : null,
             ['Authorization: Bearer ' . $token, 'Content-Type: application/json']);
         return [$codigo, json_decode($cuerpo, true) ?: []];
@@ -108,7 +226,8 @@ class Zoom
                 'approval_type'    => 2,
             ],
         ];
-        [$codigo, $json] = self::api('POST', '/users/me/meetings', self::conRepeticion($cuerpo, $datos));
+        // A nombre del anfitrión de la cuenta elegida (Zoom::usar): una licencia, una reunión a la vez
+        [$codigo, $json] = self::api('POST', '/users/' . self::anfitrion() . '/meetings', self::conRepeticion($cuerpo, $datos));
         if ($codigo === 201) return $json;
         return ['error' => 'Zoom rechazó la creación: ' . ($json['message'] ?? ('HTTP ' . $codigo))];
     }
@@ -388,5 +507,31 @@ class Zoom
             return true;
         }
         return 'Conectó pero la API respondió ' . $codigo . ': ' . ($json['message'] ?? 'revisa los scopes de la app (meeting:write, recording:read).');
+    }
+
+    /**
+     * Prueba una cuenta: que su app entre y que su anfitrión exista y tenga
+     * licencia (en Zoom, type 2 = con licencia; 1 = básica, sin grabación en la
+     * nube y con reuniones de 40 minutos). Devuelve [ok, mensaje].
+     */
+    public static function probarCuenta(string $id): array
+    {
+        $antes = self::$actual;
+        self::usar($id);
+        $c = self::cuentas()[self::$actual];
+        $t = self::token(true);
+        if (is_array($t)) { self::$actual = $antes; return [false, $c['nombre'] . ': ' . $t['error']]; }
+        [$codigo, $json] = self::api('GET', '/users/' . self::anfitrion());
+        self::$actual = $antes;
+        if ($codigo !== 200) {
+            return [false, $c['nombre'] . ': ' . ($codigo === 404
+                ? 'en esa cuenta de Zoom no hay un usuario con el correo ' . $c['usuario'] . '.'
+                : 'Zoom respondió ' . $codigo . ' (' . ($json['message'] ?? 'revisa los permisos de la app: user:read:admin y meeting:write:admin') . ').')];
+        }
+        $quien = trim((string)($json['email'] ?? '')) ?: $c['nombre'];
+        if ((int)($json['type'] ?? 0) === 1) {
+            return [false, $c['nombre'] . ': ' . $quien . ' es un usuario básico (sin licencia): sus reuniones durarían 40 minutos y no se grabarían. Asígnale la licencia en Zoom.'];
+        }
+        return [true, $c['nombre'] . ': conectada, anfitrión ' . $quien . ($c['propias'] ? ' (cuenta de Zoom aparte).' : ' (licencia de la misma cuenta).')];
     }
 }

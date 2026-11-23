@@ -610,8 +610,57 @@ UI::cabecera(
           </label>
         </div>
 
+        <?php
+          // Varias licencias: una licencia de Zoom da UNA reunión a la vez. Con más de
+          // una, el panel reparte las reuniones y el calendario de horas dice cuál está libre.
+          $zCuentas = array_values(array_filter((array)($zc['cuentas'] ?? []), 'is_array'));
+          $zFila = function (int $i, array $x): string {
+              $n = 'zoom[cuentas][' . $i . ']';
+              $propias = !empty($x['propias']);
+              return '<div class="zc-fila" data-zc-fila>'
+                  . '<input type="hidden" name="' . $n . '[id]" value="' . e((string)($x['id'] ?? '')) . '">'
+                  . '<div class="campo-doble">'
+                  . '<label class="campo"><span>Nombre</span><input class="input-meca" name="' . $n . '[nombre]" maxlength="40" value="' . e((string)($x['nombre'] ?? '')) . '" placeholder="Ej. Zoom 2"></label>'
+                  . '<label class="campo"><span>Correo del anfitrión (el usuario con la licencia)</span><input class="input-meca" type="email" name="' . $n . '[usuario]" maxlength="120" value="' . e((string)($x['usuario'] ?? '')) . '" placeholder="licencia2@innotech-solutions.com.ec"></label>'
+                  . '</div>'
+                  . '<div class="zc-opciones">'
+                  . UI::checkDS($n . '[activa]', !array_key_exists('activa', $x) || !empty($x['activa']), 'Usarla', 'Si la apagas, no se le asignan reuniones nuevas.')
+                  . UI::checkDS($n . '[propias]', $propias, 'Es otra cuenta de Zoom (con su propia app)', 'Márcalo si la licencia se compró en otra cuenta de Zoom, no dentro de la de siempre.', 'js-zc-propias')
+                  . UI::checkDS($n . '[quitar]', false, 'Quitarla', 'Sus reuniones de antes siguen igual en Zoom.', 'zc-quitar')
+                  . '</div>'
+                  . '<div class="zc-propias"' . ($propias ? '' : ' hidden') . '>'
+                  . '<div class="campo-doble">'
+                  . '<label class="campo"><span>Account ID</span><input class="input-meca" name="' . $n . '[account_id]" value="' . e((string)($x['account_id'] ?? '')) . '"></label>'
+                  . '<label class="campo"><span>Client ID</span><input class="input-meca" name="' . $n . '[client_id]" value="' . e((string)($x['client_id'] ?? '')) . '"></label>'
+                  . '</div>'
+                  . '<label class="campo"><span>Client Secret</span><input class="input-meca" type="password" name="' . $n . '[client_secret]" value="" placeholder="' . (!empty($x['client_secret']) ? '•••••••• guardado' : '') . '"></label>'
+                  . '</div></div>';
+          };
+        ?>
+        <div class="zc" id="zoom-cuentas" data-zc data-siguiente="<?= count($zCuentas) + 1 ?>">
+          <h3 class="zc-tit">Licencias de Zoom <small>Cada licencia da una reunión a la vez</small></h3>
+          <p class="ajuste-ayuda">Con más de una licencia caben varias reuniones a la misma hora. Al crear una reunión se elige la cuenta
+            o, si no, el panel usa <b>la que esté libre</b>; el calendario de horas dice qué cuenta está libre en cada franja.
+            Si la licencia nueva está <b>dentro de la misma cuenta de Zoom</b>, basta su nombre y el correo del usuario que tiene la licencia
+            (la app necesita los permisos <code>user:read:admin</code> y <code>meeting:write:admin</code>).
+            Si se compró en <b>otra cuenta de Zoom</b>, marca «Es otra cuenta de Zoom» y pon las credenciales de su propia app Server-to-Server.</p>
+          <div class="campo-doble">
+            <label class="campo"><span>Nombre de esta (la principal)</span>
+              <input class="input-meca" name="zoom[nombre]" maxlength="40" value="<?= e((string)($zc['nombre'] ?? '')) ?>" placeholder="Zoom 1">
+            </label>
+            <label class="campo"><span>Su anfitrión <small>(vacío = el dueño de la app)</small></span>
+              <input class="input-meca" type="email" name="zoom[usuario]" maxlength="120" value="<?= e((string)($zc['usuario'] ?? '')) ?>" placeholder="opcional">
+            </label>
+          </div>
+          <div class="zc-lista" data-zc-lista>
+            <?php foreach ($zCuentas as $i => $x) echo $zFila($i + 1, $x); ?>
+          </div>
+          <template data-zc-plantilla><?= $zFila(0, ['nombre' => '', 'activa' => true]) ?></template>
+          <button type="button" class="btn-outline btn-meca btn-azul btn-sm" data-zc-agregar><i class="fa-solid fa-plus"></i> Agregar otra licencia</button>
+        </div>
+
         <div class="correo-prueba">
-          <span class="ajuste-ayuda" style="flex:1">Guarda primero; luego prueba la conexión con Zoom.</span>
+          <span class="ajuste-ayuda" style="flex:1">Guarda primero; luego prueba la conexión con Zoom (con varias licencias, prueba cada una).</span>
           <button class="btn-outline btn-meca btn-azul btn-sm" form="frm-zoom-prueba">
             <i class="fa-solid fa-plug-circle-check"></i> Probar conexión
           </button>

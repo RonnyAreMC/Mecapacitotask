@@ -1369,6 +1369,21 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
      */
     public static function selectorHora(string $valor, string $id = '', string $duracion = ''): string
     {
+        // Con varias licencias de Zoom: en qué cuenta va (o la que esté libre). Cada
+        // franja del calendario de horas dice cuáles están libres (admin.js).
+        $cuentas = class_exists('Zoom') && Zoom::varias() ? Zoom::activas() : [];
+        $elegir = '';
+        if ($cuentas) {
+            $elegir = '<div class="hp-cuentas" data-hp-cuentas role="radiogroup" aria-label="Cuenta de Zoom">'
+                . '<small>Cuenta de Zoom</small><div class="hp-cuentas__ops">'
+                . '<label class="hp-cuenta"><input type="radio" name="zoom_cuenta" value="" checked><span><i class="hp-cuenta__auto" aria-hidden="true"></i>La que esté libre</span></label>';
+            $k = 0;
+            foreach ($cuentas as $c) {
+                // C1, C2…: lo mismo que dice cada franja del calendario de horas
+                $elegir .= '<label class="hp-cuenta"><input type="radio" name="zoom_cuenta" value="' . e($c['id']) . '"><span><b class="hp-cuenta__c">C' . (++$k) . '</b>' . e($c['nombre']) . '</span></label>';
+            }
+            $elegir .= '</div></div>';
+        }
         return '<div class="campo hp" data-hora-picker data-resumen="">'
             . '<span>Día y hora</span>'
             . '<input type="hidden" name="inicio" value="' . e($valor) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>'
@@ -1376,6 +1391,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
             . '<label class="hp-dia"><small>Día</small><input class="input-meca hp-fecha" type="date" value="' . e(substr($valor, 0, 10)) . '" min="' . date('Y-m-d') . '" aria-label="Día de la reunión"></label>'
             . ($duracion !== '' ? '<label class="hp-dur"><small>Duración</small>' . $duracion . '</label>' : '')
             . '</div>'
+            . $elegir
             . '<div class="hp-turnos" role="tablist" aria-label="Parte del día">'
             . '<button type="button" role="tab" data-turno="m"><i class="fa-solid fa-sun" aria-hidden="true"></i> Mañana</button>'
             . '<button type="button" role="tab" data-turno="t"><i class="fa-solid fa-cloud-sun" aria-hidden="true"></i> Tarde</button>'
@@ -1383,7 +1399,7 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
             . '</div>'
             . '<div class="hp-grid" role="listbox" aria-label="Hora de inicio"></div>'
             . '<p class="hp-pie"><span class="hp-sel"></span>'
-            . '<span class="hp-ley"><i class="hp-punto"></i> libre <i class="hp-punto hp-punto--ocupado"></i> ocupado en Zoom</span></p>'
+            . '<span class="hp-ley"' . ($cuentas ? ' data-hp-ley-cuentas' : '') . '><i class="hp-punto"></i> libre <i class="hp-punto hp-punto--ocupado"></i> ocupado en Zoom</span></p>'
             . '</div>';
     }
 

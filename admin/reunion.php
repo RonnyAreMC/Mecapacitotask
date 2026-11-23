@@ -148,7 +148,8 @@ $esRelativo = in_array(mb_strtolower($diaA), ['hoy', 'mañana', 'ayer'], true);
     </div>
     <?php /* Entrar, copiar e iniciar como anfitrión están arriba, en el encabezado */ ?>
     <dl class="ru-datos">
-      <div><dt>Plataforma</dt><dd><?= e(Reuniones::etiquetaPlataforma($plat)) ?><?php if ($plat === 'enlace'): ?> <small>no queda grabada</small><?php endif; ?></dd></div>
+      <div><dt>Plataforma</dt><dd><?= e(Reuniones::etiquetaPlataforma($plat)) ?><?php if ($plat === 'enlace'): ?> <small>no queda grabada</small><?php endif; ?>
+        <?php if ($plat === 'zoom' && Zoom::varias()): /* con varias licencias, en cuál está */ ?> <small>· <?= e(Zoom::nombre(Reuniones::cuentaDe($r))) ?></small><?php endif; ?></dd></div>
       <?php if ($codigo !== ''): ?><div><dt><?= $plat === 'meet' ? 'Código' : 'ID de la reunión' ?></dt><dd class="ru-datos__num"><?= e($codigo) ?></dd></div><?php endif; ?>
       <?php if (trim((string)($r['password'] ?? '')) !== ''): ?><div><dt>Contraseña</dt><dd class="ru-datos__num"><?= e((string)$r['password']) ?></dd></div><?php endif; ?>
       <?php if ($enlace !== ''): ?><div class="ru-datos__ancho"><dt>Enlace</dt><dd><a class="ru-enlace" href="<?= e($enlace) ?>" target="_blank" rel="noopener" title="<?= e($enlace) ?>"><?= e($enlaceVer) ?></a></dd></div><?php endif; ?>

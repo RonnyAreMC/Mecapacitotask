@@ -3372,6 +3372,9 @@ document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
     dlg.querySelector('#er-inicio').value = m ? (m[1] + 'T' + m[2]) : '';
     setSelect(dlg.querySelector('.js-er-duracion'), r.duracion || 60);
     setSelect(dlg.querySelector('.js-er-invitados'), r.invitados || []);
+    // Con varias licencias de Zoom: marcada la suya (elegir otra la pasa a esa cuenta)
+    const rc = dlg.querySelector('input[name="zoom_cuenta"][value="' + (r.zoom_cuenta || 'principal') + '"]') || dlg.querySelector('input[name="zoom_cuenta"][value=""]');
+    if (rc) rc.checked = true;
 
     // Repetición semanal: marcar los días guardados y abrir el bloque si aplica
     const rec = dlg.querySelector('.js-er-recurrente');
@@ -3386,6 +3389,25 @@ document.querySelectorAll('.js-editar-reunion').forEach((btn) => {
       rec.dispatchEvent(new Event('change', { bubbles: true }));
     }
     dlg.showModal();
+  });
+});
+
+/* Ajustes → Licencias de Zoom: «Agregar otra licencia» (de la plantilla) y, si
+   es otra cuenta de Zoom, sus credenciales */
+document.querySelectorAll('[data-zc]').forEach((caja) => {
+  const lista = caja.querySelector('[data-zc-lista]');
+  const plantilla = caja.querySelector('template[data-zc-plantilla]');
+  caja.querySelector('[data-zc-agregar]')?.addEventListener('click', () => {
+    const n = parseInt(caja.dataset.siguiente || '1', 10);
+    caja.dataset.siguiente = String(n + 1);
+    lista.insertAdjacentHTML('beforeend', plantilla.innerHTML.replaceAll('zoom[cuentas][0]', 'zoom[cuentas][' + n + ']'));
+    const nombre = lista.lastElementChild.querySelector('input[name$="[nombre]"]');
+    nombre.value = 'Zoom ' + (lista.querySelectorAll('[data-zc-fila]').length + 1);
+    nombre.focus();
+  });
+  caja.addEventListener('change', (e) => {
+    const chk = e.target.closest('.js-zc-propias input');
+    if (chk) chk.closest('[data-zc-fila]').querySelector('.zc-propias').hidden = !chk.checked;
   });
 });
 
@@ -3441,14 +3463,34 @@ const SelectorHora = {
     const cache = new Map();
     let turno = 'm';
     let ocupado = [];
+    let cuentas = [];      // con varias licencias de Zoom: [{id, nombre, color}]
     let pedido = 0;
+    const caja = hp.querySelector('[data-hp-cuentas]');
+    const ley = hp.querySelector('[data-hp-ley-cuentas]');
+    // La cuenta elegida ('' = la que esté libre)
+    const pedida = () => form.querySelector('input[name="zoom_cuenta"]:checked')?.value || '';
+    const nombreCuenta = (id) => (cuentas.find((c) => c.id === id) || {}).nombre || 'Zoom';
 
     const dur = () => parseInt(form.querySelector('[name="duracion"]')?.value || '60', 10) || 60;
     const valor = () => {
       const m = (oculto.value || '').match(/(\d{4}-\d{2}-\d{2})[T ](\d{2}):(\d{2})/);
       return m ? { f: m[1], min: +m[2] * 60 + +m[3] } : null;
     };
-    const choca = (s) => ocupado.find((o) => s < o.fin && o.ini < s + dur());
+    // Lo que hay en cada cuenta a esa hora: id => la reunión que la ocupa
+    const ocupadas = (s) => {
+      const m = new Map();
+      ocupado.forEach((o) => { if (s < o.fin && o.ini < s + dur() && !m.has(o.cuenta || 'principal')) m.set(o.cuenta || 'principal', o); });
+      return m;
+    };
+    // ¿No se puede a esa hora? Con una cuenta, si está ocupada; con varias, si la
+    // elegida está ocupada o, con «la que esté libre», si lo están todas
+    const choca = (s) => {
+      if (cuentas.length < 2) return ocupado.find((o) => s < o.fin && o.ini < s + dur());
+      const m = ocupadas(s);
+      const p = pedida();
+      if (p) return m.get(p) || null;
+      return cuentas.every((c) => m.has(c.id)) ? m.get(cuentas[0].id) : null;
+    };
     const pasada = (f, s) => { const h = this.hoy(); return f < h.f || (f === h.f && s < h.min - 10); };
     const nombreDia = (f) => { const d = new Date(f + 'T12:00'); return this.DIAS[d.getDay()] + ' ' + d.getDate(); };
 
@@ -3467,12 +3509,25 @@ const SelectorHora = {
         // Hoy, lo que ya pasó ni se muestra: arriba quedan las horas próximas
         if (pasada(f, s)) continue;
         const c = choca(s);
-        op.innerHTML = '<b>' + this.doce(s) + '</b>' + (c ? '<small>ocupado</small>' : '');
-        // aria-disabled y no disabled: así la ayuda (con qué choca) sale al pasar el mouse
-        if (c) {
-          op.classList.add('is-ocupado');
-          op.setAttribute('aria-disabled', 'true');
-          op.title = 'Ocupado: «' + c.tema + '»' + (c.proyecto ? ' (' + c.proyecto + ')' : '') + ', de ' + this.doce(c.ini) + ' a ' + this.doce(c.fin);
+        if (cuentas.length > 1) {
+          // Varias licencias: «C1 C2…» en cada franja, en verde la libre y en rojo la ocupada
+          const m = ocupadas(s);
+          op.innerHTML = '<b>' + this.doce(s) + '</b><span class="hp-cs">'
+            + cuentas.map((x, k) => '<span class="' + (m.has(x.id) ? 'is-ocupada' : 'is-libre') + '"><i aria-hidden="true"></i>C' + (k + 1) + '</span>').join('') + '</span>';
+          op.title = cuentas.map((x, k) => {
+            const o = m.get(x.id);
+            return 'C' + (k + 1) + ' · ' + x.nombre + ': ' + (o ? 'ocupada con «' + o.tema + '»' + (o.proyecto ? ' (' + o.proyecto + ')' : '') + ', ' + this.doce(o.ini) + '–' + this.doce(o.fin) : 'libre');
+          }).join('\n');
+          op.setAttribute('aria-label', this.doce(s) + ': ' + cuentas.map((x, k) => 'C' + (k + 1) + (m.has(x.id) ? ' ocupada' : ' libre')).join(', '));
+          if (c) { op.classList.add('is-ocupado'); op.setAttribute('aria-disabled', 'true'); }
+        } else {
+          op.innerHTML = '<b>' + this.doce(s) + '</b>' + (c ? '<small>ocupado</small>' : '');
+          // aria-disabled y no disabled: así la ayuda (con qué choca) sale al pasar el mouse
+          if (c) {
+            op.classList.add('is-ocupado');
+            op.setAttribute('aria-disabled', 'true');
+            op.title = 'Ocupado: «' + c.tema + '»' + (c.proyecto ? ' (' + c.proyecto + ')' : '') + ', de ' + this.doce(c.ini) + ' a ' + this.doce(c.fin);
+          }
         }
         if (v && v.f === f && v.min === s) { op.classList.add('is-sel'); op.setAttribute('aria-selected', 'true'); }
         grid.appendChild(op);
@@ -3484,7 +3539,14 @@ const SelectorHora = {
         selTxt.textContent = v ? texto + (choca(v.min) && v.f === f ? ' · choca con otra reunión' : '') : 'Elige una hora';
         selTxt.classList.toggle('is-mal', !!(v && v.f === f && choca(v.min)));
       }
-      hp.dataset.resumen = texto;
+      // Con varias cuentas, la confirmación dice en cuál va
+      hp.dataset.resumen = texto + (cuentas.length > 1 && texto ? ' · ' + (pedida() ? nombreCuenta(pedida()) : 'en la cuenta de Zoom libre') : '');
+      if (caja) caja.hidden = (form.querySelector('input[name="plataforma"]')?.value || 'zoom') !== 'zoom';
+      if (ley && cuentas.length > 1) {
+        // C1 = la primera cuenta de Ajustes, C2 la segunda…; verde libre, rojo ocupada
+        ley.innerHTML = cuentas.map((x, k) => '<b>C' + (k + 1) + '</b> ' + x.nombre).join(' · ')
+          + ' <span class="hp-cs hp-cs--ley"><span class="is-libre"><i></i>libre</span><span class="is-ocupada"><i></i>ocupada</span></span>';
+      }
     };
 
     // Lo elegido (o la primera hora libre) queda al centro de lo que se ve
@@ -3508,7 +3570,7 @@ const SelectorHora = {
       if (!f) { ocupado = []; pintar(); return; }
       const plat = form.querySelector('input[name="plataforma"]')?.value || '';
       const clave = f + '|' + plat;
-      if (cache.has(clave)) { ocupado = cache.get(clave); pintar(); return; }
+      if (cache.has(clave)) { ocupado = cache.get(clave); cuentas = cache.get(clave + '|cuentas') || []; pintar(); return; }
       const n = ++pedido;
       grid.classList.add('is-cargando');
       const datos = new FormData();
@@ -3520,7 +3582,9 @@ const SelectorHora = {
         const j = await r.json();
         if (n !== pedido) return;
         ocupado = Array.isArray(j.ocupado) ? j.ocupado : [];
+        cuentas = Array.isArray(j.cuentas) ? j.cuentas : [];
         cache.set(clave, ocupado);
+        cache.set(clave + '|cuentas', cuentas);
       } catch (e) {
         if (n !== pedido) return;
         ocupado = [];
@@ -3548,7 +3612,7 @@ const SelectorHora = {
       if (v && fecha.value) { oculto.value = fecha.value + 'T' + this.hhmm(v.min); oculto.dispatchEvent(new Event('change', { bubbles: true })); }
       cargar();
     });
-    form.addEventListener('change', (e) => { if (e.target.name === 'duracion') pintar(); });
+    form.addEventListener('change', (e) => { if (e.target.name === 'duracion' || e.target.name === 'zoom_cuenta') pintar(); });
     form.querySelectorAll('[data-plat]').forEach((b) => b.addEventListener('click', () => setTimeout(cargar, 0)));
 
     // Al abrir el modal (al editar, ya trae la hora de la reunión)
@@ -3591,11 +3655,14 @@ SelectorHora.init();
   });
   let espera = 0;
   let pedido = 0;
-  const marcar = (texto) => {
+  // texto = no se puede (bloquea «Crear»); nota = en qué cuenta de Zoom va (solo informa)
+  const marcar = (texto, nota = '') => {
+    const msg = texto || nota;
     avisos.forEach((aviso) => {
-      aviso.hidden = !texto;
-      aviso.innerHTML = texto ? '<i class="fa-solid fa-calendar-xmark" aria-hidden="true"></i><span></span>' : '';
-      if (texto) aviso.querySelector('span').textContent = texto;
+      aviso.hidden = !msg;
+      aviso.classList.toggle('reu-choque--nota', !texto && !!nota);
+      aviso.innerHTML = msg ? '<i class="fa-solid ' + (texto ? 'fa-calendar-xmark' : 'fa-video') + '" aria-hidden="true"></i><span></span>' : '';
+      if (msg) aviso.querySelector('span').textContent = msg;
     });
     if (enviar) { enviar.disabled = !!texto; enviar.title = texto ? 'Zoom está ocupado a esa hora' : ''; }
   };
@@ -3611,7 +3678,7 @@ SelectorHora.init();
       try {
         const r = await fetch('actions.php', { method: 'POST', body: datos, credentials: 'same-origin' });
         const j = await r.json();
-        if (n === pedido) marcar(j.libre ? '' : (j.texto || ''));
+        if (n === pedido) marcar(j.libre ? '' : (j.texto || ''), j.libre ? (j.nota || '') : '');
       } catch (e) {
         if (n === pedido) marcar('');
       }

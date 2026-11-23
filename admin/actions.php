@@ -153,11 +153,14 @@ function relCrearReunion(array $rev, int $pid, array $invitados, string $pedida,
         $reu = $reuniones->crear($base + ['plataforma' => 'meet', 'gcal_event' => (string)($creada['event'] ?? ''), 'join_url' => (string)($creada['meet'] ?? '')]);
     } else {
         if (!Zoom::listo()) return 'Zoom no está configurado (Ajustes → Zoom).';
-        if ($choque = Reuniones::choqueZoom($inicio, $dur)) return Reuniones::textoChoque($choque, $dur);
+        // La primera cuenta (licencia) de Zoom libre a esa hora
+        $libreR = Reuniones::cuentaLibre($inicio, $dur);
+        if ($libreR['cuenta'] === null) return Reuniones::textoSinCuenta($libreR, $dur);
+        Zoom::usar($libreR['cuenta']);
         $creada = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
         if (isset($creada['error'])) return (string)$creada['error'];
         $reu = $reuniones->crear($base + ['plataforma' => 'zoom', 'zoom_id' => (string)($creada['id'] ?? ''), 'join_url' => $creada['join_url'] ?? '',
-                                          'start_url' => $creada['start_url'] ?? '', 'password' => $creada['password'] ?? '']);
+                                          'start_url' => $creada['start_url'] ?? '', 'password' => $creada['password'] ?? '', 'zoom_cuenta' => $libreR['cuenta']]);
     }
     // Lo mismo que una reunión hecha a mano: calendarios, campana, WhatsApp o correo
     try {
@@ -202,7 +205,9 @@ function relMoverReunion(array $antes, array $rev, ProyectoRepo $proyectos, Miem
             ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '', 'invitados' => $emails]);
         if ($ok !== true) return ' La revisión se movió, pero la reunión de Meet no: ' . $ok;
     } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
-        if ($choque = Reuniones::choqueZoom($inicio, $dur, [], '', (int)$reu['id'])) return ' La revisión se movió, pero la reunión de Zoom no: ' . Reuniones::textoChoque($choque, $dur);
+        // En su cuenta (licencia) de Zoom: a esa hora, ¿la tiene libre?
+        if ($choque = Reuniones::choqueZoom($inicio, $dur, [], '', (int)$reu['id'], Reuniones::cuentaDe($reu))) return ' La revisión se movió, pero la reunión de Zoom no: ' . Reuniones::textoChoque($choque, $dur);
+        Zoom::usarDe($reu);
         $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], ['topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur, 'dias' => [], 'hasta' => '']);
         if ($ok !== true) return ' La revisión se movió, pero la reunión de Zoom no: ' . $ok;
     }
@@ -3368,7 +3373,33 @@ switch ($accion) {
             'client_id'     => trim($zoomPost['client_id'] ?? ''),
             'client_secret' => $secreto($zoomPost['client_secret'] ?? '', $prev['zoom']['client_secret'] ?? ''),
             'zona'          => trim($zoomPost['zona'] ?? '') ?: 'America/Guayaquil',
+            // La principal también tiene nombre y, si no es el dueño de la app, el correo de su anfitrión
+            'nombre'        => mb_substr(trim((string)($zoomPost['nombre'] ?? '')), 0, 40),
+            'usuario'       => mb_substr(trim((string)($zoomPost['usuario'] ?? '')), 0, 120),
+            'cuentas'       => [],
         ];
+        // Las otras licencias de Zoom. Su id no cambia (las reuniones lo guardan);
+        // un secreto vacío deja el que ya estaba
+        $zoomPrevCuentas = [];
+        foreach ((array)($prev['zoom']['cuentas'] ?? []) as $zx) if (is_array($zx) && !empty($zx['id'])) $zoomPrevCuentas[(string)$zx['id']] = $zx;
+        foreach ((array)($zoomPost['cuentas'] ?? []) as $zx) {
+            if (!is_array($zx) || !empty($zx['quitar'])) continue;
+            $zNombre = mb_substr(trim((string)($zx['nombre'] ?? '')), 0, 40);
+            $zUsuario = mb_substr(trim((string)($zx['usuario'] ?? '')), 0, 120);
+            if ($zNombre === '' && $zUsuario === '') continue;
+            $zId = preg_replace('/[^a-z0-9_-]/', '', strtolower((string)($zx['id'] ?? '')));
+            if ($zId === '' || $zId === Zoom::PRINCIPAL) $zId = 'z' . substr(bin2hex(random_bytes(4)), 0, 6);
+            $zoom['cuentas'][] = [
+                'id'            => $zId,
+                'nombre'        => $zNombre,
+                'usuario'       => $zUsuario,
+                'activa'        => !empty($zx['activa']),
+                'propias'       => !empty($zx['propias']),
+                'account_id'    => trim((string)($zx['account_id'] ?? '')),
+                'client_id'     => trim((string)($zx['client_id'] ?? '')),
+                'client_secret' => $secreto((string)($zx['client_secret'] ?? ''), $zoomPrevCuentas[$zId]['client_secret'] ?? ''),
+            ];
+        }
 
         $reuPost = (array)($_POST['reuniones'] ?? []);
         $reunionesCfg = [
@@ -5033,7 +5064,18 @@ switch ($accion) {
             redirigir('ajustes.php', 'Primero activa Zoom y guarda Account ID, Client ID y Client Secret.', 'error');
         }
         $r = Zoom::probar();
-        redirigir('ajustes.php', $r === true ? '¡Conexión con Zoom exitosa! Ya puedes crear reuniones.' : 'Zoom: ' . $r, $r === true ? 'success' : 'error');
+        if ($r !== true || count(Zoom::cuentas()) === 1) {
+            redirigir('ajustes.php#zoom-credenciales', $r === true ? '¡Conexión con Zoom exitosa! Ya puedes crear reuniones.' : 'Zoom: ' . $r, $r === true ? 'success' : 'error');
+        }
+        // Varias licencias: cada una, con su anfitrión
+        $zPruebas = [];
+        $zTodas = true;
+        foreach (array_keys(Zoom::cuentas()) as $zId) {
+            [$zOk, $zMsg] = Zoom::probarCuenta($zId);
+            $zTodas = $zTodas && $zOk;
+            $zPruebas[] = ($zOk ? '✓ ' : '✗ ') . $zMsg;
+        }
+        redirigir('ajustes.php#zoom-credenciales', implode(' ', $zPruebas), $zTodas ? 'success' : 'error');
 
     /* ---------- Reuniones (Zoom) ---------- */
 
@@ -5152,10 +5194,14 @@ switch ($accion) {
             if (!Zoom::listo()) {
                 redirigir($volver, 'Zoom no está configurado. Ve a Ajustes → Zoom (o crea la reunión con Meet).', 'error');
             }
-            // Una sola cuenta de Zoom para todo el panel: a la hora de otra reunión, no
-            if ($choque = Reuniones::choqueZoom($inicio, $dur, $recurrente ? $dias : [], $recurrente ? $hasta : '')) {
-                redirigir($volver, Reuniones::textoChoque($choque, $dur, (bool)$recurrente), 'error');
+            // Cada licencia de Zoom, una reunión a la vez: la cuenta elegida o, si no se
+            // eligió, la primera libre a esa hora (y en todas sus repeticiones)
+            $pedidaZ = (string)($_POST['zoom_cuenta'] ?? '');
+            $libreZ = Reuniones::cuentaLibre($inicio, $dur, $recurrente ? $dias : [], $recurrente ? $hasta : '', 0, $pedidaZ);
+            if ($libreZ['cuenta'] === null) {
+                redirigir($volver, Reuniones::textoSinCuenta($libreZ, $dur, (bool)$recurrente, $pedidaZ, $inicio, $recurrente ? $dias : [], $recurrente ? $hasta : ''), 'error');
             }
+            Zoom::usar($libreZ['cuenta']);
             $creada = Zoom::crearReunion([
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $dur,
                 'dias'  => $dias,  'hasta'  => $hasta,
@@ -5174,12 +5220,13 @@ switch ($accion) {
                 'join_url'    => $creada['join_url'] ?? '',
                 'start_url'   => $creada['start_url'] ?? '',
                 'password'    => $creada['password'] ?? '',
+                'zoom_cuenta' => $libreZ['cuenta'],
                 'invitados'   => $invitados,
                 'recurrente'  => $recurrente,
                 'dias'        => $dias,
                 'hasta'       => $hasta,
             ]);
-            $donde = 'Reunión creada en Zoom.';
+            $donde = 'Reunión creada en Zoom' . (Zoom::varias() ? ' (' . Zoom::nombre($libreZ['cuenta']) . ')' : '') . '.';
         }
         if ($recurrente) {
             $donde .= ' Se repite ' . mb_strtolower(Reuniones::etiqueta($dias)) . ' hasta el ' . $hasta . '.';
@@ -5224,7 +5271,10 @@ switch ($accion) {
         if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaA) || $platA !== 'zoom' || !$puedeA) {
             exit('{"ocupado":[]}');
         }
-        exit(json_encode(['ocupado' => Reuniones::ocupadoZoom($fechaA, (int)($reuA['id'] ?? 0))], JSON_UNESCAPED_UNICODE));
+        exit(json_encode(['ocupado' => Reuniones::ocupadoZoom($fechaA, (int)($reuA['id'] ?? 0)),
+            // Con varias licencias: cada franja dice cuáles quedan libres
+            'cuentas' => array_values(array_map(fn($c) => ['id' => $c['id'], 'nombre' => $c['nombre'], 'color' => $c['color']], Zoom::activas()))],
+            JSON_UNESCAPED_UNICODE));
 
     case 'reunion_choque':
         // Para el formulario de reunión: ¿Zoom está libre a esa hora? Se pregunta al
@@ -5245,9 +5295,22 @@ switch ($accion) {
         $mismoC = $reuC && $inicioC === (string)($reuC['inicio'] ?? '') && $durC === (int)($reuC['duracion'] ?? 0)
             && $serieC === !empty($reuC['recurrente']) && $hastaC === (string)($reuC['hasta'] ?? '')
             && $diasC === Reuniones::diasValidos($reuC['dias'] ?? []);
-        $choqueC = !$mismoC && $platC === 'zoom' && $puedeC && strtotime($inicioC)
-            ? Reuniones::choqueZoom($inicioC, $durC, $diasC, $hastaC, (int)($reuC['id'] ?? 0)) : null;
-        exit(json_encode($choqueC ? ['libre' => false, 'texto' => Reuniones::textoChoque($choqueC, $durC, $serieC)] : ['libre' => true], JSON_UNESCAPED_UNICODE));
+        // La cuenta pedida ('' = la que esté libre); al editar, la suya si no se cambió
+        $pedidaC = (string)($_POST['zoom_cuenta'] ?? ($reuC ? Reuniones::cuentaDe($reuC) : ''));
+        if ($mismoC && $reuC && $pedidaC === Reuniones::cuentaDe($reuC)) exit('{"libre":true}');
+        if ($platC !== 'zoom' || !$puedeC || !strtotime($inicioC)) exit('{"libre":true}');
+        $libreC = Reuniones::cuentaLibre($inicioC, $durC, $diasC, $hastaC, (int)($reuC['id'] ?? 0), $pedidaC);
+        if ($libreC['cuenta'] === null) {
+            exit(json_encode(['libre' => false, 'texto' => Reuniones::textoSinCuenta($libreC, $durC, $serieC, $pedidaC, $inicioC, $diasC, $hastaC, (int)($reuC['id'] ?? 0))], JSON_UNESCAPED_UNICODE));
+        }
+        // Libre: con varias licencias, en cuál va (y si al editar cambia de cuenta, que el enlace cambia)
+        $nota = '';
+        if (Zoom::varias()) {
+            $nota = $reuC && $libreC['cuenta'] !== Reuniones::cuentaDe($reuC)
+                ? 'Pasa a ' . Zoom::nombre($libreC['cuenta']) . ': el enlace de la reunión cambia y se avisa a los invitados.'
+                : 'Va en ' . Zoom::nombre($libreC['cuenta']) . ($pedidaC === '' ? ', la que está libre a esa hora.' : '.');
+        }
+        exit(json_encode(['libre' => true, 'cuenta' => $libreC['cuenta'], 'nota' => $nota], JSON_UNESCAPED_UNICODE));
 
     case 'reunion_editar':
         $reuniones = new ReunionRepo();
@@ -5282,13 +5345,22 @@ switch ($accion) {
         if ($general && !$invitados) {
             redirigir($volver, 'Invita al menos a una persona: una reunión general no es de ningún proyecto, así que nadie más la vería.', 'error');
         }
-        // En Zoom, moverla a la hora de otra reunión no (sumar invitados a una que ya estaba, sí)
+        // En Zoom, moverla a la hora de otra reunión de su misma cuenta no (sumar invitados a una que ya estaba, sí)
         $cambiaHorario = $inicio !== (string)($reu['inicio'] ?? '') || $duracion !== (int)($reu['duracion'] ?? 0)
             || (bool)$recurrente !== !empty($reu['recurrente']) || (string)$hasta !== (string)($reu['hasta'] ?? '')
             || Reuniones::diasValidos($dias) !== Reuniones::diasValidos($reu['dias'] ?? []);
-        if (!$esMeet && ($reu['plataforma'] ?? 'zoom') === 'zoom' && $cambiaHorario
-            && ($choque = Reuniones::choqueZoom($inicio, $duracion, $recurrente ? $dias : [], $recurrente ? $hasta : '', (int)$reu['id']))) {
-            redirigir($volver, Reuniones::textoChoque($choque, $duracion, (bool)$recurrente), 'error');
+        $esZoomE = !$esMeet && ($reu['plataforma'] ?? 'zoom') === 'zoom';
+        $cuentaAntes = Reuniones::cuentaDe($reu);
+        // La cuenta en la que queda: la suya, u otra si se eligió (Zoom no cambia el anfitrión: se crea de nuevo)
+        $cuentaPedidaE = (string)($_POST['zoom_cuenta'] ?? $cuentaAntes);
+        $cambiaCuenta = $esZoomE && !empty($reu['zoom_id']) && Zoom::listo() && $cuentaPedidaE !== '' && $cuentaPedidaE !== $cuentaAntes
+            && isset(Zoom::activas()[$cuentaPedidaE]);
+        $cuentaE = $cambiaCuenta ? $cuentaPedidaE : $cuentaAntes;
+        if ($esZoomE && ($cambiaHorario || $cambiaCuenta)) {
+            $libreE = Reuniones::cuentaLibre($inicio, $duracion, $recurrente ? $dias : [], $recurrente ? $hasta : '', (int)$reu['id'], $cuentaE);
+            if ($libreE['cuenta'] === null) {
+                redirigir($volver, Reuniones::textoSinCuenta($libreE, $duracion, (bool)$recurrente, $cuentaE, $inicio, $recurrente ? $dias : [], $recurrente ? $hasta : '', (int)$reu['id']), 'error');
+            }
         }
 
         // Actualiza en la plataforma correspondiente
@@ -5307,7 +5379,22 @@ switch ($accion) {
             if ($ok !== true) {
                 redirigir($volver, $ok, 'error');
             }
+        } elseif (!empty($reu['zoom_id']) && Zoom::listo() && $cambiaCuenta) {
+            // A otra licencia: Zoom no cambia el anfitrión de una reunión, así que se crea
+            // en la cuenta nueva y se borra la de antes. El enlace cambia: se avisa a todos.
+            Zoom::usar($cuentaE);
+            $nuevaZ = Zoom::crearReunion(['topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion, 'dias' => $dias, 'hasta' => $hasta]);
+            if (isset($nuevaZ['error'])) {
+                redirigir($volver, $nuevaZ['error'], 'error');
+            }
+            Zoom::usarDe($reu);
+            Zoom::eliminarReunion((string)$reu['zoom_id']);
+            $reuniones->actualizar((int)$reu['id'], [
+                'zoom_id' => (string)($nuevaZ['id'] ?? ''), 'join_url' => (string)($nuevaZ['join_url'] ?? ''),
+                'start_url' => (string)($nuevaZ['start_url'] ?? ''), 'password' => (string)($nuevaZ['password'] ?? ''), 'zoom_cuenta' => $cuentaE,
+            ]);
         } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
+            Zoom::usarDe($reu);
             $ok = Zoom::actualizarReunion((string)$reu['zoom_id'], [
                 'topic' => $topic, 'inicio' => $inicio, 'duracion' => $duracion,
                 'dias'  => $dias,  'hasta'  => $hasta,
@@ -5317,7 +5404,7 @@ switch ($accion) {
             }
         }
         // ¿Cambió algo que los invitados tengan que saber? (para avisarles por WhatsApp)
-        $cambioReu = $topic !== (string)($reu['topic'] ?? '') || $inicio !== (string)($reu['inicio'] ?? '')
+        $cambioReu = $cambiaCuenta || $topic !== (string)($reu['topic'] ?? '') || $inicio !== (string)($reu['inicio'] ?? '')
             || $duracion !== (int)($reu['duracion'] ?? 0) || (bool)$recurrente !== !empty($reu['recurrente'])
             || (string)$hasta !== (string)($reu['hasta'] ?? '')
             || Reuniones::diasValidos($dias) !== Reuniones::diasValidos($reu['dias'] ?? []);
@@ -5350,9 +5437,14 @@ switch ($accion) {
             [$porWa, $sinTelWa] = Whatsapp::avisarReunion($reuActual, $nuevos, (array)$p, 'nueva', $yoReu);
             $paraCorreo = array_map(fn($m) => (int)$m['id'], $sinTelWa);
             if ($cambioReu) {
-                [$nCambio] = Whatsapp::avisarReunion($reuActual, array_intersect($invitados, $invitadosAntes), (array)$p, 'cambio', $yoReu);
+                [$nCambio, $sinTelCambio] = Whatsapp::avisarReunion($reuActual, array_intersect($invitados, $invitadosAntes), (array)$p, 'cambio', $yoReu);
                 $porWa += $nCambio;
+                // Pasó a otra cuenta de Zoom: el enlace es otro; quien no tiene WhatsApp, por correo
+                if ($cambiaCuenta) $paraCorreo = array_merge($paraCorreo, array_map(fn($m) => (int)$m['id'], $sinTelCambio));
             }
+        } elseif ($cambiaCuenta) {
+            // Sin WhatsApp: el enlace nuevo les llega por correo a los que ya estaban
+            $paraCorreo = array_merge($paraCorreo, array_intersect($invitados, $invitadosAntes));
         }
         if ($paraCorreo && $p && Mailer::listo()) {
             foreach ($paraCorreo as $mid) {
@@ -5361,6 +5453,7 @@ switch ($accion) {
             }
         }
         redirigir($volver, 'Reunión actualizada.'
+            . ($cambiaCuenta ? ' Pasó a ' . Zoom::nombre($cuentaE) . ': el enlace cambió y se avisó a los invitados.' : '')
             . ($porWa ? ' ' . $porWa . ' aviso(s) por WhatsApp en camino.' : '')
             . ($avisados ? ' ' . $avisados . ' invitado(s) nuevo(s) notificado(s) por correo.' : ''));
 
@@ -5428,6 +5521,7 @@ switch ($accion) {
                 $refresh = (string)($creador['gcal_refresh'] ?? (Auth::usuario()['gcal_refresh'] ?? ''));
                 GoogleCalendar::borrarEvento($refresh, (string)$reu['gcal_event']);
             } elseif (!empty($reu['zoom_id']) && Zoom::listo()) {
+                Zoom::usarDe($reu);
                 Zoom::eliminarReunion($reu['zoom_id']);
             }
             $reuniones->eliminar((int)$reu['id']);

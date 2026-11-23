@@ -25,6 +25,7 @@
  * No va en bootstrap: lo cargan zoom_drive.php, cron_zoom_drive.php y oauth_google.php.
  */
 require_once __DIR__ . '/../core/Models.php';
+require_once __DIR__ . '/Zoom.php';   // las cuentas (licencias) de Zoom
 
 final class ZoomDrive
 {
@@ -79,9 +80,29 @@ final class ZoomDrive
         Config::guardar(['zoom_drive' => array_replace(self::conf(), $cambios)]);
     }
 
+    /**
+     * Con qué app de Zoom se habla ahora: 'principal' (la de Ajustes) o el id de
+     * una cuenta de Zoom APARTE (otra licencia con su propia app). Las licencias de
+     * la misma cuenta no hacen falta: la app de siempre ya ve a todos sus usuarios.
+     */
+    private static string $zc = Zoom::PRINCIPAL;
+
     private static function zoomConf(): array
     {
-        return array_replace(['activo' => false, 'account_id' => '', 'client_id' => '', 'client_secret' => ''], (array)Config::get('zoom'));
+        $base = array_replace(['activo' => false, 'account_id' => '', 'client_id' => '', 'client_secret' => ''], (array)Config::get('zoom'));
+        $c = self::$zc !== Zoom::PRINCIPAL ? (Zoom::cuentas()[self::$zc] ?? null) : null;
+        if ($c && $c['propias']) {
+            return ['activo' => $base['activo'], 'account_id' => $c['account_id'], 'client_id' => $c['client_id'], 'client_secret' => $c['client_secret']];
+        }
+        return $base;
+    }
+
+    /** Las apps de Zoom de las que hay que sacar grabaciones: la de siempre y las de cuentas aparte. */
+    private static function credenciales(): array
+    {
+        $out = [Zoom::PRINCIPAL];
+        foreach (Zoom::activas() as $id => $c) if ($c['propias']) $out[] = $id;
+        return $out;
     }
 
     public static function zoomListo(): bool
@@ -227,7 +248,7 @@ final class ZoomDrive
 
     private static function tokenZoom(bool $forzar = false): string
     {
-        $f = self::cache('zoom');
+        $f = self::cache('zoom' . (self::$zc !== Zoom::PRINCIPAL ? '_' . self::$zc : ''));
         $c = json_decode((string)@file_get_contents($f), true) ?: [];
         if (!$forzar && !empty($c['t']) && ($c['exp'] ?? 0) > time() + 60) return $c['t'];
         $z = self::zoomConf();
@@ -362,11 +383,19 @@ final class ZoomDrive
     public static function probarZoom(): array
     {
         self::$ultimoError = '';
-        @unlink(self::cache('zoom'));      // token nuevo: así toma los permisos que se acaban de agregar
         if (!self::zoomListo()) return ['ok' => false, 'msg' => 'Falta conectar Zoom en Ajustes → Reuniones → Conexión con Zoom.'];
-        [$codigo, $j] = self::zoom('GET', '/users?page_size=1&status=active');
-        if ($codigo === 200) return ['ok' => true, 'msg' => 'Zoom conectado: ' . (int)($j['total_records'] ?? 0) . ' usuario(s) en la cuenta.'];
-        return ['ok' => false, 'msg' => self::$ultimoError ?: 'Zoom no respondió.'];
+        $partes = [];
+        $ok = true;
+        foreach (self::credenciales() as $zc) {
+            self::$zc = $zc;
+            @unlink(self::cache('zoom' . ($zc !== Zoom::PRINCIPAL ? '_' . $zc : '')));   // token nuevo: así toma los permisos que se acaban de agregar
+            [$codigo, $j] = self::zoom('GET', '/users?page_size=1&status=active');
+            $nombre = count(self::credenciales()) > 1 ? Zoom::nombre($zc) . ': ' : '';
+            if ($codigo === 200) $partes[] = $nombre . 'Zoom conectado, ' . (int)($j['total_records'] ?? 0) . ' usuario(s) en la cuenta.';
+            else { $ok = false; $partes[] = $nombre . (self::$ultimoError ?: 'Zoom no respondió.'); }
+        }
+        self::$zc = Zoom::PRINCIPAL;
+        return ['ok' => $ok, 'msg' => implode(' ', $partes)];
     }
 
     /** Revisa que la carpeta de Drive exista y se pueda escribir en ella */
@@ -401,18 +430,23 @@ final class ZoomDrive
         if (empty($e['usuarios'])) $e = [];
         if (!$e) {
             $usuarios = [];
-            foreach (['active', 'inactive'] as $estado) {
-                $token = '';
-                do {
-                    [$codigo, $j] = self::zoom('GET', '/users?page_size=300&status=' . $estado . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
-                    if ($codigo !== 200) {
-                        if ($estado === 'active') return ['terminado' => true, 'error' => self::$ultimoError, 'texto' => '', 'nuevas' => 0];
-                        break;
-                    }
-                    foreach ((array)($j['users'] ?? []) as $u) $usuarios[] = ['id' => (string)$u['id'], 'email' => (string)($u['email'] ?? '')];
-                    $token = (string)($j['next_page_token'] ?? '');
-                } while ($token !== '');
+            foreach (self::credenciales() as $zc) {
+                self::$zc = $zc;
+                foreach (['active', 'inactive'] as $estado) {
+                    $token = '';
+                    do {
+                        [$codigo, $j] = self::zoom('GET', '/users?page_size=300&status=' . $estado . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
+                        if ($codigo !== 200) {
+                            // La app de siempre tiene que responder; una cuenta aparte que falla no frena a las demás
+                            if ($estado === 'active' && $zc === Zoom::PRINCIPAL) { self::$zc = Zoom::PRINCIPAL; return ['terminado' => true, 'error' => self::$ultimoError, 'texto' => '', 'nuevas' => 0]; }
+                            break;
+                        }
+                        foreach ((array)($j['users'] ?? []) as $u) $usuarios[] = ['id' => (string)$u['id'], 'email' => (string)($u['email'] ?? ''), 'zc' => $zc];
+                        $token = (string)($j['next_page_token'] ?? '');
+                    } while ($token !== '');
+                }
             }
+            self::$zc = Zoom::PRINCIPAL;
             $e = ['usuarios' => $usuarios, 'u' => 0, 'mes' => date('Y-m-01', strtotime($conf['desde'])), 'nuevas' => 0, 'terminado' => false, 'empezo' => date('Y-m-d H:i')];
         }
         $proyectos = self::proyectos();
@@ -425,6 +459,7 @@ final class ZoomDrive
             $desde = $e['mes'];
             $hasta = min(date('Y-m-t', strtotime($desde)), date('Y-m-d'));
             $token = '';
+            self::$zc = (string)($u['zc'] ?? Zoom::PRINCIPAL);
             do {
                 [$codigo, $j] = self::zoom('GET', '/users/' . rawurlencode($u['id']) . '/recordings?page_size=300&from=' . $desde . '&to=' . $hasta
                     . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
@@ -489,6 +524,7 @@ final class ZoomDrive
                 'nombre'     => self::nombre($inicio, $tema, $f, $videos),
                 'url'        => (string)$f['download_url'],
                 'del_panel'  => $delPanel !== null,
+                'zc'         => self::$zc,
             ];
             if (isset($existentes[$id])) {
                 $ya = $existentes[$id];
@@ -797,6 +833,7 @@ final class ZoomDrive
     private static function avanzar(array $f, float $fin): void
     {
         self::$ultimoError = '';
+        self::$zc = (string)($f['zc'] ?? '') ?: Zoom::PRINCIPAL;   // se baja con la app de la que vino
         $id = (int)$f['id'];
         $carpeta = self::carpetaDe($f);
         if ($carpeta === '') { self::fallo($f, self::$ultimoError ?: 'No se pudo crear la carpeta en Drive.'); return; }
@@ -900,6 +937,7 @@ final class ZoomDrive
         foreach ($porReunion as $uuid => $archivos) {
             $estados = array_unique(array_column($archivos, 'estado'));
             if ($uuid === '' || $estados !== ['en_drive']) continue;
+            self::$zc = (string)($archivos[0]['zc'] ?? '') ?: Zoom::PRINCIPAL;
             if (self::aPapelera($uuid)) {
                 foreach ($archivos as $f) self::tabla()->update((int)$f['id'], ['estado' => 'borrado', 'borrado' => date('Y-m-d H:i'), 'error' => '']);
             } else {
@@ -944,6 +982,7 @@ final class ZoomDrive
             $nuevas = 0;
             foreach ($usuarios as $u) {
                 $token = '';
+                self::$zc = (string)($u['zc'] ?? '') ?: Zoom::PRINCIPAL;
                 do {
                     [$codigo, $j] = self::zoom('GET', '/users/' . rawurlencode($u['id']) . '/recordings?page_size=300&from=' . $desde . '&to=' . date('Y-m-d')
                         . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
@@ -968,20 +1007,32 @@ final class ZoomDrive
         }
     }
 
-    /** Los usuarios activos de la cuenta de Zoom (se piden una vez al día). null si Zoom no respondió. */
+    /**
+     * Los usuarios activos de las cuentas de Zoom (se piden una vez al día, o al
+     * sumar o quitar una cuenta aparte), cada uno con su app ('zc'). null si la
+     * app de siempre no respondió.
+     */
     private static function usuariosZoom(): ?array
     {
         $c = (array)self::conf()['usuarios_zoom'];
-        if (!empty($c['lista']) && time() - (int)($c['t'] ?? 0) < 86400) return (array)$c['lista'];
+        $apps = implode(',', self::credenciales());
+        if (!empty($c['lista']) && time() - (int)($c['t'] ?? 0) < 86400 && (string)($c['apps'] ?? Zoom::PRINCIPAL) === $apps) return (array)$c['lista'];
         $lista = [];
-        $token = '';
-        do {
-            [$codigo, $j] = self::zoom('GET', '/users?page_size=300&status=active' . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
-            if ($codigo !== 200) return !empty($c['lista']) ? (array)$c['lista'] : null;
-            foreach ((array)($j['users'] ?? []) as $u) $lista[] = ['id' => (string)$u['id'], 'email' => (string)($u['email'] ?? '')];
-            $token = (string)($j['next_page_token'] ?? '');
-        } while ($token !== '');
-        self::guardar(['usuarios_zoom' => ['t' => time(), 'lista' => $lista]]);
+        foreach (self::credenciales() as $zc) {
+            self::$zc = $zc;
+            $token = '';
+            do {
+                [$codigo, $j] = self::zoom('GET', '/users?page_size=300&status=active' . ($token !== '' ? '&next_page_token=' . rawurlencode($token) : ''));
+                if ($codigo !== 200) {
+                    if ($zc === Zoom::PRINCIPAL) { self::$zc = Zoom::PRINCIPAL; return !empty($c['lista']) ? (array)$c['lista'] : null; }
+                    break;   // una cuenta aparte que no responde no frena a las demás
+                }
+                foreach ((array)($j['users'] ?? []) as $u) $lista[] = ['id' => (string)$u['id'], 'email' => (string)($u['email'] ?? ''), 'zc' => $zc];
+                $token = (string)($j['next_page_token'] ?? '');
+            } while ($token !== '');
+        }
+        self::$zc = Zoom::PRINCIPAL;
+        self::guardar(['usuarios_zoom' => ['t' => time(), 'lista' => $lista, 'apps' => $apps]]);
         return $lista;
     }
 

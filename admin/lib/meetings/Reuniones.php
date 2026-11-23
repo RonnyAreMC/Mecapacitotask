@@ -370,16 +370,23 @@ class Reuniones
 
     /* ---------- Choques en Zoom ---------- */
 
+    /** La cuenta (licencia) de Zoom en la que está una reunión; las de antes, en la principal. */
+    public static function cuentaDe(array $r): string
+    {
+        return (string)($r['zoom_cuenta'] ?? '') ?: Zoom::PRINCIPAL;
+    }
+
     /**
-     * Zoom es UNA sola cuenta para todo el panel: dos reuniones a la misma hora
-     * se pisan (la gente entra y se encuentra con otra). Devuelve la primera
-     * reunión de Zoom que se cruza con la que se quiere crear o mover, en
-     * cualquier proyecto y con sus repeticiones, o null si la hora está libre.
+     * Una licencia de Zoom da UNA reunión a la vez: dos a la misma hora en la
+     * misma cuenta se pisan (la gente entra y se encuentra con otra). Devuelve la
+     * primera reunión de Zoom de esa cuenta ($cuenta; null = de cualquiera) que
+     * se cruza con la que se quiere crear o mover, en cualquier proyecto y con
+     * sus repeticiones, o null si la hora está libre.
      * Pegadas (una acaba a las 10:00 y la otra empieza a las 10:00) no chocan.
      *
      * @return array{reunion: array, inicio: int, fin: int}|null
      */
-    public static function choqueZoom(string $inicio, int $duracion, array $dias = [], string $hasta = '', int $excluirId = 0): ?array
+    public static function choqueZoom(string $inicio, int $duracion, array $dias = [], string $hasta = '', int $excluirId = 0, ?string $cuenta = null): ?array
     {
         $dur = max(1, $duracion) * 60;
         $propias = self::inicios($inicio, $dias, $hasta);
@@ -388,6 +395,7 @@ class Reuniones
         $max = max($propias) + $dur;
         foreach ((new ReunionRepo())->todas() as $r) {
             if ((int)($r['id'] ?? 0) === $excluirId || ($r['plataforma'] ?? 'zoom') !== 'zoom') continue;
+            if ($cuenta !== null && self::cuentaDe($r) !== $cuenta) continue;
             $durR = max(1, (int)($r['duracion'] ?? 60)) * 60;
             $serie = !empty($r['recurrente']);
             foreach (self::inicios((string)($r['inicio'] ?? ''), $serie ? (array)($r['dias'] ?? []) : [], $serie ? (string)($r['hasta'] ?? '') : '') as $t) {
@@ -401,9 +409,54 @@ class Reuniones
     }
 
     /**
+     * ¿En qué cuenta de Zoom cabe? $pedida = la que eligió quien la crea ('' = la
+     * que esté libre, en el orden de Ajustes). → ['cuenta' => id o null si no
+     * cabe, 'choques' => [id => choque de esa cuenta]].
+     */
+    public static function cuentaLibre(string $inicio, int $duracion, array $dias = [], string $hasta = '', int $excluirId = 0, string $pedida = ''): array
+    {
+        $activas = array_keys(Zoom::activas()) ?: [Zoom::PRINCIPAL];
+        $orden = $pedida !== '' && in_array($pedida, $activas, true) ? [$pedida] : $activas;
+        $choques = [];
+        foreach ($orden as $id) {
+            $c = self::choqueZoom($inicio, $duracion, $dias, $hasta, $excluirId, $id);
+            if (!$c) return ['cuenta' => $id, 'choques' => $choques];
+            $choques[$id] = $c;
+        }
+        return ['cuenta' => null, 'choques' => $choques];
+    }
+
+    /**
+     * El aviso cuando no cabe: con una cuenta, como siempre (con qué choca y desde
+     * qué hora está libre); con varias, qué tiene cada una y si otra está libre.
+     */
+    public static function textoSinCuenta(array $libre, int $duracion, bool $serie = false, string $pedida = '', string $inicio = '', array $dias = [], string $hasta = '', int $excluirId = 0): string
+    {
+        $choques = $libre['choques'];
+        if (!Zoom::varias() || count($choques) === 1 && $pedida === '') return self::textoChoque(reset($choques), $duracion, $serie);
+        if ($pedida !== '' && $inicio !== '') {
+            // La elegida está ocupada: ¿alguna otra está libre?
+            $otra = self::cuentaLibre($inicio, $duracion, $dias, $hasta, $excluirId);
+            $c = $choques[$pedida] ?? reset($choques);
+            $txt = Zoom::nombre($pedida) . ' ya tiene «' . ($c['reunion']['topic'] ?? 'Reunión') . '» de ' . date('H:i', $c['inicio']) . ' a ' . date('H:i', $c['fin']) . '.';
+            return $txt . ($otra['cuenta'] ? ' ' . Zoom::nombre($otra['cuenta']) . ' está libre a esa hora: elígela.' : ' Las demás cuentas también están ocupadas: elige otra hora.');
+        }
+        $partes = [];
+        foreach ($choques as $id => $c) {
+            $partes[] = Zoom::nombre($id) . ' con «' . ($c['reunion']['topic'] ?? 'Reunión') . '» (' . date('H:i', $c['inicio']) . '–' . date('H:i', $c['fin']) . ')';
+        }
+        $txt = 'Las ' . count($choques) . ' cuentas de Zoom están ocupadas a esa hora: ' . implode('; ', $partes) . '.';
+        if (!$serie && ($desde = self::libreDesde(max(array_map(fn($c) => $c['inicio'], $choques)), $duracion))) {
+            $txt .= ' Hay una libre desde las ' . date('H:i', $desde) . '.';
+        }
+        return $txt . ' Elige otra hora o usa un enlace propio.';
+    }
+
+    /**
      * Lo que Zoom ya tiene un día (todas las reuniones de Zoom del panel, con sus
-     * repeticiones), en minutos desde la medianoche: [['ini','fin','tema','proyecto']].
-     * Es lo que el selector de hora pinta en gris.
+     * repeticiones), en minutos desde la medianoche:
+     * [['ini','fin','tema','proyecto','cuenta']]. Es lo que el selector de hora
+     * pinta: con varias cuentas, cada franja dice cuáles quedan libres.
      */
     public static function ocupadoZoom(string $fecha, int $excluirId = 0): array
     {
@@ -421,7 +474,7 @@ class Reuniones
                 $pid = (int)($r['proyecto_id'] ?? 0);
                 $nombres[$pid] ??= $pid > 0 ? (string)((new ProyectoRepo())->buscar($pid)['nombre'] ?? '') : 'Reunión general';
                 $out[] = ['ini' => (int)((max($t, $d0) - $d0) / 60), 'fin' => (int)((min($t + $dur, $d1) - $d0) / 60),
-                          'tema' => (string)($r['topic'] ?? 'Reunión'), 'proyecto' => $nombres[$pid]];
+                          'tema' => (string)($r['topic'] ?? 'Reunión'), 'proyecto' => $nombres[$pid], 'cuenta' => self::cuentaDe($r)];
             }
         }
         usort($out, fn($a, $b) => $a['ini'] <=> $b['ini']);
@@ -515,7 +568,7 @@ class Reuniones
     {
         $r = $c['reunion'];
         $p = self::proyectoDe($r);
-        $txt = 'Zoom ya está ocupado a esa hora: «' . ($r['topic'] ?? 'Reunión') . '»' . ($p ? ' (' . $p['nombre'] . ')' : '')
+        $txt = (Zoom::varias() ? Zoom::nombre(self::cuentaDe($r)) . ' ya está ocupada' : 'Zoom ya está ocupado') . ' a esa hora: «' . ($r['topic'] ?? 'Reunión') . '»' . ($p ? ' (' . $p['nombre'] . ')' : '')
             . ' el ' . date('d/m', $c['inicio']) . ' de ' . date('H:i', $c['inicio']) . ' a ' . date('H:i', $c['fin']) . '.';
         if (!$serie && ($libre = self::libreDesde($c['fin'], $duracion))) {
             $txt .= ' Está libre desde las ' . date('H:i', $libre) . (date('Y-m-d', $libre) !== date('Y-m-d', $c['inicio']) ? ' del ' . date('d/m', $libre) : '') . '.';
@@ -523,13 +576,13 @@ class Reuniones
         return $txt . ' Elige otra hora o usa un enlace propio.';
     }
 
-    /** La primera hora, desde $ts, en que cabe una reunión de $duracion minutos sin chocar. */
+    /** La primera hora, desde $ts, en que cabe una reunión de $duracion minutos en alguna cuenta. */
     private static function libreDesde(int $ts, int $duracion): int
     {
         for ($i = 0; $i < 12; $i++) {
-            $c = self::choqueZoom(date('Y-m-d H:i', $ts), $duracion);
-            if (!$c) return $ts;
-            $ts = $c['fin'];
+            $l = self::cuentaLibre(date('Y-m-d H:i', $ts), $duracion);
+            if ($l['cuenta'] !== null) return $ts;
+            $ts = min(array_map(fn($c) => $c['fin'], $l['choques']));
         }
         return 0;
     }

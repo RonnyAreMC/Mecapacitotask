@@ -311,8 +311,10 @@ final class ReunionesUI
     {
         $k = (string)($r['plataforma'] ?? 'zoom');
         $k = in_array($k, ['zoom', 'meet', 'enlace'], true) ? $k : 'zoom';
-        return '<span class="ru-plat ru-plat--' . $k . '"' . ($k === 'enlace' ? ' title="Enlace puesto a mano: no queda grabada"' : '') . '>'
-            . e(Reuniones::etiquetaPlataforma($k)) . '</span>';
+        // Con varias licencias de Zoom, en cuál está («Zoom 2»)
+        $cuenta = $k === 'zoom' && class_exists('Zoom') && Zoom::varias() ? Zoom::nombre(Reuniones::cuentaDe($r)) : '';
+        return '<span class="ru-plat ru-plat--' . $k . '"' . ($k === 'enlace' ? ' title="Enlace puesto a mano: no queda grabada"' : ($cuenta !== '' ? ' title="En la cuenta de Zoom «' . e($cuenta) . '»"' : '')) . '>'
+            . e($cuenta !== '' ? $cuenta : Reuniones::etiquetaPlataforma($k)) . '</span>';
     }
 
     /** Los invitados que siguen en el equipo (miembros completos). */
@@ -589,6 +591,7 @@ final class ReunionesUI
             'recurrente' => Reuniones::esRecurrente($r),
             'dias'       => array_map('intval', (array)($r['dias'] ?? [])),
             'hasta'      => (string)($r['hasta'] ?? ''),
+            'zoom_cuenta' => ($r['plataforma'] ?? 'zoom') === 'zoom' ? Reuniones::cuentaDe($r) : '',
         ], JSON_UNESCAPED_UNICODE), ENT_QUOTES);
     }
 
