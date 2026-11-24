@@ -99,6 +99,10 @@ if ($esGestor && !Auth::esSupervisor()) {
     if ($cancelado) {
         $acciones .= '<form method="post" action="actions.php" class="inline-form"><input type="hidden" name="accion" value="req_reabrir"><input type="hidden" name="id" value="' . $id . '">'
             . '<input type="hidden" name="volver" value="' . e($aqui) . '"><button class="rs-boton rs-boton--icono" aria-label="Reabrir" data-ds-tip="Reabrir">' . UI::icono('RotateLeft') . '</button></form>';
+    } elseif (!$cerrado && $esResp) {
+        // También es suyo (el admin se lo asignó a sí mismo o se lo pusieron): lo entrega como
+        // cualquier responsable, con «¿Cómo lo dejaste?», adjuntos y el aviso a quien lo pidió
+        $acciones .= '<button type="button" class="rs-boton rs-boton--icono rs-boton--primario" aria-label="Marcar terminado" data-ds-tip="Marcar terminado" onclick="document.getElementById(\'dlg-rq-terminar\').showModal()">' . UI::icono('ds-check') . '</button>';
     } elseif (!$cerrado) {
         $acciones .= '<form method="post" action="actions.php" class="inline-form"><input type="hidden" name="accion" value="req_estado"><input type="hidden" name="id" value="' . $id . '">'
             . '<input type="hidden" name="estado" value="hecho"><input type="hidden" name="volver" value="' . e($aqui) . '">'
@@ -374,7 +378,7 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
 </dialog>
 <?php endif; ?>
 
-<?php if ($esResp && !$esGestor && !$cerrado && !Auth::esSupervisor()): ?>
+<?php if ($esResp && !$cerrado && !Auth::esSupervisor()): /* también el admin, si es uno de los responsables */ ?>
 <dialog class="ds-modal" id="dlg-rq-terminar" aria-labelledby="dlg-rq-ter-t">
   <form method="post" action="actions.php" class="ds" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="req_terminar">

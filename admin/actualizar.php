@@ -138,7 +138,7 @@ function actualizarPanel(array $opc): void
         'scripts/cron_whatsapp.php' => ['cronCallado'],
         'scripts/cron_deploys.php' => ['cronCallado'],
         'bandeja.php'       => ['requerimiento.php?id='],
-        'requerimiento.php' => ['rq-cierre__imgs', 'rq-grid', 'req_obs_estado', 'dialogoEditarReq', 'req-reparto.js'],
+        'requerimiento.php' => ['también el admin, si es uno de los responsables', 'rq-cierre__imgs', 'rq-grid', 'req_obs_estado', 'dialogoEditarReq', 'req-reparto.js'],
         'colaborador.php'   => ['kp-tiles'],
         'scripts/cron_recordatorios.php' => ['Feriados::hoy', 'cronCallado', "'id' => (int)(\$r['id']"],
         'lib/core/Models.php'    => ['function marcarAvisado', 'function proyectosDe', 'class VideoExternoRepo', 'cierre_adjuntos', "'zoom_cuenta' => preg_replace", 'function correccionesDe', 'function entregaDe', 'function equiposDe', "'impedimento']", 'function correosAvisos', 'function respaldos', 'ds-programadores', 'ds-design-system', 'telefonoValido', 'ds-disenadores', "'origen'", 'function agregadaPor', 'function agregarColaborador', 'function cambiosHistoria', 'function colaboradoresDe(array $t)', 'function mezclar(array $def', 'desde Claude Code', "'cancelado'  => ['Cancelado'"],
