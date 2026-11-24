@@ -489,6 +489,9 @@ document.addEventListener('click', (e) => {
     const esCorreo = (v) => /^[^\s@<>(),;:"]+@[^\s@<>(),;:"]+\.[a-z]{2,}$/i.test(v);
     const porCorreo = new Map();
     (datosDir.equipo || []).forEach((p) => porCorreo.set(p.e, Object.assign({}, p)));
+    // Los grupos de correo (devs@…): se buscan por su nombre o con @devs, y salen al entrar al campo
+    const grupos = [];
+    (datosDir.grupos || []).forEach((g) => { const p = Object.assign({}, g); porCorreo.set(p.e, p); grupos.push(p); });
     const recientes = [];
     (datosDir.recientes || []).forEach((r) => {
       let p = porCorreo.get(r.e);
@@ -496,6 +499,7 @@ document.addEventListener('click', (e) => {
       p.reciente = true;
       recientes.push(p);
     });
+    const svgGrupo = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>';
     const iniciales = (p) => p.i || ((p.n || p.e).replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean).slice(0, 2)
       .map((w) => w[0]).join('').toUpperCase() || '@');
     const avatar = (p, clase, error) => {
@@ -503,6 +507,7 @@ document.addEventListener('click', (e) => {
       s.className = clase;
       s.setAttribute('aria-hidden', 'true');
       if (error) s.textContent = '!';
+      else if (p && p.g) { s.classList.add('is-grupo'); s.innerHTML = svgGrupo; }
       else if (p && p.f) { const im = new Image(); im.src = p.f; im.alt = ''; s.append(im); }
       else s.textContent = iniciales(p);
       if (p && p.c && !error) s.style.setProperty('--av', p.c);
@@ -519,12 +524,13 @@ document.addEventListener('click', (e) => {
       return frag;
     };
     const buscar = (q, fuera) => {
-      const t = sinTildes(q.trim());
+      const t = sinTildes(q.trim()).replace(/^@/, '');   // «@devs» busca el grupo devs@…
       if (!t) return recientes.filter((p) => !fuera.has(p.e)).slice(0, 6);
       const puntos = (p) => {
         const n = sinTildes(p.n);
         let s = 0;
-        if (n.startsWith(t)) s = 5;
+        if (p.g && (p.a || '').startsWith(t)) s = 6;
+        else if (n.startsWith(t)) s = 5;
         else if (n.split(/\s+/).some((w) => w.startsWith(t)) || p.e.startsWith(t)) s = 4;
         else if (n.includes(t)) s = 2;
         else if (p.e.includes(t)) s = 1;
@@ -651,17 +657,16 @@ document.addEventListener('click', (e) => {
         const qt = q.trim().toLowerCase();
         const fuera = new Set(elegidos.map((x) => x.e));
         opciones = buscar(q, fuera);
+        const nRec = qt ? 0 : opciones.length;
+        if (!qt) opciones = opciones.concat(grupos.filter((p) => !fuera.has(p.e)).slice(0, 10));
         // Una dirección completa que no está en el directorio también se ofrece
         if (esCorreo(qt) && !fuera.has(qt) && !opciones.some((p) => p.e === qt)) opciones.push({ e: qt, n: '', d: 'Agregar esta dirección', nuevo: true });
         if (!opciones.length) { cerrar(); return; }
         pop.innerHTML = '';
-        if (!qt) {
-          const g = document.createElement('div');
-          g.className = 'mc-select__group';
-          g.textContent = 'Les escribiste hace poco';
-          pop.append(g);
-        }
+        const rotulo = (txt) => { const g = document.createElement('div'); g.className = 'mc-select__group'; g.textContent = txt; pop.append(g); };
         opciones.forEach((p, i) => {
+          if (!qt && i === 0 && nRec) rotulo('Les escribiste hace poco');
+          if (!qt && i === nRec) rotulo('Grupos');
           const o = document.createElement('div');
           o.className = 'mc-option ds-dest__opt';
           o.id = pop.id + '-' + i;

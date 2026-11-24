@@ -729,7 +729,18 @@ function correoDirectorio(int $mid, string $yoMail): array
         ];
     }
     $recientes = array_values(array_filter(Correo::recientes($mid), fn($r) => $r['e'] !== $yoMail));
-    return ['equipo' => array_values($equipo), 'recientes' => array_map(fn($r) => ['e' => $r['e'], 'n' => (string)($r['n'] ?? '')], $recientes)];
+    // Los grupos de correo (Cuentas de correo → Grupos): devs@… con su nombre; se eligen con @devs o el nombre
+    $grupos = [];
+    foreach ((new JsonStore('correo_grupos'))->all() as $g) {
+        $dir = strtolower(trim((string)($g['direccion'] ?? '')));
+        if (!filter_var($dir, FILTER_VALIDATE_EMAIL)) continue;
+        $n = count((array)($g['integrantes'] ?? []));
+        $grupos[] = ['n' => trim((string)($g['nombre'] ?? '')) ?: $dir, 'e' => $dir, 'a' => strtok($dir, '@'),
+                     'd' => 'Grupo · ' . ($n === 1 ? '1 persona' : $n . ' personas'), 'g' => 1];
+    }
+    usort($grupos, fn($a, $b) => strcasecmp($a['n'], $b['n']));
+    return ['equipo' => array_values($equipo), 'grupos' => $grupos,
+            'recientes' => array_map(fn($r) => ['e' => $r['e'], 'n' => (string)($r['n'] ?? '')], $recientes)];
 }
 
 /** Texto plano a HTML para el editor: párrafos por líneas en blanco y saltos de línea. */

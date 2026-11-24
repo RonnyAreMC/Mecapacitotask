@@ -12,6 +12,15 @@
  * guardan: se mandan a cPanel y se muestran una sola vez.
  * Cada cambio queda en la bitácora «buzones_bitacora» (quién, qué y cuándo).
  *
+ * GRUPOS de correo: una dirección propia (devs@…) con un nombre («Desarrolladores»)
+ * que reenvía a cada integrante: en cPanel son reenvíos (uno por integrante),
+ * así lo que se le escribe al grupo les llega a todos aunque escriban desde
+ * Gmail o el celular. El nombre y la lista se guardan en «correo_grupos»; en
+ * el Correo del panel salen como un destinatario más (@devs).
+ *
+ * Pruebas: con la variable de entorno CPANEL_PRUEBA (http://127.0.0.1:puerto)
+ * las llamadas van a ese servidor falso en vez del cPanel.
+ *
  * Se carga con is_file (no desde bootstrap): si falta, el resto sigue igual.
  */
 final class CPanel
@@ -97,7 +106,8 @@ final class CPanel
         self::$ultimoError = '';
         $c = self::conf();
         if (!self::listo()) return self::falla('Falta la conexión con cPanel: el servidor, el usuario y el token de API.');
-        $url = 'https://' . $c['host'] . ':' . $c['puerto'] . '/execute/' . rawurlencode($modulo) . '/' . rawurlencode($funcion);
+        $base = getenv('CPANEL_PRUEBA') ?: 'https://' . $c['host'] . ':' . $c['puerto'];   // CPANEL_PRUEBA: el servidor falso de las pruebas
+        $url = rtrim($base, '/') . '/execute/' . rawurlencode($modulo) . '/' . rawurlencode($funcion);
         $cuerpo = http_build_query($params);
         if (!$post && $cuerpo !== '') $url .= '?' . $cuerpo;
         [$codigo, $resp, $errCurl] = self::http($url, $post ? $cuerpo : null, 'Authorization: cpanel ' . $c['usuario'] . ':' . self::descifrar($c['token']), $c['verificar_ssl']);
@@ -294,6 +304,84 @@ final class CPanel
         while (count($c) < $largo) $c[] = $todo[random_int(0, strlen($todo) - 1)];
         for ($i = count($c) - 1; $i > 0; $i--) { $j = random_int(0, $i); [$c[$i], $c[$j]] = [$c[$j], $c[$i]]; }
         return implode('', $c);
+    }
+
+    /* ---------------- Grupos de correo ---------------- */
+
+    private static function grupoStore(): JsonStore
+    {
+        return new JsonStore('correo_grupos');
+    }
+
+    /** Los grupos guardados (nombre, dirección y la última lista de integrantes), por nombre. */
+    public static function grupos(): array
+    {
+        $l = self::grupoStore()->all();
+        usort($l, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
+        return $l;
+    }
+
+    public static function grupoPorDireccion(string $direccion): ?array
+    {
+        $d = strtolower(trim($direccion));
+        foreach (self::grupoStore()->all() as $g) if (strtolower((string)$g['direccion']) === $d) return $g;
+        return null;
+    }
+
+    /**
+     * Crea o actualiza un grupo: deja en cPanel un reenvío de la dirección a
+     * cada integrante (agrega los que faltan y quita los que ya no van) y
+     * guarda el nombre. $actuales: los reenvíos que tiene hoy esa dirección.
+     * Devuelve ['ok', 'error', 'agregados', 'quitados', 'fallas' => [correo => motivo]].
+     */
+    public static function guardarGrupo(string $nombre, string $direccion, array $integrantes, array $actuales): array
+    {
+        $direccion = strtolower(trim($direccion));
+        $integrantes = array_values(array_unique(array_filter(array_map(fn($e) => strtolower(trim((string)$e)), $integrantes),
+            fn($e) => self::emailValido($e) && $e !== $direccion)));
+        $actuales = array_values(array_unique(array_map('strtolower', $actuales)));
+        $agregados = $quitados = [];
+        $fallas = [];
+        foreach (array_diff($integrantes, $actuales) as $e) {
+            $r = self::crearReenvio($direccion, $e);
+            if ($r['ok']) $agregados[] = $e; else $fallas[$e] = $r['error'];
+        }
+        foreach (array_diff($actuales, $integrantes) as $e) {
+            $r = self::borrarReenvio($direccion, $e);
+            if ($r['ok']) $quitados[] = $e; else $fallas[$e] = $r['error'];
+        }
+        // Lo que de verdad quedó en cPanel (si algo falló, la lista lo refleja)
+        $quedan = array_values(array_unique(array_merge(array_diff($actuales, $quitados), $agregados)));
+        $datos = ['nombre' => mb_substr(trim($nombre), 0, 60), 'direccion' => $direccion, 'integrantes' => $quedan, 'actualizado' => date('Y-m-d H:i')];
+        $g = self::grupoPorDireccion($direccion);
+        if ($g) self::grupoStore()->update((int)$g['id'], $datos);
+        else self::grupoStore()->insert($datos + ['creado' => date('Y-m-d H:i'), 'creado_por' => (int)(Auth::usuario()['id'] ?? 0)]);
+        return ['ok' => !$fallas || $agregados || $quitados, 'error' => $fallas ? reset($fallas) : '', 'agregados' => $agregados, 'quitados' => $quitados, 'fallas' => $fallas];
+    }
+
+    /** Quita el grupo: borra en cPanel sus reenvíos y su nombre del panel. */
+    public static function borrarGrupo(string $direccion, array $actuales): array
+    {
+        $fallas = [];
+        foreach (array_unique($actuales) as $e) {
+            $r = self::borrarReenvio($direccion, $e);
+            if (!$r['ok']) $fallas[$e] = $r['error'];
+        }
+        if (!$fallas && ($g = self::grupoPorDireccion($direccion))) self::grupoStore()->delete((int)$g['id']);
+        return ['ok' => !$fallas, 'error' => $fallas ? reset($fallas) : ''];
+    }
+
+    /** Al leer los reenvíos de cPanel, la lista guardada se pone al día (por si se cambió desde el cPanel). */
+    public static function sincronizarGrupos(array $reenvios): void
+    {
+        foreach (self::grupoStore()->all() as $g) {
+            $dir = strtolower((string)$g['direccion']);
+            $hoy = array_values(array_unique(array_map(fn($f) => strtolower((string)$f['a']), array_filter($reenvios, fn($f) => $f['de'] === $dir))));
+            sort($hoy);
+            $antes = array_map('strtolower', (array)($g['integrantes'] ?? []));
+            sort($antes);
+            if ($hoy !== $antes) self::grupoStore()->update((int)$g['id'], ['integrantes' => $hoy]);
+        }
     }
 
     /** Deja el cambio en la bitácora (nunca la contraseña). */

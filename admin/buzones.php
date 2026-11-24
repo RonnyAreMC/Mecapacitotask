@@ -3,7 +3,9 @@
  * Cuentas de correo del cPanel, desde el panel (solo el administrador).
  *
  * Crear una cuenta, cambiarle la contraseña o el espacio, suspenderla o
- * reactivarla, borrarla y manejar los reenvíos, sin entrar al cPanel. Lo hace
+ * reactivarla, borrarla y manejar los reenvíos, sin entrar al cPanel.
+ * Y los GRUPOS de correo (devs@…, «Desarrolladores»): una dirección que les
+ * llega a varios; en el Correo del panel se eligen con @devs o su nombre. Lo hace
  * lib/integrations/CPanel.php con la API oficial de cPanel y un token de API.
  *
  * Las contraseñas no se guardan: se mandan a cPanel y se muestran una sola vez
@@ -139,6 +141,53 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST') {
             CPanel::anotar('reenvio', $de, 'Ahora se reenvía a ' . $a . '.');
             bzJson(true, 'Listo: lo que llegue a ' . $de . ' se reenvía a ' . $a . '.');
 
+        case 'grupo_guardar':
+            // Crear o actualizar un grupo: el nombre lo pone el administrador; la dirección
+            // (devs@…) se elige al crearlo y después no cambia. Los integrantes son reenvíos.
+            $nombreG = trim((string)($_POST['nombre'] ?? ''));
+            if ($nombreG === '') bzJson(false, 'Ponle un nombre al grupo (ej. Desarrolladores).');
+            $editarG = strtolower(trim((string)($_POST['editar'] ?? '')));
+            if ($editarG !== '') {
+                if (!CPanel::grupoPorDireccion($editarG)) bzJson(false, 'Ese grupo ya no está.');
+                $dirG = $editarG;
+            } else {
+                $usuarioG = strtolower(ltrim(trim((string)($_POST['usuario'] ?? '')), '@'));
+                $dominioG = strtolower(trim((string)($_POST['dominio'] ?? '')));
+                if (!CPanel::usuarioValido($usuarioG)) bzJson(false, 'La dirección del grupo lleva solo letras, números, punto, guion o guion bajo (ej. devs).');
+                if (!in_array($dominioG, CPanel::dominios(), true)) bzJson(false, 'Ese dominio no es de esta cuenta de cPanel.');
+                $dirG = $usuarioG . '@' . $dominioG;
+                if (CPanel::grupoPorDireccion($dirG)) bzJson(false, 'Ya hay un grupo con la dirección ' . $dirG . '.');
+                $rcG = CPanel::cuentas();
+                if ($rcG['ok'] && in_array($dirG, array_column($rcG['data'], 'email'), true)) {
+                    bzJson(false, $dirG . ' ya es una cuenta de correo: para el grupo usa otra dirección (ej. devs@' . $dominioG . ').');
+                }
+            }
+            $integrantesG = array_values(array_filter(array_map('strval', (array)($_POST['integrantes'] ?? []))));
+            if (!$integrantesG) bzJson(false, 'Elige al menos a una persona para el grupo.');
+            if (count($integrantesG) > 200) bzJson(false, 'Son demasiadas personas para un grupo (máximo 200).');
+            $rrG = CPanel::reenvios(CPanel::partes($dirG)[1]);
+            if (!$rrG['ok']) bzJson(false, $rrG['error']);
+            $actualesG = array_column(array_filter($rrG['data'], fn($f) => $f['de'] === $dirG), 'a');
+            $resG = CPanel::guardarGrupo($nombreG, $dirG, $integrantesG, $actualesG);
+            $nG = count((array)(CPanel::grupoPorDireccion($dirG)['integrantes'] ?? []));
+            $cambiosG = array_filter([$resG['agregados'] ? '+' . count($resG['agregados']) : '', $resG['quitados'] ? '−' . count($resG['quitados']) : '']);
+            CPanel::anotar($editarG !== '' ? 'grupo' : 'grupo_nuevo', $dirG, '«' . $nombreG . '»: ' . $nG . ($nG === 1 ? ' persona' : ' personas') . ($cambiosG ? ' (' . implode(' ', $cambiosG) . ')' : ''));
+            if ($resG['fallas']) {
+                bzJson(false, 'El grupo quedó con ' . $nG . ($nG === 1 ? ' persona' : ' personas') . ', pero no se pudo con ' . implode(', ', array_keys($resG['fallas'])) . ': ' . $resG['error']);
+            }
+            bzJson(true, ($editarG !== '' ? 'Grupo actualizado' : 'Grupo creado') . ': lo que le escriban a ' . $dirG . ' les llega a ' . $nG . ($nG === 1 ? ' persona.' : ' personas.'));
+
+        case 'grupo_borrar':
+            $dirG = strtolower(trim((string)($_POST['direccion'] ?? '')));
+            $g = CPanel::grupoPorDireccion($dirG);
+            if (!$g) bzJson(false, 'Ese grupo ya no está.');
+            $rrG = CPanel::reenvios(CPanel::partes($dirG)[1]);
+            if (!$rrG['ok']) bzJson(false, $rrG['error']);
+            $resG = CPanel::borrarGrupo($dirG, array_column(array_filter($rrG['data'], fn($f) => $f['de'] === $dirG), 'a'));
+            if (!$resG['ok']) bzJson(false, $resG['error']);
+            CPanel::anotar('grupo_quitar', $dirG, '«' . $g['nombre'] . '»');
+            bzJson(true, 'Grupo «' . $g['nombre'] . '» quitado: ' . $dirG . ' ya no le llega a nadie.');
+
         case 'reenvio_borrar':
             $de = strtolower(trim((string)($_POST['de'] ?? '')));
             $a = trim((string)($_POST['a'] ?? ''));
@@ -180,12 +229,51 @@ foreach ((new JsonStore('correo_cuentas'))->all() as $cc) {
     $sincronizadas[$em] = true;
     if (!isset($porCorreo[$em]) && isset($mapa[(int)($cc['miembro_id'] ?? 0)])) $porCorreo[$em] = $mapa[(int)$cc['miembro_id']];
 }
+// Los grupos: su lista se pone al día con lo que hay en cPanel; sus reenvíos no salen sueltos en «Reenvíos»
+$grupos = [];
+if ($listo && $error === '') {
+    CPanel::sincronizarGrupos($reenvios);
+    $grupos = CPanel::grupos();
+}
+$dirGrupos = array_flip(array_map(fn($g) => strtolower((string)$g['direccion']), $grupos));
+$reenviosSueltos = array_values(array_filter($reenvios, fn($f) => !isset($dirGrupos[$f['de']])));
+// El correo de cada persona para un grupo: su buzón de la empresa si lo tiene (el que
+// conectó al Correo del panel o una cuenta de cPanel que es suya); si no, el de su acceso
+$sincMiembro = class_exists('Correo') ? Correo::correosSincronizados() : [];
+$cuentaDeMiembro = [];
+foreach ($cuentas as $c) if (isset($porCorreo[$c['email']])) $cuentaDeMiembro[(int)$porCorreo[$c['email']]['id']] ??= $c['email'];
+$correoPersona = function (array $m) use ($sincMiembro, $cuentaDeMiembro): string {
+    $e = $sincMiembro[(int)$m['id']] ?? $cuentaDeMiembro[(int)$m['id']] ?? strtolower(trim((string)($m['email'] ?? '')));
+    return filter_var($e, FILTER_VALIDATE_EMAIL) ? $e : '';
+};
+$esSup = fn(array $m) => MiembroRepo::tieneAcceso($m, 'supervisor') && !MiembroRepo::tieneAcceso($m, 'admin') && !MiembroRepo::tieneAcceso($m, 'scrum');
+// Las opciones del selector: las cuentas del cPanel y el correo de cada persona del panel
+$opcPersonas = [];
+foreach ($cuentas as $c) $opcPersonas[$c['email']] = isset($porCorreo[$c['email']]) ? $porCorreo[$c['email']]['nombre'] . ' · ' . $c['email'] : $c['email'];
+foreach ($mapa as $m) { $em = $correoPersona($m); if ($em !== '' && !isset($opcPersonas[$em])) $opcPersonas[$em] = $m['nombre'] . ' · ' . $em; }
+foreach ($grupos as $g) foreach ((array)$g['integrantes'] as $em) $opcPersonas[$em] ??= $em;   // los de afuera que ya están en un grupo
+uasort($opcPersonas, fn($a, $b) => strcasecmp($a, $b));
+// «Agregar de una vez»: los equipos del panel, todo el equipo y cada proyecto
+$rellenos = [];
+$correosDe = fn(iterable $ms) => array_values(array_unique(array_filter(array_map($correoPersona, array_filter(is_array($ms) ? $ms : iterator_to_array($ms), fn($m) => $m && !$esSup($m))))));
+foreach (Catalogo::equipos() as $k => [$etq]) $rellenos['eq:' . $k] = [$etq, $correosDe(array_filter($mapa, fn($m) => MiembroRepo::enEquipo($m, (string)$k)))];
+$rellenos['todos'] = ['Todo el equipo', $correosDe($mapa)];
+$proyRelleno = [];
+foreach ((new ProyectoRepo())->todos() as $p) {
+    $idsP = ProyectoRepo::miembrosDe($p) ?? array_keys($mapa);
+    $idsP = array_merge($idsP, [ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)]);
+    $rellenos['p:' . (int)$p['id']] = [(string)$p['nombre'], $correosDe(array_map(fn($id) => $mapa[(int)$id] ?? null, $idsP))];
+    $proyRelleno['p:' . (int)$p['id']] = (string)$p['nombre'];
+}
+asort($proyRelleno, SORT_NATURAL | SORT_FLAG_CASE);
+foreach ($rellenos as $k => [, $ems]) foreach ($ems as $em) $opcPersonas[$em] ??= $em;
 $usadoTotal = array_sum(array_column($cuentas, 'usado'));
 $casiLlenas = count(array_filter($cuentas, fn($c) => $c['pct'] !== null && $c['pct'] >= 85));
 $suspendidas = count(array_filter($cuentas, fn($c) => $c['login_suspendido'] || $c['entrada_suspendida']));
 $bitacora = CPanel::bitacora(30);
 $accionTxt = ['crear' => 'Creó', 'clave' => 'Cambió la contraseña de', 'cuota' => 'Cambió el espacio de', 'suspender' => 'Suspendió', 'reactivar' => 'Reactivó',
-              'borrar' => 'Borró', 'reenvio' => 'Agregó un reenvío en', 'reenvio_quitar' => 'Quitó un reenvío de'];
+              'borrar' => 'Borró', 'reenvio' => 'Agregó un reenvío en', 'reenvio_quitar' => 'Quitó un reenvío de',
+              'grupo_nuevo' => 'Creó el grupo', 'grupo' => 'Cambió el grupo', 'grupo_quitar' => 'Quitó el grupo'];
 $opcionesCuota = [];
 foreach (CPanel::CUOTAS as $mb => $t) $opcionesCuota[(string)$mb] = $t;
 $opcionesCuota['otro'] = 'Otro tamaño…';
@@ -267,13 +355,40 @@ UI::cabecera(
     <p class="bz-nada" data-bz-sin-resultados hidden>Nadie coincide con la búsqueda.</p>
   </section>
 
+  <section class="mc-card bz-card bz-grupos-card">
+    <header class="bz-cab"><h2 class="bz-t"><?= UI::iconoDS('usuarios', 20) ?> Grupos</h2>
+      <button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" data-bz-grupo-nuevo><?= UI::iconoDS('mas', 16) ?><span class="mc-btn__label">Nuevo grupo</span></button></header>
+    <p class="bz-sub">Una dirección para escribirles a varios a la vez: lo que llegue a <b>devs@<?= e($dominios[0] ?? 'tu-dominio.com') ?></b> les llega a todos sus integrantes.
+      En el Correo del panel se elige escribiendo <b>@devs</b> o el nombre del grupo.</p>
+    <?php if ($grupos): ?>
+    <ul class="bz-grupos">
+      <?php foreach ($grupos as $g):
+          $intG = array_values((array)($g['integrantes'] ?? []));
+          $genteG = array_values(array_filter(array_map(fn($em) => $porCorreo[$em] ?? null, $intG)));
+          foreach ($mapa as $m) if (count($genteG) < 6 && in_array($correoPersona($m), $intG, true) && !in_array($m, $genteG, true)) $genteG[] = $m;
+          $datosG = ['nombre' => (string)$g['nombre'], 'direccion' => (string)$g['direccion'], 'integrantes' => $intG]; ?>
+      <li class="bz-grupo" data-bz-fila data-buscar="<?= e(mb_strtolower($g['nombre'] . ' ' . $g['direccion'])) ?>">
+        <span class="mc-tile mc-tile--sm mc-tile--azul" aria-hidden="true"><?= UI::iconoDS('usuarios', 18) ?></span>
+        <span class="bz-grupo__txt"><b><?= e((string)$g['nombre']) ?></b>
+          <small><span class="bz-grupo__alias">@<?= e(strtok((string)$g['direccion'], '@')) ?></span> · <?= e((string)$g['direccion']) ?> · <?= count($intG) === 1 ? '1 persona' : count($intG) . ' personas' ?></small></span>
+        <?= $genteG ? UI::avatarStack($genteG, 5, 28) : '' ?>
+        <span class="bz-grupo__acc">
+          <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-bz-grupo="<?= e(json_encode($datosG, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Editar el grupo <?= e((string)$g['nombre']) ?>" data-ds-tip="Editar: nombre e integrantes"><?= UI::iconoDS('editar', 16) ?></button>
+          <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-bz-grupo-borrar="<?= e(json_encode(['nombre' => (string)$g['nombre'], 'direccion' => (string)$g['direccion']], JSON_UNESCAPED_UNICODE)) ?>" aria-label="Quitar el grupo <?= e((string)$g['nombre']) ?>" data-ds-tip="Quitar el grupo"><?= UI::iconoDS('eliminar', 16) ?></button>
+        </span>
+      </li>
+      <?php endforeach; ?>
+    </ul>
+    <?php else: ?><p class="bz-nada">Todavía no hay grupos. Arma los que necesites (Analistas, Desarrolladores, Diseño…) para escribirles a todos de una vez.</p><?php endif; ?>
+  </section>
+
   <div class="bz-dos">
     <section class="mc-card bz-card">
       <header class="bz-cab"><h2 class="bz-t"><?= UI::iconoDS('enviar', 20) ?> Reenvíos</h2>
         <button type="button" class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm" data-bz-abrir="bz-dlg-reenvio"><?= UI::iconoDS('mas', 16) ?><span class="mc-btn__label">Nuevo reenvío</span></button></header>
-      <?php if ($reenvios): ?>
+      <?php if ($reenviosSueltos): ?>
       <ul class="bz-lista">
-        <?php foreach ($reenvios as $f): ?>
+        <?php foreach ($reenviosSueltos as $f): ?>
         <li><span><b><?= e($f['de']) ?></b> <span aria-hidden="true">→</span> <?= e($f['a']) ?></span>
           <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-bz-reenvio-borrar="<?= e(json_encode($f, JSON_UNESCAPED_UNICODE)) ?>" aria-label="Quitar el reenvío de <?= e($f['de']) ?> a <?= e($f['a']) ?>"><?= UI::iconoDS('eliminar', 16) ?></button></li>
         <?php endforeach; ?>
@@ -432,6 +547,43 @@ UI::cabecera(
       <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Crear reenvío</span></button>
     </footer>
   </form>
+</dialog>
+
+<!-- Grupo: nuevo o editar -->
+<dialog class="ds-modal" id="bz-dlg-grupo" aria-labelledby="bz-gr-t">
+  <form class="ds" data-bz-form="grupo_guardar">
+    <input type="hidden" name="editar" value="">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('usuarios', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="bz-gr-t" data-bz-gr-t>Nuevo grupo</h2>
+        <p class="ds-modal__sub">Lo que le escriban a la dirección del grupo les llega a todos sus integrantes.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body bz-form">
+      <div class="mc-field"><label class="mc-field__label" for="bz-gr-n">Nombre</label>
+        <div class="mc-input mc-input--md"><input class="mc-input__control" id="bz-gr-n" name="nombre" maxlength="60" placeholder="Ej. Desarrolladores" required></div></div>
+      <div class="mc-field" data-bz-gr-nueva><label class="mc-field__label" for="bz-gr-u">Dirección del grupo <small>(con ella se elige: @devs)</small></label>
+        <div class="bz-correo"><div class="mc-input mc-input--md"><input class="mc-input__control" id="bz-gr-u" name="usuario" placeholder="devs" autocomplete="off" required pattern="@?[a-zA-Z0-9._\-]+"></div>
+          <span class="bz-arroba">@</span><?= UI::selectDS('dominio', array_combine($dominios, $dominios) ?: [], $dominios[0] ?? '', ['aria' => 'Dominio']) ?></div></div>
+      <div class="mc-field" data-bz-gr-fija hidden><span class="mc-field__label">Dirección del grupo</span><p class="bz-gr-dir" data-bz-gr-dir></p></div>
+      <div class="mc-field"><label class="mc-field__label">Integrantes</label>
+        <?= str_replace('<select ', '<select data-ph="Elige a las personas…" aria-label="Integrantes" data-bz-gr-int ', UI::select('integrantes', $opcPersonas, [], false, '', true)) ?>
+        <div class="bz-rellenar"><span>Agregar de una vez:</span>
+          <?php foreach ($rellenos as $k => [$etq, $ems]): if (str_starts_with((string)$k, 'p:') || !$ems) continue; ?>
+          <button type="button" class="mc-btn mc-btn--ghost mc-btn--sm" data-bz-rellenar="<?= e((string)$k) ?>"><?= UI::iconoDS('mas', 14) ?><span class="mc-btn__label"><?= e($etq) ?> <small>(<?= count($ems) ?>)</small></span></button>
+          <?php endforeach; ?>
+          <?php if ($proyRelleno): ?>
+          <?= UI::selectDS('relleno_proy', $proyRelleno, '', ['vacio' => 'Los de un proyecto…', 'buscar' => count($proyRelleno) > 8, 'aria' => 'Agregar a los de un proyecto', 'attrs' => 'data-bz-rellenar-proy', 'tam' => 'sm']) ?>
+          <?php endif; ?>
+        </div>
+        <div class="mc-field__foot"><span class="mc-field__hint">A cada uno le llega en su correo. Se usa su buzón de la empresa si lo tiene.</span></div></div>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar grupo</span></button>
+    </footer>
+  </form>
+  <script type="application/json" id="bz-rellenos"><?= json_encode(array_map(fn($r) => $r[1], $rellenos), JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
 </dialog>
 
 <!-- La contraseña, una sola vez -->

@@ -7403,3 +7403,23 @@ html .vt-dur--falta { background: #DC2626; }
 html .vt-avisar__quien { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
 html .vt-avisar__quien p { margin: 0; color: var(--ink-2, #57575B); font-size: .9rem; line-height: 1.45; }
 html .vt-avisar__quien b { color: var(--ink, #1F2937); }
+
+/* Cuentas de correo › Grupos (devs@… → varios) */
+html .bz-sub { margin: -4px 0 12px; color: var(--ink-muted); font-size: .86rem; line-height: 1.5; }
+html .bz-grupos { display: flex; flex-direction: column; gap: 8px; margin: 0; padding: 0; list-style: none; }
+html .bz-grupo { display: flex; align-items: center; gap: 12px; padding: 10px 12px; border-radius: 12px; background: var(--surface-sunken); }
+html .bz-grupo__txt { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+html .bz-grupo__txt b { font-size: .92rem; }
+html .bz-grupo__txt small { color: var(--ink-muted); font-size: .8rem; overflow-wrap: anywhere; }
+html .bz-grupo__alias { color: #2B76F7; font-weight: 700; }
+html .bz-grupo__acc { display: flex; gap: 4px; flex: none; }
+html .bz-rellenar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 8px; font-size: .82rem; color: var(--ink-muted); }
+html .bz-rellenar small { color: var(--ink-muted); font-weight: 500; }
+html .bz-rellenar .mc-select { min-width: 210px; }
+html .bz-gr-dir { margin: 0; font-weight: 700; overflow-wrap: anywhere; }
+@media (max-width: 560px) { html .bz-grupo { flex-wrap: wrap; } html .bz-grupo .avatar-stack { display: none; } }
+/* Correo › un grupo entre los destinatarios: el ícono de grupo en vez de iniciales */
+html .ds-dest__av.is-grupo { --av: #2B76F7; }
+html .ds-dest__av.is-grupo svg { width: 62%; height: 62%; }
+/* Cuentas de correo: lo marcado como oculto se oculta aunque el campo tenga su propio display */
+html .bz [hidden] { display: none !important; }

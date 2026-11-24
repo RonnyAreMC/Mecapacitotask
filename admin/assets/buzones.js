@@ -207,6 +207,87 @@
     });
   }
 
+  /* ---------- Grupos de correo (devs@…): nuevo, editar, «Agregar de una vez» y quitar ---------- */
+  const dGrupo = dlg('bz-dlg-grupo');
+  if (dGrupo) {
+    const fG = dGrupo.querySelector('form');
+    const selInt = fG.querySelector('select[data-bz-gr-int]');
+    const nueva = fG.querySelector('[data-bz-gr-nueva]');
+    const fija = fG.querySelector('[data-bz-gr-fija]');
+    let rellenos = {};
+    try { rellenos = JSON.parse(document.getElementById('bz-rellenos').textContent) || {}; } catch (e) { rellenos = {}; }
+    const fijar = (lista) => {
+      // Si alguien no está entre las opciones (un correo de afuera), se agrega
+      lista.forEach((em) => {
+        if (![...selInt.options].some((o) => o.value === em)) selInt.add(new Option(em, em));
+      });
+      if (typeof window.setSelect === 'function') window.setSelect(selInt, lista);
+      else [...selInt.options].forEach((o) => { o.selected = lista.includes(o.value); });
+    };
+    const elegidos = () => [...selInt.selectedOptions].map((o) => o.value);
+    const preparar = (g) => {
+      fG.querySelector('input[name="editar"]').value = g ? g.direccion : '';
+      fG.querySelector('input[name="nombre"]').value = g ? g.nombre : '';
+      dGrupo.querySelector('[data-bz-gr-t]').textContent = g ? 'Editar el grupo' : 'Nuevo grupo';
+      // Al editar, la dirección no cambia: sus campos se apagan (no viajan ni se validan)
+      nueva.hidden = !!g;
+      nueva.querySelectorAll('input, select').forEach((x) => { x.disabled = !!g; });
+      fija.hidden = !g;
+      fija.querySelector('[data-bz-gr-dir]').textContent = g ? '@' + g.direccion.split('@')[0] + ' · ' + g.direccion : '';
+      if (!g) fG.querySelector('input[name="usuario"]').value = '';
+      fijar(g ? g.integrantes : []);
+      abrir('bz-dlg-grupo');
+      fG.querySelector('input[name="nombre"]').focus();
+    };
+    document.addEventListener('click', (e) => {
+      if (e.target.closest('[data-bz-grupo-nuevo]')) { e.preventDefault(); preparar(null); return; }
+      const b = e.target.closest('[data-bz-grupo]');
+      if (b) { e.preventDefault(); preparar(JSON.parse(b.dataset.bzGrupo)); }
+    });
+    const sumar = (clave) => {
+      const lista = rellenos[clave] || [];
+      if (!lista.length) return;
+      const antes = elegidos();
+      const todos = [...new Set(antes.concat(lista))];
+      fijar(todos);
+      const n = todos.length - antes.length;
+      toast(n ? 'Se agregaron ' + n + (n === 1 ? ' persona.' : ' personas.') : 'Ya estaban todos.');
+    };
+    fG.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-bz-rellenar]');
+      if (!b) return;
+      e.preventDefault();
+      sumar(b.dataset.bzRellenar);
+    });
+    const selProy = fG.querySelector('select[data-bz-rellenar-proy]');
+    if (selProy) {
+      selProy.disabled = false;
+      selProy.addEventListener('change', () => {
+        if (!selProy.value) return;
+        sumar(selProy.value);
+      });
+    }
+    // El selector de proyecto solo sirve para agregar: no viaja con el formulario
+    fG.addEventListener('formdata', (e) => { e.formData.delete('relleno_proy'); });
+  }
+
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-bz-grupo-borrar]');
+    if (!b) return;
+    const g = JSON.parse(b.dataset.bzGrupoBorrar);
+    const si = await confirmar({ titulo: '¿Quitar el grupo?', ok: 'Sí, quitar', peligro: true,
+      mensaje: 'Se quita «' + g.nombre + '»: lo que llegue a ' + g.direccion + ' ya no les llegará a sus integrantes. Sus cuentas no se tocan.' });
+    if (!si) return;
+    const fd = new FormData();
+    fd.set('accion', 'grupo_borrar');
+    fd.set('direccion', g.direccion);
+    try {
+      const j = await post(fd);
+      toast(j.mensaje);
+      setTimeout(() => location.reload(), 600);
+    } catch (err) { toast(err.message, 'error'); }
+  });
+
   /* ---------- Buscar ---------- */
   const q = raiz.querySelector('[data-bz-buscar]');
   if (q) {
