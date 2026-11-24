@@ -39,6 +39,12 @@ usort($susTareas, function ($a, $b) use ($finales) {
     return $fa <=> $fb;
 });
 $abiertas = count(array_filter($susTareas, fn($t) => !in_array($t['estado'] ?? '', $finales, true)));
+// Ya no está (se dio de baja): su ficha y su histórico se siguen viendo, con «Reincorporar»
+$deBaja = MiembroRepo::deBaja($m);
+$poSmDe = [];
+foreach ((new ProyectoRepo())->todos() as $pB) {
+    if (ProyectoRepo::poDe($pB) === $id || (int)($pB['po_relevo'] ?? 0) === $id || ProyectoRepo::scrumDe($pB) === $id) $poSmDe[] = (string)$pB['nombre'];
+}
 $totales  = count($susTareas);
 $hechas   = $totales - $abiertas;
 
@@ -183,6 +189,12 @@ $copiar = fn(string $v, string $tip) => '<button type="button" class="btn-copiar
     <div class="ru-cab__txt">
       <p class="kp-cab__rol"><?= UI::iconoEquipo($eq, $eqIcono, 'ico-equipo--chip') ?> <?= e(trim((string)($m['rol'] ?? '')) ?: 'Sin rol') ?> · <?= e(MiembroRepo::etiquetaEquipos($m)) ?></p>
       <h1 class="page-title font-display"><?= e($m['nombre']) ?></h1>
+      <?php if ($deBaja || MiembroRepo::esPasante($m)): $dPas = MiembroRepo::diasPasantia($m); ?>
+      <p class="kp-etiquetas">
+        <?php if ($deBaja): ?><span class="mb-chip mb-chip--baja"><?= UI::iconoDS('cerrar', 14) ?> Ya no está en el equipo</span><?php endif; ?>
+        <?php if (MiembroRepo::esPasante($m)): ?><span class="mb-chip mb-chip--pasante<?= $dPas !== null && $dPas < 0 ? ' is-fin' : ($dPas !== null && $dPas <= 7 ? ' is-pronto' : '') ?>"><?= UI::iconoDS('agenda', 14) ?> <?= e(MiembroRepo::textoPasante($m)) ?></span><?php endif; ?>
+      </p>
+      <?php endif; ?>
       <div class="kp-cuentas">
         <?php if (!empty($m['git_user'])): ?>
         <span class="kp-cuenta"><a href="https://github.com/<?= e($m['git_user']) ?>" target="_blank" rel="noopener"><i class="fa-brands fa-github"></i> @<?= e($m['git_user']) ?></a><?= $copiar((string)$m['git_user'], 'Copiar usuario de Git') ?></span>
@@ -206,14 +218,20 @@ $copiar = fn(string $v, string $tip) => '<button type="button" class="btn-copiar
           'git_user' => $m['git_user'] ?? '', 'git_emails' => $m['git_emails'] ?? '', 'email' => $m['email'] ?? '', 'telefono' => $m['telefono'] ?? '',
           'acceso' => $m['acceso'] ?? 'lector',
           'color' => $m['color'] ?? 0, 'foto' => $m['foto'] ?? '', 'equipo' => $eq, 'equipos' => MiembroRepo::equiposDe($m),
+          'pasante' => MiembroRepo::esPasante($m), 'pasante_hasta' => (string)($m['pasante_hasta'] ?? ''),
       ], JSON_UNESCAPED_UNICODE)) ?>'><?= UI::icono('ds-editar') ?></button>
+    <?php if ($deBaja): ?>
     <form method="post" action="actions.php" class="inline-form solo-admin"
-          data-confirmar="<?= e($m['nombre']) ?> saldrá del equipo y sus tareas quedarán sin asignar."
-          data-confirmar-titulo="¿Retirar del equipo?" data-confirmar-ok="Sí, retirar">
-      <input type="hidden" name="accion" value="miembro_eliminar">
+          data-confirmar="<?= e($m['nombre']) ?> vuelve al equipo: puede entrar otra vez al panel y regresa a los proyectos de los que salió."
+          data-confirmar-titulo="¿Reincorporar?" data-confirmar-ok="Sí, reincorporar">
+      <input type="hidden" name="accion" value="miembro_reincorporar">
       <input type="hidden" name="id" value="<?= $id ?>">
-      <button class="rs-boton rs-boton--icono kp-peligro" aria-label="Retirar del equipo" data-ds-tip="Retirar del equipo"><i class="fa-solid fa-user-minus"></i></button>
+      <button class="rs-boton rs-boton--icono" aria-label="Reincorporar al equipo" data-ds-tip="Reincorporar al equipo"><i class="fa-solid fa-user-check"></i></button>
     </form>
+    <?php elseif ($id !== (int)(Auth::usuario()['id'] ?? 0)): ?>
+    <button type="button" class="rs-boton rs-boton--icono kp-peligro solo-admin" aria-label="Dar de baja" data-ds-tip="Dar de baja: ya no está en el equipo"
+            onclick="document.getElementById('dlg-baja').showModal()"><i class="fa-solid fa-user-minus"></i></button>
+    <?php endif; ?>
     <span class="ru-cab__sep" aria-hidden="true"></span>
     <?php endif; ?>
     <a class="rs-boton rs-boton--icono" href="equipo.php?e=<?= e($eq) ?>" aria-label="Regresar" data-ds-tip="Regresar a <?= e($eqLabel) ?>">
@@ -221,6 +239,14 @@ $copiar = fn(string $v, string $tip) => '<button type="button" class="btn-copiar
   </div>
 </header>
 
+<?php if ($deBaja):
+    $porBaja = trim((string)((new MiembroRepo())->mapa()[(int)($m['baja_por'] ?? 0)]['nombre'] ?? ''));
+    $fBaja = (string)($m['baja'] ?? ''); ?>
+<?= UI::alertaDS('warning', 'Ya no está en el equipo',
+    'Se dio de baja el ' . e(date('d/m/Y', strtotime($fBaja) ?: time())) . ($porBaja !== '' ? ' · ' . e($porBaja) : '')
+    . (trim((string)($m['baja_motivo'] ?? '')) !== '' ? ' · «' . e((string)$m['baja_motivo']) . '»' : '')
+    . '. No entra al panel ni sale en las listas; su histórico de tareas sigue aquí y con su nombre.', true) ?>
+<?php endif; ?>
 <section class="kp-tiles" aria-label="Indicadores personales">
   <?= $tile('ds-lista-espera', 'info', (string)$totales, 'Asignadas',
         $totales ? 'en ' . $nProy . ' proyecto' . ($nProy === 1 ? '' : 's') : 'todavía ninguna') ?>
@@ -404,6 +430,42 @@ $copiar = fn(string $v, string $tip) => '<button type="button" class="btn-copiar
     </footer>
   </form>
 </dialog>
+<?php if (esAdmin() && !$deBaja && $id !== (int)(Auth::usuario()['id'] ?? 0)): ?>
+<dialog class="ds-modal" id="dlg-baja" aria-labelledby="dlg-baja-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="miembro_baja">
+    <input type="hidden" name="id" value="<?= $id ?>">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--rojo"><i class="fa-solid fa-user-minus"></i></span>
+      <div><h2 class="ds-modal__title" id="dlg-baja-t">Dar de baja a <?= e(explode(' ', trim((string)$m['nombre']))[0]) ?></h2>
+        <p class="ds-modal__sub">Ya no está en el equipo. No se borra: su histórico se queda.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body">
+      <ul class="mb-baja-lista">
+        <li><?= UI::iconoDS('check', 16) ?> Sus tareas, observaciones y KPIs se quedan con su nombre.</li>
+        <li><?= UI::iconoDS('candado', 16) ?> Ya no puede entrar al panel.</li>
+        <li><?= UI::iconoDS('usuarios', 16) ?> Deja de salir en los equipos, en los selectores y en los avisos.</li>
+        <li><?= UI::iconoDS('reintentar', 16) ?> Si vuelve, lo reincorporas desde su perfil.</li>
+      </ul>
+      <label class="campo"><span>Motivo <small>(opcional)</small></span>
+        <input class="input-meca" name="motivo" maxlength="200" placeholder="Ej. Terminó su pasantía"
+               value="<?= MiembroRepo::esPasante($m) && MiembroRepo::diasPasantia($m) !== null && MiembroRepo::diasPasantia($m) < 0 ? 'Terminó su pasantía' : '' ?>"></label>
+      <?php if ($abiertas): ?>
+      <?= UI::checkDS('soltar_tareas', true, 'Quitarlo de sus ' . $abiertas . ($abiertas === 1 ? ' tarea sin terminar' : ' tareas sin terminar'),
+            'Quedan sin responsable para dárselas a otro. Las terminadas no se tocan.') ?>
+      <?php endif; ?>
+      <?php if ($poSmDe): ?>
+      <p class="campo-ayuda mb-baja-ojo"><?= UI::iconoDS('alerta', 15) ?> Es PO o Scrum Master de <b><?= e(implode(', ', $poSmDe)) ?></b>: después cámbialo en el proyecto.</p>
+      <?php endif; ?>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--danger mc-btn--md"><i class="fa-solid fa-user-minus"></i><span class="mc-btn__label">Dar de baja</span></button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 <datalist id="lista-roles">
   <?php foreach (Catalogo::roles() as $rol): ?><option value="<?= e($rol) ?>"></option><?php endforeach; ?>
 </datalist>

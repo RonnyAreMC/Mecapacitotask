@@ -40,7 +40,9 @@ class Auth
         static $cache = false;
         if ($cache !== false) return $cache;
         $id = (int)($_SESSION['uid'] ?? 0);
-        return $cache = ($id > 0 ? (new MiembroRepo())->buscar($id) : null);
+        $m = $id > 0 ? (new MiembroRepo())->buscar($id) : null;
+        // Dado de baja: ya no entra, aunque hubiera dejado la sesión abierta
+        return $cache = ($m && !MiembroRepo::deBaja($m) ? $m : null);
     }
 
     /** Perfiles de quien tiene la sesión iniciada. */

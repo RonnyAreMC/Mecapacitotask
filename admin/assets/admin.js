@@ -3900,6 +3900,14 @@ document.querySelectorAll('.form-persona').forEach((form) => {
   };
 })();
 
+// «Es pasante»: la fecha de fin se ve solo con la casilla marcada
+document.addEventListener('change', (e) => {
+  const c = e.target.closest && e.target.closest('input[name="pasante"]');
+  if (!c) return;
+  const hasta = c.form && c.form.querySelector('[data-pp-pasante-hasta]');
+  if (hasta) hasta.style.display = c.checked ? '' : 'none';
+});
+
 // Rellenar y abrir el modal de edicion de miembro
 document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
   btn.addEventListener('click', () => {
@@ -3927,6 +3935,14 @@ document.querySelectorAll('[data-editar-miembro]').forEach((btn) => {
     });
     const selAcceso = form.querySelector('[name="acceso"]');
     if (selAcceso && m.acceso) setSelect(selAcceso, m.acceso);   // sin esto el admin editado se degradaba a lector
+    // Pasante y hasta cuándo
+    const chkPas = form.querySelector('[name="pasante"]');
+    if (chkPas) {
+      chkPas.checked = !!m.pasante;
+      const hastaPas = form.querySelector('[name="pasante_hasta"]');
+      if (hastaPas) { hastaPas.value = m.pasante_hasta || ''; hastaPas.dispatchEvent(new Event('md-sync')); }   // el calendario del DS se repinta
+      chkPas.dispatchEvent(new Event('change', { bubbles: true }));
+    }
     form.querySelector('.pp-file').value = '';
     if (String(m.color).startsWith('#')) {
       form.querySelector('.color-picker input[value="custom"]').checked = true;

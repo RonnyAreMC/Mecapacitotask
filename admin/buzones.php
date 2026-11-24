@@ -250,12 +250,12 @@ $esSup = fn(array $m) => MiembroRepo::tieneAcceso($m, 'supervisor') && !MiembroR
 // Las opciones del selector: las cuentas del cPanel y el correo de cada persona del panel
 $opcPersonas = [];
 foreach ($cuentas as $c) $opcPersonas[$c['email']] = isset($porCorreo[$c['email']]) ? $porCorreo[$c['email']]['nombre'] . ' · ' . $c['email'] : $c['email'];
-foreach ($mapa as $m) { $em = $correoPersona($m); if ($em !== '' && !isset($opcPersonas[$em])) $opcPersonas[$em] = $m['nombre'] . ' · ' . $em; }
+foreach ($mapa as $m) { if (MiembroRepo::deBaja($m)) continue; $em = $correoPersona($m); if ($em !== '' && !isset($opcPersonas[$em])) $opcPersonas[$em] = $m['nombre'] . ' · ' . $em; }
 foreach ($grupos as $g) foreach ((array)$g['integrantes'] as $em) $opcPersonas[$em] ??= $em;   // los de afuera que ya están en un grupo
 uasort($opcPersonas, fn($a, $b) => strcasecmp($a, $b));
 // «Agregar de una vez»: los equipos del panel, todo el equipo y cada proyecto
 $rellenos = [];
-$correosDe = fn(iterable $ms) => array_values(array_unique(array_filter(array_map($correoPersona, array_filter(is_array($ms) ? $ms : iterator_to_array($ms), fn($m) => $m && !$esSup($m))))));
+$correosDe = fn(iterable $ms) => array_values(array_unique(array_filter(array_map($correoPersona, array_filter(is_array($ms) ? $ms : iterator_to_array($ms), fn($m) => $m && !$esSup($m) && !MiembroRepo::deBaja($m))))));
 foreach (Catalogo::equipos() as $k => [$etq]) $rellenos['eq:' . $k] = [$etq, $correosDe(array_filter($mapa, fn($m) => MiembroRepo::enEquipo($m, (string)$k)))];
 $rellenos['todos'] = ['Todo el equipo', $correosDe($mapa)];
 $proyRelleno = [];

@@ -28,6 +28,17 @@ $equipo = array_values(array_filter(
 // Solo se abre la ficha ajena siendo administrador
 $yo = (int)(Auth::usuario()['id'] ?? 0);
 
+// Los que ya no están (dados de baja): solo el admin los ve, abajo, con su histórico
+$deBajaEq = esAdmin() ? array_values(array_filter($miembrosRepo->todosConBaja(), fn($m) => MiembroRepo::deBaja($m) && MiembroRepo::enEquipo($m, $eq))) : [];
+usort($deBajaEq, fn($a, $b) => strcmp((string)($b['baja'] ?? ''), (string)($a['baja'] ?? '')));
+// Pasantías que ya terminaron o terminan en la semana (para el aviso de arriba)
+$pasantesFin = $pasantesPronto = [];
+foreach ($equipo as $m) {
+    $dP = MiembroRepo::diasPasantia($m);
+    if ($dP === null) continue;
+    if ($dP < 0) $pasantesFin[] = $m; elseif ($dP <= 7) $pasantesPronto[] = $m;
+}
+
 // Tareas por miembro: abiertas (no finales), total asignadas y detalle.
 // Para quien no es administrador, solo cuentan las de sus propios proyectos.
 $alcance  = alcanceProyectos();
@@ -256,6 +267,20 @@ UI::cabecera(
 </dialog>
 <?php endif; ?>
 
+<?php if (esAdmin() && ($pasantesFin || $pasantesPronto)):
+    $enlacesP = fn(array $ms) => implode(', ', array_map(fn($m) => '<a href="colaborador.php?id=' . (int)$m['id'] . '">' . e((string)$m['nombre']) . '</a>', $ms)); ?>
+<div class="eq-aviso-pasantes">
+  <?php if ($pasantesFin): ?>
+  <?= UI::alertaDS('warning', count($pasantesFin) === 1 ? 'Terminó una pasantía' : 'Terminaron ' . count($pasantesFin) . ' pasantías',
+        $enlacesP($pasantesFin) . (count($pasantesFin) === 1 ? ' ya terminó su pasantía' : ' ya terminaron su pasantía')
+        . ': si ya no están, dales de baja desde su perfil (su histórico se queda); si siguen, extiende la fecha.', true) ?>
+  <?php endif; ?>
+  <?php if ($pasantesPronto): ?>
+  <?= UI::alertaDS('info', 'Pasantías por terminar', $enlacesP($pasantesPronto) . ' termina' . (count($pasantesPronto) === 1 ? '' : 'n') . ' su pasantía esta semana.', true) ?>
+  <?php endif; ?>
+</div>
+<?php endif; ?>
+
 <?php if (empty($equipo)): ?>
   <?php
     // Vacío: la escena del propio equipo (con su gente) si la tiene; si no, la genérica
@@ -299,6 +324,9 @@ UI::cabecera(
           <div class="eq-card__quien">
             <b title="<?= e($m['nombre']) ?>"><?= e($m['nombre']) ?></b>
             <span><?= e($m['rol'] ?? '') ?></span>
+            <?php if (MiembroRepo::esPasante($m)): $dP = MiembroRepo::diasPasantia($m); ?>
+            <span class="mb-chip mb-chip--pasante<?= $dP !== null && $dP < 0 ? ' is-fin' : ($dP !== null && $dP <= 7 ? ' is-pronto' : '') ?>"><?= e(MiembroRepo::textoPasante($m)) ?></span>
+            <?php endif; ?>
           </div>
         </header>
 
@@ -391,6 +419,30 @@ UI::cabecera(
     </div>
     <p class="tabla-buscar-vacio eq-cards-vacio" data-buscar-vacio hidden>Nadie coincide con la búsqueda.</p>
   </div>
+<?php endif; ?>
+
+<?php if ($deBajaEq): ?>
+<details class="card-base eq-bajas">
+  <summary><?= UI::iconoDS('usuarios', 18) ?> <b>Ya no están</b> <span class="tabla-count"><?= count($deBajaEq) ?></span>
+    <small>Dados de baja: no entran ni salen en las listas, pero su histórico de tareas sigue con su nombre.</small></summary>
+  <ul class="eq-bajas__lista">
+    <?php foreach ($deBajaEq as $mB): ?>
+    <li>
+      <?= UI::avatar($mB, 36) ?>
+      <span class="eq-bajas__txt"><b><?= e((string)$mB['nombre']) ?></b>
+        <small><?= e(trim((string)($mB['rol'] ?? '')) ?: 'Sin rol') ?> · de baja desde el <?= e(date('d/m/Y', strtotime((string)$mB['baja']) ?: time())) ?><?= trim((string)($mB['baja_motivo'] ?? '')) !== '' ? ' · «' . e((string)$mB['baja_motivo']) . '»' : '' ?></small></span>
+      <a class="mc-btn mc-btn--ghost mc-btn--sm" href="colaborador.php?id=<?= (int)$mB['id'] ?>"><?= UI::iconoDS('ver', 16) ?><span class="mc-btn__label">Ver su histórico</span></a>
+      <form method="post" action="actions.php" class="inline-form"
+            data-confirmar="<?= e((string)$mB['nombre']) ?> vuelve al equipo: puede entrar otra vez al panel y regresa a los proyectos de los que salió."
+            data-confirmar-titulo="¿Reincorporar?" data-confirmar-ok="Sí, reincorporar">
+        <input type="hidden" name="accion" value="miembro_reincorporar">
+        <input type="hidden" name="id" value="<?= (int)$mB['id'] ?>">
+        <button class="mc-btn mc-btn--outline mc-btn--t-azul mc-btn--sm"><i class="fa-solid fa-user-check"></i><span class="mc-btn__label">Reincorporar</span></button>
+      </form>
+    </li>
+    <?php endforeach; ?>
+  </ul>
+</details>
 <?php endif; ?>
 
 <?php require_once __DIR__ . '/lib/team/campos_persona.php'; ?>

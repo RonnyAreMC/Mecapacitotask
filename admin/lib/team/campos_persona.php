@@ -106,6 +106,13 @@ if (!function_exists('camposPersona')) {
           <small class="campo-ayuda">El <b>acceso al panel</b> (admin / Scrum / solo lectura) se cambia desde la columna «Acceso» de la tabla del equipo, no aquí. Así editar los datos no baja permisos sin querer.</small>
         </label>
 <?php endif; ?>
+        <div class="campo-doble pp-pasante">
+          <div class="campo"><span>Pasantía</span>
+            <?= UI::checkDS('pasante', false, 'Es pasante', 'Está haciendo sus pasantías en la empresa.') ?></div>
+          <label class="campo" data-pp-pasante-hasta style="display:none"><span>Hasta</span>
+            <input class="input-meca" type="date" name="pasante_hasta">
+            <small class="campo-ayuda">Cuando se acerque la fecha, el equipo lo avisa para darle de baja o extenderla.</small></label>
+        </div>
         <div class="campo">
           <span>Color del avatar</span>
           <?= UI::colorPicker($esEdicion ? null : 0) ?>

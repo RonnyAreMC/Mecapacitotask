@@ -670,11 +670,143 @@ class MiembroRepo
         $this->store = new JsonStore('miembros');
     }
 
+    /**
+     * Los que están en el equipo hoy (sin los dados de baja): es lo que sale en
+     * los equipos, los selectores, los directorios y los avisos. Quien se fue
+     * sigue en mapa() y en buscar(): su nombre se queda en sus tareas.
+     */
     public function todos(): array
+    {
+        $items = array_values(array_filter($this->store->all(), fn($m) => !self::deBaja($m)));
+        usort($items, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
+        return $items;
+    }
+
+    /** Todos, también los que ya no están (para la lista «Ya no están» y los históricos). */
+    public function todosConBaja(): array
     {
         $items = $this->store->all();
         usort($items, fn($a, $b) => strcasecmp($a['nombre'] ?? '', $b['nombre'] ?? ''));
         return $items;
+    }
+
+    /** ¿Ya no está en el equipo? (se dio de baja: no entra al panel ni sale en las listas) */
+    public static function deBaja(array $m): bool
+    {
+        return !empty($m['baja']);
+    }
+
+    /* ---- Pasantes: hasta cuándo ---- */
+
+    public static function esPasante(array $m): bool
+    {
+        return !empty($m['pasante']);
+    }
+
+    /** La fecha en que termina su pasantía ('' si no es pasante o no se puso). */
+    public static function pasanteHasta(array $m): string
+    {
+        return self::esPasante($m) ? (string)($m['pasante_hasta'] ?? '') : '';
+    }
+
+    /** Días que le quedan de pasantía (negativo: ya terminó; null: sin fecha). */
+    public static function diasPasantia(array $m): ?int
+    {
+        $h = self::pasanteHasta($m);
+        if ($h === '' || !strtotime($h)) return null;
+        return (int)round((strtotime($h) - strtotime(date('Y-m-d'))) / 86400);
+    }
+
+    /** «Pasante · hasta 15 dic» / «Pasantía terminó el 15 dic»; '' si no es pasante. */
+    public static function textoPasante(array $m): string
+    {
+        if (!self::esPasante($m)) return '';
+        $h = self::pasanteHasta($m);
+        if ($h === '') return 'Pasante';
+        $f = (int)date('j', strtotime($h)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', strtotime($h)) - 1]
+            . (date('Y', strtotime($h)) !== date('Y') ? ' ' . date('Y', strtotime($h)) : '');
+        $d = self::diasPasantia($m);
+        return $d !== null && $d < 0 ? 'Pasantía terminó el ' . $f : 'Pasante · hasta el ' . $f;
+    }
+
+    /** Lo que llega del formulario: ['pasante' => bool, 'pasante_hasta' => Y-m-d|'']. */
+    public static function pasanteEntrada(array $post): array
+    {
+        $es = !empty($post['pasante']);
+        return ['pasante' => $es, 'pasante_hasta' => $es ? ProyectoRepo::fecha((string)($post['pasante_hasta'] ?? '')) : ''];
+    }
+
+    /**
+     * Dar de baja a quien ya no está: deja de entrar al panel y de salir en
+     * equipos, selectores y avisos, pero NO se borra: sus tareas, observaciones
+     * y KPIs se quedan con su nombre. Sale de los equipos de los proyectos (si
+     * no los deja vacíos) y, si se pide, de sus tareas SIN terminar (las
+     * terminadas no se tocan). Devuelve lo que pasó, para contarlo.
+     */
+    public function darDeBaja(int $id, int $por, string $motivo, bool $soltarTareas): array
+    {
+        $m = $this->buscar($id);
+        if (!$m) return ['ok' => false, 'error' => 'Esa persona ya no existe.'];
+        $proyectos = new JsonStore('proyectos');
+        $salioDe = $seQueda = $esPoSm = [];
+        foreach ($proyectos->all() as $p) {
+            $eq = array_map('intval', (array)($p['miembros'] ?? []));
+            if (in_array($id, $eq, true)) {
+                $quedan = array_values(array_filter($eq, fn($x) => $x !== $id));
+                // Un equipo vacío quiere decir «abierto a todos»: ahí se queda hasta que pongan a otro
+                if ($quedan) { $proyectos->update((int)$p['id'], ['miembros' => $quedan]); $salioDe[] = (int)$p['id']; }
+                else $seQueda[] = (string)$p['nombre'];
+            }
+            if (ProyectoRepo::poDe($p) === $id || (int)($p['po_relevo'] ?? 0) === $id || ProyectoRepo::scrumDe($p) === $id) $esPoSm[] = (string)$p['nombre'];
+        }
+        $soltadas = $compartidas = [];
+        if ($soltarTareas) {
+            $finales = Catalogo::estadosFinales();
+            $tareas = new JsonStore('tareas');
+            foreach ($tareas->all() as $t) {
+                if (in_array($t['estado'] ?? '', $finales, true)) continue;
+                $ids = TareaRepo::asignadosDe($t);
+                if (!in_array($id, $ids, true)) continue;
+                $tareas->update((int)$t['id'], TareaRepo::camposAsignado(['asignados' => array_values(array_filter($ids, fn($x) => $x !== $id))]));
+                $soltadas[] = (int)$t['id'];
+                if (count($ids) > 1) $compartidas[] = (int)$t['id'];   // la llevaba con alguien más
+            }
+        }
+        $this->store->update($id, ['baja' => date('Y-m-d H:i'), 'baja_por' => $por, 'baja_motivo' => mb_substr(trim($motivo), 0, 200),
+                                   'baja_proyectos' => $salioDe, 'baja_tareas' => $soltadas, 'baja_compartidas' => $compartidas]);
+        return ['ok' => true, 'proyectos' => count($salioDe), 'se_queda' => $seQueda, 'po_sm' => array_values(array_unique($esPoSm)),
+                'tareas' => count($soltadas), 'sin_nadie' => count($soltadas) - count($compartidas)];
+    }
+
+    /** Vuelve al equipo: entra otra vez y regresa a los proyectos de los que salió al darse de baja. */
+    public function reincorporar(int $id): array
+    {
+        $m = $this->buscar($id);
+        if (!$m || !self::deBaja($m)) return ['ok' => false, 'error' => 'Esa persona no está dada de baja.'];
+        $proyectos = new JsonStore('proyectos');
+        $volvio = 0;
+        foreach (array_map('intval', (array)($m['baja_proyectos'] ?? [])) as $pid) {
+            $p = $proyectos->find($pid);
+            if (!$p) continue;
+            $eq = array_map('intval', (array)($p['miembros'] ?? []));
+            if ($eq && !in_array($id, $eq, true)) { $eq[] = $id; $proyectos->update($pid, ['miembros' => $eq]); $volvio++; }
+        }
+        // Las tareas que se le soltaron al irse y siguen abiertas vuelven a él: las que llevaba
+        // con alguien más, sumándolo otra vez; las que eran solo suyas, si nadie las tomó
+        $devueltas = 0;
+        $finales = Catalogo::estadosFinales();
+        $tareas = new JsonStore('tareas');
+        $compartidas = array_map('intval', (array)($m['baja_compartidas'] ?? []));
+        foreach (array_map('intval', (array)($m['baja_tareas'] ?? [])) as $tid) {
+            $t = $tareas->find($tid);
+            if (!$t || in_array($t['estado'] ?? '', $finales, true)) continue;
+            $ids = TareaRepo::asignadosDe($t);
+            if (in_array($id, $ids, true) || ($ids && !in_array($tid, $compartidas, true))) continue;
+            $tareas->update($tid, TareaRepo::camposAsignado(['asignados' => array_values(array_merge($ids, [$id]))]));
+            $devueltas++;
+        }
+        $this->store->update($id, ['baja' => '', 'baja_por' => 0, 'baja_motivo' => '', 'baja_proyectos' => [], 'baja_tareas' => [], 'baja_compartidas' => [], 'reincorporado' => date('Y-m-d H:i')]);
+        return ['ok' => true, 'proyectos' => $volvio, 'tareas' => $devueltas];
     }
 
     /** Mapa id => miembro, util para pintar tablas sin buscar uno por uno. */
@@ -698,6 +830,7 @@ class MiembroRepo
     {
         $correos = [];
         foreach ($this->store->all() as $m) {
+            if (self::deBaja($m)) continue;   // ya no está: no le llegan los avisos
             $email = trim((string)($m['email'] ?? ''));
             if (MiembroRepo::tieneAcceso($m, 'admin') && $email !== '') {
                 $correos[strtolower($email)] = $email;

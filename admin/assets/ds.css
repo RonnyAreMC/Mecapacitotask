@@ -7423,3 +7423,27 @@ html .ds-dest__av.is-grupo { --av: #2B76F7; }
 html .ds-dest__av.is-grupo svg { width: 62%; height: 62%; }
 /* Cuentas de correo: lo marcado como oculto se oculta aunque el campo tenga su propio display */
 html .bz [hidden] { display: none !important; }
+
+/* Equipo: pasantes y los que ya no están */
+html .mb-chip { display: inline-flex; align-items: center; gap: 5px; width: fit-content; margin-top: 4px; padding: 3px 9px; border-radius: 999px; font-size: .74rem; font-weight: 700; line-height: 1.3; }
+html .mb-chip svg { width: 13px; height: 13px; }
+html .mb-chip--pasante { background: #EDE9FE; color: #6D28D9; }
+html .mb-chip--pasante.is-pronto { background: #FEF3C7; color: #B45309; }
+html .mb-chip--pasante.is-fin { background: #FEE2E2; color: #B91C1C; }
+html .mb-chip--baja { background: #F1F5F9; color: #475569; }
+html .kp-etiquetas { display: flex; flex-wrap: wrap; gap: 6px; margin: 2px 0 6px; }
+html .eq-aviso-pasantes { display: flex; flex-direction: column; gap: 8px; margin: 0 0 var(--space-4, 16px); }
+html .eq-aviso-pasantes a { font-weight: 700; }
+html .eq-bajas { margin-top: var(--space-4, 16px); padding: 14px 18px; }
+html .eq-bajas > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; cursor: pointer; list-style: none; }
+html .eq-bajas > summary::-webkit-details-marker { display: none; }
+html .eq-bajas > summary small { flex-basis: 100%; color: var(--ink-muted); font-size: .82rem; }
+html .eq-bajas__lista { display: flex; flex-direction: column; gap: 8px; margin: 12px 0 0; padding: 0; list-style: none; }
+html .eq-bajas__lista li { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; padding: 10px 12px; border-radius: 12px; background: var(--surface-sunken); }
+html .eq-bajas__lista .avatar { filter: grayscale(1); opacity: .75; }
+html .eq-bajas__txt { flex: 1; min-width: 180px; display: flex; flex-direction: column; }
+html .eq-bajas__txt small { color: var(--ink-muted); font-size: .8rem; }
+html .mb-baja-lista { display: flex; flex-direction: column; gap: 6px; margin: 0 0 14px; padding: 0; list-style: none; font-size: .88rem; }
+html .mb-baja-lista li { display: flex; align-items: center; gap: 8px; }
+html .mb-baja-lista svg { flex: none; color: var(--ink-muted); }
+html .mb-baja-ojo { display: flex; align-items: center; gap: 6px; margin-top: 10px; color: #B45309; }

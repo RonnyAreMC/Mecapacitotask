@@ -753,6 +753,15 @@ switch ($accion) {
         if ((new SolicitudRepo())->porLogin($_POST['usuario'] ?? '')) {
             redirigir('login.php', 'Tu solicitud de acceso sigue pendiente. Te avisaremos por correo en cuanto un administrador la apruebe.', 'info');
         }
+        // Dado de baja: con su contraseña correcta se le dice por qué no entra (sin ella, el mensaje de siempre)
+        $uLogin = trim((string)($_POST['usuario'] ?? ''));
+        foreach ($miembros->todosConBaja() as $mBaja) {
+            if (!MiembroRepo::deBaja($mBaja) || empty($mBaja['pass_hash'])) continue;
+            $esEl = strcasecmp((string)($mBaja['email'] ?? ''), $uLogin) === 0 || ((string)($mBaja['git_user'] ?? '') !== '' && strcasecmp((string)$mBaja['git_user'], ltrim($uLogin, '@')) === 0);
+            if ($esEl && password_verify((string)($_POST['clave'] ?? ''), (string)$mBaja['pass_hash'])) {
+                redirigir('login.php', 'Tu cuenta ya no tiene acceso al panel: se dio de baja. Si es un error, habla con el administrador.', 'error');
+            }
+        }
         redirigir('login.php', 'Usuario o contraseña incorrectos.', 'error');
 
     /* ---------- Recuperar la contraseña con un código de 6 dígitos ----------
@@ -3113,7 +3122,7 @@ switch ($accion) {
         $m = $miembros->crear($datos);
         // Acceso al panel (rol + contraseña opcional)
         $accesoNuevo = Auth::accesoValido($_POST['acceso'] ?? '');
-        $cambiosAcceso = ['acceso' => $accesoNuevo, 'telefono' => telefonoEntrada($_POST['telefono'] ?? '')];
+        $cambiosAcceso = ['acceso' => $accesoNuevo, 'telefono' => telefonoEntrada($_POST['telefono'] ?? '')] + MiembroRepo::pasanteEntrada($_POST);
         if (strlen((string)($_POST['clave'] ?? '')) >= 6) {
             $cambiosAcceso['pass_hash'] = Auth::hash($_POST['clave']);
         }
@@ -3138,6 +3147,9 @@ switch ($accion) {
             // Sus equipos (puede estar en varios); 'equipo' es el primero
             'equipos'  => $eqsEd = MiembroRepo::equiposEntrada($_POST['equipos'] ?? ($_POST['equipo'] ?? '')),
             'equipo'   => $eqsEd[0],
+            // Pasante y hasta cuándo (sin la casilla, la fecha no se guarda)
+            'pasante'       => ($pasEd = MiembroRepo::pasanteEntrada($_POST))['pasante'],
+            'pasante_hasta' => $pasEd['pasante_hasta'],
             // OJO: editar los datos NO toca el 'acceso'. Se conserva el que ya
             // tenía; el acceso se cambia solo desde la columna «Acceso» de la
             // tabla (miembro_acceso_set). Antes, al no venir bien en el form, un
@@ -3350,6 +3362,33 @@ switch ($accion) {
             : '';
         redirigir($volver, $m['nombre'] . ' ahora es ' . MiembroRepo::accesosEnTexto($mAct) . '.' . $falta,
             $falta ? 'info' : 'success');
+
+    case 'miembro_baja':
+        // Ya no está: no se borra (su histórico de tareas, observaciones y KPIs se queda con
+        // su nombre); deja de entrar al panel y de salir en equipos, selectores y avisos
+        $idBj = (int)($_POST['id'] ?? 0);
+        $mBj = $miembros->buscar($idBj);
+        if (!$mBj) redirigir('equipo.php', 'Esa persona ya no existe.', 'error');
+        if ($idBj === (int)(Auth::usuario()['id'] ?? 0)) redirigir('colaborador.php?id=' . $idBj, 'No puedes darte de baja a ti mismo.', 'error');
+        if (MiembroRepo::deBaja($mBj)) redirigir('colaborador.php?id=' . $idBj, $mBj['nombre'] . ' ya estaba dado de baja.', 'info');
+        $rBj = $miembros->darDeBaja($idBj, (int)(Auth::usuario()['id'] ?? 0), (string)($_POST['motivo'] ?? ''), !empty($_POST['soltar_tareas']));
+        $avisosBj = array_filter([
+            $rBj['tareas'] ? 'Salió de ' . $rBj['tareas'] . ($rBj['tareas'] === 1 ? ' tarea sin terminar' : ' tareas sin terminar')
+                . ($rBj['sin_nadie'] ? '; ' . $rBj['sin_nadie'] . ($rBj['sin_nadie'] === 1 ? ' quedó sin responsable: dásela a otro.' : ' quedaron sin responsable: dáselas a otro.') : ' (las demás personas las siguen llevando).') : '',
+            $rBj['po_sm'] ? 'Era PO o Scrum Master de ' . implode(', ', $rBj['po_sm']) . ': cámbialo en el proyecto.' : '',
+            $rBj['se_queda'] ? 'Sigue en el equipo de ' . implode(', ', $rBj['se_queda']) . ' porque era el único: agrega a alguien.' : '',
+        ]);
+        redirigir('equipo.php?e=' . MiembroRepo::equipoDe($mBj), $mBj['nombre'] . ' quedó dado de baja: ya no entra al panel ni sale en las listas, y su histórico se queda con su nombre.'
+            . ($avisosBj ? ' ' . implode(' ', $avisosBj) : ''), ($rBj['po_sm'] || $rBj['se_queda']) ? 'warning' : 'success');
+
+    case 'miembro_reincorporar':
+        $idBj = (int)($_POST['id'] ?? 0);
+        $mBj = $miembros->buscar($idBj);
+        $rBj = $miembros->reincorporar($idBj);
+        if (!$rBj['ok']) redirigir('colaborador.php?id=' . $idBj, $rBj['error'], 'error');
+        redirigir('colaborador.php?id=' . $idBj, ($mBj['nombre'] ?? 'La persona') . ' volvió al equipo: ya puede entrar al panel'
+            . ($rBj['proyectos'] ? ', regresó a ' . $rBj['proyectos'] . ($rBj['proyectos'] === 1 ? ' proyecto' : ' proyectos') : '')
+            . ($rBj['tareas'] ? ' y recuperó ' . $rBj['tareas'] . ($rBj['tareas'] === 1 ? ' tarea abierta' : ' tareas abiertas') : '') . '.');
 
     case 'miembro_eliminar':
         $id = (int)($_POST['id'] ?? 0);

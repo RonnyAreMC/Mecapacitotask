@@ -115,6 +115,13 @@ $correo   = $r['email'];
 $nombreG  = trim($r['nombre'] ?? '');
 $vinculado = false;
 
+// 0) Se dio de baja: Google ya verificó que el correo es suyo, así que se le dice por qué no entra
+foreach ($repo->todosConBaja() as $mBaja) {
+    if (MiembroRepo::deBaja($mBaja) && strcasecmp((string)($mBaja['email'] ?? ''), $correo) === 0) {
+        redirigir('login.php', 'Tu cuenta ya no tiene acceso al panel: se dio de baja. Si es un error, habla con el administrador.', 'error');
+    }
+}
+
 // 1) Correo ya registrado
 $miembro = null;
 foreach ($equipo as $m) {
