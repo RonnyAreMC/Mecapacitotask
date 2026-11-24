@@ -21,8 +21,9 @@
  *
  * Las grabaciones POR APARTE (VideoExternoRepo, en Models.php): el administrador
  * pega con «+» el link de una grabación que no salió de una reunión del panel,
- * con su tema y el equipo si aplica. Solo el link, no se suben videos. Van en
- * la misma cuadrícula (chip «Por aparte») y se abren en ?x=ID: YouTube y Drive
+ * con su tema y el proyecto o los proyectos si aplica. Solo el link, no se
+ * suben videos. Van en la misma cuadrícula (en el chip de cada uno de sus
+ * proyectos y en «Por aparte») y se abren en ?x=ID: YouTube y Drive
  * se ven aquí; Zoom, OneDrive u otro, con «Abrir la grabación».
  *
  * Pintado compartido: lib/meetings/reuniones_ui.php; estilos: admin.css («Reuniones ›
@@ -49,34 +50,43 @@ $ctx      = ['ahora' => $ahora, 'miembros' => $miembros, 'rastros' => $rastros];
 
 /* ---------- Las grabaciones por aparte: solo su link (las agrega el administrador) ---------- */
 $esAdm = esAdmin();
-// Una sin link (sembrada a mano) solo la ve el administrador, para ponérselo
-$externos = array_values(array_filter((new VideoExternoRepo())->todos(), fn($x) => $esAdm || VideoExternoRepo::tieneEnlace($x)));
-$equiposCat = Catalogo::equipos();
-$VT_EXT = '#7C5CFF';   // su color: distinto del de los proyectos y del celeste de la general
-$equipoDe = fn(array $x) => $equiposCat[(string)($x['equipo'] ?? '')] ?? null;   // [etiqueta, ícono] o null (no aplica)
-$canalExt = fn(array $x) => ($eq = $equipoDe($x)) ? (string)$eq[0] : 'Por aparte';
-$icoExt = fn(array $x) => UI::icono(($eq = $equipoDe($x)) ? (string)$eq[1] : 'MonitorPlay');
+$VT_EXT = '#7C5CFF';   // el color de las que no son de ningún proyecto
+$existeProy = array_flip(array_map(fn($p) => (int)$p['id'], (new ProyectoRepo())->todos()));
+$idsExt = fn(array $x) => array_values(array_filter(VideoExternoRepo::proyectosDe($x), fn($id) => isset($existeProy[$id])));   // [] = no aplica
+$proysExt = fn(array $x) => array_values(array_filter(array_map(fn($id) => $proyectos[$id] ?? null, $idsExt($x))));            // los que ve quien mira
+// El administrador las ve todas; el resto, las que tienen link y no son de ningún
+// proyecto o son de alguno que ve (como las grabaciones de las reuniones)
+$externos = array_values(array_filter((new VideoExternoRepo())->todos(), fn($x) => $esAdm
+    || (VideoExternoRepo::tieneEnlace($x) && (!$idsExt($x) || $proysExt($x)))));
+$pExt = fn(array $x) => $proysExt($x)[0] ?? null;
+$canalExt = fn(array $x) => ($ps = $proysExt($x)) ? (string)$ps[0]['nombre'] . (count($ps) > 1 ? ' +' . (count($ps) - 1) : '') : 'Por aparte';
+$nombresExt = fn(array $x) => ($ps = $proysExt($x)) ? implode(', ', array_map(fn($p) => (string)$p['nombre'], $ps)) : 'No aplica';
+$colorExt = fn(array $x) => ($p = $pExt($x)) ? ReunionesUI::colorProyecto($p) : $VT_EXT;
+$icoExt = fn(array $x) => ($p = $pExt($x)) ? ReunionesUI::iconoProyecto($p) : UI::icono('MonitorPlay');
 $tsExt = fn(array $x) => strtotime((string)($x['fecha'] ?? '')) ?: $ahora;
-$textoExt = fn(array $x) => ReunionesUI::normal(implode(' ', [(string)$x['tema'], $canalExt($x), 'por aparte grabacion',
+$textoExt = fn(array $x) => ReunionesUI::normal(implode(' ', [(string)$x['tema'], $nombresExt($x), 'por aparte grabacion',
     VideoExternoRepo::fuente((string)($x['enlace'] ?? ''))['nombre']]));
-$tarjetaExt = function (array $x, string $id = '') use ($VT_EXT, $canalExt, $icoExt, $tsExt, $textoExt, $ahora): string {
+$tarjetaExt = function (array $x, string $id = '') use ($canalExt, $colorExt, $icoExt, $tsExt, $textoExt, $nombresExt, $ahora): string {
     $f = VideoExternoRepo::fuente((string)($x['enlace'] ?? ''));
     $sinLink = !VideoExternoRepo::tieneEnlace($x);
     $tema = (string)$x['tema'];
+    $color = e($colorExt($x));
     return '<li class="vt-item" data-ru-txt="' . e($textoExt($x)) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>'
         . '<a class="vt-card" href="videoteca.php?x=' . (int)$x['id'] . '">'
-        . '<span class="vt-portada" style="--pc:' . $VT_EXT . '">'
+        . '<span class="vt-portada" style="--pc:' . $color . '">'
         . '<span class="vt-portada__gen" aria-hidden="true"><span class="vt-portada__ic">' . $icoExt($x) . '</span>'
         . '<b class="vt-portada__t">' . e($tema) . '</b><small class="vt-portada__p">' . e($canalExt($x)) . '</small></span>'
         . (!$sinLink && $f['miniatura'] !== '' ? '<img class="vt-portada__img" src="' . e($f['miniatura']) . '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '')
         . '<span class="vt-dur' . ($sinLink ? ' vt-dur--falta' : '') . '">' . e($sinLink ? 'Falta el link' : $f['nombre']) . '</span></span>'
-        . '<span class="vt-info"><span class="vt-canal" style="--pc:' . $VT_EXT . '" aria-hidden="true">' . $icoExt($x) . '</span>'
+        . '<span class="vt-info"><span class="vt-canal" style="--pc:' . $color . '" aria-hidden="true">' . $icoExt($x) . '</span>'
         . '<span class="vt-info__txt"><b class="vt-t" title="' . e($tema) . '">' . e($tema) . '</b>'
-        . '<small class="vt-meta">' . e($canalExt($x)) . '<span class="ru-sep" aria-hidden="true">·</span>' . e(ReunionesUI::cuandoFue($tsExt($x), $ahora)) . '</small></span></span>'
+        . '<small class="vt-meta" title="' . e($nombresExt($x)) . '">' . e($canalExt($x)) . '<span class="ru-sep" aria-hidden="true">·</span>' . e(ReunionesUI::cuandoFue($tsExt($x), $ahora)) . '</small></span></span>'
         . '</a></li>';
 };
-// Agregar o editar una (solo el administrador): tema, equipo si aplica, fecha y el link
-$dialogoExt = function (?array $x) use ($equiposCat): void {
+// Agregar o editar una (solo el administrador): tema, proyecto(s) si aplica, fecha y el link
+$opcionesProyExt = array_filter(array_map(fn($p) => (string)($p['nombre'] ?? ''), $proyectos), fn($n, $id) => $id > 0 && $n !== '', ARRAY_FILTER_USE_BOTH);
+asort($opcionesProyExt, SORT_NATURAL | SORT_FLAG_CASE);
+$dialogoExt = function (?array $x) use ($opcionesProyExt, $idsExt): void {
     $idX = (int)($x['id'] ?? 0);
     ?>
 <dialog class="ds-modal" id="dlg-vt-ext" aria-labelledby="dlg-vt-ext-t">
@@ -92,11 +102,13 @@ $dialogoExt = function (?array $x) use ($equiposCat): void {
     <div class="ds-modal__body">
       <label class="campo"><span>Tema</span>
         <input class="input-meca" name="tema" required maxlength="160" value="<?= e((string)($x['tema'] ?? '')) ?>" placeholder="Ej. Flujo de admisión UAE"></label>
+      <label class="campo"><span>Equipo o proyecto <small>(si aplica · uno o varios)</small></span>
+        <?= str_replace('<select ', '<select data-ph="No aplica" aria-label="Equipo o proyecto" ', UI::select('proyectos', $opcionesProyExt, $x ? $idsExt($x) : [], false, '', true)) ?>
+        <small class="campo-ayuda">Sale también en el filtro de cada uno. Si no es de ninguno, déjalo en «No aplica».</small></label>
       <div class="campo-doble">
-        <label class="campo"><span>Equipo <small>(si aplica)</small></span>
-          <?= UI::selectDS('equipo', array_map(fn($v) => (string)$v[0], $equiposCat), (string)($x['equipo'] ?? ''), ['vacio' => 'No aplica', 'aria' => 'Equipo']) ?></label>
         <label class="campo"><span>Fecha de la grabación</span>
           <input class="input-meca" type="date" name="fecha" max="<?= date('Y-m-d') ?>" value="<?= e((string)($x['fecha'] ?? date('Y-m-d'))) ?>"></label>
+        <span aria-hidden="true"></span>
       </div>
       <label class="campo"><span>Link de la grabación</span>
         <input class="input-meca" type="url" name="enlace" required maxlength="800" inputmode="url" value="<?= e((string)($x['enlace'] ?? '')) ?>" placeholder="https://…">
@@ -127,12 +139,17 @@ $conTrans = fn(array $v) => ReunionesUI::transcripcion($v['r'], $v['serie'] ? $v
 $verX = (int)($_GET['x'] ?? 0);
 if ($verX) {
     $x = (new VideoExternoRepo())->buscar($verX);
-    if (!$x || (!$esAdm && !VideoExternoRepo::tieneEnlace($x))) redirigir($url(), 'Esa grabación no está disponible.', 'error');
+    // La misma regla que la cuadrícula: con link y de ningún proyecto o de uno que ve (el admin, todas)
+    if (!$x || !in_array((int)$x['id'], array_map(fn($o) => (int)$o['id'], $externos), true)) redirigir($url(), 'Esa grabación no está disponible.', 'error');
     $f = VideoExternoRepo::fuente((string)($x['enlace'] ?? ''));
     $conLink = VideoExternoRepo::tieneEnlace($x);
     $tema = (string)$x['tema'];
-    $eq = $equipoDe($x);
-    $masX = array_slice(array_values(array_filter($externos, fn($o) => (int)$o['id'] !== $verX)), 0, 4);
+    $psX = $proysExt($x);
+    // Más por aparte: primero las que comparten proyecto
+    $idsX = $idsExt($x);
+    $masX = array_values(array_filter($externos, fn($o) => (int)$o['id'] !== $verX));
+    usort($masX, fn($a, $b) => (count(array_intersect($idsExt($b), $idsX)) > 0) <=> (count(array_intersect($idsExt($a), $idsX)) > 0));
+    $masX = array_slice($masX, 0, 4);
     $autorX = trim((string)($miembros[(int)($x['creado_por'] ?? 0)]['nombre'] ?? ''));
     $fechaX = (int)date('j', $tsExt($x)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', $tsExt($x)) - 1] . ' ' . date('Y', $tsExt($x));
     $dondeX = $f['nombre'] === 'Enlace' ? 'otra página' : $f['nombre'];
@@ -148,7 +165,11 @@ if ($verX) {
     <?= UI::volver($url(['pag' => '']), 'Volver a las grabaciones', 'ru-cab__volver') ?>
     <span class="vt-barra__t">Videos</span>
     <span class="ru-sep" aria-hidden="true">·</span>
-    <a class="ru-chip-proy" href="videoteca.php?o=1" style="--pc:<?= $VT_EXT ?>"><span class="ru-chip-proy__ic" aria-hidden="true"><?= $icoExt($x) ?></span><?= e($canalExt($x)) ?></a>
+    <?php if ($psX): ?>
+    <?php foreach ($psX as $pX) echo ReunionesUI::chipProyecto($pX, 'videoteca.php?p=' . (int)$pX['id']); ?>
+    <?php else: ?>
+    <a class="ru-chip-proy" href="videoteca.php?o=1" style="--pc:<?= $VT_EXT ?>"><span class="ru-chip-proy__ic" aria-hidden="true"><?= $icoExt($x) ?></span>Por aparte</a>
+    <?php endif; ?>
   </div>
 
   <div class="vt-ver">
@@ -158,7 +179,7 @@ if ($verX) {
         <iframe src="<?= e($f['insertar']) ?>" title="Grabación: <?= e($tema) ?>" referrerpolicy="strict-origin-when-cross-origin"
                 allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
         <?php else: ?>
-        <span class="vt-portada" style="--pc:<?= $VT_EXT ?>">
+        <span class="vt-portada" style="--pc:<?= e($colorExt($x)) ?>">
           <span class="vt-portada__gen" aria-hidden="true"><span class="vt-portada__ic"><?= $icoExt($x) ?></span><b class="vt-portada__t"><?= e($tema) ?></b><small class="vt-portada__p"><?= e($canalExt($x)) ?></small></span>
           <span class="vt-player__aviso"><?= UI::icono('MonitorPlay') ?>
             <?php if ($conLink): ?>
@@ -176,15 +197,16 @@ if ($verX) {
 
       <h1 class="vt-ver__t"><?= e($tema) ?></h1>
       <div class="vt-ver__fila">
-        <a class="vt-canal vt-canal--grande" href="videoteca.php?o=1" style="--pc:<?= $VT_EXT ?>" aria-label="Las grabaciones por aparte" data-ds-tip="Las grabaciones por aparte"><?= $icoExt($x) ?></a>
+        <?php $urlCanalX = $psX ? 'videoteca.php?p=' . (int)$psX[0]['id'] : 'videoteca.php?o=1'; $tipCanalX = $psX ? 'Las grabaciones de ' . $psX[0]['nombre'] : 'Las grabaciones por aparte'; ?>
+        <a class="vt-canal vt-canal--grande" href="<?= e($urlCanalX) ?>" style="--pc:<?= e($colorExt($x)) ?>" aria-label="<?= e($tipCanalX) ?>" data-ds-tip="<?= e($tipCanalX) ?>"><?= $icoExt($x) ?></a>
         <span class="vt-ver__canal">
-          <a href="videoteca.php?o=1"><?= e($canalExt($x)) ?></a>
+          <a href="<?= e($urlCanalX) ?>" title="<?= e($nombresExt($x)) ?>"><?= e($canalExt($x)) ?></a>
           <small><?= e($fechaX) ?><?= $conLink ? ' · ' . e($f['nombre']) : '' ?></small>
         </span>
         <div class="ru-acc">
           <?= $abrirX ?>
           <?php if ($esAdm): ?>
-          <?= ReunionesUI::ico('ds-editar', 'Editar el tema, el equipo o el link', '', '', 'onclick="document.getElementById(\'dlg-vt-ext\').showModal()"') ?>
+          <?= ReunionesUI::ico('ds-editar', 'Editar el tema, el proyecto o el link', '', '', 'onclick="document.getElementById(\'dlg-vt-ext\').showModal()"') ?>
           <form method="post" action="actions.php" class="inline-form" data-confirmar="Se quita «<?= e($tema) ?>» de Videos. La grabación sigue donde está: solo se quita su link del panel."
                 data-confirmar-titulo="¿Quitar esta grabación?" data-confirmar-ok="Sí, quitar">
             <input type="hidden" name="accion" value="video_externo_quitar">
@@ -206,7 +228,7 @@ if ($verX) {
     <aside class="vt-panel" aria-label="Datos de la grabación">
       <ul class="ru-quedo">
         <?= $itemX('MonitorPlay', 'menta', 'Grabación', $conLink ? ($f['insertar'] !== '' ? 'En ' . $f['nombre'] . ': se ve aquí, o ábrela allá.' : 'En ' . $dondeX . ': se abre en otra pestaña.') : 'Todavía no tiene link.', $abrirX !== '' ? '<span class="ru-acc">' . $abrirX . '</span>' : '') ?>
-        <?= $itemX('Users', 'celeste', 'Equipo', $eq ? (string)$eq[0] : 'No aplica') ?>
+        <?= $itemX('FolderOpen', 'celeste', count($psX) > 1 ? 'Equipos o proyectos' : 'Equipo o proyecto', $nombresExt($x)) ?>
         <?php if ($autorX !== '' || !empty($x['creado'])): ?>
         <?= $itemX('ds-usuario', 'lila', 'La agregó', trim($autorX . ($autorX !== '' && !empty($x['creado']) ? ' · ' : '') . (!empty($x['creado']) ? ReunionesUI::cuandoFue(strtotime((string)$x['creado']) ?: $ahora, $ahora) : ''))) ?>
         <?php endif; ?>
@@ -405,14 +427,16 @@ if ($verId) {
 /* ======================= La cuadrícula ======================= */
 $nPorProyecto = [];
 foreach ($grabadas as $v) $nPorProyecto[(int)$v['p']['id']] = ($nPorProyecto[(int)$v['p']['id']] ?? 0) + 1;
+foreach ($externos as $x) foreach ($proysExt($x) as $pX) $nPorProyecto[(int)$pX['id']] = ($nPorProyecto[(int)$pX['id']] ?? 0) + 1;
 $chipsProy = array_values(array_filter($proyectos, fn($p) => (int)$p['id'] > 0 && isset($nPorProyecto[(int)$p['id']])));   // la general no es un filtro
 usort($chipsProy, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
 
 $lista = $fo ? [] : array_values(array_filter($grabadas, fn($v) => (!$fp || (int)$v['p']['id'] === $fp) && (!$ft || $conTrans($v))
     && ($qN === '' || str_contains(ReunionesUI::textoBuscar($v, $miembros), $qN))));
-// Las de por aparte van mezcladas por fecha (no son de un proyecto ni traen transcripción)
-if (!$fp && !$ft) {
+// Las de por aparte van mezcladas por fecha (con el filtro de un proyecto, las de ese proyecto; no traen transcripción)
+if (!$ft) {
     foreach ($externos as $x) {
+        if ($fp && !in_array($fp, $idsExt($x), true)) continue;
         if ($qN === '' || str_contains($textoExt($x), $qN)) $lista[] = ['ext' => $x, 'ts' => $tsExt($x)];
     }
     usort($lista, fn($a, $b) => (int)$b['ts'] <=> (int)$a['ts']);

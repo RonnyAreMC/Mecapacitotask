@@ -2451,7 +2451,8 @@ class DeployRepo
 
    Lo que no salió de una reunión del panel (una capacitación, una reunión
    con el cliente por otro lado…) también va a Videos: el administrador pega
-   su LINK, con el tema y el equipo si aplica. No se suben videos ni MP4:
+   su LINK, con el tema y el proyecto o los proyectos si aplica (Equipo Alpha,
+   SIAU-AGRARIA…; ninguno = «No aplica»). No se suben videos ni MP4:
    solo el enlace. YouTube y Drive se ven dentro del panel; Zoom, OneDrive o
    cualquier otro se abren en otra pestaña.
    ========================================================= */
@@ -2487,13 +2488,14 @@ class VideoExternoRepo
         if ($enlace === '' || !filter_var($enlace, FILTER_VALIDATE_URL) || !preg_match('~^https?://[^\s<>"]+$~i', $enlace)) {
             return 'Pega el link de la grabación (empieza con https://).';
         }
-        $equipo = (string)($d['equipo'] ?? '');
-        if (!isset(Catalogo::equipos()[$equipo])) $equipo = '';   // '' = no aplica
+        // Uno o varios proyectos (los que existen); ninguno = «No aplica»
+        $existen = array_flip(array_map(fn($p) => (int)$p['id'], (new ProyectoRepo())->todos()));
+        $proys = array_slice(array_values(array_filter(self::proyectosDe(['proyectos' => $d['proyectos'] ?? []]), fn($n) => isset($existen[$n]))), 0, 30);
         $datos = [
-            'tema'   => mb_substr($tema, 0, 160),
-            'enlace' => mb_substr($enlace, 0, 800),
-            'equipo' => $equipo,
-            'fecha'  => ProyectoRepo::fecha($d['fecha'] ?? '') ?: date('Y-m-d'),
+            'tema'      => mb_substr($tema, 0, 160),
+            'enlace'    => mb_substr($enlace, 0, 800),
+            'proyectos' => $proys,
+            'fecha'     => ProyectoRepo::fecha($d['fecha'] ?? '') ?: date('Y-m-d'),
         ];
         if ($id) {
             if (!$this->store->find($id)) return 'Esa grabación ya no existe.';
@@ -2508,6 +2510,12 @@ class VideoExternoRepo
         $x = $this->store->find($id);
         if ($x) $this->store->delete($id);
         return $x;
+    }
+
+    /** Los ids de proyecto de una ([] = no es de ninguno: «No aplica»). */
+    public static function proyectosDe(array $x): array
+    {
+        return array_values(array_unique(array_filter(array_map('intval', (array)($x['proyectos'] ?? [])), fn($n) => $n > 0)));
     }
 
     /**
