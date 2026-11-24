@@ -1077,7 +1077,6 @@ switch ($accion) {
         }
         exit('{"ok":true}');
 
-    case 'tutorial_crear':
     /* ---------- Colorimetría de proyectos (lib/releases/Colorimetria.php · colorimetria.php) ---------- */
     case 'col_medir':
     case 'col_conf':
@@ -1136,6 +1135,9 @@ switch ($accion) {
             redirigir('calendario.php?a=' . $anioF, $e->getMessage(), 'error');
         }
 
+    // 'tutorial_crear' va aquí, con las demás de tutoriales (se había quedado arriba,
+    // pegado a Colorimetría, y crear un tutorial caía en su código)
+    case 'tutorial_crear':
     case 'tutorial_quitar':
     case 'tutorial_avisar':
         if (!class_exists('Tutoriales')) redirigir('index.php', 'Los tutoriales no están disponibles en este servidor.', 'error');
@@ -2962,6 +2964,20 @@ switch ($accion) {
         $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
         $reqRepo->eliminar((int)($_POST['id'] ?? 0));
         redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
+
+    /* ---------- Videos › grabaciones por aparte (videoteca.php): solo el administrador ---------- */
+    // Solo el LINK de la grabación, con su tema y el equipo si aplica: no se suben videos.
+    case 'video_externo_guardar':
+        $vxId = (int)($_POST['id'] ?? 0);
+        $vx = (new VideoExternoRepo())->guardar($vxId, $_POST, (int)(Auth::usuario()['id'] ?? 0));
+        if (is_string($vx)) redirigir($vxId ? 'videoteca.php?x=' . $vxId : 'videoteca.php', $vx, 'error');
+        redirigir($vxId ? 'videoteca.php?x=' . $vxId : 'videoteca.php', $vxId
+            ? 'Listo: se guardaron los cambios de «' . $vx['tema'] . '».'
+            : 'Listo: «' . $vx['tema'] . '» ya está en Videos.');
+
+    case 'video_externo_quitar':
+        $vx = (new VideoExternoRepo())->quitar((int)($_POST['id'] ?? 0));
+        redirigir('videoteca.php', $vx ? 'Quitamos «' . $vx['tema'] . '» de Videos.' : 'Esa grabación ya no estaba.');
 
     /* ---------- Catálogo de instituciones (solo admin) ---------- */
 

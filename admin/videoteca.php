@@ -19,6 +19,12 @@
  *     observaciones de esa reunión, con su visor) y «Pizarra». En el celular,
  *     el video arriba y el panel abajo.
  *
+ * Las grabaciones POR APARTE (VideoExternoRepo, en Models.php): el administrador
+ * pega con «+» el link de una grabación que no salió de una reunión del panel,
+ * con su tema y el equipo si aplica. Solo el link, no se suben videos. Van en
+ * la misma cuadrícula (chip «Por aparte») y se abren en ?x=ID: YouTube y Drive
+ * se ven aquí; Zoom, OneDrive u otro, con «Abrir la grabación».
+ *
  * Pintado compartido: lib/meetings/reuniones_ui.php; estilos: admin.css («Reuniones ›
  * la videoteca»); las pestañas del panel: admin.js.
  */
@@ -41,16 +47,178 @@ $rastros  = ReunionesUI::rastros($todas);
 $grabadas = ReunionesUI::grabadas($todas, $proyectos, $ahora, $rastros);
 $ctx      = ['ahora' => $ahora, 'miembros' => $miembros, 'rastros' => $rastros];
 
+/* ---------- Las grabaciones por aparte: solo su link (las agrega el administrador) ---------- */
+$esAdm = esAdmin();
+// Una sin link (sembrada a mano) solo la ve el administrador, para ponérselo
+$externos = array_values(array_filter((new VideoExternoRepo())->todos(), fn($x) => $esAdm || VideoExternoRepo::tieneEnlace($x)));
+$equiposCat = Catalogo::equipos();
+$VT_EXT = '#7C5CFF';   // su color: distinto del de los proyectos y del celeste de la general
+$equipoDe = fn(array $x) => $equiposCat[(string)($x['equipo'] ?? '')] ?? null;   // [etiqueta, ícono] o null (no aplica)
+$canalExt = fn(array $x) => ($eq = $equipoDe($x)) ? (string)$eq[0] : 'Por aparte';
+$icoExt = fn(array $x) => UI::icono(($eq = $equipoDe($x)) ? (string)$eq[1] : 'MonitorPlay');
+$tsExt = fn(array $x) => strtotime((string)($x['fecha'] ?? '')) ?: $ahora;
+$textoExt = fn(array $x) => ReunionesUI::normal(implode(' ', [(string)$x['tema'], $canalExt($x), 'por aparte grabacion',
+    VideoExternoRepo::fuente((string)($x['enlace'] ?? ''))['nombre']]));
+$tarjetaExt = function (array $x, string $id = '') use ($VT_EXT, $canalExt, $icoExt, $tsExt, $textoExt, $ahora): string {
+    $f = VideoExternoRepo::fuente((string)($x['enlace'] ?? ''));
+    $sinLink = !VideoExternoRepo::tieneEnlace($x);
+    $tema = (string)$x['tema'];
+    return '<li class="vt-item" data-ru-txt="' . e($textoExt($x)) . '"' . ($id !== '' ? ' id="' . e($id) . '"' : '') . '>'
+        . '<a class="vt-card" href="videoteca.php?x=' . (int)$x['id'] . '">'
+        . '<span class="vt-portada" style="--pc:' . $VT_EXT . '">'
+        . '<span class="vt-portada__gen" aria-hidden="true"><span class="vt-portada__ic">' . $icoExt($x) . '</span>'
+        . '<b class="vt-portada__t">' . e($tema) . '</b><small class="vt-portada__p">' . e($canalExt($x)) . '</small></span>'
+        . (!$sinLink && $f['miniatura'] !== '' ? '<img class="vt-portada__img" src="' . e($f['miniatura']) . '" alt="" loading="lazy" decoding="async" onerror="this.remove()">' : '')
+        . '<span class="vt-dur' . ($sinLink ? ' vt-dur--falta' : '') . '">' . e($sinLink ? 'Falta el link' : $f['nombre']) . '</span></span>'
+        . '<span class="vt-info"><span class="vt-canal" style="--pc:' . $VT_EXT . '" aria-hidden="true">' . $icoExt($x) . '</span>'
+        . '<span class="vt-info__txt"><b class="vt-t" title="' . e($tema) . '">' . e($tema) . '</b>'
+        . '<small class="vt-meta">' . e($canalExt($x)) . '<span class="ru-sep" aria-hidden="true">·</span>' . e(ReunionesUI::cuandoFue($tsExt($x), $ahora)) . '</small></span></span>'
+        . '</a></li>';
+};
+// Agregar o editar una (solo el administrador): tema, equipo si aplica, fecha y el link
+$dialogoExt = function (?array $x) use ($equiposCat): void {
+    $idX = (int)($x['id'] ?? 0);
+    ?>
+<dialog class="ds-modal" id="dlg-vt-ext" aria-labelledby="dlg-vt-ext-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="video_externo_guardar">
+    <?php if ($idX): ?><input type="hidden" name="id" value="<?= $idX ?>"><?php endif; ?>
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('enlace', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="dlg-vt-ext-t"><?= $idX ? 'Editar la grabación' : 'Agregar una grabación' ?></h2>
+        <p class="ds-modal__sub">Una que se hizo por aparte: pega su link. No se suben videos.</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body">
+      <label class="campo"><span>Tema</span>
+        <input class="input-meca" name="tema" required maxlength="160" value="<?= e((string)($x['tema'] ?? '')) ?>" placeholder="Ej. Flujo de admisión UAE"></label>
+      <div class="campo-doble">
+        <label class="campo"><span>Equipo <small>(si aplica)</small></span>
+          <?= UI::selectDS('equipo', array_map(fn($v) => (string)$v[0], $equiposCat), (string)($x['equipo'] ?? ''), ['vacio' => 'No aplica', 'aria' => 'Equipo']) ?></label>
+        <label class="campo"><span>Fecha de la grabación</span>
+          <input class="input-meca" type="date" name="fecha" max="<?= date('Y-m-d') ?>" value="<?= e((string)($x['fecha'] ?? date('Y-m-d'))) ?>"></label>
+      </div>
+      <label class="campo"><span>Link de la grabación</span>
+        <input class="input-meca" type="url" name="enlace" required maxlength="800" inputmode="url" value="<?= e((string)($x['enlace'] ?? '')) ?>" placeholder="https://…">
+        <small class="campo-ayuda">YouTube y Google Drive se ven aquí mismo; Zoom, OneDrive u otro se abren en otra pestaña.</small></label>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label"><?= $idX ? 'Guardar' : 'Agregar' ?></span></button>
+    </footer>
+  </form>
+</dialog>
+    <?php
+};
+
 /* ---------- Los filtros: el proyecto, «con transcripción» y lo buscado ---------- */
 $fp = (int)($_GET['p'] ?? 0);
 if ($fp && !isset($proyectos[$fp])) $fp = 0;
 $ft = !empty($_GET['t']);
+$fo = !empty($_GET['o']) && $externos;   // solo las de por aparte
 $q  = trim(mb_substr((string)($_GET['q'] ?? ''), 0, 80));
 $qN = ReunionesUI::normal($q);
-$filtros = array_filter(['p' => $fp ?: '', 't' => $ft ? 1 : '', 'q' => $q], fn($x) => $x !== '');
+$filtros = array_filter(['p' => $fp ?: '', 't' => $ft ? 1 : '', 'o' => $fo ? 1 : '', 'q' => $q], fn($x) => $x !== '');
 $url = fn(array $cambios = []) => 'videoteca.php' . (($qs = http_build_query(array_filter(array_merge($filtros, $cambios), fn($x) => $x !== '' && $x !== null))) !== '' ? '?' . $qs : '');
 $urlVer = fn(array $v) => $url(['v' => $v['id'], 'dia' => $v['dia'], 'pag' => '']);
 $conTrans = fn(array $v) => ReunionesUI::transcripcion($v['r'], $v['serie'] ? $v['dia'] : '', $v['fin'], $rastros) === 'lista';
+
+/* ======================= La vista «ver» de una grabación por aparte ======================= */
+$verX = (int)($_GET['x'] ?? 0);
+if ($verX) {
+    $x = (new VideoExternoRepo())->buscar($verX);
+    if (!$x || (!$esAdm && !VideoExternoRepo::tieneEnlace($x))) redirigir($url(), 'Esa grabación no está disponible.', 'error');
+    $f = VideoExternoRepo::fuente((string)($x['enlace'] ?? ''));
+    $conLink = VideoExternoRepo::tieneEnlace($x);
+    $tema = (string)$x['tema'];
+    $eq = $equipoDe($x);
+    $masX = array_slice(array_values(array_filter($externos, fn($o) => (int)$o['id'] !== $verX)), 0, 4);
+    $autorX = trim((string)($miembros[(int)($x['creado_por'] ?? 0)]['nombre'] ?? ''));
+    $fechaX = (int)date('j', $tsExt($x)) . ' ' . ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'][(int)date('n', $tsExt($x)) - 1] . ' ' . date('Y', $tsExt($x));
+    $dondeX = $f['nombre'] === 'Enlace' ? 'otra página' : $f['nombre'];
+    $itemX = fn(string $icono, string $tono, string $titulo, string $txt, string $accion = '') => '<li class="ru-quedo__item"><span class="rs-ic rs-ic--' . $tono . '" aria-hidden="true">' . UI::icono($icono) . '</span>'
+        . '<span class="ru-quedo__txt"><b>' . e($titulo) . '</b><small>' . e($txt) . '</small></span>' . $accion . '</li>';
+    $abrirX = $conLink ? ReunionesUI::ico('ds-enlace', 'Abrir en ' . $dondeX, (string)$x['enlace'], '', 'target="_blank" rel="noopener"')
+        . '<button type="button" class="ru-ico btn-copiar" data-copiar="' . e((string)$x['enlace']) . '" aria-label="Copiar el link" data-ds-tip="Copiar el link">' . UI::icono('ds-copiar') . '</button>' : '';
+
+    UI::inicio($tema . ' · Videos', 'videos');
+    ?>
+<div class="ru vt vt--ver vt--ext">
+  <div class="vt-barra">
+    <?= UI::volver($url(['pag' => '']), 'Volver a las grabaciones', 'ru-cab__volver') ?>
+    <span class="vt-barra__t">Videos</span>
+    <span class="ru-sep" aria-hidden="true">·</span>
+    <a class="ru-chip-proy" href="videoteca.php?o=1" style="--pc:<?= $VT_EXT ?>"><span class="ru-chip-proy__ic" aria-hidden="true"><?= $icoExt($x) ?></span><?= e($canalExt($x)) ?></a>
+  </div>
+
+  <div class="vt-ver">
+    <div class="vt-ver__main">
+      <div class="vt-player">
+        <?php if ($conLink && $f['insertar'] !== ''): ?>
+        <iframe src="<?= e($f['insertar']) ?>" title="Grabación: <?= e($tema) ?>" referrerpolicy="strict-origin-when-cross-origin"
+                allow="autoplay; encrypted-media; fullscreen; picture-in-picture" allowfullscreen></iframe>
+        <?php else: ?>
+        <span class="vt-portada" style="--pc:<?= $VT_EXT ?>">
+          <span class="vt-portada__gen" aria-hidden="true"><span class="vt-portada__ic"><?= $icoExt($x) ?></span><b class="vt-portada__t"><?= e($tema) ?></b><small class="vt-portada__p"><?= e($canalExt($x)) ?></small></span>
+          <span class="vt-player__aviso"><?= UI::icono('MonitorPlay') ?>
+            <?php if ($conLink): ?>
+            <b>La grabación está en <?= e($dondeX) ?></b>
+            <small>Se abre en otra pestaña.</small>
+            <a class="rs-entrar" href="<?= e((string)$x['enlace']) ?>" target="_blank" rel="noopener"><?= UI::icono('ds-enlace') ?> Abrir la grabación</a>
+            <?php else: ?>
+            <b>Falta el link</b>
+            <small>Pónselo con el lápiz (Editar).</small>
+            <?php endif; ?>
+          </span>
+        </span>
+        <?php endif; ?>
+      </div>
+
+      <h1 class="vt-ver__t"><?= e($tema) ?></h1>
+      <div class="vt-ver__fila">
+        <a class="vt-canal vt-canal--grande" href="videoteca.php?o=1" style="--pc:<?= $VT_EXT ?>" aria-label="Las grabaciones por aparte" data-ds-tip="Las grabaciones por aparte"><?= $icoExt($x) ?></a>
+        <span class="vt-ver__canal">
+          <a href="videoteca.php?o=1"><?= e($canalExt($x)) ?></a>
+          <small><?= e($fechaX) ?><?= $conLink ? ' · ' . e($f['nombre']) : '' ?></small>
+        </span>
+        <div class="ru-acc">
+          <?= $abrirX ?>
+          <?php if ($esAdm): ?>
+          <?= ReunionesUI::ico('ds-editar', 'Editar el tema, el equipo o el link', '', '', 'onclick="document.getElementById(\'dlg-vt-ext\').showModal()"') ?>
+          <form method="post" action="actions.php" class="inline-form" data-confirmar="Se quita «<?= e($tema) ?>» de Videos. La grabación sigue donde está: solo se quita su link del panel."
+                data-confirmar-titulo="¿Quitar esta grabación?" data-confirmar-ok="Sí, quitar">
+            <input type="hidden" name="accion" value="video_externo_quitar">
+            <input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
+            <?= ReunionesUI::ico('ds-eliminar', 'Quitar de Videos', '', '', '', 'submit') ?>
+          </form>
+          <?php endif; ?>
+        </div>
+      </div>
+
+      <?php if ($masX): ?>
+      <section class="vt-mas" aria-labelledby="vt-mas-t">
+        <h2 class="vt-mas__t" id="vt-mas-t">Más grabaciones por aparte</h2>
+        <ul class="vt-grid vt-grid--mini"><?php foreach ($masX as $o) echo $tarjetaExt($o); ?></ul>
+      </section>
+      <?php endif; ?>
+    </div>
+
+    <aside class="vt-panel" aria-label="Datos de la grabación">
+      <ul class="ru-quedo">
+        <?= $itemX('MonitorPlay', 'menta', 'Grabación', $conLink ? ($f['insertar'] !== '' ? 'En ' . $f['nombre'] . ': se ve aquí, o ábrela allá.' : 'En ' . $dondeX . ': se abre en otra pestaña.') : 'Todavía no tiene link.', $abrirX !== '' ? '<span class="ru-acc">' . $abrirX . '</span>' : '') ?>
+        <?= $itemX('Users', 'celeste', 'Equipo', $eq ? (string)$eq[0] : 'No aplica') ?>
+        <?php if ($autorX !== '' || !empty($x['creado'])): ?>
+        <?= $itemX('ds-usuario', 'lila', 'La agregó', trim($autorX . ($autorX !== '' && !empty($x['creado']) ? ' · ' : '') . (!empty($x['creado']) ? ReunionesUI::cuandoFue(strtotime((string)$x['creado']) ?: $ahora, $ahora) : ''))) ?>
+        <?php endif; ?>
+      </ul>
+    </aside>
+  </div>
+</div>
+<?php
+    if ($esAdm) $dialogoExt($x);
+    UI::fin();
+    return;
+}
 
 /* ======================= La vista «ver» ======================= */
 $verId = (int)($_GET['v'] ?? 0);
@@ -240,34 +408,49 @@ foreach ($grabadas as $v) $nPorProyecto[(int)$v['p']['id']] = ($nPorProyecto[(in
 $chipsProy = array_values(array_filter($proyectos, fn($p) => (int)$p['id'] > 0 && isset($nPorProyecto[(int)$p['id']])));   // la general no es un filtro
 usort($chipsProy, fn($a, $b) => strcasecmp((string)$a['nombre'], (string)$b['nombre']));
 
-$lista = array_values(array_filter($grabadas, fn($v) => (!$fp || (int)$v['p']['id'] === $fp) && (!$ft || $conTrans($v))
+$lista = $fo ? [] : array_values(array_filter($grabadas, fn($v) => (!$fp || (int)$v['p']['id'] === $fp) && (!$ft || $conTrans($v))
     && ($qN === '' || str_contains(ReunionesUI::textoBuscar($v, $miembros), $qN))));
+// Las de por aparte van mezcladas por fecha (no son de un proyecto ni traen transcripción)
+if (!$fp && !$ft) {
+    foreach ($externos as $x) {
+        if ($qN === '' || str_contains($textoExt($x), $qN)) $lista[] = ['ext' => $x, 'ts' => $tsExt($x)];
+    }
+    usort($lista, fn($a, $b) => (int)$b['ts'] <=> (int)$a['ts']);
+}
 $pag  = max(1, min(50, (int)($_GET['pag'] ?? 1)));
 $tope = 24 * $pag;
 $hayMas = count($lista) > $tope;
 $ver = array_slice($lista, 0, $tope);
 
 UI::inicio('Videos de las reuniones', 'videos');
-ReunionesUI::cabecera('', '', 'Videos', 'Las grabaciones de las reuniones de tus proyectos, de la más nueva a la más vieja.');
+ReunionesUI::cabecera('', '', 'Videos', 'Las grabaciones de las reuniones de tus proyectos, de la más nueva a la más vieja.',
+    $esAdm ? ReunionesUI::botonCab('ds-mas', 'Agregar una grabación hecha por aparte (solo el link)', '', '', 'onclick="document.getElementById(\'dlg-vt-ext\').showModal()"') : '');
 ?>
 <div class="ru vt" data-ru>
   <form class="vt-buscar" method="get" action="videoteca.php" role="search">
     <?php if ($fp): ?><input type="hidden" name="p" value="<?= $fp ?>"><?php endif; ?>
     <?php if ($ft): ?><input type="hidden" name="t" value="1"><?php endif; ?>
+    <?php if ($fo): ?><input type="hidden" name="o" value="1"><?php endif; ?>
     <label class="vt-buscar__caja">
       <input type="search" name="q" value="<?= e($q) ?>" placeholder="Buscar grabaciones por tema, proyecto o persona" autocomplete="off" data-ru-buscar aria-label="Buscar grabaciones">
     </label>
     <button class="vt-buscar__ir" aria-label="Buscar" data-ds-tip="Buscar"><?= UI::icono('ds-buscar') ?></button>
   </form>
 
-  <?php if ($grabadas): ?>
+  <?php if ($grabadas || $externos): ?>
   <nav class="vt-chips" aria-label="Filtrar las grabaciones">
-    <a class="vt-chip<?= !$fp && !$ft ? ' is-on' : '' ?>" href="<?= e($url(['p' => '', 't' => '', 'pag' => ''])) ?>"<?= !$fp && !$ft ? ' aria-current="true"' : '' ?>>Todo</a>
+    <a class="vt-chip<?= !$fp && !$ft && !$fo ? ' is-on' : '' ?>" href="<?= e($url(['p' => '', 't' => '', 'o' => '', 'pag' => ''])) ?>"<?= !$fp && !$ft && !$fo ? ' aria-current="true"' : '' ?>>Todo</a>
     <?php foreach ($chipsProy as $p): $on = (int)$p['id'] === $fp; ?>
-    <a class="vt-chip<?= $on ? ' is-on' : '' ?>" href="<?= e($url(['p' => $on ? '' : (int)$p['id'], 'pag' => ''])) ?>" style="--pc:<?= e(ReunionesUI::colorProyecto($p)) ?>"<?= $on ? ' aria-current="true"' : '' ?>>
+    <a class="vt-chip<?= $on ? ' is-on' : '' ?>" href="<?= e($url(['p' => $on ? '' : (int)$p['id'], 'o' => '', 'pag' => ''])) ?>" style="--pc:<?= e(ReunionesUI::colorProyecto($p)) ?>"<?= $on ? ' aria-current="true"' : '' ?>>
       <span class="ru-pill__punto" aria-hidden="true"></span><?= e($p['nombre']) ?></a>
     <?php endforeach; ?>
-    <a class="vt-chip<?= $ft ? ' is-on' : '' ?>" href="<?= e($url(['t' => $ft ? '' : 1, 'pag' => ''])) ?>"<?= $ft ? ' aria-current="true"' : '' ?>><?= UI::icono('NoteText') ?>Con transcripción</a>
+    <?php if ($externos): ?>
+    <a class="vt-chip<?= $fo ? ' is-on' : '' ?>" href="<?= e($url(['o' => $fo ? '' : 1, 'p' => '', 't' => '', 'pag' => ''])) ?>" style="--pc:<?= $VT_EXT ?>"<?= $fo ? ' aria-current="true"' : '' ?>>
+      <span class="ru-pill__punto" aria-hidden="true"></span>Por aparte</a>
+    <?php endif; ?>
+    <?php if ($grabadas): ?>
+    <a class="vt-chip<?= $ft ? ' is-on' : '' ?>" href="<?= e($url(['t' => $ft ? '' : 1, 'o' => '', 'pag' => ''])) ?>"<?= $ft ? ' aria-current="true"' : '' ?>><?= UI::icono('NoteText') ?>Con transcripción</a>
+    <?php endif; ?>
   </nav>
   <?php endif; ?>
 
@@ -277,17 +460,22 @@ ReunionesUI::cabecera('', '', 'Videos', 'Las grabaciones de las reuniones de tus
 
   <?php if ($ver): ?>
   <ul class="vt-grid" data-ru-dia>
-    <?php foreach ($ver as $i => $v) echo ReunionesUI::tarjetaVideo($v, $ctx, $urlVer($v), $i === $tope - 24 && $pag > 1 ? 'vt-desde-' . ($i + 1) : ''); ?>
+    <?php foreach ($ver as $i => $v) {
+        $ancla = $i === $tope - 24 && $pag > 1 ? 'vt-desde-' . ($i + 1) : '';
+        echo isset($v['ext']) ? $tarjetaExt($v['ext'], $ancla) : ReunionesUI::tarjetaVideo($v, $ctx, $urlVer($v), $ancla);
+    } ?>
   </ul>
   <?php if ($hayMas): ?>
   <p class="ru-mas"><a class="rs-entrar rs-entrar--suave" href="<?= e($url(['pag' => $pag + 1])) ?>#vt-desde-<?= $tope + 1 ?>"><?= UI::icono('ds-chevron-abajo') ?> Ver más</a></p>
   <?php endif; ?>
-  <?php elseif (!$grabadas): ?>
-    <?= ReunionesUI::vacio('MonitorPlay', 'Todavía no hay grabaciones', 'Cuando una reunión de Zoom termine y su video llegue a Drive, sale aquí. Las próximas están en la pestaña Reuniones de cada proyecto.') ?>
+  <?php elseif (!$grabadas && !$externos): ?>
+    <?= ReunionesUI::vacio('MonitorPlay', 'Todavía no hay grabaciones', 'Cuando una reunión de Zoom termine y su video llegue a Drive, sale aquí. Las próximas están en la pestaña Reuniones de cada proyecto.'
+        . ($esAdm ? ' Una hecha por aparte la agregas con «+», pegando su link.' : '')) ?>
   <?php else: ?>
     <?= ReunionesUI::vacio('ds-buscar', 'Ninguna grabación coincide', 'Prueba con otra palabra o quita un filtro.') ?>
   <?php endif; ?>
 
   <div data-ru-sin hidden><?= ReunionesUI::vacio('ds-buscar', 'Nada de lo que se ve coincide', 'Pulsa Enter para buscar también en las que no se cargaron.') ?></div>
 </div>
+<?php if ($esAdm) $dialogoExt(null); ?>
 <?php UI::fin(); ?>

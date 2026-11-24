@@ -2445,3 +2445,117 @@ class DeployRepo
         };
     }
 }
+
+/* =========================================================
+   Videos › grabaciones por aparte.
+
+   Lo que no salió de una reunión del panel (una capacitación, una reunión
+   con el cliente por otro lado…) también va a Videos: el administrador pega
+   su LINK, con el tema y el equipo si aplica. No se suben videos ni MP4:
+   solo el enlace. YouTube y Drive se ven dentro del panel; Zoom, OneDrive o
+   cualquier otro se abren en otra pestaña.
+   ========================================================= */
+class VideoExternoRepo
+{
+    private JsonStore $store;
+
+    public function __construct()
+    {
+        $this->store = new JsonStore('videos_externos');
+    }
+
+    /** De la más nueva a la más vieja (por la fecha de la grabación). */
+    public function todos(): array
+    {
+        $l = $this->store->all();
+        usort($l, fn($a, $b) => strcmp((string)($b['fecha'] ?? '') . (string)($b['creado'] ?? ''), (string)($a['fecha'] ?? '') . (string)($a['creado'] ?? '')));
+        return $l;
+    }
+
+    public function buscar(int $id): ?array
+    {
+        return $this->store->find($id);
+    }
+
+    /** Valida y guarda ($id = 0: nueva). Devuelve la grabación o el motivo del error. */
+    public function guardar(int $id, array $d, int $autor): array|string
+    {
+        $tema = trim((string)preg_replace('/\s+/u', ' ', (string)($d['tema'] ?? '')));
+        if ($tema === '') return 'Ponle el tema a la grabación.';
+        $enlace = trim((string)($d['enlace'] ?? ''));
+        if ($enlace !== '' && !preg_match('~^https?://~i', $enlace)) $enlace = 'https://' . $enlace;
+        if ($enlace === '' || !filter_var($enlace, FILTER_VALIDATE_URL) || !preg_match('~^https?://[^\s<>"]+$~i', $enlace)) {
+            return 'Pega el link de la grabación (empieza con https://).';
+        }
+        $equipo = (string)($d['equipo'] ?? '');
+        if (!isset(Catalogo::equipos()[$equipo])) $equipo = '';   // '' = no aplica
+        $datos = [
+            'tema'   => mb_substr($tema, 0, 160),
+            'enlace' => mb_substr($enlace, 0, 800),
+            'equipo' => $equipo,
+            'fecha'  => ProyectoRepo::fecha($d['fecha'] ?? '') ?: date('Y-m-d'),
+        ];
+        if ($id) {
+            if (!$this->store->find($id)) return 'Esa grabación ya no existe.';
+            $this->store->update($id, $datos + ['editado_por' => $autor, 'editado' => date('Y-m-d H:i')]);
+            return $this->store->find($id) ?? $datos;
+        }
+        return $this->store->insert($datos + ['creado_por' => $autor, 'creado' => date('Y-m-d H:i')]);
+    }
+
+    public function quitar(int $id): ?array
+    {
+        $x = $this->store->find($id);
+        if ($x) $this->store->delete($id);
+        return $x;
+    }
+
+    /**
+     * Una que se cargue sin link (sembrada a mano) queda solo para el
+     * administrador, con «Falta el link», hasta que se lo pongan.
+     */
+    public static function tieneEnlace(array $x): bool
+    {
+        return preg_match('~^https?://~i', trim((string)($x['enlace'] ?? ''))) === 1;
+    }
+
+    /**
+     * Cómo se ve el link: ['fuente' => 'youtube'|'drive'|'zoom'|'onedrive'|'otro',
+     * 'nombre' => 'YouTube'…, 'insertar' => url del reproductor ('' si no se
+     * deja meter en el panel), 'miniatura' => url ('' si no hay)].
+     */
+    public static function fuente(string $enlace): array
+    {
+        $enlace = trim($enlace);
+        $host = strtolower((string)preg_replace('/^(www|m)\./i', '', (string)parse_url($enlace, PHP_URL_HOST)));
+        $ruta = (string)parse_url($enlace, PHP_URL_PATH);
+        parse_str((string)parse_url($enlace, PHP_URL_QUERY), $q);
+        $yt = '';
+        if (in_array($host, ['youtube.com', 'youtube-nocookie.com'], true)) {
+            $yt = is_string($q['v'] ?? null) ? (string)$q['v'] : '';
+            if ($yt === '' && preg_match('~^/(?:shorts|embed|live|v)/([A-Za-z0-9_-]{11})~', $ruta, $m)) $yt = $m[1];
+        } elseif ($host === 'youtu.be') {
+            $yt = explode('/', ltrim($ruta, '/'))[0] ?? '';
+        }
+        if (preg_match('/^[A-Za-z0-9_-]{11}$/', $yt)) {
+            return ['fuente' => 'youtube', 'nombre' => 'YouTube',
+                'insertar' => 'https://www.youtube-nocookie.com/embed/' . $yt . '?rel=0&modestbranding=1&playsinline=1',
+                'miniatura' => 'https://i.ytimg.com/vi/' . $yt . '/hqdefault.jpg'];
+        }
+        if (in_array($host, ['drive.google.com', 'docs.google.com'], true)) {
+            $dr = preg_match('~/file/d/([A-Za-z0-9_-]{20,})~', $ruta, $m) ? $m[1]
+                : (is_string($q['id'] ?? null) && preg_match('/^[A-Za-z0-9_-]{20,}$/', (string)$q['id']) ? (string)$q['id'] : '');
+            if ($dr !== '') {
+                return ['fuente' => 'drive', 'nombre' => 'Drive',
+                    'insertar' => 'https://drive.google.com/file/d/' . $dr . '/preview',
+                    'miniatura' => 'https://drive.google.com/thumbnail?id=' . $dr . '&sz=w640'];
+            }
+            return ['fuente' => 'otro', 'nombre' => 'Drive', 'insertar' => '', 'miniatura' => ''];
+        }
+        if ($host === 'zoom.us' || str_ends_with($host, '.zoom.us')) return ['fuente' => 'zoom', 'nombre' => 'Zoom', 'insertar' => '', 'miniatura' => ''];
+        if (in_array($host, ['1drv.ms', 'onedrive.live.com'], true) || str_ends_with($host, '.sharepoint.com')) {
+            return ['fuente' => 'onedrive', 'nombre' => 'OneDrive', 'insertar' => '', 'miniatura' => ''];
+        }
+        return ['fuente' => 'otro', 'nombre' => 'Enlace', 'insertar' => '', 'miniatura' => ''];
+    }
+}

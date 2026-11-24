@@ -7395,3 +7395,6 @@ html .rq-cierre__docs { margin: 0 0 10px; }
 /* Selector de archivos: una imagen elegida o pegada se ve en miniatura */
 .fx-file-ic--img { overflow: hidden; padding: 0; background: var(--c-surface-2, #eef1f6); }
 .fx-file-ic--img img { display: block; width: 100%; height: 100%; object-fit: cover; }
+
+/* Videos › grabaciones por aparte: «Falta el link» en rojo (solo lo ve el administrador) */
+html .vt-dur--falta { background: #DC2626; }
