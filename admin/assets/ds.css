@@ -7382,3 +7382,16 @@ html .zc-fila { display: flex; flex-direction: column; gap: 10px; padding: 14px 
 html .zc-opciones { display: flex; flex-wrap: wrap; gap: 8px 22px; }
 html .zc-propias[hidden] { display: none; }
 html .zc [data-zc-agregar] { align-self: flex-start; }
+
+/* La entrega de un requerimiento (requerimiento.php): el mensaje de quien lo
+   terminó y sus capturas en miniatura (clic = la imagen entera) */
+html .rq-aviso .rq-cierre__nota { margin: 0 0 14px; }
+html .rq-cierre__imgs { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 10px; margin: 6px 0 12px; }
+html .rq-cierre__imgs a { display: block; aspect-ratio: 4 / 3; overflow: hidden; border-radius: 12px; background: var(--surface); box-shadow: var(--shadow-xs); }
+html .rq-cierre__imgs img { width: 100%; height: 100%; object-fit: cover; transition: transform .2s ease; }
+html .rq-cierre__imgs a:hover img { transform: scale(1.04); }
+html .rq-cierre__docs { margin: 0 0 10px; }
+
+/* Selector de archivos: una imagen elegida o pegada se ve en miniatura */
+.fx-file-ic--img { overflow: hidden; padding: 0; background: var(--c-surface-2, #eef1f6); }
+.fx-file-ic--img img { display: block; width: 100%; height: 100%; object-fit: cover; }

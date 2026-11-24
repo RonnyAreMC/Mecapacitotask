@@ -1550,7 +1550,9 @@ if (is_file(__DIR__ . '/../help/Tutoriales.php') && Auth::usuario() && !verComo(
              . ($mult ? ' multiple' : '') . ($dis ? ' disabled' : '') . ' hidden>';
 
         $h = '<div class="fx fx-' . $var . ($dis ? ' fx-off' : '') . '" data-archivo data-variante="' . $var . '"'
-           . ($maxMB > 0 ? ' data-max="' . e((string)$maxMB) . '"' : '') . ($mult ? ' data-multi="1"' : '') . '>';
+           . ($maxMB > 0 ? ' data-max="' . e((string)$maxMB) . '"' : '') . ($mult ? ' data-multi="1"' : '')
+           // 'pegar': una captura pegada con Ctrl+V en el formulario entra aquí (admin.js)
+           . (!empty($o['pegar']) ? ' data-pegar' : '') . '>';
         if ($label !== '') {
             $h .= '<span class="fx-label">' . e($label) . ($req ? ' <b class="fx-req">*</b>' : '') . '</span>';
         }

@@ -951,6 +951,15 @@ class Mailer
                 ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $acento . ';background:#f6fbf8;'
                   . 'color:#1d1d1f;font-size:14px;line-height:1.55;"><b>Cómo lo dejó</b><br>' . nl2br(e($nota)) . '</div>'
                 : '');
+        // Lo que adjuntó al terminarlo (capturas, archivos): los nombres; se abren en el requerimiento
+        // (solo los de esta entrega, que pasa actions.php: si volvió a abrirse, lo de antes ya se avisó)
+        $adj = array_values(array_filter((array)($req['_adj_entrega'] ?? []), fn($a) => is_array($a) && !empty($a['nombre'])));
+        if ($adj) {
+            $cuerpo .= '<div style="margin-top:12px;padding:12px 16px;border-radius:10px;background:#f4f6fb;color:#1d1d1f;font-size:14px;line-height:1.55;">'
+                . '<b>Adjuntó ' . count($adj) . ' archivo' . (count($adj) === 1 ? '' : 's') . '</b><br>'
+                . implode('<br>', array_map(fn($a) => '&#128206; ' . e((string)$a['nombre']), array_slice($adj, -10)))
+                . '<br><span style="color:#6b7280;font-size:13px;">Los ves en el requerimiento.</span></div>';
+        }
 
         $url = self::urlRequerimiento($req, $para);
         return self::enviar($para, 'Terminado: ' . ($req['titulo'] ?? ''), self::plantilla($cuerpo, $url, $url !== '' ? 'Ver el requerimiento' : ''));

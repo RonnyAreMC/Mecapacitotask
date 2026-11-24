@@ -3780,16 +3780,24 @@ document.querySelectorAll('.form-persona').forEach((form) => {
     const off     = fx.classList.contains('fx-off') || input.disabled;
 
     const error = (msg) => { fx.classList.toggle('fx-err', !!msg); errEl.textContent = msg || ''; errEl.hidden = !msg; };
-    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; };
+    // Con varios, lo elegido después se SUMA a lo que ya estaba (el input nativo lo reemplaza)
+    let guardados = [...input.files];
+    const rebuild = (files) => { const dt = new DataTransfer(); files.forEach((f) => dt.items.add(f)); input.files = dt.files; guardados = [...files]; };
 
+    let vistas = [];   // miniaturas de las imágenes (se liberan al repintar)
     const pintar = () => {
       const files = [...input.files];
+      vistas.forEach((u) => URL.revokeObjectURL(u)); vistas = [];
       cont.innerHTML = '';
       fx.classList.toggle('fx-lleno', files.length > 0);
       files.forEach((f, i) => {
         const chip = document.createElement('div');
         chip.className = 'fx-file';
-        chip.innerHTML = '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>'
+        // Una captura o imagen se ve en chico: así se sabe cuál va antes de enviarla
+        const vista = /^image\/(png|jpe?g|webp|gif)$/.test(f.type) && f.size < 15 * 1048576 ? URL.createObjectURL(f) : '';
+        if (vista) vistas.push(vista);
+        chip.innerHTML = (vista ? '<span class="fx-file-ic fx-file-ic--img"><img alt="" src="' + vista + '"></span>'
+            : '<span class="fx-file-ic"><i class="fa-solid ' + iconoDe(f.name) + '"></i></span>')
           + '<span class="fx-file-info"><b class="truncate">' + f.name.replace(/[<>&]/g, '') + '</b>'
           + '<small>' + humano(f.size) + '</small></span>'
           + '<button type="button" class="fx-file-x" title="Quitar"><i class="fa-solid fa-xmark"></i></button>';
@@ -3810,26 +3818,45 @@ document.querySelectorAll('.form-persona').forEach((form) => {
       return '';
     };
 
-    const tomar = (lista) => {
+    const tomar = (lista, sumar = false) => {
       let files = [...lista];
       if (!multi) files = files.slice(0, 1);
       const msg = validar(files);
-      if (msg) { error(msg); rebuild([]); pintar(); return; }
-      error(''); rebuild(files); pintar();
+      // Si lo nuevo no vale, lo que ya estaba se queda
+      if (msg) { error(msg); rebuild(multi && sumar ? guardados : []); pintar(); return; }
+      error(''); rebuild(multi && sumar ? guardados.concat(files) : files); pintar();
     };
+    // Para quien quiera sumar archivos desde fuera (pegar una captura con Ctrl+V)
+    fx._agregar = (lista) => { if (!off) tomar(lista, true); };
 
     if (!off) {
       disparo.addEventListener('click', () => input.click());
-      input.addEventListener('change', () => tomar(input.files));
+      input.addEventListener('change', () => tomar(input.files, true));
       ['dragenter', 'dragover'].forEach((ev) => fx.addEventListener(ev, (e) => { e.preventDefault(); fx.classList.add('fx-drag'); }));
       ['dragleave', 'dragend'].forEach((ev) => fx.addEventListener(ev, (e) => {
         if (e.target === fx || !fx.contains(e.relatedTarget)) fx.classList.remove('fx-drag');
       }));
       fx.addEventListener('drop', (e) => {
         e.preventDefault(); fx.classList.remove('fx-drag');
-        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files);
+        if (e.dataTransfer && e.dataTransfer.files.length) tomar(e.dataTransfer.files, true);
       });
     }
+  });
+
+  // Pegar una captura (Ctrl+V) en un formulario con un campo de archivos que lo acepta
+  // (UI::archivo con 'pegar'): la imagen entra como un archivo más
+  document.addEventListener('paste', (e) => {
+    const fx = e.target.closest?.('form')?.querySelector('[data-archivo][data-pegar]');
+    if (!fx || !fx._agregar) return;
+    const imgs = [...(e.clipboardData?.items || [])].filter((it) => it.kind === 'file' && it.type.startsWith('image/'));
+    if (!imgs.length) return;
+    e.preventDefault();
+    const sello = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    fx._agregar(imgs.map((it, k) => {
+      const b = it.getAsFile();
+      return new File([b], 'captura-' + sello + (k ? '-' + (k + 1) : '') + '.' + ((b.type.split('/')[1] || 'png').replace('jpeg', 'jpg')), { type: b.type });
+    }));
+    MC?.toast?.(imgs.length === 1 ? 'Captura agregada' : imgs.length + ' capturas agregadas', 'success', 1600);
   });
 })();
 

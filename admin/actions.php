@@ -2745,18 +2745,26 @@ switch ($accion) {
             redirigir('bandeja.php', 'Ese requerimiento ya estaba cerrado.', 'info');
         }
         $notaTerm = trim($_POST['nota'] ?? '');
+        // Lo que adjunta al terminar (capturas, PDF, Word…): se suma a lo de entregas
+        // anteriores (si volvió a abrirse por una corrección, lo de antes también cuenta)
+        $rechTerm = [];
+        $adjTerm = array_map(fn($a) => $a + ['subido' => date('Y-m-d H:i'), 'por' => $yoTerm], guardarAdjuntos('adjuntos', 'req_fin_', $rechTerm));
         $reqRepo->actualizar((int)$req['id'], [
             'estado'      => 'hecho',
             'nota_cierre' => mb_substr($notaTerm, 0, 600),
             'cerrado_por' => $yoTerm,
             'cerrado_en'  => date('Y-m-d H:i'),
-        ]);
+        ] + ($adjTerm ? ['cierre_adjuntos' => array_merge(array_values((array)($req['cierre_adjuntos'] ?? [])), $adjTerm)] : []));
         $reqTermAct = $reqRepo->buscar((int)$req['id']) ?? $req;
         $retTerm = class_exists('ReqSeguimiento') ? ReqSeguimiento::retraso($reqTermAct) : null;
+        $nAdjTerm = count($adjTerm) ? ' · ' . count($adjTerm) . ' adjunto' . (count($adjTerm) === 1 ? '' : 's') : '';
         $reqRepo->anotar((int)$req['id'], $yoTerm, 'Lo marcó terminado' . ($retTerm ? ' con ' . $retTerm . ' día' . ($retTerm === 1 ? '' : 's') . ' de retraso' : ($retTerm === 0 ? ' a tiempo' : ''))
-            . ($notaTerm !== '' ? ': ' . mb_substr($notaTerm, 0, 200) : '.'));
-        $avisoTerm  = notificarReqTerminado($reqTermAct, $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
-        redirigir(volverAqui('bandeja.php'), 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado.' . $avisoTerm);
+            . ($notaTerm !== '' ? ': ' . mb_substr($notaTerm, 0, 200) : '') . $nAdjTerm);
+        // '_adj_entrega': solo para el correo (no se guarda): lo adjuntado en ESTA entrega
+        $avisoTerm  = notificarReqTerminado($reqTermAct + ['_adj_entrega' => $adjTerm], $miembros->buscar($yoTerm) ?? [], $miembros, $notaTerm);
+        [$msgTerm, $tipoTerm] = avisoAdjuntos($rechTerm, 'Marcaste «' . ($req['titulo'] ?? '') . '» como terminado'
+            . ($adjTerm ? ' con ' . count($adjTerm) . ' adjunto' . (count($adjTerm) === 1 ? '' : 's') : '') . '.' . $avisoTerm, 'success');
+        redirigir(volverAqui('bandeja.php'), $msgTerm, $tipoTerm);
 
     case 'req_observar':
         // Dejar dicho algo sobre un requerimiento —"estimado, ¿qué pasó con

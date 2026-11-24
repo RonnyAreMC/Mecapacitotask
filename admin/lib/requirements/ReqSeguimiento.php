@@ -102,12 +102,15 @@ final class ReqSeguimiento
         $texto = ($quien['nombre'] ?? 'Alguien') . ' lo terminó' . ($ret ? ' con ' . $ret . ' día' . ($ret === 1 ? '' : 's') . ' de retraso' : ($ret === 0 ? ' a tiempo' : ''));
         if (class_exists('Notif')) Notif::crear($para, 'requerimiento', 'Terminaron un requerimiento', '«' . ($r['titulo'] ?? '') . '» · ' . $texto, 'requerimientos.php?ver=' . (int)$r['id'], $yo);
         $ya = array_map('strtolower', $ya);
+        // Lo que adjuntó en esta entrega (capturas, archivos): solo cuántos, se ven en el requerimiento
+        $nAdj = count(array_filter((array)($r['_adj_entrega'] ?? []), fn($a) => is_array($a) && !empty($a['nombre'])));
+        $cierre = trim(($nota !== '' ? 'Cómo lo dejó: ' . $nota : '') . ($nAdj ? ($nota !== '' ? ' · ' : '') . 'Adjuntó ' . $nAdj . ' archivo' . ($nAdj === 1 ? '' : 's') : ''));
         $n = 0;
         foreach ($para as $mid) {
             $m = $mapa[$mid];
             if (in_array(strtolower(trim((string)($m['email'] ?? ''))), $ya, true)) continue;
             if (Mailer::seguimientoRequerimientos($m, $titulo, $texto . '. Para que le des seguimiento:',
-                [[(string)($r['titulo'] ?? ''), self::datos($r, $mapa), $nota !== '' ? 'Cómo lo dejó: ' . $nota : '']], 'requerimientos.php?ver=' . (int)$r['id'], '#2BB673') === true) $n++;
+                [[(string)($r['titulo'] ?? ''), self::datos($r, $mapa), $cierre]], 'requerimientos.php?ver=' . (int)$r['id'], '#2BB673') === true) $n++;
         }
         return $n;
     }

@@ -1364,6 +1364,8 @@ class RequerimientoRepo
     {
         $r = $this->buscar($id);
         if ($r && !empty($r['adjuntos'])) borrarAdjuntos((array)$r['adjuntos']);
+        // Y lo que adjuntó quien lo terminó (capturas, archivos de la entrega)
+        if ($r && !empty($r['cierre_adjuntos'])) borrarAdjuntos((array)$r['cierre_adjuntos']);
         return $this->store->delete($id);
     }
 

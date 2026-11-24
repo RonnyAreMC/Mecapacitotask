@@ -132,10 +132,31 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
     </section>
     <?php endif; ?>
 
-    <?php if (trim((string)($req['nota_cierre'] ?? '')) !== ''): ?>
+    <?php
+      // Lo que dejó quien lo terminó: su mensaje y, si los subió, capturas y archivos
+      $adjCierre = array_values(array_filter((array)($req['cierre_adjuntos'] ?? []), fn($a) => is_array($a) && !empty($a['ruta'])));
+      if (trim((string)($req['nota_cierre'] ?? '')) !== '' || $adjCierre):
+        $imgsCierre = array_values(array_filter($adjCierre, fn($a) => ($a['tipo'] ?? '') === 'img'));
+        $docsCierre = array_values(array_filter($adjCierre, fn($a) => ($a['tipo'] ?? '') !== 'img'));
+    ?>
     <section class="rq-card rq-aviso<?= $cerrado ? ' rq-aviso--ok' : '' ?>">
       <h2><?= UI::icono('ds-check') ?> <?= $cerrado ? 'Cómo se entregó' : 'La entrega anterior (volvió a abrirse)' ?></h2>
-      <p><?= e((string)$req['nota_cierre']) ?></p>
+      <?php if (trim((string)($req['nota_cierre'] ?? '')) !== ''): ?><p class="rq-cierre__nota"><?= nl2br(e((string)$req['nota_cierre'])) ?></p><?php endif; ?>
+      <?php if ($imgsCierre): ?>
+      <div class="rq-cierre__imgs">
+        <?php foreach ($imgsCierre as $a): ?>
+        <a href="<?= e((string)$a['ruta']) ?>" target="_blank" rel="noopener" title="<?= e((string)($a['nombre'] ?? 'Captura')) ?>"><img src="<?= e((string)$a['ruta']) ?>" alt="<?= e((string)($a['nombre'] ?? 'Captura')) ?>" loading="lazy"></a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
+      <?php if ($docsCierre): ?>
+      <div class="dt-adjuntos rq-docs rq-cierre__docs">
+        <?php foreach ($docsCierre as $a): ?>
+        <a class="adj-chip" href="<?= e((string)$a['ruta']) ?>" target="_blank" rel="noopener" title="Abrir <?= e((string)($a['nombre'] ?? '')) ?>">
+          <i class="fa-solid <?= $icoAdj((string)($a['ext'] ?? '')) ?>"></i><span><?= e((string)($a['nombre'] ?? 'Documento')) ?></span></a>
+        <?php endforeach; ?>
+      </div>
+      <?php endif; ?>
       <small><?= e(implode(' · ', array_filter([(int)($req['cerrado_por'] ?? 0) ? 'por ' . $nombreDe((int)$req['cerrado_por']) : '', (string)($req['cerrado_en'] ?? '')]))) ?></small>
     </section>
     <?php endif; ?>
@@ -355,7 +376,7 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
 
 <?php if ($esResp && !$esGestor && !$cerrado && !Auth::esSupervisor()): ?>
 <dialog class="ds-modal" id="dlg-rq-terminar" aria-labelledby="dlg-rq-ter-t">
-  <form method="post" action="actions.php" class="ds">
+  <form method="post" action="actions.php" class="ds" enctype="multipart/form-data">
     <input type="hidden" name="accion" value="req_terminar">
     <input type="hidden" name="id" value="<?= $id ?>">
     <input type="hidden" name="volver" value="<?= e($aqui) ?>">
@@ -368,6 +389,12 @@ $regresar = '<a class="rs-boton rs-boton--icono" href="' . e($listaUrl) . '" ari
     <div class="ds-modal__body">
       <label class="campo"><span>¿Cómo lo dejaste? <small>(rama, commits, dónde quedó…)</small></span>
         <textarea class="input-meca" name="nota" rows="3" maxlength="600" placeholder="Ej. Subido en la rama feature/nota-credito con los commits ab12cd y 34ef56"></textarea></label>
+      <div class="campo"><span>Adjuntos <small>(capturas, PDF, Word, Excel… · también puedes pegar una captura con Ctrl+V)</small></span>
+        <?= UI::archivo([
+              'name' => 'adjuntos[]', 'multiple' => true, 'maxMB' => 10, 'pegar' => true,
+              'accept' => 'image/png,image/jpeg,image/webp,image/gif,application/pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv',
+              'ayuda'  => 'máx 10 MB cada uno',
+            ]) ?></div>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
