@@ -7398,3 +7398,8 @@ html .rq-cierre__docs { margin: 0 0 10px; }
 
 /* Videos › grabaciones por aparte: «Falta el link» en rojo (solo lo ve el administrador) */
 html .vt-dur--falta { background: #DC2626; }
+
+/* Videos › «Avisar del video»: a quién le llega */
+html .vt-avisar__quien { display: flex; align-items: center; gap: 12px; margin: 0 0 14px; }
+html .vt-avisar__quien p { margin: 0; color: var(--ink-2, #57575B); font-size: .9rem; line-height: 1.45; }
+html .vt-avisar__quien b { color: var(--ink, #1F2937); }

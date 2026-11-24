@@ -2519,6 +2519,40 @@ class VideoExternoRepo
     }
 
     /**
+     * A quién avisar de una («Avisar» en Videos): los integrantes de sus
+     * proyectos, con su PO (y el de relevo) y su Scrum Master. Si no es de
+     * ningún proyecto (o uno no tiene lista de equipo), todo el equipo. Sin los
+     * supervisores, que no entran a Videos.
+     */
+    public static function destinatarios(array $x): array
+    {
+        $gente = [];
+        foreach ((new MiembroRepo())->todos() as $m) {
+            $sup = MiembroRepo::tieneAcceso($m, 'supervisor') && !MiembroRepo::tieneAcceso($m, 'admin') && !MiembroRepo::tieneAcceso($m, 'scrum');
+            if (!$sup) $gente[(int)$m['id']] = true;
+        }
+        $ids = self::proyectosDe($x);
+        $out = [];
+        $alguno = false;
+        foreach ($ids ? (new ProyectoRepo())->todos() : [] as $p) {
+            if (!in_array((int)$p['id'], $ids, true)) continue;
+            $alguno = true;
+            $eq = ProyectoRepo::miembrosDe($p);
+            if ($eq === null) return array_keys($gente);   // proyecto abierto a todo el equipo
+            foreach (array_merge($eq, [ProyectoRepo::poDe($p), (int)($p['po_relevo'] ?? 0), ProyectoRepo::scrumDe($p)]) as $mid) {
+                if (isset($gente[(int)$mid])) $out[(int)$mid] = true;
+            }
+        }
+        return $alguno ? array_keys($out) : array_keys($gente);
+    }
+
+    /** Deja anotado el último aviso: cuándo, quién y a cuántos. */
+    public function marcarAvisado(int $id, int $autor, int $n): void
+    {
+        $this->store->update($id, ['avisado' => date('Y-m-d H:i'), 'avisado_por' => $autor, 'avisados' => $n]);
+    }
+
+    /**
      * Una que se cargue sin link (sembrada a mano) queda solo para el
      * administrador, con «Falta el link», hasta que se lo pongan.
      */

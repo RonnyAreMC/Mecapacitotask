@@ -821,6 +821,26 @@ class Mailer
     }
 
     /**
+     * Videos: se agregó una grabación hecha por aparte (videoteca.php?x=ID) y el
+     * administrador avisó a los integrantes de sus proyectos. $mensaje: lo que
+     * escribió al avisar (puede ir vacío).
+     */
+    public static function avisoVideo(array $miembro, string $tema, string $proyectos, string $fecha, string $mensaje, string $url): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $acento = Config::all()['color_secundario'] ?? '#2B76F7';
+        $nombre = e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '');
+        $cuerpo = self::encabezado($acento, '&#9654;', 'Nuevo video: ' . e($tema),
+                ($nombre !== '' ? 'Hola ' . $nombre . ', ' : '') . 'se agregó la grabación de «' . e($tema) . '» en Videos.')
+            . self::detalle($tema, array_filter(['Proyecto' => e($proyectos), 'Fecha' => e($fecha)], fn($v) => $v !== ''),
+                $mensaje !== '' ? nl2br(e($mensaje)) : '', true);
+        $abs = preg_match('#^https?://#i', $url) ? $url : self::urlPagina($url);
+        return self::enviar($miembro['email'], 'Nuevo video: ' . $tema, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Ver el video' : ''));
+    }
+
+    /**
      * Seguimiento de requerimientos (lib/requirements/ReqSeguimiento.php): a quien da
      * seguimiento, uno terminado o los que se pasaron de fecha. $bloques:
      * [[título, [etiqueta => texto], nota], …]. $url, página del panel.

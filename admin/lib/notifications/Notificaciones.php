@@ -34,6 +34,7 @@ final class Notif
         'correo'        => ['Correo', 'correo', 'azul'],
         'deploy'        => ['Subida al servidor', 'publicar', 'verde'],
         'release'       => ['Releases', 'ruta', 'petroleo'],
+        'video'         => ['Video', 'video', 'cian'],
     ];
 
     private static ?JsonStore $store = null;

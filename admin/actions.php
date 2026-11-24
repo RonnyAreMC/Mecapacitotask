@@ -2971,9 +2971,50 @@ switch ($accion) {
         $vxId = (int)($_POST['id'] ?? 0);
         $vx = (new VideoExternoRepo())->guardar($vxId, $_POST, (int)(Auth::usuario()['id'] ?? 0));
         if (is_string($vx)) redirigir($vxId ? 'videoteca.php?x=' . $vxId : 'videoteca.php', $vx, 'error');
-        redirigir($vxId ? 'videoteca.php?x=' . $vxId : 'videoteca.php', $vxId
+        // Al agregarla se abre la grabación: ahí está «Avisar» (la campana) para contarle al equipo
+        redirigir('videoteca.php?x=' . (int)$vx['id'], $vxId
             ? 'Listo: se guardaron los cambios de «' . $vx['tema'] . '».'
-            : 'Listo: «' . $vx['tema'] . '» ya está en Videos.');
+            : 'Listo: «' . $vx['tema'] . '» ya está en Videos. Si quieres, avísale al equipo con la campana.');
+
+    case 'video_externo_avisar':
+        // A los integrantes de sus proyectos (o a todo el equipo si no es de ninguno): en la
+        // campana del panel, como aviso nativo en sus dispositivos y, si se marca, por correo
+        $vxRepo = new VideoExternoRepo();
+        $vx = $vxRepo->buscar((int)($_POST['id'] ?? 0));
+        if (!$vx) redirigir('videoteca.php', 'Esa grabación ya no estaba.', 'error');
+        $volVx = 'videoteca.php?x=' . (int)$vx['id'];
+        if (!VideoExternoRepo::tieneEnlace($vx)) redirigir($volVx, 'Primero ponle el link: sin él no hay nada que ver.', 'error');
+        $yoVx = (int)(Auth::usuario()['id'] ?? 0);
+        $paraVx = array_values(array_filter(VideoExternoRepo::destinatarios($vx), fn($mid) => $mid !== $yoVx));
+        if (!$paraVx) redirigir($volVx, 'No hay a quién avisar: esos proyectos no tienen integrantes.', 'info');
+        $idsPVx = VideoExternoRepo::proyectosDe($vx);
+        $proysVx = implode(', ', array_map(fn($p) => (string)$p['nombre'], array_filter((new ProyectoRepo())->todos(), fn($p) => in_array((int)$p['id'], $idsPVx, true))));
+        $msgVx = trim(mb_substr((string)($_POST['mensaje'] ?? ''), 0, 500));
+        if (class_exists('Notif')) {
+            Notif::crear($paraVx, 'video', 'Nuevo video: ' . $vx['tema'],
+                ($proysVx !== '' ? $proysVx . ' · ' : '') . ($msgVx !== '' ? $msgVx : 'Se agregó la grabación en Videos.'), $volVx);
+        }
+        $nCorreoVx = 0;
+        if (!empty($_POST['correo']) && Mailer::listo()) {
+            $mapaVx = (new MiembroRepo())->mapa();
+            $listaVx = array_values(array_filter(array_map(fn($mid) => $mapaVx[$mid] ?? null, $paraVx), fn($m) => $m && trim((string)($m['email'] ?? '')) !== ''));
+            $nCorreoVx = count($listaVx);
+            $fechaVx = date('d/m/Y', strtotime((string)($vx['fecha'] ?? '')) ?: time());
+            // Los correos salen después de responder: quien avisa no espera a que se manden todos
+            register_shutdown_function(function () use ($listaVx, $vx, $proysVx, $fechaVx, $msgVx, $volVx) {
+                if (session_status() === PHP_SESSION_ACTIVE) @session_write_close();
+                @ignore_user_abort(true);
+                if (function_exists('fastcgi_finish_request')) @fastcgi_finish_request();
+                elseif (function_exists('litespeed_finish_request')) @litespeed_finish_request();
+                foreach ($listaVx as $m) {
+                    try { Mailer::avisoVideo($m, (string)$vx['tema'], $proysVx, $fechaVx, $msgVx, $volVx); }
+                    catch (\Throwable $e) { error_log('avisoVideo: ' . $e->getMessage()); }
+                }
+            });
+        }
+        $vxRepo->marcarAvisado((int)$vx['id'], $yoVx, count($paraVx));
+        redirigir($volVx, 'Listo: le avisamos a ' . count($paraVx) . (count($paraVx) === 1 ? ' persona' : ' personas')
+            . ($nCorreoVx ? ' en la campana y por correo (' . $nCorreoVx . ').' : ' en la campana del panel.'));
 
     case 'video_externo_quitar':
         $vx = (new VideoExternoRepo())->quitar((int)($_POST['id'] ?? 0));

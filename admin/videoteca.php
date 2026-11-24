@@ -155,6 +155,11 @@ if ($verX) {
     $dondeX = $f['nombre'] === 'Enlace' ? 'otra página' : $f['nombre'];
     $itemX = fn(string $icono, string $tono, string $titulo, string $txt, string $accion = '') => '<li class="ru-quedo__item"><span class="rs-ic rs-ic--' . $tono . '" aria-hidden="true">' . UI::icono($icono) . '</span>'
         . '<span class="ru-quedo__txt"><b>' . e($titulo) . '</b><small>' . e($txt) . '</small></span>' . $accion . '</li>';
+    // A quién le llega «Avisar» (sin quien avisa)
+    $yoX = (int)(Auth::usuario()['id'] ?? 0);
+    $paraX = $esAdm ? array_values(array_filter(array_map(fn($mid) => $miembros[$mid] ?? null, VideoExternoRepo::destinatarios($x)), fn($m) => $m && (int)$m['id'] !== $yoX)) : [];
+    $avisadoX = !empty($x['avisado']) ? 'A ' . (int)($x['avisados'] ?? 0) . ((int)($x['avisados'] ?? 0) === 1 ? ' persona' : ' personas') . ' · '
+        . ReunionesUI::cuandoFue(strtotime((string)$x['avisado']) ?: $ahora, $ahora) : '';
     $abrirX = $conLink ? ReunionesUI::ico('ds-enlace', 'Abrir en ' . $dondeX, (string)$x['enlace'], '', 'target="_blank" rel="noopener"')
         . '<button type="button" class="ru-ico btn-copiar" data-copiar="' . e((string)$x['enlace']) . '" aria-label="Copiar el link" data-ds-tip="Copiar el link">' . UI::icono('ds-copiar') . '</button>' : '';
 
@@ -206,6 +211,9 @@ if ($verX) {
         <div class="ru-acc">
           <?= $abrirX ?>
           <?php if ($esAdm): ?>
+          <?php if ($conLink): ?>
+          <?= ReunionesUI::ico('ds-notificaciones', $avisadoX !== '' ? 'Avisar otra vez a los integrantes' : 'Avisar a los integrantes de que se agregó', '', '', 'onclick="document.getElementById(\'dlg-vt-avisar\').showModal()"') ?>
+          <?php endif; ?>
           <?= ReunionesUI::ico('ds-editar', 'Editar el tema, el proyecto o el link', '', '', 'onclick="document.getElementById(\'dlg-vt-ext\').showModal()"') ?>
           <form method="post" action="actions.php" class="inline-form" data-confirmar="Se quita «<?= e($tema) ?>» de Videos. La grabación sigue donde está: solo se quita su link del panel."
                 data-confirmar-titulo="¿Quitar esta grabación?" data-confirmar-ok="Sí, quitar">
@@ -229,6 +237,9 @@ if ($verX) {
       <ul class="ru-quedo">
         <?= $itemX('MonitorPlay', 'menta', 'Grabación', $conLink ? ($f['insertar'] !== '' ? 'En ' . $f['nombre'] . ': se ve aquí, o ábrela allá.' : 'En ' . $dondeX . ': se abre en otra pestaña.') : 'Todavía no tiene link.', $abrirX !== '' ? '<span class="ru-acc">' . $abrirX . '</span>' : '') ?>
         <?= $itemX('FolderOpen', 'celeste', count($psX) > 1 ? 'Equipos o proyectos' : 'Equipo o proyecto', $nombresExt($x)) ?>
+        <?php if ($esAdm && $avisadoX !== ''): ?>
+        <?= $itemX('ds-notificaciones', 'menta', 'Avisado', $avisadoX) ?>
+        <?php endif; ?>
         <?php if ($autorX !== '' || !empty($x['creado'])): ?>
         <?= $itemX('ds-usuario', 'lila', 'La agregó', trim($autorX . ($autorX !== '' && !empty($x['creado']) ? ' · ' : '') . (!empty($x['creado']) ? ReunionesUI::cuandoFue(strtotime((string)$x['creado']) ?: $ahora, $ahora) : ''))) ?>
         <?php endif; ?>
@@ -236,6 +247,40 @@ if ($verX) {
     </aside>
   </div>
 </div>
+<?php if ($esAdm && $conLink): ?>
+<dialog class="ds-modal" id="dlg-vt-avisar" aria-labelledby="dlg-vt-avisar-t">
+  <form method="post" action="actions.php" class="ds">
+    <input type="hidden" name="accion" value="video_externo_avisar">
+    <input type="hidden" name="id" value="<?= (int)$x['id'] ?>">
+    <header class="ds-modal__head">
+      <span class="mc-tile mc-tile--sm mc-tile--cian"><?= UI::iconoDS('notificaciones', 18) ?></span>
+      <div><h2 class="ds-modal__title" id="dlg-vt-avisar-t">Avisar del video</h2>
+        <p class="ds-modal__sub">Les llega en la campana del panel y como aviso en su celular o computadora (si lo activaron).</p></div>
+      <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
+    </header>
+    <div class="ds-modal__body">
+      <?php if ($paraX): ?>
+      <div class="vt-avisar__quien">
+        <?= UI::avatarStack($paraX, 6, 30) ?>
+        <p><b><?= count($paraX) === 1 ? 'Va a 1 persona' : 'Va a ' . count($paraX) . ' personas' ?></b>
+          <?= $psX ? '(los integrantes de ' . e($nombresExt($x)) . ')' : '(todo el equipo: no es de ningún proyecto)' ?>:
+          <?= e(implode(', ', array_map(fn($m) => (string)$m['nombre'], array_slice($paraX, 0, 8)))) ?><?= count($paraX) > 8 ? ' y ' . (count($paraX) - 8) . ' más' : '' ?>.</p>
+      </div>
+      <?php else: ?>
+      <p class="rs-nota">Esos proyectos no tienen integrantes a quién avisar.</p>
+      <?php endif; ?>
+      <label class="campo"><span>Mensaje <small>(opcional)</small></span>
+        <textarea class="input-meca" name="mensaje" rows="3" maxlength="500" placeholder="Ej. Véanlo antes de la reunión del jueves."></textarea></label>
+      <?= UI::checkDS('correo', Mailer::listo(), 'También por correo', Mailer::listo() ? 'A los que tienen su correo en el panel.' : 'El correo de avisos no está configurado en Ajustes.') ?>
+      <?php if ($avisadoX !== ''): ?><p class="campo-ayuda">Ya se avisó: <?= e($avisadoX) ?>.</p><?php endif; ?>
+    </div>
+    <footer class="ds-modal__foot">
+      <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
+      <button class="mc-btn mc-btn--primary mc-btn--md"<?= $paraX ? '' : ' disabled' ?>><?= UI::iconoDS('enviar', 18) ?><span class="mc-btn__label">Avisar</span></button>
+    </footer>
+  </form>
+</dialog>
+<?php endif; ?>
 <?php
     if ($esAdm) $dialogoExt($x);
     UI::fin();
