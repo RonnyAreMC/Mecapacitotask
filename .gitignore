@@ -13,6 +13,9 @@ admin/data/config.json.*
 admin/data/ia.secreto
 # Llave que cifra las contraseñas del correo InnoTech: nunca al repo
 admin/data/correo.secreto
+# Llaves que cifran las claves de las APIs y el token de cPanel: nunca al repo
+admin/data/apis.secreto
+admin/data/cpanel.secreto
 # Copias de los correos que guarda el panel (lib/CorreoCopias.php): son correos de la gente
 admin/data/correo_copias/
 # Notificaciones nativas: claves del panel (push.json va por *.json) y archivos de trabajo del cron

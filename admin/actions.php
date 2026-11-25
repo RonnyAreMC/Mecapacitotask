@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/core/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento', 'requirements/req_avisos'] as $moduloNuevo) {
+foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento', 'requirements/req_avisos', 'apis/Apis'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -38,6 +38,8 @@ $accionesDeCualquiera = [
     'auth_logout', 'obs_crear', 'perfil_guardar', 'mis_tareas_json', 'proyecto_tareas_json', 'contexto_tareas_json',
     // El token de la API para Claude Code: cada quien el suyo (Mi perfil)
     'api_token_crear', 'api_token_quitar',
+    // APIs de la empresa (apis.php): copiar la clave de una que puede ver (dentro: Apis::puedeVer)
+    'apis_copiar',
     // Colorimetría: anota el SM o el PO del proyecto (Colorimetria::puedeMedir lo revisa)
     'col_medir',
     'reunion_transcripcion', 'tarea_estado', 'tarea_crear', 'tarea_editar',
@@ -2973,6 +2975,32 @@ switch ($accion) {
         $req = $reqRepo->buscar((int)($_POST['id'] ?? 0));
         $reqRepo->eliminar((int)($_POST['id'] ?? 0));
         redirigir('requerimientos.php', 'Requerimiento «' . ($req['titulo'] ?? '') . '» eliminado.');
+
+    /* ---------- APIs de la empresa (apis.php · lib/apis/Apis.php) ---------- */
+    case 'apis_copiar':
+        // La clave (o la URL) de una API, para el portapapeles: solo si la puede ver; queda anotado
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        $finAp = fn(bool $ok, array $x = []) => exit(json_encode(['ok' => $ok] + $x, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES));
+        if (!class_exists('Apis')) $finAp(false, ['error' => 'Las APIs no están disponibles en este servidor.']);
+        $ap = Apis::buscar((int)($_POST['id'] ?? 0));
+        if (!$ap || !Apis::puedeVer($ap)) $finAp(false, ['error' => 'Esa API no está disponible para ti.']);
+        $queAp = ($_POST['que'] ?? '') === 'url' ? 'url' : 'clave';
+        $valorAp = $queAp === 'url' ? (string)($ap['url'] ?? '') : Apis::clave($ap);
+        if ($valorAp === '') $finAp(false, ['error' => $queAp === 'url' ? 'Esta API no tiene URL.' : 'Esta API no tiene clave guardada.']);
+        Apis::anotarCopia((int)$ap['id'], (int)(Auth::usuario()['id'] ?? 0), $queAp);
+        $finAp(true, ['valor' => $valorAp]);
+
+    case 'apis_guardar':
+        if (!class_exists('Apis')) redirigir('apis.php', 'Las APIs no están disponibles en este servidor.', 'error');
+        $idAp = (int)($_POST['id'] ?? 0);
+        $ap = Apis::guardar($idAp, $_POST, (int)(Auth::usuario()['id'] ?? 0));
+        if (is_string($ap)) redirigir('apis.php', $ap, 'error');
+        redirigir('apis.php#api-' . (int)$ap['id'], $idAp ? 'Listo: se guardaron los cambios de «' . $ap['nombre'] . '».' : 'Listo: «' . $ap['nombre'] . '» ya está en APIs.');
+
+    case 'apis_quitar':
+        $ap = class_exists('Apis') ? Apis::quitar((int)($_POST['id'] ?? 0)) : null;
+        redirigir('apis.php', $ap ? 'Quitamos «' . $ap['nombre'] . '» de APIs.' : 'Esa API ya no estaba.');
 
     /* ---------- Videos › grabaciones por aparte (videoteca.php): solo el administrador ---------- */
     // Solo el LINK de la grabación, con su tema y el equipo si aplica: no se suben videos.
