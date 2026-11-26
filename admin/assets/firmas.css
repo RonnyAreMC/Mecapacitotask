@@ -475,3 +475,48 @@ dialog.ds-modal.fd-obs-dlg { width: min(1000px, calc(100vw - 16px)); background:
   .fd-firmando__trazo { animation: none; stroke-dashoffset: 0; }
   .fd-firmando__pluma { display: none; }
 }
+
+/* ---------- Cabeceras de Firmas: título a la izquierda, botones de solo ícono siempre a la derecha ---------- */
+.page-head:has(.fd-cab-acc) { flex-wrap: nowrap; align-items: flex-start; }
+.page-head:has(.fd-cab-acc) > div:first-child { flex: 1 1 auto; min-width: 0; }
+.page-head > .page-actions:has(> .fd-cab-acc) { flex: none; width: auto; }
+.page-actions > .fd-cab-acc { flex: none; gap: var(--space-3); flex-wrap: nowrap; }
+.fd-cab-acc .mc-iconbtn { width: 40px; height: 40px; }
+.fd-autor { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fd-autor b { font-weight: 600; letter-spacing: .02em; color: var(--ink); }
+.fd-ico-pdf { flex: none; width: 22px; height: 22px; }
+@media (max-width: 640px) {
+  .page-head > .page-actions:has(> .fd-cab-acc) { width: auto; }
+  .page-actions > .fd-cab-acc { flex: none; gap: var(--space-2); }
+  .fd-cab-acc .mc-iconbtn { width: 36px; height: 36px; }
+}
+
+/* ---------- Parámetros: cada coordinación a lo ancho, con su franja azul ---------- */
+.fp-coords { grid-template-columns: minmax(0, 1fr); }
+.fp-coord { padding: 0; gap: 0; overflow: hidden; }
+.fp-banda { display: flex; align-items: center; gap: var(--space-3); min-width: 0; padding: var(--space-3) var(--space-5); background: var(--table-head); color: var(--table-head-fg); }
+.fp-banda__img { flex: none; display: grid; place-items: center; width: 46px; height: 46px; border-radius: var(--radius-md); background: var(--surface); color: var(--primary-ink); box-shadow: var(--shadow-xs); }
+.fp-banda__tit { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; }
+.fp-banda__tit b { font: 700 1.08rem/1.35 var(--font-display); color: inherit; }
+.fp-banda__tit small { font-size: var(--mc-fs-xs); color: inherit; opacity: .9; }
+.fp-banda__acc { flex: none; display: flex; align-items: center; gap: var(--space-2); }
+.fp-banda__acc form { display: contents; }
+.fp-banda__btn { --_fg: var(--table-head-fg); --_fgh: var(--table-head-fg); --_bgh: color-mix(in srgb, var(--table-head-fg) 18%, transparent);
+  width: 40px; height: 40px; color: var(--table-head-fg); }
+.fp-banda__btn:focus-visible { box-shadow: 0 0 0 2px var(--table-head-fg); }
+.fp-coord__cuerpo { display: grid; grid-template-columns: minmax(0, 1fr) minmax(220px, 260px); gap: var(--space-5); padding: var(--space-4) var(--space-5) var(--space-5); }
+.fp-coord__bloque { display: grid; gap: var(--space-3); align-content: start; min-width: 0; }
+.fp-coord__bloque--gente { padding-left: var(--space-5); border-left: 1px solid var(--line); }
+.fp-cadena--fila { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: var(--space-3); }
+.fp-cadena--fila li { padding: var(--space-3); border: 1px solid var(--line); border-radius: var(--radius-md); background: var(--surface-alt); }
+.fp-datos.fp-coord__cuerpo { grid-template-columns: minmax(0, 220px) minmax(0, 1fr); gap: var(--space-2) var(--space-4); }
+@media (max-width: 900px) {
+  .fp-coord__cuerpo { grid-template-columns: minmax(0, 1fr); }
+  .fp-coord__bloque--gente { padding: var(--space-4) 0 0; border-left: 0; border-top: 1px solid var(--line); }
+}
+@media (max-width: 640px) {
+  .fp-banda { padding: var(--space-3) var(--space-4); }
+  .fp-coord__cuerpo { padding: var(--space-4); }
+  .fp-datos.fp-coord__cuerpo { grid-template-columns: minmax(0, 1fr); }
+}
+.fp-cadena li > .fd-fila__n, .fp-cadena li > .avatar { flex: none; }

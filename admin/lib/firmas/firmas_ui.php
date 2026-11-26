@@ -116,7 +116,7 @@ final class FirmasUI
         <span class="fd-fila__acc">
           <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fd-subir aria-label="Subir en el orden"><?= UI::iconoDS('chevron-arriba', 16) ?></button>
           <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fd-bajar aria-label="Bajar en el orden"><?= UI::iconoDS('chevron-abajo', 16) ?></button>
-          <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fd-quitar aria-label="Quitar a este firmante"><?= UI::iconoDS('eliminar', 16) ?></button>
+          <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fd-quitar aria-label="Quitar a este firmante" data-ds-tip="Quitar"><?= UI::iconoDS('eliminar-bote', 18) ?></button>
         </span>
       </div>
       <div class="fd-fila__campos">
@@ -327,7 +327,7 @@ final class FirmasUI
   <form method="post" action="actions.php" class="ds">
     <input type="hidden" name="accion" value="informe_editar"><input type="hidden" name="id" value="<?= (int)$doc['id'] ?>">
     <header class="ds-modal__head">
-      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('editar', 18) ?></span>
+      <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('editar-cuadro', 18) ?></span>
       <div><h2 class="ds-modal__title" id="dlg-informe-t">Corregir el informe</h2>
         <p class="ds-modal__sub">Semana <?= e((string)($c['semana'] ?? '')) ?>. Al guardar se vuelve a armar el PDF.</p></div>
       <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>

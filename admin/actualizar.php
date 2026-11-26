@@ -92,7 +92,7 @@ function actualizarPanel(array $opc): void
         'iconos/pwa/apple-touch-180.png', 'iconos/pwa/insignia-96.png',
         'tutoriales.php', 'lib/help/Tutoriales.php', 'lib/requirements/ReqCorreo.php', 'lib/requirements/ReqSeguimiento.php', 'scripts/arreglar_tildes.php', 'lib/releases/releases_ui.php', 'lib/integrations/CPanel.php', 'buzones.php', 'assets/buzones.js', 'lib/mail/CorreoCopias.php',
         'iconos/DS/ds-programadores.svg', 'iconos/DS/ds-analistas.svg', 'iconos/DS/ds-procesos.svg', 'iconos/ilustraciones/procesos.svg', 'iconos/DS/ds-design-system.svg', 'iconos/ilustraciones/design-system.svg', 'agenda.php', 'assets/agenda.css', 'assets/invitados.js', 'iconos/DS/ds-reuniones.svg', 'assets/req-reparto.css', 'assets/req-reparto.js', 'lib/requirements/req_avisos.php', 'assets/navidad.css', 'assets/navidad.js', 'assets/navidad/santa.js', 'assets/navidad/three.min.js', 'iconos/navidad/logo-gorro.png',
-        'firmas.php', 'firma.php', 'firma_archivo.php', 'firmas_param.php', 'assets/firmas.css', 'assets/firmas.js', 'iconos/DS/ds-pdf.svg', 'iconos/DS/ds-firma.svg',
+        'firmas.php', 'firma.php', 'firma_archivo.php', 'firmas_param.php', 'assets/firmas.css', 'assets/firmas.js', 'iconos/DS/ds-pdf.svg', 'iconos/DS/ds-firma.svg', 'iconos/DS/ds-editar-cuadro.svg', 'iconos/DS/ds-ver-documento.svg', 'iconos/DS/ds-eliminar-bote.svg', 'iconos/DS/ds-ver-cambiar.svg',
         'lib/firmas/PdfFirmas.php', 'lib/firmas/HojaFirmas.php', 'lib/firmas/Firmas.php', 'lib/firmas/firmas_ui.php', 'lib/firmas/InformeSemanal.php', 'lib/firmas/InformePdf.php', 'lib/firmas/plantilla/innotech-logo.png', 'lib/firmas/plantilla/innotech-pie.png', 'iconos/ilustraciones/crm.svg', 'scripts/seed_crm.php', 'tablero_equipos.php',
         'lib/notifications/Whatsapp.php', 'scripts/cron_whatsapp.php',
         // APIs de los proyectos (apis.php): la página, su lógica, el catálogo de proveedores, el JS y un logo de muestra
@@ -246,7 +246,7 @@ function actualizarPanel(array $opc): void
         'firmas.php'                 => ['dlg-doc-nuevo', 'informe_generar_mio', 'firmas_param.php', 'filaInforme'],
         'firma.php'                  => ['dlg-historial', 'dlg-observar', 'data-fd-visor', 'Firmar y enviar', 'f-olvidar-cert'],
         'firma_archivo.php'          => ['registrarDescarga', 'rutaFirmaUsada'],
-        'firmas_param.php'           => ['modalCoordinacion', 'data-fc-editar', 'panel-informes', 'avatarStack'],
+        'firmas_param.php'           => ['modalCoordinacion', 'data-fc-editar', 'panel-informes', 'avatarStack', 'fp-banda'],
         'assets/firmas.css'          => ['.fd-hist__linea', '.fd-vw__barra', '.fp-coords', '.fd-obs', '.fd-inf', '.fd-firmando'],
         'assets/firmas.js'           => ['data-fd-visor', 'data-fd-firmar', 'data-fd-hist', 'data-fd-coord', 'data-mf-form', 'fd-firmando', 'data-fd-espera'],
         'lib/firmas/PdfFirmas.php'   => ['function firmarDigital', 'function reemplazarPaginas', 'function nuevo(', 'ANCHOS_B'],
@@ -254,7 +254,7 @@ function actualizarPanel(array $opc): void
         'lib/firmas/Firmas.php'      => ['function firmarElectronica', 'function coordinaciones', 'function cargoDe', 'function recordarCert', 'observadores', 'function sesionCert'],
         'lib/firmas/firmas_ui.php'   => ['data-mf-tipo', 'function modalCoordinacion', 'function modalInformes', 'function modalInforme(', 'data-fd-coords'],
         'lib/firmas/InformeSemanal.php' => ['function tick', 'function generar', 'coordinacionDe', 'function commits(', 'function reuniones('],
-        'lib/firmas/InformePdf.php'  => ['Informe semanal de actividades', 'function tabla', 'innotech-logo.png', 'Cumplimiento de reuniones', 'Reuniones con ingreso'],
+        'lib/firmas/InformePdf.php'  => ['Informe semanal de actividades', 'function tabla', 'innotech-logo.png', 'Cumplimiento de reuniones', 'Reuniones con ingreso', 'BORDE'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {

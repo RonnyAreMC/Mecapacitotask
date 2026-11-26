@@ -67,7 +67,7 @@ $fila = function (array $d, int $i) use ($avatares, $uid): string {
         . '<td class="fd-c-estado">' . FirmasUI::estado($d) . '</td>'
         . '<td class="fd-c-firm">' . $avatares($d) . '</td>'
         . '<td class="fd-c-fecha"><span title="Actualizado: ' . e(Firmas::fecha($actual)) . '">' . e(Firmas::fecha($actual, false)) . '</span></td>'
-        . '<td class="mc-table__actions-c fd-c-acc"><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($url) . '" aria-label="Abrir «' . e($d['titulo']) . '»">' . UI::iconoDS('chevron-der', 18) . '</a></td>'
+        . '<td class="mc-table__actions-c fd-c-acc"><a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($url) . '" aria-label="Ver el documento «' . e($d['titulo']) . '»" data-ds-tip="Ver documento">' . UI::iconoDS('ver-documento', 20) . '</a></td>'
         . '</tr>';
 };
 
@@ -99,8 +99,8 @@ $filaInforme = function (array $d, int $i) use ($avatares, $semInf): string {
         . '<td class="fi-c-num" data-label="Reuniones"' . ($reu !== '—' ? ' title="Entraste a ' . e($reu) . ' reuniones"' : '') . '>' . $reu . '</td>'
         . '<td class="fi-c-firm">' . $avatares($d) . '</td>'
         . '<td class="mc-table__actions-c fi-c-acc"><div class="mc-table__actions">'
-        . '<a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($pdf) . '" aria-label="Descargar el PDF del informe" data-ds-tip="Descargar PDF">' . UI::iconoDS('pdf', 18) . '</a>'
-        . '<a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($url) . '" aria-label="Abrir el informe de la semana ' . e($sem['texto']) . '">' . UI::iconoDS('chevron-der', 18) . '</a>'
+        . '<a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($pdf) . '" aria-label="Descargar el PDF del informe" data-ds-tip="Descargar PDF">' . UI::icono('adj-pdf', 'fd-ico-pdf') . '</a>'
+        . '<a class="mc-iconbtn mc-iconbtn--sm mc-iconbtn--ghost" href="' . e($url) . '" aria-label="Ver el informe de la semana ' . e($sem['texto']) . '" data-ds-tip="Ver documento">' . UI::iconoDS('ver-documento', 20) . '</a>'
         . '</div></td></tr>';
 };
 /** El botón que arma ya el informe de esta semana (tarda unos segundos: lee los repositorios). */
@@ -112,8 +112,10 @@ UI::inicio('Firmas', 'firmas');
 UI::cabecera(
     'Firma de <span class="text-secondary">documentos</span>',
     'Sube un PDF, elige quién firma y en qué orden. A cada uno le llega el aviso cuando le toca y, al final, queda el PDF con la hoja «Firmas de responsabilidad».',
-    (Auth::esAdmin() ? '<a class="mc-iconbtn mc-iconbtn--outline" href="firmas_param.php" aria-label="Parámetros de firmas: coordinaciones, cargos e informes" data-ds-tip="Parámetros">' . UI::iconoDS('configuracion', 18) . '</a>' : '')
-    . '<button type="button" class="mc-btn mc-btn--secondary mc-btn--md" data-fd-abrir="dlg-mi-firma">' . UI::iconoDS('firma', 18) . '<span class="mc-btn__label">Mi firma</span></button>' . $nuevoBtn
+    '<div class="fd-cab-acc">'
+    . (Auth::esAdmin() ? '<a class="mc-iconbtn mc-iconbtn--tinte" href="firmas_param.php" aria-label="Parámetros de firmas: coordinaciones, cargos e informes" data-ds-tip="Parámetros">' . UI::iconoDS('configuracion', 20) . '</a>' : '')
+    . '<button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-fd-abrir="dlg-mi-firma" aria-label="Mi firma" data-ds-tip="Mi firma">' . UI::iconoDS('firma', 20) . '</button>'
+    . '<button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-fd-abrir="dlg-doc-nuevo" aria-label="Nuevo documento" data-ds-tip="Nuevo documento">' . UI::iconoDS('mas', 20) . '</button></div>'
 );
 ?>
 <div class="ds fd-pagina">

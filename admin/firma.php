@@ -37,18 +37,22 @@ if ($primeroYo) { $miTurno = true; $turno = 0; }
 $dlgEditar = $esInforme ? 'dlg-informe' : 'dlg-doc-editar';
 $ico = fn(string $n, int $px = 18) => UI::iconoDS($n, $px);
 
-$acc = '<a class="mc-iconbtn mc-iconbtn--outline" href="firmas.php" aria-label="Volver a Firmas" data-ds-tip="Volver">' . $ico('chevron-izq') . '</a>'
-    . '<button type="button" class="mc-iconbtn mc-iconbtn--outline" data-fd-abrir="dlg-historial" aria-label="Historial y observaciones" data-ds-tip="Historial">' . $ico('reloj') . '</button>';
+$acc = '<a class="mc-iconbtn mc-iconbtn--tinte" href="firmas.php" aria-label="Volver a Firmas" data-ds-tip="Volver">' . $ico('chevron-izq', 20) . '</a>'
+    . '<button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-fd-abrir="dlg-historial" aria-label="Historial y observaciones" data-ds-tip="Historial">' . $ico('reloj', 20) . '</button>';
 if ($gestiona && $estado !== 'firmado') {
-    $acc .= '<button type="button" class="mc-iconbtn mc-iconbtn--outline" data-fd-abrir="' . $dlgEditar . '" aria-label="' . ($esInforme ? 'Corregir el informe' : 'Editar el documento') . '" data-ds-tip="' . ($esInforme ? 'Corregir' : 'Editar') . '">' . $ico('editar') . '</button>';
+    $acc .= '<button type="button" class="mc-iconbtn mc-iconbtn--tinte" data-fd-abrir="' . $dlgEditar . '" aria-label="' . ($esInforme ? 'Corregir el informe' : 'Editar el documento') . '" data-ds-tip="' . ($esInforme ? 'Corregir' : 'Editar') . '">' . $ico('editar-cuadro', 20) . '</button>';
 }
 if ($gestiona && ($estado !== 'firmado' || Auth::esAdmin())) {
-    $acc .= '<button type="submit" form="f-eliminar" class="mc-iconbtn mc-iconbtn--outline mc-iconbtn--danger" aria-label="Eliminar el documento" data-ds-tip="Eliminar">' . $ico('eliminar') . '</button>';
+    $acc .= '<button type="submit" form="f-eliminar" class="mc-iconbtn mc-iconbtn--tinte mc-iconbtn--danger" aria-label="Eliminar el documento" data-ds-tip="Eliminar">' . $ico('eliminar-bote', 20) . '</button>';
 }
 
 UI::inicio($doc['titulo'], 'firmas');
-UI::cabecera(e($doc['titulo']),
-    'Lo creó ' . e($creador['nombre']) . ' el ' . e(Firmas::fecha((string)($doc['creado'] ?? ''), false)) . ' · ' . e(Firmas::rotulo($doc)),
+// Arriba el nombre del documento (el del informe, sin la persona: va de autor) y una línea con el autor
+$partesTit = explode(' · ', (string)$doc['titulo']);
+$tituloVer = $esInforme && count($partesTit) >= 3 ? $partesTit[0] . ' · ' . end($partesTit) : (string)$doc['titulo'];
+$autor = Firmas::nombre((int)($doc['persona'] ?? $doc['creado_por'] ?? 0));
+UI::cabecera(e($tituloVer),
+    '<span class="fd-autor" title="' . e($autor) . '">Autor: <b>' . e(mb_strtoupper($autor)) . '</b> · ' . e(Firmas::fecha((string)($doc['creado'] ?? ''), false)) . '</span>',
     '<div class="fd-cab-acc">' . $acc . '</div>');
 ?>
 <div class="ds fd-ficha">
@@ -58,12 +62,12 @@ UI::cabecera(e($doc['titulo']),
       <span class="mc-tile mc-tile--sm mc-tile--rojo"><?= $ico('pdf') ?></span>
       <span class="fd-doccard__txt"><b class="truncate" title="<?= e($nombrePdf) ?>"><?= e($nombrePdf) ?></b>
         <small><?= $pags ?> <?= $pags === 1 ? 'página' : 'páginas' ?><?= $hayFirmado ? ' · la última es la hoja de firmas' : '' ?></small></span>
-      <a class="mc-iconbtn mc-iconbtn--outline" href="<?= e($verPdf) ?>&amp;bajar=1" aria-label="Descargar el PDF" data-ds-tip="Descargar"><?= $ico('descargar') ?></a>
+      <a class="mc-iconbtn mc-iconbtn--tinte" href="<?= e($verPdf) ?>&amp;bajar=1" aria-label="Descargar el PDF" data-ds-tip="Descargar PDF"><?= UI::icono('adj-pdf', 'fd-ico-pdf') ?></a>
     </div>
     <button type="button" class="fd-miniatura" data-fd-ver aria-label="Ver el documento completo">
       <canvas data-fd-miniatura data-pdf="<?= e($verPdf) ?>" aria-hidden="true"></canvas>
       <span class="fd-miniatura__carga" data-fd-miniatura-carga><?= $ico('pdf', 40) ?></span>
-      <span class="fd-miniatura__ver"><?= $ico('ver') ?> Ver documento</span>
+      <span class="fd-miniatura__ver"><?= $ico('ver-documento') ?> Ver documento</span>
     </button>
   </section>
 
@@ -71,38 +75,35 @@ UI::cabecera(e($doc['titulo']),
     <!-- Estado y lo que te toca hacer -->
     <section class="mc-card fd-card fd-estado">
       <div class="fd-estado__cab"><?= FirmasUI::estado($doc, false) ?></div>
-      <?php if ($estado === 'borrador' && $esInforme && $primeroYo):
-          $revsInf = array_map(fn($f) => $quien((int)$f['uid']), array_slice($doc['firmantes'], 1)); ?>
-        <p class="fd-estado__txt">Tu informe de la semana <?= e((string)($doc['contenido']['semana'] ?? '')) ?> está listo. Revísalo, corrige lo que haga falta y fírmalo<?= $revsInf ? ': al firmar se envía a <b>' . e(implode(' y ', $revsInf)) . '</b>' : '' ?>.</p>
-        <div class="fd-estado__acc fd-estado__acc--dos">
-          <button type="button" class="mc-btn mc-btn--secondary mc-btn--md" data-fd-abrir="dlg-informe"><?= $ico('editar') ?><span class="mc-btn__label">Corregir</span></button>
-          <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-fd-abrir="dlg-firmar"><?= $ico('firma') ?><span class="mc-btn__label">Firmar y enviar</span></button>
+      <?php /* Quién firma ya está abajo, en «Firmas de responsabilidad»: aquí no se repite */ ?>
+      <?php if ($estado === 'borrador' && $esInforme && $primeroYo): ?>
+        <p class="fd-estado__txt">Tu informe de la semana <?= e((string)($doc['contenido']['semana'] ?? '')) ?> está listo. Revísalo y fírmalo; si algo falta, corrígelo con el lápiz de arriba.</p>
+        <div class="fd-estado__acc">
+          <button type="button" class="mc-btn mc-btn--primary mc-btn--md fd-ancho" data-fd-abrir="dlg-firmar"><?= $ico('firma') ?><span class="mc-btn__label">Firmar y enviar</span></button>
         </div>
       <?php elseif ($estado === 'borrador'): ?>
-        <p class="fd-estado__txt">Todavía no se envía. Revisa los firmantes y envíalo cuando esté listo: le avisamos a quien firma primero.</p>
+        <p class="fd-estado__txt">Todavía no se envía. Cuando esté listo, envíalo y le avisamos a quien firma primero.</p>
         <?php if ($gestiona): ?>
         <form method="post" action="actions.php" class="fd-estado__acc"><input type="hidden" name="accion" value="firma_doc_enviar"><input type="hidden" name="id" value="<?= $id ?>">
           <button class="mc-btn mc-btn--primary mc-btn--md fd-ancho"><?= $ico('enviar') ?><span class="mc-btn__label">Enviar a firmar</span></button></form>
         <?php endif; ?>
       <?php elseif ($estado === 'en_firma' && $turno !== null): $ft = $doc['firmantes'][$turno]; ?>
         <?php if ($miTurno): ?>
-        <p class="fd-estado__txt"><b>Te toca firmar</b> como «<?= e($ft['rol']) ?>». Revisa el documento y, si está bien, fírmalo. Si algo no cuadra, obsérvalo y vuelve a quien lo elaboró.</p>
+        <p class="fd-estado__txt"><b>Te toca firmar.</b> Revisa el documento y, si está bien, fírmalo. Si algo no cuadra, obsérvalo y vuelve a quien lo elaboró.</p>
         <div class="fd-estado__acc fd-estado__acc--dos">
           <button type="button" class="mc-btn mc-btn--secondary mc-btn--md" data-fd-abrir="dlg-observar"><?= $ico('mensajes') ?><span class="mc-btn__label">Observar</span></button>
           <button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-fd-abrir="dlg-firmar"><?= $ico('firma') ?><span class="mc-btn__label">Firmar</span></button>
         </div>
         <?php else: ?>
-        <p class="fd-estado__txt">Paso <?= $turno + 1 ?> de <?= $n ?>: le toca a <b><?= e($quien((int)$ft['uid'])) ?></b> como «<?= e($ft['rol']) ?>». Ya le avisamos.</p>
+        <p class="fd-estado__txt">Está en firma. Ya le avisamos a quien le toca.</p>
         <?php endif; ?>
       <?php elseif ($estado === 'rechazado'): ?>
-        <p class="fd-estado__txt"><b><?= e($quien((int)($doc['rechazado_por'] ?? 0))) ?></b> lo observó y vuelve a quien lo elaboró para corregirlo.</p>
+        <p class="fd-estado__txt">Tiene observaciones y vuelve a quien lo elaboró para corregirlo.</p>
         <button type="button" class="fd-enlace" data-fd-abrir="dlg-historial">Ver las observaciones</button>
         <?php if ($gestiona): ?>
-        <div class="fd-estado__acc fd-estado__acc--dos">
-          <button type="button" class="mc-btn mc-btn--secondary mc-btn--md" data-fd-abrir="<?= $dlgEditar ?>"><?= $ico('editar') ?><span class="mc-btn__label">Corregir</span></button>
-          <form method="post" action="actions.php"><input type="hidden" name="accion" value="firma_doc_enviar"><input type="hidden" name="id" value="<?= $id ?>">
-            <button class="mc-btn mc-btn--primary mc-btn--md fd-ancho"><?= $ico('enviar') ?><span class="mc-btn__label">Volver a enviar</span></button></form>
-        </div>
+        <p class="fd-estado__txt">Corrígelo con el lápiz de arriba y vuelve a enviarlo.</p>
+        <form method="post" action="actions.php" class="fd-estado__acc"><input type="hidden" name="accion" value="firma_doc_enviar"><input type="hidden" name="id" value="<?= $id ?>">
+          <button class="mc-btn mc-btn--primary mc-btn--md fd-ancho"><?= $ico('enviar') ?><span class="mc-btn__label">Volver a enviar</span></button></form>
         <?php endif; ?>
       <?php elseif ($estado === 'firmado'): ?>
         <p class="fd-estado__txt">Lo firmaron todos el <?= e(Firmas::fecha((string)($doc['firmado_en'] ?? ''))) ?>. El PDF firmado tiene la hoja «Firmas de responsabilidad» al final.</p>
@@ -327,7 +328,7 @@ $eventos = $doc['eventos'] ?? [];
         <div class="fd-cert-acc">
           <button type="button" class="mc-btn mc-btn--sm fd-btn fd-btn--verde" data-fd-cert-cargar><?= $ico('importar', 16) ?><span class="mc-btn__label">Cargar</span></button>
           <button type="button" class="mc-btn mc-btn--sm fd-btn fd-btn--ambar" data-fd-cert-recordar aria-pressed="false" disabled title="<?= $cert ? 'Ya está recordado hasta que cierres sesión' : 'Primero carga tu archivo .p12' ?>"><?= $ico('candado', 16) ?><span class="mc-btn__label">Recordar</span></button>
-          <button type="submit" form="f-olvidar-cert" class="mc-btn mc-btn--sm fd-btn fd-btn--rojo"<?= $cert ? '' : ' disabled' ?>><?= $ico('eliminar', 16) ?><span class="mc-btn__label">Olvidar</span></button>
+          <button type="submit" form="f-olvidar-cert" class="mc-btn mc-btn--sm fd-btn fd-btn--rojo"<?= $cert ? '' : ' disabled' ?>><?= $ico('eliminar-bote', 16) ?><span class="mc-btn__label">Olvidar</span></button>
         </div>
         <div class="mc-field"><label class="mc-field__label" for="fd-clave-cert">Contraseña</label>
           <div class="mc-input"><input class="mc-input__control" id="fd-clave-cert" type="password" name="clave_cert" autocomplete="off" placeholder="La de tu firma electrónica" data-fd-req="electronica"></div>

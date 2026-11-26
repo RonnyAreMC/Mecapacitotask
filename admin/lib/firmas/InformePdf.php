@@ -20,6 +20,7 @@ final class InformePdf
     private const GRIS  = '0.498 0.498 0.498';    // 7F7F7F
     private const LINEA = '0.82 0.84 0.87';
     private const FONDO = '0.949 0.961 0.976';    // F2F5F9
+    private const BORDE = '0.788 0.827 0.878';    // C9D3E0, la cuadrícula de las tablas InnoTech
     private const BLANCO = '1 1 1';
 
     private float $w = 595.28;
@@ -74,7 +75,8 @@ final class InformePdf
             }
             $alto = 8 + count($lineas) * 13;
             $this->rect($this->x0, $this->y - $alto, $col, $alto, self::FONDO, null);
-            $this->linea($this->x0, $this->y - $alto, $this->x0 + $this->ancho, $this->y - $alto);
+            $this->rect($this->x0, $this->y - $alto, $this->ancho, $alto, null, self::BORDE);
+            $this->linea($this->x0 + $col, $this->y, $this->x0 + $col, $this->y - $alto, self::BORDE);
             $this->texto($this->x0 + 8, $this->y - 15, $et, 9.5, true, self::AZUL);
             $yy = $this->y - 15;
             foreach ($lineas as [$r, $i]) {
@@ -250,7 +252,8 @@ final class InformePdf
         $xs = [$this->x0];
         foreach ($cols as $c) $xs[] = end($xs) + $this->ancho * $c[1];
         $cab = function () use ($cols, $xs): void {
-            $this->rect($this->x0, $this->y - 20, $this->ancho, 20, self::AZUL, null);
+            $this->rect($this->x0, $this->y - 20, $this->ancho, 20, self::AZUL, self::BORDE);
+            foreach (array_slice($xs, 1, -1) as $xv) $this->linea($xv, $this->y, $xv, $this->y - 20, self::BORDE);
             foreach ($cols as $i => $c) {
                 $t = PdfFirmas::winAnsi($c[0]);
                 $x = ($c[2] ?? '') === 'der' ? $xs[$i + 1] - 7 - PdfFirmas::ancho($t, 8.5, true) : $xs[$i] + 7;
@@ -271,7 +274,8 @@ final class InformePdf
             $alto = $max * ($tam + 3) + 9;
             if ($this->y - $alto < $this->piso) { $this->cerrar(); $this->pagina(); $cab(); }
             if ($k % 2) $this->rect($this->x0, $this->y - $alto, $this->ancho, $alto, self::FONDO, null);
-            $this->linea($this->x0, $this->y - $alto, $this->x0 + $this->ancho, $this->y - $alto);
+            $this->rect($this->x0, $this->y - $alto, $this->ancho, $alto, null, self::BORDE);
+            foreach (array_slice($xs, 1, -1) as $xv) $this->linea($xv, $this->y, $xv, $this->y - $alto, self::BORDE);
             foreach ($cols as $i => $c) {
                 $yy = $this->y - $tam - 4;
                 $color = $i === count($cols) - 1 && $colorUltima ? $colorUltima($f) : ($i === 0 ? self::TINTA : self::GRIS);
