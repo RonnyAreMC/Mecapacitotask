@@ -10,6 +10,7 @@
  * decide un administrador desde Equipo (si no, cualquiera se daría permisos).
  */
 require_once __DIR__ . '/lib/core/bootstrap.php';
+if (is_file(__DIR__ . '/lib/firmas/firmas_ui.php')) require_once __DIR__ . '/lib/firmas/firmas_ui.php';   // «Mi firma»
 
 $yo = Auth::usuario();
 if (!$yo) {
@@ -262,6 +263,25 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
         </div>
       </div>
     </section>
+
+    <?php if (class_exists('FirmasUI')): $tieneFirma = Firmas::tieneFirma($miId); ?>
+    <!-- Mi firma: la que se usa al firmar documentos (firmas.php). Se edita en su modal, con su propio formulario. -->
+    <section class="card-base pf-card" id="mi-firma">
+      <div class="pf-card-cab">
+        <h2 class="pf-card-tit"><i class="fa-solid fa-signature"></i> Mi firma</h2>
+        <button type="button" class="pf-lapiz pf-editar" data-abrir-dlg="dlg-mi-firma" title="<?= $tieneFirma ? 'Cambiar mi firma' : 'Guardar mi firma' ?>" aria-label="<?= $tieneFirma ? 'Cambiar mi firma' : 'Guardar mi firma' ?>"><i class="fa-solid fa-pen"></i></button>
+      </div>
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-pen-nib"></i></div>
+        <div class="pf-cuerpo"><span class="pf-label">Firma gráfica</span>
+          <?php if ($tieneFirma): ?>
+          <span class="pf-firma"><img src="firma_archivo.php?mia=1&amp;v=<?= (int)@filemtime(Firmas::rutaMiFirma($miId)) ?>" alt="Tu firma"></span>
+          <?php else: ?><span class="pf-valor"><i class="pf-vacio">Todavía no la guardas</i></span><?php endif; ?>
+        </div>
+      </div>
+      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Solo tú la usas, al pulsar «Firmar» en un documento. Es una firma gráfica, no la electrónica con certificado.</p>
+    </section>
+    <?php endif; ?>
   </div>
 
   <!-- Modal: datos generales (nombre y rol) -->
@@ -377,6 +397,8 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
     </div>
   </div>
 </form>
+
+<?php if (class_exists('FirmasUI')) echo FirmasUI::modalMiFirma($yo, 'perfil.php#mi-firma'); ?>
 
 <datalist id="lista-roles">
   <?php foreach (Catalogo::roles() as $rol): ?><option value="<?= e($rol) ?>"></option><?php endforeach; ?>
@@ -572,4 +594,5 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
 })();
 </script>
 
+<?php if (class_exists('FirmasUI')): ?><script src="<?= asset('assets/firmas.js') ?>" defer></script><?php endif; ?>
 <?php UI::fin(); ?>

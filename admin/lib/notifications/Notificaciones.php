@@ -35,6 +35,7 @@ final class Notif
         'deploy'        => ['Subida al servidor', 'publicar', 'verde'],
         'release'       => ['Releases', 'ruta', 'petroleo'],
         'video'         => ['Video', 'video', 'cian'],
+        'firma'         => ['Firma de documento', 'firma', 'petroleo'],
     ];
 
     private static ?JsonStore $store = null;

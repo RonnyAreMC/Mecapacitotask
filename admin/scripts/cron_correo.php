@@ -39,6 +39,18 @@ try {
 } catch (Throwable $e) {
     echo 'Recordatorios de reunión: ' . $e->getMessage() . "\n";
 }
+// El informe semanal de actividades (lib/firmas/InformeSemanal.php): el día y la hora de la
+// configuración arma el de la siguiente persona que no lo tiene, de a uno por vuelta (la IA tarda)
+if (is_file(__DIR__ . '/../lib/firmas/InformeSemanal.php')) {
+    require_once __DIR__ . '/../lib/firmas/InformeSemanal.php';
+    if (is_file(__DIR__ . '/../lib/notifications/Notificaciones.php')) require_once __DIR__ . '/../lib/notifications/Notificaciones.php';
+    try {
+        $inf = InformeSemanal::tick();
+        if ($inf !== '') echo date('Y-m-d H:i:s') . ' · ' . $inf . "\n";
+    } catch (Throwable $e) {
+        echo 'Informe semanal: ' . $e->getMessage() . "\n";
+    }
+}
 // Los recordatorios que cada quien puso en una nota de su pizarra (lib/whiteboard/Pizarra.php)
 if (is_file(__DIR__ . '/../lib/whiteboard/Pizarra.php')) {
     require_once __DIR__ . '/../lib/whiteboard/Pizarra.php';

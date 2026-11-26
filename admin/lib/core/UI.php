@@ -131,6 +131,9 @@ class UI
 <?php if (is_file(__DIR__ . '/../../assets/agenda.css')): /* la agenda de reuniones y el selector de invitados */ ?>
 <link rel="stylesheet" href="<?= asset('assets/agenda.css') ?>">
 <?php endif; ?>
+<?php if (is_file(__DIR__ . '/../../assets/firmas.css')): /* firma de documentos (firmas.php, firma.php y «Mi firma» del perfil) */ ?>
+<link rel="stylesheet" href="<?= asset('assets/firmas.css') ?>">
+<?php endif; ?>
 <?php if ($nvTemporada['vigente'] && is_file(__DIR__ . '/../../assets/navidad.css')): /* Temporada navideña (Ajustes → Identidad): adornos sutiles */ ?>
 <link rel="stylesheet" href="<?= asset('assets/navidad.css') ?>">
 <script src="<?= asset('assets/navidad.js') ?>" defer></script>
@@ -273,6 +276,18 @@ class UI
     </a>
 
     <?php
+    // Firma de documentos: el contador es lo que espera TU firma (lib/firmas/Firmas.php)
+    if (Auth::usuario() && is_file(__DIR__ . '/../firmas/Firmas.php') && is_file(__DIR__ . '/../../firmas.php')):
+        require_once __DIR__ . '/../firmas/Firmas.php';
+        $nFirmas = Firmas::porFirmar((int)Auth::usuario()['id']);
+    ?>
+    <a href="firmas.php" class="sidebar-link <?= $activo === 'firmas' ? 'active' : '' ?>" title="Firma de documentos">
+      <?= UI::icono('ds-firma') ?> <span class="truncate">Firmas</span>
+      <?php if ($nFirmas): ?><span class="nav-badge nav-badge-fin" title="<?= $nFirmas ?> por firmar"><?= $nFirmas ?></span><?php endif; ?>
+    </a>
+    <?php endif; ?>
+
+    <?php
     // Grupos del menú, como «Proyectos»: desplegada la barra, sus enlaces se ven en
     // línea bajo su título; plegada, un solo botón que abre la lista al costado.
     $navLink = function (string $href, string $clave, string $icono, string $texto, string $title = '', string $badge = '') use ($activo): string {
@@ -351,8 +366,9 @@ class UI
         $itConf = (is_file(__DIR__ . '/../../ia.php') ? $navLink('ia.php', 'ia', UI::icono('ds-ia'), 'Consola de IA', 'Claves, modelos y consumo de la IA') : '')
             . (is_file(__DIR__ . '/../../buzones.php') ? $navLink('buzones.php', 'buzones', UI::icono('ds-correo'), 'Cuentas de correo', 'Las cuentas del cPanel: crear, contraseñas, espacio y reenvíos') : '')
             . (is_file(__DIR__ . '/../../colorimetria.php') ? $navLink('colorimetria.php?v=config', 'colorimetria', UI::icono('ds-reportes'), 'Colorimetría', 'Los tonos de cada estado, el puntaje y los umbrales de cada indicador') : '')
+            . (is_file(__DIR__ . '/../../firmas_param.php') ? $navLink('firmas_param.php', 'firmas-param', UI::icono('ds-firma'), 'Parámetros de firmas', 'Coordinaciones y revisores, cargos para firmar e informes semanales') : '')
             . $navLink('ajustes.php', 'ajustes', UI::icono('ds-configuracion'), 'Ajustes');
-        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones', 'colorimetria'], true), 0, '', true);
+        echo $navGrupo('Configuración', 'ds-configuracion', $itConf, in_array($activo, ['ia', 'ajustes', 'buzones', 'colorimetria', 'firmas-param'], true), 0, '', true);
     } else {
         /* ---- Conocimiento (los demás equipos): el release y los hitos (solo ver), la documentación y los tutoriales ---- */
         if (is_file(__DIR__ . '/../releases/Releases.php')) require_once __DIR__ . '/../releases/Releases.php';

@@ -6,7 +6,7 @@
 require_once __DIR__ . '/lib/core/bootstrap.php';
 // Notificaciones (campana) y pedidos entre equipos. Fuera de bootstrap a
 // propósito: si al subir por FTP falta alguno, solo se pierde eso.
-foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento', 'requirements/req_avisos', 'apis/Apis'] as $moduloNuevo) {
+foreach (['notifications/Notificaciones', 'tasks/Pedidos', 'mail/Correo', 'notifications/Push', 'help/Tutoriales', 'notifications/Whatsapp', 'requirements/ReqCorreo', 'mail/CorreoCopias', 'mail/TareasCorreo', 'requirements/ReqSeguimiento', 'requirements/req_avisos', 'apis/Apis', 'firmas/Firmas', 'firmas/InformeSemanal'] as $moduloNuevo) {
     if (is_file(__DIR__ . '/lib/' . $moduloNuevo . '.php')) require_once __DIR__ . '/lib/' . $moduloNuevo . '.php';
 }
 
@@ -98,6 +98,9 @@ $accionesDeCualquiera = [
     'bl_historia_guardar', 'bl_historia_mover', 'bl_historia_borrar', 'bl_sprints_conf', 'bl_planificacion', 'bl_planificacion_borrar', 'bl_planificacion_calcular', 'bl_importar', 'bl_ia_tareas', 'bl_tareas_repartir',
     // El sprint del proyecto (sprint.php): objetivo, capacidad, retrospectiva y DoR; también su PO, su SM o el admin
     'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
+    // Firma de documentos: cada quien su firma; en los documentos, cada acción
+    // comprueba por dentro su turno o que el documento sea suyo (Firmas::*)
+    'firma_mia_guardar', 'firma_mia_quitar', 'firma_cert_olvidar', 'informe_generar_mio', 'informe_editar', 'firma_doc_crear', 'firma_doc_editar', 'firma_doc_enviar', 'firma_doc_firmar', 'firma_doc_rechazar', 'firma_doc_eliminar',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -5768,6 +5771,228 @@ switch ($accion) {
         }
         $depRepo->eliminar((int)$dep['id']);
         redirigir('deploys.php', 'Despliegue eliminado.');
+
+    /* ---------- Firma de documentos (lib/firmas/Firmas.php) ----------
+       Cada quien guarda SU firma; los documentos los crea cualquiera y en cada
+       acción se comprueba por dentro quién puede qué (su turno, su documento). */
+    case 'firma_mia_guardar':
+        $yoF = Auth::usuario();
+        $volverF = volverAqui('perfil.php#mi-firma');
+        $bytesF = '';
+        if (preg_match('#^data:image/png;base64,([A-Za-z0-9+/=]+)$#', trim((string)($_POST['firma_png'] ?? '')), $mF)) {
+            $bytesF = (string)base64_decode($mF[1], true);
+        } elseif (($_FILES['firma_archivo']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file($_FILES['firma_archivo']['tmp_name'])) {
+            $bytesF = (string)file_get_contents($_FILES['firma_archivo']['tmp_name']);
+        }
+        $rF = Firmas::guardarMiFirma((int)$yoF['id'], $bytesF);
+        if ($rF !== true) redirigir($volverF, $rF, 'error');
+        redirigir($volverF, 'Tu firma quedó guardada. Solo tú la puedes usar, al pulsar «Firmar».');
+
+    /* ---------- Informe semanal de actividades (lib/firmas/InformeSemanal.php) ---------- */
+    case 'informes_conf':
+        // Solo el administrador (no está en $accionesDeCualquiera)
+        $revI = [];
+        foreach ([0, 1] as $iI) {
+            $uI = (int)($_POST['revisores'][$iI]['uid'] ?? 0);
+            if ($uI > 0) $revI[] = ['uid' => $uI, 'rol' => mb_substr(trim((string)($_POST['revisores'][$iI]['rol'] ?? '')), 0, 60) ?: ($iI ? 'Aprobado por' : 'Revisado por'),
+                                    'cargo' => mb_substr(trim((string)($_POST['revisores'][$iI]['cargo'] ?? '')), 0, 120)];
+        }
+        $horaI = preg_match('/^\d{2}:\d{2}$/', (string)($_POST['hora'] ?? '')) ? (string)$_POST['hora'] : '16:00';
+        InformeSemanal::guardarConf([
+            'activo'    => !empty($_POST['activo']),
+            'personas'  => array_values(array_unique(array_filter(array_map('intval', (array)($_POST['personas'] ?? []))))),
+            'revisores' => $revI,
+            'avisar'    => array_values(array_unique(array_filter(array_map('intval', (array)($_POST['avisar'] ?? []))))),
+            'dia'       => max(1, min(5, (int)($_POST['dia'] ?? 5))),
+            'hora'      => $horaI,
+            'ia'        => !empty($_POST['ia']),
+        ]);
+        $cI = InformeSemanal::conf();
+        redirigir('firmas_param.php?tab=informes', $cI['activo']
+            ? 'Listo. Cada ' . mb_strtolower(InformeSemanal::DIAS[$cI['dia']]) . ' a las ' . $cI['hora'] . ' se arman los informes de ' . count($cI['personas']) . ($cI['personas'] && count($cI['personas']) === 1 ? ' persona.' : ' personas.')
+            : 'Guardado. Los informes semanales están apagados.');
+
+    /* ---------- Parámetros de firmas: coordinaciones y cargos (solo el administrador) ---------- */
+    case 'firma_coord_guardar':
+        $nomC = mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST['nombre'] ?? ''))), 0, 60);
+        if ($nomC === '') redirigir('firmas_param.php', 'Escribe el nombre de la coordinación.', 'error');
+        $idC = preg_replace('/[^a-z0-9-]/', '', (string)($_POST['id'] ?? ''));
+        $revC = [];
+        foreach ((array)($_POST['revisores'] ?? []) as $rvC) {
+            $uC = (int)($rvC['uid'] ?? 0);
+            if ($uC <= 0) continue;
+            $revC[] = ['uid' => $uC, 'rol' => mb_substr(trim((string)($rvC['rol'] ?? '')), 0, 60) ?: 'Revisado por', 'cargo' => mb_substr(trim((string)($rvC['cargo'] ?? '')), 0, 120)];
+        }
+        $lista = Firmas::coordinaciones();
+        $nuevaC = ['id' => $idC, 'nombre' => $nomC, 'personas' => array_values(array_unique(array_filter(array_map('intval', (array)($_POST['personas'] ?? []))))), 'revisores' => $revC];
+        $esta = false;
+        foreach ($lista as $kC => $cC) {
+            if ($idC !== '' && $cC['id'] === $idC) { $lista[$kC] = $nuevaC; $esta = true; }
+        }
+        if (!$esta) {
+            $nuevaC['id'] = trim(preg_replace('/[^a-z0-9]+/', '-', strtolower(iconv('UTF-8', 'ASCII//TRANSLIT', $nomC) ?: 'coord')), '-') . '-' . substr(bin2hex(random_bytes(2)), 0, 4);
+            $lista[] = $nuevaC;
+        }
+        Firmas::guardarCoordinaciones($lista);
+        redirigir('firmas_param.php', $esta ? 'Coordinación «' . $nomC . '» actualizada.' : 'Coordinación «' . $nomC . '» creada.');
+
+    case 'firma_coord_eliminar':
+        $idC = (string)($_POST['id'] ?? '');
+        Firmas::guardarCoordinaciones(array_values(array_filter(Firmas::coordinaciones(), fn($cC) => $cC['id'] !== $idC)));
+        redirigir('firmas_param.php', 'Coordinación eliminada.');
+
+    case 'firma_cargo_guardar':
+        $uC = (int)($_POST['uid'] ?? 0);
+        $mC = $miembros->buscar($uC);
+        if (!$mC) redirigir('firmas_param.php?tab=cargos', 'Esa persona ya no está en el equipo.', 'error');
+        $miembros->actualizar($uC, ['cargo_firma' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST['cargo_firma'] ?? ''))), 0, 120)]);
+        redirigir('firmas_param.php?tab=cargos', 'Cargo de ' . $mC['nombre'] . ' guardado.');
+
+    case 'informes_generar':
+        // El administrador: los de esta semana, ya (los que falten)
+        @set_time_limit(300);
+        $cI = InformeSemanal::conf();
+        $mapaI = $miembros->mapa();
+        $hechosI = 0; $erroresI = [];
+        foreach ($cI['personas'] as $uI) {
+            if (!isset($mapaI[$uI]) || MiembroRepo::deBaja($mapaI[$uI])) continue;
+            $rI = InformeSemanal::generar($mapaI[$uI], null, (int)Auth::usuario()['id']);
+            if (is_string($rI)) $erroresI[] = $mapaI[$uI]['nombre'] . ': ' . $rI; elseif (empty($rI['_ya'])) $hechosI++;
+        }
+        if (!$cI['personas']) redirigir('firmas.php', 'Primero elige quiénes hacen informe (Informes semanales).', 'error');
+        redirigir('firmas.php?tab=todos', $erroresI ? 'Algunos no se pudieron armar. ' . implode(' · ', $erroresI)
+            : ($hechosI ? 'Listo: ' . $hechosI . ($hechosI === 1 ? ' informe nuevo' : ' informes nuevos') . ' de esta semana. A cada persona le avisamos para que lo revise y lo firme.'
+                        : 'Ya estaban todos los informes de esta semana.'), $erroresI ? 'error' : 'success');
+
+    case 'informe_generar_mio':
+        $yoI = Auth::usuario();
+        if (!in_array((int)$yoI['id'], InformeSemanal::conf()['personas'], true)) redirigir('firmas.php', 'Tu informe semanal no está activado. Pídeselo al administrador.', 'error');
+        @set_time_limit(120);
+        $rI = InformeSemanal::generar($yoI, null, (int)$yoI['id']);
+        if (is_string($rI)) redirigir('firmas.php', $rI, 'error');
+        redirigir('firma.php?id=' . $rI['id'], 'Tu informe de esta semana está listo. Revísalo y fírmalo.');
+
+    case 'informe_editar':
+        $yoI = Auth::usuario();
+        $docI = Firmas::buscar((int)($_POST['id'] ?? 0));
+        if (!$docI || !Firmas::puedeGestionar($docI, $yoI)) redirigir('firmas.php', 'Solo la persona del informe (o un administrador) puede corregirlo.', 'error');
+        $rI = InformeSemanal::editarContenido($docI, $yoI, $_POST);
+        redirigir('firma.php?id=' . $docI['id'], $rI === true ? 'Informe actualizado.' : $rI, $rI === true ? 'success' : 'error');
+
+    case 'firma_cert_olvidar':
+        Firmas::olvidarCert((int)Auth::usuario()['id']);
+        redirigir(volverAqui('firmas.php'), 'Olvidamos tu archivo de firma electrónica. La próxima vez cárgalo de nuevo.');
+
+    case 'firma_mia_quitar':
+        Firmas::quitarMiFirma((int)Auth::usuario()['id']);
+        redirigir('perfil.php#mi-firma', 'Quitamos tu firma. Los documentos que ya firmaste la conservan.');
+
+    case 'firma_doc_crear':
+        $yoF = Auth::usuario();
+        $tituloF = mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST['titulo'] ?? ''))), 0, 160);
+        if ($tituloF === '') redirigir('firmas.php', 'Escribe el título del documento.', 'error');
+        $firmF = Firmas::firmantesDe((array)($_POST['firmantes'] ?? []));
+        if (is_string($firmF)) redirigir('firmas.php', $firmF, 'error');
+        $subF = Firmas::leerSubida((array)($_FILES['pdf'] ?? []));
+        if (is_string($subF)) redirigir('firmas.php', $subF, 'error');
+        $docF = Firmas::crear($yoF, $tituloF, $subF, $firmF, !empty($_POST['enviar']));
+        redirigir('firma.php?id=' . $docF['id'], !empty($_POST['enviar'])
+            ? (Firmas::esMiTurno(Firmas::buscar((int)$docF['id']) ?? [], (int)$yoF['id']) ? 'Documento creado. Te toca firmar primero.' : 'Documento enviado a firmar. Le avisamos a quien le toca.')
+            : 'Documento guardado como borrador. Envíalo a firmar cuando esté listo.');
+
+    case 'firma_doc_editar':
+    case 'firma_doc_enviar':
+    case 'firma_doc_firmar':
+    case 'firma_doc_rechazar':
+    case 'firma_doc_eliminar':
+        $yoF = Auth::usuario();
+        $docF = Firmas::buscar((int)($_POST['id'] ?? 0));
+        if (!$docF || !Firmas::puedeVer($docF, $yoF)) redirigir('firmas.php', 'Ese documento ya no existe o no participas en él.', 'error');
+        $aquiF = 'firma.php?id=' . $docF['id'];
+        if (in_array($accion, ['firma_doc_editar', 'firma_doc_enviar', 'firma_doc_eliminar'], true) && !Firmas::puedeGestionar($docF, $yoF)) {
+            redirigir($aquiF, 'Solo quien creó el documento (o un administrador) puede hacer eso.', 'error');
+        }
+        if ($accion === 'firma_doc_editar') {
+            $tituloF = mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST['titulo'] ?? ''))), 0, 160);
+            if ($tituloF === '') redirigir($aquiF, 'Escribe el título del documento.', 'error');
+            $firmF = Firmas::firmantesDe((array)($_POST['firmantes'] ?? []));
+            if (is_string($firmF)) redirigir($aquiF, $firmF, 'error');
+            $subF = null;
+            if (($_FILES['pdf']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+                $subF = Firmas::leerSubida((array)$_FILES['pdf']);
+                if (is_string($subF)) redirigir($aquiF, $subF, 'error');
+            }
+            $rF = Firmas::editar($docF, $yoF, $tituloF, $firmF, $subF);
+            redirigir($aquiF, $rF === true ? 'Cambios guardados.' : $rF, $rF === true ? 'success' : 'error');
+        }
+        if ($accion === 'firma_doc_enviar') {
+            $rF = Firmas::enviar($docF, $yoF);
+            if ($rF !== true) redirigir($aquiF, $rF, 'error');
+            $docF = Firmas::buscar((int)$docF['id']) ?? $docF;
+            redirigir($aquiF, Firmas::esMiTurno($docF, (int)$yoF['id']) ? 'Enviado. Te toca firmar primero.' : 'Enviado a firmar. Le avisamos a quien le toca.');
+        }
+        if ($accion === 'firma_doc_firmar' && ($docF['estado'] ?? '') === 'borrador' && Firmas::puedeGestionar($docF, $yoF)
+            && (int)($docF['firmantes'][0]['uid'] ?? 0) === (int)$yoF['id']) {
+            // «Firmar y enviar» (el informe semanal, por ejemplo): se envía y se firma de una vez
+            $rF = Firmas::enviar($docF, $yoF);
+            if ($rF !== true) redirigir($aquiF, $rF, 'error');
+            $docF = Firmas::buscar((int)$docF['id']) ?? $docF;
+        }
+        if ($accion === 'firma_doc_firmar' && ($_POST['modo'] ?? '') === 'electronica') {
+            // Con el certificado .p12/.pfx: el que sube ahora o el que dejó recordado
+            $p12F = '';
+            $nombreP12 = '';
+            if (($_FILES['p12']['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_OK && is_uploaded_file($_FILES['p12']['tmp_name'])) {
+                if ((int)$_FILES['p12']['size'] > 200 * 1024) redirigir($aquiF, 'Ese archivo es demasiado grande para ser una firma electrónica (.p12 o .pfx).', 'error');
+                $p12F = (string)file_get_contents($_FILES['p12']['tmp_name']);
+                $nombreP12 = mb_substr(basename((string)$_FILES['p12']['name']), 0, 120);
+            } else {
+                $p12F = Firmas::leerCert((int)$yoF['id']);
+            }
+            if ($p12F === '') redirigir($aquiF, 'Carga tu archivo de firma electrónica (.p12 o .pfx).', 'error');
+            $fallosF = array_filter((array)($_SESSION['firma_fallos'] ?? []), fn($t) => $t > time() - 600);
+            if (count($fallosF) >= 5) redirigir($aquiF, 'Demasiados intentos con la contraseña equivocada. Espera unos minutos y vuelve a intentarlo.', 'error');
+            $claveF = (string)($_POST['clave_cert'] ?? '');
+            $rF = Firmas::firmarElectronica($docF, $yoF, $p12F, $claveF);
+            if ($rF !== true) {
+                if (str_contains($rF, 'contraseña')) { $fallosF[] = time(); $_SESSION['firma_fallos'] = $fallosF; }
+                redirigir($aquiF, $rF, 'error');
+            }
+            unset($_SESSION['firma_fallos']);
+            if ($nombreP12 !== '' && !empty($_POST['recordar'])) {
+                $certF = PdfFirmas::abrirCertificado($p12F, $claveF);
+                Firmas::recordarCert((int)$yoF['id'], $p12F, $nombreP12, $certF['cn']);
+            }
+            $docF = Firmas::buscar((int)$docF['id']) ?? $docF;
+            redirigir($aquiF, ($docF['estado'] ?? '') === 'firmado' ? 'Firmaste con tu certificado. Con tu firma quedó firmado por todos.' : 'Firmaste con tu certificado. Le avisamos a quien sigue.');
+        }
+        if ($accion === 'firma_doc_firmar') {
+            // Se confirma con la contraseña de entrada; quien entra solo con Google marca la casilla
+            if (!empty($yoF['pass_hash'])) {
+                $fallosF = (array)($_SESSION['firma_fallos'] ?? []);
+                $fallosF = array_filter($fallosF, fn($t) => $t > time() - 600);
+                if (count($fallosF) >= 5) redirigir($aquiF, 'Demasiados intentos con la contraseña equivocada. Espera unos minutos y vuelve a intentarlo.', 'error');
+                if (!password_verify((string)($_POST['clave'] ?? ''), (string)$yoF['pass_hash'])) {
+                    $fallosF[] = time();
+                    $_SESSION['firma_fallos'] = $fallosF;
+                    redirigir($aquiF, 'La contraseña no es correcta. No se firmó.', 'error');
+                }
+                unset($_SESSION['firma_fallos']);
+            } elseif (empty($_POST['confirmo'])) {
+                redirigir($aquiF, 'Marca la casilla para confirmar que firmas.', 'error');
+            }
+            $rF = Firmas::firmar($docF, $yoF);
+            if ($rF !== true) redirigir($aquiF, $rF, 'error');
+            $docF = Firmas::buscar((int)$docF['id']) ?? $docF;
+            redirigir($aquiF, ($docF['estado'] ?? '') === 'firmado' ? 'Firmaste. Con tu firma quedó firmado por todos.' : 'Firmaste. Le avisamos a quien sigue.');
+        }
+        if ($accion === 'firma_doc_rechazar') {
+            $rF = Firmas::rechazar($docF, $yoF, (string)($_POST['motivo'] ?? ''));
+            redirigir($aquiF, $rF === true ? 'Observaste el documento. Le avisamos a quien lo elaboró para que lo corrija.' : $rF, $rF === true ? 'success' : 'error');
+        }
+        $rF = Firmas::eliminar($docF, $yoF);
+        if ($rF !== true) redirigir($aquiF, $rF, 'error');
+        redirigir('firmas.php', 'Documento eliminado.');
 
     default:
         redirigir('index.php', 'Acción no reconocida.', 'error');

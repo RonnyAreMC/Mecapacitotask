@@ -841,6 +841,27 @@ class Mailer
     }
 
     /**
+     * Firma de documentos (lib/firmas/Firmas.php): le toca firmar, alguien lo
+     * observó o ya lo firmaron todos. $filas: [etiqueta => texto]; $nota, un
+     * texto aparte (las observaciones); $url, la página del documento.
+     */
+    public static function avisoFirma(array $miembro, string $asunto, string $titulo, string $intro, array $filas, string $nota, string $url, string $color, string $boton = 'Abrir el documento'): true|string|null
+    {
+        if (!self::listo() || empty($miembro['email'])) {
+            return null;
+        }
+        $nombre = e(explode(' ', trim($miembro['nombre'] ?? ''))[0] ?: '');
+        $cuerpo = self::encabezado($color, '&#9998;', e($titulo), ($nombre !== '' ? 'Hola ' . $nombre . ', ' : '') . $intro)
+            . self::detalle((string)($filas['Documento'] ?? ''), array_map(fn($v) => e((string)$v), array_diff_key(array_filter($filas, fn($v) => (string)$v !== ''), ['Documento' => 1])))
+            . ($nota !== ''
+                ? '<div style="margin-top:16px;padding:12px 16px;border-left:3px solid ' . $color . ';background:#f7f8fa;color:#1d1d1f;font-size:14px;line-height:1.55;">'
+                  . nl2br(e($nota)) . '</div>'
+                : '');
+        $abs = self::urlPagina($url);
+        return self::enviar($miembro['email'], $asunto, self::plantilla($cuerpo, $abs, $abs !== '' ? $boton : ''));
+    }
+
+    /**
      * Seguimiento de requerimientos (lib/requirements/ReqSeguimiento.php): a quien da
      * seguimiento, uno terminado o los que se pasaron de fecha. $bloques:
      * [[título, [etiqueta => texto], nota], …]. $url, página del panel.
