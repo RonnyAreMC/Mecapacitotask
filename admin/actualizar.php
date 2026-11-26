@@ -246,7 +246,7 @@ function actualizarPanel(array $opc): void
         'firmas.php'                 => ['dlg-doc-nuevo', 'informe_generar_mio', 'firmas_param.php'],
         'firma.php'                  => ['dlg-historial', 'dlg-observar', 'data-fd-visor', 'Firmar y enviar', 'f-olvidar-cert'],
         'firma_archivo.php'          => ['registrarDescarga', 'rutaFirmaUsada'],
-        'firmas_param.php'           => ['modalCoordinacion', 'data-fc-editar', 'panel-informes'],
+        'firmas_param.php'           => ['modalCoordinacion', 'data-fc-editar', 'panel-informes', 'avatarStack'],
         'assets/firmas.css'          => ['.fd-hist__linea', '.fd-vw__barra', '.fp-coords', '.fd-obs'],
         'assets/firmas.js'           => ['data-fd-visor', 'data-fd-firmar', 'data-fd-hist', 'data-fd-coord', 'data-mf-form'],
         'lib/firmas/PdfFirmas.php'   => ['function firmarDigital', 'function reemplazarPaginas', 'function nuevo(', 'ANCHOS_B'],

@@ -414,3 +414,11 @@ dialog.ds-modal.fd-obs-dlg { width: min(1000px, calc(100vw - 16px)); background:
   .fp-datos dd { margin-bottom: var(--space-2); }
 }
 .fp-inf { display: grid; gap: var(--space-4); }
+/* Personas: solo las fotos en fila y «+N» */
+.fp-gente { display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap; min-width: 0; }
+.fp-pila .avatar-stack .avatar { margin-left: -8px; box-shadow: 0 0 0 2px var(--surface); }
+.fp-pila .avatar-stack .avatar:first-child { margin-left: 0; }
+.fp-pila .avatar-more { display: inline-grid; place-items: center; cursor: default; }
+.fp-cuenta { font-size: var(--mc-fs-sm); color: var(--ink-muted); white-space: nowrap; }
+.fp-datos dd { min-width: 0; }
+.fp-datos dt, .fp-datos dd { align-self: center; }

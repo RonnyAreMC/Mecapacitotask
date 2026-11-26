@@ -21,6 +21,16 @@ $conf = InformeSemanal::conf();
 $nombre = fn(int $u) => (string)($mapa[$u]['nombre'] ?? '—');
 $coordDe = [];
 foreach ($coords as $c) foreach ($c['personas'] as $u) $coordDe[$u][] = $c['nombre'];
+// Fotos en fila (las primeras y «+N»); el «+N» dice quiénes faltan al pasar el mouse
+$pila = function (array $uids, int $max = 5) use ($mapa): string {
+    $ms = array_values(array_filter(array_map(fn($u) => $mapa[$u] ?? null, $uids)));
+    if (!$ms) return '';
+    $html = UI::avatarStack($ms, $max, 32);
+    if ($resto = array_slice($ms, $max)) {
+        $html = str_replace('<span class="avatar avatar-more"', '<span class="avatar avatar-more" title="' . e(implode(', ', array_map(fn($m) => (string)$m['nombre'], $resto))) . '"', $html);
+    }
+    return '<span class="fp-pila">' . $html . '</span>';
+};
 $tab = in_array($_GET['tab'] ?? '', ['coordinaciones', 'cargos', 'informes'], true) ? $_GET['tab'] : 'coordinaciones';
 $nuevaBtn = '<button type="button" class="mc-btn mc-btn--primary mc-btn--md" data-fd-abrir="dlg-coord-nueva">' . UI::iconoDS('mas', 18) . '<span class="mc-btn__label">Nueva coordinación</span></button>';
 
@@ -68,7 +78,8 @@ UI::cabecera('Parámetros de <span class="text-secondary">firmas</span>',
         </ol>
         <h3 class="fp-sub">Personas</h3>
         <?php if ($c['personas']): ?>
-        <div class="fp-personas"><?php foreach ($c['personas'] as $u): ?><span class="fp-chip" title="<?= e(Firmas::cargoDe($u)) ?>"><?= UI::avatar($mapa[$u] ?? null, 22) ?><span class="truncate"><?= e($nombre($u)) ?></span></span><?php endforeach; ?></div>
+        <div class="fp-gente"><?= $pila($c['personas'], 6) ?>
+          <button type="button" class="fd-enlace" data-fd-abrir="dlg-coord-<?= e($c['id']) ?>">Ver o cambiar</button></div>
         <?php else: ?><p class="fp-nota">Todavía nadie. Edítala para sumar personas.</p><?php endif; ?>
       </article>
       <?php endforeach; ?>
@@ -110,9 +121,9 @@ UI::cabecera('Parámetros de <span class="text-secondary">firmas</span>',
       </header>
       <dl class="fp-datos">
         <dt>Cuándo se arman</dt><dd><?= e(InformeSemanal::DIAS[$conf['dia']]) ?> a las <?= e($conf['hora']) ?><?= $conf['activo'] ? '' : ' (apagado: solo a mano)' ?></dd>
-        <dt>Quiénes hacen informe</dt><dd><?= $conf['personas'] ? e(implode(', ', array_map($nombre, $conf['personas']))) : '<span class="fp-sin">Nadie todavía</span>' ?></dd>
+        <dt>Quiénes hacen informe</dt><dd><?= $conf['personas'] ? '<span class="fp-gente">' . $pila($conf['personas'], 8) . '<span class="fp-cuenta">' . count($conf['personas']) . (count($conf['personas']) === 1 ? ' persona' : ' personas') . '</span></span>' : '<span class="fp-sin">Nadie todavía</span>' ?></dd>
         <dt>Quiénes lo firman</dt><dd>Los revisores de la coordinación de cada persona<?= $conf['revisores'] ? '; si no está en ninguna, ' . e(implode(' → ', array_map(fn($r) => $nombre($r['uid']), $conf['revisores']))) : '' ?></dd>
-        <dt>Al quedar firmado se avisa a</dt><dd><?= $conf['avisar'] ? e(implode(', ', array_map($nombre, $conf['avisar']))) : '<span class="fp-sin">Nadie</span>' ?></dd>
+        <dt>Al quedar firmado se avisa a</dt><dd><?= $conf['avisar'] ? '<span class="fp-gente">' . $pila($conf['avisar'], 5) . '<span class="fp-cuenta">' . e(count($conf['avisar']) <= 2 ? implode(' y ', array_map($nombre, $conf['avisar'])) : count($conf['avisar']) . ' personas') . '</span></span>' : '<span class="fp-sin">Nadie</span>' ?></dd>
         <dt>Redacción</dt><dd><?= $conf['ia'] ? 'Con IA (la consola de IA del Hub)' : 'Sin IA: con los datos de la semana' ?></dd>
       </dl>
     </article>
