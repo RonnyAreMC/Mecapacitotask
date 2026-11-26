@@ -72,10 +72,10 @@ UI::cabecera(
 );
 ?>
 <div class="ds fd-pagina">
-  <?php if (!Firmas::tieneFirma($uid)): ?>
+  <?php if (!Firmas::tieneFirma($uid) && !Firmas::certGuardado($uid)): ?>
   <div class="mc-alert mc-alert--tip fd-sinfirma" role="status"><?= UI::iconoDS('firma', 20, 'mc-alert__icon') ?>
     <div class="mc-alert__content"><p class="mc-alert__title">Todavía no guardas tu firma</p>
-      <p class="mc-alert__desc">La necesitas para firmar los documentos que te lleguen. La dibujas o subes una foto una sola vez.</p></div>
+      <p class="mc-alert__desc">La necesitas para firmar los documentos que te lleguen: tu firma gráfica (dibujada o una foto) o tu firma electrónica (.p12).</p></div>
     <button type="button" class="mc-btn mc-btn--secondary mc-btn--sm" data-fd-abrir="dlg-mi-firma"><span class="mc-btn__label">Guardar mi firma</span></button>
   </div>
   <?php endif; ?>

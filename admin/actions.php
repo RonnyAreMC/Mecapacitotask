@@ -100,7 +100,7 @@ $accionesDeCualquiera = [
     'bl_sprint_plan', 'bl_sprint_retro', 'bl_sprint_accion', 'bl_dor_conf',
     // Firma de documentos: cada quien su firma; en los documentos, cada acción
     // comprueba por dentro su turno o que el documento sea suyo (Firmas::*)
-    'firma_mia_guardar', 'firma_mia_quitar', 'firma_cert_olvidar', 'informe_generar_mio', 'informe_editar', 'firma_doc_crear', 'firma_doc_editar', 'firma_doc_enviar', 'firma_doc_firmar', 'firma_doc_rechazar', 'firma_doc_eliminar',
+    'firma_mia_guardar', 'firma_mia_quitar', 'firma_cert_guardar', 'firma_cert_olvidar', 'informe_generar_mio', 'informe_editar', 'firma_doc_crear', 'firma_doc_editar', 'firma_doc_enviar', 'firma_doc_firmar', 'firma_doc_rechazar', 'firma_doc_eliminar',
 ];
 
 if (!in_array($accion, $accionesPublicas, true)) {
@@ -5879,6 +5879,25 @@ switch ($accion) {
         $rI = InformeSemanal::editarContenido($docI, $yoI, $_POST);
         redirigir('firma.php?id=' . $docI['id'], $rI === true ? 'Informe actualizado.' : $rI, $rI === true ? 'success' : 'error');
 
+    case 'firma_cert_guardar':
+        // «Mi firma» → Firma electrónica: se comprueba el .p12 con su contraseña y se guarda cifrado (la contraseña no)
+        $yoF = Auth::usuario();
+        $volverF = volverAqui('perfil.php#mi-firma');
+        if (($_FILES['p12']['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK || !is_uploaded_file($_FILES['p12']['tmp_name'])) {
+            redirigir($volverF, 'Elige tu archivo de firma electrónica (.p12 o .pfx).', 'error');
+        }
+        if ((int)$_FILES['p12']['size'] > 200 * 1024) redirigir($volverF, 'Ese archivo es demasiado grande para ser una firma electrónica.', 'error');
+        $p12F = (string)file_get_contents($_FILES['p12']['tmp_name']);
+        try {
+            $certF = PdfFirmas::abrirCertificado($p12F, (string)($_POST['clave_cert'] ?? ''));
+        } catch (Throwable $e) {
+            redirigir($volverF, $e->getMessage(), 'error');
+        }
+        if (!Firmas::recordarCert((int)$yoF['id'], $p12F, mb_substr(basename((string)$_FILES['p12']['name']), 0, 120), $certF['cn'], $certF['emisor'], $certF['hasta'] ? date('Y-m-d', $certF['hasta']) : '')) {
+            redirigir($volverF, 'No se pudo guardar el archivo de firma. Inténtalo de nuevo.', 'error');
+        }
+        redirigir($volverF, 'Tu firma electrónica quedó guardada (' . $certF['cn'] . ($certF['hasta'] ? ', vence el ' . date('d/m/Y', $certF['hasta']) : '') . '). Al firmar, elige «Firma electrónica» y escribe tu contraseña.');
+
     case 'firma_cert_olvidar':
         Firmas::olvidarCert((int)Auth::usuario()['id']);
         redirigir(volverAqui('firmas.php'), 'Olvidamos tu archivo de firma electrónica. La próxima vez cárgalo de nuevo.');
@@ -5961,7 +5980,7 @@ switch ($accion) {
             unset($_SESSION['firma_fallos']);
             if ($nombreP12 !== '' && !empty($_POST['recordar'])) {
                 $certF = PdfFirmas::abrirCertificado($p12F, $claveF);
-                Firmas::recordarCert((int)$yoF['id'], $p12F, $nombreP12, $certF['cn']);
+                Firmas::recordarCert((int)$yoF['id'], $p12F, $nombreP12, $certF['cn'], $certF['emisor'], $certF['hasta'] ? date('Y-m-d', $certF['hasta']) : '');
             }
             $docF = Firmas::buscar((int)$docF['id']) ?? $docF;
             redirigir($aquiF, ($docF['estado'] ?? '') === 'firmado' ? 'Firmaste con tu certificado. Con tu firma quedó firmado por todos.' : 'Firmaste con tu certificado. Le avisamos a quien sigue.');

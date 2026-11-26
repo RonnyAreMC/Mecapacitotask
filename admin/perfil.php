@@ -264,7 +264,7 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
       </div>
     </section>
 
-    <?php if (class_exists('FirmasUI')): $tieneFirma = Firmas::tieneFirma($miId); ?>
+    <?php if (class_exists('FirmasUI')): $tieneFirma = Firmas::tieneFirma($miId); $certPf = Firmas::certGuardado($miId); ?>
     <!-- Mi firma: la que se usa al firmar documentos (firmas.php). Se edita en su modal, con su propio formulario. -->
     <section class="card-base pf-card" id="mi-firma">
       <div class="pf-card-cab">
@@ -279,7 +279,12 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
           <?php else: ?><span class="pf-valor"><i class="pf-vacio">Todavía no la guardas</i></span><?php endif; ?>
         </div>
       </div>
-      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Solo tú la usas, al pulsar «Firmar» en un documento. Es una firma gráfica, no la electrónica con certificado.</p>
+      <div class="pf-fila">
+        <div class="pf-ic"><i class="fa-solid fa-certificate"></i></div>
+        <div class="pf-cuerpo"><span class="pf-label">Firma electrónica</span>
+          <span class="pf-valor"><?= $certPf ? e((string)($certPf['cn'] ?? 'Guardada')) . (($certPf['vence'] ?? '') !== '' ? ' · vence el ' . e(date('d/m/Y', strtotime((string)$certPf['vence']))) : '') : '<i class="pf-vacio">No la has cargado</i>' ?></span></div>
+      </div>
+      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Solo tú las usas, al pulsar «Firmar» en un documento. La electrónica (.p12) queda cifrada y su contraseña no se guarda.</p>
     </section>
     <?php endif; ?>
   </div>

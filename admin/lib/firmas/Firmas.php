@@ -606,13 +606,13 @@ final class Firmas
         return is_array($d) ? $d : null;
     }
 
-    public static function recordarCert(int $uid, string $p12, string $archivo, string $cn): bool
+    public static function recordarCert(int $uid, string $p12, string $archivo, string $cn, string $emisor = '', string $vence = ''): bool
     {
         if (!self::cifrador()) return false;
         $ok = file_put_contents(self::rutaCert($uid), IA::cifrar($p12)) !== false;
         if ($ok) {
             @chmod(self::rutaCert($uid), 0600);
-            file_put_contents(self::carpeta('certs') . '/u' . $uid . '.json', json_encode(['archivo' => $archivo, 'cn' => $cn, 'guardado' => date('Y-m-d H:i')], JSON_UNESCAPED_UNICODE));
+            file_put_contents(self::carpeta('certs') . '/u' . $uid . '.json', json_encode(['archivo' => $archivo, 'cn' => $cn, 'emisor' => $emisor, 'vence' => $vence, 'guardado' => date('Y-m-d H:i')], JSON_UNESCAPED_UNICODE));
         }
         return $ok;
     }

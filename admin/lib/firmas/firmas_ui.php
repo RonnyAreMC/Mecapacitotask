@@ -143,20 +143,27 @@ final class FirmasUI
     {
         $tiene = Firmas::tieneFirma((int)$yo['id']);
         $v = $tiene ? (int)@filemtime(Firmas::rutaMiFirma((int)$yo['id'])) : 0;
+        $cert = Firmas::certGuardado((int)$yo['id']);
+        $tipo = $cert && !$tiene ? 'electronica' : 'grafica';
         ob_start();
         ?>
 <dialog class="ds-modal fd-dlg fd-dlg--md" id="dlg-mi-firma" aria-labelledby="dlg-mi-firma-t">
   <form method="post" action="actions.php" enctype="multipart/form-data" class="ds" data-mf-form novalidate>
-    <input type="hidden" name="accion" value="firma_mia_guardar">
+    <input type="hidden" name="accion" value="<?= $tipo === 'electronica' ? 'firma_cert_guardar' : 'firma_mia_guardar' ?>" data-mf-accion>
     <input type="hidden" name="volver" value="<?= e($volver) ?>">
     <input type="hidden" name="firma_png" data-mf-png>
     <header class="ds-modal__head">
       <span class="mc-tile mc-tile--sm mc-tile--petroleo"><?= UI::iconoDS('firma', 18) ?></span>
       <div><h2 class="ds-modal__title" id="dlg-mi-firma-t">Mi firma</h2>
-        <p class="ds-modal__sub">Solo tú la usas, al pulsar «Firmar» en un documento. Se guarda con el fondo transparente.</p></div>
+        <p class="ds-modal__sub">Solo tú la usas, al pulsar «Firmar» en un documento. Puede ser tu firma gráfica o tu firma electrónica (.p12).</p></div>
       <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
     </header>
     <div class="ds-modal__body mf-cuerpo">
+      <div class="mc-tabs mc-tabs--segmented mc-tabs--fitted fd-modos" role="tablist" aria-label="Tipo de firma">
+        <button type="button" class="mc-tab<?= $tipo === 'grafica' ? ' is-active' : '' ?>" role="tab" aria-selected="<?= $tipo === 'grafica' ? 'true' : 'false' ?>" data-mf-tipo="grafica"><?= UI::iconoDS('firma', 16) ?><span class="mc-tab__label">Firma gráfica</span></button>
+        <button type="button" class="mc-tab<?= $tipo === 'electronica' ? ' is-active' : '' ?>" role="tab" aria-selected="<?= $tipo === 'electronica' ? 'true' : 'false' ?>" data-mf-tipo="electronica"><?= UI::iconoDS('certificado', 16) ?><span class="mc-tab__label">Firma electrónica</span></button>
+      </div>
+      <div class="mf-tipo" data-mf-tipo-panel="grafica"<?= $tipo === 'grafica' ? '' : ' hidden' ?>>
       <?php if ($tiene): ?>
       <div class="mf-actual">
         <span class="mf-actual__img"><img src="firma_archivo.php?mia=1&amp;v=<?= $v ?>" alt="Tu firma guardada"></span>
@@ -192,12 +199,39 @@ final class FirmasUI
         </label>
         <div class="mf-vista" data-mf-vista hidden><img alt="Vista previa de la foto elegida"></div>
       </div>
+      </div>
+
+      <div class="mf-tipo" data-mf-tipo-panel="electronica"<?= $tipo === 'electronica' ? '' : ' hidden' ?>>
+        <?php if ($cert): ?>
+        <div class="mf-actual">
+          <span class="mc-tile mc-tile--sm mc-tile--verde"><?= UI::iconoDS('certificado', 18) ?></span>
+          <span class="mf-actual__txt"><b class="truncate"><?= e((string)($cert['cn'] ?? 'Tu certificado')) ?></b>
+            <small><?= e(implode(' · ', array_filter([($cert['emisor'] ?? '') !== '' ? 'Emitido por ' . $cert['emisor'] : '', ($cert['vence'] ?? '') !== '' ? 'vence el ' . date('d/m/Y', strtotime((string)$cert['vence'])) : '', (string)($cert['archivo'] ?? '')]))) ?></small></span>
+          <button type="submit" form="f-olvidar-cert-mf" class="mc-btn mc-btn--ghost mc-btn--sm"><span class="mc-btn__label">Olvidar</span></button>
+        </div>
+        <?php endif; ?>
+        <div class="mc-field"><span class="mc-field__label"><?= $cert ? 'Cambiar por otro archivo (formato p12 o pfx)' : 'Archivo de firma electrónica (formato p12 o pfx)' ?></span>
+          <label class="fd-archivo" data-fd-archivo>
+            <input type="file" name="p12" accept=".p12,.pfx,application/x-pkcs12" class="mc-sr-only" data-mf-p12 aria-label="Archivo de firma electrónica">
+            <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('certificado', 18) ?></span>
+            <span class="fd-archivo__txt"><b class="truncate" data-fd-archivo-nombre>Elige tu archivo .p12 o .pfx</b>
+              <small>El que te entregó tu entidad certificadora (Banco Central, Security Data, ANF…).</small></span>
+            <span class="mc-btn mc-btn--secondary mc-btn--sm fd-archivo__btn" aria-hidden="true"><span class="mc-btn__label">Cargar</span></span>
+          </label></div>
+        <div class="mc-field"><label class="mc-field__label" for="mf-clave-cert">Contraseña de tu firma</label>
+          <div class="mc-input"><input class="mc-input__control" id="mf-clave-cert" type="password" name="clave_cert" autocomplete="off" data-mf-clave placeholder="Para comprobar que el archivo es tuyo"></div>
+          <span class="mc-field__hint">Solo la usamos para comprobar el archivo y su vigencia; no se guarda. El archivo queda cifrado y, al firmar, eliges «Firma electrónica» y escribes tu contraseña.</span></div>
+      </div>
       <p class="fd-error" data-mf-error role="alert" hidden></p>
     </div>
     <footer class="ds-modal__foot">
       <button type="button" class="mc-btn mc-btn--ghost mc-btn--md" data-cerrar-dlg><span class="mc-btn__label">Cancelar</span></button>
       <button class="mc-btn mc-btn--primary mc-btn--md"><?= UI::iconoDS('check', 18) ?><span class="mc-btn__label">Guardar firma</span></button>
     </footer>
+  </form>
+  <form id="f-olvidar-cert-mf" method="post" action="actions.php" hidden
+        data-confirmar="Ya no queda guardado tu archivo de firma electrónica. Para firmar con ella tendrás que cargarlo de nuevo." data-confirmar-titulo="¿Olvidar tu firma electrónica?" data-confirmar-ok="Sí, olvidar">
+    <input type="hidden" name="accion" value="firma_cert_olvidar"><input type="hidden" name="volver" value="<?= e($volver) ?>">
   </form>
   <form id="f-quitar-firma" method="post" action="actions.php" hidden
         data-confirmar="No podrás firmar hasta que guardes otra. Los documentos que ya firmaste la conservan." data-confirmar-titulo="¿Quitar tu firma?" data-confirmar-ok="Sí, quitar">

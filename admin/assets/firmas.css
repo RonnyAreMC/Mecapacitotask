@@ -422,3 +422,5 @@ dialog.ds-modal.fd-obs-dlg { width: min(1000px, calc(100vw - 16px)); background:
 .fp-cuenta { font-size: var(--mc-fs-sm); color: var(--ink-muted); white-space: nowrap; }
 .fp-datos dd { min-width: 0; }
 .fp-datos dt, .fp-datos dd { align-self: center; }
+.mf-tipo { display: grid; gap: var(--space-3); }
+.mf-tipo[hidden] { display: none; }

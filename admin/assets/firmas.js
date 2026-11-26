@@ -176,6 +176,16 @@
     const error = form.querySelector('[data-mf-error]');
     const vista = form.querySelector('[data-mf-vista]');
     let modo = 'dibujar';
+    let tipo = (form.querySelector('[data-mf-tipo].is-active') || {}).dataset?.mfTipo || 'grafica';
+    const accion = form.querySelector('[data-mf-accion]');
+    form.querySelectorAll('[data-mf-tipo]').forEach((b) => b.addEventListener('click', () => {
+      tipo = b.dataset.mfTipo;
+      form.querySelectorAll('[data-mf-tipo]').forEach((x) => { const on = x === b; x.classList.toggle('is-active', on); x.setAttribute('aria-selected', String(on)); });
+      form.querySelectorAll('[data-mf-tipo-panel]').forEach((p) => { p.hidden = p.dataset.mfTipoPanel !== tipo; });
+      if (accion) accion.value = tipo === 'electronica' ? 'firma_cert_guardar' : 'firma_mia_guardar';
+      error.hidden = true;
+      if (tipo === 'grafica' && modo === 'dibujar') requestAnimationFrame(() => { if (!trazos) canvas.dispatchEvent(new Event('ajustar')); });
+    }));
     let trazos = 0;
     let tinta = '#1B2A6B';
     let ctx = null;
@@ -194,6 +204,7 @@
       ctx.lineJoin = 'round';
     };
     if ('ResizeObserver' in window) new ResizeObserver(ajustar).observe(canvas);
+    canvas.addEventListener('ajustar', ajustar);
     const pos = (e) => ({ x: e.offsetX, y: e.offsetY });
     const grosor = (e) => (e.pointerType === 'pen' && e.pressure ? 1.4 + 2.6 * e.pressure : 2.6);
 
@@ -260,6 +271,18 @@
 
     form.addEventListener('submit', (e) => {
       let msg = '';
+      if (tipo === 'electronica') {
+        const p12 = form.querySelector('[data-mf-p12]');
+        const clave = form.querySelector('[data-mf-clave]');
+        png.value = '';
+        file.value = '';
+        if (!p12.files.length) msg = 'Elige tu archivo de firma electrónica (.p12 o .pfx).';
+        else if (!clave.value) msg = 'Escribe la contraseña de tu firma electrónica.';
+        if (msg) { e.preventDefault(); error.textContent = msg; error.hidden = false; }
+        return;
+      }
+      const p12x = form.querySelector('[data-mf-p12]');
+      if (p12x) p12x.value = '';
       if (modo === 'dibujar') {
         if (!trazos) msg = 'Dibuja tu firma en el recuadro, o elige «Subir una foto».';
         else { png.value = canvas.toDataURL('image/png'); file.value = ''; }
