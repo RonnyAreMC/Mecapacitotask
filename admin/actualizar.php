@@ -243,18 +243,18 @@ function actualizarPanel(array $opc): void
         'assets/navidad.css'         => ['nv-chispa', '--elegido-canto', '.nv-santa {', '.nv-gorro {', '.nv-nevado {', 'nv-halo', 'nv-gorro-mece'],
         'assets/navidad.js'          => ['function estallido(', 'function gorritos(', 'function visitaDeSanta(', 'function proyecto(', 'nv-santa-ultima'],
         'assets/navidad/santa.js'    => ['export function mostrar('],
-        'firmas.php'                 => ['dlg-doc-nuevo', 'informe_generar_mio', 'firmas_param.php'],
+        'firmas.php'                 => ['dlg-doc-nuevo', 'informe_generar_mio', 'firmas_param.php', 'filaInforme'],
         'firma.php'                  => ['dlg-historial', 'dlg-observar', 'data-fd-visor', 'Firmar y enviar', 'f-olvidar-cert'],
         'firma_archivo.php'          => ['registrarDescarga', 'rutaFirmaUsada'],
         'firmas_param.php'           => ['modalCoordinacion', 'data-fc-editar', 'panel-informes', 'avatarStack'],
-        'assets/firmas.css'          => ['.fd-hist__linea', '.fd-vw__barra', '.fp-coords', '.fd-obs'],
-        'assets/firmas.js'           => ['data-fd-visor', 'data-fd-firmar', 'data-fd-hist', 'data-fd-coord', 'data-mf-form'],
+        'assets/firmas.css'          => ['.fd-hist__linea', '.fd-vw__barra', '.fp-coords', '.fd-obs', '.fd-inf', '.fd-firmando'],
+        'assets/firmas.js'           => ['data-fd-visor', 'data-fd-firmar', 'data-fd-hist', 'data-fd-coord', 'data-mf-form', 'fd-firmando', 'data-fd-espera'],
         'lib/firmas/PdfFirmas.php'   => ['function firmarDigital', 'function reemplazarPaginas', 'function nuevo(', 'ANCHOS_B'],
         'lib/firmas/HojaFirmas.php'  => ['Firmado electrónicamente', '$this->rects'],
-        'lib/firmas/Firmas.php'      => ['function firmarElectronica', 'function coordinaciones', 'function cargoDe', 'function recordarCert', 'observadores'],
+        'lib/firmas/Firmas.php'      => ['function firmarElectronica', 'function coordinaciones', 'function cargoDe', 'function recordarCert', 'observadores', 'function sesionCert'],
         'lib/firmas/firmas_ui.php'   => ['data-mf-tipo', 'function modalCoordinacion', 'function modalInformes', 'function modalInforme(', 'data-fd-coords'],
         'lib/firmas/InformeSemanal.php' => ['function tick', 'function generar', 'coordinacionDe', 'function commits(', 'function reuniones('],
-        'lib/firmas/InformePdf.php'  => ['Informe semanal de actividades', 'function tabla', 'innotech-logo.png', 'Cumplimiento de reuniones'],
+        'lib/firmas/InformePdf.php'  => ['Informe semanal de actividades', 'function tabla', 'innotech-logo.png', 'Cumplimiento de reuniones', 'Reuniones con ingreso'],
     ];
     $viejos = [];
     foreach ($marcas as $f => $buscar) {

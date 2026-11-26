@@ -210,17 +210,17 @@ final class FirmasUI
           <button type="submit" form="f-olvidar-cert-mf" class="mc-btn mc-btn--ghost mc-btn--sm"><span class="mc-btn__label">Olvidar</span></button>
         </div>
         <?php endif; ?>
-        <div class="mc-field"><span class="mc-field__label"><?= $cert ? 'Cambiar por otro archivo (formato p12 o pfx)' : 'Archivo de firma electrónica (formato p12 o pfx)' ?></span>
+        <div class="mc-field"><span class="mc-field__label"><?= $cert ? 'Cambiar por otro archivo (.p12)' : 'Archivo de firma electrónica (.p12)' ?></span>
           <label class="fd-archivo" data-fd-archivo>
-            <input type="file" name="p12" accept=".p12,.pfx,application/x-pkcs12" class="mc-sr-only" data-mf-p12 aria-label="Archivo de firma electrónica">
+            <input type="file" name="p12" accept=".p12" class="mc-sr-only" data-mf-p12 aria-label="Archivo de firma electrónica">
             <span class="mc-tile mc-tile--sm mc-tile--azul"><?= UI::iconoDS('certificado', 18) ?></span>
-            <span class="fd-archivo__txt"><b class="truncate" data-fd-archivo-nombre>Elige tu archivo .p12 o .pfx</b>
+            <span class="fd-archivo__txt"><b class="truncate" data-fd-archivo-nombre>Elige tu archivo .p12</b>
               <small>El que te entregó tu entidad certificadora (Banco Central, Security Data, ANF…).</small></span>
             <span class="mc-btn mc-btn--secondary mc-btn--sm fd-archivo__btn" aria-hidden="true"><span class="mc-btn__label">Cargar</span></span>
           </label></div>
         <div class="mc-field"><label class="mc-field__label" for="mf-clave-cert">Contraseña de tu firma</label>
           <div class="mc-input"><input class="mc-input__control" id="mf-clave-cert" type="password" name="clave_cert" autocomplete="off" data-mf-clave placeholder="Para comprobar que el archivo es tuyo"></div>
-          <span class="mc-field__hint">Solo la usamos para comprobar el archivo y su vigencia; no se guarda. El archivo queda cifrado y, al firmar, eliges «Firma electrónica» y escribes tu contraseña.</span></div>
+          <span class="mc-field__hint">Solo la usamos para comprobar el archivo y su vigencia; no se guarda. El archivo queda cifrado hasta que cierres sesión; al firmar, eliges «Firma electrónica» y escribes tu contraseña.</span></div>
       </div>
       <p class="fd-error" data-mf-error role="alert" hidden></p>
     </div>
@@ -230,7 +230,7 @@ final class FirmasUI
     </footer>
   </form>
   <form id="f-olvidar-cert-mf" method="post" action="actions.php" hidden
-        data-confirmar="Ya no queda guardado tu archivo de firma electrónica. Para firmar con ella tendrás que cargarlo de nuevo." data-confirmar-titulo="¿Olvidar tu firma electrónica?" data-confirmar-ok="Sí, olvidar">
+        data-confirmar="Se borra tu archivo de firma electrónica de esta sesión. Para firmar con ella tendrás que cargarlo de nuevo." data-confirmar-titulo="¿Olvidar tu firma electrónica?" data-confirmar-ok="Sí, olvidar">
     <input type="hidden" name="accion" value="firma_cert_olvidar"><input type="hidden" name="volver" value="<?= e($volver) ?>">
   </form>
   <form id="f-quitar-firma" method="post" action="actions.php" hidden

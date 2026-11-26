@@ -5896,11 +5896,11 @@ switch ($accion) {
         if (!Firmas::recordarCert((int)$yoF['id'], $p12F, mb_substr(basename((string)$_FILES['p12']['name']), 0, 120), $certF['cn'], $certF['emisor'], $certF['hasta'] ? date('Y-m-d', $certF['hasta']) : '')) {
             redirigir($volverF, 'No se pudo guardar el archivo de firma. Inténtalo de nuevo.', 'error');
         }
-        redirigir($volverF, 'Tu firma electrónica quedó guardada (' . $certF['cn'] . ($certF['hasta'] ? ', vence el ' . date('d/m/Y', $certF['hasta']) : '') . '). Al firmar, elige «Firma electrónica» y escribe tu contraseña.');
+        redirigir($volverF, 'Tu firma electrónica quedó cargada hasta que cierres sesión (' . $certF['cn'] . ($certF['hasta'] ? ', vence el ' . date('d/m/Y', $certF['hasta']) : '') . '). Al firmar, elige «Firma electrónica» y escribe tu contraseña.');
 
     case 'firma_cert_olvidar':
         Firmas::olvidarCert((int)Auth::usuario()['id']);
-        redirigir(volverAqui('firmas.php'), 'Olvidamos tu archivo de firma electrónica. La próxima vez cárgalo de nuevo.');
+        redirigir(volverAqui('firmas.php'), 'Borramos tu archivo de firma electrónica de esta sesión. La próxima vez cárgalo de nuevo.');
 
     case 'firma_mia_quitar':
         Firmas::quitarMiFirma((int)Auth::usuario()['id']);

@@ -278,8 +278,9 @@ $eventos = $doc['eventos'] ?? [];
     <input type="hidden" name="modo" value="<?= $modo ?>" data-fd-modo>
     <header class="ds-modal__head">
       <span class="mc-tile mc-tile--sm mc-tile--azul"><?= $ico('firma') ?></span>
-      <div><h2 class="ds-modal__title" id="dlg-firmar-t"><?= e($doc['titulo']) ?></h2>
-        <p class="ds-modal__sub"><b><?= e($yo['nombre']) ?></b> · <?= e($ft['rol']) ?> · paso <?= $turno + 1 ?> de <?= $n ?></p></div>
+      <?php /* Arriba, solo quién emite el documento y la fecha (el título largo ya está en la página) */ ?>
+      <div><h2 class="ds-modal__title" id="dlg-firmar-t">Emite: <?= e(Firmas::nombre((int)($doc['persona'] ?? $doc['creado_por'] ?? 0))) ?></h2>
+        <p class="ds-modal__sub"><?= e(Firmas::fecha((string)($doc['creado'] ?? ''), false)) ?></p></div>
       <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= $ico('cerrar') ?></button>
     </header>
     <div class="ds-modal__body">
@@ -316,21 +317,21 @@ $eventos = $doc['eventos'] ?? [];
       </div>
 
       <div class="fd-modo" data-fd-panel="electronica"<?= $modo === 'electronica' ? '' : ' hidden' ?>>
-        <div class="mc-field"><span class="mc-field__label">Archivo de firma electrónica (formato p12 o pfx)</span>
+        <div class="mc-field"><span class="mc-field__label">Archivo de firma electrónica (.p12)</span>
           <div class="mc-input is-readonly fd-cert" data-fd-cert>
             <?= $ico('certificado', 18) ?><span class="fd-cert__nombre truncate" data-fd-cert-nombre><?= $cert ? e($cert['archivo']) : 'Ningún archivo cargado' ?></span>
             <?php if ($cert): ?><span class="mc-status mc-status--sm mc-status--success fd-cert__rec"><span class="mc-status__dot"></span>Recordado</span><?php endif; ?>
           </div>
-          <input type="file" name="p12" accept=".p12,.pfx,application/x-pkcs12" class="mc-sr-only" data-fd-cert-archivo aria-label="Archivo de firma electrónica">
+          <input type="file" name="p12" accept=".p12" class="mc-sr-only" data-fd-cert-archivo aria-label="Archivo de firma electrónica">
           <input type="hidden" name="recordar" value="" data-fd-recordar-val></div>
         <div class="fd-cert-acc">
           <button type="button" class="mc-btn mc-btn--sm fd-btn fd-btn--verde" data-fd-cert-cargar><?= $ico('importar', 16) ?><span class="mc-btn__label">Cargar</span></button>
-          <button type="button" class="mc-btn mc-btn--sm fd-btn fd-btn--ambar" data-fd-cert-recordar aria-pressed="false"<?= $cert ? ' disabled title="Ya está recordado"' : '' ?>><?= $ico('candado', 16) ?><span class="mc-btn__label">Recordar</span></button>
+          <button type="button" class="mc-btn mc-btn--sm fd-btn fd-btn--ambar" data-fd-cert-recordar aria-pressed="false" disabled title="<?= $cert ? 'Ya está recordado hasta que cierres sesión' : 'Primero carga tu archivo .p12' ?>"><?= $ico('candado', 16) ?><span class="mc-btn__label">Recordar</span></button>
           <button type="submit" form="f-olvidar-cert" class="mc-btn mc-btn--sm fd-btn fd-btn--rojo"<?= $cert ? '' : ' disabled' ?>><?= $ico('eliminar', 16) ?><span class="mc-btn__label">Olvidar</span></button>
         </div>
         <div class="mc-field"><label class="mc-field__label" for="fd-clave-cert">Contraseña</label>
           <div class="mc-input"><input class="mc-input__control" id="fd-clave-cert" type="password" name="clave_cert" autocomplete="off" placeholder="La de tu firma electrónica" data-fd-req="electronica"></div>
-          <span class="mc-field__hint">No se guarda. «Recordar» guarda solo el archivo, cifrado, para la próxima vez.</span></div>
+          <span class="mc-field__hint">La contraseña no se guarda. «Recordar» deja tu archivo cifrado hasta que cierres sesión.</span></div>
       </div>
       <p class="fd-error" data-fd-firmar-error role="alert" hidden></p>
     </div>
@@ -340,7 +341,7 @@ $eventos = $doc['eventos'] ?? [];
     </footer>
   </form>
   <form id="f-olvidar-cert" method="post" action="actions.php" hidden
-        data-confirmar="Ya no queda guardado tu archivo de firma electrónica. La próxima vez tendrás que cargarlo de nuevo." data-confirmar-titulo="¿Olvidar tu firma electrónica?" data-confirmar-ok="Sí, olvidar">
+        data-confirmar="Se borra tu archivo de firma electrónica de esta sesión. La próxima vez tendrás que cargarlo de nuevo." data-confirmar-titulo="¿Olvidar tu firma electrónica?" data-confirmar-ok="Sí, olvidar">
     <input type="hidden" name="accion" value="firma_cert_olvidar"><input type="hidden" name="volver" value="firma.php?id=<?= $id ?>">
   </form>
 </dialog>

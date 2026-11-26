@@ -22,6 +22,14 @@
   });
 
   /* ---------- La lista ---------- */
+  const centrarTab = () => {
+    document.querySelectorAll('.fd-pagina .mc-tabs').forEach((tabs) => {
+      const t = tabs.querySelector('.mc-tab.is-active');
+      if (t && tabs.scrollWidth > tabs.clientWidth) tabs.scrollLeft = t.offsetLeft - (tabs.clientWidth - t.offsetWidth) / 2;
+    });
+  };
+  setTimeout(centrarTab, 60);
+  document.addEventListener('click', (e) => { if (e.target.closest('.fd-pagina .mc-tab')) setTimeout(centrarTab, 30); });
   document.addEventListener('click', (e) => {
     const tr = e.target.closest('tr[data-href]');
     if (!tr || e.target.closest('a, button, input')) return;
@@ -29,6 +37,20 @@
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Enter' && e.target instanceof HTMLElement && e.target.matches('tr[data-href]')) location.href = e.target.dataset.href;
+  });
+  /* Formularios que tardan (armar el informe lee los repositorios): el botón queda «cargando» y no se envía dos veces */
+  document.addEventListener('submit', (e) => {
+    const f = e.target.closest('form[data-fd-espera]');
+    const b = f && f.querySelector('button');
+    if (!b) return;
+    if (b.classList.contains('is-loading')) { e.preventDefault(); return; }
+    b.classList.add('is-loading');
+    b.setAttribute('aria-busy', 'true');
+    const lbl = b.querySelector('.mc-btn__label');
+    if (lbl) lbl.textContent = f.dataset.fdEspera;
+    const ico = b.querySelector('svg, img');
+    if (ico) ico.replaceWith(Object.assign(document.createElement('span'), { className: 'mc-spinner' }));
+    setTimeout(() => { b.disabled = true; }, 0);
   });
   document.querySelectorAll('[data-fd-buscar]').forEach((inp) => {
     const tabla = inp.closest('.mc-table');
@@ -276,7 +298,7 @@
         const clave = form.querySelector('[data-mf-clave]');
         png.value = '';
         file.value = '';
-        if (!p12.files.length) msg = 'Elige tu archivo de firma electrónica (.p12 o .pfx).';
+        if (!p12.files.length) msg = 'Elige tu archivo de firma electrónica (.p12).';
         else if (!clave.value) msg = 'Escribe la contraseña de tu firma electrónica.';
         if (msg) { e.preventDefault(); error.textContent = msg; error.hidden = false; }
         return;
@@ -413,6 +435,32 @@
     new MutationObserver(() => { if (dlg.open) cargar(); }).observe(dlg, { attributes: true, attributeFilter: ['open'] });
   });
 
+  /* ---------- Firmando: la firma se dibuja sobre el modal mientras el servidor sella el PDF ---------- */
+  const TRAZO = 'M14 62 C 24 30, 40 18, 44 40 S 40 78, 58 60 S 78 22, 88 40 S 96 70, 112 52 C 124 36, 132 30, 140 44 S 150 66, 166 50 S 196 30, 226 40';
+  const firmando = (dlg, electronica) => {
+    if (!dlg || dlg.querySelector('.fd-firmando')) return;
+    const pasos = electronica
+      ? ['Abriendo tu certificado…', 'Sellando el PDF con tu firma electrónica…', 'Guardando y avisando a quien sigue…']
+      : ['Poniendo tu firma en la hoja de firmas…', 'Guardando el PDF firmado…', 'Avisando a quien sigue…'];
+    const ov = document.createElement('div');
+    ov.className = 'fd-firmando';
+    ov.setAttribute('role', 'status');
+    ov.setAttribute('aria-live', 'polite');
+    ov.innerHTML = '<svg viewBox="0 0 240 90" aria-hidden="true"><path class="fd-firmando__linea" d="M8 80H232"/>'
+      + '<path class="fd-firmando__trazo" pathLength="1" d="' + TRAZO + '"/>'
+      + '<g class="fd-firmando__pluma"><path d="M0 0l-3-12 9-9 4 4-9 9z" fill="currentColor"/>'
+      + '<animateMotion dur="2.4s" repeatCount="indefinite" keyPoints="0;1;1" keyTimes="0;0.62;1" calcMode="linear" path="' + TRAZO + '"/>'
+      + '<animate attributeName="opacity" dur="2.4s" repeatCount="indefinite" values="1;1;0;0" keyTimes="0;0.62;0.86;1"/></g></svg>'
+      + '<b>Firmando el documento</b><small></small>';
+    dlg.appendChild(ov);
+    const sm = ov.querySelector('small');
+    let i = 0;
+    sm.textContent = pasos[0];
+    setInterval(() => { i = Math.min(i + 1, pasos.length - 1); sm.textContent = pasos[i]; }, 1700);
+    dlg.addEventListener('cancel', (ev) => ev.preventDefault());   // mientras firma, Esc no lo cierra
+  };
+  window.addEventListener('pageshow', (ev) => { if (ev.persisted) document.querySelectorAll('.fd-firmando').forEach((x) => x.remove()); });
+
   /* ---------- Firmar: gráfica o electrónica ---------- */
   document.querySelectorAll('[data-fd-firmar]').forEach((form) => {
     const modo = form.querySelector('[data-fd-modo]');
@@ -435,7 +483,7 @@
       if (!f) return;
       nombre.textContent = f.name;
       form.querySelector('.fd-cert__rec')?.remove();
-      if (recordar) recordar.disabled = false;
+      if (recordar) { recordar.disabled = false; recordar.title = 'Dejarlo cargado hasta que cierres sesión'; }
       error.hidden = true;
     });
     recordar?.addEventListener('click', () => {
@@ -455,12 +503,13 @@
         if (!msg && conf && !conf.checked) msg = 'Marca la casilla para confirmar que firmas.';
       } else {
         const hay = (archivo.files && archivo.files.length) || nombre.textContent.trim() !== 'Ningún archivo cargado';
-        if (!hay) msg = 'Carga tu archivo de firma electrónica (.p12 o .pfx).';
+        if (!hay) msg = 'Carga tu archivo de firma electrónica (.p12).';
         else if (!form.querySelector('input[name="clave_cert"]').value) msg = 'Escribe la contraseña de tu firma electrónica.';
       }
       if (msg) { e.preventDefault(); error.textContent = msg; error.hidden = false; return; }
       const b = form.querySelector('.ds-modal__foot .mc-btn--primary');
-      if (b) { b.disabled = true; b.querySelector('.mc-btn__label').textContent = 'Firmando…'; }
+      if (b) { setTimeout(() => { b.disabled = true; }, 0); b.querySelector('.mc-btn__label').textContent = 'Firmando…'; }
+      firmando(form.closest('dialog'), modo.value === 'electronica');
     });
   });
 

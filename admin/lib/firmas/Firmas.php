@@ -583,12 +583,25 @@ final class Firmas
     }
 
     /* ---------- El certificado recordado («Recordar» / «Olvidar») ----------
-       Se guarda el archivo cifrado (AES-256-GCM, la clave del panel). La
-       contraseña nunca se guarda: se escribe cada vez que se firma. */
+       Solo cuando la persona carga su archivo y pulsa «Recordar». Queda cifrado
+       (AES-256-GCM, la clave del panel) en SU sesión: dura hasta que cierra
+       sesión (o la sesión vence) y nunca toca el disco del Hub como archivo
+       aparte. La contraseña nunca se guarda: se escribe cada vez que se firma. */
 
-    private static function rutaCert(int $uid): string
+    private static function sesionCert(int $uid): ?array
     {
-        return self::carpeta('certs') . '/u' . $uid . '.p12.enc';
+        if (session_status() !== PHP_SESSION_ACTIVE) return null;
+        $c = $_SESSION['firma_cert'] ?? null;
+        return is_array($c) && (int)($c['uid'] ?? 0) === $uid && ($c['p12'] ?? '') !== '' ? $c : null;
+    }
+
+    /** Antes se guardaba en data/firmas/certs (hasta el 26/11/2026): lo que quedó ahí se borra. */
+    private static function borrarCertEnDisco(): void
+    {
+        $dir = __DIR__ . '/../../data/firmas/certs';
+        if (!is_dir($dir)) return;
+        foreach (glob($dir . '/*') ?: [] as $f) @unlink($f);
+        @rmdir($dir);
     }
 
     private static function cifrador(): bool
@@ -597,36 +610,33 @@ final class Firmas
         return class_exists('IA');
     }
 
-    /** ['archivo', 'cn', 'guardado'] del certificado recordado, o null. */
+    /** ['archivo', 'cn', 'emisor', 'vence', 'guardado'] del certificado recordado en esta sesión, o null. */
     public static function certGuardado(int $uid): ?array
     {
-        $meta = self::carpeta('certs') . '/u' . $uid . '.json';
-        if (!is_file(self::rutaCert($uid)) || !is_file($meta)) return null;
-        $d = json_decode((string)file_get_contents($meta), true);
-        return is_array($d) ? $d : null;
+        self::borrarCertEnDisco();
+        $c = self::sesionCert($uid);
+        if (!$c) return null;
+        unset($c['p12']);
+        return $c;
     }
 
     public static function recordarCert(int $uid, string $p12, string $archivo, string $cn, string $emisor = '', string $vence = ''): bool
     {
-        if (!self::cifrador()) return false;
-        $ok = file_put_contents(self::rutaCert($uid), IA::cifrar($p12)) !== false;
-        if ($ok) {
-            @chmod(self::rutaCert($uid), 0600);
-            file_put_contents(self::carpeta('certs') . '/u' . $uid . '.json', json_encode(['archivo' => $archivo, 'cn' => $cn, 'emisor' => $emisor, 'vence' => $vence, 'guardado' => date('Y-m-d H:i')], JSON_UNESCAPED_UNICODE));
-        }
-        return $ok;
+        if ($p12 === '' || session_status() !== PHP_SESSION_ACTIVE || !self::cifrador()) return false;
+        $_SESSION['firma_cert'] = ['uid' => $uid, 'p12' => IA::cifrar($p12), 'archivo' => $archivo, 'cn' => $cn, 'emisor' => $emisor, 'vence' => $vence, 'guardado' => date('Y-m-d H:i')];
+        return true;
     }
 
     public static function leerCert(int $uid): string
     {
-        if (!is_file(self::rutaCert($uid)) || !self::cifrador()) return '';
-        return IA::descifrar((string)file_get_contents(self::rutaCert($uid)));
+        $c = self::sesionCert($uid);
+        return $c && self::cifrador() ? (string)IA::descifrar((string)$c['p12']) : '';
     }
 
     public static function olvidarCert(int $uid): void
     {
-        @unlink(self::rutaCert($uid));
-        @unlink(self::carpeta('certs') . '/u' . $uid . '.json');
+        if (self::sesionCert($uid)) unset($_SESSION['firma_cert']);
+        self::borrarCertEnDisco();
     }
 
     public static function rechazar(array $doc, array $yo, string $motivo): true|string

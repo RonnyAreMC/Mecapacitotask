@@ -16,8 +16,8 @@ final class InformePdf
     private const AZUL2 = '0.18 0.361 0.541';     // 2E5C8A
     private const VERDE = '0.18 0.49 0.196';      // 2E7D32
     private const ROJO  = '0.753 0 0';            // C00000
-    private const TINTA = '0.15 0.16 0.2';
-    private const GRIS  = '0.42 0.44 0.48';
+    private const TINTA = '0.267 0.267 0.267';    // 444444, el texto del formato InnoTech
+    private const GRIS  = '0.498 0.498 0.498';    // 7F7F7F
     private const LINEA = '0.82 0.84 0.87';
     private const FONDO = '0.949 0.961 0.976';    // F2F5F9
     private const BLANCO = '1 1 1';
@@ -91,24 +91,27 @@ final class InformePdf
 
         // 1. Resumen: los números y el resumen corto
         $this->titulo('Resumen de la semana');
+        // Las cifras como en el formato InnoTech: celdas F2F5F9 separadas en blanco, sin raya,
+        // el número centrado en negrita con su color y la etiqueta en gris debajo
+        $reuC = (int)($k['reu_conv'] ?? 0);
         $cajas = [
-            [(string)(int)($k['commits'] ?? 0), 'Commits', (int)($k['proyectos'] ?? 0) . ' proyecto' . ((int)($k['proyectos'] ?? 0) === 1 ? '' : 's')],
-            [(string)(int)($k['tareas'] ?? 0), 'Tareas completadas', (int)($k['curso'] ?? 0) . ' en curso'],
-            [(string)(int)($k['reqs'] ?? 0), 'Requerimientos', 'atendidos'],
-            [(int)($k['reu_conv'] ?? 0) ? (int)($k['reu_asis'] ?? 0) . '/' . (int)$k['reu_conv'] : '—', 'Reuniones', (int)($k['reu_conv'] ?? 0) ? round(100 * (int)$k['reu_asis'] / max(1, (int)$k['reu_conv'])) . ' % de ingreso' : 'sin reuniones'],
+            [number_format((int)($k['commits'] ?? 0), 0, ',', '.'), 'Commits', self::AZUL],
+            [(string)(int)($k['tareas'] ?? 0), 'Tareas completadas', self::VERDE],
+            [(string)(int)($k['reqs'] ?? 0), 'Requerimientos', self::AZUL2],
+            [$reuC ? (int)($k['reu_asis'] ?? 0) . '/' . $reuC : '—', 'Reuniones con ingreso', self::TINTA],
         ];
-        $this->cabe(64);
-        $gap = 10;
+        $this->cabe(50);
+        $gap = 2;
         $cw = ($this->ancho - 3 * $gap) / 4;
-        foreach ($cajas as $i => [$num, $et, $sub]) {
+        foreach ($cajas as $i => [$num, $et, $color]) {
             $x = $this->x0 + $i * ($cw + $gap);
-            $this->rect($x, $this->y - 58, $cw, 58, self::FONDO, null);
-            $this->rect($x, $this->y - 58, 3, 58, self::AZUL, null);
-            $this->texto($x + 12, $this->y - 25, $num, 19, true, self::AZUL);
-            $this->texto($x + 12, $this->y - 39, $et, 8.5, true, self::TINTA);
-            $this->texto($x + 12, $this->y - 50, $sub, 7.5, false, self::GRIS);
+            $this->rect($x, $this->y - 44, $cw, 44, self::FONDO, null);
+            $n = PdfFirmas::winAnsi($num);
+            $this->textoW($x + ($cw - PdfFirmas::ancho($n, 15, true)) / 2, $this->y - 21, $n, 15, true, $color);
+            $t = PdfFirmas::winAnsi($et);
+            $this->textoW($x + ($cw - PdfFirmas::ancho($t, 8)) / 2, $this->y - 35, $t, 8, false, self::GRIS);
         }
-        $this->y -= 74;
+        $this->y -= 64;
         $this->parrafo((string)($c['resumen'] ?? ''));
 
         // 2. Commits por proyecto

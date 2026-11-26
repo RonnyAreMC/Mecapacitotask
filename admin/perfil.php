@@ -284,7 +284,7 @@ $sinDefinir = '<i class="pf-vacio">Sin definir</i>';
         <div class="pf-cuerpo"><span class="pf-label">Firma electrónica</span>
           <span class="pf-valor"><?= $certPf ? e((string)($certPf['cn'] ?? 'Guardada')) . (($certPf['vence'] ?? '') !== '' ? ' · vence el ' . e(date('d/m/Y', strtotime((string)$certPf['vence']))) : '') : '<i class="pf-vacio">No la has cargado</i>' ?></span></div>
       </div>
-      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Solo tú las usas, al pulsar «Firmar» en un documento. La electrónica (.p12) queda cifrada y su contraseña no se guarda.</p>
+      <p class="pf-nota"><i class="fa-solid fa-circle-info"></i> Solo tú las usas, al pulsar «Firmar» en un documento. La electrónica (.p12) queda cifrada hasta que cierras sesión y su contraseña no se guarda.</p>
     </section>
     <?php endif; ?>
   </div>
