@@ -3437,7 +3437,7 @@ document.querySelectorAll('.js-repetir').forEach((chk) => {
    se envía es el oculto «inicio» (Y-m-dTH:i).
    ========================================================= */
 const SelectorHora = {
-  TURNOS: { m: [7 * 60, 12 * 60], t: [12 * 60, 18 * 60], n: [18 * 60, 22 * 60] },
+  TURNOS: { m: [7 * 60, 12 * 60], t: [12 * 60, 18 * 60], n: [18 * 60, 24 * 60] },   // la noche, hasta las 11:59 pm (la última es 11:45)
   DIAS: ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'],
   dos: (n) => String(n).padStart(2, '0'),
   hhmm(min) { return this.dos(Math.floor(min / 60)) + ':' + this.dos(min % 60); },
