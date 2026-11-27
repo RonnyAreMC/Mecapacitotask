@@ -862,6 +862,27 @@ class Mailer
     }
 
     /**
+     * Despliegues (lib/deploys/Cronograma.php): a un correo o a un grupo (uae@…),
+     * cuando empieza el despliegue de un proyecto, cuando ya está en el servidor
+     * de pruebas o si se detuvo. $filas: [etiqueta => texto]; $lista: renglones
+     * (las tareas que entraron).
+     */
+    public static function avisoDespliegue(string $para, string $asunto, string $titulo, string $intro, array $filas, array $lista, string $url, string $color, string $glifo): true|string|null
+    {
+        if (!self::listo() || !filter_var($para, FILTER_VALIDATE_EMAIL)) return null;
+        $cuerpo = self::encabezado($color, $glifo, e($titulo), e($intro))
+            . self::detalle((string)($filas['Proyecto'] ?? ''), array_map(fn($v) => e((string)$v), array_diff_key(array_filter($filas, fn($v) => (string)$v !== ''), ['Proyecto' => 1])));
+        if ($lista) {
+            $cuerpo .= '<div style="margin-top:16px;color:#1d1d1f;font-size:14px;font-weight:600;">Lo que entró</div><ul style="margin:8px 0 0;padding-left:18px;color:#1d1d1f;font-size:14px;line-height:1.6;">';
+            foreach (array_slice($lista, 0, 20) as $l) $cuerpo .= '<li>' . e((string)$l) . '</li>';
+            if (count($lista) > 20) $cuerpo .= '<li style="color:#6e6e73;">y ' . (count($lista) - 20) . ' más</li>';
+            $cuerpo .= '</ul>';
+        }
+        $abs = $url !== '' ? (preg_match('#^https?://#i', $url) ? $url : self::urlPagina($url)) : '';
+        return self::enviar($para, $asunto, self::plantilla($cuerpo, $abs, $abs !== '' ? 'Ver en el panel' : ''));
+    }
+
+    /**
      * Seguimiento de requerimientos (lib/requirements/ReqSeguimiento.php): a quien da
      * seguimiento, uno terminado o los que se pasaron de fecha. $bloques:
      * [[título, [etiqueta => texto], nota], …]. $url, página del panel.

@@ -102,7 +102,8 @@ $cronograma = function (): string {
     }
     try {
         $r = Cronograma::paso();
-        return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '') . $rel;
+        return ' · builds nuevos: ' . $r['nuevos'] . ($r['deploys'] ? ' · subidas registradas: ' . implode(', ', $r['deploys']) : '')
+            . (!empty($r['correos']) ? ' · correos de despliegue: ' . $r['correos'] : '') . $rel;
     } catch (Throwable $e) {
         echo 'Horario de subidas: ' . $e->getMessage() . "\n";   // al registro (data/cron_correo.log)
         return '';

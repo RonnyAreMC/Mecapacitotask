@@ -3535,6 +3535,8 @@ html.dark .correo-prio--gris { background: rgba(160, 172, 190, .14); color: #B7C
 .dep-dia-chk input:checked + span { border-color: var(--primary); background: var(--primary); color: var(--on-primary); }
 .dep-dia-chk input:focus-visible + span { outline: 2px solid var(--primary); outline-offset: 2px; }
 .dep-alias-item input.dep-alias-hora { flex: 0 0 120px; font-family: inherit; }
+.dep-alias-item input:not(.dep-alias-hora) { flex: 1 1 0; min-width: 150px; }
+.dep-alias-item input.dep-alias-correo { font-family: inherit; }
 @media (max-width: 640px) {
   .dep-crono-fila { grid-template-columns: 1fr; gap: 6px; }
   .dep-crono-builds li { flex-wrap: wrap; }

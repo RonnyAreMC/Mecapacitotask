@@ -284,6 +284,59 @@ class GitLab
         return ['hasta' => $hasta, 'deploys' => $out];
     }
 
+    /**
+     * Los pipelines con jobs de deploy que están corriendo ahora (para avisar
+     * «empezó el despliegue»). null si GitLab no respondió.
+     * [['id','iid','ref','sha','web_url','inicio' (timestamp),'titulo'], …]
+     */
+    public static function deploysEnCurso(?string $repoUrl, int $max = 10): ?array
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo) return null;
+        [$host, $ruta] = $repo;
+        $base = self::ruta($ruta);
+        [$codigo, $cuerpo] = self::api($host, $base . '/pipelines?' . http_build_query(['status' => 'running', 'order_by' => 'id', 'sort' => 'desc', 'per_page' => max(1, min(20, $max))]));
+        if ($codigo !== 200) return null;
+        $out = [];
+        foreach (json_decode($cuerpo, true) ?: [] as $p) {
+            if (!is_array($p) || empty($p['id'])) continue;
+            [$cj, $bj] = self::api($host, $base . '/pipelines/' . (int)$p['id'] . '/jobs?per_page=100');
+            if ($cj !== 200) continue;
+            $deploy = false;
+            foreach (json_decode($bj, true) ?: [] as $j) {
+                if (is_array($j) && preg_match('/deploy/i', ($j['stage'] ?? '') . ' ' . ($j['name'] ?? ''))) { $deploy = true; break; }
+            }
+            if (!$deploy) continue;
+            $commit = [];
+            if (!empty($p['sha'])) {
+                [$c2, $b2] = self::api($host, $base . '/repository/commits/' . rawurlencode((string)$p['sha']));
+                $commit = $c2 === 200 ? (json_decode($b2, true) ?: []) : [];
+            }
+            $out[] = [
+                'id'      => (int)$p['id'],
+                'iid'     => (int)($p['iid'] ?? 0),
+                'ref'     => (string)($p['ref'] ?? ''),
+                'sha'     => (string)($p['sha'] ?? ''),
+                'web_url' => (string)($p['web_url'] ?? ''),
+                'inicio'  => ($t = strtotime((string)($p['created_at'] ?? ''))) !== false ? $t : time(),
+                'titulo'  => mb_substr(trim((string)($commit['title'] ?? '')), 0, 200),
+            ];
+        }
+        return $out;
+    }
+
+    /** Cómo va un pipeline: ['estado' => running|success|failed|canceled|…, 'terminado' => timestamp o 0]. null si GitLab no respondió. */
+    public static function estadoPipeline(?string $repoUrl, int $id): ?array
+    {
+        $repo = self::parsearRepo($repoUrl);
+        if (!$repo || $id <= 0) return null;
+        [$host, $ruta] = $repo;
+        [$c, $b] = self::api($host, self::ruta($ruta) . '/pipelines/' . $id);
+        if ($c !== 200) return null;
+        $p = json_decode($b, true) ?: [];
+        return ['estado' => (string)($p['status'] ?? ''), 'terminado' => ($t = strtotime((string)($p['finished_at'] ?? ''))) !== false ? $t : 0];
+    }
+
     /** GET a la API v4 del host indicado. Devuelve [codigoHttp, cuerpo]. */
     private static function api(string $host, string $ruta): array
     {

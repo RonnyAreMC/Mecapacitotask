@@ -3584,9 +3584,10 @@ switch ($accion) {
                     $h = trim((string)$h);
                     if ($h !== '' && $h !== $hora && in_array((int)$pidH, $idsProy, true)) $horas[(int)$pidH] = $h;
                 }
+                $correosCr = array_intersect_key((array)($cr['correos'] ?? []), array_flip($idsProy));
                 return cronogramaDeploys([
                     'activo' => !empty($cr['activo']), 'hora' => $hora, 'dias' => (array)($cr['dias'] ?? []),
-                    'horas' => $horas, 'gitlab' => !empty($cr['gitlab']), 'aviso' => (int)($cr['aviso'] ?? 30),
+                    'horas' => $horas, 'gitlab' => !empty($cr['gitlab']), 'aviso' => (int)($cr['aviso'] ?? 30), 'correos' => $correosCr,
                 ]);
             })(),
         ];

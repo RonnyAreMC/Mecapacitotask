@@ -875,7 +875,8 @@ UI::cabecera(
             El alias técnico (p. ej. <b>ms-academico</b>). Es lo que sale al registrar la subida y en
             el aviso de confirmación, para no tener que traducir «Equipo Delta» de memoria. Déjalo en
             blanco y se usa el nombre del proyecto. La hora, solo si ese proyecto tiene otra hora límite
-            que la general.
+            que la general. El correo (o un grupo, como <b>uae@…</b>) recibe un aviso cuando empieza el
+            despliegue y otro cuando los cambios ya están disponibles en el servidor de pruebas.
           </p>
           <div class="dep-alias-grid" data-alias-de="deploys[proyectos][]">
             <?php foreach ((new ProyectoRepo())->todos() as $pp): $pidA = (int)$pp['id']; ?>
@@ -891,6 +892,10 @@ UI::cabecera(
               <input class="input-meca dep-alias-hora" type="time" name="deploys[cronograma][horas][<?= $pidA ?>]"
                      value="<?= e($dp['cronograma']['horas'][$pidA] ?? '') ?>" title="Hora límite propia (vacía = la general)"
                      aria-label="Hora límite de <?= e($pp['nombre']) ?>">
+              <input class="input-meca dep-alias-correo" type="text" name="deploys[cronograma][correos][<?= $pidA ?>]"
+                     value="<?= e($dp['cronograma']['correos'][$pidA] ?? '') ?>" placeholder="avisar por correo a…" spellcheck="false"
+                     title="Correo o grupo (p. ej. uae@…): le llega un correo cuando empieza el despliegue y otro cuando los cambios ya están en el servidor de pruebas"
+                     aria-label="Correo para avisar los despliegues de <?= e($pp['nombre']) ?>">
             </label>
             <?php endforeach; ?>
           </div>

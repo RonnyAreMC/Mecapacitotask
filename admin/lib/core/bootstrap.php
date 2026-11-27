@@ -724,7 +724,15 @@ function cronogramaDeploys($c): array
     foreach ((array)($c['horas'] ?? []) as $pid => $h) {
         if ((int)$pid > 0 && preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', (string)$h)) $horas[(int)$pid] = (string)$h;
     }
+    // A qué correos (o grupo, p. ej. uae@…) se avisa por correo cuando empieza y termina un despliegue de ese proyecto
+    $correos = [];
+    foreach ((array)($c['correos'] ?? []) as $pid => $lista) {
+        $ok = array_values(array_unique(array_filter(array_map(fn($x) => strtolower(trim($x)), preg_split('/[\s,;]+/', (string)$lista) ?: []),
+            fn($x) => filter_var($x, FILTER_VALIDATE_EMAIL) !== false)));
+        if ((int)$pid > 0 && $ok) $correos[(int)$pid] = implode(', ', array_slice($ok, 0, 5));
+    }
     return [
+        'correos' => $correos,
         'activo' => !isset($c['activo']) || !empty($c['activo']),
         'hora'   => preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $hora) ? $hora : '22:00',
         'dias'   => $dias ?: [1, 4],

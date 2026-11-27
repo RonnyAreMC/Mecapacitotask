@@ -18,6 +18,12 @@
  *  1. buscar(): cada 5 minutos pregunta a GitLab por los deploys nuevos.
  *  2. avisoPrevio(): unos minutos antes de la hora límite, el recordatorio.
  *
+ * Correo por proyecto (Ajustes → Despliegues, «avisar por correo a…»; p. ej. el
+ * grupo uae@ de la Agraria): vigilar() mira cada minuto los pipelines de deploy
+ * de esos repos y manda un correo cuando EMPIEZA el despliegue, otro cuando los
+ * cambios YA ESTÁN en el servidor de pruebas (con las tareas que entraron) y,
+ * si el pipeline se detiene, que no terminó. Quién lo lanzó no se dice.
+ *
  * La configuración (hora general, hora por proyecto, días, GitLab sí/no, aviso
  * previo) está en Ajustes → Despliegues (configDeploys()['cronograma']).
  * No va en bootstrap: lo cargan deploys.php, actions.php, index.php y los cron.
@@ -358,6 +364,7 @@ final class Cronograma
                 ]);
                 $dep = self::registrar($b, $r['pids']);
                 if ($dep) $creados[] = $dep;
+                if (time() - (int)$b['terminado_t'] <= self::AVISAR_HASTA) self::correoListo($llave, $b, $r['pids'], $dep);
             }
         }
         self::guardarEstado(['deploys_desde' => $desdeRepo, 'errores' => array_values(array_unique($errores)),
@@ -429,11 +436,12 @@ final class Cronograma
     public static function paso(?int $ahora = null): array
     {
         $ahora ??= time();
-        $res = ['nuevos' => 0, 'avisos' => 0, 'deploys' => []];
+        $res = ['nuevos' => 0, 'avisos' => 0, 'deploys' => [], 'correos' => 0];
         if (!self::activo()) return $res;
         $candado = @fopen(__DIR__ . '/../../data/cronograma.lock', 'c');
         if (!$candado || !flock($candado, LOCK_EX | LOCK_NB)) return $res;
         try {
+            $res['correos'] = self::vigilar();
             $res['deploys'] = array_map(fn($d) => (int)$d['id'], self::buscar());
             $res['nuevos'] = count($res['deploys']);
             $res['avisos'] = self::avisoPrevio($ahora);
@@ -533,6 +541,105 @@ final class Cronograma
             if (esPOde($p, $id) || ProyectoRepo::scrumDe($p) === $id) return true;
         }
         return false;
+    }
+
+    /* ======================= Correos de despliegue ======================= */
+
+    /** Los correos (o grupos) a los que se avisan los despliegues de esos proyectos. */
+    private static function correosDe(array $pids): array
+    {
+        $c = self::conf()['correos'] ?? [];
+        $out = [];
+        foreach ($pids as $pid) foreach (preg_split('/\s*,\s*/', (string)($c[(int)$pid] ?? '')) ?: [] as $e) if ($e !== '') $out[] = $e;
+        return array_values(array_unique($out));
+    }
+
+    /**
+     * Cada minuto, en los repos con correo: los pipelines de deploy que
+     * empezaron (correo «empezó») y cómo van los que ya se avisaron: si
+     * terminaron bien, se registran ya (correo «ya está»); si se detuvieron,
+     * el correo de que no terminó. Devuelve cuántos correos mandó.
+     */
+    public static function vigilar(): int
+    {
+        if (!self::activo() || !self::conGitLab() || !class_exists('Mailer') || !Mailer::listo()) return 0;
+        $e = self::estado();
+        if (time() - (int)($e['ultima_vigilia'] ?? 0) < 55) return 0;
+        $seg = (array)($e['correos_dep'] ?? []);
+        foreach ($seg as $k => $s) if (time() - (int)($s['inicio_t'] ?? 0) > 3 * 86400) unset($seg[$k]);   // lo viejo se olvida
+        $n = 0;
+        $listo = false;
+        foreach (self::repos() as $k => $r) {
+            $para = self::correosDe($r['pids']);
+            if (!$para) continue;
+            foreach (GitLab::deploysEnCurso($r['url']) ?? [] as $pl) {
+                $llave = $k . '#' . (int)$pl['id'];
+                if (isset($seg[$llave])) continue;
+                $seg[$llave] = ['inicio_t' => (int)$pl['inicio'], 'pids' => $r['pids'], 'url' => $r['url'], 'id' => (int)$pl['id'],
+                                'iid' => (int)$pl['iid'], 'ref' => (string)$pl['ref'], 'titulo' => (string)$pl['titulo'], 'aviso_inicio' => time()];
+                $n += self::correo($para, 'inicio', $r['pids'], ['Rama' => $pl['ref'], 'Cambio' => $pl['titulo'], 'Empezó' => date('g:i a', (int)$pl['inicio'])]);
+            }
+        }
+        // Los que se avisaron y no han terminado
+        foreach ($seg as $llave => &$s) {
+            if (!empty($s['fin']) || !empty($s['fallo'])) continue;
+            $st = GitLab::estadoPipeline((string)$s['url'], (int)$s['id']);
+            if (!$st) continue;
+            if ($st['estado'] === 'success') {
+                $listo = true;                                   // lo registra buscar() y de ahí sale el correo «ya está»
+            } elseif (in_array($st['estado'], ['failed', 'canceled', 'skipped'], true)) {
+                $s['fallo'] = time();
+                $para = self::correosDe((array)$s['pids']);
+                if ($para) $n += self::correo($para, 'fallo', (array)$s['pids'], ['Rama' => $s['ref'], 'Cambio' => $s['titulo'],
+                    'Se detuvo' => date('g:i a', $st['terminado'] ?: time()), 'Estado' => $st['estado'] === 'failed' ? 'con error' : 'cancelado']);
+            }
+        }
+        unset($s);
+        self::guardarEstado(['ultima_vigilia' => time(), 'correos_dep' => $seg]);
+        if ($listo) self::buscar(true);
+        return $n;
+    }
+
+    /** El correo de «los cambios ya están en el servidor de pruebas» de un deploy de GitLab (una sola vez). */
+    private static function correoListo(string $llave, array $b, array $pids, ?array $dep): void
+    {
+        $para = self::correosDe($pids);
+        if (!$para || !class_exists('Mailer') || !Mailer::listo()) return;
+        $seg = (array)(self::estado()['correos_dep'] ?? []);
+        if (!empty($seg[$llave]['fin'])) return;
+        $tareas = [];
+        if ($dep) {
+            $repoT = new TareaRepo();
+            foreach ((array)($dep['tareas'] ?? []) as $tid) if ($t = $repoT->buscar((int)$tid)) $tareas[] = '#' . (int)$t['id'] . ' · ' . (string)$t['titulo'];
+        }
+        $ini = (int)$b['inicio_t'];
+        $fin = (int)$b['terminado_t'];
+        $min = max(1, (int)round(($fin - $ini) / 60));
+        self::correo($para, 'listo', $pids, ['Rama' => $b['rama'], 'Cambio' => $b['titulo'], 'Terminó' => date('g:i a', $fin),
+            'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos'), 'Tareas' => $tareas ? (string)count($tareas) : ''], $tareas);
+        $seg[$llave] = ($seg[$llave] ?? ['inicio_t' => $ini, 'pids' => $pids]) + ['fin' => time()];
+        $seg[$llave]['fin'] = time();
+        self::guardarEstado(['correos_dep' => $seg]);
+    }
+
+    /** Arma y manda un correo de despliegue: 'inicio', 'listo' o 'fallo'. Devuelve a cuántos salió. */
+    private static function correo(array $para, string $tipo, array $pids, array $filas, array $lista = []): int
+    {
+        $proy = self::nombres($pids);
+        $entorno = mb_strtolower((string)(configDeploys()['entorno'] ?: 'Servidor de pruebas'));
+        [$asunto, $titulo, $intro, $color, $glifo] = match ($tipo) {
+            'inicio' => [$proy . ': empezó el despliegue al ' . $entorno, 'Empezó el despliegue',
+                         'Se están subiendo los cambios de ' . $proy . ' al ' . $entorno . '. Te avisamos por aquí cuando estén disponibles.', '#2B76F7', '&#8635;'],
+            'listo'  => [$proy . ': los cambios ya están disponibles en el ' . $entorno, 'Los cambios ya están disponibles en el ' . $entorno,
+                         'Terminó el despliegue de ' . $proy . '. Los cambios ya están disponibles en el ' . $entorno . '.', '#1E9E5A', '&#10003;'],
+            default  => [$proy . ': el despliegue no terminó', 'El despliegue no terminó',
+                         'El despliegue de ' . $proy . ' se detuvo, así que los cambios todavía no están en el ' . $entorno . '. Te avisamos cuando queden.', '#D14343', '!'],
+        };
+        $n = 0;
+        foreach ($para as $correo) {
+            if (Mailer::avisoDespliegue($correo, $asunto, $titulo, $intro, ['Proyecto' => $proy] + $filas, $lista, 'deploys.php', $color, $glifo) === true) $n++;
+        }
+        return $n;
     }
 
     /** «ms-academico, SIAU-AGRARIA» (el alias de cada proyecto, o su nombre). */
