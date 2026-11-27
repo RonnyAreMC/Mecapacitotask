@@ -548,6 +548,24 @@ final class Cronograma
 
     /* ======================= Correos de despliegue ======================= */
 
+    /** Los repos de GitLab de los proyectos que tienen correo de despliegue (aunque no los siga Despliegues). */
+    private static function reposConCorreo(): array
+    {
+        $correos = self::conf()['correos'] ?? [];
+        $out = [];
+        foreach ((new ProyectoRepo())->todos() as $p) {
+            if (empty($correos[(int)$p['id']]) || ($p['estado'] ?? 'activo') === 'completado') continue;
+            foreach (ProyectoRepo::repos($p) as $r) {
+                $url = (string)($r['url'] ?? '');
+                if (Repos::proveedor($url) !== 'gitlab' || !($rp = GitLab::parsearRepo($url))) continue;
+                $k = strtolower($rp[0] . '/' . $rp[1]);
+                $out[$k] ??= ['url' => $url, 'ruta' => $rp[1], 'pids' => []];
+                if (!in_array((int)$p['id'], $out[$k]['pids'], true)) $out[$k]['pids'][] = (int)$p['id'];
+            }
+        }
+        return $out;
+    }
+
     /** ¿Esa rama despliega a producción? («produccion», «main», «master»…) */
     private static function esProduccion(string $rama): bool
     {
@@ -578,7 +596,8 @@ final class Cronograma
         foreach ($seg as $k => $s) if (time() - (int)($s['inicio_t'] ?? 0) > 3 * 86400) unset($seg[$k]);   // lo viejo se olvida
         $n = 0;
         $listo = false;
-        foreach (self::repos() as $k => $r) {
+        $seguidos = self::repos();                              // los que registra buscar() (los proyectos de Despliegues)
+        foreach (self::reposConCorreo() as $k => $r) {
             $para = self::correosDe($r['pids']);
             if (!$para) continue;
             foreach (GitLab::deploysEnCurso($r['url']) ?? [] as $pl) {
@@ -595,7 +614,18 @@ final class Cronograma
             $st = GitLab::estadoPipeline((string)$s['url'], (int)$s['id']);
             if (!$st) continue;
             if ($st['estado'] === 'success') {
-                $listo = true;                                   // lo registra buscar() y de ahí sale el correo «ya está»
+                $kRepo = (string)strstr($llave, '#', true);
+                if (isset($seguidos[$kRepo])) {
+                    $listo = true;                               // lo registra buscar() y de ahí sale el correo «ya está» (con las tareas)
+                } else {
+                    // Un proyecto que no sigue Despliegues: solo el correo
+                    $s['fin'] = time();
+                    $fin = $st['terminado'] ?: time();
+                    $min = max(1, (int)round(($fin - (int)$s['inicio_t']) / 60));
+                    $para = self::correosDe((array)$s['pids']);
+                    if ($para) $n += self::correo($para, 'listo', (array)$s['pids'], ['Rama' => $s['ref'], 'Cambio' => $s['titulo'],
+                        'Terminó' => date('g:i a', $fin), 'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos')], [], (string)$s['ref']);
+                }
             } elseif (in_array($st['estado'], ['failed', 'canceled', 'skipped'], true)) {
                 $s['fallo'] = time();
                 $para = self::correosDe((array)$s['pids']);
