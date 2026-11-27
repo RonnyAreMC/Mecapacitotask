@@ -5,7 +5,7 @@ require_once __DIR__ . '/Qr.php';
  * Dibuja la hoja «Firmas de responsabilidad» que PdfFirmas agrega al final del
  * documento: la tabla «Rol/Cargo | Firma» como la de los documentos firmados
  * con FirmaEC. La firma gráfica va como imagen con su fecha; la electrónica,
- * con el sello de FirmaEC (el QR y «Firmado electrónicamente por:»), que va
+ * con su sello (un QR chico, «Firmado electrónicamente por:», el nombre y la fecha), que va
  * DENTRO de la firma (su apariencia), no en la página: así cada firma cubre
  * lo que se ve y la hoja no cambia entre una firma electrónica y la otra.
  * Al pie, el SHA-256 del original.
@@ -186,11 +186,11 @@ final class HojaFirmas
     }
 
     /**
-     * El sello de la firma electrónica, como el de FirmaEC: el QR (con quién
-     * firmó, el motivo, la fecha y dónde validar) y al lado «Validar
-     * únicamente en FirmaEC. Firmado electrónicamente por:» y el nombre del
-     * certificado en dos renglones. Devuelve el dibujo para una caja de $w × $h
-     * (origen abajo a la izquierda), con las fuentes /C1 (Courier) y /C2 (Courier-Bold).
+     * El sello de la firma electrónica: un QR chico (quién firmó, el motivo, la
+     * fecha y dónde validar) y al lado «Firmado electrónicamente por:», el
+     * nombre del certificado en dos renglones y la fecha y hora de la firma.
+     * Devuelve el dibujo para una caja de $w × $h (origen abajo a la
+     * izquierda), con las fuentes /C1 (Courier) y /C2 (Courier-Bold).
      */
     public static function sello(array $f, float $w, float $h): string
     {
@@ -198,15 +198,18 @@ final class HojaFirmas
         $palabras = preg_split('/\s+/u', $nombre) ?: [];
         $corte = (int)ceil(count($palabras) / 2);
         $renglones = array_values(array_filter([implode(' ', array_slice($palabras, 0, $corte)), implode(' ', array_slice($palabras, $corte))]));
-        $chico = [PdfFirmas::winAnsi('Validar únicamente en FirmaEC.'), PdfFirmas::winAnsi('Firmado electrónicamente por:')];
-        $grande = array_map(fn($r) => PdfFirmas::winAnsi($r), $renglones);
+        $t = strtotime((string)($f['fecha_hora'] ?? ''));
+        $lineas = [[PdfFirmas::winAnsi('Firmado electrónicamente por:'), 'C1', 5.6]];
+        foreach ($renglones as $r) $lineas[] = [PdfFirmas::winAnsi($r), 'C2', 8.0];
+        if ($t) $lineas[] = [PdfFirmas::winAnsi('Fecha: ' . date('d/m/Y', $t) . ' Hora: ' . date('H:i', $t)), 'C1', 5.6];
 
-        $q = min($h - 4, 66.0);
-        $tc = 4.8;
-        $tg = 8.0;
-        $anchoTxt = fn() => max(array_merge(array_map(fn($l) => PdfFirmas::anchoMono($l, $tc), $chico), array_map(fn($l) => PdfFirmas::anchoMono($l, $tg), $grande ?: [''])));
-        while ($tg > 5 && $q + 4 + $anchoTxt() > $w) $tg -= 0.5;
-        $total = $q + 4 + $anchoTxt();
+        $q = min($h - 8, 44.0);                                  // el QR, chico
+        $anchoTxt = fn(array $ls) => max(array_map(fn($l) => PdfFirmas::anchoMono($l[0], $l[2]), $ls));   // recibe las líneas: la flecha copiaría las de antes
+        while ($q + 5 + $anchoTxt($lineas) > $w && max(array_column($lineas, 2)) > 5) {
+            foreach ($lineas as &$l) $l[2] = max(4.5, $l[2] - 0.4);
+            unset($l);
+        }
+        $total = $q + 5 + $anchoTxt($lineas);
         $x0 = max(0, ($w - $total) / 2);
         $y0 = ($h - $q) / 2;
 
@@ -227,16 +230,12 @@ final class HojaFirmas
         $ops .= "f\n";
 
         // El texto, centrado a la altura del QR
-        $tx = $x0 + $q + 4;
-        $alto = 2 * ($tc + 1.6) + count($grande) * ($tg + 1.2);
+        $tx = $x0 + $q + 5;
+        $alto = array_sum(array_map(fn($l) => $l[2] + 1.6, $lineas));
         $ty = $y0 + $q / 2 + $alto / 2;
-        foreach ($chico as $l) {
-            $ty -= $tc + 1.6;
-            $ops .= 'BT /C1 ' . PdfFirmas::n($tc) . ' Tf ' . PdfFirmas::n($tx) . ' ' . PdfFirmas::n($ty) . ' Td ' . PdfFirmas::cadena($l) . " Tj ET\n";
-        }
-        foreach ($grande as $l) {
-            $ty -= $tg + 1.2;
-            $ops .= 'BT /C2 ' . PdfFirmas::n($tg) . ' Tf ' . PdfFirmas::n($tx) . ' ' . PdfFirmas::n($ty) . ' Td ' . PdfFirmas::cadena($l) . " Tj ET\n";
+        foreach ($lineas as [$txt, $fuente, $tam]) {
+            $ty -= $tam + 1.6;
+            $ops .= 'BT /' . $fuente . ' ' . PdfFirmas::n($tam) . ' Tf ' . PdfFirmas::n($tx) . ' ' . PdfFirmas::n($ty) . ' Td ' . PdfFirmas::cadena($txt) . " Tj ET\n";
         }
         return $ops;
     }

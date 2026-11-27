@@ -801,16 +801,14 @@ final class Firmas
         }
     }
 
-    /** Lo que lleva el QR del sello, como el de FirmaEC: quién, por qué, dónde, cuándo y dónde validar. */
+    /** Lo que lleva el QR del sello: quién firmó, por qué, cuándo y dónde validar. */
     private static function textoQr(array $f): string
     {
         $t = strtotime((string)($f['fecha'] ?? '')) ?: time();
         return 'FIRMADO POR: ' . mb_strtoupper(trim((string)($f['cert'] ?? ''))) . "\n"
             . 'RAZON: ' . rtrim(trim((string)($f['rol'] ?? '')), ':') . "\n"
-            . "LOCALIZACION: InnoTech Hub\n"
             . 'FECHA: ' . date('c', $t) . "\n"
-            . "VALIDAR CON: www.firmadigital.gob.ec\n"
-            . 'Firmado electrónicamente con InnoTech Hub';
+            . 'VALIDAR CON: www.firmadigital.gob.ec';
     }
 
     private static function datosHoja(array $doc): array
@@ -829,6 +827,7 @@ final class Firmas
                 'cert'   => (string)($f['cert'] ?? ''),
                 'emisor' => (string)($f['emisor'] ?? ''),
                 'sello'  => !empty($f['sello']),
+                'fecha_hora' => $t ? date('Y-m-d H:i:s', $t) : '',
                 'qr'     => ($f['tipo'] ?? '') === 'electronica' ? self::textoQr($f) : '',
             ];
         }

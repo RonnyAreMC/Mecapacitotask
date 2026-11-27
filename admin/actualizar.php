@@ -251,7 +251,7 @@ function actualizarPanel(array $opc): void
         'assets/firmas.js'           => ['data-fd-visor', 'data-fd-firmar', 'data-fd-hist', 'data-fd-coord', 'data-mf-form', 'fd-firmando', 'data-fd-espera'],
         'lib/firmas/PdfFirmas.php'   => ['function firmarDigital', 'function reemplazarPaginas', 'function nuevo(', 'ANCHOS_B', 'apariencia', 'function anchoMono'],
         'lib/firmas/Qr.php'          => ['function matriz', 'function penalidad'],
-        'lib/firmas/HojaFirmas.php'  => ['Firmado electrónicamente', '$this->rects', 'function sello', 'Validar únicamente en FirmaEC'],
+        'lib/firmas/HojaFirmas.php'  => ['Firmado electrónicamente', '$this->rects', 'function sello', 'Fecha: '],
         'lib/firmas/Firmas.php'      => ['function firmarElectronica', 'function coordinaciones', 'function cargoDe', 'function recordarCert', 'observadores', 'function sesionCert', 'function textoQr', 'hoja_sha'],
         'lib/firmas/firmas_ui.php'   => ['data-mf-tipo', 'function modalCoordinacion', 'function modalInformes', 'function modalInforme(', 'data-fd-coords'],
         'lib/firmas/InformeSemanal.php' => ['function tick', 'function generar', 'coordinacionDe', 'function commits(', 'function reuniones('],
