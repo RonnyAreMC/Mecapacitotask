@@ -406,6 +406,9 @@ final class Cronograma
             }
         }
         $cfg = configDeploys();
+        // La rama de producción va a producción: sus tareas quedan «desplegadas», no «en pruebas»
+        $esProd = self::esProduccion((string)$b['rama']);
+        if ($esProd) $cfg['entorno'] = 'Servidor de producción';
         $nota = 'Deploy de GitLab · pipeline #' . (int)($b['iid'] ?: $b['pipeline_id']) . ' en ' . $b['rama']
             . ' · empezó a las ' . date('g:i a', $ini) . ' y terminó a las ' . date('g:i a', $fin) . '.'
             . ($b['titulo'] !== '' ? "\n«" . $b['titulo'] . '»' : '');
@@ -417,7 +420,7 @@ final class Cronograma
         foreach ($pend as $tid) {
             $tPend = $tareas->buscar($tid);
             $tareas->actualizar($tid, ['deploy_id' => (int)$dep['id'], 'desplegada_en' => $dep['fecha']]
-                + (($tPend['entrega'] ?? '') === 'desplegado' ? [] : ['entrega' => 'pruebas']));
+                + ($esProd ? ['entrega' => 'desplegado'] : (($tPend['entrega'] ?? '') === 'desplegado' ? [] : ['entrega' => 'pruebas'])));
         }
         self::builds()->update((int)$b['id'], ['deploy_id' => (int)$dep['id']]);
 
@@ -545,6 +548,12 @@ final class Cronograma
 
     /* ======================= Correos de despliegue ======================= */
 
+    /** ¿Esa rama despliega a producción? («produccion», «main», «master»…) */
+    private static function esProduccion(string $rama): bool
+    {
+        return (bool)preg_match('/^(prod|produccion|producción|production|main|master)$/iu', trim($rama));
+    }
+
     /** Los correos (o grupos) a los que se avisan los despliegues de esos proyectos. */
     private static function correosDe(array $pids): array
     {
@@ -577,7 +586,7 @@ final class Cronograma
                 if (isset($seg[$llave])) continue;
                 $seg[$llave] = ['inicio_t' => (int)$pl['inicio'], 'pids' => $r['pids'], 'url' => $r['url'], 'id' => (int)$pl['id'],
                                 'iid' => (int)$pl['iid'], 'ref' => (string)$pl['ref'], 'titulo' => (string)$pl['titulo'], 'aviso_inicio' => time()];
-                $n += self::correo($para, 'inicio', $r['pids'], ['Rama' => $pl['ref'], 'Cambio' => $pl['titulo'], 'Empezó' => date('g:i a', (int)$pl['inicio'])]);
+                $n += self::correo($para, 'inicio', $r['pids'], ['Rama' => $pl['ref'], 'Cambio' => $pl['titulo'], 'Empezó' => date('g:i a', (int)$pl['inicio'])], [], (string)$pl['ref']);
             }
         }
         // Los que se avisaron y no han terminado
@@ -591,7 +600,7 @@ final class Cronograma
                 $s['fallo'] = time();
                 $para = self::correosDe((array)$s['pids']);
                 if ($para) $n += self::correo($para, 'fallo', (array)$s['pids'], ['Rama' => $s['ref'], 'Cambio' => $s['titulo'],
-                    'Se detuvo' => date('g:i a', $st['terminado'] ?: time()), 'Estado' => $st['estado'] === 'failed' ? 'con error' : 'cancelado']);
+                    'Se detuvo' => date('g:i a', $st['terminado'] ?: time()), 'Estado' => $st['estado'] === 'failed' ? 'con error' : 'cancelado'], [], (string)$s['ref']);
             }
         }
         unset($s);
@@ -616,17 +625,19 @@ final class Cronograma
         $fin = (int)$b['terminado_t'];
         $min = max(1, (int)round(($fin - $ini) / 60));
         self::correo($para, 'listo', $pids, ['Rama' => $b['rama'], 'Cambio' => $b['titulo'], 'Terminó' => date('g:i a', $fin),
-            'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos'), 'Tareas' => $tareas ? (string)count($tareas) : ''], $tareas);
+            'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos'), 'Tareas' => $tareas ? (string)count($tareas) : ''], $tareas, (string)$b['rama']);
         $seg[$llave] = ($seg[$llave] ?? ['inicio_t' => $ini, 'pids' => $pids]) + ['fin' => time()];
         $seg[$llave]['fin'] = time();
         self::guardarEstado(['correos_dep' => $seg]);
     }
 
     /** Arma y manda un correo de despliegue: 'inicio', 'listo' o 'fallo'. Devuelve a cuántos salió. */
-    private static function correo(array $para, string $tipo, array $pids, array $filas, array $lista = []): int
+    private static function correo(array $para, string $tipo, array $pids, array $filas, array $lista = [], string $rama = ''): int
     {
         $proy = self::nombres($pids);
-        $entorno = mb_strtolower((string)(configDeploys()['entorno'] ?: 'Servidor de pruebas'));
+        // La rama de producción («produccion», «main»…) va al servidor de producción; las demás, al de pruebas
+        $entorno = self::esProduccion($rama) ? 'servidor de producción'
+            : mb_strtolower((string)(configDeploys()['entorno'] ?: 'Servidor de pruebas'));
         [$asunto, $titulo, $intro, $color, $glifo] = match ($tipo) {
             'inicio' => [$proy . ': empezó el despliegue al ' . $entorno, 'Empezó el despliegue',
                          'Se están subiendo los cambios de ' . $proy . ' al ' . $entorno . '. Te avisamos por aquí cuando estén disponibles.', '#2B76F7', '&#8635;'],

@@ -252,7 +252,7 @@ class GitLab
             if ($cj !== 200) return null;       // la próxima vuelta sigue desde el mismo punto
             $jobs = [];
             foreach (json_decode($bj, true) ?: [] as $j) {
-                if (is_array($j) && ($j['status'] ?? '') === 'success' && preg_match('/deploy/i', ($j['stage'] ?? '') . ' ' . ($j['name'] ?? ''))) {
+                if (is_array($j) && ($j['status'] ?? '') === 'success' && self::esJobDeploy($j)) {
                     $jobs[] = mb_substr((string)($j['name'] ?? ''), 0, 80);
                 }
             }
@@ -284,6 +284,12 @@ class GitLab
         return ['hasta' => $hasta, 'deploys' => $out];
     }
 
+    /** ¿Es un job de despliegue? En inglés o en español («deploy», «desplegar», «despliegue»), por etapa o por nombre. */
+    private static function esJobDeploy(array $j): bool
+    {
+        return (bool)preg_match('/deploy|despleg|desplieg/i', ($j['stage'] ?? '') . ' ' . ($j['name'] ?? ''));
+    }
+
     /**
      * Los pipelines con jobs de deploy que están corriendo ahora (para avisar
      * «empezó el despliegue»). null si GitLab no respondió.
@@ -304,7 +310,7 @@ class GitLab
             if ($cj !== 200) continue;
             $deploy = false;
             foreach (json_decode($bj, true) ?: [] as $j) {
-                if (is_array($j) && preg_match('/deploy/i', ($j['stage'] ?? '') . ' ' . ($j['name'] ?? ''))) { $deploy = true; break; }
+                if (is_array($j) && self::esJobDeploy($j)) { $deploy = true; break; }
             }
             if (!$deploy) continue;
             $commit = [];
