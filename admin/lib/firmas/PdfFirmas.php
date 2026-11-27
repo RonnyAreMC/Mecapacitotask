@@ -539,7 +539,13 @@ final class PdfFirmas
             . (($op['lugar'] ?? '') !== '' ? ' /Location ' . $txt((string)$op['lugar']) : '') . ' >>'];
         $w = max(0, $x2 - $x1);
         $h = max(0, $y2 - $y1);
-        $objs[$apNum] = [0, '<< /Type /XObject /Subtype /Form /BBox [0 0 ' . self::n($w) . ' ' . self::n($h) . "] /Length 0 >>\nstream\n\nendstream"];
+        // La apariencia del campo: el sello (QR y texto, como el de FirmaEC) va dentro de la revisión firmada
+        $ap = (string)($op['apariencia'] ?? '');
+        $apRec = ' /Resources << /ProcSet [/PDF /Text] /Font << /C1 << /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>'
+            . ' /C2 << /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >> >> >>';
+        $apZ = $ap !== '' ? gzcompress($ap, 9) : '';
+        $objs[$apNum] = [0, '<< /Type /XObject /Subtype /Form /BBox [0 0 ' . self::n($w) . ' ' . self::n($h) . ']' . $apRec
+            . ($apZ !== '' ? ' /Filter /FlateDecode' : '') . ' /Length ' . strlen($apZ) . " >>\nstream\n" . $apZ . "\nendstream"];
         $objs[$widNum] = [0, '<< /Type /Annot /Subtype /Widget /FT /Sig /F 132 /T ' . $txt('Firma ' . $n . ' - ' . $c['cn'])
             . ' /V ' . $sigNum . ' 0 R /Rect [' . self::n($x1) . ' ' . self::n($y1) . ' ' . self::n($x2) . ' ' . self::n($y2) . ']'
             . ' /P ' . $pagNum . ' ' . $pagGen . ' R /AP << /N ' . $apNum . ' 0 R >> >>'];
@@ -696,6 +702,10 @@ final class PdfFirmas
         $f2 = $sig++;
         $objs[$f1] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica /Encoding /WinAnsiEncoding >>'];
         $objs[$f2] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica-Bold /Encoding /WinAnsiEncoding >>'];
+        $c1 = $sig++;
+        $c2 = $sig++;
+        $objs[$c1] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>'];
+        $objs[$c2] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>'];
         $xo = '';
         foreach ($imagenes as $nombre => $im) {
             $smask = '';
@@ -713,7 +723,7 @@ final class PdfFirmas
             $xo .= ' /' . $nombre . ' ' . $i . ' 0 R';
         }
         $rec = $sig++;
-        $objs[$rec] = [0, '<< /ProcSet [/PDF /Text /ImageB /ImageC] /Font << /F1 ' . $f1 . ' 0 R /F2 ' . $f2 . ' 0 R >>'
+        $objs[$rec] = [0, '<< /ProcSet [/PDF /Text /ImageB /ImageC] /Font << /F1 ' . $f1 . ' 0 R /F2 ' . $f2 . ' 0 R /C1 ' . $c1 . ' 0 R /C2 ' . $c2 . ' 0 R >>'
             . ($xo !== '' ? ' /XObject <<' . $xo . ' >>' : '') . ' >>'];
         return $rec;
     }
@@ -822,6 +832,12 @@ final class PdfFirmas
     }
 
     /** Ancho en puntos de un texto ya en WinAnsi. */
+    /** Ancho de un texto WinAnsi en Courier: todas las letras miden 600/1000. */
+    public static function anchoMono(string $w, float $tam): float
+    {
+        return strlen($w) * 0.6 * $tam;
+    }
+
     public static function ancho(string $w, float $tam, bool $negrita = false): float
     {
         $t = $negrita ? self::ANCHOS_B : self::ANCHOS_N;

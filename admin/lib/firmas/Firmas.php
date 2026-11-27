@@ -536,7 +536,7 @@ final class Firmas
         $doc['firmantes'][$i] = array_merge($doc['firmantes'][$i], [
             'estado' => 'firmado', 'tipo' => 'electronica', 'fecha' => date('Y-m-d H:i:s'), 'ip' => self::ip(), 'png' => '',
             'nombre' => (string)$yo['nombre'], 'cert' => $c['cn'], 'emisor' => $c['emisor'], 'serie' => $c['serie'],
-            'vence' => $c['hasta'] ? date('Y-m-d', $c['hasta']) : '',
+            'vence' => $c['hasta'] ? date('Y-m-d', $c['hasta']) : '', 'sello' => true,
         ]);
         $completo = self::turno($doc) === null;
         if ($completo) {
@@ -547,8 +547,10 @@ final class Firmas
             if (!self::regenerar($doc) || empty($doc['hoja_rects'][$i])) throw new RuntimeException('no se pudo preparar la hoja de firmas.');
             [$pIdx, $x1, $y1, $x2, $y2] = $doc['hoja_rects'][$i];
             $pdf = new PdfFirmas((string)file_get_contents($ruta));
+            $fila = self::datosHoja($doc)['firmantes'][$i];
             $firmado = $pdf->firmarDigital($p12, $clave, [
                 'pagina' => (int)$doc['hoja_obj'][$pIdx], 'rect' => [$x1, $y1, $x2, $y2], 'nombre' => $c['cn'],
+                'apariencia' => HojaFirmas::sello($fila, $x2 - $x1, $y2 - $y1),
                 'razon' => 'Firma como ' . $rol . ' en «' . $doc['titulo'] . '»', 'lugar' => 'Ecuador',
             ]);
             file_put_contents($ruta . '.tmp', $firmado);
@@ -742,7 +744,7 @@ final class Firmas
     {
         foreach ($doc['firmantes'] as &$f) {
             $f = array_merge($f, ['estado' => 'pendiente', 'tipo' => '', 'fecha' => '', 'ip' => '', 'png' => '', 'nombre' => '', 'motivo' => '',
-                                  'cert' => '', 'emisor' => '', 'serie' => '', 'vence' => '']);
+                                  'cert' => '', 'emisor' => '', 'serie' => '', 'vence' => '', 'sello' => false]);
         }
         unset($f);
         $doc['con_certificado'] = false;
@@ -777,6 +779,12 @@ final class Firmas
             $pdf = new PdfFirmas($base);
             [$w, $h] = $sobreFirmado && !empty($doc['hoja_tam']) ? $doc['hoja_tam'] : $pdf->tamano();
             [$pags, $imgs, $rects] = HojaFirmas::armar(self::datosHoja($doc), (float)$w, (float)$h);
+            $sha = sha1(serialize([$pags, $imgs, [$w, $h]]));
+            if ($sobreFirmado && ($doc['hoja_sha'] ?? '') === $sha) {
+                $doc['hoja_rects'] = $rects;
+                return true;
+            }
+            $doc['hoja_sha'] = $sha;
             if ($sobreFirmado) {
                 $out = $pdf->reemplazarPaginas($doc['hoja_obj'], $pags, $imgs);
             } else {
@@ -791,6 +799,18 @@ final class Firmas
             error_log('Firmas: no se pudo armar la hoja del documento ' . ($doc['id'] ?? '?') . ': ' . $e->getMessage());
             return false;
         }
+    }
+
+    /** Lo que lleva el QR del sello, como el de FirmaEC: quién, por qué, dónde, cuándo y dónde validar. */
+    private static function textoQr(array $f): string
+    {
+        $t = strtotime((string)($f['fecha'] ?? '')) ?: time();
+        return 'FIRMADO POR: ' . mb_strtoupper(trim((string)($f['cert'] ?? ''))) . "\n"
+            . 'RAZON: ' . rtrim(trim((string)($f['rol'] ?? '')), ':') . "\n"
+            . "LOCALIZACION: InnoTech Hub\n"
+            . 'FECHA: ' . date('c', $t) . "\n"
+            . "VALIDAR CON: www.firmadigital.gob.ec\n"
+            . 'Firmado electrónicamente con InnoTech Hub';
     }
 
     private static function datosHoja(array $doc): array
@@ -808,6 +828,8 @@ final class Firmas
                 'tipo'   => (string)($f['tipo'] ?? ''),
                 'cert'   => (string)($f['cert'] ?? ''),
                 'emisor' => (string)($f['emisor'] ?? ''),
+                'sello'  => !empty($f['sello']),
+                'qr'     => ($f['tipo'] ?? '') === 'electronica' ? self::textoQr($f) : '',
             ];
         }
         $n = count($doc['firmantes'] ?? []);
