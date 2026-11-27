@@ -5845,7 +5845,8 @@ switch ($accion) {
         $uC = (int)($_POST['uid'] ?? 0);
         $mC = $miembros->buscar($uC);
         if (!$mC) redirigir('firmas_param.php?tab=cargos', 'Esa persona ya no está en el equipo.', 'error');
-        $miembros->actualizar($uC, ['cargo_firma' => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST['cargo_firma'] ?? ''))), 0, 120)]);
+        $limpioC = fn(string $k, int $n) => mb_substr(trim(preg_replace('/\s+/u', ' ', (string)($_POST[$k] ?? ''))), 0, $n);
+        $miembros->actualizar($uC, ['cargo_firma' => $limpioC('cargo_firma', 120), 'titulo_firma' => $limpioC('titulo_firma', 20), 'nombre_firma' => $limpioC('nombre_firma', 80)]);
         redirigir('firmas_param.php?tab=cargos', 'Cargo de ' . $mC['nombre'] . ' guardado.');
 
     case 'informes_generar':

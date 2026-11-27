@@ -520,3 +520,6 @@ dialog.ds-modal.fd-obs-dlg { width: min(1000px, calc(100vw - 16px)); background:
   .fp-datos.fp-coord__cuerpo { grid-template-columns: minmax(0, 1fr); }
 }
 .fp-cadena li > .fd-fila__n, .fp-cadena li > .avatar { flex: none; }
+.fc-nombre { display: grid; grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr); gap: var(--space-3); }
+@media (max-width: 640px) { .fc-nombre { grid-template-columns: minmax(0, 1fr); } }
+.fp-como { display: block; font-size: var(--mc-fs-xs); color: var(--ink-muted); }

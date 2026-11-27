@@ -26,6 +26,7 @@ require_once __DIR__ . '/Qr.php';
 final class HojaFirmas
 {
     private const TINTA = '0.11 0.13 0.18';
+    private const NEGRO = '0 0 0';
     private const GRIS  = '0.42 0.45 0.5';
     private const LINEA = '0.82 0.84 0.87';
     private const BORDE = '0.4 0.4 0.4';        // la cuadrícula del cuadro, como en FirmaEC
@@ -68,9 +69,7 @@ final class HojaFirmas
         $this->tabla();
         $this->cerrarPagina();
         // El pie lleva «hoja x de n»: se agrega al final, cuando ya se sabe cuántas son
-        $n = count($this->paginas);
-        foreach ($this->paginas as $i => &$pg) $pg['contenido'] .= $this->pie($i + 1, $n);
-        unset($pg);
+        // Sin pie: el usuario no quiere el SHA-256 ni la nota al final de la hoja
     }
 
     /* ---------- Páginas ---------- */
@@ -79,16 +78,8 @@ final class HojaFirmas
     {
         $this->ops = '';
         $this->y = $this->h - 64;
-        $this->texto($this->x0, $this->y, 'Firmas de responsabilidad' . ($sigue ? ' (continuación)' : ''), 17, true, self::MARCA);
-        $this->y -= 22;
-        if ($sigue) { $this->y -= 6; return; }
-        $tit = PdfFirmas::winAnsi('Documento: ' . ($this->d['titulo'] ?? ''));
-        foreach (array_slice(PdfFirmas::renglones($tit, 10.5, $this->ancho), 0, 2) as $r) {
-            $this->textoW($this->x0, $this->y, $r, 10.5, false, self::TINTA);
-            $this->y -= 14;
-        }
-        // Solo lo que no cambia: si la hoja cambiara entre firmas electrónicas, la anterior quedaría «modificada»
-        $this->texto($this->x0, $this->y, (string)($this->d['codigo'] ?? ''), 8.5, false, self::GRIS);
+        // Como el cuadro de los documentos: el título en negrita y debajo la tabla (sin más datos que cambien)
+        $this->texto($this->x0, $this->y, 'Firmas de responsabilidad' . ($sigue ? ' (continuación)' : ''), 16, true, self::NEGRO);
         $this->y -= 22;
     }
 
@@ -113,7 +104,7 @@ final class HojaFirmas
         $col1 = round($this->ancho * 0.45, 2);
         $col2 = $this->ancho - $col1;
         $n = count($firmantes);
-        $filaH = $n > 6 ? 64 : ($n > 5 ? 82 : 94);
+        $filaH = $n > 6 ? 62 : ($n > 5 ? 70 : 78);
         $cabH = 26;
 
         $cabecera = function () use ($col1, $col2, $cabH): void {
@@ -121,7 +112,7 @@ final class HojaFirmas
             $this->linea($this->x0 + $col1, $this->y, $this->x0 + $col1, $this->y - $cabH, self::BORDE);
             foreach ([['Rol/Cargo', $this->x0, $col1], ['Firma', $this->x0 + $col1, $col2]] as [$t, $x, $cw]) {
                 $w = PdfFirmas::winAnsi($t);
-                $this->textoW($x + ($cw - PdfFirmas::ancho($w, 10.5, true)) / 2, $this->y - 17, $w, 10.5, true, self::TINTA);
+                $this->textoW($x + ($cw - self::anchoT($w, 11.5, true)) / 2, $this->y - 17, $w, 11.5, true, self::NEGRO);
             }
             $this->y -= $cabH;
         };
@@ -142,16 +133,16 @@ final class HojaFirmas
             // Izquierda: «Elaborado por:», el nombre y el CARGO (como en FirmaEC)
             $tx = $this->x0 + 12;
             $max = $col1 - 24;
-            $yy = $top - 24;
+            $yy = $top - 20;
             $rol = trim((string)($f['rol'] ?? ''));
-            $this->textoW($tx, $yy, PdfFirmas::recortar(PdfFirmas::winAnsi($rol !== '' ? rtrim($rol, ':') . ':' : ''), 10.5, $max, true), 10.5, true, self::TINTA);
-            $yy -= 17;
-            $this->textoW($tx, $yy, PdfFirmas::recortar(PdfFirmas::winAnsi((string)($f['nombre'] ?? '')), 10.5, $max), 10.5, false, self::TINTA);
-            $yy -= 17;
-            foreach (array_slice(PdfFirmas::renglones(PdfFirmas::winAnsi(mb_strtoupper((string)($f['cargo'] ?? ''))), 9.5, $max, true), 0, 2) as $r) {
-                if ($r === '' || $yy < $bot + 6) break;
-                $this->textoW($tx, $yy, $r, 9.5, true, self::TINTA);
-                $yy -= 12;
+            $this->textoW($tx, $yy, PdfFirmas::recortar(PdfFirmas::winAnsi($rol !== '' ? rtrim($rol, ':') . ':' : ''), 11, $max, true), 11, true, self::NEGRO);
+            $yy -= 16;
+            $this->textoW($tx, $yy, PdfFirmas::recortar(PdfFirmas::winAnsi((string)($f['nombre'] ?? '')), 11, $max), 11, false, self::NEGRO);
+            $yy -= 16;
+            foreach (array_slice(PdfFirmas::renglones(PdfFirmas::winAnsi(mb_strtoupper((string)($f['cargo'] ?? ''))), 11, $max, true), 0, 2) as $r) {
+                if ($r === '' || $yy < $bot + 5) break;
+                $this->textoW($tx, $yy, $r, 11, true, self::NEGRO);
+                $yy -= 13;
             }
 
             // Derecha: la casilla de la firma
@@ -268,6 +259,12 @@ final class HojaFirmas
 
     /* ---------- Dibujo ---------- */
 
+    /** Ancho aproximado en Times (la hoja va con serifa): Helvetica es un poco más ancha. */
+    private static function anchoT(string $w, float $tam, bool $negrita): float
+    {
+        return PdfFirmas::ancho($w, $tam, $negrita) * ($negrita ? 0.95 : 0.9);
+    }
+
     private function texto(float $x, float $y, string $utf8, float $tam, bool $negrita, string $color): void
     {
         $this->textoW($x, $y, PdfFirmas::winAnsi($utf8), $tam, $negrita, $color);
@@ -276,7 +273,7 @@ final class HojaFirmas
     private function textoW(float $x, float $y, string $w, float $tam, bool $negrita, string $color): void
     {
         if ($w === '') return;
-        $this->ops .= 'BT /' . ($negrita ? 'F2' : 'F1') . ' ' . PdfFirmas::n($tam) . ' Tf ' . $color . ' rg '
+        $this->ops .= 'BT /' . ($negrita ? 'T2' : 'T1') . ' ' . PdfFirmas::n($tam) . ' Tf ' . $color . ' rg '
             . PdfFirmas::n($x) . ' ' . PdfFirmas::n($y) . ' Td ' . PdfFirmas::cadena($w) . " Tj ET\n";
     }
 

@@ -811,6 +811,23 @@ final class Firmas
             . 'VALIDAR CON: www.firmadigital.gob.ec';
     }
 
+    /**
+     * Cómo sale la persona en el cuadro de firmas: su título (Ing., MSc.…) y el
+     * nombre para firmar (Parámetros de firmas → Cargos); si no tiene, su
+     * nombre con el primer nombre y el primer apellido.
+     */
+    public static function nombreFirma(int $uid): string
+    {
+        $m = self::miembros()[$uid] ?? null;
+        if (!$m) return self::nombre($uid);
+        $nom = trim((string)($m['nombre_firma'] ?? ''));
+        if ($nom === '') {
+            $p = preg_split('/\s+/u', trim((string)$m['nombre'])) ?: [];
+            $nom = count($p) >= 4 ? $p[0] . ' ' . $p[2] : (count($p) === 3 ? $p[0] . ' ' . $p[1] : implode(' ', $p));
+        }
+        return trim(trim((string)($m['titulo_firma'] ?? '')) . ' ' . $nom);
+    }
+
     private static function datosHoja(array $doc): array
     {
         $firmantes = [];
@@ -818,7 +835,7 @@ final class Firmas
             $t = strtotime((string)($f['fecha'] ?? ''));
             $firmantes[] = [
                 'rol'    => (string)$f['rol'],
-                'nombre' => (string)(($f['nombre'] ?? '') !== '' ? $f['nombre'] : self::nombre((int)$f['uid'])),
+                'nombre' => self::nombreFirma((int)$f['uid']),
                 'cargo'  => (string)$f['cargo'],
                 'estado' => (string)($f['estado'] ?? 'pendiente'),
                 'fecha'  => $t ? date('d/m/Y', $t) . ' a las ' . date('H:i', $t) : '',

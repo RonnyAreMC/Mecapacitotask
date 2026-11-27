@@ -119,10 +119,10 @@ UI::cabecera('Parámetros de <span class="text-secondary">firmas</span>',
           <?php foreach ($miembros as $m): $u = (int)$m['id']; $cf = trim((string)($m['cargo_firma'] ?? '')); ?>
           <tr>
             <td data-label="Persona"><div class="mc-table__cell fd-quien"><?= UI::avatar($m, 30) ?><span class="fd-quien__txt"><b><?= e((string)$m['nombre']) ?></b><small><?= e((string)($m['email'] ?? '')) ?></small></span></div></td>
-            <td data-label="Cargo para firmar"><?= $cf !== '' ? '<span class="fp-cargo">' . e($cf) . '</span>' : '<span class="fp-sin">— usa su rol</span>' ?></td>
+            <td data-label="Cargo para firmar"><?= $cf !== '' ? '<span class="fp-cargo">' . e($cf) . '</span>' : '<span class="fp-sin">— usa su rol</span>' ?><small class="fp-como" title="Así sale en el cuadro de firmas"><?= e(Firmas::nombreFirma($u)) ?></small></td>
             <td data-label="Rol en el Hub" class="fp-rol"><?= e((string)($m['rol'] ?? '—')) ?></td>
             <td data-label="Coordinación"><?= isset($coordDe[$u]) ? implode(' ', array_map(fn($n) => '<span class="mc-status mc-status--sm mc-status--azul">' . e($n) . '</span>', $coordDe[$u])) : '<span class="fp-sin">—</span>' ?></td>
-            <td class="mc-table__actions-c"><button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fc-editar data-uid="<?= $u ?>" data-nombre="<?= e((string)$m['nombre']) ?>" data-cargo="<?= e($cf) ?>" data-rol="<?= e((string)($m['rol'] ?? '')) ?>" aria-label="Editar el cargo de <?= e((string)$m['nombre']) ?>" data-ds-tip="Editar"><?= UI::iconoDS('editar-cuadro', 20) ?></button></td>
+            <td class="mc-table__actions-c"><button type="button" class="mc-iconbtn mc-iconbtn--sm" data-fc-editar data-uid="<?= $u ?>" data-nombre="<?= e((string)$m['nombre']) ?>" data-cargo="<?= e($cf) ?>" data-titulo="<?= e((string)($m['titulo_firma'] ?? '')) ?>" data-nom="<?= e((string)($m['nombre_firma'] ?? '')) ?>" data-rol="<?= e((string)($m['rol'] ?? '')) ?>" aria-label="Editar el cargo de <?= e((string)$m['nombre']) ?>" data-ds-tip="Editar"><?= UI::iconoDS('editar-cuadro', 20) ?></button></td>
           </tr>
           <?php endforeach; ?>
           </tbody>

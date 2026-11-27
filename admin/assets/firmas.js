@@ -570,6 +570,8 @@
     d.querySelector('[data-fc-uid]').value = b.dataset.uid;
     d.querySelector('[data-fc-nombre]').textContent = b.dataset.nombre;
     d.querySelector('[data-fc-cargo]').value = b.dataset.cargo || '';
+    d.querySelector('[data-fc-titulo]').value = b.dataset.titulo || '';
+    d.querySelector('[data-fc-nom]').value = b.dataset.nom || '';
     d.querySelector('[data-fc-rol]').textContent = b.dataset.rol || 'sin rol';
     d.showModal();
     setTimeout(() => d.querySelector('[data-fc-cargo]').focus(), 30);

@@ -541,8 +541,12 @@ final class PdfFirmas
         $h = max(0, $y2 - $y1);
         // La apariencia del campo: el sello (QR y texto, como el de FirmaEC) va dentro de la revisión firmada
         $ap = (string)($op['apariencia'] ?? '');
-        $apRec = ' /Resources << /ProcSet [/PDF /Text] /Font << /C1 << /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>'
-            . ' /C2 << /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >> >> >>';
+        // Las fuentes del sello como objetos propios (dentro del diccionario, algunos lectores se quejan)
+        $c1Num = $sig++;
+        $c2Num = $sig++;
+        $objs[$c1Num] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>'];
+        $objs[$c2Num] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>'];
+        $apRec = ' /Resources << /ProcSet [/PDF /Text] /Font << /C1 ' . $c1Num . ' 0 R /C2 ' . $c2Num . ' 0 R >> >>';
         $apZ = $ap !== '' ? gzcompress($ap, 9) : '';
         $objs[$apNum] = [0, '<< /Type /XObject /Subtype /Form /BBox [0 0 ' . self::n($w) . ' ' . self::n($h) . ']' . $apRec
             . ($apZ !== '' ? ' /Filter /FlateDecode' : '') . ' /Length ' . strlen($apZ) . " >>\nstream\n" . $apZ . "\nendstream"];
@@ -706,6 +710,10 @@ final class PdfFirmas
         $c2 = $sig++;
         $objs[$c1] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier /Encoding /WinAnsiEncoding >>'];
         $objs[$c2] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Courier-Bold /Encoding /WinAnsiEncoding >>'];
+        $t1 = $sig++;
+        $t2 = $sig++;
+        $objs[$t1] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Roman /Encoding /WinAnsiEncoding >>'];
+        $objs[$t2] = [0, '<< /Type /Font /Subtype /Type1 /BaseFont /Times-Bold /Encoding /WinAnsiEncoding >>'];
         $xo = '';
         foreach ($imagenes as $nombre => $im) {
             $smask = '';
@@ -723,7 +731,7 @@ final class PdfFirmas
             $xo .= ' /' . $nombre . ' ' . $i . ' 0 R';
         }
         $rec = $sig++;
-        $objs[$rec] = [0, '<< /ProcSet [/PDF /Text /ImageB /ImageC] /Font << /F1 ' . $f1 . ' 0 R /F2 ' . $f2 . ' 0 R /C1 ' . $c1 . ' 0 R /C2 ' . $c2 . ' 0 R >>'
+        $objs[$rec] = [0, '<< /ProcSet [/PDF /Text /ImageB /ImageC] /Font << /F1 ' . $f1 . ' 0 R /F2 ' . $f2 . ' 0 R /C1 ' . $c1 . ' 0 R /C2 ' . $c2 . ' 0 R /T1 ' . $t1 . ' 0 R /T2 ' . $t2 . ' 0 R >>'
             . ($xo !== '' ? ' /XObject <<' . $xo . ' >>' : '') . ' >>'];
         return $rec;
     }

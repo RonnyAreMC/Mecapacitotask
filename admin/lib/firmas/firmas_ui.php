@@ -432,6 +432,13 @@ final class FirmasUI
       <button type="button" class="mc-iconbtn mc-iconbtn--sm" data-cerrar-dlg aria-label="Cerrar"><?= UI::iconoDS('cerrar', 18) ?></button>
     </header>
     <div class="ds-modal__body">
+      <div class="fc-nombre">
+        <div class="mc-field"><label class="mc-field__label" for="fc-titulo">Título</label>
+          <div class="mc-input"><input class="mc-input__control" id="fc-titulo" name="titulo_firma" maxlength="20" data-fc-titulo placeholder="Ing., MSc., Lcda."></div></div>
+        <div class="mc-field"><label class="mc-field__label" for="fc-nom">Nombre en el cuadro</label>
+          <div class="mc-input"><input class="mc-input__control" id="fc-nom" name="nombre_firma" maxlength="80" data-fc-nom placeholder="Ej.: Felipe Arévalo"></div></div>
+      </div>
+      <span class="mc-field__hint">Así sale en el cuadro de firmas: «Ing. Ronny Arellano». Sin nombre, se usa el primer nombre y el primer apellido.</span>
       <div class="mc-field"><label class="mc-field__label" for="fc-cargo">Cargo</label>
         <div class="mc-input"><input class="mc-input__control" id="fc-cargo" name="cargo_firma" maxlength="120" data-fc-cargo placeholder="Ej.: Jefa de Proyectos de Tecnología e Innovación Académica"></div>
         <span class="mc-field__hint">Es el que sale bajo su nombre en el cuadro de firmas. Si lo dejas vacío, se usa su rol del Hub (<span data-fc-rol>—</span>).</span></div>
