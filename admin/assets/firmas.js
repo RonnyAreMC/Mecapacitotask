@@ -52,19 +52,25 @@
     if (ico) ico.replaceWith(Object.assign(document.createElement('span'), { className: 'mc-spinner' }));
     setTimeout(() => { b.disabled = true; }, 0);
   });
-  document.querySelectorAll('[data-fd-buscar]').forEach((inp) => {
-    const tabla = inp.closest('.mc-table');
-    inp.addEventListener('input', () => {
-      const q = norm(inp.value.trim());
+  /* Buscador y filtro por persona (los dos a la vez) */
+  document.querySelectorAll('.mc-table').forEach((tabla) => {
+    const inp = tabla.querySelector('[data-fd-buscar]');
+    const sel = tabla.querySelector('select[data-fd-persona]');
+    if (!inp && !sel) return;
+    const filtrar = () => {
+      const q = norm((inp?.value || '').trim());
+      const p = sel?.value || '';
       let n = 0;
       tabla.querySelectorAll('tr[data-buscar]').forEach((tr) => {
-        const ok = !q || norm(tr.dataset.buscar).includes(q);
+        const ok = (!q || norm(tr.dataset.buscar).includes(q)) && (!p || (tr.dataset.personas || '').includes(' ' + p + ' '));
         tr.hidden = !ok;
         if (ok) n++;
       });
       const vacio = tabla.querySelector('.fd-sin-resultados');
       if (vacio) vacio.hidden = n > 0;
-    });
+    };
+    inp?.addEventListener('input', filtrar);
+    sel?.addEventListener('change', filtrar);
   });
 
   /* ---------- Elegir un archivo: se ve su nombre ---------- */

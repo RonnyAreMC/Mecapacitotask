@@ -102,9 +102,11 @@ final class InformePdf
             [(string)(int)($k['reqs'] ?? 0), 'Requerimientos', self::AZUL2],
             [$reuC ? (int)($k['reu_asis'] ?? 0) . '/' . $reuC : '—', 'Reuniones con ingreso', self::TINTA],
         ];
+        if (!empty($c['sin_commits'])) array_shift($cajas);     // UX/UI o correo UBE/ITB: sin commits
         $this->cabe(50);
         $gap = 2;
-        $cw = ($this->ancho - 3 * $gap) / 4;
+        $nc = count($cajas);
+        $cw = ($this->ancho - ($nc - 1) * $gap) / $nc;
         foreach ($cajas as $i => [$num, $et, $color]) {
             $x = $this->x0 + $i * ($cw + $gap);
             $this->rect($x, $this->y - 44, $cw, 44, self::FONDO, null);
@@ -116,10 +118,12 @@ final class InformePdf
         $this->y -= 64;
         $this->parrafo((string)($c['resumen'] ?? ''));
 
-        // 2. Commits por proyecto
-        $this->titulo('Commits por proyecto');
+        // 2. Commits por proyecto (no va en los informes sin commits)
         $porProy = (array)($c['commits_proyecto'] ?? []);
-        if (!$porProy) {
+        if (empty($c['sin_commits'])) $this->titulo('Commits por proyecto');
+        if (!empty($c['sin_commits'])) {
+            // UX/UI o correo UBE/ITB: la sección no va
+        } elseif (!$porProy) {
             $this->parrafo((string)($c['commits_nota'] ?? 'No se registraron commits esta semana en los repositorios de sus proyectos.'), self::GRIS);
         } else {
             $this->tabla([['Proyecto', 0.34], ['Repositorio', 0.36], ['Commits', 0.12, 'der'], ['Último', 0.18, 'der']],

@@ -48,7 +48,8 @@ final class InformeSemanal
 
     public static function guardarConf(array $c): void
     {
-        Config::guardar(['informes' => $c]);
+        // Lo que no viene del formulario (el arranque: primera, primer_desde) se conserva
+        Config::guardar(['informes' => array_replace((array)(Config::get('informes') ?? []), $c)]);
     }
 
     /** La semana de esa fecha: clave ISO, lunes, viernes y el texto «del 23 al 27 de noviembre de 2026». */
@@ -57,17 +58,66 @@ final class InformeSemanal
         $t ??= time();
         $lunes = strtotime(date('Y-m-d', $t) . ' -' . ((int)date('N', $t) - 1) . ' days');
         $viernes = strtotime(date('Y-m-d', $lunes) . ' +4 days');
-        $m1 = (int)date('n', $lunes) - 1;
-        $m2 = (int)date('n', $viernes) - 1;
-        $texto = $m1 === $m2
-            ? 'del ' . (int)date('j', $lunes) . ' al ' . (int)date('j', $viernes) . ' de ' . self::MESES[$m2] . ' de ' . date('Y', $viernes)
-            : 'del ' . (int)date('j', $lunes) . ' de ' . self::MESES[$m1] . (date('Y', $lunes) !== date('Y', $viernes) ? ' de ' . date('Y', $lunes) : '')
-              . ' al ' . (int)date('j', $viernes) . ' de ' . self::MESES[$m2] . ' de ' . date('Y', $viernes);
-        $corto = (int)date('j', $lunes) . '–' . (int)date('j', $viernes) . ' ' . substr(self::MESES[$m2], 0, 3) . ' ' . date('Y', $viernes);
+        $clave = date('o-\WW', $lunes);
+        // El primer informe junta dos semanas: desde el día de arranque (Config 'informes' → primer_desde)
+        $desde = $lunes;
+        $c = (array)(Config::get('informes') ?? []);
+        if (($c['primera'] ?? '') === $clave && ($d = strtotime((string)($c['primer_desde'] ?? ''))) && $d < $lunes) $desde = $d;
+        [$texto, $corto] = self::rango($desde, $viernes);
         return [
-            'clave' => date('o-\WW', $lunes), 'desde' => date('Y-m-d', $lunes), 'hasta' => date('Y-m-d', strtotime(date('Y-m-d', $lunes) . ' +6 days')),
+            'clave' => $clave, 'desde' => date('Y-m-d', $desde), 'lunes' => date('Y-m-d', $lunes),
+            'hasta' => date('Y-m-d', strtotime(date('Y-m-d', $lunes) . ' +6 days')),
             'viernes' => date('Y-m-d', $viernes), 'texto' => $texto, 'corto' => $corto,
         ];
+    }
+
+    /** «del 23 al 27 de noviembre de 2026» y «23–27 nov 2026» (o con los dos meses si cambian). */
+    private static function rango(int $ini, int $fin): array
+    {
+        $m1 = (int)date('n', $ini) - 1;
+        $m2 = (int)date('n', $fin) - 1;
+        $mismoAnio = date('Y', $ini) === date('Y', $fin);
+        $texto = $m1 === $m2 && $mismoAnio
+            ? 'del ' . (int)date('j', $ini) . ' al ' . (int)date('j', $fin) . ' de ' . self::MESES[$m2] . ' de ' . date('Y', $fin)
+            : 'del ' . (int)date('j', $ini) . ' de ' . self::MESES[$m1] . (!$mismoAnio ? ' de ' . date('Y', $ini) : '')
+              . ' al ' . (int)date('j', $fin) . ' de ' . self::MESES[$m2] . ' de ' . date('Y', $fin);
+        $corto = $m1 === $m2 && $mismoAnio
+            ? (int)date('j', $ini) . '–' . (int)date('j', $fin) . ' ' . substr(self::MESES[$m2], 0, 3) . ' ' . date('Y', $fin)
+            : (int)date('j', $ini) . ' ' . substr(self::MESES[$m1], 0, 3) . '–' . (int)date('j', $fin) . ' ' . substr(self::MESES[$m2], 0, 3) . ' ' . date('Y', $fin);
+        return [$texto, $corto];
+    }
+
+    /** ¿Ya arrancaron los informes esa semana? (Config 'informes' → primera, p. ej. «2026-W49»; vacía = desde siempre). */
+    public static function arrancaron(string $clave): bool
+    {
+        $primera = (string)(((array)(Config::get('informes') ?? []))['primera'] ?? '');
+        return $primera === '' || strcmp($clave, $primera) >= 0;
+    }
+
+    /** El primer informe: [semana de arranque, «viernes 4 de diciembre»]. null si no hay arranque pendiente. */
+    public static function primerInforme(): ?array
+    {
+        $c = self::conf();
+        $primera = (string)(((array)(Config::get('informes') ?? []))['primera'] ?? '');
+        if ($primera === '' || self::arrancaron(self::semana()['clave'])) return null;
+        $lunes = strtotime(str_replace('-', '', $primera));
+        if (!$lunes) return null;
+        $dia = strtotime(date('Y-m-d', $lunes) . ' +' . ($c['dia'] - 1) . ' days');
+        return [self::semana($lunes), mb_strtolower(self::DIAS[$c['dia']]) . ' ' . (int)date('j', $dia) . ' de ' . self::MESES[(int)date('n', $dia) - 1]];
+    }
+
+    /**
+     * ¿Su informe lleva commits? No a los de UX/UI (equipo «disenadores») ni a quien
+     * trabaja con correo de la UBE o del ITB: esos repositorios no los lee el panel.
+     */
+    public static function conCommits(array $m): bool
+    {
+        if (MiembroRepo::equipoDe($m) === 'disenadores') return false;
+        $correos = array_merge([(string)($m['email'] ?? '')], (array)MiembroRepo::gitEmailsDe($m));
+        foreach ($correos as $e) {
+            if (preg_match('/@(?:[a-z0-9-]+\.)*(?:ube\.edu\.ec|itb\.edu\.ec|bolivariano\.edu\.ec)$/i', trim((string)$e))) return false;
+        }
+        return true;
     }
 
     /** El informe de esa persona y esa semana, si ya existe. */
@@ -127,8 +177,10 @@ final class InformeSemanal
         }
         usort($hechas, fn($a, $b) => strcmp($a['orden'], $b['orden']));
         usort($curso, fn($a, $b) => strcmp($a['limite'] ?: '9999', $b['limite'] ?: '9999'));
-        [$commits, $porProy, $notaCommits] = self::commits($m, $sem, $proyectos, $conTareas);
+        $conCommits = self::conCommits($m);
+        [$commits, $porProy, $notaCommits] = $conCommits ? self::commits($m, $sem, $proyectos, $conTareas) : [[], [], ''];
         return [
+            'sin_commits' => !$conCommits,
             'hechas' => array_map(fn($h) => array_diff_key($h, ['orden' => 1]), $hechas),
             'curso' => array_slice($curso, 0, 15),
             'reqs' => array_slice($reqs, 0, 20),
@@ -255,10 +307,10 @@ final class InformeSemanal
         if (!$conIa || !is_file(__DIR__ . '/../ai/IA.php')) return $out;
         require_once __DIR__ . '/../ai/IA.php';
         if (!IA::lista()) return $out;
-        $sistema = 'Resume en 2 o 3 oraciones, en primera persona y en español de Ecuador, la semana de trabajo de un desarrollador. '
+        $sistema = 'Resume en 2 o 3 oraciones, en primera persona y en español de Ecuador, la semana de trabajo de una persona del equipo. '
             . 'Usa SOLO los datos que te dan (números, proyectos y títulos); no inventes nada ni agregues opiniones. Devuelve JSON: {"resumen": "…"}.';
-        $texto = json_encode([
-            'semana' => $sem['texto'], 'commits' => $nC, 'commits_por_proyecto' => $d['commits_proyecto'],
+        $texto = json_encode((!empty($d['sin_commits']) ? [] : ['commits' => $nC, 'commits_por_proyecto' => $d['commits_proyecto']]) + [
+            'semana' => $sem['texto'],
             'tareas_cerradas' => array_column(array_slice($d['hechas'], 0, 12), 'actividad'), 'requerimientos_atendidos' => $nR,
             'reuniones' => ['agendadas' => count($reu), 'ingreso' => $asis], 'en_curso' => array_column(array_slice($d['curso'], 0, 6), 'titulo'),
         ], JSON_UNESCAPED_UNICODE);
@@ -287,6 +339,7 @@ final class InformeSemanal
     {
         $sem ??= self::semana();
         if ($ya = self::deLaSemana((int)$m['id'], $sem['clave'])) return $ya + ['_ya' => true];
+        if (!self::arrancaron($sem['clave']) && ($pi = self::primerInforme())) return 'Los informes semanales arrancan el ' . $pi[1] . ' (el primero junta esta semana y la siguiente).';
         $conf = self::conf();
         $d = self::datos($m, $sem);
         $red = self::redactar($m, $sem, $d, $conf['ia']);
@@ -305,8 +358,9 @@ final class InformeSemanal
             'equipo' => (string)($coord['nombre'] ?? ($eqs[$eq][0] ?? '')), 'semana' => $sem['texto'], 'elaborado' => date('d/m/Y'),
             'codigo' => 'IS-' . str_replace('-W', '-S', $sem['clave']) . '-' . (int)$m['id'],
             'para' => $ultimo ? ['nombre' => Firmas::nombre($ultimo['uid']), 'cargo' => $ultimo['cargo']] : [],
-            'kpi' => ['commits' => $nC, 'proyectos' => count($d['commits_proyecto']), 'tareas' => (int)$d['n_tareas'], 'curso' => count($d['curso']),
+            'kpi' => (!empty($d['sin_commits']) ? [] : ['commits' => $nC, 'proyectos' => count($d['commits_proyecto'])]) + ['tareas' => (int)$d['n_tareas'], 'curso' => count($d['curso']),
                       'reqs' => (int)$d['n_reqs'], 'reu_conv' => count($d['reuniones']), 'reu_asis' => count(array_filter($d['reuniones'], fn($r) => $r['asistio']))],
+            'sin_commits' => !empty($d['sin_commits']),
             'resumen' => $red['resumen'], 'actividades' => $d['hechas'], 'extra' => [], 'pendientes' => $red['pendientes'],
             'commits_proyecto' => $d['commits_proyecto'], 'commits' => $d['commits'], 'commits_nota' => $d['commits_nota'],
             'reqs' => $d['reqs'], 'reuniones' => $d['reuniones'],
@@ -375,7 +429,8 @@ final class InformeSemanal
         $c = self::conf();
         if (!$c['activo'] || !$c['personas']) return '';
         $sem = self::semana();
-        $momento = strtotime($sem['desde'] . ' +' . ($c['dia'] - 1) . ' days ' . $c['hora']);
+        if (!self::arrancaron($sem['clave'])) return '';   // todavía no: el primero sale en la semana de arranque
+        $momento = strtotime($sem['lunes'] . ' +' . ($c['dia'] - 1) . ' days ' . $c['hora']);
         if (time() < $momento) return '';
         if (class_exists('Feriados') && Feriados::hoy() !== '' && date('Y-m-d') === date('Y-m-d', $momento)) {
             // Feriado: se arma el siguiente día hábil (o el lunes, con la semana que pasó)

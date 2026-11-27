@@ -59,7 +59,10 @@ $fila = function (array $d, int $i) use ($avatares, $uid): string {
     $mio = Firmas::esMiTurno($d, $uid);
     $actual = (string)($d['actualizado'] ?? $d['creado'] ?? '');
     $pags = (int)($d['paginas'] ?? 0);
-    return '<tr class="mc-table__row-in is-clickable' . ($mio ? ' fd-es-mio' : '') . '" style="--i:' . $i . '" tabindex="0" data-href="' . e($url) . '" data-buscar="' . e(mb_strtolower($d['titulo'] . ' ' . ($d['archivo'] ?? ''))) . '">'
+    $gente = array_unique(array_filter(array_merge([(int)($d['creado_por'] ?? 0), (int)($d['persona'] ?? 0)], array_map(fn($f) => (int)$f['uid'], $d['firmantes'] ?? []))));
+    $nombres = implode(' ', array_map(fn($u) => Firmas::nombre($u), $gente));
+    return '<tr class="mc-table__row-in is-clickable' . ($mio ? ' fd-es-mio' : '') . '" style="--i:' . $i . '" tabindex="0" data-href="' . e($url) . '"'
+        . ' data-personas=" ' . implode(' ', $gente) . ' " data-buscar="' . e(mb_strtolower($d['titulo'] . ' ' . ($d['archivo'] ?? '') . ' ' . $nombres)) . '">'
         . '<td class="fd-c-doc"><div class="mc-table__cell fd-doc">'
         . '<span class="mc-tile mc-tile--sm mc-tile--' . ($mio ? 'naranja' : 'petroleo') . '">' . UI::iconoDS($mio ? 'firma' : 'documento', 18) . '</span>'
         . '<span class="fd-doc__txt"><a class="fd-doc__tit" href="' . e($url) . '" title="' . e($d['titulo']) . '">' . e($d['titulo']) . '</a>'
@@ -107,6 +110,11 @@ $filaInforme = function (array $d, int $i) use ($avatares, $semInf): string {
 $generarBtn = '<form method="post" action="actions.php" data-fd-espera="Armando tu informe…"><input type="hidden" name="accion" value="informe_generar_mio">'
     . '<button class="mc-btn mc-btn--secondary mc-btn--sm">' . UI::iconoDS('reportes', 16) . '<span class="mc-btn__label">Generarlo ahora</span></button></form>';
 $cuandoInf = 'Se arma solo el ' . mb_strtolower(InformeSemanal::DIAS[$confInf['dia']]) . ' a las ' . $confInf['hora'] . ($confInf['activo'] ? '' : ' (cuando se active)');
+$primerInf = InformeSemanal::primerInforme();
+if ($primerInf) {
+    $cuandoInf = 'Tu primer informe se arma solo el ' . $primerInf[1] . ' a las ' . $confInf['hora'] . ' y junta la semana ' . $primerInf[0]['texto'];
+    $generarBtn = '';
+}
 
 UI::inicio('Firmas', 'firmas');
 UI::cabecera(
@@ -151,9 +159,9 @@ UI::cabecera(
   <section class="ds-panel fd-panel" id="panel-<?= $tid ?>" role="tabpanel" aria-labelledby="tab-<?= $tid ?>" data-panel="<?= $tid ?>"<?= $tid === $activa ? '' : ' hidden' ?>>
     <?php if ($tid === 'informes'): ?>
       <?php if (!$lista): ?>
-        <?= UI::vacioDS('reportes-vacio', 'Todavía no tienes informes semanales', $cuandoInf . ' con tus commits, tareas, requerimientos y reuniones de la semana. Si lo necesitas antes, genéralo ahora.', $hagoInforme ? $generarBtn : '') ?>
+        <?= UI::vacioDS('reportes-vacio', 'Todavía no tienes informes semanales', $primerInf ? $cuandoInf . '.' : $cuandoInf . ' con tus commits, tareas, requerimientos y reuniones de la semana. Si lo necesitas antes, genéralo ahora.', $hagoInforme ? $generarBtn : '') ?>
       <?php else: ?>
-        <?php if ($hagoInforme && !$miInforme): ?>
+        <?php if ($hagoInforme && !$miInforme && !$primerInf): ?>
         <div class="mc-alert mc-alert--info fd-sinfirma fi-semana" role="status"><?= UI::iconoDS('reportes', 20, 'mc-alert__icon') ?>
           <div class="mc-alert__content"><p class="mc-alert__title">Tu informe de la semana <?= e($semInf['texto']) ?></p>
             <p class="mc-alert__desc"><?= e($cuandoInf) ?>. Si lo necesitas antes, genéralo ahora con lo que registraste en el Hub.</p></div>
@@ -177,10 +185,15 @@ UI::cabecera(
       } ?>
     <?php else: ?>
     <div class="mc-table fd-tabla">
-      <?php if (count($lista) > 6): ?>
-      <div class="mc-table__toolbar">
+      <?php if (count($lista) > 3):
+          // Las personas que aparecen en esta lista (quien lo creó, de quién es el informe y quién firma)
+          $genteL = [];
+          foreach ($lista as $dL) foreach (array_merge([(int)($dL['creado_por'] ?? 0), (int)($dL['persona'] ?? 0)], array_map(fn($f) => (int)$f['uid'], $dL['firmantes'] ?? [])) as $uL) if ($uL > 0) $genteL[$uL] = Firmas::nombre($uL);
+          asort($genteL, SORT_LOCALE_STRING); ?>
+      <div class="mc-table__toolbar fd-filtros">
         <label class="mc-table__search"><?= UI::iconoDS('buscar', 18) ?>
-          <input type="search" placeholder="Buscar por título o archivo" aria-label="Buscar documentos" data-fd-buscar></label>
+          <input type="search" placeholder="Buscar por título, archivo o persona" aria-label="Buscar documentos" data-fd-buscar></label>
+        <?= UI::selectDS('', ['' => 'Todas las personas'] + array_map('strval', $genteL), '', ['tam' => 'md', 'buscar' => true, 'aria' => 'Filtrar por persona', 'attrs' => 'data-fd-persona']) ?>
       </div>
       <?php endif; ?>
       <div class="mc-table__scroll">
@@ -188,7 +201,7 @@ UI::cabecera(
           <thead><tr><th>Documento</th><th>Estado</th><th>Firmantes</th><th>Actualizado</th><th class="mc-table__actions-h"><span class="mc-sr-only">Abrir</span></th></tr></thead>
           <tbody>
             <?php foreach ($lista as $i => $d) echo $fila($d, min($i, 12)); ?>
-            <tr class="fd-sin-resultados" hidden><td colspan="5"><?= UI::vacioDS('sin-resultados-cursos', 'Nada con ese nombre', 'Prueba con otra palabra del título o del archivo.', '', 'sm', false) ?></td></tr>
+            <tr class="fd-sin-resultados" hidden><td colspan="5"><?= UI::vacioDS('sin-resultados-cursos', 'Nada con esa búsqueda', 'Prueba con otra palabra o con otra persona.', '', 'sm', false) ?></td></tr>
           </tbody>
         </table>
       </div>

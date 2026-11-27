@@ -523,3 +523,6 @@ dialog.ds-modal.fd-obs-dlg { width: min(1000px, calc(100vw - 16px)); background:
 .fc-nombre { display: grid; grid-template-columns: minmax(0, 0.45fr) minmax(0, 1fr); gap: var(--space-3); }
 @media (max-width: 640px) { .fc-nombre { grid-template-columns: minmax(0, 1fr); } }
 .fp-como { display: block; font-size: var(--mc-fs-xs); color: var(--ink-muted); }
+.fd-filtros { display: flex; flex-wrap: wrap; gap: var(--space-3); align-items: center; }
+.fd-filtros .mc-table__search { flex: 1 1 260px; }
+.fd-filtros .mc-select { flex: 0 1 280px; min-width: 200px; }
