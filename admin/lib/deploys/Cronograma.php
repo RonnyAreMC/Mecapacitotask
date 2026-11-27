@@ -20,9 +20,9 @@
  *
  * Correo por proyecto (Ajustes → Despliegues, «avisar por correo a…»; p. ej. el
  * grupo uae@ de la Agraria): vigilar() mira cada minuto los pipelines de deploy
- * de esos repos y manda un correo cuando EMPIEZA el despliegue, otro cuando los
- * cambios YA ESTÁN en el servidor de pruebas (con las tareas que entraron) y,
- * si el pipeline se detiene, que no terminó. Quién lo lanzó no se dice.
+ * de esos repos y manda UN correo, cuando los cambios ya están en el servidor de
+ * pruebas (con las tareas que entraron, si las hay). Sin aviso al empezar ni si
+ * se detiene, sin la rama ni el commit. Quién lo lanzó no se dice.
  *
  * La configuración (hora general, hora por proyecto, días, GitLab sí/no, aviso
  * previo) está en Ajustes → Despliegues (configDeploys()['cronograma']).
@@ -603,9 +603,9 @@ final class Cronograma
             foreach (GitLab::deploysEnCurso($r['url']) ?? [] as $pl) {
                 $llave = $k . '#' . (int)$pl['id'];
                 if (isset($seg[$llave])) continue;
+                // Sin correo al empezar (solo se avisa cuando ya está): se anota para seguirlo hasta que termine
                 $seg[$llave] = ['inicio_t' => (int)$pl['inicio'], 'pids' => $r['pids'], 'url' => $r['url'], 'id' => (int)$pl['id'],
-                                'iid' => (int)$pl['iid'], 'ref' => (string)$pl['ref'], 'titulo' => (string)$pl['titulo'], 'aviso_inicio' => time()];
-                $n += self::correo($para, 'inicio', $r['pids'], ['Rama' => $pl['ref'], 'Cambio' => $pl['titulo'], 'Empezó' => date('g:i a', (int)$pl['inicio'])], [], (string)$pl['ref']);
+                                'iid' => (int)$pl['iid'], 'ref' => (string)$pl['ref'], 'visto' => time()];
             }
         }
         // Los que se avisaron y no han terminado
@@ -621,16 +621,11 @@ final class Cronograma
                     // Un proyecto que no sigue Despliegues: solo el correo
                     $s['fin'] = time();
                     $fin = $st['terminado'] ?: time();
-                    $min = max(1, (int)round(($fin - (int)$s['inicio_t']) / 60));
                     $para = self::correosDe((array)$s['pids']);
-                    if ($para) $n += self::correo($para, 'listo', (array)$s['pids'], ['Rama' => $s['ref'], 'Cambio' => $s['titulo'],
-                        'Terminó' => date('g:i a', $fin), 'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos')], [], (string)$s['ref']);
+                    if ($para) $n += self::correo($para, 'listo', (array)$s['pids'], ['Terminó' => date('g:i a', $fin)], [], (string)$s['ref']);
                 }
             } elseif (in_array($st['estado'], ['failed', 'canceled', 'skipped'], true)) {
-                $s['fallo'] = time();
-                $para = self::correosDe((array)$s['pids']);
-                if ($para) $n += self::correo($para, 'fallo', (array)$s['pids'], ['Rama' => $s['ref'], 'Cambio' => $s['titulo'],
-                    'Se detuvo' => date('g:i a', $st['terminado'] ?: time()), 'Estado' => $st['estado'] === 'failed' ? 'con error' : 'cancelado'], [], (string)$s['ref']);
+                $s['fallo'] = time();                           // se detuvo: no se avisa (solo cuando los cambios ya están)
             }
         }
         unset($s);
@@ -653,9 +648,7 @@ final class Cronograma
         }
         $ini = (int)$b['inicio_t'];
         $fin = (int)$b['terminado_t'];
-        $min = max(1, (int)round(($fin - $ini) / 60));
-        self::correo($para, 'listo', $pids, ['Rama' => $b['rama'], 'Cambio' => $b['titulo'], 'Terminó' => date('g:i a', $fin),
-            'Duración' => $min . ($min === 1 ? ' minuto' : ' minutos'), 'Tareas' => $tareas ? (string)count($tareas) : ''], $tareas, (string)$b['rama']);
+        self::correo($para, 'listo', $pids, ['Terminó' => date('g:i a', $fin), 'Tareas' => $tareas ? (string)count($tareas) : ''], $tareas, (string)$b['rama']);
         $seg[$llave] = ($seg[$llave] ?? ['inicio_t' => $ini, 'pids' => $pids]) + ['fin' => time()];
         $seg[$llave]['fin'] = time();
         self::guardarEstado(['correos_dep' => $seg]);
